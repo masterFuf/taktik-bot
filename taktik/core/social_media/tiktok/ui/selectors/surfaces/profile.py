@@ -228,6 +228,25 @@ class ProfileSelectors:
     # Bio text (resource-id: qfx)
     _bio_text_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qfx")]',
+        # A2. `qfx` fires on NO captured profile, on either version, so everything below is what
+        # actually reads a bio today.
+        #
+        # The bio is a Button with no resource-id, and the only thing that tells it apart from
+        # the other Buttons on the header is `long-clickable`: bio text can be long-pressed to
+        # be copied, an action button cannot. Measured on the eight captured profiles — it
+        # returns the bio on the seven that have one, nothing on the account that has none, and
+        # never the "Edit" button that the naive "first Button after the handle" grabbed on our
+        # own profile.
+        #
+        # Scoped to what FOLLOWS the handle so it stays a profile-only anchor: unscoped, the
+        # same expression fires on twelve feed and comment screens, where a comment body is also
+        # a long-clickable Button.
+        '//android.widget.Button[starts-with(@text, "@")]/following::android.widget.Button'
+        '[@long-clickable="true"][string-length(@text) > 0][1]',
+        # Last resort, kept from the locale files where it did not belong (a length rule carries
+        # no language). On its own it was the WHOLE bio reader, and it silently dropped every bio
+        # under 40 characters -- which on TikTok, where bios are capped at 80, is most of them.
+        '//android.widget.Button[string-length(@text) > 40]',
     ])
 
     @property
@@ -235,9 +254,27 @@ class ProfileSelectors:
         return self._bio_text_base + L("profile.bio_text_anchors")
 
     # Verified badge
+    #
+    # Nothing on the screen SAYS "verified" — the sweep over a verified profile's whole
+    # hierarchy returned zero nodes carrying the word in any attribute, in either language. The
+    # English entry (`content-desc` contains "Verified") therefore matched nothing even in
+    # English, and the French entry was empty, which on a French phone leaves the list empty:
+    # `is_verified` was False for every TikTok profile ever saved.
+    #
+    # What the badge actually is: a small unlabelled ImageView rendered as the handle's
+    # immediate sibling. Measured on eight profiles — it fires on the two verified accounts
+    # (@charlidamelio, @yomidenzel) and on none of the six others. The half that makes it an
+    # indicator: @marvin.ndiaye.extraits carries the SAME icon id (`ss1`) for the "Compte non
+    # recommandé" marker, one row lower and under a different parent, and this anchor refuses
+    # it — an icon id alone would have called that account verified.
+    _verified_badge_base: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[starts-with(@text, "@")]'
+        '/following-sibling::android.widget.ImageView[1]',
+    ])
+
     @property
     def verified_badge(self) -> List[str]:
-        return L("profile.verified_badge")
+        return self._verified_badge_base + L("profile.verified_badge")
 
     # Private account indicator
     @property
@@ -288,9 +325,12 @@ class ProfileSelectors:
     def privacy_blocked_message(self) -> List[str]:
         return self._privacy_blocked_message_base + L("profile.privacy_blocked_message")
 
+    # Un lien s'ecrit pareil dans toutes les langues, donc cette sonde-la reste du texte brut.
+    # Les deux voisines (`verified_description_probe` = "Verified", `private_text_probe` =
+    # "private") sont parties avec leur dernier appelant : deux mots anglais, sur des telephones
+    # francais, qui repondaient « non » pour chaque profil. Ces deux faits se lisent desormais par
+    # `verified_badge` / `private_indicator`, des listes auxquelles l'overlay de locale s'applique.
     website_text_probe: str = "http"
-    verified_description_probe: str = "Verified"
-    private_text_probe: str = "private"
     message_button_text_probe: str = "Message"
 
     @property

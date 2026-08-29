@@ -97,15 +97,16 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
             except Exception:
                 pass
 
-        # --- Verified ---
-        verified_elems = raw_device(descriptionContains=PROFILE_SELECTORS.verified_description_probe)
-        if verified_elems.exists:
-            data['is_verified'] = True
-
-        # --- Private ---
-        private_elems = raw_device(textContains=PROFILE_SELECTORS.private_text_probe)
-        if private_elems.exists:
-            data['is_private'] = True
+        # --- Verified / private ---
+        #
+        # Through the CATALOGUE, not through the two English words this used to hardcode. Those
+        # two reads (`descriptionContains="Verified"`, `textContains="private"`) were the last
+        # raw strings on this screen, and both were dead: nothing on a TikTok profile carries the
+        # word "verified" in any attribute, and a French phone shows "privé", so `is_verified`
+        # and `is_private` were False for every profile the bot has ever saved — a filter that
+        # skips private or verified accounts had nothing to act on.
+        data['is_verified'] = bool(first_matching(raw_device, PROFILE_SELECTORS.verified_badge))
+        data['is_private'] = bool(first_matching(raw_device, PROFILE_SELECTORS.private_indicator))
 
         return data
 

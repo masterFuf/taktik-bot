@@ -25,10 +25,10 @@ class TikTokProfileRepositoryMixin:
         self.execute(
             """INSERT INTO social_profiles (
                 platform, legacy_profile_id, username, display_name, followers_count, following_count,
-                likes_count, posts_count, is_private, is_verified, biography
+                likes_count, posts_count, is_private, is_verified, biography, website
             ) SELECT 'tiktok',
                 COALESCE((SELECT MAX(legacy_profile_id) FROM social_profiles WHERE platform='tiktok'), 0) + 1,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?""",
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?""",
             (
                 username,
                 kwargs.get('display_name', ''),
@@ -38,7 +38,11 @@ class TikTokProfileRepositoryMixin:
                 kwargs.get('videos_count', 0),
                 1 if kwargs.get('is_private') else 0,
                 1 if kwargs.get('is_verified') else 0,
-                kwargs.get('biography')
+                kwargs.get('biography'),
+                # `website` was in neither the INSERT nor the UPDATE, so the column held 17 599
+                # Instagram rows and ZERO TikTok ones — while the extractor read the link off the
+                # screen every single time and handed it over. Measured on @charlidamelio.
+                kwargs.get('website'),
             )
         )
         created = self.query_one(
@@ -54,7 +58,7 @@ class TikTokProfileRepositoryMixin:
         # videos_count maps to social_profiles.posts_count
         colmap = {'videos_count': 'posts_count'}
 
-        for key in ('display_name', 'biography'):
+        for key in ('display_name', 'biography', 'website'):
             if kwargs.get(key):
                 updates.append(f"{key} = COALESCE(?, {key})")
                 values.append(kwargs[key])

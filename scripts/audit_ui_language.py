@@ -91,8 +91,13 @@ NOT_UI = re.compile(
     re.IGNORECASE,
 )
 TECH = re.compile(r"[._/:=\d]")
+# `selectors` for the same reason `username` is in NOT_UI above: the only hit it produced was
+# `_name.endswith("SELECTORS")` in `ui/language.py`, where the loop walks the selector barrel's
+# `__all__` to find our own dataclass constants. That is a PYTHON identifier suffix -- no phone
+# renders the word -- and it is the single finding that kept this audit red, which is how an
+# audit stops being read.
 KEYWORDS = {"true", "false", "none", "null", "yes", "no", "ok", "utf", "and", "or", "not",
-            "json", "xml", "html", "notification"}
+            "json", "xml", "html", "notification", "selectors"}
 
 
 @dataclass(frozen=True)

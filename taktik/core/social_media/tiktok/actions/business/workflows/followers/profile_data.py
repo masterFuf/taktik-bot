@@ -44,6 +44,11 @@ class ProfileDataMixin:
                 return None
             
             # Map to DB schema (bio → biography, display_name stays)
+            #
+            # `website` is here because it was NOT: the extractor read it correctly and this
+            # mapping dropped it on the floor, so `social_profiles.website` held 17 599 Instagram
+            # rows and ZERO TikTok ones while the field was on screen every time. Measured on
+            # @charlidamelio, whose link the extractor returned and the database never saw.
             profile_data = {
                 'username': extracted.get('username', self._current_profile_username),
                 'display_name': extracted.get('display_name') or None,
@@ -52,6 +57,7 @@ class ProfileDataMixin:
                 'likes_count': extracted.get('likes_count', 0),
                 'videos_count': 0,
                 'biography': extracted.get('bio') or None,
+                'website': extracted.get('website') or None,
                 'is_private': extracted.get('is_private', False),
                 'is_verified': extracted.get('is_verified', False),
             }

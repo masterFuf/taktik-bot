@@ -32,12 +32,27 @@ def normalise_number_spaces(text: str) -> str:
     return text
 
 
+#: Suffix -> multiplier, LONGEST FIRST so "Md" is tested before "M".
+#:
+#: `Md` is the French billion, and its absence cost the value silently: TikTok in French writes
+#: `12,3 Md` where English writes `12.3B`. Nothing matched, the plain-number path then failed on
+#: the letters, and the function returned 0 — measured on @charlidamelio, saved to the database
+#: with zero likes while the screen said 12.3 billion. Every French profile above a billion read
+#: zero, on both platforms, since this parser is the shared one.
+_COUNT_MULTIPLIERS = (
+    ('MD', 1_000_000_000),
+    ('K', 1_000),
+    ('M', 1_000_000),
+    ('B', 1_000_000_000),
+)
+
+
 def parse_count(text: str) -> int:
-    """Parse count strings like '18.5K', '1.2M', '3B', '424', '166 K' to integer.
+    """Parse count strings like '18.5K', '1.2M', '3B', '12,3 Md', '424', '166 K' to integer.
 
     Handles formats:
     - Plain numbers: '1234', '1,234', and French thousands ('5 215', narrow no-break space)
-    - K/M/B suffix with or without space: '1.5K', '166 K', '1.2M', '2 M'
+    - K/M/B/Md suffix with or without space: '1.5K', '166 K', '1.2M', '2 M', '12,3 Md'
     - European decimal separator: '1,5K'
 
     Standalone convenience function used by workflows, profile_actions, etc.
@@ -46,15 +61,15 @@ def parse_count(text: str) -> int:
         return 0
     try:
         text_str = normalise_number_spaces(str(text).strip()).strip()
-        multipliers = {'K': 1_000, 'M': 1_000_000, 'B': 1_000_000_000}
-        for suffix, multiplier in multipliers.items():
-            # "166 K" format
-            if text_str.upper().endswith(f' {suffix}'):
-                number_part = text_str[:-2].strip().replace(',', '.')
+        upper = text_str.upper()
+        for suffix, multiplier in _COUNT_MULTIPLIERS:
+            # "166 K" / "12,3 Md" format
+            if upper.endswith(f' {suffix}'):
+                number_part = text_str[: -(len(suffix) + 1)].strip().replace(',', '.')
                 return int(float(number_part) * multiplier)
             # "166K" format
-            if text_str.upper().endswith(suffix):
-                number_part = text_str[:-1].strip().replace(',', '.')
+            if upper.endswith(suffix):
+                number_part = text_str[: -len(suffix)].strip().replace(',', '.')
                 return int(float(number_part) * multiplier)
         # No suffix — plain number
         number_str = text_str.replace(' ', '').replace(',', '')

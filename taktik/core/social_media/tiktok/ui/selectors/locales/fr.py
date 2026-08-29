@@ -570,9 +570,9 @@ STRINGS: Dict[str, List[str]] = {
     "profile.stat_value_anchors": [
         "//android.widget.TextView[contains(@text, \"Suivi\") or contains(@text, \"Abonn\") or contains(@text, \"aime\") or contains(@text, \"Follow\") or contains(@text, \"Like\")]/preceding-sibling::android.widget.TextView[1]",
     ],
-    "profile.bio_text_anchors": [
-        "//android.widget.Button[string-length(@text) > 40]",
-    ],
+    # Neutral (a length rule carries no language) -> moved to the dataclass base, where the
+    # structural anchor that actually reads a bio now lives.
+    "profile.bio_text_anchors": [],
     # Hardening, not a guess: the SAME stats row already serves one of its three labels in
     # English on a French screen ("Followers"). A classification vocabulary only recognises,
     # it never acts, so accepting a rendering TikTok is already known to use costs nothing and

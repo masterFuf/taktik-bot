@@ -587,9 +587,9 @@ STRINGS: Dict[str, List[str]] = {
     "profile.stat_value_anchors": [
         "//android.widget.TextView[contains(@text, \"Suivi\") or contains(@text, \"Abonn\") or contains(@text, \"aime\") or contains(@text, \"Follow\") or contains(@text, \"Like\")]/preceding-sibling::android.widget.TextView[1]",
     ],
-    "profile.bio_text_anchors": [
-        "//android.widget.Button[string-length(@text) > 40]",
-    ],
+    # Neutral (a length rule carries no language) -> moved to the dataclass base, where the
+    # structural anchor that actually reads a bio now lives.
+    "profile.bio_text_anchors": [],
     "profile.stat_label_following": [
         "Following",
     ],
