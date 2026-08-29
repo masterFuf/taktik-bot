@@ -117,7 +117,28 @@ STRINGS: Dict[str, List[str]] = {
     "followers.following_list_opener": [],
     "followers.following_or_friends_button": [],
     "followers.following_tab": [],
-    "followers.profile_follow_button": [],
+    # Measured on a real visited profile (43.1.4, 2026-08-29): the button is the `eme` node and
+    # its text is « Suivre ». This entry was EMPTY, so only the English list applied -- and it
+    # matches `@text="Follow"` exactly, which no French screen ever shows. `_find_and_click`
+    # returned False, `_try_follow_current_profile` returned False, and a Followers run with
+    # follow_probability at 1.0 made ZERO follows without a single error: 2 profiles visited,
+    # 2 likes, 0 follows. Same family as the followers counter found the same morning.
+    #
+    # The second anchor names no id: the follow button is the « Suivre » that FOLLOWS the stats
+    # line, which holds on any version. A bare `@text="Suivre"` was tried and fires on eleven
+    # other captured screens -- every list with a follow column -- so it is scoped.
+    "followers.profile_follow_button": [
+        "//*[contains(@resource-id, \":id/eme\")][@text=\"Suivre\" or @text=\"Follow\"]",
+        # No apostrophe named at all: the app renders U+2019 and catalogues get typed with the
+        # ASCII one, so a selector naming either shape alone matches nothing (a unit test
+        # enforces this). "aime" is the part of the label that carries no punctuation.
+        #
+        # The length bound is not decoration: the search Users tab writes "24,7 K followers ·
+        # 561,6 K j'aime" on every row, so without it this anchor resolved NINE follow buttons
+        # there -- on a screen where tapping one follows a stranger.
+        "//android.widget.TextView[contains(@text, \"aime\")][string-length(@text)<12]"
+        "/following::*[@text=\"Suivre\"][1]",
+    ],
     "followers.profile_reposted_tab": [],
     "followers.profile_videos_tab": [],
     "followers.unfollow_confirm_button": [],

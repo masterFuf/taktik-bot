@@ -156,6 +156,8 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.TextView[contains(@text, \"Following\")][@selected=\"false\"]",
     ],
     "followers.profile_follow_button": [
+        "//android.widget.TextView[contains(@text, \"Likes\")][string-length(@text)<12]"
+        "/following::*[@text=\"Follow\"][1]",
         "//android.widget.TextView[contains(@resource-id, \":id/eme\")][@text=\"Follow\"]",
         "//*[contains(@resource-id, \":id/eme\")][@text=\"Follow\"]",
     ],
