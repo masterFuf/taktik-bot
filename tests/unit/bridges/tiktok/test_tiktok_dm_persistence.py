@@ -1,9 +1,9 @@
-"""TikTok DM persistence, and the direction it cannot read off the screen.
+"""TikTok DM persistence, and how a message gets its direction.
 
-`DMActions.get_messages` marks every message `is_sent: False` -- the mobile UI shows no sender.
-Filing that as-is would build a table stating we never answered anybody, which is the one
-question these tables exist to answer. What we send is certain at send time; these tests pin the
-rule that recovers the rest.
+The reader reports direction from the bubble's alignment, measured on both phones of a two-way
+conversation. What we recorded at send time stays underneath as a safety net, for the bubble
+whose bounds could not be read -- which comes back `is_sent: False`, and must not then be filed
+as theirs.
 """
 
 import sqlite3
@@ -65,8 +65,17 @@ def test_a_read_message_defaults_to_received(database, persistence):
     assert _stored(database) == [("received", "salut")]
 
 
-def test_our_own_message_is_recognised_on_a_later_read(database, persistence):
-    """The reader sees no sender. What makes this ours is that we recorded sending it."""
+def test_the_reader_direction_is_believed(database, persistence):
+    """Alignment is the primary signal; nothing needs to have been recorded first."""
+    persistence.record_conversations(
+        ACCOUNT_ID,
+        [{"name": PARTNER, "messages": [{"text": "salut"}, {"text": "Bien recu", "is_sent": True}]}],
+    )
+    assert _stored(database) == [("received", "salut"), ("sent", "Bien recu")]
+
+
+def test_an_unreadable_bubble_falls_back_to_what_we_recorded(database, persistence):
+    """`is_sent` False can mean "theirs" OR "bounds unreadable" -- the net tells them apart."""
     persistence.record_sent(ACCOUNT_ID, PARTNER, "Bien recu")
     persistence.record_conversations(
         ACCOUNT_ID,

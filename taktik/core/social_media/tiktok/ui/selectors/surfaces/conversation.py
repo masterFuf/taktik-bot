@@ -106,9 +106,22 @@ class ConversationSelectors:
         '//*[contains(@resource-id, ":id/e7j")]',
     ])
     
-    message_text: List[str] = field(default_factory=lambda: [
+    _message_text_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/jay")]',
     ])
+
+    @property
+    def message_text(self) -> List[str]:
+        """Message bubbles. The id below is 43.1.4 only.
+
+        Measured on device 2026-08-29: 46.6.3 names the same node `koy`, so the id-only
+        selector read ZERO messages there — `get_messages` returned an empty conversation on a
+        thread that plainly had two. Neither version offers a readable id, and the class is
+        readable on 43.1.4 (`im.messagelist.api.ui.IMTuxTextLayoutView`) yet obfuscated to
+        `X.1K8h` on 46.6.3, so the anchor rides on what both share: a focusable text node with
+        no content-desc, which is neither the composer nor a button.
+        """
+        return self._message_text_base + L("conversation.message_text_anchors")
     
     message_sticker: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/p10")]',
@@ -203,8 +216,25 @@ class ConversationSelectors:
     ])
     
     @property
+    def close_interstitial(self) -> List[str]:
+        """Dismiss whatever TikTok raised ON TOP of a conversation.
+
+        Broader than the sticker popup it started as, because the sticker popup is not the only
+        one: opening a conversation can raise a MODAL bottom sheet (read receipts) that replaces
+        the entire hierarchy -- back button, header and composer all gone. `is_in_conversation`
+        then reads absent and the open is reported as a failure it was not.
+
+        The sheet anchors are scoped to the sheet container on purpose. A bare clickable
+        "Fermer" was measured against 25 captured screens and fires on the comments sheet, the
+        followers list and search, where closing would be wrong.
+        """
+        return L("conversation.close_interstitial")
+
+    @property
     def close_sticker_suggestion(self) -> List[str]:
-        return L("conversation.close_sticker_suggestion")
+        # Kept for its callers; the sticker popup is one interstitial among several, and its own
+        # locale entry was EMPTY -- so `close_sticker_suggestions=True` closed nothing at all.
+        return self.close_interstitial
     
     # === Games/Cards buttons ===
     games_button: List[str] = field(default_factory=lambda: [

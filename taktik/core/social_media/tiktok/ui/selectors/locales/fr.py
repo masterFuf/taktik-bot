@@ -34,6 +34,28 @@ STRINGS: Dict[str, List[str]] = {
     # --- conversation ---
     "conversation.back_button": [],
     "conversation.close_sticker_suggestion": [],
+    # Measured on device (43.1.4, 2026-08-29): opening a conversation raised a MODAL
+    # "Statut de lecture" sheet that replaced the whole hierarchy, so the open was reported as
+    # failed. Both anchors are SCOPED to the sheet container: a bare clickable "Fermer" was
+    # tested against 25 captured screens and fires on the comments sheet, the followers list
+    # and search, where closing would be wrong.
+    "conversation.close_interstitial": [
+        "//*[@content-desc=\"Feuille du bas\"]//*[@content-desc=\"Fermer\"]",
+        "//*[@content-desc=\"Feuille du bas\"]//android.widget.Button[contains(@text, \"Termin\")]",
+        "//*[contains(@text, \"J’ai compris\") or contains(@text, \"J'ai compris\")]",
+    ],
+    # === A2 anchor for message bubbles ===
+    #
+    # Measured on two real two-way conversations (43.1.4 and 46.6.3, 2026-08-29). The obfuscated
+    # id differs per version (`jay` / `koy`), so an id-only selector read nothing on 46.6.3.
+    # This resolves BOTH bubbles on both versions and picks up nothing else in a conversation
+    # except the read-receipt label, excluded just below.
+    "conversation.message_text_anchors": [
+        "//*[@focusable=\"true\"][string-length(@text)>0]"
+        "[not(@content-desc) or @content-desc=\"\"]"
+        "[not(self::android.widget.EditText)][not(self::android.widget.Button)]"
+        "[@text!=\"Vu\"]",
+    ],
     "conversation.reply_button": [],
     # --- country_picker ---
     "country_picker.close_button": [],

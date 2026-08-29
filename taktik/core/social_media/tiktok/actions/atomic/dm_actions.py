@@ -619,7 +619,7 @@ class DMActions(BaseAction):
                             if not self._human_tap_bounds(elem):
                                 elem.click()
                             time.sleep(1)
-                            return self.is_in_conversation()
+                            return self._settled_in_conversation()
                     except Exception as e:
                         self.logger.debug(f"Error checking element {i}: {e}")
                         continue
@@ -628,7 +628,7 @@ class DMActions(BaseAction):
             selector = self.inbox_selectors.conversation_username_by_text(name)
             if self._find_and_click([selector], timeout=2):
                 time.sleep(1)
-                return self.is_in_conversation()
+                return self._settled_in_conversation()
                 
         except Exception as e:
             self.logger.warning(f"Error clicking conversation: {e}")
@@ -661,6 +661,22 @@ class DMActions(BaseAction):
         """Check if currently in a conversation view."""
         # Check for message input field
         return self._element_exists(self.conversation_selectors.message_input_field, timeout=2)
+
+    def _settled_in_conversation(self) -> bool:
+        """Are we in the conversation, once whatever TikTok raised on top is gone?
+
+        Measured on device (43.1.4): opening a conversation raised a MODAL "read status" sheet
+        that replaced the whole hierarchy. `is_in_conversation` looks for the composer, the sheet
+        covered it, and `click_conversation` reported a failure for an open that had SUCCEEDED —
+        the same shape as the message-requests page that had landed and said it had not. Nothing
+        downstream could recover: the conversation was simply declared unreachable.
+        """
+        if self.is_in_conversation():
+            return True
+        if not self.close_conversation_interstitial():
+            return False
+        time.sleep(1)
+        return self.is_in_conversation()
     
     def get_conversation_info(self) -> Dict[str, Any]:
         """Get info about the current conversation.
@@ -693,6 +709,38 @@ class DMActions(BaseAction):
         
         return info
     
+    def _bubble_is_ours(self, element) -> bool:
+        """Did WE write this bubble? Read from where it sits, not from who it says wrote it.
+
+        TikTok's conversation gives no sender: for months every message came back
+        `is_sent: False`, so any table built on the reader stated we had never answered anybody.
+        The alignment is the answer, and it was measured rather than assumed — the SAME two
+        messages captured from BOTH phones, on 43.1.4 and 46.6.3, landed on opposite sides:
+
+            43.1.4 (screen 1440)  ours cx=1043 (right) · theirs cx=337 (left)
+            46.6.3 (screen 1080)  ours cx= 921 (right) · theirs cx=398 (left)
+
+        Same resource-id for both directions on each version, so there is no per-direction id to
+        key on; the geometry survives the version bump that the id does not.
+
+        Unreadable bounds return False. That is the safe way round: a message wrongly called
+        theirs costs a duplicate read, one wrongly called ours would claim an answer we never
+        sent.
+        """
+        try:
+            bounds = element.info.get('bounds') or {}
+            left, right = bounds.get('left'), bounds.get('right')
+            if left is None or right is None:
+                return False
+            width = self.device.get_screen_size()[0] if hasattr(self.device, 'get_screen_size') else 0
+            if not width:
+                raw = self.device._device if hasattr(self.device, '_device') else self.device
+                width = raw.window_size()[0]
+            return bool(width) and ((left + right) / 2) > (width / 2)
+        except Exception as e:
+            self.logger.debug(f"Bubble side unreadable: {e}")
+            return False
+
     def get_messages(self, limit: int = 20) -> List[Dict[str, Any]]:
         """Get messages from current conversation.
         
@@ -723,7 +771,7 @@ class DMActions(BaseAction):
                                 'sender': None,  # Would need parent navigation
                                 'text': text,
                                 'type': 'text',
-                                'is_sent': False,  # Can't easily determine
+                                'is_sent': self._bubble_is_ours(elem),
                             })
                     except Exception as e:
                         self.logger.debug(f"Error parsing message {i}: {e}")
@@ -919,10 +967,19 @@ class DMActions(BaseAction):
             self.logger.warning(f"Failed to go back: {e}")
             return False
     
-    def close_sticker_suggestion(self) -> bool:
-        """Close the sticker suggestion popup in new conversations."""
+    def close_conversation_interstitial(self) -> bool:
+        """Dismiss whatever TikTok raised ON TOP of the conversation.
+
+        The sticker popup is one of several. Opening a conversation can also raise a MODAL
+        bottom sheet (read receipts) that replaces the entire hierarchy — back button, header
+        and composer all gone — so nothing downstream can tell it is there.
+        """
         return self._find_and_click(
-            self.conversation_selectors.close_sticker_suggestion, 
+            self.conversation_selectors.close_interstitial,
             timeout=1
         )
+
+    def close_sticker_suggestion(self) -> bool:
+        """Close the sticker suggestion popup in new conversations."""
+        return self.close_conversation_interstitial()
     

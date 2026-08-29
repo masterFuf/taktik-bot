@@ -43,6 +43,28 @@ STRINGS: Dict[str, List[str]] = {
     "conversation.close_sticker_suggestion": [
         "//*[contains(@resource-id, \":id/dgd\")][@content-desc=\"Close\"]",
     ],
+    # Mirror of the French anchors, which were measured on device. The English container
+    # description is NOT verified -- we hold no English capture of this sheet -- so the
+    # acknowledgment buttons are listed unscoped BELOW it, matching on their own text only.
+    # The obfuscated `dgd` above is kept as the historical sticker close and moves here too.
+    "conversation.close_interstitial": [
+        "//*[@content-desc=\"Bottom Sheet\" or @content-desc=\"Bottom sheet\"]//*[@content-desc=\"Close\"]",
+        "//*[@content-desc=\"Bottom Sheet\" or @content-desc=\"Bottom sheet\"]//android.widget.Button[contains(@text, \"Done\")]",
+        "//android.widget.Button[@text=\"Got it\"]",
+        "//*[contains(@resource-id, \":id/dgd\")][@content-desc=\"Close\"]",
+    ],
+    # === A2 anchor for message bubbles ===
+    #
+    # Measured on two real two-way conversations (43.1.4 and 46.6.3, 2026-08-29). The obfuscated
+    # id differs per version (`jay` / `koy`), so an id-only selector read nothing on 46.6.3.
+    # This resolves BOTH bubbles on both versions and picks up nothing else in a conversation
+    # except the read-receipt label, excluded just below.
+    "conversation.message_text_anchors": [
+        "//*[@focusable=\"true\"][string-length(@text)>0]"
+        "[not(@content-desc) or @content-desc=\"\"]"
+        "[not(self::android.widget.EditText)][not(self::android.widget.Button)]"
+        "[@text!=\"Seen\"]",
+    ],
     "conversation.reply_button": [
         "//*[contains(@resource-id, \":id/rh_\")][@text=\"Reply\"]",
     ],

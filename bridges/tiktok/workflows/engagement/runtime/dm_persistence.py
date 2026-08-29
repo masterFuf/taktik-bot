@@ -8,19 +8,18 @@ TikTok read nothing into those tables. The schema was written cross-platform fro
 (`platform` column, an `unread_count` comment that names TikTok), and the service is fully
 parameterised, so what was missing was the wiring -- with one real obstacle in the way.
 
-**The reader cannot see who wrote a bubble.** `DMActions.get_messages` marks every message
-`is_sent: False` and says so in a comment. Filing that as-is would produce a table stating that
-we never answered anybody, and "have we already replied" is precisely the question these tables
-exist to answer -- a wrong answer there is worse than no table at all.
+**Direction, once unreadable, is now measured.** `DMActions.get_messages` used to mark every
+message `is_sent: False` -- the mobile UI names no sender -- which would have produced a table
+stating we never answered anybody, precisely the question these tables exist to answer. The
+reader now reads the bubble's ALIGNMENT, verified on both phones of a two-way conversation and
+on both versions: the same two messages landed on opposite sides depending on which phone read
+them.
 
-So direction is not read off the screen, it is remembered. What WE send is certain at send time
-and is recorded then; a later read matches a text against that record. The rule is:
-
-    a text already on record as ours, in this thread, is ours -- everything else is received.
-
-Its one blind spot is stated rather than hidden: a correspondent echoing one of our messages
-back, byte for byte, is filed as ours. That is the same class of limitation the schema already
-accepts for its content hash, and it does not affect the answered/unanswered signal.
+What we record at send time is kept as a safety net underneath. A bubble whose bounds cannot be
+read comes back `is_sent: False`, and a message we know we sent must not then be filed as
+theirs. The net's one blind spot is stated rather than hidden: a correspondent echoing one of
+our messages back byte for byte is filed as ours -- the same class of limitation the schema
+already accepts for its content hash, and without effect on the answered/unanswered signal.
 """
 
 from __future__ import annotations
@@ -74,14 +73,22 @@ def _partner_profile_id(handle: str) -> Optional[int]:
 
 
 def _messages_payload(conversation: Dict[str, Any], known_sent: List[str]) -> List[Dict[str, Any]]:
-    """Turn read messages into rows, resolving direction from what we know we sent."""
+    """Turn read messages into rows.
+
+    The reader now reports direction itself, from the bubble's alignment -- measured on both
+    phones of a two-way conversation, on 43.1.4 and 46.6.3, where the same two messages landed
+    on opposite sides. What we recorded at send time stays as a SAFETY NET underneath: a bubble
+    whose bounds could not be read comes back `is_sent: False`, and a message we know we sent
+    must not then be filed as theirs.
+    """
     ours = {text.strip() for text in known_sent if text and text.strip()}
     payload: List[Dict[str, Any]] = []
     for message in conversation.get("messages", []) or []:
         text = message.get("text")
+        is_ours = bool(message.get("is_sent")) or (text or "").strip() in ours
         payload.append(
             {
-                "direction": "sent" if (text or "").strip() in ours else "received",
+                "direction": "sent" if is_ours else "received",
                 "text": text,
                 "msg_type": message.get("type", "text"),
                 # TikTok shows a date separator ("Aujourd'hui 13:12") rather than a per-bubble
