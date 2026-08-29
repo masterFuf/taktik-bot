@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from taktik.core.database.tiktok_follow_graph import TikTokFollowGraphService
 from taktik.core.social_media.tiktok.services.followers.stop_policy import normalize_username
+from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 from taktik.core.social_media.tiktok.services.profile.username import (
     UNKNOWN_USERNAME,
     get_current_profile_username,
@@ -36,7 +37,6 @@ from taktik.core.social_media.tiktok.ui.labels import is_following_button, is_fr
 
 from .._internal import BaseTikTokWorkflow
 from .models import SyncListsConfig, SyncListsStats
-from .....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 
 FOLLOWING = "following"
@@ -210,26 +210,13 @@ class SyncListsWorkflow(BaseTikTokWorkflow):
             self._resolve_unnamed(list_type, unnamed_rows, seen)
         return True
 
-    def _return_to_shell(self) -> None:
-        """Back out until the bottom bar is there again.
-
-        A follow list is a full-screen page with NO bottom navigation, so asking to go to the
-        own profile from inside it taps nothing — which is how the resolution pass reported
-        "could not reopen the list" after successfully walking that very list.
-        """
-        for _ in range(5):
-            if self.detection._element_exists(NAVIGATION_SELECTORS.profile_tab, timeout=1):
-                return
-            self.device.press("back")
-            time.sleep(1.2)
-
     def _open_list(self, list_type: str) -> bool:
         """From the operated account's own profile, open one of its two lists."""
         from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import (
             ProfileActions,
         )
 
-        self._return_to_shell()
+        return_to_tiktok_shell(self.device, logger=self.logger)
         profile = ProfileActions(self.device)
         if not profile.navigate_to_own_profile():
             return False
