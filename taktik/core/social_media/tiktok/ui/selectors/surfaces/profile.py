@@ -51,13 +51,21 @@ class ProfileSelectors:
         return L("profile.profile_menu_button")
 
     # === Profile information ===
-    display_name: List[str] = field(default_factory=lambda: [
+    _display_name_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qf8")]',
     ])
 
-    username: List[str] = field(default_factory=lambda: [
+    @property
+    def display_name(self) -> List[str]:
+        return self._display_name_base + L("profile.display_name_anchors")
+
+    _username_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qh5")]',
     ])
+
+    @property
+    def username(self) -> List[str]:
+        return self._username_base + L("profile.username_anchors")
 
     username_content_description: List[str] = field(default_factory=lambda: [
         '//*[contains(@content-desc, "@")]',
@@ -68,13 +76,21 @@ class ProfileSelectors:
         return L("profile.edit_profile_button")
 
     # === Counters (one id for the values, another for the labels) ===
-    stat_value: List[str] = field(default_factory=lambda: [
+    _stat_value_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qfw")]',
     ])
 
-    stat_label: List[str] = field(default_factory=lambda: [
+    @property
+    def stat_value(self) -> List[str]:
+        return self._stat_value_base + L("profile.stat_value_anchors")
+
+    _stat_label_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qfv")]',
     ])
+
+    @property
+    def stat_label(self) -> List[str]:
+        return self._stat_label_base + L("profile.stat_label_anchors")
 
     @property
     def following_count(self) -> List[str]:
@@ -183,9 +199,13 @@ class ProfileSelectors:
         return self._profile_page_indicator_base + L("profile.profile_page_indicator")
 
     # Bio text (resource-id: qfx)
-    bio_text: List[str] = field(default_factory=lambda: [
+    _bio_text_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qfx")]',
     ])
+
+    @property
+    def bio_text(self) -> List[str]:
+        return self._bio_text_base + L("profile.bio_text_anchors")
 
     # Verified badge
     @property

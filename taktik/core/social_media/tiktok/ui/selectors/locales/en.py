@@ -360,6 +360,47 @@ STRINGS: Dict[str, List[str]] = {
     # its own labels: an account with exactly one follower shows "Follower", which the plural
     # entry could not match. Measured on a real 43.1.4 profile (Pixel 6 Pro, 2026-08-28), where
     # the row read `Suivis 1 / Follower 1 / J'aime 19` and only the last one classified.
+    # === A2 anchors: a route to the profile that is not an obfuscated id ===
+    #
+    # The ten profile fields had NO route but a build-time id, which survives a version bump 1%
+    # of the time — that is what makes 46.6.3 unreadable. These were written against the dumps of
+    # BOTH versions and resolve on both (`data/tiktok-parite/outils/tt_profile_a2_anchors.py`).
+    #
+    # They come AFTER the id in each field's list: on 43.1.4 the id still wins and nothing moves;
+    # on 46.6.3 it resolves nothing and these take over.
+    "profile.username_anchors": [
+        "//android.widget.Button[starts-with(@text, \"@\")]",
+        # `contains(@content-desc, "@")` was tried here and dropped: it matches an inbox
+        # row too. It stays available as `username_content_description` for a caller that
+        # knows it is on a profile; it has no business in the general anchor list.
+    ],
+    "profile.display_name_anchors": [
+        # The Button just before the handle. "any short Button with text" was tried and
+        # matched on the search and inbox screens too — an anchor that fires off its own
+        # surface is worse than none, because it answers confidently with someone else.
+        "//android.widget.Button[starts-with(@text, \"@\")]/preceding::android.widget.Button[1]",
+    ],
+    # ONE expression for every language, deliberately — not one anchor per locale.
+    #
+    # `first_matching` takes the first alternative that finds anything, and TikTok writes
+    # "Followers" in English even on a French phone: the English anchor won with that single hit
+    # and the French one, which matched all three rows, was never reached. Two counters out of
+    # three stayed at zero, silently. Same shape Instagram uses for the same problem.
+    #
+    # Fires on the followers list too, where the word is everywhere. Harmless by construction:
+    # the extractor requires stat_value AND stat_label, and the value anchor is structural — it
+    # resolves on the profile and nowhere else.
+    "profile.stat_label_anchors": [
+        "//android.widget.TextView[contains(@text, \"Suivi\") or contains(@text, \"Abonn\") or contains(@text, \"aime\") or contains(@text, \"Follow\") or contains(@text, \"Like\")]",
+    ],
+    # Structural: the value is the TextView sitting above its label. "A short TextView" was
+    # tried and matched 17 nodes on one screen.
+    "profile.stat_value_anchors": [
+        "//android.widget.TextView[contains(@text, \"Suivi\") or contains(@text, \"Abonn\") or contains(@text, \"aime\") or contains(@text, \"Follow\") or contains(@text, \"Like\")]/preceding-sibling::android.widget.TextView[1]",
+    ],
+    "profile.bio_text_anchors": [
+        "//android.widget.Button[string-length(@text) > 40]",
+    ],
     "profile.stat_label_following": [
         "Following",
     ],
