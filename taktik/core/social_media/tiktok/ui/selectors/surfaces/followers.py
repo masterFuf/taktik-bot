@@ -216,5 +216,28 @@ class FollowersSelectors:
     def following_list_opener(self) -> List[str]:
         return L("followers.following_list_opener")
 
+    # The own account's Following / Followers lists use the SAME row anchors as a visited
+    # profile's follower list -- `follower_username` (`txt_desc`), `follower_display_name`
+    # (`txt_user_name`) and `follower_any_button` all resolve there. Measured 2026-08-29 on the
+    # operated account's own lists, so no separate catalogue: a second spelling of the same
+    # three fields is a second thing to keep in sync.
+
+    def row_selectors_for_display_name(self, display_name: str) -> List[str]:
+        """The tappable row of ONE named person in a follow list.
+
+        Addressed by display name and not by handle on purpose: this is what the sync uses to
+        reach the rows the FOLLOWING list did not name, precisely because their handle is not on
+        screen. The name is enough to tap the right row here and now -- it is not enough to
+        RECORD anyone, which is why the handle is then read from the profile that opens.
+
+        The name node is not clickable; the row is its nearest clickable ancestor, the same
+        climb the post grid and the search results use.
+        """
+        escaped = str(display_name or "").replace('"', "")
+        return [
+            f'//*[contains(@resource-id, ":id/txt_user_name")][@text="{escaped}"]'
+            '/ancestor::*[@clickable="true"][1]',
+        ]
+
 
 FOLLOWERS_SELECTORS = FollowersSelectors()

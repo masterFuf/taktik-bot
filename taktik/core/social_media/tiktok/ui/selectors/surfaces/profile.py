@@ -122,6 +122,16 @@ class ProfileSelectors:
     def friends_button_labels(self) -> List[str]:
         return L("profile.friends_button_labels")
 
+    @property
+    def following_button_labels(self) -> List[str]:
+        """Labels a follow-state button carries when WE follow them, mutual excluded.
+
+        Its own entry rather than a reuse of `stat_label_following`: a stat label and a button
+        label happen to share a word today, and conflating them would silently spread any future
+        difference across two screens.
+        """
+        return L("profile.following_button_labels")
+
     # === Bio ===
     bio: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[contains(@text, "For ") or contains(@text, "http")]',

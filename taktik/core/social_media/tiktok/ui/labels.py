@@ -50,3 +50,16 @@ def is_friends_button(text: str) -> bool:
     if not normalized:
         return False
     return _matches(normalized, PROFILE_SELECTORS.friends_button_labels)
+
+
+def is_following_button(text: str) -> bool:
+    """True when a follow-state button says WE follow them ("Suivis" / "Following").
+
+    Distinct from :func:`is_friends_button`, which means the relationship is mutual. Reading a
+    row's button is the cheapest way to learn a relationship -- the state IS the label -- and
+    that is exactly why it has to go through the locale catalogue rather than an English literal.
+    """
+    normalized = normalize_ui_label(text)
+    if not normalized:
+        return False
+    return _matches(normalized, PROFILE_SELECTORS.following_button_labels)

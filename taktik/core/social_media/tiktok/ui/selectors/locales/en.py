@@ -568,6 +568,9 @@ STRINGS: Dict[str, List[str]] = {
         "Likes",
     ],
     # Bare LABEL of a MUTUAL follow button (the unfollow workflow can skip those).
+    "profile.following_button_labels": [
+        "Following",
+    ],
     "profile.friends_button_labels": [
         "Friends",
     ],

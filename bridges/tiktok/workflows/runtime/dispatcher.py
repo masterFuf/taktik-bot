@@ -67,6 +67,11 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
         return run_target_profiles_workflow(config), workflow_type
 
+    if workflow_type in ("sync_following", "sync_followers", "sync_lists"):
+        from bridges.tiktok.workflows.automation.sync_lists import run_sync_lists_workflow
+
+        return run_sync_lists_workflow(config), workflow_type
+
     if workflow_type == "dm_read":
         from bridges.tiktok.workflows.engagement.dm_read import run_dm_read_workflow
 

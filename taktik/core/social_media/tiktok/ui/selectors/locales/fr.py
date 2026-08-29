@@ -114,7 +114,14 @@ STRINGS: Dict[str, List[str]] = {
     "followers.followers_tab": [],
     "followers.followers_tab_selected": [],
     "followers.following_counter": [],
-    "followers.following_list_opener": [],
+    # Mesuré sur le profil du compte opéré (46.6.3 et 43.1.4, 2026-08-29) : TikTok en français
+    # écrit « Suivis », pas « Abonnements ». Cette entrée était VIDE, donc seule la liste anglaise
+    # s'appliquait et la liste des abonnements du compte n'était pas ouvrable sur un téléphone
+    # français — le workflow unfollow échouait dès son étape 2.
+    # Ancré sur l'ancêtre cliquable du libellé, comme `followers_counter` juste au-dessus.
+    "followers.following_list_opener": [
+        "//*[@clickable=\"true\"][.//android.widget.TextView[contains(@text, \"Suivis\")]]",
+    ],
     "followers.following_or_friends_button": [],
     "followers.following_tab": [],
     # Measured on a real visited profile (43.1.4, 2026-08-29): the button is the `eme` node and
@@ -496,6 +503,10 @@ STRINGS: Dict[str, List[str]] = {
     # Both spellings written out rather than a shortened `Ami`: this one decides a RELATIONSHIP,
     # and a loose substring on a button label is how a match wanders. `Ami(e)s` is what the tab
     # shows; `Amis` stays for versions that write it that way.
+    "profile.following_button_labels": [
+        "Suivis",
+        "Abonné",
+    ],
     "profile.friends_button_labels": [
         "Ami(e)s",
         "Amis",
