@@ -157,6 +157,18 @@ STRINGS: Dict[str, List[str]] = {
     "inbox.add_people_button": [
         "//android.widget.ImageView[@content-desc=\"Ajouter des personnes\"]",
     ],
+    # Measured on device (46.6.3, 2026-08-29): tapping « Supprimer » on an open request does not
+    # decline it — TikTok raises a confirmation ("Supprimer ce message ?") and waits. Without
+    # this, `decline_request` reported a refusal that had not happened AND left the dialog on
+    # screen, which then blocked every later navigation ("Inbox inatteignable").
+    #
+    # A confirmation dialog IS a pair of buttons, so the anchor names the pairing rather than a
+    # container: the delete button that is a SIBLING of Cancel. One hit on the dialog, none on
+    # the request screen where a « Supprimer » also lives.
+    "inbox.decline_request_confirm_button": [
+        "//android.widget.Button[@text=\"Annuler\"]/../android.widget.Button[@text=\"Supprimer\"]",
+        "//*[@content-desc=\"Dialogue\"]//android.widget.Button[@text=\"Supprimer\"]",
+    ],
     "inbox.decline_request_button": [
         "//android.widget.Button[@text=\"Supprimer\"]",
     ],

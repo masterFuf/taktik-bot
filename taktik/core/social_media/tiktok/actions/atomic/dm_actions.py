@@ -538,22 +538,47 @@ class DMActions(BaseAction):
         return False
 
     def accept_request(self) -> bool:
-        """Accept the open request."""
-        if self._find_and_click(self.inbox_selectors.accept_request_button, timeout=3):
-            self.logger.info("Demande acceptée")
-            time.sleep(1)
-            return True
-        self.logger.warning("Bouton « Accepter » introuvable")
-        return False
+        """Accept the open request, and check the acceptance actually went through.
+
+        Reporting the click is not reporting the outcome — the same shape that made
+        `send_message` and `follow_back` claim work they had not done. Accepting replaces the
+        Accept/Delete pair with the conversation composer, so the pair must be GONE afterwards.
+        """
+        if not self._find_and_click(self.inbox_selectors.accept_request_button, timeout=3):
+            self.logger.warning("Bouton « Accepter » introuvable")
+            return False
+
+        time.sleep(1.5)
+        if self._element_exists(self.inbox_selectors.accept_request_button, timeout=2):
+            self.logger.warning("Le bouton « Accepter » est toujours la — acceptation NON confirmee")
+            return False
+
+        self.logger.info("Demande acceptée")
+        return True
 
     def decline_request(self) -> bool:
-        """Decline and delete the open request."""
-        if self._find_and_click(self.inbox_selectors.decline_request_button, timeout=3):
-            self.logger.info("Demande refusée")
-            time.sleep(1)
-            return True
-        self.logger.warning("Bouton « Supprimer/Refuser » introuvable")
-        return False
+        """Decline and delete the open request, and check it is gone.
+
+        TikTok may raise a confirmation over the delete; if the pair is still on screen the
+        request has NOT been declined, whatever the click reported.
+        """
+        if not self._find_and_click(self.inbox_selectors.decline_request_button, timeout=3):
+            self.logger.warning("Bouton « Supprimer/Refuser » introuvable")
+            return False
+
+        # TikTok asks again ("Supprimer ce message ?"). Measured on device: without confirming,
+        # the request stays AND the dialog blocks every later navigation.
+        time.sleep(1.0)
+        if self._find_and_click(self.inbox_selectors.decline_request_confirm_button, timeout=2):
+            self.logger.debug("Confirmation de suppression validee")
+
+        time.sleep(1.5)
+        if self._element_exists(self.inbox_selectors.decline_request_button, timeout=2):
+            self.logger.warning("Le bouton « Supprimer » est toujours la — refus NON confirme")
+            return False
+
+        self.logger.info("Demande refusée")
+        return True
 
     # ==========================================================================
     # ACTIVITÉ / NOTIFICATIONS SYSTÈME (Phase 4 inbox v2) — lecture seule

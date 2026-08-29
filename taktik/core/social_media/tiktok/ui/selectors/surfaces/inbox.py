@@ -96,6 +96,11 @@ class InboxSelectors:
     ])
 
     @property
+    def decline_request_confirm_button(self) -> List[str]:
+        """The « Supprimer » of the confirmation TikTok raises over a declined request."""
+        return L("inbox.decline_request_confirm_button")
+
+    @property
     def people_suggestions(self) -> List[str]:
         """Marks of the follow-suggestions pane the Messages tab sometimes renders instead."""
         return L("inbox.people_suggestions_markers")
