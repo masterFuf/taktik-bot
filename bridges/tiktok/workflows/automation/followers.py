@@ -8,6 +8,7 @@ from typing import Any, Dict
 
 from bridges.tiktok.runtime.ipc import logger, send_error, send_status
 from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.tiktok.workflows.automation.runtime.ai import install_profile_ai_hooks
 from bridges.tiktok.workflows.automation.runtime.followers_events import (
     send_final_followers_stats,
 )
@@ -24,46 +25,6 @@ from taktik.core.social_media.tiktok.services.navigation.reset import return_to_
 
 def _bridge_log(level: str, message: str) -> None:
     getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
-
-
-def _install_followers_ai(config: Dict[str, Any]) -> None:
-    """When the run has AI enabled, create the AI service and install the TikTok profile
-    relevance hook so each visited profile gets an engagement verdict (surfaced to the UI)."""
-    ai_config = config.get("ai") or {}
-    if not ai_config.get("enabled"):
-        return
-    try:
-        from bridges.tiktok.workflows.automation.runtime.ai import create_tiktok_ai_service
-        from bridges.tiktok.runtime.ipc import send_profile_classification, send_relevance
-        from taktik.core.social_media.tiktok.workflows.core.ai_hooks import install_tiktok_ai_hooks
-
-        ai_enabled, ai_service = create_tiktok_ai_service(ai_config=ai_config, ipc=None, log=_bridge_log)
-        if not ai_enabled:
-            return
-
-        def _emit(username: str, payload: dict) -> None:
-            send_relevance(
-                username,
-                relevant=payload.get("relevant"),
-                score=payload.get("score"),
-                reason=payload.get("reason"),
-                follow=payload.get("follow"),
-                comment=payload.get("comment"),
-                like=payload.get("like"),
-            )
-
-        def _persist(username: str, classification: dict) -> None:
-            send_profile_classification(
-                username,
-                classification,
-                result=f"[{classification.get('niche_category', '?')}] {classification.get('niche', '?')}",
-            )
-
-        app_language = config.get("language") or config.get("appLanguage") or "en"
-        install_tiktok_ai_hooks(ai_service, ai_config, log=_bridge_log, emit_relevance=_emit,
-                                emit_classification=_persist, language=app_language)
-    except Exception as exc:
-        logger.warning(f"Could not install TikTok AI hooks: {exc}")
 
 
 def run_followers_workflow(config: Dict[str, Any]):
@@ -104,7 +65,7 @@ def run_followers_workflow(config: Dict[str, Any]):
         effective_bot_username = fetched_bot_username or bot_username
 
         # Optional AI: install the profile-relevance verdict hook when AI is enabled.
-        _install_followers_ai(config)
+        install_profile_ai_hooks(config, log=_bridge_log)
 
         total_stats = create_total_stats()
 

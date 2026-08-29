@@ -28,6 +28,17 @@ class TikTokFollowersRepository:
         bot_username: Optional[str],
         target: str,
         config_used: Optional[Dict[str, Any]],
+        # Lowercase, like every other TikTok workflow name: `for_you`, `search`, `hashtag`.
+        # This was the one writer shouting, and Electron creates the same kind of session with
+        # `followers` — so the column held both spellings of one workflow, 58 against 68, and
+        # any grouping counted it twice.
+        #
+        # Defaulted rather than hardcoded so the target-profiles workflow, which reuses this
+        # repository, can file its runs under its OWN type: it engages the picked accounts
+        # instead of their followers, and one shared type would merge two different questions
+        # in every grouping the app does on that column.
+        workflow_type: str = "followers",
+        session_name: Optional[str] = None,
     ) -> TikTokFollowersSessionRef:
         if not bot_username:
             return TikTokFollowersSessionRef(account_id=None, session_id=None)
@@ -35,12 +46,8 @@ class TikTokFollowersRepository:
         account_id, _ = self._db.get_or_create_tiktok_account(bot_username)
         session_id = self._db.create_tiktok_session(
             account_id=account_id,
-            session_name=f"Followers @{target}",
-            # Lowercase, like every other TikTok workflow name: `for_you`, `search`, `hashtag`.
-            # This was the one writer shouting, and Electron creates the same kind of session with
-            # `followers` — so the column held both spellings of one workflow, 58 against 68, and
-            # any grouping counted it twice.
-            workflow_type="followers",
+            session_name=session_name or f"Followers @{target}",
+            workflow_type=workflow_type,
             target=target,
             config_used=config_used,
         )

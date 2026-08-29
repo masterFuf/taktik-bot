@@ -55,6 +55,7 @@
       "hashtag",
       "target",
       "followers",
+      "target_profiles",
       "dm_read",
       "dm_send",
       "new_followers",

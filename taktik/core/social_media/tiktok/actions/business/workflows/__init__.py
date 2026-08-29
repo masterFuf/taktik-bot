@@ -6,6 +6,7 @@ from .for_you import ForYouWorkflow, ForYouConfig, ForYouStats
 from .dm import DMWorkflow, DMConfig, DMStats, ConversationData
 from .search import SearchWorkflow, SearchConfig, SearchStats
 from .followers import FollowersWorkflow, FollowersConfig, FollowersStats
+from .target_profiles import TargetProfilesWorkflow, TargetProfilesConfig
 
 __all__ = [
     'ForYouWorkflow',
@@ -21,4 +22,6 @@ __all__ = [
     'FollowersWorkflow',
     'FollowersConfig',
     'FollowersStats',
+    'TargetProfilesWorkflow',
+    'TargetProfilesConfig',
 ]
