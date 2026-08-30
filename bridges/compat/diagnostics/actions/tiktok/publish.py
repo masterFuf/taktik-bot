@@ -94,3 +94,35 @@ def fill_caption(a, p):
     wf = TikTokUploadWorkflow(_raw(a), _device_id(a))
     ok = wf._fill_caption(caption, _hashtags(p))
     return {"success": bool(ok), "message": f"caption filled={ok}"}
+
+
+@action("tt.publish.text_post")
+def publish_text(a, p):
+    """Publish a TEXT post. ACTS: it puts a real post on the account.
+
+    Params: text (required), toStory (optional). Reports the STEP it reached, so a failure says
+    where it stopped rather than only that it failed -- and it refuses to publish a composer that
+    still holds its placeholder, which is what an empty post looks like on the way in.
+    """
+    from taktik.core.social_media.tiktok.services.publish.text_post import publish_text_post
+
+    params = p or {}
+    text = str(params.get("text") or "").strip()
+    if not text:
+        return {"success": False, "message": "text is required"}
+
+    serial = getattr(a, "device_id", None) or getattr(a.device, "serial", None)
+    if not serial:
+        # The keyboard types over ADB and needs the SERIAL. Without it the typing fails silently
+        # and the composer keeps its placeholder -- exactly the trap this action must not repeat.
+        return {"success": False, "message": "device serial unavailable, cannot type"}
+
+    result = publish_text_post(
+        a.device, serial, text, to_story=bool(params.get("toStory")),
+    )
+    logger.info(f"tt.publish.text_post: {result}")
+    return {
+        "success": bool(result.get("success")),
+        "message": result.get("error") or f"published to {result.get('destination')}",
+        "details": result,
+    }

@@ -5,6 +5,7 @@ from .creation_entry import PublishCreationEntrySelectors, PUBLISH_CREATION_ENTR
 from .editor import PublishEditorSelectors, PUBLISH_EDITOR_SELECTORS
 from .media_picker import PublishMediaPickerSelectors, PUBLISH_MEDIA_PICKER_SELECTORS
 from .progress import PublishProgressSelectors, PUBLISH_PROGRESS_SELECTORS
+from .text_post import PublishTextPostSelectors, PUBLISH_TEXT_POST_SELECTORS
 
 
 class PublishSelectors:
@@ -16,6 +17,7 @@ class PublishSelectors:
         PUBLISH_EDITOR_SELECTORS,
         PUBLISH_COMPOSER_SELECTORS,
         PUBLISH_PROGRESS_SELECTORS,
+        PUBLISH_TEXT_POST_SELECTORS,
     )
 
     def __getattr__(self, name: str):
@@ -33,11 +35,13 @@ __all__ = [
     "PUBLISH_EDITOR_SELECTORS",
     "PUBLISH_MEDIA_PICKER_SELECTORS",
     "PUBLISH_PROGRESS_SELECTORS",
+    "PUBLISH_TEXT_POST_SELECTORS",
     "PUBLISH_SELECTORS",
     "PublishComposerSelectors",
     "PublishCreationEntrySelectors",
     "PublishEditorSelectors",
     "PublishMediaPickerSelectors",
     "PublishProgressSelectors",
+    "PublishTextPostSelectors",
     "PublishSelectors",
 ]

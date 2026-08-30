@@ -20,6 +20,11 @@ class TikTokPublishBridge:
         self.local_path = config.get("localPath", "")
         self.caption = config.get("caption", "")
         self.hashtags = config.get("hashtags", [])
+        # `video` (the gallery upload, the only thing this bridge could do) or `text`. TikTok's
+        # creation screen also offers PHOTO and LIVE; neither is wired yet.
+        self.post_type = (config.get("postType") or "video").strip().lower()
+        self.text = config.get("text", "")
+        self.to_story = bool(config.get("toStory", False))
         self.package_name = config.get("packageName")
         self._connection = None
         self._artifact_dir = None
@@ -53,12 +58,50 @@ class TikTokPublishBridge:
         except Exception as e:
             send_log("warning", f"Artifact capture ({phase}) failed: {e}")
 
+    def _run_text_post(self, device) -> int:
+        """The TEXT format: no file, no gallery, no upload -- just the composer.
+
+        Kept in this bridge rather than given one of its own: it is the same domain, the same
+        device session and the same result message. What differs is the road on the screen.
+        """
+        send_status("running", "Publishing a TikTok text post...")
+        try:
+            from taktik.core.social_media.tiktok.services.publish.text_post import publish_text_post
+
+            self._capture_phase(device, "00_before")
+            result = publish_text_post(
+                device, self.device_id, self.text, to_story=self.to_story,
+            )
+            self._capture_phase(device, "99_after")
+
+            success = bool(result.get("success"))
+            message = result.get("error") or f"text post published to {result.get('destination')}"
+            send_status("success" if success else "error", message)
+            send_message(
+                "upload_result",
+                success=success,
+                workflow="text_post",
+                message=message,
+                # The step it stopped at, so a failure says WHERE rather than only that it failed.
+                error_type=None if success else result.get("step"),
+            )
+            return 0 if success else 1
+        except Exception as exc:
+            import traceback
+
+            send_error(f"Text post failed: {exc}")
+            send_log("error", traceback.format_exc())
+            return 1
+
     def run(self) -> int:
         if not self.device_id:
             send_error("deviceId is required")
             return 1
-        if not self.local_path:
+        if self.post_type == "video" and not self.local_path:
             send_error("localPath is required")
+            return 1
+        if self.post_type == "text" and not (self.text or "").strip():
+            send_error("text is required for a text post")
             return 1
 
         send_status("connecting", f"Connecting to device {self.device_id}...")
@@ -81,6 +124,9 @@ class TikTokPublishBridge:
                 send_log("info", f"ðŸ§¬ Package override: patched {patched} selector(s) for {self.package_name}")
             except Exception as e:
                 send_log("warning", f"âš ï¸ Clone selector patching failed (non-fatal): {e}")
+
+        if self.post_type == "text":
+            return self._run_text_post(device)
 
         send_status("running", "Starting TikTok upload workflow...")
         try:

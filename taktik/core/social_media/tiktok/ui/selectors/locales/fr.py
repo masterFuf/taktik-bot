@@ -659,6 +659,31 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Publier la vidéo publiquement\")]",
     ],
     # --- publish_creation_entry ---
+    # Mesure le 2026-08-30 sur 46.6.3, en publiant un vrai post texte. Tout est lisible sur ce
+    # trajet, ce qui est assez rare sur cette app pour etre dit.
+    "publish_text.mode_text_tab": [
+        '//*[@text="TEXTE"]',
+        '//*[@content-desc="TEXTE"]',
+    ],
+    "publish_text.text_field": [
+        '//*[@text="Saisis quelque chose…"]',
+    ],
+    "publish_text.done_button": [
+        '//*[@text="Terminé"]',
+    ],
+    # Le libelle est sur un TextView ; le cliquable est l'ancetre.
+    "publish_text.post_to_feed": [
+        '//*[@text="Publi. dans le fil"]/ancestor::*[@clickable="true"][1]',
+        '//*[@text="Publi. dans le fil"]',
+    ],
+    "publish_text.post_to_story": [
+        '//*[@text="Ta Story"]/ancestor::*[@clickable="true"][1]',
+        '//*[@text="Ta Story"]',
+    ],
+    # Ce qui prouve que le post est parti : la feuille de partage que TikTok leve juste apres.
+    "publish_text.published_indicator": [
+        '//*[@text="Copier le lien" or @content-desc="Copier le lien"]',
+    ],
     "publish_creation_entry.create_btn": [
         "//android.widget.Button[contains(@content-desc, \"Créer\")]",
     ],

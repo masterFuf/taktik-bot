@@ -677,6 +677,30 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Publish video publicly\")]",
     ],
     # --- publish_creation_entry ---
+    # Voir la note francaise. Libelles anglais A CONFIRMER : ecrits depuis la structure, la mesure
+    # ayant ete faite en francais. Le champ et l'indicateur ont des replis independants de la
+    # langue, mais l'onglet et le bouton n'en ont pas.
+    "publish_text.mode_text_tab": [
+        '//*[@text="TEXT"]',
+        '//*[@content-desc="TEXT"]',
+    ],
+    "publish_text.text_field": [
+        '//*[@text="Say something…" or @text="Write something…"]',
+    ],
+    "publish_text.done_button": [
+        '//*[@text="Done"]',
+    ],
+    "publish_text.post_to_feed": [
+        '//*[@text="Post to feed"]/ancestor::*[@clickable="true"][1]',
+        '//*[@text="Post to feed"]',
+    ],
+    "publish_text.post_to_story": [
+        '//*[@text="Your Story"]/ancestor::*[@clickable="true"][1]',
+        '//*[@text="Your Story"]',
+    ],
+    "publish_text.published_indicator": [
+        '//*[@text="Copy link" or @content-desc="Copy link"]',
+    ],
     "publish_creation_entry.create_btn": [
         "//android.widget.Button[@content-desc=\"Create\"]",
         "//android.widget.FrameLayout[@content-desc=\"Create\"]",
