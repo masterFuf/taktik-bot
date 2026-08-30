@@ -180,13 +180,12 @@ class PopupSelectors:
         return self._suggestion_close_base + L("popup.suggestion_close")
     
     # === Comments Section (opened accidentally during scroll) ===
+    # Vide DELIBEREMENT, et garde comme trace. Cette liste repondait a la meme question que
+    # `COMMENT_SELECTORS.sheet_indicator` — « la feuille de commentaires est-elle ouverte ? » —
+    # et le faisait a l'envers : mesuree sur 59 ecrans captures le 2026-08-30, elle ratait les
+    # NEUF feuilles capturees (les deux versions, pleine et vide) et repondait oui sur deux
+    # ecrans de conversation DM. Son seul appelant demande maintenant au catalogue de la feuille.
     comments_section_indicator: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/qx0")]',
-        '//*[contains(@resource-id, ":id/qx_")]',
-        '//*[contains(@resource-id, ":id/qx1")]',
-        '//*[contains(@resource-id, ":id/jt3")]',
-        '//*[contains(@resource-id, ":id/ja2")][@content-desc="Open stickers, gifs and emojis"]',
-        '//android.widget.EditText[@focused="true"][contains(@hint, "Message")]',
     ])
     
     _comments_close_button_base: List[str] = field(default_factory=lambda: [

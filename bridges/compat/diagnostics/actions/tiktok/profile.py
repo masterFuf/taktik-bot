@@ -36,15 +36,25 @@ def get_enriched(a, p):
 
     read = [key for key in ("username", "display_name", "bio") if data.get(key)]
     counters = [k for k in ("followers_count", "following_count", "likes_count") if data.get(k)]
+    # Reported by NAME, not just counted. `website`, `is_verified` and `is_private` were all
+    # unreadable until 2026-08-30 — the first two were dropped on the way to the database and
+    # the flags were read through two hardcoded English words — and a summary that only says
+    # "3/3 text fields" is exactly what let that sit. A Lab line that names what came back empty
+    # is what makes the next silent loss visible on the first run.
+    flags = [k for k in ("website", "is_verified", "is_private") if data.get(k)]
     logger.info(
         f"tt.profile.get_enriched: @{data.get('username')} — "
-        f"{len(read)}/3 text fields, {len(counters)}/3 counters"
+        f"{len(read)}/3 text fields, {len(counters)}/3 counters, "
+        f"flags: {', '.join(flags) if flags else 'none'}"
     )
     # A profile whose text fields are all empty is a failure even though nothing raised — that is
     # precisely the shape the dead reader had, and reporting it as success is what hid it.
     return {
         "success": bool(read),
-        "message": f"{len(read)}/3 text fields, {len(counters)}/3 counters",
+        "message": (
+            f"{len(read)}/3 text fields, {len(counters)}/3 counters, "
+            f"flags: {', '.join(flags) if flags else 'none'}"
+        ),
         "details": data,
     }
 

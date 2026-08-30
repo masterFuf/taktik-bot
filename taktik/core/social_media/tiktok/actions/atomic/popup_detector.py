@@ -58,8 +58,20 @@ class PopupDetector(BaseAction):
         return self._element_exists(self.popup_selectors.suggestion_page_indicator, timeout=1)
 
     def has_comments_section_open(self) -> bool:
-        """Check if the comments section is open.
-        
-        This can happen accidentally when scrolling and clicking on the comment input area.
+        """Is the comment sheet open? Answered by the SHEET's own catalogue, not a second guess.
+
+        This used to ask `popup_selectors.comments_section_indicator`, a separate list written for
+        the same question. Measured on 59 captured screens 2026-08-30, it was exactly backwards:
+        it missed all NINE captured sheets — both versions, full and empty — and fired on two DM
+        conversation screens. So the feed's "did I open the comments by accident?" check answered
+        no on every real sheet, and yes inside a conversation, where it then tried to close
+        something that was not there.
+
+        One question, one answer: `COMMENT_SELECTORS.sheet_indicator` is the measured one (all 9
+        sheets, none of the 50 other screens), and a second spelling is how the two drift.
         """
-        return self._element_exists(self.popup_selectors.comments_section_indicator, timeout=1)
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import (
+            COMMENT_SELECTORS,
+        )
+
+        return self._element_exists(COMMENT_SELECTORS.sheet_indicator, timeout=1)
