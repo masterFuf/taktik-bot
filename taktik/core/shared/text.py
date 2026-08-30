@@ -11,7 +11,11 @@ FR/EN is what the comment pipeline needs; extend the word sets to add a language
 """
 
 import re
+import unicodedata
 from typing import Optional
+
+#: Everything a UI can add and a dump can mangle.
+_NON_ALNUM = re.compile(r"[^0-9a-z]+")
 
 # French letters with diacritics — an extremely strong French signal (English prose essentially
 # never uses them outside rare loanwords). Weighted heavily below.
@@ -170,3 +174,23 @@ def text_is_truncated_utf16(text: Optional[str]) -> bool:
     it gave up — so its presence alone is the signal.
     """
     return bool(text) and '\ufffd' in text
+
+def fold_for_match(text: Optional[str]) -> str:
+    """Strip a string down to what two readings of it will always agree on.
+
+    Accent-folded, case-folded, and reduced to letters and digits. Everything a UI adds and a dump
+    mangles disappears: spaces, punctuation, curly apostrophes, and emoji -- which the XML dump
+    turns into pairs of dots anyway.
+
+    Written once because it kept being written. It decides whether a post read twice is the same
+    post, whether a caption matches a niche keyword, and whether the name in a conversation header
+    is the person we meant to write to. That last one is what forced it into a shared home: the
+    header reads `Allocin(gl)és` where the handle is `allocingles`, so a guard comparing them
+    literally refuses to send a message to exactly the right person.
+
+    NOT for handles that must stay distinct from one another: this folds `keo.2` and `keo2`
+    together. Use it to recognise, never to key.
+    """
+    folded = unicodedata.normalize("NFKD", (text or "").casefold())
+    folded = "".join(char for char in folded if not unicodedata.combining(char))
+    return _NON_ALNUM.sub("", folded)

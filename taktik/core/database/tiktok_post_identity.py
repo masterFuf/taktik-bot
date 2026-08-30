@@ -31,6 +31,8 @@ import re
 import unicodedata
 from typing import Optional
 
+from taktik.core.shared.text import fold_for_match
+
 _PLATFORM = "tiktok"
 
 #: Everything an XML dump can mangle or a UI can pad: the fingerprint must survive all of it.
@@ -40,14 +42,13 @@ _KEEP = re.compile(r"[^0-9a-z]+")
 
 
 def _fold(text: str) -> str:
-    """Accent-folded, case-folded, and stripped of everything that is not a letter or a digit.
+    """The shared fold, with the leading `@` taken off first.
 
-    One fold for the author and the caption both: anything a dump can mangle or a UI can pad has
-    to disappear before hashing, or the same post read twice keys twice.
+    One fold for the author and the caption both, and the same one the conversation guard and the
+    niche matcher use: anything a dump can mangle or a UI can pad has to disappear before hashing,
+    or the same post read twice keys twice.
     """
-    folded = unicodedata.normalize("NFKD", text.strip().lstrip("@").casefold())
-    folded = "".join(char for char in folded if not unicodedata.combining(char))
-    return _KEEP.sub("", folded)
+    return fold_for_match((text or "").strip().lstrip("@"))
 
 
 def _fingerprint(caption: Optional[str]) -> str:

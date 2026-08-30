@@ -13,18 +13,19 @@ compares raw strings misses most of what it should catch.
 from __future__ import annotations
 
 import re
-import unicodedata
 from typing import Iterable, List, Optional, Sequence
 
-#: Everything a dump can mangle or a UI can pad. Letters and digits survive, and nothing else --
-#: which also means `#fitness`, `fitness` and `Fitness!` all fold to the same thing.
-_KEEP = re.compile(r"[^0-9a-z]+")
+from taktik.core.shared.text import fold_for_match
 
 
 def _fold(text: Optional[str]) -> str:
-    folded = unicodedata.normalize("NFKD", (text or "").casefold())
-    folded = "".join(char for char in folded if not unicodedata.combining(char))
-    return _KEEP.sub(" ", folded).strip()
+    """The shared fold, with the separators kept as single spaces.
+
+    Same rule as everywhere else -- accents, case and punctuation gone -- but words are kept
+    apart here rather than run together, because this text is searched for keywords and not
+    hashed. `#Fitness 🔥 du jour` becomes `fitness du jour`.
+    """
+    return " ".join(fold_for_match(part) for part in re.split(r"\s+", (text or "").strip()) if part).strip()
 
 
 def normalise_keywords(keywords: Optional[Iterable[str]]) -> List[str]:

@@ -13,6 +13,7 @@ import time
 from typing import Any, Dict, List, Optional
 from loguru import logger
 
+from taktik.core.shared.text import fold_for_match
 from ..core.base_action import BaseAction
 from ..core.utils import extract_resource_id, first_matching
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
@@ -977,15 +978,18 @@ class DMActions(BaseAction):
         that drifts one row is enough to write into someone else's thread. That happened during
         this survey: a request list shifted between two runs and a reply went to a stranger.
 
-        Compared on the conversation HEADER, loosely: TikTok shows the display name there, and a
-        caller usually holds the handle. Returns False when the header cannot be read, so an
-        unverifiable conversation is never treated as verified.
+        Compared on the conversation HEADER, through the shared fold: TikTok shows the DISPLAY
+        NAME there and a caller holds the handle, and the two differ by more than case. Measured
+        on device -- the header read `Allocin(gl)és` for @allocingles, so a literal containment
+        test matched neither way and refused to send a message to exactly the right person.
+
+        Returns False when the header cannot be read, so an unverifiable conversation is never
+        treated as verified.
         """
-        wanted = self._clean_username(username).lower()
+        wanted = fold_for_match(self._clean_username(username))
         if not wanted:
             return False
-        header = (self.get_conversation_info().get("name") or "").lower()
-        header = self._clean_username(header)
+        header = fold_for_match(self._clean_username(self.get_conversation_info().get("name") or ""))
         if not header:
             return False
         return wanted in header or header in wanted
