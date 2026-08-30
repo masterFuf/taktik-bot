@@ -19,8 +19,22 @@ def test_the_sheet_announces_itself_before_anything_is_read():
     which is exactly the failure shape this catalogue is meant to end.
     """
     assert COMMENT_SELECTORS.sheet_indicator, "no way to tell the sheet is open"
+
+    # It must rest on the SHEET PANEL, not on a label. This assertion used to say the opposite —
+    # "the indicator must not rest on a build id" — and the label it forced was the composer
+    # affordance, which belongs to the VIDEO screen. Measured on device 2026-08-30: sheet closed,
+    # `is_comment_sheet_open()` answered True, `read_comments` returned the video's AUTHOR as a
+    # commenter, and `open_comments` reported success without opening anything.
+    #
+    # The ids are obfuscated and will die on a version bump. That is the accepted trade, because
+    # the failure direction is safe: when they go, the sheet reads as closed and every comment
+    # action refuses — unlike the composer, which failed by saying yes.
     for selector in COMMENT_SELECTORS.sheet_indicator:
-        assert "content-desc" in selector, "the indicator must not rest on a build id"
+        assert "resource-id" in selector, selector
+    for label in ("Mention", "Stickers"):
+        assert not any(label in s for s in COMMENT_SELECTORS.sheet_indicator), (
+            f"{label!r} is on the video screen too — as an indicator it never says no"
+        )
 
 
 def test_the_comment_body_is_scoped_to_its_own_row():
@@ -51,8 +65,10 @@ def test_both_languages_are_carried_by_one_field():
     """Splitting an anchor per language does not work here: the resolver stops at the first
     selector that finds anything, and TikTok mixes languages on a French phone. Every localized
     field must offer both spellings at once."""
+    # `sheet_indicator` is deliberately absent: it is language-NEUTRAL now (the sheet panel),
+    # which is stronger than carrying both spellings.
     for field, fr_words, en_words in (
-        (COMMENT_SELECTORS.sheet_indicator, ("Mentionne",), ("Mention someone",)),
+        (COMMENT_SELECTORS.post_comment_button, ("Mentionne",), ("Mention someone",)),
         (COMMENT_SELECTORS.reply_button, ("Répondre",), ("Reply",)),
         (COMMENT_SELECTORS.comment_input, ("Ajouter",), ("Add comment",)),
     ):
@@ -64,7 +80,10 @@ def test_both_languages_are_carried_by_one_field():
 def test_the_indicator_carries_both_apostrophe_shapes():
     """TikTok renders U+2019 on some screens and U+0027 on others; a selector naming only one
     matches NOTHING, silently. The repo has a guard for this — it caught this very field."""
-    mention = [s for s in COMMENT_SELECTORS.sheet_indicator if "Mentionne" in s]
+    # Now on `post_comment_button`, which is where the mention affordance still anchors: the
+    # send button carries an unresolved Android resource as its description, so it is addressed
+    # by position AFTER that affordance.
+    mention = [s for s in COMMENT_SELECTORS.post_comment_button if "Mentionne" in s]
     assert mention, "the French mention anchor is gone"
     for selector in mention:
         assert "quelqu'un" in selector and "quelqu’un" in selector, selector

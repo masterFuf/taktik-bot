@@ -55,8 +55,13 @@ class _Sheet:
         ]
 
     def xpath(self, selector):
-        if "Mention" in selector or "Stickers" in selector:
+        # The sheet PANEL is what says the sheet is open — one id per app version. The composer
+        # affordance used to play that role and belongs to the VIDEO screen, so it answered yes
+        # on a closed sheet; a double that still keyed on it would keep testing the bug.
+        if any(f':id/{rid}"' in selector for rid in ("o3y", "ieb", "maf", "h7t")):
             return _Result([_Node()] if self.is_open else [])
+        if "Mention" in selector or "Stickers" in selector:
+            return _Result([_Node()])   # present whether or not the sheet is up
         if ":id/title" in selector and "focusable" not in selector:
             return _Result([_Node(a) for a in self.authors])
         if "focusable" in selector:

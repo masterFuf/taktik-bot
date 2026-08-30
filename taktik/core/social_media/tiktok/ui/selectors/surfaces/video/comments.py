@@ -40,16 +40,38 @@ class CommentSelectors:
 
     # === Is the sheet open at all? ===
     #
-    # The COMPOSER affordance, present on both versions. Measured 1 on all seven captured sheets
-    # -- empty, full, and mid-typing -- and 0 on every other screen.
+    # The SHEET PANEL itself, one id per version. Measured 2026-08-30 across 59 captured screens:
+    # it fires on all 9 sheets -- both versions, full, empty and mid-typing -- and on none of the
+    # 50 others.
     #
-    # The first version of this used a comment's like button, which scored just as cleanly on the
-    # full sheets and answered NO on an open-but-EMPTY one. It proved "there are comments", not
-    # "the sheet is open", so the bot would have refused to comment on exactly the videos where a
-    # first comment is worth something. Everything else here is read only after this answers yes.
+    # Two anchors were tried before it and both were wrong in opposite directions.
+    #
+    # A comment's like button proved "there ARE comments", not "the sheet is open": it answers NO
+    # on an open-but-empty sheet, so the bot would have refused to comment on exactly the videos
+    # where a first comment is worth something.
+    #
+    # The COMPOSER affordance ("Mention someone" / "Stickers") replaced it and was worse, because
+    # it never says no: the composer bar belongs to the VIDEO screen and is there whether or not
+    # the sheet is up. Measured on device the same day -- sheet closed, `is_comment_sheet_open()`
+    # answered True. Everything downstream then reads the video's own nodes as if they were a
+    # comment: `read_comments` returned the video AUTHOR as a commenter, and `open_comments`
+    # reported success without opening anything. An indicator that never says no is a decoration.
+    #
+    # These ids are obfuscated and will die on a version bump. That is accepted here and it is not
+    # silent: when they go, the sheet reads as closed and every comment action refuses, which is
+    # the safe direction -- unlike the composer, which failed by saying yes.
+    _sheet_indicator_base: List[str] = field(default_factory=lambda: [
+        # 46.6.3 — the panel from y=768 to the bottom of the screen.
+        '//*[contains(@resource-id, ":id/o3y")]',
+        '//*[contains(@resource-id, ":id/ieb")]',
+        # 43.1.4 — the same panel, same geometry, other id.
+        '//*[contains(@resource-id, ":id/maf")]',
+        '//*[contains(@resource-id, ":id/h7t")]',
+    ])
+
     @property
     def sheet_indicator(self) -> List[str]:
-        return L("comment.sheet_indicator")
+        return self._sheet_indicator_base + L("comment.sheet_indicator")
 
     # === One comment ===
     #
