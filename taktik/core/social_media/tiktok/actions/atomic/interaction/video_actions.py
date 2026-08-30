@@ -30,8 +30,25 @@ class VideoActions(BaseAction):
     
     def double_tap_like(self) -> bool:
         """Double tap to like video (TikTok specific).
-        
+
         Taps on the video container (gy_ or long_press_layout).
+
+        DOES NOT LIKE ANYTHING. Measured on 46.6.3 on 2026-08-30, on a video confirmed to carry an
+        unliked heart rail, with four different ways of delivering the gesture: uiautomator2's
+        `double_click` at its default gap and at 50 ms, two `input tap` chained in one shell, and
+        two `click` calls back to back. Neither probe moved -- the heart kept its `J'aime`
+        content-desc and the like counter kept its value.
+
+        Which is worth knowing before reaching for this. Double-tapping the video is the canonical
+        human way to like on TikTok, so varying the like gesture between it and the heart rail is
+        the obvious humanisation win -- and it is not available to us. A coin flip that picks this
+        half the time would spend two taps and a screen read, then fall back to the heart, every
+        single time. The gesture is presumably filtered or needs a real touch stream our injection
+        path cannot produce, which is the same wall as the 8-16 Hz injection cadence.
+
+        Kept rather than deleted because the Lab exercises it and because a measured negative is
+        worth more than an absence -- but a caller wanting a like should use
+        `click_like_button()`.
         """
         self.logger.debug("❤️ Double tapping to like")
         try:
