@@ -404,8 +404,19 @@ class InboxSelectors:
 
         Dynamic selector built from the centralized resource-ids: the follow-back button
         of the item whose username contains `name`. Containment, because the node text is
-        entouré de marques bidi invisibles (‎⁨…⁩) — `name` doit être nettoyé de
-        wrapped in invisible marks and the name is cleaned beforehand. This is what stops the
+        wrapped in invisible bidi marks and the name is cleaned beforehand. This is what stops
+        the tap from landing on another follower's button.
+
+        WHEN THERE IS NO BUTTON AT ALL, which is most of the time. Measured on 2026-08-30: a
+        new-follower row shows a single button on its right, and once a CONVERSATION exists with
+        that person it reads `Message` rather than a follow-back. Unfollowing them does not bring
+        the follow-back back -- verified: @allocingles was unfollowed, confirmed unfollowed on
+        their profile, and their row still showed `Message`.
+
+        So `can_follow_back=False` on a row we do not follow is not a detection fault; there is
+        genuinely nothing to tap. What could not be separated from that one account is whether the
+        trigger is the conversation or something else, since every follower on it now has a
+        thread. Stated rather than guessed.
         """
         return [
             '//*[contains(@resource-id, ":id/o0v")]'
