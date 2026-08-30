@@ -67,6 +67,14 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
         return run_target_profiles_workflow(config), workflow_type
 
+    # `post_url` and `post_likers`: TikTok shows nowhere who LIKED a video, so the readable
+    # audience of a post is who COMMENTED on it. Both names route here so a payload written
+    # against Instagram's vocabulary still lands on the workflow that answers the same question.
+    if workflow_type in ("post_url", "post_likers", "post_commenters"):
+        from bridges.tiktok.workflows.automation.post_url import run_post_url_workflow
+
+        return run_post_url_workflow(config), workflow_type
+
     if workflow_type in ("sync_following", "sync_followers", "sync_lists"):
         from bridges.tiktok.workflows.automation.sync_lists import run_sync_lists_workflow
 
