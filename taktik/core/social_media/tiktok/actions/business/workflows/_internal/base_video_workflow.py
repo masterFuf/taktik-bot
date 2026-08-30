@@ -171,6 +171,37 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
                 emit_step("comment", action="sheet", target=video_info.get('author'))
                 self._actions_since_pause += 1
 
+        # Repost. Same shape as the comment branch and the same getattr caution: a payload that
+        # predates the knob must behave exactly as it did, which means never reposting.
+        repost_probability = getattr(cfg, 'repost_probability', 0.0) or 0.0
+        max_reposts = getattr(cfg, 'max_reposts_per_session', 0) or 0
+        reposted = getattr(self.stats, 'videos_reposted', 0)
+        if (repost_probability > 0 and reposted < max_reposts
+                and random.random() < repost_probability):
+            if self._try_repost_video():
+                if hasattr(self.stats, 'videos_reposted'):
+                    self.stats.videos_reposted += 1
+                emit_step("repost", action="share_sheet", target=video_info.get('author'))
+                self._actions_since_pause += 1
+
+    def _try_repost_video(self) -> bool:
+        """Put the video on screen on our own profile. False when it did not land.
+
+        Already reposted counts as done, not as a new action -- the counter must not move for a
+        video that was already there, or a session reports reposts it did not make.
+        """
+        from taktik.core.social_media.tiktok.actions.atomic.repost_actions import RepostActions
+
+        try:
+            actions = RepostActions(self.device)
+            if actions.is_reposted(sheet_already_open=False) is True:
+                self.logger.debug("Repost: cette vidéo est déjà republiée")
+                return False
+            return actions.repost_video()
+        except Exception as exc:
+            self.logger.warning(f"Repost impossible: {exc}")
+            return False
+
     def _comment_target_username(self) -> str:
         """On a video feed the addressee is the AUTHOR of the video on screen.
 

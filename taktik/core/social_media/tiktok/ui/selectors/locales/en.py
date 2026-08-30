@@ -994,6 +994,22 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Copy link\"]",
         "//*[@clickable=\"true\"][.//*[@text=\"Copy link\"]]",
     ],
+    # Voir la note francaise : le repost passe par une confirmation. Libelles anglais mesures
+    # Voir la note francaise. En anglais, mesure le 2026-08-30, le tap ne montre AUCUN ecran de
+    # suite : la feuille se referme et on revient a la video. Un troisieme comportement pour la
+    # meme action, ce qui est la raison pour laquelle l'etat -- et non l'ecran -- fait foi.
+    "video_share.repost_followup_close": [
+        '//*[@text="OK"]',
+        '//*[@content-desc="OK"]',
+        '//*[@content-desc="Close"]',
+    ],
+    # `Delete repost`, mesure sur appareil le 2026-08-30 -- PAS « Remove repost », qui etait une
+    # traduction et non une mesure. Le repost avait bien pris ; c'est la lecture de l'etat qui
+    # echouait, donc `repost_video` rendait False sur une republication reussie.
+    "video_share.repost_done_indicator": [
+        '//*[@content-desc="Delete repost"]',
+        '//*[@clickable="true"][.//*[@text="Delete repost"]]',
+    ],
     "video_share.repost_button": [
         "//*[@content-desc=\"Repost\"]",
         "//*[@clickable=\"true\"][.//*[@text=\"Repost\"]]",

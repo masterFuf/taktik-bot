@@ -21,6 +21,10 @@ class ForYouConfig:
     favorite_probability: float = 0.05
     #: Commenting reached this road on 2026-08-30, through the shared `VideoCommentMixin`. Zero
     #: by default: a feed run that never asked to comment must behave exactly as it did before.
+    #: Republier une video sur notre propre profil. TikTok n'a pas d'equivalent Instagram :
+    #: c'est a la fois un signal fort a l'auteur et de quoi nourrir un profil qui n'a rien publie.
+    repost_probability: float = 0.0
+    max_reposts_per_session: int = 5
     comment_probability: float = 0.0
     max_comments_per_session: int = 10
     #: The run's own comment texts. Empty and never defaulted to a built-in list — a generic

@@ -14,6 +14,7 @@ class VideoWorkflowStats:
     users_followed: int = 0
     videos_favorited: int = 0
     videos_commented: int = 0
+    videos_reposted: int = 0
     videos_skipped: int = 0
     ads_skipped: int = 0
     popups_closed: int = 0
@@ -30,6 +31,7 @@ class VideoWorkflowStats:
             'users_followed': self.users_followed,
             'videos_favorited': self.videos_favorited,
             'videos_commented': self.videos_commented,
+            'videos_reposted': self.videos_reposted,
             'videos_skipped': self.videos_skipped,
             'ads_skipped': self.ads_skipped,
             'popups_closed': self.popups_closed,

@@ -24,6 +24,8 @@ def build_search_config(
         # so a run configured before it existed behaves exactly as it did.
         comment_probability=config.get("commentProbability", 0) / 100.0,
         max_comments_per_session=config.get("maxCommentsPerSession", 10),
+        repost_probability=config.get("repostProbability", 0) / 100.0,
+        max_reposts_per_session=config.get("maxRepostsPerSession", 5),
         comment_texts=config.get("commentTexts") or config.get("comments") or [],
         min_likes=config.get("minLikes"),
         max_likes=config.get("maxLikes"),

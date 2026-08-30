@@ -949,6 +949,25 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Copier le lien\"]",
         "//*[@clickable=\"true\"][.//*[@text=\"Copier le lien\"]]",
     ],
+    # Mesure le 2026-08-30 sur 46.6.3 : republier ouvre une CONFIRMATION (« Elle apparaitra sur
+    # Mesure le 2026-08-30 sur 46.6.3 : republier NE demande PAS de confirmation. La video est
+    # republiee des le tap, et TikTok enchaine sur un ecran optionnel qu'il faut refermer :
+    #   - la premiere fois, un explicatif « Elle apparaitra sur ton profil » + OK ;
+    #   - ensuite, un composeur « Ajoute une note a ta republication » dont le bouton Ajouter est
+    #     `enabled="false"` tant que la note est vide.
+    # Preuve que ce n'est pas une confirmation : fermer le composeur sans rien ecrire laisse la
+    # video republiee (verifie en relisant l'entree de la feuille juste apres).
+    "video_share.repost_followup_close": [
+        '//*[@text="OK"]',
+        '//*[@content-desc="OK"]',
+        '//*[@content-desc="Fermer"]',
+    ],
+    # Ce qui prouve qu'une video EST republiee : l'entree de la feuille change de libelle. C'est
+    # l'ancre qui sait dire non -- « Republier » quand ce n'est pas fait, celle-ci quand ca l'est.
+    "video_share.repost_done_indicator": [
+        '//*[@content-desc="Supprimer la republication"]',
+        '//*[@clickable="true"][.//*[@text="Supprimer la republication"]]',
+    ],
     "video_share.repost_button": [
         "//*[@content-desc=\"Republier\"]",
         "//*[@clickable=\"true\"][.//*[@text=\"Republier\"]]",

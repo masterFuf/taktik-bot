@@ -46,6 +46,33 @@ class VideoShareSelectors:
     def repost_button(self) -> List[str]:
         return L("video_share.repost_button")
 
+    @property
+    def repost_followup_close(self) -> List[str]:
+        """What closes the screen a repost opens BEHIND it.
+
+        The first reading of this surface got it wrong, and the correction is the useful part.
+        Tapping Repost looked like it raised a confirmation -- "Elle apparaitra sur ton profil"
+        with an OK -- so the action was written to treat that OK as the thing that reposts. It is
+        not. That screen is a first-time explainer, and on every later repost a different one
+        appears: a note composer, whose Ajouter button is `enabled="false"` while the note is
+        empty, which made the action fail on its second run.
+
+        Measured, and this is what settles it: closing the note composer without writing anything
+        leaves the video REPOSTED. The repost lands on the tap; what follows is optional and only
+        has to be cleared away.
+        """
+        return L("video_share.repost_followup_close")
+
+    @property
+    def repost_done_indicator(self) -> List[str]:
+        """What a video that IS reposted looks like, from the share sheet.
+
+        The sheet entry changes label once the repost lands: `Republier` becomes `Supprimer la
+        republication`. That is the half that can say NO, which is what makes it usable both as
+        proof the repost took and as the guard against reposting the same video twice.
+        """
+        return L("video_share.repost_done_indicator")
+
 
 VIDEO_SHARE_SELECTORS = VideoShareSelectors()
 

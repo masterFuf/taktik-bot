@@ -18,6 +18,8 @@ def build_for_you_config(for_you_config_class, config: Dict[str, Any]):
         # so a run configured before it existed behaves exactly as it did.
         comment_probability=config.get("commentProbability", 0) / 100.0,
         max_comments_per_session=config.get("maxCommentsPerSession", 10),
+        repost_probability=config.get("repostProbability", 0) / 100.0,
+        max_reposts_per_session=config.get("maxRepostsPerSession", 5),
         comment_texts=config.get("commentTexts") or config.get("comments") or [],
         required_hashtags=config.get("requiredHashtags", []),
         excluded_hashtags=config.get("excludedHashtags", []),
