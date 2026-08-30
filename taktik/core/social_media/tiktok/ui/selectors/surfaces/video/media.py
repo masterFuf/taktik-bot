@@ -19,6 +19,15 @@ class VideoMediaSelectors:
     def sound_button(self) -> List[str]:
         return self._sound_button_base + L("video_media.sound_button")
 
+    #: The publication date, exactly as the screen writes it: `· 06-12`, `· Il y a 7 h`. A
+    #: LABEL, not a date — parsing it into one would invent a precision TikTok does not give.
+    #: Measured on four captured video screens, one match each, on a readable id.
+    #: It is one third of a post's stable identity (`database/tiktok_post_identity.py`), the
+    #: link being useless for that: TikTok mints a new short link on every copy.
+    post_time: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/tv_post_time")]',
+    ])
+
     video_description: List[str] = field(default_factory=lambda: [*resource_ids("desc")])
 
     video_container: List[str] = field(default_factory=lambda: [

@@ -5,6 +5,7 @@ from .creator import VideoCreatorSelectors, VIDEO_CREATOR_SELECTORS
 from .detail import VideoSelectors, VIDEO_SELECTORS
 from .engagement import VideoEngagementSelectors, VIDEO_ENGAGEMENT_SELECTORS
 from .media import VideoMediaSelectors, VIDEO_MEDIA_SELECTORS
+from .share import VIDEO_SHARE_SELECTORS, VideoShareSelectors
 from .state import VideoStateSelectors, VIDEO_STATE_SELECTORS
 
 VideoDetailSelectors = VideoSelectors
@@ -20,6 +21,7 @@ __all__ = [
     "VIDEO_ENGAGEMENT_SELECTORS",
     "VIDEO_MEDIA_SELECTORS",
     "VIDEO_SELECTORS",
+    "VIDEO_SHARE_SELECTORS",
     "VIDEO_STATE_SELECTORS",
     "CommentSelectors",
     "VideoCommentsSelectors",

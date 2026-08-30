@@ -942,6 +942,20 @@ STRINGS: Dict[str, List[str]] = {
     "video_media.sound_button": [
         "//android.widget.Button[contains(@content-desc, \"Son :\")]",
     ],
+    # --- video_share ---
+    # Mesure le 2026-08-30 sur la feuille de partage d'une video (46.6.3). Le noeud tapable porte
+    # la DESCRIPTION ; le libelle visible en dessous est un TextView enfant, non cliquable.
+    "video_share.copy_link_button": [
+        "//*[@content-desc=\"Copier le lien\"]",
+        "//*[@clickable=\"true\"][.//*[@text=\"Copier le lien\"]]",
+    ],
+    "video_share.repost_button": [
+        "//*[@content-desc=\"Republier\"]",
+        "//*[@clickable=\"true\"][.//*[@text=\"Republier\"]]",
+    ],
+    "video_share.sheet_indicator": [
+        "//*[@content-desc=\"Feuille du bas\"]",
+    ],
     # --- video_state ---
     "video_state.ad_label": [
         "//android.widget.TextView[@text=\"Sponsorise\"]",

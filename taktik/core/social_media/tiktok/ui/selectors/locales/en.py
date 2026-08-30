@@ -987,6 +987,20 @@ STRINGS: Dict[str, List[str]] = {
     "video_media.sound_button": [
         "//android.widget.Button[contains(@content-desc, \"Sound:\")]",
     ],
+    # --- video_share ---
+    # ECRIT d'apres la structure francaise mesuree, PAS encore confirme sur un ecran anglais :
+    # aucune feuille de partage n'a ete capturee en anglais. A verifier au prochain aller-retour.
+    "video_share.copy_link_button": [
+        "//*[@content-desc=\"Copy link\"]",
+        "//*[@clickable=\"true\"][.//*[@text=\"Copy link\"]]",
+    ],
+    "video_share.repost_button": [
+        "//*[@content-desc=\"Repost\"]",
+        "//*[@clickable=\"true\"][.//*[@text=\"Repost\"]]",
+    ],
+    "video_share.sheet_indicator": [
+        "//*[@content-desc=\"Bottom sheet\"]",
+    ],
     # --- video_state ---
     "video_state.ad_label": [],
     "video_state.like_button_unliked": [
