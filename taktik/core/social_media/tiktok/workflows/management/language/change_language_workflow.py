@@ -26,6 +26,8 @@ from loguru import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.device.wait import find_element
 
+from ....services.navigation.reset import return_to_tiktok_shell
+
 from ....ui.language import detect_language, reset_detected_language
 from ....ui.selectors.flows.settings import APP_LANGUAGE_NATIVE_NAMES, SETTINGS_SELECTORS
 from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
@@ -90,16 +92,66 @@ class TikTokChangeLanguageWorkflow:
         self.logger.warning(f"❌ {name} jamais apparu en {timeout:.0f}s")
         return False
 
-    def _scroll_to(self, selectors, name: str) -> bool:
-        """Scroll until `selectors` resolves. Returns False rather than scrolling forever."""
-        for attempt in range(MAX_SCROLLS):
-            if self._find(selectors) is not None:
+    def _is_tappable(self, element) -> bool:
+        """Is the element clear of the screen edges, or merely present?
+
+        The settings screens are Jetpack Compose: NOTHING in them reports `clickable="true"`, so
+        the climb-to-the-tappable-ancestor anchor used everywhere else resolves to nothing and the
+        only option is tapping the label's own centre. That makes its position part of whether the
+        tap can land at all.
+
+        Measured 2026-08-30: « Contenu et affichage » sitting at y=2258 on a 2400 px screen — under
+        the system navigation bar — was found by the selector and tapped, and nothing happened.
+        The same row, scrolled up to y=1561, opened on the first tap. A check that only asks
+        "is it there?" reports that miss as a successful click.
+        """
+        try:
+            bounds = element.get().bounds
+            height = self.device.window_size()[1]
+        except Exception:
+            return True  # cannot measure -> do not block the flow on the check itself
+        top, bottom = bounds[1], bounds[3]
+        return height * 0.10 < top and bottom < height * 0.82
+
+    def _scroll_to(self, selectors, name: str, max_scrolls: int = MAX_SCROLLS) -> bool:
+        """Scroll until `selectors` resolves. Returns False rather than scrolling forever.
+
+        A modal is checked for on the way. Measured 2026-08-30: after a pass through the privacy
+        settings TikTok raises « Vérifier à nouveau dans 2 semaines ? », and this scrolled twelve
+        times against it before declaring the Language row missing — a report that says "the row
+        is gone" when the truth is "nothing on this screen is reachable". Scrolling under a modal
+        also lands taps on whatever is behind it: the run ended inside a Downloads sub-screen.
+        """
+        for attempt in range(max_scrolls):
+            element = self._find(selectors)
+            if element is not None and self._is_tappable(element):
                 if attempt:
                     self.logger.debug(f"{name} trouvé après {attempt} défilement(s)")
                 return True
+            if element is not None:
+                self.logger.debug(f"{name} est à l'écran mais hors de portée d'un tap — on continue")
+            if attempt and self._dismiss_blocking_popup():
+                continue  # re-read the screen before spending another scroll on it
             human_scroll_raw(self.device, direction="down")
             time.sleep(0.9)
-        self.logger.warning(f"❌ {name} jamais atteint après {MAX_SCROLLS} défilements")
+        self.logger.warning(f"❌ {name} jamais atteint après {max_scrolls} défilements")
+        return False
+
+    def _dismiss_blocking_popup(self) -> bool:
+        """Close whatever modal TikTok raised, through the shared popup actions.
+
+        Reused rather than respelled: `PopupActions.close_popup` already knows every dismissal
+        this app uses, and a second answer here would miss the next one it learns.
+        """
+        try:
+            from ....actions.atomic.popup_actions import PopupActions
+
+            if PopupActions(self.device).close_popup():
+                self.logger.info("↻ Popup écartée avant de continuer")
+                time.sleep(1.0)
+                return True
+        except Exception as exc:
+            self.logger.debug(f"popup check failed: {exc}")
         return False
 
     # ------------------------------------------------------------------
@@ -145,7 +197,7 @@ class TikTokChangeLanguageWorkflow:
             return self._fail(result, "Could not reach Settings and privacy", "settings_unreachable")
 
         result["step"] = "language_screen"
-        if not self._scroll_to(self.settings.language_row, "la ligne « Langue »"):
+        if not self._reach_language_row():
             return self._fail(result, "Language row never appeared in settings", "language_row_not_found")
         if not self._click(self.settings.language_row, "la ligne « Langue »"):
             return self._fail(result, "Could not open the Language screen", "language_row_click_failed")
@@ -196,6 +248,17 @@ class TikTokChangeLanguageWorkflow:
         """Profile tab -> profile menu -> Settings and privacy."""
         self._notify("open_settings", "running")
 
+        # Before anything: a modal left over from a previous pass swallows the tab tap too.
+        self._dismiss_blocking_popup()
+
+        # And the bottom bar has to exist before a tab can be tapped. A settings sub-screen is a
+        # full-screen page with NO bar, so tapping the profile tab from inside one taps nothing —
+        # and `_wait_for` then reports the profile menu as missing, which reads as "the menu is
+        # gone" rather than "we are not where tabs live". Measured 2026-08-30: started from a
+        # settings sub-screen, this walked twelve scrolls on a Profile-views page and declared the
+        # Language row absent. Same failure, same fix, as the navigation reset earlier today.
+        return_to_tiktok_shell(self.device, logger=self.logger)
+
         # Twice, because a tap on the profile tab can land without navigating — the feed swallows
         # it while a video is mid-transition, and the tap reports success either way. Observed on
         # device: the same call worked on its own and failed straight after a probe left the phone
@@ -219,6 +282,42 @@ class TikTokChangeLanguageWorkflow:
         if not self._scroll_to(self.settings.settings_and_privacy_row, "« Paramètres et confidentialité »"):
             return False
         return self._click(self.settings.settings_and_privacy_row, "« Paramètres et confidentialité »")
+
+    def _reach_language_row(self) -> bool:
+        """Get the « Langue » row on screen, opening its section when it is nested.
+
+        On 46.6.3 the settings list holds eight rows and Language is NOT one of them: it lives
+        behind « Contenu et affichage ». This used to scroll the top-level list twelve times and
+        then report "Language row never appeared in settings" — which reads as "TikTok moved it"
+        when the truth was "we never opened the drawer".
+
+        Tried flat FIRST, and only then through the section, because that ordering costs nothing
+        on a build that does show it at top level and is what keeps this working on 43.1.4
+        without a version test.
+        """
+        # A FULL pass first, not a short one. The English list is flat and long — Language sits
+        # about twenty-five rows down, after the "Content & Display" heading — so a shortened
+        # look gives up before reaching it and then goes hunting for a drawer that this layout
+        # does not have. Measured on both languages 2026-08-30.
+        if self._scroll_to(self.settings.language_row, "la ligne « Langue »"):
+            return True
+
+        # French: same app version, same screen, NESTED. "Contenu et affichage" is a tappable row
+        # that opens a sub-screen, and Language is inside it. TikTok serves two different settings
+        # layouts for the same build depending on the UI language.
+        self.logger.info("↻ « Langue » absente à ce niveau — ouverture de « Contenu et affichage »")
+        self._scroll_to_top()
+        if not self._scroll_to(self.settings.content_and_display_row, "« Contenu et affichage »"):
+            return False
+        if not self._click(self.settings.content_and_display_row, "« Contenu et affichage »"):
+            return False
+        return self._scroll_to(self.settings.language_row, "la ligne « Langue »")
+
+    def _scroll_to_top(self) -> None:
+        """Back to the top of the list, because the first pass left us at the bottom."""
+        for _ in range(MAX_SCROLLS):
+            human_scroll_raw(self.device, direction="up")
+            time.sleep(0.5)
 
     def _fail(self, result: Dict[str, Any], message: str, error_type: str) -> Dict[str, Any]:
         result["error"] = message

@@ -45,7 +45,19 @@ class SettingsSelectors:
     def settings_and_privacy_row(self) -> List[str]:
         return L("settings.settings_and_privacy_row")
 
-    # === "Language", under "Content & display" — needs scrolling to reach ===
+    # === "Content and display", the SECTION that holds Language ===
+    #
+    # This row was missing, and the docstring above already said Language lives under it. The
+    # workflow therefore scrolled the settings list hoping to see "Langue" at top level, and on
+    # 46.6.3 that list holds exactly eight rows — Activité, Compte, Visibilité, Interactions,
+    # Contenu et affichage, Cache et données mobiles, Assistance et informations, Connexion —
+    # and none of them is it. Twelve scrolls, then "Language row never appeared in settings":
+    # a report that reads as "TikTok moved it" when the truth was "we never opened the drawer".
+    @property
+    def content_and_display_row(self) -> List[str]:
+        return L("settings.content_and_display_row")
+
+    # === "Language", under "Content & display" ===
     @property
     def language_row(self) -> List[str]:
         return L("settings.language_row")

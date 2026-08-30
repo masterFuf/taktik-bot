@@ -49,10 +49,12 @@ STRINGS: Dict[str, List[str]] = {
     # ailleurs la courbe (U+2019) et un selecteur qui n'en nomme qu'une ne matche RIEN, en
     # silence — c'est ainsi que le compteur de likes FR rendait « 0 element » avec le libelle a
     # l'ecran. « Stickers » n'en a pas et couvre les deux cas a lui seul.
-    "comment.sheet_indicator": [
-        "//*[@content-desc=\"Stickers\"]",
-        "//*[@content-desc=\"Mentionne quelqu'un\" or @content-desc=\"Mentionne quelqu’un\"]",
-    ],
+    # Vide DELIBEREMENT. Cette entree portait l'affordance du composeur (« Mentionne quelqu'un »
+    # / « Stickers »), qui appartient a l'ecran VIDEO et repond donc oui feuille FERMEE — mesure
+    # sur appareil le 2026-08-30. La gardee en filet ne servirait a rien : n'importe quelle entree
+    # qui matche fait repondre oui a toute la liste, donc un filet ici EST le bug. Le panneau de
+    # la feuille, neutre et mesure sur les deux versions, vit dans la base du catalogue.
+    "comment.sheet_indicator": [],
     "comment.reply_button": [
         "//android.widget.Button[@text=\"Répondre\"]",
     ],
@@ -366,6 +368,12 @@ STRINGS: Dict[str, List[str]] = {
     "popup.dismiss_button": [
         "//android.widget.Button[contains(@text, \"Pas maintenant\")]",
         "//*[contains(@text, \"J’ai compris\") or contains(@text, \"J'ai compris\")]",
+        # Mesure le 2026-08-30 : apres un passage dans les parametres de confidentialite, TikTok
+        # pose « Verifier a nouveau dans 2 semaines ? » avec « Me le rappeler » / « Non, merci ».
+        # Ce modal a bloque `change_language`, qui a defile douze fois contre lui avant de
+        # declarer la ligne « Langue » introuvable — le workflow ne lisait aucune popup.
+        "//*[contains(@text, \"Non, merci\")][@clickable=\"true\"]",
+        "//*[@clickable=\"true\"][.//*[contains(@text, \"Non, merci\")]]",
     ],
     "popup.follow_friends_close": [],
     "popup.follow_friends_popup": [
@@ -729,13 +737,27 @@ STRINGS: Dict[str, List[str]] = {
     "settings.settings_and_privacy_row": [
         "//*[@text=\"Paramètres et confidentialité\"]",
     ],
+    # Mesure le 2026-08-30 sur 46.6.3 : la liste des parametres ne porte PAS de ligne
+    # « Langue » ; elle est derriere ce tiroir.
+    "settings.content_and_display_row": [
+        "//android.widget.TextView[@text=\"Contenu et affichage\"]",
+        "//*[@clickable=\"true\"][.//android.widget.TextView[@text=\"Contenu et affichage\"]]",
+    ],
+    # Mesure le 2026-08-30 sur 46.6.3 : l'ecran des reglages est en Jetpack Compose et cette
+    # ligne n'expose PAS son libelle en `text` — elle le porte en `content-desc`. Un selecteur
+    # sur `@text` ne pouvait donc pas la voir, quel que soit le nombre de defilements.
     "settings.language_row": [
+        "//*[@content-desc=\"Langue\"]",
         "//android.widget.TextView[@text=\"Langue\"]",
     ],
     # PAS le meme que `language_row` : l'ecran Langue porte aussi une section Traductions dont les
     # lignes affichent des noms de langue (« Traduire en : Francais »). Taper la mauvaise change ce
     # qui est traduit, pas ce que l'app parle.
+    # Meme ecran, meme regle : le libelle est un `content-desc`, et il porte son sous-titre
+    # apres une virgule (« Langue de l'application, Selectionne ta langue d'application »), donc
+    # l'egalite ne tient pas et `starts-with` est ce qui l'attrape.
     "settings.app_language_row": [
+        "//*[starts-with(@content-desc, \"Langue de l'application\") or starts-with(@content-desc, \"Langue de l’application\")]",
         "//android.widget.TextView[@text=\"Langue de l'application\" or @text=\"Langue de l’application\"]",
     ],
     "settings.picker_indicator": [

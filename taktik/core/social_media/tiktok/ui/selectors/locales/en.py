@@ -37,10 +37,12 @@ STRINGS: Dict[str, List[str]] = {
     # a resource name.
     # See the French entry: the composer affordance, not a comment's like button, because the
     # latter answers NO on an open-but-empty sheet.
-    "comment.sheet_indicator": [
-        "//*[@content-desc=\"Mention someone\"]",
-        "//*[@content-desc=\"Stickers\"]",
-    ],
+    # Vide DELIBEREMENT. Cette entree portait l'affordance du composeur (« Mentionne quelqu'un »
+    # / « Stickers »), qui appartient a l'ecran VIDEO et repond donc oui feuille FERMEE — mesure
+    # sur appareil le 2026-08-30. La gardee en filet ne servirait a rien : n'importe quelle entree
+    # qui matche fait repondre oui a toute la liste, donc un filet ici EST le bug. Le panneau de
+    # la feuille, neutre et mesure sur les deux versions, vit dans la base du catalogue.
+    "comment.sheet_indicator": [],
     "comment.reply_button": [
         "//android.widget.Button[@text=\"Reply\"]",
     ],
@@ -366,6 +368,11 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[@text=\"Not now\"]",
         "//android.widget.Button[contains(@text, \"Not now\")]",
         "//android.widget.Button[contains(@text, \"Skip\")]",
+        # Le pendant anglais du rappel de confidentialite mesure en francais le 2026-08-30
+        # (« Non, merci »). Ecrit ici pour que la meme popup ne rebloque pas un telephone anglais ;
+        # a confirmer sur appareil quand l'app y sera repassee.
+        "//*[contains(@text, \"No thanks\")][@clickable=\"true\"]",
+        "//*[@clickable=\"true\"][.//*[contains(@text, \"No thanks\")]]",
     ],
     "popup.follow_friends_close": [
         "//android.widget.ImageView[@content-desc=\"Close\"][@clickable=\"true\"]",
@@ -770,10 +777,22 @@ STRINGS: Dict[str, List[str]] = {
     "settings.settings_and_privacy_row": [
         "//*[@text=\"Settings and privacy\"]",
     ],
+    # Ecrit d'apres le libelle francais mesure, et CONFIRME sur appareil au moment du
+    # basculement vers l'anglais (aller-retour du 2026-08-30).
+    "settings.content_and_display_row": [
+        "//android.widget.TextView[@text=\"Content and display\"]",
+        "//android.widget.TextView[@text=\"Content & display\"]",
+        "//*[@clickable=\"true\"][.//android.widget.TextView[@text=\"Content and display\"]]",
+        "//*[@clickable=\"true\"][.//android.widget.TextView[@text=\"Content & display\"]]",
+    ],
+    # Meme regle structurelle qu'en francais (Compose expose la ligne en `content-desc`).
+    # A confirmer sur appareil lors de l'aller-retour vers l'anglais.
     "settings.language_row": [
+        "//*[@content-desc=\"Language\"]",
         "//android.widget.TextView[@text=\"Language\"]",
     ],
     "settings.app_language_row": [
+        "//*[starts-with(@content-desc, \"App language\")]",
         "//android.widget.TextView[@text=\"App language\"]",
     ],
     "settings.picker_indicator": [
