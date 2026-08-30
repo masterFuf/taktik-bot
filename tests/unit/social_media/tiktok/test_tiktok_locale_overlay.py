@@ -38,12 +38,42 @@ def test_available_locales():
 
 
 def test_profile_follow_button_localized():
+    """The OVERLAY carries one language at a time; the neutral base carries both at once.
+
+    The assertion here used to be "no 'Suivre' anywhere once the locale is English", which held
+    while every anchor was a single-language one. It stopped being the contract when the base
+    gained the measured anchor, whose two spellings live in ONE expression — and the language
+    engine treats such a selector as neutral ON PURPOSE: "keeping it costs a useless lookup,
+    dropping it breaks the screen". Verified: optimising for either language removes nothing
+    from this field.
+
+    What the locale overlay must still do is carry the right words per language, which is what
+    the two halves below check.
+    """
+    from taktik.core.social_media.tiktok.ui.selectors.locales import L
+
     set_active_locale("fr")
     assert any("Suivre" in s for s in PROFILE_SELECTORS.follow_button)
+    assert not any("Follow" in s for s in L("profile.follow_button"))
+
     set_active_locale("en")
-    follow = _joined(PROFILE_SELECTORS.follow_button)
-    assert "Follow" in follow
-    assert "Suivre" not in follow
+    assert any("Follow" in s for s in PROFILE_SELECTORS.follow_button)
+    assert not any("Suivre" in s for s in L("profile.follow_button"))
+
+
+def test_the_follow_control_is_not_a_button():
+    """It resolved NOTHING on any captured profile, on either version, because the catalogue
+    asked for `android.widget.Button` and the control is a TextView carrying `:id/eme` (43.1.4)
+    or `:id/fij` (46.6.3)."""
+    base = PROFILE_SELECTORS._follow_button_base[0]
+    assert ":id/eme" in base and ":id/fij" in base
+    assert "android.widget.Button" not in base
+
+
+def test_the_already_following_control_is_matched_despite_its_trailing_space():
+    """Measured: it reads `"Suivis "`. An equality on the bare word matches nothing, silently."""
+    base = PROFILE_SELECTORS._following_button_base[0]
+    assert "normalize-space(@text)" in base
 
 
 def test_inbox_accept_request_localized():

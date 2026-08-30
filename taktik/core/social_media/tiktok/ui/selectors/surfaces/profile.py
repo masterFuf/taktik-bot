@@ -187,13 +187,36 @@ class ProfileSelectors:
         return self._video_view_count_base + L("profile.video_view_count_anchors")
 
     # === Profile action buttons, on someone else's profile ===
+    #
+    # Both of these resolved NOTHING on any captured profile, on either version: they asked for
+    # `android.widget.Button`, and the control is a TextView carrying `:id/eme` (43.1.4) or
+    # `:id/fij` (46.6.3). No production path used them -- the follow that runs goes through
+    # `followers.profile_follow_button` -- but a dead catalogue entry is an invitation to use it
+    # and get silence, which is how the next reader loses an afternoon.
+    #
+    # `normalize-space` is not decoration: the already-following control reads `"Suivis "`, with
+    # a trailing space, so an equality on the bare word matches nothing. Measured on nine
+    # captured profiles: follow fires on the four that offer it and on none of our own profiles
+    # or the ones we already follow; following fires only on the account we do follow.
+    _follow_button_base: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/eme") or contains(@resource-id, ":id/fij")]'
+        '[normalize-space(@text)="Suivre" or normalize-space(@text)="Follow"]',
+    ])
+
     @property
     def follow_button(self) -> List[str]:
-        return L("profile.follow_button")
+        return self._follow_button_base + L("profile.follow_button")
+
+    _following_button_base: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/eme") or contains(@resource-id, ":id/fij")]'
+        '[normalize-space(@text)="Suivis" or normalize-space(@text)="Following"'
+        ' or normalize-space(@text)="Abonné" or normalize-space(@text)="Ami(e)s"'
+        ' or normalize-space(@text)="Friends"]',
+    ])
 
     @property
     def following_button(self) -> List[str]:
-        return L("profile.following_button")
+        return self._following_button_base + L("profile.following_button")
 
     _message_button_base: List[str] = field(default_factory=lambda: [
         '//android.widget.Button[@content-desc="Message"]',
