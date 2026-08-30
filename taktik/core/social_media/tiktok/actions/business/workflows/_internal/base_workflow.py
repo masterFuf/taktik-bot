@@ -20,10 +20,10 @@ from taktik.core.shared.behavior.session_state import (
     reading_scale_of,
 )
 
-from ....atomic.click_actions import ClickActions
-from ....atomic.navigation_actions import NavigationActions
-from ....atomic.scroll_actions import ScrollActions
-from ....atomic.detection_actions import DetectionActions
+from ....atomic.interaction.click_actions import ClickActions
+from ....atomic.navigation.navigation_actions import NavigationActions
+from ....atomic.scroll.scroll_actions import ScrollActions
+from ....atomic.detection.detection_actions import DetectionActions
 from .popup_handler import PopupHandler
 
 

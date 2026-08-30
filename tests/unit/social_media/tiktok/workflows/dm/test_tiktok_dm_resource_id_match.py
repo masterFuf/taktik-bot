@@ -11,7 +11,7 @@ regress again.
 import re
 import types
 
-from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
+from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
 

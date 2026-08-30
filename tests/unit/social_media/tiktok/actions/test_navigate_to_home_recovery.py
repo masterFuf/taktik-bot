@@ -7,7 +7,7 @@ attempt kept failing and the workflow died with 0 videos. A bounded incremental 
 same fallback already used on the Instagram side.
 """
 
-from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
+from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 
 
 class _Shell:

@@ -9,8 +9,8 @@ from typing import Any, Callable, Optional
 from loguru import logger
 
 from taktik.core.social_media.tiktok import TikTokManager
-from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
-from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
+from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
+from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 

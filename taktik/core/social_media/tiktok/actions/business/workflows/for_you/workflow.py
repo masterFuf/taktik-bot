@@ -200,7 +200,7 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
             # and there is nothing to tap for either of them.
             return False
 
-        from taktik.core.social_media.tiktok.actions.atomic.feed_training_actions import (
+        from taktik.core.social_media.tiktok.actions.atomic.interaction.feed_training_actions import (
             FeedTrainingActions,
         )
 

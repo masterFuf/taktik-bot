@@ -10,7 +10,7 @@ question répondait donc « non » pour tout le monde, et le bot re-suivait des 
 en dépensant un follow de son budget de session.
 """
 
-from taktik.core.social_media.tiktok.actions.atomic.video_detector import VideoDetector
+from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import VideoDetector
 
 
 class _Screen:

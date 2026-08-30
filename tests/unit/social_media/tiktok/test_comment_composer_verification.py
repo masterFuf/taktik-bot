@@ -85,7 +85,7 @@ class _Composer:
 
 
 def _actions(shown):
-    from taktik.core.social_media.tiktok.actions.atomic.comment_actions import CommentActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.comment_actions import CommentActions
 
     actions = CommentActions.__new__(CommentActions)
     actions.device = _Composer(shown)

@@ -12,7 +12,7 @@ from loguru import logger
 import time
 
 from .._internal import BaseTikTokWorkflow
-from ....atomic.dm_actions import DMActions
+from ....atomic.messaging.dm_actions import DMActions
 from .models import DMConfig, DMStats, ConversationData
 
 

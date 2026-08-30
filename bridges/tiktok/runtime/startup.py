@@ -48,7 +48,7 @@ def tiktok_startup(device_id: str, fetch_profile: bool = True):
         logger.warning(f"Permission dialog check failed (non-fatal): {e}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
+        from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 
         nav_actions = NavigationActions(manager.device_manager.device)
         nav_actions._press_back()

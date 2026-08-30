@@ -23,14 +23,14 @@ than trusting the tap.
 import time
 from typing import Any, Dict, Optional
 
-from ..core.base_action import BaseAction
-from ..core.utils import first_matching, first_text
-from ...ui.selectors.surfaces.video import (
+from ...core.base_action import BaseAction
+from ...core.utils import first_matching, first_text
+from ....ui.selectors.surfaces.video import (
     VIDEO_ENGAGEMENT_SELECTORS,
     VIDEO_MEDIA_SELECTORS,
     VIDEO_SHARE_SELECTORS,
 )
-from ...ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
+from ....ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
 
 #: What a copied TikTok link looks like, whichever shape the app hands out.
 _LINK_MARKERS = ("tiktok.com", "vm.tiktok", "vt.tiktok")
@@ -99,7 +99,7 @@ class PostLinkActions(BaseAction):
         on a video screen. That is fine for an identity, which only has to be stable, and it is
         why the key folds it rather than treating it as a username.
         """
-        from .video_detector import VideoDetector
+        from ...detection.video_detector import VideoDetector
 
         return {
             # Through the detector that already answers this, not a second reading of the same

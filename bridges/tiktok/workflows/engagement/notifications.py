@@ -88,8 +88,8 @@ def _read_activity(device, config: Dict[str, Any], stats) -> None:
         return
     import collections
 
-    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
-    from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
+    from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 
     send_status("running", "Reading the activity page")
     # Back to the inbox first. The step before this one ends on the new-followers page or on a
@@ -125,7 +125,7 @@ def _say_hello(device, config: Dict[str, Any], stats) -> None:
     budget = int(config.get("maxHellos", 0))
     if budget <= 0:
         return
-    from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
+    from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 
     send_status("running", "Saying hello")
     dm = DMActions(device)
@@ -143,8 +143,8 @@ def _follow_suggested(device, config: Dict[str, Any], stats) -> None:
     budget = int(config.get("maxSuggestedFollows", 0))
     if budget <= 0:
         return
-    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
-    from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
+    from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 
     send_status("running", "Following suggested accounts")
     DMActions(device).navigate_to_inbox()

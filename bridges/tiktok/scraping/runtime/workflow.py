@@ -21,7 +21,7 @@ from bridges.tiktok.scraping.runtime.persistence import (
 
 def run_scraping_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok scraping workflow."""
-    from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
+    from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
     from taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow import ScrapingWorkflow
 
     device_id = config.get("deviceId")

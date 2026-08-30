@@ -3,7 +3,7 @@
 
 This module aggregates VideoDetector and PopupDetector and adds
 page-detection, error/state detection, and app-state helpers.
-Existing code can continue to ``from ...atomic.detection_actions import DetectionActions``
+Existing code can continue to ``from ....atomic.detection_actions import DetectionActions``
 and get every method via a single class.
 """
 
@@ -11,8 +11,8 @@ from loguru import logger
 
 from .video_detector import VideoDetector
 from .popup_detector import PopupDetector
-from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ...ui.selectors.surfaces.inbox import INBOX_SELECTORS
+from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
 
 class DetectionActions(VideoDetector, PopupDetector):

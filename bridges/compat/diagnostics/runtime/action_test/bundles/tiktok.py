@@ -13,16 +13,16 @@ def create_tiktok_device_facade(raw_device):
 
 def build_tiktok_action_bundle(device_facade):
     """Instantiate TikTok atomic action classes for compat diagnostics."""
-    from taktik.core.social_media.tiktok.actions.atomic.click_actions import ClickActions
-    from taktik.core.social_media.tiktok.actions.atomic.detection_actions import DetectionActions
-    from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
-    from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
-    from taktik.core.social_media.tiktok.actions.atomic.popup_actions import PopupActions
-    from taktik.core.social_media.tiktok.actions.atomic.popup_detector import PopupDetector
-    from taktik.core.social_media.tiktok.actions.atomic.scroll_actions import ScrollActions
-    from taktik.core.social_media.tiktok.actions.atomic.search_actions import SearchActions
-    from taktik.core.social_media.tiktok.actions.atomic.video_actions import VideoActions
-    from taktik.core.social_media.tiktok.actions.atomic.video_detector import VideoDetector
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.click_actions import ClickActions
+    from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
+    from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
+    from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions import PopupActions
+    from taktik.core.social_media.tiktok.actions.atomic.detection.popup_detector import PopupDetector
+    from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import ScrollActions
+    from taktik.core.social_media.tiktok.actions.atomic.navigation.search_actions import SearchActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.video_actions import VideoActions
+    from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import VideoDetector
 
     logger.info("Building TikTok action bundle...")
     bundle = ActionBundle()

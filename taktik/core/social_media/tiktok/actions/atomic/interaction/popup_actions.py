@@ -7,9 +7,9 @@ Extracted from click_actions.py — contains only popup-related actions
 
 from loguru import logger
 
-from ..core.base_action import BaseAction
-from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ...ui.selectors.shell.popups import POPUP_SELECTORS
+from ...core.base_action import BaseAction
+from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ....ui.selectors.shell.popups import POPUP_SELECTORS
 
 
 class PopupActions(BaseAction):

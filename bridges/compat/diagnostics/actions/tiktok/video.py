@@ -43,7 +43,7 @@ def collect_post(a, p):
     author could not be read, and such a post must NOT be stored: TikTok mints a new short link on
     every copy, so a row keyed on the URL would be created afresh on every visit.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.post_link_actions import PostLinkActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.post_link_actions import PostLinkActions
 
     collected = PostLinkActions(a.device).collect_post()
     if not collected:
@@ -66,7 +66,7 @@ def repost_video(a, p):
     Reports "already reposted" apart from "reposted now": the two look the same to a caller that
     only reads success, and only one of them is an action the account just took.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.repost_actions import RepostActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.repost_actions import RepostActions
 
     actions = RepostActions(a.device)
     before = actions.is_reposted()
@@ -87,7 +87,7 @@ def repost_video(a, p):
 @action("tt.video.undo_repost")
 def undo_repost(a, p):
     """Remove the repost of the video on screen. ACTS: it unpublishes."""
-    from taktik.core.social_media.tiktok.actions.atomic.repost_actions import RepostActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.repost_actions import RepostActions
 
     done = RepostActions(a.device).undo_repost()
     logger.info(f"tt.video.undo_repost: {done}")
@@ -101,7 +101,7 @@ def is_reposted(a, p):
     None is reported as a failure rather than as False on purpose -- "we could not look" and
     "it is not reposted" lead to opposite actions.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.repost_actions import RepostActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.repost_actions import RepostActions
 
     state = RepostActions(a.device).is_reposted()
     return {
@@ -114,7 +114,7 @@ def is_reposted(a, p):
 @action("tt.sound.read")
 def read_sound(a, p):
     """READS ONLY: the sound label of the video on screen, as the screen writes it."""
-    from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+    from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
 
     label = SoundActions(a.device).read_current_sound()
     return {"success": bool(label), "message": label or "no sound row on this screen"}
@@ -127,7 +127,7 @@ def open_sound_page(a, p):
     The count is the point, not decoration: most sounds are somebody's own original audio with a
     handful of posts, and telling those from a trend is what makes harvesting worth its time.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+    from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
 
     actions = SoundActions(a.device)
     if not actions.open_sound_page():
@@ -150,7 +150,7 @@ def collect_sound_users(a, p):
     Params: max (default 5). Each one costs a profile round trip -- a sound-page cell says
     "Vidéo" and names nobody, so the handle is only reachable by opening it.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+    from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
 
     limit = int((p or {}).get("max") or 5)
     people = SoundActions(a.device).collect_sound_users(max_users=limit)
@@ -169,7 +169,7 @@ def not_interested(a, p):
     Reports the video BEFORE and AFTER, because the author changing is the only readable proof
     the signal left -- the tap succeeds whether or not it did.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.feed_training_actions import (
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.feed_training_actions import (
         FeedTrainingActions,
     )
 
@@ -192,8 +192,8 @@ def feed_training_decision(a, p):
     Params: keywords (comma-separated). Runs the real decision function against what the screen
     actually says, so a niche can be tuned without spending a session finding out.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
-    from taktik.core.social_media.tiktok.actions.atomic.video_detector import VideoDetector
+    from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
+    from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import VideoDetector
     from taktik.core.social_media.tiktok.services.feed.training import (
         normalise_keywords,
         training_decision,

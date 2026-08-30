@@ -15,11 +15,11 @@ opening it.
 import time
 from typing import Any, Dict, List, Optional
 
-from ..core.base_action import BaseAction
-from ..core.utils import first_matching
-from ...ui.selectors.surfaces.activity import ACTIVITY_SELECTORS
-from ...ui.selectors.surfaces.inbox import INBOX_SELECTORS
-from ...services.notifications.activity import ActivityRow, parse_activity_row
+from ...core.base_action import BaseAction
+from ...core.utils import first_matching
+from ....ui.selectors.surfaces.activity import ACTIVITY_SELECTORS
+from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
+from ....services.notifications.activity import ActivityRow, parse_activity_row
 
 
 class ActivityActions(BaseAction):

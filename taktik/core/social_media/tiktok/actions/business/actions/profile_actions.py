@@ -189,7 +189,7 @@ class ProfileActions(BaseAction):
         # TikTok gives no URL for it and the crop only exists where the pixels are.
         profile_pic_base64 = None
         try:
-            from taktik.core.social_media.tiktok.actions.atomic.avatar_actions import AvatarActions
+            from taktik.core.social_media.tiktok.actions.atomic.detection.avatar_actions import AvatarActions
 
             profile_pic_base64 = AvatarActions(self.device).capture_own_avatar()
         except Exception as e:

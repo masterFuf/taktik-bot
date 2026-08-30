@@ -20,9 +20,9 @@ Two things the screen forced, both measured on 46.6.3 on 2026-08-30:
 import time
 from typing import Optional
 
-from ..core.base_action import BaseAction
-from ..core.utils import first_matching
-from ...ui.selectors.surfaces.video import (
+from ...core.base_action import BaseAction
+from ...core.utils import first_matching
+from ....ui.selectors.surfaces.video import (
     VIDEO_ENGAGEMENT_SELECTORS,
     VIDEO_SHARE_SELECTORS,
 )

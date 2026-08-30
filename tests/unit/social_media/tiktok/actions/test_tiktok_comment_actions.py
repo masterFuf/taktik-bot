@@ -7,7 +7,7 @@ measurements forced.
 
 import re
 
-from taktik.core.social_media.tiktok.actions.atomic.comment_actions import CommentActions
+from taktik.core.social_media.tiktok.actions.atomic.interaction.comment_actions import CommentActions
 
 
 class _SilentLogger:

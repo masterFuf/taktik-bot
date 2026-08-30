@@ -40,7 +40,7 @@ def scan_new_followers(
     Returns what happened, in enough detail to tell the three different kinds of nothing apart:
     the page would not open, the page was empty, or the page was full and the budget ran out.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
+    from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 
     dm = DMActions(device)
     result: Dict[str, Any] = {

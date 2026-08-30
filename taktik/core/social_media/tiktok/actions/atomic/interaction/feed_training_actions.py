@@ -19,13 +19,13 @@ reports success whether or not the sheet was even open.
 import time
 from typing import Optional
 
-from ..core.base_action import BaseAction
-from ..core.utils import first_matching, first_text
-from ...ui.selectors.surfaces.video import (
+from ...core.base_action import BaseAction
+from ...core.utils import first_matching, first_text
+from ....ui.selectors.surfaces.video import (
     VIDEO_ENGAGEMENT_SELECTORS,
     VIDEO_SHARE_SELECTORS,
 )
-from ...ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
+from ....ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
 
 
 class FeedTrainingActions(BaseAction):

@@ -23,12 +23,12 @@ from taktik.core.shared.input.taktik_keyboard import (
     type_with_taktik_keyboard,
 )
 
-from ..core.base_action import BaseAction
-from ..core.utils import first_matching
+from ...core.base_action import BaseAction
+from ...core.utils import first_matching
 
-from ...services.profile.username import read_open_profile_handle
-from ...ui.selectors.surfaces.video import VIDEO_SELECTORS
-from ...ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
+from ....services.profile.username import read_open_profile_handle
+from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
+from ....ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
 
 
 class CommentActions(BaseAction):

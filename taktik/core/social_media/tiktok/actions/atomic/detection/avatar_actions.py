@@ -20,8 +20,8 @@ import base64
 import io
 from typing import Any, Optional
 
-from ..core.base_action import BaseAction
-from ...ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from ...core.base_action import BaseAction
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 #: The badge is a quarter of the avatar's size; anything under this is not a profile picture.
 _MIN_AVATAR_PX = 100

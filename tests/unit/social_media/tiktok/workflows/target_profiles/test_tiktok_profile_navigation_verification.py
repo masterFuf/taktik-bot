@@ -11,7 +11,7 @@ tab that is not the same statement, and it fails in two silent ways measured on 
 Both would have been interacted with and recorded under the name we were asked for.
 """
 
-from taktik.core.social_media.tiktok.actions.atomic.search_actions import SearchActions
+from taktik.core.social_media.tiktok.actions.atomic.navigation.search_actions import SearchActions
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 

@@ -14,13 +14,13 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from taktik.core.shared.text import fold_for_match
-from ...services.notifications.activity import clean_row_text
-from ..core.base_action import BaseAction
-from ..core.utils import extract_resource_id, first_matching
+from ....services.notifications.activity import clean_row_text
+from ...core.base_action import BaseAction
+from ...core.utils import extract_resource_id, first_matching
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
-from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ...ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
-from ...ui.selectors.surfaces.inbox import INBOX_SELECTORS
+from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ....ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
+from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
 
 class _XPathCollection:

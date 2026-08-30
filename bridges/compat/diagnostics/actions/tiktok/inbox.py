@@ -104,7 +104,7 @@ def open_activity(a, p):
     Separate from reading it so the two failures stay apart: "the page would not open" and "the
     page is empty" need opposite responses, and one action reporting both as zero hides that.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
 
     opened = ActivityActions(a.device).open_activity()
     return {"success": opened, "message": "activity page open" if opened else "could not open it"}
@@ -120,7 +120,7 @@ def read_activity(a, p):
     """
     import collections
 
-    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
 
     limit = int((p or {}).get("max") or 20)
     rows = ActivityActions(a.device).read_activity(max_rows=limit)
@@ -155,7 +155,7 @@ def read_suggested(a, p):
 
     Summary, not the expanded list -- the block does not exist behind "Tout voir", measured.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
 
     rows = ActivityActions(a.device).read_suggested_accounts()
     return {
@@ -172,7 +172,7 @@ def follow_suggested(a, p):
     Params: name (required) -- the DISPLAY NAME as the row shows it. Judged by the button
     disappearing from that row, never by the tap.
     """
-    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
 
     name = str((p or {}).get("name") or "").strip()
     if not name:

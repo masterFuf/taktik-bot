@@ -190,7 +190,7 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         Already reposted counts as done, not as a new action -- the counter must not move for a
         video that was already there, or a session reports reposts it did not make.
         """
-        from taktik.core.social_media.tiktok.actions.atomic.repost_actions import RepostActions
+        from taktik.core.social_media.tiktok.actions.atomic.interaction.repost_actions import RepostActions
 
         try:
             actions = RepostActions(self.device)

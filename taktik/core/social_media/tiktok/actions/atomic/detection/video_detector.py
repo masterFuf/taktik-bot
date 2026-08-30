@@ -11,8 +11,8 @@ from loguru import logger
 
 from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
 
-from ..core.base_action import BaseAction
-from ...ui.selectors.surfaces.video import VIDEO_SELECTORS
+from ...core.base_action import BaseAction
+from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
 def _parse_description(raw: str) -> Dict[str, Any]:

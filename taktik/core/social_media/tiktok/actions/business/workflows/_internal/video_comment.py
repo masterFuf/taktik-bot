@@ -75,7 +75,7 @@ class VideoCommentMixin:
         if existing is not None:
             return existing
         try:
-            from taktik.core.social_media.tiktok.actions.atomic.comment_actions import CommentActions
+            from taktik.core.social_media.tiktok.actions.atomic.interaction.comment_actions import CommentActions
 
             self._comment_actions_instance = CommentActions(self.device)
             return self._comment_actions_instance

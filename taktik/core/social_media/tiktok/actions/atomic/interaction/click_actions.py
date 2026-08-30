@@ -2,7 +2,7 @@
 
 
 This module aggregates VideoActions, PopupActions and adds profile + navigation
-click helpers.  Existing code can continue to ``from ...atomic.click_actions import ClickActions``
+click helpers.  Existing code can continue to ``from ....atomic.click_actions import ClickActions``
 and get every method via a single class.
 """
 
@@ -10,8 +10,8 @@ from loguru import logger
 
 from .video_actions import VideoActions
 from .popup_actions import PopupActions
-from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ...ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class ClickActions(VideoActions, PopupActions):

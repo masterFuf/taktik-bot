@@ -3,7 +3,7 @@
 
 This module aggregates SearchActions and adds bottom-nav, header-tab,
 and go_back helpers.  Existing code can continue to
-``from ...atomic.navigation_actions import NavigationActions``
+``from ....atomic.navigation_actions import NavigationActions``
 and get every method via a single class.
 """
 
@@ -11,7 +11,7 @@ from loguru import logger
 
 from .search_actions import SearchActions
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
-from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
 class NavigationActions(SearchActions):

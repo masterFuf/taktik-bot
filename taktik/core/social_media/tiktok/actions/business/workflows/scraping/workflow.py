@@ -8,9 +8,9 @@ from typing import Optional, Dict, Any, List, Callable, Set
 from loguru import logger
 import time
 
-from ....atomic.navigation_actions import NavigationActions
-from ....atomic.search_actions import SearchActions
-from ....atomic.scroll_actions import ScrollActions
+from ....atomic.navigation.navigation_actions import NavigationActions
+from ....atomic.navigation.search_actions import SearchActions
+from ....atomic.scroll.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
 from ....core.utils import extract_resource_id as _extract_rid, first_matching
 from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
@@ -18,7 +18,7 @@ from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from .....ui.selectors.surfaces.search import SEARCH_SELECTORS
 from .....services.profile.username import read_open_profile_handle
 from .....services.navigation.deeplink import open_post_by_url
-from ....atomic.comment_actions import CommentActions
+from ....atomic.interaction.comment_actions import CommentActions
 from .....ui.selectors.surfaces.video import VIDEO_SELECTORS
 from .models import ScrapingConfig, ScrapingStats, empty_profile
 from .._internal.profile_extractor import extract_profile_from_screen
@@ -362,7 +362,7 @@ class ScrapingWorkflow:
         author, date and caption recognises a post already collected and refreshes its link
         instead of adding a row.
         """
-        from taktik.core.social_media.tiktok.actions.atomic.post_link_actions import PostLinkActions
+        from taktik.core.social_media.tiktok.actions.atomic.interaction.post_link_actions import PostLinkActions
 
         logger.info(f"Collecting posts of @{username}")
         self._emit_status("navigating", f"Opening @{username}")
@@ -458,7 +458,7 @@ class ScrapingWorkflow:
         original audio: our test account's had 3 posts, `Umbrella - Rihanna` had 3.3 million.
         Opening the first kind costs twenty seconds and returns the author we already had.
         """
-        from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+        from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
 
         profiles: List[Dict[str, Any]] = []
         scraped_usernames: Set[str] = set()

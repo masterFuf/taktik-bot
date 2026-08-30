@@ -17,7 +17,7 @@ c'est **l'état** qui fait foi, jamais l'écran ni le tap.
 
 import pytest
 
-from taktik.core.social_media.tiktok.actions.atomic.repost_actions import RepostActions
+from taktik.core.social_media.tiktok.actions.atomic.interaction.repost_actions import RepostActions
 
 
 class _SilentLogger:

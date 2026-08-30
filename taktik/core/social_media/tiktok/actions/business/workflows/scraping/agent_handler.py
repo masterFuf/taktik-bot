@@ -6,7 +6,7 @@ from typing import Any, Callable, Mapping
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import NavigationActions
+from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
     bool_param,
     int_param,

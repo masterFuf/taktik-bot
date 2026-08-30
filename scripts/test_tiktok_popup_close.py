@@ -41,8 +41,8 @@ def test_close_popup(device_id=None):
         logger.info(f"✅ Connected to device {device_id}")
         
         # Import TikTok actions
-        from taktik.core.social_media.tiktok.actions.atomic.click_actions import ClickActions
-        from taktik.core.social_media.tiktok.actions.atomic.detection_actions import DetectionActions
+        from taktik.core.social_media.tiktok.actions.atomic.interaction.click_actions import ClickActions
+        from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
         
         click = ClickActions(device)
         detection = DetectionActions(device)

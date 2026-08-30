@@ -6,8 +6,8 @@ Extracted from detection_actions.py — contains only popup-presence checks.
 
 from loguru import logger
 
-from ..core.base_action import BaseAction
-from ...ui.selectors.shell.popups import POPUP_SELECTORS
+from ...core.base_action import BaseAction
+from ....ui.selectors.shell.popups import POPUP_SELECTORS
 
 
 class PopupDetector(BaseAction):

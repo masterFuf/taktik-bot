@@ -11,7 +11,7 @@ versions posent d'ailleurs l'avatar de côtés opposés, à droite sur l'une, à
 
 import pytest
 
-from taktik.core.social_media.tiktok.actions.atomic.avatar_actions import AvatarActions
+from taktik.core.social_media.tiktok.actions.atomic.detection.avatar_actions import AvatarActions
 
 
 class _SilentLogger:

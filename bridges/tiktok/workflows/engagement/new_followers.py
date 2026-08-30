@@ -162,7 +162,7 @@ def _run_welcome_pass(config, manager, workflow, bot_username, followers, policy
     """
     try:
         from bridges.tiktok.workflows.automation.runtime.ai import create_tiktok_ai_service
-        from taktik.core.social_media.tiktok.actions.atomic.navigation_actions import (
+        from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import (
             NavigationActions,
         )
         from taktik.core.social_media.tiktok.workflows.core.ai_hooks import (
@@ -188,7 +188,7 @@ def _run_welcome_pass(config, manager, workflow, bot_username, followers, policy
         # why the first device run of this pass reported `profile_unreachable` for all three
         # followers it had just listed. The row is opened instead, and the profile it opens is
         # where the real handle is read.
-        from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
+        from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
         from taktik.core.social_media.tiktok.services.navigation.reset import (
             return_to_tiktok_shell,
         )

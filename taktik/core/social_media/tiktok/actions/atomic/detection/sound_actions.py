@@ -26,11 +26,11 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
-from ..core.base_action import BaseAction
-from ..core.utils import first_matching, first_text, parse_count
-from ...ui.selectors.surfaces.video import VIDEO_SOUND_SELECTORS
-from ...ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
-from ...services.profile.username import read_open_profile_handle
+from ...core.base_action import BaseAction
+from ...core.utils import first_matching, first_text, parse_count
+from ....ui.selectors.surfaces.video import VIDEO_SOUND_SELECTORS
+from ....ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
+from ....services.profile.username import read_open_profile_handle
 
 #: `Umbrella Rihanna <bidi>3,3 M publications` -> the count, whatever separators the locale uses.
 _COUNT_IN_TITLE = re.compile(r"([\d  .,]+\s*[KkMmBb]?[dD]?)\s*(?:publication|post)", re.IGNORECASE)
@@ -84,7 +84,7 @@ class SoundActions(BaseAction):
         only be known after opening it. Searching "Umbrella" opens Ember Island's version, not
         Rihanna's, and a caller told only "it worked" would harvest the wrong audience.
         """
-        from .navigation_actions import NavigationActions
+        from ...navigation.navigation_actions import NavigationActions
 
         wanted = (query or "").strip()
         if not wanted:
