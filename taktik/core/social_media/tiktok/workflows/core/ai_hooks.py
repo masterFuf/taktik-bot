@@ -31,6 +31,34 @@ EmitClassification = Callable[[str, dict], None]
 ProfileQualifier = Callable[[Any, str], Optional[dict]]
 
 
+def _screenshot_for_ai(device: Any, name: str, *, log: LogCallback) -> Optional[str]:
+    """Capture the screen to a file the vision call can read, or None.
+
+    Through the SHARED helper, which accepts both device shapes. `device.screenshot_pil()` is a
+    method of the project's facade, and TikTok workflows are handed the RAW uiautomator2 device
+    (`DeviceManager.device = u2.connect(...)`) — so every TikTok profile analysis died on
+    `'Device' object has no attribute 'screenshot_pil'`, caught and logged as a warning while
+    the run carried on. That is the whole reason `profile_qualification` held zero TikTok rows:
+    not a missing pipeline, a missing screenshot. Measured on device 2026-08-30.
+
+    One capture path for both AI calls here, so the next one cannot pick the wrong shape again.
+    """
+    try:
+        img = shared_screenshot_pil(device)
+        if img is None:
+            log("warning", f"Pas de capture pour {name}")
+            return None
+        tmp_dir = os.path.join(tempfile.gettempdir(), "taktik_ai")
+        os.makedirs(tmp_dir, exist_ok=True)
+        safe = "".join(c for c in name if c.isalnum() or c in "._-") or "screen"
+        path = os.path.join(tmp_dir, f"{safe}.png")
+        img.save(path, format="PNG")
+        return path
+    except Exception as exc:
+        log("warning", f"Capture impossible pour {name}: {exc}")
+        return None
+
+
 def qualify_tiktok_profile(
     ai: Any,
     device: Any,
@@ -59,22 +87,10 @@ def qualify_tiktok_profile(
         return None
 
     try:
-        tmp_dir = os.path.join(tempfile.gettempdir(), "taktik_ai")
-        os.makedirs(tmp_dir, exist_ok=True)
-        safe = "".join(c for c in username if c.isalnum() or c in "._-") or "profile"
-        screenshot_path = os.path.join(tmp_dir, f"tt_profile_{safe}.png")
-        # Through the SHARED helper, which accepts both device shapes. `device.screenshot_pil()`
-        # is a method of the project's facade, and TikTok workflows are handed the RAW
-        # uiautomator2 device (`DeviceManager.device = u2.connect(...)`) — so every TikTok
-        # profile analysis died on `'Device' object has no attribute 'screenshot_pil'`, caught
-        # and logged as a warning while the run carried on. That is the whole reason
-        # `profile_qualification` held zero TikTok rows: not a missing pipeline, a missing
-        # screenshot. Measured on device 2026-08-30, on two profiles out of two.
-        img = shared_screenshot_pil(device)
-        if img is None:
+        screenshot_path = _screenshot_for_ai(device, f"tt_profile_{username}", log=log)
+        if screenshot_path is None:
             log("warning", f"Pas de capture pour @{username}: aucun verdict IA")
             return None
-        img.save(screenshot_path, format="PNG")
 
         result = ai.classify_profile_niche(
             username=username,
@@ -127,6 +143,114 @@ def qualify_tiktok_profile(
     except Exception as exc:
         log("warning", f"AI profile analysis error: {exc}")
         return None
+
+
+def generate_tiktok_comment(
+    ai: Any,
+    device: Any,
+    username: str,
+    *,
+    account_persona: Optional[dict] = None,
+    app_language: str = "en",
+    account_id: Optional[int] = None,
+    decision_mode: bool = False,
+    log: LogCallback = lambda level, msg: None,
+) -> Optional[dict]:
+    """A comment for the video ON SCREEN with what produced it, or None to publish nothing.
+
+    Returns `{"comment", "language", "model", "cost_usd", "reasoning", "post_caption"}` — the
+    same shape Instagram hands its comment action, so the stored record can answer "which video,
+    which model, what did it cost, why this comment" later on. The language in it is the
+    COMMENT's, decided below; passing the app language there would file every comment under the
+    operator's reading preference.
+
+    None means "say nothing", and every path that returns it is a deliberate silence: no caption
+    and no capture (nothing to react to), a language we do not claim to speak, a model that
+    answered with an apology instead of a comment. A caller must never turn None into a fallback
+    text — a generic line under a stranger's video is the most recognisable bot signature there
+    is, which is exactly what having no default list protects against.
+
+    The three decisions around the generation — which language, is this a refusal, what has this
+    account said lately — are the SHARED ones (`app/ai/comments/decisions.py`), not TikTok
+    copies. They were extracted from the Instagram hook unchanged on 2026-08-30 so both
+    platforms ask the same questions; the language rule in particular has an asymmetry that took
+    a real incident to find.
+    """
+    from taktik.core.app.ai.comments.decisions import (
+        is_comment_refusal,
+        resolve_base_language,
+        resolve_comment_language,
+    )
+    from taktik.core.database.instagram_posted_comments import InstagramPostedComments
+    from taktik.core.shared.text import detect_text_language
+
+    from ...actions.core.utils import first_text
+    from ...ui.selectors.surfaces.video import VIDEO_MEDIA_SELECTORS
+
+    if not ai:
+        return None
+
+    caption = first_text(device, VIDEO_MEDIA_SELECTORS.video_description)
+    screenshot_path = _screenshot_for_ai(device, f"tt_post_{username or 'video'}", log=log)
+    if not caption and not screenshot_path:
+        log("info", f"Rien a lire sur la video de @{username}: pas de commentaire")
+        return None
+
+    base_language = resolve_base_language(account_persona)
+    comment_language = resolve_comment_language(
+        base_language, detect_text_language(caption) if caption else None
+    )
+    if comment_language is None:
+        log(
+            "info",
+            f"Pas de commentaire pour @{username}: langue du compte "
+            f"{base_language or 'inconnue'}, legende hors de ce qu'on parle",
+        )
+        return None
+
+    try:
+        recent = InstagramPostedComments.recent_texts(account_id=account_id, platform="tiktok")
+    except Exception:
+        recent = []
+
+    try:
+        result = ai.generate_smart_comment(
+            post_description="",
+            username=username or "unknown",
+            niche=(account_persona or {}).get("niche") or "general",
+            language=comment_language,
+            post_caption=caption,
+            account_persona=account_persona,
+            platform="tiktok",
+            app_language=app_language,
+            post_screenshot_path=screenshot_path,
+            require_relevance_decision=decision_mode,
+            recent_comments=recent,
+        )
+    except Exception as exc:
+        log("warning", f"AI comment generation error for @{username}: {exc}")
+        return None
+
+    if decision_mode and result.get("success") and result.get("should_comment") is not True:
+        log("info", f"Pas de commentaire pour @{username}: {result.get('reasoning') or 'video non pertinente'}")
+        return None
+    if not (result.get("success") and result.get("comment")):
+        return None
+
+    comment = result["comment"]
+    if is_comment_refusal(comment):
+        log("warning", f"Reponse IA inutilisable pour @{username} — aucun commentaire publie")
+        return None
+    log("info", f'Commentaire IA pour @{username}: "{comment}"')
+    return {
+        "comment": comment,
+        "language": comment_language,
+        "model": result.get("model"),
+        "cost_usd": result.get("cost_usd"),
+        "reasoning": result.get("reasoning"),
+        "post_caption": caption,
+        "source": "ai",
+    }
 
 
 def build_tiktok_profile_qualifier(
@@ -226,10 +350,59 @@ def install_tiktok_ai_hooks(
         except Exception as exc:
             log("warning", f"Failed to install TikTok Profile Analysis hook: {exc}")
 
+    if ai_config.get("smartComments", False):
+        try:
+            from taktik.core.social_media.tiktok.actions.business.workflows.followers.interaction import (
+                VideoInteractionMixin,
+            )
+
+            original_comment = VideoInteractionMixin._try_comment_video
+            persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
+            decision_mode = bool(ai_config.get("commentDecisionMode", False))
+
+            def ai_try_comment_video(self_wf, comment_text=None, ai_metadata=None):
+                # Given a text, publish it: the operator's own words are not the AI's business.
+                # The same pass-through Instagram's `comment_on_post` does, so the seam is one
+                # shape on both platforms rather than two.
+                if comment_text:
+                    return original_comment(self_wf, comment_text, ai_metadata)
+
+                try:
+                    generated = generate_tiktok_comment(
+                        ai,
+                        self_wf.device,
+                        getattr(self_wf, "_current_profile_username", "") or "",
+                        account_persona=persona,
+                        app_language=language,
+                        account_id=getattr(self_wf, "_account_id", None),
+                        decision_mode=decision_mode,
+                        log=log,
+                    )
+                except Exception as exc:
+                    log("warning", f"AI comment error: {exc}")
+                    return False
+
+                # None is a DECISION to stay silent, never a reason to fall back to the run's
+                # own list: the AI declined because the video, the language or the answer did
+                # not warrant a comment, and posting a canned line instead undoes that.
+                if not generated:
+                    return False
+                # Everything only this hook knows about how the comment was produced travels with
+                # it, so the stored record answers "which video, which model, what did it cost,
+                # why this comment" later on. `source: "ai"` is also what the anti-tic guard
+                # filters on — a template repeating is the operator's choice, not a tic.
+                return original_comment(self_wf, generated["comment"], generated)
+
+            VideoInteractionMixin._try_comment_video = ai_try_comment_video
+            log("info", "TikTok AI Smart Comments hook installed")
+        except Exception as exc:
+            log("warning", f"Failed to install the TikTok Smart Comments hook: {exc}")
+
 
 __all__ = [
     "ProfileQualifier",
     "build_tiktok_profile_qualifier",
+    "generate_tiktok_comment",
     "install_tiktok_ai_hooks",
     "qualify_tiktok_profile",
 ]

@@ -9,6 +9,13 @@ from loguru import logger
 from taktik.core.database.instagram_post_analysis import InstagramPostAnalysis
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
 from taktik.core.shared.telemetry.sink import emit_step
+from taktik.core.app.ai.comments.decisions import (
+    COMMENT_LANG_ALIASES,
+    detect_language_code,
+    is_comment_refusal,
+    resolve_base_language,
+    resolve_comment_language,
+)
 from taktik.core.shared.text import detect_text_language
 from taktik.core.social_media.instagram.workflows.core.caption_hygiene import (
     clean_post_caption,
@@ -38,84 +45,15 @@ def _skipped_comment_result(reason: str) -> dict[str, Any]:
     }
 
 
-# Account/app language aliases → a single code, so the detected POST language (an English name
-# like "Spanish") can be compared against the account's preferred language (a code like "es").
-# Codes match only exactly; full names match by prefix (so "Slovenian" is never read as English).
-_COMMENT_LANG_ALIASES = {
-    "fr": ("french", "français", "francais"),
-    "en": ("english", "anglais"),
-    "es": ("spanish", "español", "espanol", "castellano"),
-    "de": ("german", "deutsch", "allemand"),
-    "it": ("italian", "italiano", "italien"),
-    "pt": ("portuguese", "português", "portugues"),
-    "ar": ("arabic", "arabe"),
-}
-
-
-def _detect_language_code(detected_lower: str) -> str:
-    for code, names in _COMMENT_LANG_ALIASES.items():
-        if detected_lower == code or any(detected_lower.startswith(n) for n in names):
-            return code
-    return "other"
-
-
-def _resolve_base_language(account_persona: Any) -> "str | None":
-    """The language THIS ACCOUNT speaks to its audience — or None if we cannot establish it.
-
-    Takes no app language ON PURPOSE, so it cannot be passed back in: the app UI language is
-    the OPERATOR's reading preference, not the audience's. A French coaching account operated
-    from an English-language app is still a French account, and that former fallback made it
-    both comment in English on French posts AND skip the French posts it should have taken.
-
-    Order:
-      1. the explicit `preferred_language` set on the account profile;
-      2. failing that, the language the persona itself is WRITTEN IN — "Business coaching
-         pour instituts de beauté" is unambiguously French. Free, needs no operator input,
-         and works on accounts whose language field was never filled;
-      3. None — the caller then follows the post, or skips. Never invents a language.
-    """
-    persona = account_persona if isinstance(account_persona, dict) else {}
-    explicit = str(persona.get("language") or "").strip().lower()
-    if explicit:
-        code = _detect_language_code(explicit)
-        return code if code != "other" else explicit[:2]
-
-    # The persona is stored in the account's own language — use it as the anchor.
-    persona_text = " ".join(
-        str(persona.get(key) or "")
-        for key in ("niche", "tonePersonality", "targetAudience", "objective", "uniqueSellingPoint")
-    ).strip()
-    return detect_text_language(persona_text)
-
-
-def _resolve_comment_language(base_lang: "str | None", post_language: Any) -> "str | None":
-    """Decide which language to comment in, or None to SKIP the comment entirely.
-
-    `base_lang` is the ACCOUNT's own language (see `_resolve_base_language`), and may be None
-    when it could not be established. A comment is read by real people, so it follows the
-    POST's language — but only within {base_lang, English}:
-      - post in base_lang                 -> comment in base_lang
-      - post in English                   -> comment in English (universal 2nd language)
-      - post in ANY other detected language -> None (skip): commenting a language we don't claim
-        to speak isn't credible
-      - language undetected                -> default to base_lang
-
-    When base_lang is unknown, the post's own language is the only credible choice; with no
-    signal at all we publish nothing rather than guess.
-    """
-    base = str(base_lang or "").strip().lower() or None
-    detected = _detect_language_code(str(post_language).strip().lower()) if post_language else None
-
-    if base is None:
-        # Account language unknown: follow the post when it is readable, else stay silent.
-        return detected if detected and detected != "other" else None
-    if detected is None:
-        return base  # undetected → the account's own language
-    if detected == base:
-        return base
-    if detected == "en":
-        return "en"  # English is always allowed as a second language
-    return None  # neither the account language nor English → don't comment
+# The language rules and the refusal test now live in `app/ai/comments/decisions.py`, shared
+# with TikTok. They were never Instagram-specific — they decide which language a comment may be
+# written in and whether the model answered with a comment or an apology — and a second copy
+# would drift the day one platform learns something the other does not. The private aliases stay
+# so the call sites below and their tests keep reading as they did.
+_COMMENT_LANG_ALIASES = COMMENT_LANG_ALIASES
+_detect_language_code = detect_language_code
+_resolve_base_language = resolve_base_language
+_resolve_comment_language = resolve_comment_language
 
 
 def _load_cached_qualification(username: str) -> "dict | None":
@@ -515,29 +453,7 @@ def install_instagram_ai_hooks(
                         return skip_comment(reason, "post_relevance")
                     if result.get("success") and result.get("comment"):
                         ai_comment = result["comment"]
-                        refusal_signals = [
-                            "i can't",
-                            "i cannot",
-                            "i'm unable",
-                            "i am unable",
-                            "without seeing",
-                            "without the image",
-                            "without viewing",
-                            "no image",
-                            "can't see",
-                            "cannot see",
-                            "don't have access",
-                            "do not have access",
-                            "provide an image",
-                            "share the image",
-                            "specific post",
-                            "specific content",
-                        ]
-                        ai_comment_lower = ai_comment.lower()
-                        is_refusal = len(ai_comment) > 120 or any(
-                            signal in ai_comment_lower for signal in refusal_signals
-                        )
-                        if is_refusal:
+                        if is_comment_refusal(ai_comment):
                             reason = "AI response was a refusal or unusable"
                             log(
                                 "warning",
