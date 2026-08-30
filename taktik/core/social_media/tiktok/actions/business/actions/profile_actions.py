@@ -67,14 +67,18 @@ class ProfileActions(BaseAction):
             self._random_sleep(1.5, 2.5)
 
             try:
-                if self._element_exists(PROFILE_SELECTORS.edit_profile_button, timeout=2):
-                    logger.info("✅ Successfully navigated to own profile (Edit button found)")
-                    return True
-
-                # `edit_profile_button` is `@text="Modifier"`, which reads 0 on 46.6.3 FR; the
-                # profile menu is what survives there.
+                # ORDER MATTERS, and it was the wrong way round. `edit_profile_button` is
+                # `@text="Modifier"`: it reads 0 on 46.6.3 FR -- the comment below said so
+                # already -- and 0 on all 65 stored dumps, both versions. Being tried FIRST with
+                # a 2 s timeout, it spent those two seconds failing on every single run start.
+                # The menu is what actually answers (5 dumps), so it goes first and the Edit
+                # button stays as the fallback for a build where it does exist.
                 if self._element_exists(PROFILE_SELECTORS.profile_menu_button, timeout=2):
                     logger.info("✅ Successfully navigated to own profile (profile menu found)")
+                    return True
+
+                if self._element_exists(PROFILE_SELECTORS.edit_profile_button, timeout=2):
+                    logger.info("✅ Successfully navigated to own profile (Edit button found)")
                     return True
 
                 if self._element_exists(PROFILE_SELECTORS.username, timeout=1):
