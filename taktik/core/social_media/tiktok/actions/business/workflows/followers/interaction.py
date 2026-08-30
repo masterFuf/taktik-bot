@@ -9,6 +9,8 @@ import random
 
 from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
 
+from taktik.core.shared.behavior.grid_entry import sample_entry_index
+from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.telemetry.sink import emit_step
 
 from .._internal.video_comment import VideoCommentMixin
@@ -28,7 +30,7 @@ class VideoInteractionMixin(VideoCommentMixin):
         
         Flow:
         1. Count available posts on profile (max 9 visible without scroll)
-        2. Click on first post to open video feed
+        2. Open ONE cell of the grid, chosen by the session (not always the first)
         3. Watch video, interact (like/favorite/etc)
         4. Swipe up to next video (instead of going back and clicking next post)
         5. Repeat for min(posts_per_profile, available_posts) times
@@ -46,10 +48,15 @@ class VideoInteractionMixin(VideoCommentMixin):
         posts_to_interact = min(self.config.posts_per_profile, available_posts)
         self.logger.debug(f"📹 Will interact with {posts_to_interact} posts (available: {available_posts}, config: {self.config.posts_per_profile})")
         
-        # Click on first post to enter video feed
-        if not self._click_profile_post(0):
-            self.logger.debug("Failed to click first post")
+        # Enter the grid somewhere, not always at the top-left. A profile visited twice used to
+        # open the same first post twice; a real visitor's eye lands where the thumbnail catches
+        # it, and comes back to a different one. The weighting and the short memory of which cells
+        # this run already opened come from the same session state Instagram uses.
+        entry = self._choose_grid_entry(available_posts)
+        if not self._click_profile_post(entry):
+            self.logger.debug(f"Failed to click post {entry}")
             return
+        self._remember_grid_entry(entry)
         
         self._human_delay()
         
@@ -90,6 +97,46 @@ class VideoInteractionMixin(VideoCommentMixin):
         self._go_back()
         time.sleep(0.5)
     
+    def _choose_grid_entry(self, available_posts: int) -> int:
+        """Which cell of the profile grid to open. Weighted, and never the same one twice in a run.
+
+        The grid is read left-to-right, top-to-bottom, so `row_weights` behind the chooser favours
+        what a thumb reaches first without ever excluding the rest; the run's memory of which cells
+        it already opened on this profile is what stops a second visit landing on the same video.
+
+        Falls back to the plain weighted draw when there is no session memory, and to 0 when there
+        is neither -- the previous behaviour, kept reachable rather than assumed away.
+        """
+        if available_posts <= 1:
+            return 0
+        keys = [f"{self._current_profile_username or 'profile'}:cell:{i}"
+                for i in range(available_posts)]
+        chooser = getattr(getattr(self, "behavior_state", None), "choose_grid_entry_index", None)
+        if callable(chooser):
+            try:
+                choice = chooser(context=self._current_profile_username or "profile",
+                                 candidate_keys=keys, avoid_recent=None)
+                if choice is not None:
+                    return int(choice)
+            except Exception as exc:
+                self.logger.debug(f"grid entry chooser unavailable: {exc}")
+        try:
+            return int(sample_entry_index(available_posts))
+        except Exception:
+            return 0
+
+    def _remember_grid_entry(self, index: int) -> None:
+        """Record an entry only once the video actually opened, so a failed tap is not remembered."""
+        remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
+        if not callable(remember):
+            return
+        try:
+            remember(context=self._current_profile_username or "profile",
+                     key=f"{self._current_profile_username or 'profile'}:cell:{index}",
+                     index=int(index))
+        except Exception as exc:
+            self.logger.debug(f"grid entry memory unavailable: {exc}")
+
     def _swipe_to_next_video(self):
         """Swipe up to go to next video in the feed.
         
@@ -129,7 +176,10 @@ class VideoInteractionMixin(VideoCommentMixin):
                     break
             
             if index < len(posts):
-                posts[index].click()
+                # The cell is a thumbnail, big enough that its exact centre is a choice rather
+                # than a necessity -- so sample a point inside it, like every other tap.
+                if not tap_element_human(self.device, posts[index], logger=self.logger):
+                    posts[index].click()
                 time.sleep(1)  # Wait for video to load
                 return True
             

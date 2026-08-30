@@ -186,16 +186,37 @@ class BaseAction(SharedBaseAction):
         self.device.swipe_up(scale)
         self._human_like_delay('scroll')
     
+    def _advance_mode(self, context: str) -> bool:
+        """Should this feed advance COAST (flick) or be dragged? True = flick.
+
+        The For You feed is a snapping pager: it lands on exactly one video whether it was flicked
+        past or dragged up, so both are safe here -- which is what makes it the one surface where
+        the gesture KIND can vary. Lists are not: a fling overshoots them, and the extractors that
+        count one scroll as one row would read the wrong one. So this is asked on the feed only.
+
+        Every advance being the same kind of gesture is the coarsest rhythm there is; a person
+        flicks through a boring stretch and drags deliberately through an interesting one, in
+        runs, not by independent coin toss. `choose_scroll_mode` is where that run lives.
+        """
+        state = getattr(self, "behavior_state", None)
+        if state is None or not hasattr(state, "choose_scroll_mode"):
+            return True
+        try:
+            return state.choose_scroll_mode(context=context)["mode"] != "drag"
+        except Exception:
+            return True
+
     def _swipe_to_next_video(self):
-        """Swipe to next video (TikTok specific) — a real FLING. The For You feed is a snapping
-        pager, so a fling advances exactly one video with varied distance/velocity (natural, no
-        fixed-distance fingerprint)."""
-        self.device.swipe_up(scale=0.8, coast=True)
+        """Advance one video — a fling, or sometimes a deliberate drag.
+
+        Both land on the next video because the feed is a snapping pager; which one happens
+        follows the session's current style rather than being fixed for the whole run."""
+        self.device.swipe_up(scale=0.8, coast=self._advance_mode("tiktok_feed_advance"))
         self._human_like_delay('scroll')
 
     def _swipe_to_previous_video(self):
-        """Swipe to previous video (TikTok specific) — a real fling (snaps to the previous video)."""
-        self.device.swipe_down(scale=0.8, coast=True)
+        """Go back one video — same pager, same choice of gesture."""
+        self.device.swipe_down(scale=0.8, coast=self._advance_mode("tiktok_feed_back"))
         self._human_like_delay('scroll')
     
     def _double_tap_to_like(self):

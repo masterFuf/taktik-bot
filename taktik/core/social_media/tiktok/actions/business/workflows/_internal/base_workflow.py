@@ -58,6 +58,16 @@ class BaseTikTokWorkflow:
         for action in (self.click, self.navigation, self.scroll, self.detection):
             action.behavior_state = self.behavior_state
 
+        # The DEVICE needs it too, and that is where it was missing. The atomic actions decide
+        # WHAT to do; the facade is what actually moves the finger, and it was the only object in
+        # the chain still doing so with no memory of the run -- every scroll independently sampled,
+        # nothing carried from one to the next. Set defensively: a raw uiautomator2 device (Lab,
+        # probes) is not ours to annotate.
+        try:
+            self.device.behavior_state = self.behavior_state
+        except Exception:
+            pass
+
         self.logger = logger.bind(module=module_name)
 
         # Lifecycle state

@@ -52,6 +52,28 @@ class DeviceFacade(BaseDeviceFacade):
         except Exception:
             return 0.31
 
+    #: The session's motor style, injected by the workflow that owns this facade. None means no
+    #: session memory -- every scale stays 1.0 and the gestures behave exactly as they did.
+    behavior_state = None
+
+    def _motor(self, context: str) -> tuple:
+        """(distance_scale, velocity_scale) for the run's current style, or a neutral pair.
+
+        A session that reads BRISK flicks further and faster than one reading DELIBERATE, and it
+        keeps doing so for a whole burst before drifting -- which is what makes a run look like one
+        person rather than a fresh coin toss per gesture. The scales come from the same
+        `BehaviorSessionState` Instagram uses; TikTok owned one and never asked it anything but the
+        dwell.
+        """
+        state = getattr(self, "behavior_state", None)
+        if state is None or not hasattr(state, "motor_modulation"):
+            return 1.0, 1.0
+        try:
+            motor = state.motor_modulation(context=context)
+            return float(motor.get("distance_scale", 1.0)), float(motor.get("velocity_scale", 1.0))
+        except Exception:
+            return 1.0, 1.0
+
     def swipe_up(self, scale: float = 0.8, coast: bool = False):
         """Advance the feed / scroll a list DOWN — humanized. TikTok 'swipe up' (finger moves up)
         reveals the NEXT content = page 'down'.
@@ -59,27 +81,38 @@ class DeviceFacade(BaseDeviceFacade):
         `coast=True` fires a REAL fling (sampled distance + velocity) — the natural gesture for the
         video FEED, whose pager snaps to the next video regardless of strength, so distance/velocity
         vary (no fixed-distance fingerprint) and it never advances two. `coast=False` (default) is a
-        controlled scroll for LISTS (followers/search/scraping/DM), where a fling would overshoot."""
+        controlled scroll for LISTS (followers/search/scraping/DM), where a fling would overshoot.
+
+        Both carry the session's motor style: the per-call variation was already there, what was
+        missing is that successive gestures had nothing in common."""
+        d, v = self._motor("tiktok_scroll_down")
         if coast:
-            self.human_scroll("down", coast=True)
+            self.human_scroll("down", coast=True, distance_scale=d, velocity_scale=v)
         else:
-            self.human_scroll("down", distance_ratio=self._list_scroll_ratio(scale))
+            self.human_scroll("down", distance_ratio=self._list_scroll_ratio(scale),
+                              distance_scale=d, velocity_scale=v)
 
     def swipe_down(self, scale: float = 0.8, coast: bool = False):
         """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'.
         `coast=True` flings (video feed, snaps to previous); `coast=False` is a controlled list scroll."""
+        d, v = self._motor("tiktok_scroll_up")
         if coast:
-            self.human_scroll("up", coast=True)
+            self.human_scroll("up", coast=True, distance_scale=d, velocity_scale=v)
         else:
-            self.human_scroll("up", distance_ratio=self._list_scroll_ratio(scale))
+            self.human_scroll("up", distance_ratio=self._list_scroll_ratio(scale),
+                              distance_scale=d, velocity_scale=v)
 
     def swipe_left(self, scale: float = 0.8):
         """Reveal the NEXT horizontal slide — humanized. Finger moves left."""
-        self.human_hswipe("left", distance_ratio=self._scaled_ratio(scale, 0.60))
+        d, v = self._motor("tiktok_swipe_left")
+        self.human_hswipe("left", distance_ratio=self._scaled_ratio(scale, 0.60),
+                          distance_scale=d, velocity_scale=v)
 
     def swipe_right(self, scale: float = 0.8):
         """Reveal the PREVIOUS horizontal slide — humanized. Finger moves right."""
-        self.human_hswipe("right", distance_ratio=self._scaled_ratio(scale, 0.60))
+        d, v = self._motor("tiktok_swipe_right")
+        self.human_hswipe("right", distance_ratio=self._scaled_ratio(scale, 0.60),
+                          distance_scale=d, velocity_scale=v)
 
     # =========================================================================
     # TikTok-specific: click at coordinates (different signature from base)

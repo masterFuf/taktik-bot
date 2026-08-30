@@ -317,7 +317,8 @@ class BaseDeviceFacade:
         return host
 
     def human_scroll(self, direction: str = "down", distance_ratio: Optional[float] = None,
-                     coast: bool = False) -> bool:
+                     coast: bool = False,
+                     distance_scale: float = 1.0, velocity_scale: float = 1.0) -> bool:
         """Humanized VERTICAL scroll — the single entry point for human-like feed/list/grid
         scrolling. `direction='down'` advances (reveals the NEXT content), `'up'` goes back.
         `coast=True` fires a real Android fling (`_strong_flick`, content coasts ~2.5-4x — a natural
@@ -331,13 +332,23 @@ class BaseDeviceFacade:
         of this entry point asked for the opposite in writing — "keeps the travel precise so we
         don't skip rows", "controlled advance to the next post", "a fling would overshoot" — and
         the five that request 0.5-0.62h were silently getting 0.34h plus a coast. The hashtag
-        extractor counts one scroll as one post, so an overshoot made it read the WRONG post."""
+        extractor counts one scroll as one post, so an overshoot made it read the WRONG post.
+
+        The two `*_scale` arguments carry the SESSION's motor style down to the primitive, which
+        has accepted them all along -- `human_hswipe` already passed them through and the vertical
+        entry point did not, so a scroll was the one gesture whose distance and speed could not
+        follow the run's rhythm. Both default to 1.0, so a caller that does not pass them behaves
+        exactly as before."""
         host = self._gesture_host()
         g_dir = self._PAGE_TO_GESTURE.get(direction, "up")
         distance_px = (distance_ratio * host.screen_height) if distance_ratio else None
+        if distance_px is not None:
+            distance_px *= max(0.2, min(float(distance_scale), 3.0))
         if coast:
-            return host._strong_flick(direction=g_dir, distance_px=distance_px)
-        return host._human_swipe(direction=g_dir, distance_px=distance_px, controlled=True)
+            return host._strong_flick(direction=g_dir, distance_px=distance_px,
+                                      velocity_scale=velocity_scale)
+        return host._human_swipe(direction=g_dir, distance_px=distance_px, controlled=True,
+                                 velocity_scale=velocity_scale)
 
     def human_hswipe(self, direction: str = "left", distance_ratio: float = 0.6,
                      y_ratio: Optional[float] = None,
