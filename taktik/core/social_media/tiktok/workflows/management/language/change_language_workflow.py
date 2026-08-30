@@ -191,6 +191,10 @@ class TikTokChangeLanguageWorkflow:
         if before == _base_language(target_language):
             result.update(success=True, already_set=True, language_after=before, step="already_set")
             self.logger.info("🌐 Déjà dans la langue demandée — rien à faire")
+            # This branch touches nothing, so it also FIXES nothing: it hands on whatever screen
+            # it was given. Cheap insurance, since a caller that sets a language defensively at
+            # session start lands here almost every time.
+            self._leave_on_the_shell()
             return result
 
         if not self._open_settings():
@@ -240,6 +244,9 @@ class TikTokChangeLanguageWorkflow:
         result["success"] = True
         self.logger.success(f"🌐 Langue changée: {before} → {after}")
         self._notify("verify", "done", f"{before} -> {after}")
+        # Applying the language reloads the whole UI and usually drops back to the feed on its
+        # own -- usually is not a contract, and the next workflow inherits whatever this leaves.
+        self._leave_on_the_shell()
         return result
 
     # ------------------------------------------------------------------
@@ -324,7 +331,28 @@ class TikTokChangeLanguageWorkflow:
         result["error_type"] = error_type
         self.logger.error(f"❌ {message}")
         self._notify(result.get("step", "unknown"), "error", message)
+        self._leave_on_the_shell()
         return result
+
+    def _leave_on_the_shell(self) -> None:
+        """Put the phone back where tabs exist before handing control back.
+
+        A failure can stop anywhere -- the settings list, the Language screen, the picker -- and
+        a settings sub-screen is a full-screen page with NO bottom bar. Whatever runs next taps a
+        tab that is not there and reports its own surface as missing, which reads as "the screen
+        is gone" rather than "we are not where tabs live". Measured on 2026-08-30: three
+        change-language runs chained back to back, and the third failed with
+        `language_row_not_found` from a state the first two had left behind. Run on its own from a
+        clean start, the same call succeeded.
+
+        The same three calls, in the same order, pass with this in place. That is the controlled
+        comparison -- nothing changed but the exit -- so the leftover screen was the cause. The
+        `already_set` branch is what carried it: it touches nothing, so it hands the state on.
+        """
+        try:
+            return_to_tiktok_shell(self.device, logger=self.logger)
+        except Exception as exc:
+            self.logger.debug(f"Could not return to the shell after the language run: {exc}")
 
 
 def _base_language(code: str) -> str:
