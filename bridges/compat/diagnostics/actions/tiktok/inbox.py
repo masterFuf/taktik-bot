@@ -95,3 +95,55 @@ def send_message(a, p):
         return {"success": False, "message": "text param is required"}
     ok = a.dm.send_text_message(text)
     return {"success": bool(ok), "message": f"message sent={ok}"}
+
+
+@action("tt.activity.open")
+def open_activity(a, p):
+    """Open the Activity page from the inbox. READS ONLY.
+
+    Separate from reading it so the two failures stay apart: "the page would not open" and "the
+    page is empty" need opposite responses, and one action reporting both as zero hides that.
+    """
+    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
+
+    opened = ActivityActions(a.device).open_activity()
+    return {"success": opened, "message": "activity page open" if opened else "could not open it"}
+
+
+@action("tt.activity.read")
+def read_activity(a, p):
+    """READS ONLY: the notifications on the open Activity page, parsed.
+
+    Params: max (default 20). Reports the count of each KIND, and names any row it did not
+    recognise -- TikTok adds notification types without warning, and a count that only mentions
+    what it understood is how those go unnoticed for months.
+    """
+    import collections
+
+    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
+
+    limit = int((p or {}).get("max") or 20)
+    rows = ActivityActions(a.device).read_activity(max_rows=limit)
+    if not rows:
+        return {"success": False, "message": "no rows (is the Activity page open?)"}
+
+    kinds = collections.Counter(r.kind for r in rows)
+    unknown = [r.raw[:80] for r in rows if r.kind == "unknown"]
+    return {
+        "success": True,
+        "message": ", ".join(f"{k}={n}" for k, n in sorted(kinds.items())),
+        "details": {
+            "rows": [
+                {
+                    "kind": r.kind,
+                    "usernames": r.usernames,
+                    "others_count": r.others_count,
+                    "age": r.age_label,
+                    "post_count": r.post_count,
+                    "comment": r.comment[:120],
+                }
+                for r in rows[:20]
+            ],
+            "unknown": unknown,
+        },
+    }
