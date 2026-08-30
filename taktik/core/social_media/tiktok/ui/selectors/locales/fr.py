@@ -337,15 +337,60 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@text=\"Notifications système\"]",
     ],
     # --- logout ---
+    # Mesure le 2026-08-30 sur 46.6.3, en ouvrant vraiment la feuille (puis « Annuler »).
+    # La LIGNE des reglages porte son libelle en `content-desc`, comme toutes les lignes de cet
+    # ecran Compose ; l'entree precedente ne cherchait qu'un `@text` et ne pouvait pas la voir.
+    # La LIGNE du menu et le TITRE de la page portent le meme libelle et se distinguent par l'
+    # ATTRIBUT qui le porte : la ligne en `content-desc`, le titre en `text` (content-desc vide,
+    # clickable="false"). Mesure le 2026-08-30. D'ou la separation stricte ci-dessous — une
+    # alternative `@text` sur la ligne ferait taper le TITRE une fois la page atteinte, et le
+    # workflow croirait naviguer alors qu'il tourne en rond.
+    "logout.settings_and_privacy": [
+        "//*[@clickable=\"true\"][@content-desc=\"Paramètres et confidentialité\"]",
+        "//*[@content-desc=\"Paramètres et confidentialité\"]",
+    ],
+    # Et une precaution de plus : la LIGNE du menu porte elle aussi ce texte sur son TextView
+    # interne, donc « suis-je sur la page ? » repondait OUI depuis le menu — l'indicateur ne savait
+    # pas dire non. Ce qui les separe : sur la page, le titre n'a aucun ancetre portant ce
+    # content-desc. Mesure : 1 sur la page, 0 sur les 64 autres captures, menu compris.
+    "logout.settings_screen_indicator": [
+        "//android.widget.TextView[@text=\"Paramètres et confidentialité\"]"
+        "[not(ancestor::*[@content-desc=\"Paramètres et confidentialité\"])]",
+    ],
+    "logout.bottom_sheet": [
+        "//*[@content-desc=\"Feuille du bas\"]",
+    ],
     "logout.logout_button": [
+        "//*[@clickable=\"true\"][@content-desc=\"Se déconnecter\"]",
         "//*[@text=\"Se déconnecter\"]",
         "//*[@text=\"Déconnexion\"]",
     ],
-    "logout.logout_confirm_button": [],
+    # La feuille demande « Veux-tu vraiment te déconnecter ? » et propose TROIS choix : changer de
+    # compte, se deconnecter, annuler. Le libelle est sur un TextView non cliquable, le cliquable
+    # est l'ancetre — et le cadrage compte ici plus qu'ailleurs : « Se déconnecter » est aussi le
+    # texte de la LIGNE de reglages qui a leve la feuille. Sans le cadrage par la question, un
+    # `@text` nu peut retomber sur la ligne et rouvrir la feuille au lieu de confirmer.
+    "logout.logout_confirm_button": [
+        "//*[@text=\"Veux-tu vraiment te déconnecter ?\"]/ancestor::*[2]"
+        "//*[@text=\"Se déconnecter\"]/ancestor::*[@clickable=\"true\"][1]",
+        "//*[@text=\"Se déconnecter\"]/ancestor::*[@clickable=\"true\"][1]",
+    ],
+    # Ce que la feuille affiche, pour savoir qu'on y est.
+    "logout.logout_sheet_indicator": [
+        "//*[@text=\"Veux-tu vraiment te déconnecter ?\"]",
+    ],
+    "logout.logout_cancel_button": [
+        "//*[@text=\"Annuler\"]/ancestor::*[@clickable=\"true\"][1]",
+    ],
     "logout.profile_menu_button": [
         "//*[@clickable=\"true\"][@content-desc=\"Menu du profil\"]",
     ],
-    "logout.profile_tab": [],
+    # L'entree du workflow. Elle valait `//*[contains(@resource-id, ":id/nce")]`, un id qui ne
+    # resout sur AUCUNE des 61 captures, les deux versions confondues : la deconnexion ne pouvait
+    # pas demarrer. Le `content-desc` de l'onglet, lui, est identique d'une version a l'autre.
+    "logout.profile_tab": [
+        "//*[@clickable=\"true\"][@content-desc=\"Profil\"]",
+    ],
     # --- navigation ---
     "navigation.back_button": [
         "//android.widget.ImageButton[@content-desc=\"Retour\"]",

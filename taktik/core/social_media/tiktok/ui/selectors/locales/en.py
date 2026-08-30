@@ -273,6 +273,26 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@text=\"System notifications\"]",
     ],
     # --- logout ---
+    # Le flux de deconnexion n'a jamais tourne en anglais ; ces libelles viennent des dumps
+    # anglais d'origine du fichier neutre, pas d'une mesure. A CONFIRMER.
+    "logout.settings_and_privacy": [
+        "//*[@clickable=\"true\"][@content-desc=\"Settings and privacy\"]",
+        "//*[@content-desc=\"Settings and privacy\"]",
+        "//*[@text=\"Settings and privacy\"]",
+    ],
+    "logout.settings_screen_indicator": [
+        "//*[@content-desc=\"Settings and privacy\"][not(@clickable=\"true\")]",
+    ],
+    "logout.bottom_sheet": [
+        "//*[@content-desc=\"Bottom sheet\"]",
+    ],
+    "logout.logout_sheet_indicator": [
+        "//*[contains(@text, \"log out\")]",
+    ],
+    "logout.logout_cancel_button": [
+        "//*[@text=\"Cancel\"]/ancestor::*[@clickable=\"true\"][1]",
+        "//*[@content-desc=\"Cancel\"]",
+    ],
     "logout.logout_button": [
         "//*[@text=\"Log out\"]",
     ],
