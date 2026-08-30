@@ -142,6 +142,19 @@ class InboxSelectors:
     ])
 
     # === Notification sections (items) ===
+    #: Rows offering the one-tap wave. TikTok writes the person's name into the line itself --
+    #: `Dis bonjour à Enzo Resell` -- which makes the line both the marker and the label.
+    #: Both languages in one expression, as everywhere on this surface.
+    #:
+    #: FRENCH MEASURED, ENGLISH NOT. `Dis bonjour à ` was read off a real inbox on 2026-08-30 and
+    #: the wave was sent through it. `Say hi to ` is written from the structure: by the time the
+    #: app was switched to English both candidates had been used up -- the rows read `Sent 2m ago`
+    #: -- so there was nothing left to match. It needs one row to confirm, and until then a
+    #: mismatch would look like "this account has nobody to greet".
+    say_hello_rows: List[str] = field(default_factory=lambda: [
+        '//*[contains(@text, "Dis bonjour à ") or contains(@text, "Say hi to ")]',
+    ])
+
     notification_item: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/s28")]',
         # A2: the section row is the title's nearest clickable ancestor.
@@ -417,5 +430,32 @@ class InboxSelectors:
             ],
         ]
 
+
+    def say_hello_button_for_name(self, shown_name: str) -> List[str]:
+        """The wave button of ONE named row, and nobody else's.
+
+        Scoped from the row's own text up four levels to the row container -- measured
+        2026-08-30, that is exactly where the text and the button meet. Below four the button is
+        outside the subtree; above it, the whole list is, and the tap would greet whoever the
+        first row happens to be.
+
+        The caller takes the LAST match: the scoped subtree also holds the avatar and the row
+        itself, and the button is the deepest of the three. The obfuscated id is listed first so
+        the precise form wins where it exists, and the structural one carries builds where it
+        does not.
+
+        The name is a DISPLAY NAME, which is what this row shows and all it shows.
+        """
+        safe = (shown_name or "").replace('"', "")
+        if not safe:
+            return []
+        row = (
+            f'//*[contains(@text, "Dis bonjour à {safe}") '
+            f'or contains(@text, "Say hi to {safe}")]/ancestor::*[4]'
+        )
+        return [
+            f'{row}//*[contains(@resource-id, ":id/hhq")]',
+            f'{row}//*[@clickable="true"]',
+        ]
 
 INBOX_SELECTORS = InboxSelectors()

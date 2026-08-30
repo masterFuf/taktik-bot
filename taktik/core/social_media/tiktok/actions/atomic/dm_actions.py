@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from taktik.core.shared.text import fold_for_match
+from ...services.notifications.activity import clean_row_text
 from ..core.base_action import BaseAction
 from ..core.utils import extract_resource_id, first_matching
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
@@ -380,6 +381,69 @@ class DMActions(BaseAction):
             self.logger.warning(f"Erreur scrape nouveaux followers: {e}")
 
         return followers
+
+    def say_hello_candidates(self) -> List[str]:
+        """The display names the inbox is offering a one-tap wave to.
+
+        TikTok surfaces these on people we have a thread with but have not written to. It is the
+        cheapest possible re-open of a conversation -- one tap, no text to compose.
+        """
+        names: List[str] = []
+        for element in first_matching(self.device, self.inbox_selectors.say_hello_rows):
+            text = clean_row_text(getattr(element, "text", "") or "")
+            for prefix in ("Dis bonjour à ", "Say hi to "):
+                if text.startswith(prefix):
+                    name = text[len(prefix):].strip()
+                    if name and name not in names:
+                        names.append(name)
+                    break
+        return names
+
+    def say_hello(self, shown_name: str) -> bool:
+        """Send the one-tap wave to `shown_name`. True once the row stops offering it.
+
+        The outcome, not the tap. Measured 2026-08-30: tapping shows `Envoyée à <name>` for about
+        two seconds and then the `Dis bonjour à <name>` line DISAPPEARS from the row. That
+        disappearance is the proof, and it is what this waits for -- the tap itself succeeds even
+        when it lands on the avatar next to the button.
+        """
+        name = (shown_name or "").strip()
+        if not name:
+            return False
+
+        selectors = self.inbox_selectors.say_hello_button_for_name(name)
+        button = None
+        for selector in selectors:
+            try:
+                found = self.device.xpath(selector).all()
+            except Exception:
+                continue
+            if found:
+                # The last one: the scoped subtree also holds the avatar and the row itself, and
+                # the button is the deepest of the three.
+                button = found[-1]
+                break
+        if button is None:
+            self.logger.warning(f"« Dis bonjour » introuvable pour {name!r}")
+            return False
+
+        try:
+            button.click()
+        except Exception as exc:
+            self.logger.debug(f"say_hello: bouton non tappable pour {name!r} ({exc})")
+            return False
+
+        # The confirmation is transient; the disappearance is not. Waiting for the second avoids
+        # racing the first.
+        deadline = time.time() + 8.0
+        while time.time() < deadline:
+            time.sleep(1.0)
+            if name not in self.say_hello_candidates():
+                self.logger.info(f"👋 Bonjour envoyé à {name!r}")
+                return True
+
+        self.logger.warning(f"say_hello: {name!r} attend toujours un bonjour — rien n'est parti")
+        return False
 
     def follow_back(self, username: str) -> bool:
         """Tap the follow-back button on the item of `username`.
