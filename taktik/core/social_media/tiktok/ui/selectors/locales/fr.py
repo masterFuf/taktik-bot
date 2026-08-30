@@ -162,8 +162,15 @@ STRINGS: Dict[str, List[str]] = {
     "followers.follower_display_name_anchors": [
         "//*[contains(@resource-id, \":id/txt_user_name\")]",
     ],
-    "followers.follower_follow_button": [],
-    "followers.follower_following_button": [],
+    "followers.follower_follow_button": [
+        "//*[contains(@resource-id, \":id/txt_desc\")]/ancestor::*[@clickable=\"true\"][1]//android.widget.Button[@text=\"Suivre\" or @text=\"Suivre en retour\"]",
+    ],
+    # Cadre PAR LA RANGEE, jamais globalement : `@text="Suivis"` nu tire sur 14 autres ecrans
+    # (inbox, page nouveaux followers, onglet Utilisateurs). La rangee se designe par le pseudo
+    # (`txt_desc`, id lisible) puis son ancetre cliquable.
+    "followers.follower_following_button": [
+        "//*[contains(@resource-id, \":id/txt_desc\")]/ancestor::*[@clickable=\"true\"][1]//android.widget.Button[@text=\"Suivis\" or @text=\"Ami(e)s\"]",
+    ],
     # Measured on device (2026-08-29): this entry was EMPTY, so only the English list applied --
     # and it matches "Followers" by EQUALITY, while French TikTok writes the SINGULAR when the
     # account has exactly one ("Follower"). The Followers workflow died on "Failed to open
@@ -186,7 +193,12 @@ STRINGS: Dict[str, List[str]] = {
     "followers.followers_tab_selected": [
         "//android.widget.TextView[contains(@resource-id, \":id/text1\")][@selected=\"true\"][starts-with(@text, \"Followers\")]",
     ],
-    "followers.following_counter": [],
+    # L'onglet « Suivis 48 » de la liste. `text1` est un id lisible, present sur les deux versions.
+    # L'ESPACE de `"Suivis "` n'est pas cosmetique : sans elle, l'onglet « Suivis » du fil d'accueil
+    # tire aussi. Avec : 8 captures, toutes des listes d'abonnes/abonnements, 0 ailleurs.
+    "followers.following_counter": [
+        "//*[contains(@resource-id, \":id/text1\")][starts-with(@text, \"Suivis \")]",
+    ],
     # Mesuré sur le profil du compte opéré (46.6.3 et 43.1.4, 2026-08-29) : TikTok en français
     # écrit « Suivis », pas « Abonnements ». Cette entrée était VIDE, donc seule la liste anglaise
     # s'appliquait et la liste des abonnements du compte n'était pas ouvrable sur un téléphone
@@ -195,7 +207,22 @@ STRINGS: Dict[str, List[str]] = {
     "followers.following_list_opener": [
         "//*[@clickable=\"true\"][.//android.widget.TextView[contains(@text, \"Suivis\")]]",
     ],
-    "followers.following_or_friends_button": [],
+    # Le bouton d'en-tete d'un profil deja suivi : « Suivis » ou « Ami(e)s » (reciproque).
+    #
+    # Trois precautions, chacune payee par une mesure sur les 61 captures.
+    # 1. Le texte porte une ESPACE FINALE — « Suivis » — donc `normalize-space`, pas l'egalite nue.
+    # 2. Cadre par la presence du pseudo (`Button` dont le texte commence par « @ »), faute de quoi
+    #    il tire sur 22 ecrans : onglet « Suivis » du fil, rangees d'inbox, listes d'abonnes.
+    # 3. Et surtout `not(preceding-sibling::TextView)` : sans lui il attrapait AUSSI le LIBELLE du
+    #    compteur « Suivis » de l'en-tete, qui a la valeur numerique pour frere precedent. Taper
+    #    celui-la ouvre la liste d'abonnements au lieu de desabonner — un mauvais bouton, silencieux.
+    # Avec les trois : 1 sur chacun des 3 profils suivis, 0 sur les 58 autres captures.
+    "followers.following_or_friends_button": [
+        "//*[normalize-space(@text)=\"Suivis\" or normalize-space(@text)=\"Ami(e)s\"]"
+        "[ancestor::*[.//android.widget.Button[starts-with(@text,\"@\")]]]"
+        "[not(preceding-sibling::android.widget.TextView)]"
+        "/ancestor::*[@clickable=\"true\"][1]",
+    ],
     "followers.following_tab": [
         "//*[@clickable=\"true\"][starts-with(@content-desc, \"Suivis\")]",
     ],
@@ -221,9 +248,24 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.TextView[contains(@text, \"aime\")][string-length(@text)<12]"
         "/following::*[@text=\"Suivre\"][1]",
     ],
-    "followers.profile_reposted_tab": [],
-    "followers.profile_videos_tab": [],
-    "followers.unfollow_confirm_button": [],
+    "followers.profile_reposted_tab": [
+        "//*[@clickable=\"true\"][@content-desc=\"Vidéos republiées\"]",
+    ],
+    # `@content-desc="Videos"` nu tire sur les trois ecrans de resultats de recherche, qui portent
+    # aussi un onglet Videos. Le predicat sur l'icone de grille (« Publications »), propre au
+    # profil, le referme.
+    "followers.profile_videos_tab": [
+        "//*[@clickable=\"true\"][@content-desc=\"Vidéos\"][.//*[@content-desc=\"Publications\"]]",
+    ],
+    # Mesure le 2026-08-30 sur 46.6.3 : depuis un profil suivi, taper le bouton d'en-tete leve une
+    # « Feuille du bas » portant « Arreter de suivre ». Le libelle est sur un TextView NON
+    # cliquable ; le cliquable est le FrameLayout ancetre.
+    # A savoir : depuis la LISTE d'abonnements il n'y a AUCUNE confirmation — le bouton de rangee
+    # bascule directement. Mesure en desabonnant un vrai compte par accident, puis re-suivi.
+    "followers.unfollow_confirm_button": [
+        "//*[@text=\"Arrêter de suivre\"]/ancestor::*[@clickable=\"true\"][1]",
+        "//*[@text=\"Arrêter de suivre\"]",
+    ],
     # --- inbox ---
     "inbox.accept_request_button": [
         "//android.widget.Button[@text=\"Accepter\"]",
@@ -300,7 +342,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@text=\"Déconnexion\"]",
     ],
     "logout.logout_confirm_button": [],
-    "logout.profile_menu_button": [],
+    "logout.profile_menu_button": [
+        "//*[@clickable=\"true\"][@content-desc=\"Menu du profil\"]",
+    ],
     "logout.profile_tab": [],
     # --- navigation ---
     "navigation.back_button": [
@@ -630,7 +674,9 @@ STRINGS: Dict[str, List[str]] = {
     "profile.profile_photo": [
         "//*[contains(@content-desc, \"Photo de profil\")]",
     ],
-    "profile.profile_views_button": [],
+    "profile.profile_views_button": [
+        "//*[@content-desc=\"Vues du profil\"]",
+    ],
     "profile.story_close_button": [],
     "profile.unable_to_send_message": [],
     "profile.verified_badge": [],
