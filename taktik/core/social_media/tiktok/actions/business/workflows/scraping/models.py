@@ -8,7 +8,7 @@ import time
 @dataclass
 class ScrapingConfig:
     """Configuration for the TikTok scraping workflow."""
-    scrape_type: str = 'target'           # 'target', 'hashtag', 'post_url' or 'sound'
+    scrape_type: str = 'target'           # 'target', 'hashtag', 'post_url', 'sound' or 'account_posts'
     target_usernames: List[str] = field(default_factory=list)
     target_scrape_type: str = 'followers'  # 'followers' or 'following'
     hashtag: str = ''
@@ -25,6 +25,9 @@ class ScrapingConfig:
     min_sound_posts: int = 500
     max_users_per_sound: int = 10
     max_sounds_per_session: int = 5
+    #: `account_posts` mode: how many of an account's videos to collect a link for. Each costs a
+    #: share-sheet round trip, so this is a budget rather than a wish.
+    max_posts_per_account: int = 20
     max_profiles: int = 500
     max_videos: int = 50
     enrich_profiles: bool = True

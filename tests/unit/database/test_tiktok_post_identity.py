@@ -121,3 +121,35 @@ def test_the_key_names_its_platform():
     """Elle cohabite avec des clés Instagram dans la même colonne, et une clé qui ne dit pas d'où
     elle vient est une clé qu'on relit mal."""
     assert tiktok_post_key("Kéo", "· 06-12", CAPTION).startswith("tiktok:")
+
+# --- les dates relatives ---------------------------------------------------------------------
+
+
+def test_a_relative_date_does_not_make_the_key_move():
+    """Le défaut mesuré le 2026-08-30, en collectant les vidéos d'un profil.
+
+    TikTok écrit une date RELATIVE pour tout ce qui date de quelques jours — `· Il y a 20 h`,
+    `· Il y a 1 j` — et bascule sur `· 06-12` ensuite. Keyée dessus, la même vidéo devient
+    `ilya1j` demain et `ilya2j` après-demain : une ligne de plus par jour, et « a-t-on déjà engagé
+    ce post ? » répondant non pour toujours. C'est exactement ce que la clé existe pour empêcher.
+    """
+    assert tiktok_post_key("Kéo", "· Il y a 20 h", CAPTION) == tiktok_post_key("Kéo", "· Il y a 1 j", CAPTION)
+    assert tiktok_post_key("Kéo", "3d", CAPTION) == tiktok_post_key("Kéo", "· Il y a 1 j", CAPTION)
+
+
+def test_an_absolute_date_still_separates_two_posts():
+    """Une date absolue est un fait sur le post : elle reste dans la clé et continue de trier."""
+    assert tiktok_post_key("Kéo", "· 06-12", CAPTION) != tiktok_post_key("Kéo", "· 06-13", CAPTION)
+
+
+def test_a_recent_post_and_an_old_one_are_never_confondus():
+    assert tiktok_post_key("Kéo", "· Il y a 1 j", CAPTION) != tiktok_post_key("Kéo", "· 06-12", CAPTION)
+
+
+def test_the_collision_this_accepts_is_written_down():
+    """Le prix, assumé : deux posts du MÊME auteur, MÊME légende, tous deux récents, partagent une
+    clé. C'est le moins grave des deux échecs — une ligne dupliquée fait réengager le même post
+    tous les jours, une collision en fait sauter un — et rien à l'écran ne les sépare de toute
+    façon : le compte de test qui a révélé ça avait publié trois fois la même légende."""
+    assert tiktok_post_key("Kéo", "· Il y a 20 h", CAPTION) == tiktok_post_key("Kéo", "· Il y a 2 j", CAPTION)
+

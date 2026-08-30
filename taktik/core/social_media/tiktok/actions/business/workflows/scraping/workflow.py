@@ -9,6 +9,7 @@ from loguru import logger
 import time
 
 from ....atomic.navigation_actions import NavigationActions
+from ....atomic.search_actions import SearchActions
 from ....atomic.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
 from ....core.utils import extract_resource_id as _extract_rid, first_matching
@@ -38,6 +39,7 @@ class ScrapingWorkflow:
         self._followers_sel = FOLLOWERS_SELECTORS
         self._video_sel = VIDEO_SELECTORS
         self._search_sel = SEARCH_SELECTORS
+        self._profile_sel = PROFILE_SELECTORS
 
         # Callbacks (set by bridge)
         self._on_status: Optional[Callable] = None
@@ -122,6 +124,12 @@ class ScrapingWorkflow:
                     if remaining <= 0:
                         break
                     all_profiles.extend(self._scrape_post_commenters(url, remaining))
+
+            elif self.config.scrape_type == 'account_posts':
+                for username in self.config.target_usernames:
+                    if self.stopped:
+                        break
+                    self._scrape_account_posts(username)
 
             elif self.config.scrape_type == 'sound':
                 all_profiles = self._scrape_sounds(self.config.max_profiles)
@@ -339,6 +347,102 @@ class ScrapingWorkflow:
             logger.error(f"Error scraping hashtag: {e}")
 
         return profiles
+
+    # ── an account's posts ─────────────────────────
+
+    def _scrape_account_posts(self, username: str) -> None:
+        """Collect the LINK and the IDENTITY of an account's videos, one grid cell at a time.
+
+        Returns nothing and emits no profiles on purpose: this mode produces POSTS, not people.
+        They land in `social_posts` and are read back by anything that needs to reopen a video --
+        the commenter scrape, for one, which takes links as its input.
+
+        The identity is what makes a second run cheap. TikTok mints a new short link on every
+        copy, so keying on the URL would store one video once per visit; the key built from
+        author, date and caption recognises a post already collected and refreshes its link
+        instead of adding a row.
+        """
+        from taktik.core.social_media.tiktok.actions.atomic.post_link_actions import PostLinkActions
+
+        logger.info(f"Collecting posts of @{username}")
+        self._emit_status("navigating", f"Opening @{username}")
+
+        if not SearchActions(self.device).navigate_to_user_profile(username):
+            message = f"Could not open @{username}"
+            logger.warning(message)
+            self._emit_error(message)
+            return
+
+        time.sleep(2)
+        collector = PostLinkActions(self.device)
+        posts = self._local_db().social_posts if self._local_db() else None
+        seen_keys = set()
+        budget = self.config.max_posts_per_account
+
+        self._emit_status("scraping", f"Collecting posts of @{username}")
+        for index in range(budget):
+            if self.stopped:
+                break
+            cells = first_matching(self.device, self._profile_sel.video_item)
+            if index >= len(cells):
+                # Out of visible cells: scroll once and look again, then give up rather than
+                # loop. A grid that will not move has nothing more to give.
+                self._scroll.scroll_profile_videos('down')
+                time.sleep(1.5)
+                cells = first_matching(self.device, self._profile_sel.video_item)
+                if index >= len(cells):
+                    logger.debug(f"@{username}: no cell {index} on the grid")
+                    break
+
+            try:
+                cells[index].click()
+            except Exception as exc:
+                logger.debug(f"Cell {index} not tappable: {exc}")
+                break
+            time.sleep(3.5)
+
+            collected = collector.collect_post()
+            self.device.press("back")
+            time.sleep(1.5)
+
+            if not collected:
+                continue
+            key = collected["post_key"]
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+
+            if posts is not None:
+                try:
+                    posts.record(
+                        post_url=collected["post_url"],
+                        author_username=username,
+                        platform="tiktok",
+                        post_key=key,
+                    )
+                except Exception as exc:
+                    logger.warning(f"Could not store {key}: {exc}")
+
+            self._emit_progress(len(seen_keys), budget, key)
+            logger.info(f"Collected [{len(seen_keys)}/{budget}]: {collected['post_url']}")
+
+        logger.info(f"Collected {len(seen_keys)} post(s) of @{username}")
+
+    def _local_db(self):
+        """The local database, or None when it cannot be opened.
+
+        None rather than a raise: a collection run that cannot store is still worth watching, and
+        the links it emits are still usable. What must not happen is the run dying on a database.
+        """
+        if getattr(self, "_db_service", None) is None:
+            try:
+                from taktik.core.database.local.service import LocalDatabaseService
+
+                self._db_service = LocalDatabaseService()
+            except Exception as exc:
+                logger.warning(f"Local database unavailable: {exc}")
+                self._db_service = False
+        return self._db_service or None
 
     # ── sounds ──────────────────────────────────────
 

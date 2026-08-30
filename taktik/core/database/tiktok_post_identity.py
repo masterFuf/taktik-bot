@@ -35,6 +35,17 @@ from taktik.core.shared.text import fold_for_match
 
 _PLATFORM = "tiktok"
 
+#: What a RELATIVE date looks like, in either language: `Il y a 20 h`, `il y a 1 j`, `3d`, `20h`,
+#: `2 j`. TikTok writes these for anything posted in the last few days and switches to an absolute
+#: `06-12` afterwards.
+_RELATIVE_DATE = re.compile(
+    r"(il\s*y\s*a|ago|^\s*\d{1,3}\s*[hjdmw]\s*$)", re.IGNORECASE
+)
+
+#: What a relative date becomes in a key. Any token would do; what matters is that it is the SAME
+#: token tomorrow.
+_RECENT = "recent"
+
 #: Everything an XML dump can mangle or a UI can pad: the fingerprint must survive all of it.
 #: Astral characters (emoji) come back as pairs of dots on some reads and intact on others, so the
 #: safest fold is to drop everything that is not a letter or a digit.
@@ -64,6 +75,31 @@ def _fingerprint(caption: Optional[str]) -> str:
     return hashlib.sha1(folded.encode("utf-8")).hexdigest()[:16]
 
 
+def _stable_date_label(posted_at_label: Optional[str]) -> str:
+    """The date as something that will still say the same thing tomorrow.
+
+    An ABSOLUTE label (`· 06-12`) is folded and kept: it is a fact about the post.
+
+    A RELATIVE one (`Il y a 20 h`, `3 j`) is NOT. Measured on 2026-08-30: three videos of the same
+    account read `· 06-12`, `· Il y a 20 h` and `· Il y a 1 j`. Keyed on those, the second becomes
+    `ilya1j` tomorrow and `ilya2j` the day after -- one post, a new row every day, and "have we
+    already engaged this post?" answering no forever. That is precisely the failure the key exists
+    to prevent, so every relative label folds to one token instead.
+
+    The cost, stated rather than hidden: two posts by the SAME author with the SAME caption, both
+    recent, now share a key. That is a real collision and it is the better of the two failures --
+    a duplicate row makes a bot re-engage the same post every day, a collision makes it skip one.
+    And nothing on the screen separates them anyway: the test account that produced this had
+    posted the identical caption three times.
+    """
+    raw = (posted_at_label or "").strip()
+    if not raw:
+        return ""
+    if _RELATIVE_DATE.search(raw):
+        return _RECENT
+    return _KEEP.sub("", raw.casefold())
+
+
 def tiktok_post_key(
     author: Optional[str],
     posted_at_label: Optional[str] = None,
@@ -90,7 +126,7 @@ def tiktok_post_key(
     if not handle:
         return None
 
-    label = _KEEP.sub("", (posted_at_label or "").casefold())
+    label = _stable_date_label(posted_at_label)
     fingerprint = _fingerprint(caption)
 
     # An author alone is not a post. `tv_post_time` is absent from the FYP, so a caption-less
