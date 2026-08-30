@@ -123,6 +123,9 @@ class ScrapingWorkflow:
                         break
                     all_profiles.extend(self._scrape_post_commenters(url, remaining))
 
+            elif self.config.scrape_type == 'sound':
+                all_profiles = self._scrape_sounds(self.config.max_profiles)
+
             else:
                 # Said out loud. An unknown type used to fall through to an empty list and a
                 # successful-looking run, which is how a front that sends a type the bot does not
@@ -336,6 +339,85 @@ class ScrapingWorkflow:
             logger.error(f"Error scraping hashtag: {e}")
 
         return profiles
+
+    # ── sounds ──────────────────────────────────────
+
+    def _scrape_sounds(self, max_profiles: int) -> List[Dict[str, Any]]:
+        """Walk the feed, and harvest the people behind the sounds that carry a real audience.
+
+        The shape follows a measured limit rather than a preference. Reaching a sound BY NAME
+        through the search Sounds tab does not work here -- the tab is found and tapped and the
+        list stays empty past twelve seconds -- so a sound is reached from a video that uses it.
+        The feed supplies the sounds; the count decides which are worth opening.
+
+        `min_sound_posts` is what makes this cheap enough to run. Most sounds are somebody's own
+        original audio: our test account's had 3 posts, `Umbrella - Rihanna` had 3.3 million.
+        Opening the first kind costs twenty seconds and returns the author we already had.
+        """
+        from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+
+        profiles: List[Dict[str, Any]] = []
+        scraped_usernames: Set[str] = set()
+        seen_sounds: Set[str] = set()
+        sounds = SoundActions(self.device)
+
+        self._emit_status("scraping", "Reading the sounds of the feed")
+
+        for _ in range(self.config.max_videos):
+            if self.stopped or len(profiles) >= max_profiles:
+                break
+            if len(seen_sounds) >= self.config.max_sounds_per_session:
+                break
+
+            label = sounds.read_current_sound()
+            if label and label in seen_sounds:
+                self._next_video()
+                continue
+
+            if not label or not sounds.open_sound_page():
+                self._next_video()
+                continue
+            seen_sounds.add(label)
+
+            count = sounds.sound_post_count()
+            # None is not zero: an unreadable page and an unused sound lead to opposite calls,
+            # and treating the first as the second silently skips real trends.
+            if count is None or count < self.config.min_sound_posts:
+                logger.info(f"Sound skipped ({count} posts): {label}")
+                self.device.press("back")
+                time.sleep(2)
+                self._next_video()
+                continue
+
+            logger.info(f"Sound kept ({count} posts): {label}")
+            budget = min(max_profiles - len(profiles), self.config.max_users_per_sound)
+            for person in sounds.collect_sound_users(max_users=budget):
+                username = person["username"]
+                if username in scraped_usernames:
+                    continue
+                scraped_usernames.add(username)
+                profile = empty_profile(username, display_name=person.get("display_name", ""))
+                profiles.append(profile)
+                self.stats.profiles_scraped += 1
+                self._emit_progress(len(profiles), max_profiles, username)
+                self._emit_profile(profile)
+                self._emit_save_profile(profile)
+                logger.info(f"Scraped [{len(profiles)}/{max_profiles}]: @{username}")
+
+            self.device.press("back")
+            time.sleep(2)
+            self._next_video()
+
+        logger.info(f"Scraped {len(profiles)} profile(s) from {len(seen_sounds)} sound(s)")
+        return profiles
+
+    def _next_video(self) -> None:
+        """One swipe to the next video, through the fling every feed walk uses."""
+        try:
+            self._scroll.scroll_to_next_video()
+            time.sleep(2.0)
+        except Exception as exc:
+            logger.debug(f"Could not advance the feed: {exc}")
 
     # ── post commenters ────────────────────────────────
 

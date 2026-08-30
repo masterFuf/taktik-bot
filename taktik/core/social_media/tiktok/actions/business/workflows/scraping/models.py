@@ -8,7 +8,7 @@ import time
 @dataclass
 class ScrapingConfig:
     """Configuration for the TikTok scraping workflow."""
-    scrape_type: str = 'target'           # 'target', 'hashtag' or 'post_url'
+    scrape_type: str = 'target'           # 'target', 'hashtag', 'post_url' or 'sound'
     target_usernames: List[str] = field(default_factory=list)
     target_scrape_type: str = 'followers'  # 'followers' or 'following'
     hashtag: str = ''
@@ -18,6 +18,13 @@ class ScrapingConfig:
     #: How many commenters to identify per post. Each one costs a profile round trip (~13s),
     #: because a comment row carries a display name and no handle at all.
     max_commenters_per_post: int = 20
+    #: Sound mode. A sound is a targeting source TikTok has and Instagram does not: everyone
+    #: riding one trend, which is a sharper audience than everyone who typed one word.
+    #: The floor exists because most sounds are somebody's own original audio with three posts --
+    #: opening those costs twenty seconds and returns their author, whom we already had.
+    min_sound_posts: int = 500
+    max_users_per_sound: int = 10
+    max_sounds_per_session: int = 5
     max_profiles: int = 500
     max_videos: int = 50
     enrich_profiles: bool = True

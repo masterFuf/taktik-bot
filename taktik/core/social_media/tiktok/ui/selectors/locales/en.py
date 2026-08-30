@@ -1010,6 +1010,16 @@ STRINGS: Dict[str, List[str]] = {
         '//*[@content-desc="Delete repost"]',
         '//*[@clickable="true"][.//*[@text="Delete repost"]]',
     ],
+    # Voir la note francaise. Libelles anglais A CONFIRMER sur appareil : ils sont ecrits depuis
+    # la structure, pas mesures -- trois entrees anglaises ecrites ainsi se sont revelees fausses
+    # le meme jour. Le repli sur l'id obfusque tient en attendant.
+    "video_sound.sound_entry": [
+        '//*[starts-with(@content-desc, "Sound: ")]',
+    ],
+    "video_sound.sound_page_indicator": [
+        '//*[contains(@content-desc, "post")]',
+        '//*[contains(@text, "post")]',
+    ],
     "video_share.repost_button": [
         "//*[@content-desc=\"Repost\"]",
         "//*[@clickable=\"true\"][.//*[@text=\"Repost\"]]",

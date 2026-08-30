@@ -109,3 +109,54 @@ def is_reposted(a, p):
         "message": {True: "reposted", False: "not reposted"}.get(state, "sheet unreadable"),
         "details": {"reposted": state},
     }
+
+
+@action("tt.sound.read")
+def read_sound(a, p):
+    """READS ONLY: the sound label of the video on screen, as the screen writes it."""
+    from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+
+    label = SoundActions(a.device).read_current_sound()
+    return {"success": bool(label), "message": label or "no sound row on this screen"}
+
+
+@action("tt.sound.open_page")
+def open_sound_page(a, p):
+    """Open the page of the sound this video uses, and report how many videos use it.
+
+    The count is the point, not decoration: most sounds are somebody's own original audio with a
+    handful of posts, and telling those from a trend is what makes harvesting worth its time.
+    """
+    from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+
+    actions = SoundActions(a.device)
+    if not actions.open_sound_page():
+        return {"success": False, "message": "the sound page did not come up"}
+
+    count = actions.sound_post_count()
+    logger.info(f"tt.sound.open_page: {count} post(s)")
+    return {
+        "success": True,
+        # None is reported as unreadable, never as zero -- they lead to opposite decisions.
+        "message": f"{count} post(s)" if count is not None else "post count unreadable",
+        "details": {"post_count": count},
+    }
+
+
+@action("tt.sound.collect_users")
+def collect_sound_users(a, p):
+    """From an OPEN sound page: the handles of the people who used this sound.
+
+    Params: max (default 5). Each one costs a profile round trip -- a sound-page cell says
+    "Vidéo" and names nobody, so the handle is only reachable by opening it.
+    """
+    from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+
+    limit = int((p or {}).get("max") or 5)
+    people = SoundActions(a.device).collect_sound_users(max_users=limit)
+    logger.info(f"tt.sound.collect_users: {len(people)}")
+    return {
+        "success": bool(people),
+        "message": f"{len(people)} user(s): " + ", ".join("@" + x["username"] for x in people[:6]),
+        "details": {"users": people},
+    }

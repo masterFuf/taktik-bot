@@ -968,6 +968,18 @@ STRINGS: Dict[str, List[str]] = {
         '//*[@content-desc="Supprimer la republication"]',
         '//*[@clickable="true"][.//*[@text="Supprimer la republication"]]',
     ],
+    # Mesure le 2026-08-30 sur 46.6.3. La ligne de son d'une video porte sa description en
+    # francais : « Son : <titre> par <auteur> ». Ancre LISIBLE, donc placee avant l'id obfusque.
+    "video_sound.sound_entry": [
+        '//*[starts-with(@content-desc, "Son : ")]',
+    ],
+    # Le compteur de publications est la seule chose propre a une page de son. Il sert aussi a
+    # decider si un son vaut la peine : 3 publications, c'est notre propre audio ; 3,3 M, c'est
+    # une tendance.
+    "video_sound.sound_page_indicator": [
+        '//*[contains(@content-desc, "publication")]',
+        '//*[contains(@text, "publication")]',
+    ],
     "video_share.repost_button": [
         "//*[@content-desc=\"Republier\"]",
         "//*[@clickable=\"true\"][.//*[@text=\"Republier\"]]",

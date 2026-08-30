@@ -16,6 +16,9 @@ def build_scraping_config(config: dict[str, Any]):
         hashtag=config.get("hashtag", ""),
         post_urls=config.get("postUrls", []),
         max_commenters_per_post=config.get("maxCommentersPerPost", 20),
+        min_sound_posts=config.get("minSoundPosts", 500),
+        max_users_per_sound=config.get("maxUsersPerSound", 10),
+        max_sounds_per_session=config.get("maxSoundsPerSession", 5),
         max_profiles=config.get("maxProfiles", 500),
         max_videos=config.get("maxPosts", 50),
         enrich_profiles=config.get("enrichProfiles", True),
@@ -42,6 +45,9 @@ def create_scraping_session(config: dict[str, Any]) -> int | None:
     elif scrape_type == "post_url":
         source_type = "POST_COMMENTERS"
         source_name = post_urls[0] if post_urls else ""
+    elif scrape_type == "sound":
+        source_type = "SOUND"
+        source_name = ""   # the sounds are discovered on the feed, not named by the caller
     else:
         source_type = "HASHTAG"
         source_name = config.get("hashtag", "")
