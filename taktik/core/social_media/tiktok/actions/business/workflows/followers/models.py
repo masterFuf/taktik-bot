@@ -1,6 +1,6 @@
 """Data models for the TikTok Followers workflow."""
 
-from typing import Dict, Any
+from typing import Any, Dict, List
 from dataclasses import dataclass, field
 import time
 
@@ -25,6 +25,10 @@ class FollowersConfig:
     # Probabilités d'interaction (0.0 à 1.0)
     like_probability: float = 0.7
     comment_probability: float = 0.1
+    #: The run's own comment texts. Empty by default and never defaulted to a built-in list:
+    #: a generic "Nice!" under a stranger's video is the most recognisable bot signature there
+    #: is, so a run that configured none posts none.
+    comment_texts: List[str] = field(default_factory=list)
     share_probability: float = 0.05
     favorite_probability: float = 0.3
     follow_probability: float = 0.5

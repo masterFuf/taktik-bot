@@ -57,6 +57,11 @@ def build_followers_config(
         max_watch_time=config.get("maxWatchTime", 15.0),
         like_probability=config.get("likeProbability", 70) / 100.0,
         favorite_probability=config.get("favoriteProbability", 30) / 100.0,
+        # Both were absent here while `FollowersConfig` declared them: the run always used the
+        # dataclass default (10%) whatever the operator set, and the texts never arrived at all.
+        # The branch they feed was a `pass` until 2026-08-30, so nothing showed.
+        comment_probability=config.get("commentProbability", 10) / 100.0,
+        comment_texts=config.get("commentTexts") or config.get("comments") or [],
         follow_probability=config.get("followProbability", 50) / 100.0,
         story_like_probability=config.get("storyLikeProbability", 50) / 100.0,
         max_likes_per_session=remaining_likes,

@@ -20,7 +20,13 @@ from taktik.core.database.instagram_post_identity import build_post_ref
 
 
 class InstagramPostedComments:
-    """Write-side facade for `posted_comments`."""
+    """Write-side facade for `posted_comments`.
+
+    The name is historical: `posted_comments` carries a `platform` column and TikTok writes to
+    it too, through this same facade. One writer, so the anti-tic guard reads back what was
+    really published whichever platform published it — a second facade is how the two ends up
+    with two definitions of "recent".
+    """
 
     @staticmethod
     def _db():
@@ -35,6 +41,7 @@ class InstagramPostedComments:
         session_id: Optional[int] = None,
         ai_metadata: Optional[Dict[str, Any]] = None,
         source: str = "template",
+        platform: str = "instagram",
         posted_at: Optional[str] = None,
         kind: str = "comment",
         reply_to_username: Optional[str] = None,
@@ -60,7 +67,7 @@ class InstagramPostedComments:
                 comment_text=comment_text,
                 account_id=account_id,
                 session_id=session_id,
-                platform="instagram",
+                platform=platform,
                 post_author=post_author,
                 post_ref=build_post_ref(post_author, post_caption),
                 post_url=meta.get("post_url"),
@@ -92,7 +99,11 @@ class InstagramPostedComments:
             return False
 
     @staticmethod
-    def recent_texts(account_id: Optional[int] = None, limit: int = 12) -> list:
+    def recent_texts(
+        account_id: Optional[int] = None,
+        limit: int = 12,
+        platform: str = "instagram",
+    ) -> list:
         """The account's latest AI-published comment texts (anti-tic guard input).
 
         Best effort: any failure returns [] — generation then simply runs without the
@@ -100,7 +111,7 @@ class InstagramPostedComments:
         """
         try:
             return InstagramPostedComments._db().posted_comments.recent_texts(
-                account_id=account_id, limit=limit,
+                account_id=account_id, limit=limit, platform=platform,
             )
         except Exception as exc:
             logger.warning(f"Could not read recent posted comments: {exc}")
