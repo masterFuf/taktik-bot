@@ -16,6 +16,8 @@ from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from .....ui.selectors.surfaces.search import SEARCH_SELECTORS
 from .....services.profile.username import read_open_profile_handle
+from .....services.navigation.deeplink import open_post_by_url
+from ....atomic.comment_actions import CommentActions
 from .....ui.selectors.surfaces.video import VIDEO_SELECTORS
 from .models import ScrapingConfig, ScrapingStats, empty_profile
 from .._internal.profile_extractor import extract_profile_from_screen
@@ -111,6 +113,23 @@ class ScrapingWorkflow:
                 all_profiles = self._scrape_hashtag(
                     self.config.hashtag, self.config.max_profiles, self.config.max_videos
                 )
+
+            elif self.config.scrape_type == 'post_url':
+                for url in self.config.post_urls:
+                    if self.stopped:
+                        break
+                    remaining = self.config.max_profiles - len(all_profiles)
+                    if remaining <= 0:
+                        break
+                    all_profiles.extend(self._scrape_post_commenters(url, remaining))
+
+            else:
+                # Said out loud. An unknown type used to fall through to an empty list and a
+                # successful-looking run, which is how a front that sends a type the bot does not
+                # know reports "0 profiles found" instead of "I cannot do that".
+                message = f"Unknown scrape type: {self.config.scrape_type!r}"
+                logger.error(message)
+                self._emit_error(message)
 
         except Exception as e:
             logger.error(f"Scraping error: {e}")
@@ -316,6 +335,48 @@ class ScrapingWorkflow:
         except Exception as e:
             logger.error(f"Error scraping hashtag: {e}")
 
+        return profiles
+
+    # ── post commenters ────────────────────────────────
+
+    def _scrape_post_commenters(self, post_url: str, max_profiles: int) -> List[Dict[str, Any]]:
+        """The people who commented on one post, by their handle.
+
+        On Instagram the equivalent surface is the likers of a post. TikTok renders no such list
+        at all -- the like count is a number and nothing else -- so on this platform the audience
+        a post exposes is its COMMENTERS, and that is what this collects.
+
+        The post is reopened from its link by deep link, which was measured to land on the post
+        itself: `https://vm.tiktok.com/ZN8FaXgeY/` reopened charli d'amelio's video, caption and
+        all. The handles come from `read_commenter_handles`, which opens each row because a
+        comment row carries a display name and no username anywhere.
+        """
+        logger.info(f"Scraping commenters of {post_url}")
+        self._emit_status("navigating", f"Opening {post_url}")
+
+        profiles: List[Dict[str, Any]] = []
+        if not open_post_by_url(self.device, post_url):
+            message = f"Could not open {post_url}"
+            logger.warning(message)
+            self._emit_error(message)
+            return profiles
+
+        budget = min(max_profiles, self.config.max_commenters_per_post)
+        self._emit_status("scraping", f"Reading commenters of {post_url}")
+        commenters = CommentActions(self.device).read_commenter_handles(max_commenters=budget)
+
+        for person in commenters:
+            if self.stopped:
+                break
+            profile = empty_profile(person["username"], display_name=person.get("display_name", ""))
+            profiles.append(profile)
+            self.stats.profiles_scraped += 1
+            self._emit_progress(len(profiles), budget, person["username"])
+            self._emit_profile(profile)
+            self._emit_save_profile(profile)
+            logger.info(f"Scraped [{len(profiles)}/{budget}]: @{person['username']}")
+
+        logger.info(f"Scraped {len(profiles)} commenter(s) from {post_url}")
         return profiles
 
     def _handle_behind_result_cell(self, index: int) -> str:

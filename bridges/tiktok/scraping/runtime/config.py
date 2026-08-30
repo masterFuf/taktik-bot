@@ -14,6 +14,8 @@ def build_scraping_config(config: dict[str, Any]):
         target_usernames=config.get("targetUsernames", []),
         target_scrape_type=config.get("scrapeType", "followers"),
         hashtag=config.get("hashtag", ""),
+        post_urls=config.get("postUrls", []),
+        max_commenters_per_post=config.get("maxCommentersPerPost", 20),
         max_profiles=config.get("maxProfiles", 500),
         max_videos=config.get("maxPosts", 50),
         enrich_profiles=config.get("enrichProfiles", True),
@@ -29,10 +31,23 @@ def create_scraping_session(config: dict[str, Any]) -> int | None:
     scrape_type = config.get("type", "target")
     target_scrape_type = config.get("scrapeType", "followers")
     target_usernames = config.get("targetUsernames", [])
-    source_name = target_usernames[0] if target_usernames else config.get("hashtag", "")
+    post_urls = config.get("postUrls", [])
+
+    # The source has to name what was actually scraped. `HASHTAG` for everything that was not a
+    # target was fine while those were the only two modes; a post-URL run filed under HASHTAG
+    # with an empty name describes nothing anyone can trace back.
+    if scrape_type == "target":
+        source_type = target_scrape_type.upper()
+        source_name = target_usernames[0] if target_usernames else ""
+    elif scrape_type == "post_url":
+        source_type = "POST_COMMENTERS"
+        source_name = post_urls[0] if post_urls else ""
+    else:
+        source_type = "HASHTAG"
+        source_name = config.get("hashtag", "")
 
     return save_scraping_session(
-        source_type=target_scrape_type.upper() if scrape_type == "target" else "HASHTAG",
+        source_type=source_type,
         source_name=source_name,
         total_scraped=0,
         status="RUNNING",

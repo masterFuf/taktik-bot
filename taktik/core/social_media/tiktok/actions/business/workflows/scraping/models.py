@@ -8,10 +8,16 @@ import time
 @dataclass
 class ScrapingConfig:
     """Configuration for the TikTok scraping workflow."""
-    scrape_type: str = 'target'           # 'target' or 'hashtag'
+    scrape_type: str = 'target'           # 'target', 'hashtag' or 'post_url'
     target_usernames: List[str] = field(default_factory=list)
     target_scrape_type: str = 'followers'  # 'followers' or 'following'
     hashtag: str = ''
+    #: Post links to harvest commenters from. On TikTok the people who LIKED a post are not
+    #: rendered anywhere, so the audience signal a post carries is its commenters.
+    post_urls: List[str] = field(default_factory=list)
+    #: How many commenters to identify per post. Each one costs a profile round trip (~13s),
+    #: because a comment row carries a display name and no handle at all.
+    max_commenters_per_post: int = 20
     max_profiles: int = 500
     max_videos: int = 50
     enrich_profiles: bool = True
