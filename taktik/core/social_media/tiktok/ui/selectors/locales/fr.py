@@ -980,6 +980,13 @@ STRINGS: Dict[str, List[str]] = {
         '//*[contains(@content-desc, "publication")]',
         '//*[contains(@text, "publication")]',
     ],
+    # Mesure le 2026-08-30 sur 46.6.3 : « Pas interesse(e) » vit dans la feuille de partage. Le
+    # tap referme la feuille ET fait defiler a la video suivante -- l'auteur change, ce qui est la
+    # seule preuve lisible que le signal est parti.
+    "video_share.not_interested_button": [
+        '//*[@content-desc="Pas intéressé(e)"]',
+        '//*[@clickable="true"][.//*[@text="Pas intéressé(e)"]]',
+    ],
     "video_share.repost_button": [
         "//*[@content-desc=\"Republier\"]",
         "//*[@clickable=\"true\"][.//*[@text=\"Republier\"]]",

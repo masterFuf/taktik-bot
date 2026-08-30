@@ -23,6 +23,14 @@ class ForYouConfig:
     #: by default: a feed run that never asked to comment must behave exactly as it did before.
     #: Republier une video sur notre propre profil. TikTok n'a pas d'equivalent Instagram :
     #: c'est a la fois un signal fort a l'auteur et de quoi nourrir un profil qui n'a rien publie.
+    #: Entrainer la For You page. Les mots decrivent la niche voulue ; une video qui n'en porte
+    #: aucun recoit le seul signal negatif explicite que TikTok expose (« Pas interesse(e) »).
+    #: Vide = mode inactif, et le workflow se comporte exactement comme avant.
+    training_keywords: List[str] = field(default_factory=list)
+    #: Rejeter explicitement, ou se contenter de passer vite. Le rejet est visible dans
+    #: l'historique « pas interesse » du compte : ce n'est pas anodin sur un compte client.
+    training_reject_off_niche: bool = True
+    max_rejections_per_session: int = 20
     repost_probability: float = 0.0
     max_reposts_per_session: int = 5
     comment_probability: float = 0.0

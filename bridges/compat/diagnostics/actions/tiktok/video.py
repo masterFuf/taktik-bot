@@ -160,3 +160,60 @@ def collect_sound_users(a, p):
         "message": f"{len(people)} user(s): " + ", ".join("@" + x["username"] for x in people[:6]),
         "details": {"users": people},
     }
+
+
+@action("tt.feed.not_interested")
+def not_interested(a, p):
+    """Send the feed the explicit "less of this" signal. ACTS: it changes what TikTok serves.
+
+    Reports the video BEFORE and AFTER, because the author changing is the only readable proof
+    the signal left -- the tap succeeds whether or not it did.
+    """
+    from taktik.core.social_media.tiktok.actions.atomic.feed_training_actions import (
+        FeedTrainingActions,
+    )
+
+    actions = FeedTrainingActions(a.device)
+    before = actions._current_author()
+    done = actions.mark_not_interested()
+    after = actions._current_author()
+    logger.info(f"tt.feed.not_interested: {before!r} -> {after!r} ({done})")
+    return {
+        "success": done,
+        "message": f"{before!r} -> {after!r}" if done else f"still on {before!r}",
+        "details": {"before": before, "after": after},
+    }
+
+
+@action("tt.feed.training_decision")
+def feed_training_decision(a, p):
+    """READS ONLY: what a training pass would do with the video on screen, and why.
+
+    Params: keywords (comma-separated). Runs the real decision function against what the screen
+    actually says, so a niche can be tuned without spending a session finding out.
+    """
+    from taktik.core.social_media.tiktok.actions.atomic.sound_actions import SoundActions
+    from taktik.core.social_media.tiktok.actions.atomic.video_detector import VideoDetector
+    from taktik.core.social_media.tiktok.services.feed.training import (
+        normalise_keywords,
+        training_decision,
+    )
+
+    raw_keywords = str((p or {}).get("keywords") or "")
+    keywords = normalise_keywords(raw_keywords.split(","))
+    if not keywords:
+        return {"success": False, "message": "keywords are required (comma-separated)"}
+
+    detector = VideoDetector(a.device)
+    fields = {
+        "description": detector.get_video_description() if hasattr(detector, "get_video_description") else "",
+        "sound": SoundActions(a.device).read_current_sound(),
+        "author": detector.get_video_author(),
+    }
+    decision = training_decision(list(fields.values()), keywords)
+    logger.info(f"tt.feed.training_decision: {decision} on {fields}")
+    return {
+        "success": True,
+        "message": f"{decision} (keywords: {', '.join(keywords)})",
+        "details": {"decision": decision, "read": fields, "keywords": keywords},
+    }

@@ -1020,6 +1020,11 @@ STRINGS: Dict[str, List[str]] = {
         '//*[contains(@content-desc, "post")]',
         '//*[contains(@text, "post")]',
     ],
+    # Voir la note francaise. Libelle anglais mesure sur appareil le 2026-08-30.
+    "video_share.not_interested_button": [
+        '//*[@content-desc="Not interested"]',
+        '//*[@clickable="true"][.//*[@text="Not interested"]]',
+    ],
     "video_share.repost_button": [
         "//*[@content-desc=\"Repost\"]",
         "//*[@clickable=\"true\"][.//*[@text=\"Repost\"]]",

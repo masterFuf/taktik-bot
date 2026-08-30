@@ -43,6 +43,19 @@ class VideoShareSelectors:
         return L("video_share.copy_link_button")
 
     @property
+    def not_interested_button(self) -> List[str]:
+        """The only explicit NEGATIVE signal TikTok exposes.
+
+        It lives in the share sheet, and the tap both closes the sheet and advances to the next
+        video -- measured: the author went from `Anaïs` to `dylsmoove` on its own. That change of
+        author is the only readable proof the signal was sent, so it is what the action checks.
+
+        A feed-training pass without this can only ever say yes. Watching a video fully is a
+        positive signal and skipping one is a weak one; this is the one that says "less of that".
+        """
+        return L("video_share.not_interested_button")
+
+    @property
     def repost_button(self) -> List[str]:
         return L("video_share.repost_button")
 

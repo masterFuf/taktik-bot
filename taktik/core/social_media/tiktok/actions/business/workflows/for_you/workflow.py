@@ -115,6 +115,12 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                     except Exception as e:
                         self.logger.warning(f"Video callback error: {e}")
 
+                # Feed training. Runs BEFORE the engagement decisions and can end the video's
+                # turn entirely: rejecting one and then liking it would send two signals that
+                # contradict each other, and the reject already advances the feed by itself.
+                if self._train_on_video(video_info):
+                    continue
+
                 # Check if current video is an ad
                 if self.config.skip_ads and video_info.get('is_ad', False):
                     self.logger.info("📺 Skipping advertisement")
@@ -166,6 +172,49 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
         
         return self.stats
     
+    def _train_on_video(self, video_info: Dict[str, Any]) -> bool:
+        """Send the feed a signal about this video. True when the video's turn is over.
+
+        Returns True only after a REJECT, because that gesture advances the feed on its own --
+        measured, the author changed with no swipe. Returning False everywhere else lets the
+        normal engagement pass run, which is what "watch" means here: staying on an in-niche
+        video is the positive signal, and it costs nothing extra.
+        """
+        keywords = getattr(self.config, 'training_keywords', None)
+        if not keywords:
+            return False
+
+        from taktik.core.social_media.tiktok.services.feed.training import training_decision
+
+        rejected = getattr(self.stats, 'videos_rejected', 0)
+        if rejected >= getattr(self.config, 'max_rejections_per_session', 20):
+            return False
+
+        decision = training_decision(
+            [video_info.get('description'), video_info.get('sound'), video_info.get('author')],
+            keywords,
+            reject_off_niche=getattr(self.config, 'training_reject_off_niche', True),
+        )
+        if decision != 'reject':
+            # `watch` and `skip` both mean "carry on": the dwell already planned is the signal,
+            # and there is nothing to tap for either of them.
+            return False
+
+        from taktik.core.social_media.tiktok.actions.atomic.feed_training_actions import (
+            FeedTrainingActions,
+        )
+
+        try:
+            if FeedTrainingActions(self.device).mark_not_interested():
+                if hasattr(self.stats, 'videos_rejected'):
+                    self.stats.videos_rejected += 1
+                return True
+        except Exception as exc:
+            self.logger.warning(f"Entraînement FYP: rejet impossible ({exc})")
+        # The signal did not leave, so the video is still on screen and still off-niche. Falling
+        # through lets the ordinary pass swipe past it, which is the weak negative anyway.
+        return False
+
     def _ensure_on_for_you(self) -> bool:
         """Ensure we're on the For You feed."""
         self.logger.debug("📱 Ensuring on For You feed")
