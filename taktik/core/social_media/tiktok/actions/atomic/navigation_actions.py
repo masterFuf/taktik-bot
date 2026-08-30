@@ -10,6 +10,7 @@ and get every method via a single class.
 from loguru import logger
 
 from .search_actions import SearchActions
+from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
@@ -34,6 +35,14 @@ class NavigationActions(SearchActions):
         Uses resource-id mkq with content-desc "Home".
         """
         self.logger.info("🏠 Navigating to Home")
+
+        # The bar has to EXIST before a tab can be tapped. Every full-screen page — a new-followers
+        # list, a follow list, a visited profile, a settings sub-screen — hides it, and the tap
+        # then lands on nothing while the caller reads "the tab is gone". This is a no-op from the
+        # feed, so it costs nothing on the common path. Measured three times on 2026-08-30: the
+        # navigation reset left the app, profile navigation failed from the inbox, and the
+        # new-followers welcome pass could not reopen the page it had just read.
+        return_to_tiktok_shell(self.device, logger=self.logger)
 
         if self._find_and_click(self.navigation_selectors.home_tab, timeout=5):
             self._human_like_delay('navigation')
@@ -62,6 +71,14 @@ class NavigationActions(SearchActions):
         """
         self.logger.info("📥 Navigating to Inbox")
         
+        # The bar has to EXIST before a tab can be tapped. Every full-screen page — a new-followers
+        # list, a follow list, a visited profile, a settings sub-screen — hides it, and the tap
+        # then lands on nothing while the caller reads "the tab is gone". This is a no-op from the
+        # feed, so it costs nothing on the common path. Measured three times on 2026-08-30: the
+        # navigation reset left the app, profile navigation failed from the inbox, and the
+        # new-followers welcome pass could not reopen the page it had just read.
+        return_to_tiktok_shell(self.device, logger=self.logger)
+
         if self._find_and_click(self.navigation_selectors.inbox_tab, timeout=5):
             self._human_like_delay('navigation')
             self.logger.success("✅ Navigated to Inbox")
@@ -77,6 +94,14 @@ class NavigationActions(SearchActions):
         """
         self.logger.info("👤 Navigating to Profile")
         
+        # The bar has to EXIST before a tab can be tapped. Every full-screen page — a new-followers
+        # list, a follow list, a visited profile, a settings sub-screen — hides it, and the tap
+        # then lands on nothing while the caller reads "the tab is gone". This is a no-op from the
+        # feed, so it costs nothing on the common path. Measured three times on 2026-08-30: the
+        # navigation reset left the app, profile navigation failed from the inbox, and the
+        # new-followers welcome pass could not reopen the page it had just read.
+        return_to_tiktok_shell(self.device, logger=self.logger)
+
         if self._find_and_click(self.navigation_selectors.profile_tab, timeout=5):
             self._human_like_delay('navigation')
             self.logger.success("✅ Navigated to Profile")

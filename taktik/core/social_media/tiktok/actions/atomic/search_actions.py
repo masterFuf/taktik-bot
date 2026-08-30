@@ -9,6 +9,7 @@ search hashtag.
 from loguru import logger
 
 from ..core.base_action import BaseAction
+from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ...ui.selectors.surfaces.search import SEARCH_SELECTORS
 
@@ -196,7 +197,18 @@ class SearchActions(BaseAction):
         self.logger.info(f"👤 Navigating to @{username}'s profile")
         
         try:
-            # First go to home, then click search
+            # The bottom bar has to EXIST before a tab can be tapped. A new-followers page, a
+            # follow list, a search result, a visited profile: all full-screen pages with no bar,
+            # and tapping the home tab from inside one taps nothing — then `open_search` finds no
+            # magnifier either and the caller reads "this account is unreachable".
+            #
+            # Measured 2026-08-30: the new-followers welcome pass listed three real followers and
+            # then failed to qualify all three with `profile_unreachable`, having never left the
+            # inbox page. Backing out first is a no-op from the feed, so it costs nothing on the
+            # common path.
+            return_to_tiktok_shell(self.device, logger=self.logger)
+
+            # Then home, then search.
             if self._find_and_click(self.navigation_selectors.home_tab, timeout=5):
                 self._human_like_delay('navigation')
             

@@ -10,11 +10,12 @@ Based on the UI dumps:
 
 import re
 import time
-from typing import Dict, Any, List
+from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from ..core.base_action import BaseAction
 from ..core.utils import extract_resource_id, first_matching
+from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 from ...ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ...ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
 from ...ui.selectors.surfaces.inbox import INBOX_SELECTORS
@@ -174,6 +175,14 @@ class DMActions(BaseAction):
             self.logger.debug("Already on Inbox page")
             return True
         
+        # The bar has to EXIST before a tab can be tapped. Every full-screen page — a new-followers
+        # list, a follow list, a visited profile, a settings sub-screen — hides it, and the tap
+        # then lands on nothing while the caller reads "the tab is gone". This is a no-op from the
+        # feed, so it costs nothing on the common path. Measured three times on 2026-08-30: the
+        # navigation reset left the app, profile navigation failed from the inbox, and the
+        # new-followers welcome pass could not reopen the page it had just read.
+        return_to_tiktok_shell(self.device, logger=self.logger)
+
         # Try clicking inbox tab
         if self._find_and_click(self.navigation_selectors.inbox_tab, timeout=3):
             time.sleep(1)
@@ -1046,3 +1055,59 @@ class DMActions(BaseAction):
         """Close the sticker suggestion popup in new conversations."""
         return self.close_conversation_interstitial()
     
+
+    def open_new_follower_profile(self, shown_name: str) -> Optional[str]:
+        """Open ONE new follower's profile from the dedicated page, and return their HANDLE.
+
+        Returns the handle read off the profile that opened, or None when the row could not be
+        opened or the screen that came up is not a profile.
+
+        Why this exists rather than a search. The new-followers page shows a DISPLAY NAME and
+        never a handle — measured 2026-08-30, the row's only name node reads `"Allocin(gl)és"`
+        for @allocingles — so handing that name to `navigate_to_user_profile` searches for a
+        person who does not exist under that name. The welcome pass did exactly that and reported
+        `profile_unreachable` for every follower it had just listed.
+
+        Returning the handle is half the point. A verdict filed under a display name is filed
+        under a username nobody has: the qualification would land on a row of its own, and the
+        DM guard that asks "have we already written to this person?" would never match.
+        """
+        from taktik.core.social_media.tiktok.services.profile.username import (
+            UNKNOWN_USERNAME,
+            clean_profile_username,
+            get_current_profile_username,
+        )
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
+        name = (shown_name or "").strip()
+        if not name:
+            return None
+
+        # The page has to be up, and it will not be. The scrape that produced this list leaves
+        # the phone elsewhere, and every profile opened here leaves it again — so the caller that
+        # walks a list of followers is on the page exactly zero times out of N unless this asks
+        # for it. Measured: the first run with row-opening found no row for any of the three
+        # followers it had just listed, because it was looking on another screen.
+        if not self._is_on_new_followers_page() and not self.open_new_followers_page():
+            self.logger.warning("Page « Nouveaux followers » inatteignable")
+            return None
+
+        row = self.inbox_selectors.new_follower_row_for_name(name)
+        if not self._find_and_click(row, timeout=4):
+            self.logger.warning(f"Ligne du nouveau follower introuvable: {name!r}")
+            return None
+        self._human_like_delay('navigation')
+
+        # Arrival, not the tap. A row that opened a conversation, an interstitial or nothing at
+        # all must not be read as a profile — that is how a verdict describes the wrong screen.
+        if not self._element_exists(PROFILE_SELECTORS.profile_page_indicator, timeout=6):
+            self.logger.warning(f"Le tap sur {name!r} n'a pas ouvert un profil")
+            return None
+
+        handle = get_current_profile_username(self.device)
+        if not handle or handle == UNKNOWN_USERNAME:
+            self.logger.warning(f"Profil ouvert pour {name!r} mais handle illisible")
+            return None
+        handle = clean_profile_username(handle)
+        self.logger.info(f"👤 {name!r} → @{handle}")
+        return handle
