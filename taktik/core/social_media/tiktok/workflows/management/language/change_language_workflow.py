@@ -35,9 +35,17 @@ from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 StepNotifier = Callable[..., None]
 
-#: How far to scroll looking for a row. The settings list needs about two screens, the picker
-#: about one per twenty languages; both are far under this.
-MAX_SCROLLS = 12
+#: How far to scroll looking for a row. Measured 2026-08-30 on a clean round trip: the Language
+#: row comes up after 7 scrolls going to English and 6 coming back, the picker after 1.
+#:
+#: Raised from 12 because that margin is thinner than it reads. The English settings list is flat
+#: and Language sits about twenty-five rows down, and this loop spends attempts on things that are
+#: not distance -- a modal costs one each time it is dismissed, and a run that starts from a screen
+#: other than the shell starts further away. One run did exhaust it and report "Language row never
+#: appeared in settings", which reads as "TikTok moved the row" when the row was there all along.
+#: A ceiling is not an expectation: the loop returns the moment it finds the row, so a wider one
+#: only ever costs time on a failure that was going to fail anyway.
+MAX_SCROLLS = 18
 
 
 class TikTokChangeLanguageWorkflow:
