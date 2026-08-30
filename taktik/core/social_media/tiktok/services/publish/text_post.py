@@ -11,10 +11,12 @@ The road, measured end to end on 46.6.3 on 2026-08-30 by publishing a real post:
 
 Two things this refuses to do on faith.
 
-It never treats the tap on the destination as the publication. TikTok raises its share sheet the
-moment a post lands -- carrying our own handle and `· Il y a 2 s` -- and that sheet is what proves
-it. A workflow that counted taps would report posts it never made, which on a publish surface
-means an operator believing their account is active while it is silent.
+It never treats the tap on the destination as the publication. A workflow that counted taps would
+report posts it never made, which on a publish surface means an operator believing their account
+is active while it is silent. What it waits for instead is the destination sheet going away --
+matched by resource-id, so it holds in either language. The share sheet TikTok raises on some runs
+is taken as a fast yes, never as the only one: it came up in French and never appeared in English
+on the same build, and waiting on it alone reports a failure on a post that is online.
 
 And it refuses to publish an empty post. The composer keeps its placeholder when typing fails,
 and the placeholder is not text: `set_text` is unavailable on these devices
@@ -163,10 +165,22 @@ def _looks_written(written: str, wanted: str) -> bool:
 
 
 def _wait_for_published(device: Any) -> bool:
-    """Wait for the share sheet TikTok raises once a post is out."""
+    """Wait until the post has actually left.
+
+    Two ways of saying yes, because one of them is not always offered. TikTok sometimes raises its
+    share sheet on publication -- that is the fast path -- and sometimes goes straight to the
+    published post instead. Measured both on the same build: French raised the sheet, English did
+    not. What holds either way is that the DESTINATION SHEET GOES AWAY, matched by resource-id so
+    the check does not depend on a translation being right.
+
+    The sheet is also what makes this able to say no: a destination tap that did nothing leaves it
+    on screen, and the wait then times out instead of announcing a post that was never made.
+    """
     deadline = time.time() + _PUBLISH_TIMEOUT
     while True:
         if first_matching(device, PUBLISH_TEXT_POST_SELECTORS.published_indicator):
+            return True
+        if not first_matching(device, PUBLISH_TEXT_POST_SELECTORS.destination_sheet):
             return True
         if time.time() >= deadline:
             return False

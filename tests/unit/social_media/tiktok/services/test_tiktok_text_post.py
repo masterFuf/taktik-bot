@@ -22,18 +22,32 @@ from taktik.core.social_media.tiktok.services.publish.text_post import (
 
 
 class _Screen:
-    """Un écran qui accepte les taps qu'on lui autorise et rend le texte qu'on lui donne."""
+    """Un écran qui accepte les taps qu'on lui autorise et rend le texte qu'on lui donne.
 
-    def __init__(self, *, composer_text="", refuse=(), no_published_indicator=False):
+    Il porte la feuille de destination des que « Terminé » est tape, et la quitte quand le post
+    part. C'est ce va-et-vient que la preuve de publication lit : `sheet_stays=True` rejoue un tap
+    de destination qui n'a rien fait, ecran inchange.
+    """
+
+    def __init__(self, *, composer_text="", refuse=(), no_published_indicator=True,
+                 sheet_stays=False):
         self.composer_text = composer_text
         self.refuse = set(refuse)
         self.no_published_indicator = no_published_indicator
+        self.sheet_stays = sheet_stays
+        self.on_destination_sheet = False
         self.tapped = []
 
     def tap(self, selectors, timeout=4):
         label = _label_of(selectors)
         self.tapped.append(label)
-        return label not in self.refuse
+        if label in self.refuse:
+            return False
+        if label == "done":
+            self.on_destination_sheet = True
+        elif label in ("feed", "story") and not self.sheet_stays:
+            self.on_destination_sheet = False
+        return True
 
     def xpath(self, selector):
         screen = self
@@ -41,6 +55,8 @@ class _Screen:
         class _Node:
             @property
             def exists(self):
+                if "tdf" in selector or "tv_quick_publish" in selector:
+                    return screen.on_destination_sheet
                 if "lien" in selector.lower() or "link" in selector.lower():
                     return not screen.no_published_indicator
                 return "hnq" in selector or "EditText" in selector
@@ -68,6 +84,7 @@ def _label_of(selectors) -> str:
         ("Terminé", "done"), ("Done", "done"),
         ("fil", "feed"), ("feed", "feed"),
         ("Story", "story"),
+        ("tdf", "feed"), ("tv_quick_publish", "story"),
         ("hnq", "field"), ("EditText", "field"),
     ):
         if needle in joined:
@@ -147,15 +164,11 @@ def test_a_missing_text_mode_says_so_rather_than_publishing_something_else():
 # --- ce qui prouve la publication ------------------------------------------------------------------
 
 
-def test_the_tap_on_the_destination_is_not_the_proof():
-    """TikTok lève sa feuille de partage dès qu'un post part. Sans elle, rien ne dit que le post
-    est en ligne — et sur une surface de publication, croire le tap fait annoncer des posts qui
-    n'existent pas.
-
-    Le composeur répond normalement ici : seul l'indicateur de publication manque, pour que
-    l'échec porte sur la vérification et non sur une étape d'avant.
-    """
-    screen = _Screen(composer_text="Mon texte", no_published_indicator=True)
+def test_a_destination_tap_that_changed_nothing_is_not_a_publication():
+    """La moitié qui doit dire non. Le tap est parti, la feuille de destination est toujours là :
+    rien n'est en ligne, et sur une surface de publication annoncer le contraire fait re-publier
+    un contenu déjà publié — ou croire actif un compte silencieux."""
+    screen = _Screen(composer_text="Mon texte", sheet_stays=True)
 
     result = _publish(screen, "Mon texte")
 
@@ -164,13 +177,24 @@ def test_the_tap_on_the_destination_is_not_the_proof():
 
 
 def test_a_published_post_reports_where_it_went():
-    screen = _Screen(composer_text="Mon texte")
+    """Le cas anglais : aucune feuille de partage, l'app va droit au post publié. Ce qui prouve
+    la publication est le départ de la feuille de destination."""
+    screen = _Screen(composer_text="Mon texte", no_published_indicator=True)
 
     result = _publish(screen, "Mon texte")
 
     assert result["success"] is True
     assert result["step"] == "published"
     assert result["destination"] == "feed"
+
+
+def test_the_share_sheet_still_counts_when_it_does_come_up():
+    """Le cas français : la feuille de partage se lève. C'est un oui rapide, pas le seul."""
+    screen = _Screen(composer_text="Mon texte", no_published_indicator=False, sheet_stays=True)
+
+    result = _publish(screen, "Mon texte")
+
+    assert result["success"] is True
 
 
 def test_the_story_destination_is_a_different_tap():

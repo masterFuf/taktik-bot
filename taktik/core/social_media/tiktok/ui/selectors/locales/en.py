@@ -677,15 +677,16 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Publish video publicly\")]",
     ],
     # --- publish_creation_entry ---
-    # Voir la note francaise. Libelles anglais A CONFIRMER : ecrits depuis la structure, la mesure
-    # ayant ete faite en francais. Le champ et l'indicateur ont des replis independants de la
-    # langue, mais l'onglet et le bouton n'en ont pas.
+    # Mesure le 2026-08-30 sur 46.6.3, app en anglais, en publiant deux vrais posts texte.
+    # « TEXT » et non « TEXTE » : la correspondance XPath est exacte, les deux ne se croisent pas.
     "publish_text.mode_text_tab": [
         '//*[@text="TEXT"]',
         '//*[@content-desc="TEXT"]',
     ],
+    # Mesure le 2026-08-30 : « Type something... », points de suspension en TROIS points, la ou
+    # le francais porte le caractere unique. Ni « Say something » ni « Write something ».
     "publish_text.text_field": [
-        '//*[@text="Say something…" or @text="Write something…"]',
+        '//*[@text="Type something..."]',
     ],
     "publish_text.done_button": [
         '//*[@text="Done"]',
