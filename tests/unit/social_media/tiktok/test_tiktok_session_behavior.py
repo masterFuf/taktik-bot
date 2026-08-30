@@ -174,3 +174,60 @@ def test_both_gestures_come_out_over_a_run():
 
     assert any(modes), "jamais de flick"
     assert not all(modes), "jamais de drag — la variation ne sort pas"
+
+# --- lire le style, ou le faire avancer ------------------------------------------------------
+
+
+def test_reading_the_style_does_not_move_the_session():
+    """`_motor` est une LECTURE. Deux appels d'affilée doivent voir le même temps de session."""
+    facade = _tiktok_facade()
+    facade.behavior_state = BehaviorSessionState(seed=5)
+    avant = facade.behavior_state.snapshot().get("gesture_count")
+
+    facade._motor("x")
+    facade._motor("x")
+
+    assert facade.behavior_state.snapshot().get("gesture_count") == avant
+
+
+def test_planning_a_gesture_spends_a_beat():
+    """La différence qui compte. Sans elle, une liste défilée deux minutes reste dans le style où
+    elle a commencé — un rythme aussi figé que pas de rythme du tout."""
+    facade = _tiktok_facade()
+    facade.behavior_state = BehaviorSessionState(seed=5)
+    avant = facade.behavior_state.snapshot().get("gesture_count")
+
+    facade._plan_gesture("tiktok_list_scroll_down", "controlled_swipe")
+
+    assert facade.behavior_state.snapshot().get("gesture_count") == avant + 1
+
+
+def test_a_long_list_scroll_eventually_changes_style():
+    """La moitié qui prouve que le temps sert à quelque chose : sur une longue passe, le style
+    doit finir par dériver."""
+    facade = _tiktok_facade()
+    facade.behavior_state = BehaviorSessionState(seed=2)
+
+    styles = []
+    for _ in range(40):
+        facade._plan_gesture("tiktok_list_scroll_down", "controlled_swipe")
+        styles.append(facade.behavior_state.snapshot().get("style"))
+
+    assert len(set(styles)) > 1, "le style n'a jamais changé sur quarante gestes"
+
+
+def test_without_session_memory_planning_is_neutral():
+    facade = _tiktok_facade()
+
+    assert facade._plan_gesture("x", "hswipe") == (1.0, 1.0)
+
+
+def test_a_broken_state_does_not_break_a_planned_gesture():
+    class _Angry:
+        def plan_directional_gesture(self, **_):
+            raise RuntimeError("boom")
+
+    facade = _tiktok_facade()
+    facade.behavior_state = _Angry()
+
+    assert facade._plan_gesture("x", "hswipe") == (1.0, 1.0)

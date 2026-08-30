@@ -57,13 +57,17 @@ class DeviceFacade(BaseDeviceFacade):
     behavior_state = None
 
     def _motor(self, context: str) -> tuple:
-        """(distance_scale, velocity_scale) for the run's current style, or a neutral pair.
+        """(distance_scale, velocity_scale) for the run's current style, WITHOUT spending a beat.
 
         A session that reads BRISK flicks further and faster than one reading DELIBERATE, and it
         keeps doing so for a whole burst before drifting -- which is what makes a run look like one
         person rather than a fresh coin toss per gesture. The scales come from the same
         `BehaviorSessionState` Instagram uses; TikTok owned one and never asked it anything but the
         dwell.
+
+        Use this only where the beat has ALREADY been spent -- the feed advance asks
+        `choose_scroll_mode` for its flick-or-drag and that call is the beat. Everywhere else, use
+        `_plan_gesture` instead, or the session reads the same style forever.
         """
         state = getattr(self, "behavior_state", None)
         if state is None or not hasattr(state, "motor_modulation"):
@@ -71,6 +75,27 @@ class DeviceFacade(BaseDeviceFacade):
         try:
             motor = state.motor_modulation(context=context)
             return float(motor.get("distance_scale", 1.0)), float(motor.get("velocity_scale", 1.0))
+        except Exception:
+            return 1.0, 1.0
+
+    def _plan_gesture(self, context: str, gesture: str) -> tuple:
+        """Same scales, but this one SPENDS a beat of the session.
+
+        The difference matters more than it reads. `motor_modulation` only looks at the current
+        style; `plan_directional_gesture` also advances the burst counter and the energy drift, so
+        the style eventually changes. Every TikTok gesture but the feed advance was reading without
+        advancing -- a list scrolled for two minutes stayed in the style it started in, which is a
+        rhythm as fixed as no rhythm at all.
+
+        It is for gestures whose KIND is already decided: a horizontal swipe is a horizontal swipe,
+        there is no flick-or-drag to pick. They still belong to the same burst.
+        """
+        state = getattr(self, "behavior_state", None)
+        if state is None or not hasattr(state, "plan_directional_gesture"):
+            return self._motor(context)
+        try:
+            plan = state.plan_directional_gesture(context=context, gesture=gesture)
+            return float(plan.get("distance_scale", 1.0)), float(plan.get("velocity_scale", 1.0))
         except Exception:
             return 1.0, 1.0
 
@@ -85,7 +110,10 @@ class DeviceFacade(BaseDeviceFacade):
 
         Both carry the session's motor style: the per-call variation was already there, what was
         missing is that successive gestures had nothing in common."""
-        d, v = self._motor("tiktok_scroll_down")
+        # The coast path's beat was already spent by `choose_scroll_mode`, which is what picked
+        # `coast` in the first place; the list path has no such call, so it spends its own.
+        d, v = (self._motor("tiktok_feed_advance") if coast
+                else self._plan_gesture("tiktok_list_scroll_down", "controlled_swipe"))
         if coast:
             self.human_scroll("down", coast=True, distance_scale=d, velocity_scale=v)
         else:
@@ -95,7 +123,8 @@ class DeviceFacade(BaseDeviceFacade):
     def swipe_down(self, scale: float = 0.8, coast: bool = False):
         """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'.
         `coast=True` flings (video feed, snaps to previous); `coast=False` is a controlled list scroll."""
-        d, v = self._motor("tiktok_scroll_up")
+        d, v = (self._motor("tiktok_feed_back") if coast
+                else self._plan_gesture("tiktok_list_scroll_up", "controlled_swipe"))
         if coast:
             self.human_scroll("up", coast=True, distance_scale=d, velocity_scale=v)
         else:
@@ -104,13 +133,13 @@ class DeviceFacade(BaseDeviceFacade):
 
     def swipe_left(self, scale: float = 0.8):
         """Reveal the NEXT horizontal slide — humanized. Finger moves left."""
-        d, v = self._motor("tiktok_swipe_left")
+        d, v = self._plan_gesture("tiktok_swipe_left", "hswipe")
         self.human_hswipe("left", distance_ratio=self._scaled_ratio(scale, 0.60),
                           distance_scale=d, velocity_scale=v)
 
     def swipe_right(self, scale: float = 0.8):
         """Reveal the PREVIOUS horizontal slide — humanized. Finger moves right."""
-        d, v = self._motor("tiktok_swipe_right")
+        d, v = self._plan_gesture("tiktok_swipe_right", "hswipe")
         self.human_hswipe("right", distance_ratio=self._scaled_ratio(scale, 0.60),
                           distance_scale=d, velocity_scale=v)
 
