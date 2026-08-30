@@ -16,17 +16,31 @@ The DM itself is not written here and not sent here: the texts come from the app
 the account persona) and the send goes through the production cold-DM path, which navigates by
 verified arrival and confirms a send by the composer EMPTYING rather than by the click landing.
 
-UNVERIFIED (no device was available for this lot): nothing below has run against a phone. The
-send is left to the atomic that measures its own outcome rather than to a claim made here, and
-the two places where a device would tell us something this file cannot are marked in place
-(`_follow_back_decided`, and the guard probes). The desktop side is also not wired yet:
-`TikTokNewFollowersStdoutService.handleScrapeOutput` routes `new_follower`/`status`/`error`
-only, so the `ai_relevance`, `follow_back_result` and `dm_result` lines this pass emits are
-dropped by the front until it is taught to read them.
+VERIFIED ON DEVICE 2026-08-30, and exactly this far. A real new follower was produced between the
+two test accounts, and the pass then: read the list (3 followers), opened each row, resolved each
+one to its REAL handle, and qualified all three with a reason. The strongest of those: the inbox
+showed `"vic............"` — a display name whose emoji the XML dump ate — and the pass came back
+with `@vic961226`.
+
+What that run also settled, and what the first attempts got wrong: this page shows a DISPLAY NAME
+and never a handle, so `navigate_to_user_profile` cannot be the way in. Handing it the display
+name reported `profile_unreachable` for every follower it had just listed. The row is opened
+instead, and the handle is read off the profile that opens — which also keeps the verdict from
+being filed under a username nobody has.
+
+STILL UNVERIFIED: the follow-back and the DM themselves. The AI declined all three followers
+(`not_relevant`, score 0.00 — they are small personal accounts and the operated account is a
+niche one), which is a legitimate outcome and not a failure, but it means no send has run. The
+send is left to the atomic that measures its own outcome rather than to a claim made here.
+
+The desktop side is also not wired yet: `TikTokNewFollowersStdoutService.handleScrapeOutput`
+routes `new_follower`/`status`/`error` only, so the `ai_relevance`, `follow_back_result` and
+`dm_result` lines this pass emits are dropped by the front until it is taught to read them.
 """
 
 import os
 import sqlite3
+from dataclasses import replace
 from typing import Any, Dict, List, Optional
 
 from bridges.tiktok.runtime.ipc import (
@@ -167,7 +181,32 @@ def _run_welcome_pass(config, manager, workflow, bot_username, followers, policy
             return
 
         device = manager.device_manager.device
-        navigation = NavigationActions(device)
+        navigation = NavigationActions(device)  # noqa: F841 — kept for the back-navigation below
+
+        # The new-followers page shows a DISPLAY NAME and never a handle. Handing that name to
+        # `navigate_to_user_profile` searches for somebody who does not exist under it, which is
+        # why the first device run of this pass reported `profile_unreachable` for all three
+        # followers it had just listed. The row is opened instead, and the profile it opens is
+        # where the real handle is read.
+        from taktik.core.social_media.tiktok.actions.atomic.dm_actions import DMActions
+        from taktik.core.social_media.tiktok.services.navigation.reset import (
+            return_to_tiktok_shell,
+        )
+
+        dm_actions = DMActions(device)
+        # shown name -> the handle its profile turned out to carry.
+        resolved_handles: Dict[str, str] = {}
+
+        def _visit(shown_name: str) -> bool:
+            handle = dm_actions.open_new_follower_profile(shown_name)
+            if handle:
+                resolved_handles[shown_name] = handle
+            return bool(handle)
+
+        def _qualify_visited(shown_name: str):
+            # Under the REAL handle. A verdict filed under a display name lands on a username
+            # nobody has, and the "have we already written to this person?" guard never matches.
+            return qualify(device, resolved_handles.get(shown_name) or shown_name)
 
         # NOTE: `install_profile_ai_hooks` is NOT used here on purpose. It patches
         # `VideoInteractionMixin._interact_with_profile_posts`, which only the Followers and
@@ -198,11 +237,22 @@ def _run_welcome_pass(config, manager, workflow, bot_username, followers, policy
         send_status("running", f"Qualifying {len(followers)} new follower(s)")
         welcome_pass = NewFollowerWelcomePass(
             policy=policy,
-            visit_profile=navigation.navigate_to_user_profile,
-            qualify=lambda username: qualify(device, username),
+            visit_profile=_visit,
+            qualify=_qualify_visited,
             log=_bridge_log,
         )
         decisions = welcome_pass.decide(followers)
+
+        # Every decision travels under the handle its profile carried, so what follows — the
+        # follow-back, the DM, the duplicate guard — addresses the person and not the label the
+        # inbox happened to print. Rebuilt rather than mutated: `WelcomeDecision` is frozen, and
+        # deliberately so.
+        decisions = [
+            replace(decision, username=resolved_handles[decision.username])
+            if resolved_handles.get(decision.username)
+            else decision
+            for decision in decisions
+        ]
         stats = summarize(decisions)
         logger.info(f"🤖 Décisions IA: {stats}")
         send_log("info", f"AI welcome pass: {stats}")

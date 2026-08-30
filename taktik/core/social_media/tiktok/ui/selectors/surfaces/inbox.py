@@ -339,6 +339,37 @@ class InboxSelectors:
         """
         return f'//*[contains(@resource-id, ":id/o0f")][contains(@text, "{name}")]'
 
+    def new_follower_row_for_name(self, name: str) -> List[str]:
+        """The tappable row of ONE new follower, addressed by the name the page shows.
+
+        Two things this page decides, both measured on 46.6.3 on 2026-08-30.
+
+        It shows a DISPLAY NAME, never a handle: the row's only name node reads
+        `"Allocin(gl)és"`, which is @allocingles' display name with its emoji eaten by the XML
+        dump. There is no handle anywhere on the page. So a welcome pass cannot search its way to
+        the profile — searching a display name lands on someone else or nowhere — and the only
+        route is to OPEN the row and read the handle on the profile it opens. That is why this
+        builder exists at all: the pass used to hand the display name to
+        `navigate_to_user_profile`, and reported `profile_unreachable` for every follower it had
+        just listed.
+
+        And the name is wrapped in directional isolates, exactly like the search results:
+        `U+200E U+2068 <name> U+2069`. Containing `⁨name⁩` therefore means "this row's name is
+        exactly this", because anything longer puts a character where the closing isolate has to
+        be — the same anchor that stopped the search opening `@lena_situations1` for
+        `@lena_situations`.
+        """
+        escaped = str(name or "").replace('"', "")
+        isolated = f"⁨{escaped}⁩"
+        return [
+            f'//*[contains(@resource-id, ":id/q08")][contains(@text, "{isolated}")]',
+            f'//*[contains(@resource-id, ":id/o0f")][contains(@text, "{isolated}")]',
+            f'//android.widget.Button[contains(@text, "{isolated}")]',
+            # Last resort: the name node may not be the tappable one on a version we have not
+            # measured, so climb to whatever is.
+            f'//*[contains(@text, "{isolated}")]/ancestor::*[@clickable="true"][1]',
+        ]
+
     def message_request_by_username(self, name: str) -> List[str]:
         """Selectors for the message-request row of a visible username, richest first.
 
