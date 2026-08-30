@@ -15,6 +15,7 @@ as `DMActions.send_message`, which used to report success on a message still sit
 import time
 from typing import Any, Dict, List, Optional
 
+from taktik.core.shared.text import as_xml_dumped
 from taktik.core.shared.input.taktik_keyboard import (
     activate_taktik_keyboard,
     clear_text_with_taktik_keyboard,
@@ -277,10 +278,24 @@ class CommentActions(BaseAction):
         return self._composer_holds(text)
 
     def _composer_holds(self, text: str) -> bool:
-        """Is `text` still in the field? Used both to confirm typing and to confirm sending."""
+        """Is `text` still in the field? Used both to confirm typing and to confirm sending.
+
+        Compared through the DUMP PROJECTION, not raw. The field is read from an XML dump, and
+        AOSP's sanitiser replaces every astral character with two dots — so an emoji makes a raw
+        equality impossible. Measured on device 2026-08-30: `Bien vu 😂 vraiment` typed, `Bien vu
+        .. vraiment` read back.
+
+        Both directions were broken by that, and in opposite ways. Confirming the TYPING, the
+        equality never held, so `_focus_and_type` returned False on a comment it had just typed
+        correctly — silently, since that path logs nothing — and every AI-written comment (they
+        almost always carry an emoji) was abandoned as a draft while the run reported zero
+        comments. Confirming the SEND, the same mismatch reads as "the composer emptied", so a
+        comment still sitting in the field would have been recorded as posted.
+        """
+        expected = as_xml_dumped(text).strip()
         for element in first_matching(self.device, self.comment_selectors.comment_input):
             try:
-                return (getattr(element, "text", "") or "").strip() == text.strip()
+                return as_xml_dumped(getattr(element, "text", "") or "").strip() == expected
             except Exception:
                 return False
         return False

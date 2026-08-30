@@ -124,6 +124,30 @@ def text_lost_emoji(text: Optional[str]) -> bool:
     return bool(text) and bool(_MANGLED_EMOJI_RE.search(text))
 
 
+def as_xml_dumped(text: Optional[str]) -> str:
+    """What an XML dump will report for `text` — the projection, not a detection.
+
+    `text_lost_emoji` answers "was this text scarred?". This answers the question a caller has
+    when it holds BOTH sides: "if I type this, what will I read back?". Same AOSP rule, applied
+    forwards: `stripInvalidXMLChars` walks UTF-16 code units and replaces each illegal one with
+    a dot, so an astral character (a surrogate PAIR) becomes exactly two dots while every BMP
+    character survives untouched.
+
+    Measured on device 2026-08-30: typing `Bien vu 😂 vraiment` into a TikTok composer
+    reads back as `Bien vu .. vraiment` — U+1F602 replaced by U+002E U+002E, nothing else moved.
+
+    Why this exists. `CommentActions` confirmed its own typing with an exact equality between
+    the text it sent and the text the dump reported. An AI-written comment almost always carries
+    an emoji, so that equality could never hold: the comment was typed correctly, the check said
+    it had failed, and the path returned False WITHOUT logging — the composer kept a draft nobody
+    sent, and the run reported zero comments. Comparing through this projection is what makes the
+    check answer the question it means to ask.
+    """
+    if not text:
+        return ""
+    return "".join(".." if ord(char) > 0xFFFF else char for char in text)
+
+
 def text_is_truncated_utf16(text: Optional[str]) -> bool:
     """Return whether a text came back as a UTF-16 string truncated to its LOW bytes.
 
