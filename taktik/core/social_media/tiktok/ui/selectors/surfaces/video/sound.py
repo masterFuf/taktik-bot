@@ -51,6 +51,33 @@ class VideoSoundSelectors:
         """
         return L("video_sound.sound_page_indicator")
 
+    #: The Sounds tab on a search results page. Its label is a TextView, so the CLICKABLE is its
+    #: ancestor -- tapping the label itself does nothing.
+    sounds_tab_entry: List[str] = field(default_factory=lambda: [
+        '//*[@text="Sons" or @text="Sounds"]/ancestor::*[@clickable="true"][1]',
+        '//*[@text="Sons" or @text="Sounds"]',
+    ])
+
+    #: The sound rows on the search "Sounds" tab.
+    #:
+    #: Anchored on the create-with-this-sound button, because the rows carry NO TEXT AT ALL --
+    #: measured 2026-08-30, nine rows and not one readable title among them. That is why a sound
+    #: cannot be picked from this list by name: the list does not say which row is which. What it
+    #: allows is opening one and READING the page that comes up, which does say.
+    search_sound_rows: List[str] = field(default_factory=lambda: [
+        '//*[@content-desc="Créer une publication avec ce son"]/../..',
+        '//*[@content-desc="Create a post with this sound"]/../..',
+    ])
+
+    #: The sound's own name, on its page. TWO layouts, both measured: an original sound titles
+    #: itself `Son original <author> <n> publications`, a music track describes itself
+    #: `Contient : <title> <artist>`. Neither is optional -- a caller that asked for one sound and
+    #: got another has no other way to find out.
+    sound_title: List[str] = field(default_factory=lambda: [
+        '//*[starts-with(@content-desc, "Contient") or starts-with(@content-desc, "Contains")]',
+        '//*[contains(@resource-id, ":id/title")]',
+    ])
+
     #: One video cell of a sound page. No language at all: the cells carry `content-desc="Vidéo"`
     #: on a French phone, and the cover id is what actually addresses them.
     sound_video_cell: List[str] = field(default_factory=lambda: [

@@ -465,6 +465,35 @@ class ScrapingWorkflow:
         seen_sounds: Set[str] = set()
         sounds = SoundActions(self.device)
 
+        # A named sound short-circuits the feed walk. The name that comes back is the REAL one,
+        # which is not always the one asked for -- the search rows carry no titles, so the only
+        # way to know is to open and read.
+        if self.config.sound_query:
+            self._emit_status("navigating", f"Opening the sound {self.config.sound_query}")
+            landed = sounds.open_sound_by_name(self.config.sound_query)
+            if not landed:
+                message = f"Could not open a sound for {self.config.sound_query!r}"
+                logger.warning(message)
+                self._emit_error(message)
+                return profiles
+            if landed != self.config.sound_query:
+                logger.info(f"Asked for {self.config.sound_query!r}, landed on {landed!r}")
+                self._emit_status("scraping", f"Sound: {landed}")
+            for person in sounds.collect_sound_users(max_users=self.config.max_users_per_sound):
+                username = person["username"]
+                if username in scraped_usernames:
+                    continue
+                scraped_usernames.add(username)
+                profile = empty_profile(username, display_name=person.get("display_name", ""))
+                profiles.append(profile)
+                self.stats.profiles_scraped += 1
+                self._emit_progress(len(profiles), max_profiles, username)
+                self._emit_profile(profile)
+                self._emit_save_profile(profile)
+                logger.info(f"Scraped [{len(profiles)}]: @{username}")
+            logger.info(f"Scraped {len(profiles)} profile(s) from {landed!r}")
+            return profiles
+
         self._emit_status("scraping", "Reading the sounds of the feed")
 
         for _ in range(self.config.max_videos):

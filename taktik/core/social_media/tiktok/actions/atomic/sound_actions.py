@@ -13,9 +13,13 @@ The cost is the same three-step road every list on this app forces. A sound-page
 video, open the author, read the handle. Measured end to end -- the cell behind `мішонк бро`
 belongs to @mniuwuu, which no search for that name would ever have found.
 
-MEASURED GAP, stated rather than hidden: reaching a sound BY NAME through the search Sounds tab
-does not work here. The tab is found and tapped and the list stays empty past twelve seconds. So
-a sound is reached from a video that uses it. Naming one in a config is not yet possible.
+Reaching a sound BY NAME is possible, but not by reading the list. The search Sounds tab renders
+nine rows and NOT ONE carries a title -- the row's text is empty in the accessibility tree, which
+is why the first attempt at this concluded the tab loaded nothing. What works is opening a row and
+reading the page that comes up: that page does say which sound it is, in one of two layouts. So
+`open_sound_by_name` opens and then VERIFIES, and hands back the title it actually landed on --
+searching "Umbrella" opens Ember Island's, not Rihanna's, and a caller that is not told would
+harvest the wrong audience believing it asked for the right one.
 """
 
 import re
@@ -56,6 +60,70 @@ class SoundActions(BaseAction):
             if text:
                 return text
         return ""
+
+    def read_sound_title(self) -> str:
+        """The name of the sound whose page is open, or "".
+
+        Two layouts, both measured: an original sound titles itself `Son original <author>`, a
+        music track describes itself `Contient : <title> <artist>`. Read through the catalogue so
+        neither is missed.
+        """
+        for element in first_matching(self.device, self.sound_selectors.sound_title):
+            info = getattr(element, "info", {}) or {}
+            for value in (info.get("contentDescription"), getattr(element, "text", "")):
+                text = (value or "").strip()
+                if text:
+                    return text
+        return ""
+
+    def open_sound_by_name(self, query: str, *, index: int = 0) -> str:
+        """Search `query`, open the sound at `index` in the Sounds tab, and return its real title.
+
+        Returns "" when the search, the tab or the page failed -- and the TITLE, not True, when it
+        worked. That is the whole point: the list carries no titles, so which sound a row is can
+        only be known after opening it. Searching "Umbrella" opens Ember Island's version, not
+        Rihanna's, and a caller told only "it worked" would harvest the wrong audience.
+        """
+        from .navigation_actions import NavigationActions
+
+        wanted = (query or "").strip()
+        if not wanted:
+            return ""
+
+        navigation = NavigationActions(self.device)
+        if not navigation.open_search():
+            self.logger.warning("open_sound_by_name: search would not open")
+            return ""
+        time.sleep(1.5)
+        if not navigation.search_and_submit(wanted):
+            self.logger.warning(f"open_sound_by_name: could not search {wanted!r}")
+            return ""
+        time.sleep(3.5)
+
+        # The tab's label is a TextView; the clickable is its ancestor.
+        if not self._find_and_click(self.sound_selectors.sounds_tab_entry, timeout=5):
+            self.logger.warning("open_sound_by_name: no Sounds tab on this results page")
+            return ""
+        time.sleep(3.5)
+
+        rows = first_matching(self.device, self.sound_selectors.search_sound_rows)
+        if index >= len(rows):
+            self.logger.warning(f"open_sound_by_name: only {len(rows)} sound row(s) for {wanted!r}")
+            return ""
+        try:
+            rows[index].click()
+        except Exception as exc:
+            self.logger.debug(f"open_sound_by_name: row {index} not tappable ({exc})")
+            return ""
+        time.sleep(6.0)
+
+        if not first_matching(self.device, self.sound_selectors.sound_page_indicator):
+            self.logger.warning("open_sound_by_name: the sound page did not come up")
+            return ""
+
+        title = self.read_sound_title()
+        self.logger.info(f"🎵 {wanted!r} → {title!r}")
+        return title or "(sans titre lisible)"
 
     def open_sound_page(self, *, settle_seconds: float = 6.0) -> bool:
         """Open the page of the sound this video uses. True only once that page is up.

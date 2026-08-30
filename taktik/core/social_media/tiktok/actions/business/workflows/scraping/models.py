@@ -22,6 +22,10 @@ class ScrapingConfig:
     #: riding one trend, which is a sharper audience than everyone who typed one word.
     #: The floor exists because most sounds are somebody's own original audio with three posts --
     #: opening those costs twenty seconds and returns their author, whom we already had.
+    #: Name a sound instead of discovering it on the feed. The rows of the search Sounds tab
+    #: carry no titles, so the sound is opened and its real name read back -- asking for
+    #: "Umbrella Rihanna" lands on Ember Island's, and the run says so rather than pretending.
+    sound_query: str = ''
     min_sound_posts: int = 500
     max_users_per_sound: int = 10
     max_sounds_per_session: int = 5
