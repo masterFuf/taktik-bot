@@ -14,6 +14,8 @@ from ....core.base_action import BaseAction
 from ....core.utils import extract_resource_id as _extract_rid, first_matching
 from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from .....ui.selectors.surfaces.search import SEARCH_SELECTORS
+from .....services.profile.username import read_open_profile_handle
 from .....ui.selectors.surfaces.video import VIDEO_SELECTORS
 from .models import ScrapingConfig, ScrapingStats, empty_profile
 from .._internal.profile_extractor import extract_profile_from_screen
@@ -33,6 +35,7 @@ class ScrapingWorkflow:
         self._scroll = ScrollActions(device)
         self._followers_sel = FOLLOWERS_SELECTORS
         self._video_sel = VIDEO_SELECTORS
+        self._search_sel = SEARCH_SELECTORS
 
         # Callbacks (set by bridge)
         self._on_status: Optional[Callable] = None
@@ -228,6 +231,27 @@ class ScrapingWorkflow:
     # ── hashtag scraping ─────────────────────────────────────────────
 
     def _scrape_hashtag(self, hashtag: str, max_profiles: int, max_videos: int) -> List[Dict[str, Any]]:
+        """The people posting under a hashtag, by their HANDLE.
+
+        Rewritten on 2026-08-30 because the previous version returned nothing at all. Measured:
+        a full run on #fitness logged "Scraped 0 profiles" after 38 seconds and emitted no error.
+        It read `author_username` straight after submitting the search, expecting a video feed --
+        but a hashtag search lands on a RESULTS GRID, where that node does not exist. It then
+        swiped `max_videos` times against a grid and returned an empty list, reporting success.
+
+        Two more things the screen had to say before this could work:
+
+        - The grid cell's own description is the anchor: `Vidéo par <NAME>, <caption>, Aimé par
+          <n> utilisateurs`. Readable, so it survives a version bump; the obfuscated `sq1`
+          container the surface used to name had already stopped resolving entirely.
+        - The name in that description is a DISPLAY NAME. The first #fitness cell read
+          `I AM MAGIC ✨` and belongs to @peerajmalraza314. Every handle here is therefore read
+          off the profile that opens, never taken from the grid -- the same rule the comment
+          sheet and the new-followers page both forced.
+
+        Costs roughly 20 seconds per person: cell -> video -> profile -> back -> back. That is
+        what a real handle costs on this surface, and it is why `max_profiles` is a budget.
+        """
         logger.info(f"Scraping profiles from #{hashtag}")
         self._emit_status("navigating", f"Navigating to #{hashtag}")
 
@@ -243,53 +267,49 @@ class ScrapingWorkflow:
             if not self.navigation.search_and_submit(f"#{hashtag}"):
                 logger.warning(f"Could not search for #{hashtag}")
                 return profiles
-            time.sleep(2)
+            time.sleep(2.5)
 
             self._emit_status("scraping", f"Scraping videos from #{hashtag}")
-            videos_processed = 0
+            cells_opened = 0
 
-            while len(profiles) < max_profiles and videos_processed < max_videos and not self.stopped:
-                raw_device = self.device._device if hasattr(self.device, '_device') else self.device
-
-                # Try each author selector
-                author_elem = None
-                for sel in self._video_sel.author_username:
-                    rid = _extract_rid([sel])
-                    if rid:
-                        candidate = raw_device(resourceId=rid)
-                        if candidate.exists:
-                            author_elem = candidate
-                            break
-                if author_elem is None:
-                    author_elem = raw_device(resourceId=_extract_rid(self._video_sel.author_username))
-
-                if author_elem.exists:
-                    try:
-                        username_text = author_elem.get_text()
-                        if username_text:
-                            username = username_text.replace('@', '').strip()
-                            if username and username not in scraped_usernames:
-                                scraped_usernames.add(username)
-                                profile = empty_profile(username)
-                                profiles.append(profile)
-                                self.stats.profiles_scraped += 1
-                                self._emit_progress(len(profiles), max_profiles, username)
-                                self._emit_profile(profile)
-                                self._emit_save_profile(profile)
-                                logger.info(f"Scraped [{len(profiles)}/{max_profiles}]: @{username}")
-                    except Exception as e:
-                        logger.warning(f"Error extracting author: {e}")
-
-                videos_processed += 1
-                if len(profiles) >= max_profiles:
+            while len(profiles) < max_profiles and cells_opened < max_videos and not self.stopped:
+                cells = first_matching(self.device, self._search_sel.video_result_cell)
+                if not cells:
+                    logger.warning(
+                        f"No result cell on screen for #{hashtag} -- "
+                        "the search did not land on a results grid"
+                    )
                     break
 
-                try:
-                    self._scroll.scroll_to_next_video()
-                    time.sleep(1.5)
-                except Exception as e:
-                    logger.warning(f"Swipe error: {e}")
+                found_here = 0
+                for index in range(len(cells)):
+                    if len(profiles) >= max_profiles or cells_opened >= max_videos or self.stopped:
+                        break
+                    cells_opened += 1
+                    username = self._handle_behind_result_cell(index)
+                    if not username or username in scraped_usernames:
+                        continue
+
+                    scraped_usernames.add(username)
+                    profile = empty_profile(username)
+                    profiles.append(profile)
+                    found_here += 1
+                    self.stats.profiles_scraped += 1
+                    self._emit_progress(len(profiles), max_profiles, username)
+                    self._emit_profile(profile)
+                    self._emit_save_profile(profile)
+                    logger.info(f"Scraped [{len(profiles)}/{max_profiles}]: @{username}")
+
+                if len(profiles) >= max_profiles or cells_opened >= max_videos:
                     break
+                if not found_here:
+                    # Nobody new from a whole screenful. Comparing the cells themselves would be
+                    # the obvious check and it is not reliable -- the descriptions repeat once a
+                    # creator has several videos under the tag.
+                    logger.debug(f"#{hashtag}: a full screenful brought nobody new")
+                    break
+                self._scroll.scroll_profile_videos('down')
+                time.sleep(1.5)
 
             logger.info(f"Scraped {len(profiles)} profiles from #{hashtag}")
 
@@ -297,6 +317,45 @@ class ScrapingWorkflow:
             logger.error(f"Error scraping hashtag: {e}")
 
         return profiles
+
+    def _handle_behind_result_cell(self, index: int) -> str:
+        """Open the result cell at `index`, read the author's handle, and come back to the grid.
+
+        Returns "" whenever any leg of the round trip failed, INCLUDING failing to get back: a
+        caller that kept opening indices on the wrong screen would tap whatever sits there.
+        """
+        cells = first_matching(self.device, self._search_sel.video_result_cell)
+        if index >= len(cells):
+            return ""
+
+        try:
+            cells[index].click()
+        except Exception as exc:
+            logger.debug(f"Result cell {index} not tappable: {exc}")
+            return ""
+        time.sleep(3.5)
+
+        handle = ""
+        author = first_matching(self.device, self._video_sel.author_username)
+        if author:
+            try:
+                author[0].click()
+                time.sleep(2.5)
+                handle = read_open_profile_handle(self.device, timeout=6)
+            except Exception as exc:
+                logger.debug(f"Could not open the author of cell {index}: {exc}")
+            self.device.press("back")
+            time.sleep(1.5)
+        else:
+            logger.debug(f"Cell {index} did not open a video screen")
+
+        self.device.press("back")
+        time.sleep(1.5)
+
+        if not first_matching(self.device, self._search_sel.video_result_cell):
+            logger.warning("Lost the results grid on the way back -- stopping this hashtag")
+            return ""
+        return handle
 
     # ── enrichment ───────────────────────────────────────────────────
 

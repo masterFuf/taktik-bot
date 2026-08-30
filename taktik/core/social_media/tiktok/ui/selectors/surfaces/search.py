@@ -174,9 +174,33 @@ class SearchSelectors:
     ])
     
     # Video container in search results (clickable)
+    #
+    # MEASURED DEAD on 46.6.3 on 2026-08-30: `sq1` resolves zero nodes on a hashtag results page,
+    # and so does `first_search_result`. Kept because 43.1.4 is not re-measured, but nothing may
+    # rely on them alone -- see `video_result_cell`, which is what actually answers.
     video_result_container: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/sq1")]',
         '//android.widget.FrameLayout[contains(@resource-id, ":id/sq1")]',
+    ])
+
+    #: One video cell of a results grid.
+    #:
+    #: NOT in the locale overlay, and the reason is worth keeping. Measured on 46.6.3 on
+    #: 2026-08-30 with TikTok's in-app language set to English: the tabs read `Videos`, `Users`,
+    #: `Shop` -- and the cells were still described `Vidéo par ...`. This description follows the
+    #: ANDROID SYSTEM locale, not the app's language setting, so the two can disagree on the same
+    #: screen. Split across `fr`/`en` locale entries, the engine detects `en`, drops the French
+    #: entry, and the surface goes dead: a run in English returned zero cells and zero profiles.
+    #:
+    #: Both languages therefore live in ONE expression, which the engine classifies as neutral and
+    #: never filters. The structural fallback needs no language at all but resolves fewer cells
+    #: (one against two on the same screen), so it comes second.
+    #:
+    #: Measured on both halves: 2 and 1 on a hashtag results grid, 0 and 0 on the For You feed.
+    #: An anchor that never says no is a decoration.
+    video_result_cell: List[str] = field(default_factory=lambda: [
+        '//*[starts-with(@content-desc, "Vidéo par ") or starts-with(@content-desc, "Video by ")]',
+        '//*[contains(@resource-id, ":id/cover")]/ancestor::*[@clickable="true"][1]',
     ])
     
     # View-all button — language-dependent (locales overlay)
