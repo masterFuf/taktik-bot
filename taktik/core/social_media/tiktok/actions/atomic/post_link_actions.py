@@ -94,9 +94,14 @@ class PostLinkActions(BaseAction):
         on a video screen. That is fine for an identity, which only has to be stable, and it is
         why the key folds it rather than treating it as a username.
         """
+        from .video_detector import VideoDetector
+
         return {
-            "author": first_text(self.device, self.creator_selectors.author_username)
-            or self._author_from_avatar(),
+            # Through the detector that already answers this, not a second reading of the same
+            # two nodes: `get_video_author` knows the label, the avatar description and every
+            # prefix each language puts in front of it. A copy here was flagged by the
+            # hardcoded-language audit within the hour, which is exactly what it is for.
+            "author": VideoDetector(self.device).get_video_author() or "",
             "posted_at_label": first_text(self.device, self.media_selectors.post_time),
             "caption": first_text(self.device, self.media_selectors.video_description),
         }
@@ -126,18 +131,6 @@ class PostLinkActions(BaseAction):
         return {**identity, "post_url": link, "post_key": key}
 
     # ------------------------------------------------------------------
-
-    def _author_from_avatar(self) -> str:
-        """The avatar's description carries the author when the label does not."""
-        for element in first_matching(self.device, self.creator_selectors.creator_profile_image):
-            desc = (getattr(element, "info", {}) or {}).get("contentDescription") if hasattr(element, "info") else None
-            desc = desc or getattr(element, "content_description", "") or ""
-            for prefix in ("Profil ", "Profile "):
-                if desc.startswith(prefix):
-                    return desc[len(prefix):].strip()
-            if desc.endswith(" profile"):
-                return desc[: -len(" profile")].strip()
-        return ""
 
     def _dismiss_sheet(self) -> None:
         """Leave no sheet behind: one left open hides the next video and swallows the swipe."""
