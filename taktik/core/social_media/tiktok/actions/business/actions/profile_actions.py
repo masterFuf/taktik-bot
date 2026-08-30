@@ -23,6 +23,9 @@ class TikTokProfileInfo:
     followers_count: int = 0
     likes_count: int = 0
     bio: Optional[str] = None
+    #: `data:image/jpeg;base64,...` cropped off the profile page, or None. TikTok exposes no URL
+    #: for it, so a picture only exists if a screenshot was taken while the profile was up.
+    profile_pic_base64: Optional[str] = None
     
     def to_dict(self) -> dict:
         return {
@@ -31,7 +34,8 @@ class TikTokProfileInfo:
             'following_count': self.following_count,
             'followers_count': self.followers_count,
             'likes_count': self.likes_count,
-            'bio': self.bio
+            'bio': self.bio,
+            'profile_pic_base64': self.profile_pic_base64,
         }
 
 
@@ -102,6 +106,17 @@ class ProfileActions(BaseAction):
         likes_count = 0
         bio = None
         
+        # The bio. It was declared and never read -- initialised to None at the top of this
+        # method and handed straight to the dataclass, so every own-profile fetch since the
+        # beginning reported an empty bio for an account that has one. It only became visible
+        # once the field started travelling to the front.
+        try:
+            bio = self._get_element_text(PROFILE_SELECTORS.bio_text, timeout=3) or None
+            if bio:
+                logger.debug(f"Found bio: {bio[:40]}...")
+        except Exception as e:
+            logger.debug(f"Failed to get bio: {e}")
+
         # Get username using centralized selectors
         try:
             text = self._get_element_text(PROFILE_SELECTORS.username, timeout=3)
@@ -170,13 +185,24 @@ class ProfileActions(BaseAction):
         except Exception as e:
             logger.debug(f"Failed to get stats: {e}")
         
+        # The picture, while the profile is still on screen -- it cannot be fetched later, because
+        # TikTok gives no URL for it and the crop only exists where the pixels are.
+        profile_pic_base64 = None
+        try:
+            from taktik.core.social_media.tiktok.actions.atomic.avatar_actions import AvatarActions
+
+            profile_pic_base64 = AvatarActions(self.device).capture_own_avatar()
+        except Exception as e:
+            logger.debug(f"Failed to capture the avatar: {e}")
+
         profile_info = TikTokProfileInfo(
             username=username,
             display_name=display_name,
             following_count=following_count,
             followers_count=followers_count,
             likes_count=likes_count,
-            bio=bio
+            bio=bio,
+            profile_pic_base64=profile_pic_base64,
         )
         
         logger.info(f"✅ Profile info: @{username} ({display_name}) - {followers_count} followers")

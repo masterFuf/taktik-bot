@@ -230,6 +230,30 @@ class ProfileSelectors:
         return self._message_button_base + L("profile.message_button")
 
     # === Page detection: profile page ===
+    #: OUR own avatar on our profile page, for cropping out of a screenshot.
+    #:
+    #: No readable id anywhere near it, measured on 46.6.3 on 2026-08-30: the picture is an
+    #: `ImageView` with no id and no description, and every ancestor up to four levels is
+    #: obfuscated (`bm2`, `bl1`, `ss_`, `st_`). So the anchor is the CONTAINER, and the caller
+    #: takes the biggest match -- the container holds exactly two images, the 252x252 avatar and
+    #: the 63x63 "add to story" badge sitting on top of it, and picking the larger drops the badge
+    #: without needing to name it.
+    #:
+    #: The two builds put the avatar on opposite sides -- right on 46.6.3 (`ss_`), left on 43.1.4
+    #: (`b5s`) -- so both containers are listed and the first that resolves wins.
+    #:
+    #: No language-free fallback, deliberately. `//Button//ImageView[no content-desc]` was tried
+    #: and REFUSED: it answers 5 times on the profile and 7 times on the feed, so it cannot say
+    #: no, and its biggest match on the feed is a video thumbnail that would be cropped and
+    #: reported as somebody's face.
+    #:
+    #: Both halves measured on both builds: 2 nodes on our profile, 0 on the feed.
+    own_avatar_container: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/ss_")]//android.widget.ImageView',
+        '//android.widget.Button[contains(@resource-id, ":id/bm2")]//android.widget.ImageView',
+        '//android.widget.Button[contains(@resource-id, ":id/b5s")]//android.widget.ImageView',
+    ])
+
     _profile_page_indicator_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/qh5")]',
         '//*[contains(@resource-id, ":id/gxd")]',

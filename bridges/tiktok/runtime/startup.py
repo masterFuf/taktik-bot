@@ -83,7 +83,11 @@ def tiktok_startup(device_id: str, fetch_profile: bool = True):
                 bot_username = profile_info.username
                 logger.info(f"✅ Bot account: @{profile_info.username} ({profile_info.display_name})")
                 logger.info(f"   Followers: {profile_info.followers_count}, Following: {profile_info.following_count}")
+                logger.info(f"   Photo: {'oui' if profile_info.profile_pic_base64 else 'non'}")
 
+                # Everything that was read, not a subset of it. Two fields the profile page
+                # gives -- the like count and the bio -- were being dropped here for no reason,
+                # so a front that wanted them had to go and fetch the profile a second time.
                 send_message(
                     "bot_profile",
                     profile={
@@ -91,6 +95,9 @@ def tiktok_startup(device_id: str, fetch_profile: bool = True):
                         "display_name": profile_info.display_name,
                         "followers_count": profile_info.followers_count,
                         "following_count": profile_info.following_count,
+                        "likes_count": profile_info.likes_count,
+                        "bio": profile_info.bio,
+                        "profile_pic_base64": profile_info.profile_pic_base64,
                     },
                 )
                 logger.info("📤 Bot profile message sent to frontend")
