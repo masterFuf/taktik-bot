@@ -49,10 +49,18 @@ def test_an_emoji_eaten_by_the_dump_keys_like_the_emoji_itself():
     assert intact == mangled
 
 
-def test_a_post_without_a_caption_still_has_a_key():
+def test_a_post_without_a_caption_still_has_a_key_when_the_date_is_there():
     key = tiktok_post_key("Kéo", "· 06-12", "")
 
     assert key and key.endswith("nocaption")
+
+
+def test_without_a_date_AND_without_a_caption_there_is_no_key():
+    """Le second défaut révélé par la FYP : `tv_post_time` n'y existe pas. Une vidéo sans légende
+    y serait identifiée par son seul auteur — et TOUTES les vidéos sans légende de cet auteur
+    tomberaient dans la même ligne. Même arbitrage que pour l'auteur manquant : ne rien stocker."""
+    assert tiktok_post_key("charli d’amelio", "", "") is None
+    assert tiktok_post_key("charli d’amelio", None, None) is None
 
 
 # --- deux posts différents donnent deux clés ----------------------------------------------------
@@ -70,10 +78,34 @@ def test_another_author_is_another_post():
     assert tiktok_post_key("Kéo", "· 06-12", CAPTION) != tiktok_post_key("Marvin", "· 06-12", CAPTION)
 
 
-def test_two_close_handles_do_not_collide():
-    """Les pseudos TikTok portent des points et des tirets bas. Les replier comme la légende —
-    en supprimant la ponctuation — ferait entrer `keo.2` et `keo2` dans le même post."""
-    assert tiktok_post_key("keo.2", "· 06-12", CAPTION) != tiktok_post_key("keo2", "· 06-12", CAPTION)
+def test_the_author_is_folded_as_hard_as_the_caption():
+    """Le compromis assumé, mesuré sur la FYP le 2026-08-30.
+
+    La première version gardait la ponctuation de l'auteur, pour que `keo.2` et `keo2` restent
+    deux comptes. L'écran a tranché autrement : la FYP rend un **nom d'affichage**, pas un pseudo
+    — le Lab a renvoyé `charli d'amelio`, espace et apostrophe courbe comprises — et un nom
+    d'affichage porte très souvent un emoji, que le dump réduit à deux points. Garder la
+    ponctuation faisait donc deux clés pour un même post, ce que la clé existe pour empêcher.
+
+    Le prix : deux comptes dont les noms se replient pareil ne sont plus distingués par l'auteur
+    seul. Il reste la date et la légende, et il faudrait que les deux publient la même légende le
+    même jour pour entrer en collision. On échange un risque quotidien contre un risque rarissime.
+    """
+    assert tiktok_post_key("keo.2", "· 06-12", CAPTION) == tiktok_post_key("keo2", "· 06-12", CAPTION)
+
+
+def test_an_emoji_in_the_display_name_keys_the_same_eaten_or_not():
+    """Le vrai défaut que la FYP a révélé : l'emoji était replié dans la légende, pas dans
+    l'auteur. Une créatrice dont le pseudo porte un emoji prenait deux clés selon la lecture."""
+    assert tiktok_post_key("Lea 🔥", "· 06-12", CAPTION) == tiktok_post_key("Lea ..", "· 06-12", CAPTION)
+
+
+def test_the_display_name_of_the_fyp_keys_cleanly():
+    """Ce que le Lab a réellement renvoyé, avant correction : `tiktok:charli d'amelio:...`."""
+    key = tiktok_post_key("charli d’amelio", "", "dc @Kittrell")
+
+    assert key == "tiktok:charlidamelio:nodate:" + key.rsplit(":", 1)[-1]
+    assert " " not in key and "’" not in key
 
 
 # --- ce qu'on refuse d'identifier ----------------------------------------------------------------

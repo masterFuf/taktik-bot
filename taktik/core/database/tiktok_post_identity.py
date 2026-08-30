@@ -39,6 +39,17 @@ _PLATFORM = "tiktok"
 _KEEP = re.compile(r"[^0-9a-z]+")
 
 
+def _fold(text: str) -> str:
+    """Accent-folded, case-folded, and stripped of everything that is not a letter or a digit.
+
+    One fold for the author and the caption both: anything a dump can mangle or a UI can pad has
+    to disappear before hashing, or the same post read twice keys twice.
+    """
+    folded = unicodedata.normalize("NFKD", text.strip().lstrip("@").casefold())
+    folded = "".join(char for char in folded if not unicodedata.combining(char))
+    return _KEEP.sub("", folded)
+
+
 def _fingerprint(caption: Optional[str]) -> str:
     """A short, stable digest of a caption — or `nocaption` when there is none.
 
@@ -46,9 +57,7 @@ def _fingerprint(caption: Optional[str]) -> str:
     same caption read twice does not come back byte-identical: the dump eats emoji into dots, and
     a trailing space or a curly apostrophe is enough to change a raw hash.
     """
-    text = unicodedata.normalize("NFKD", (caption or "").casefold())
-    text = "".join(char for char in text if not unicodedata.combining(char))
-    folded = _KEEP.sub("", text)
+    folded = _fold(caption or "")
     if not folded:
         return "nocaption"
     return hashlib.sha1(folded.encode("utf-8")).hexdigest()[:16]
@@ -65,17 +74,32 @@ def tiktok_post_key(
     cleaned here rather than by the caller: it is a label, not a date, and parsing it into one
     would invent a precision the screen does not give.
 
-    Returns None when the author is unknown — a key without an author would collide across
-    accounts, which is worse than not storing the post.
+    Returns None when the author is unknown, and also when there is NEITHER a date NOR a caption:
+    both cases would produce a key that several different posts answer to, which is worse than
+    not storing them at all.
     """
-    # Accent-folded like the caption, but NOT stripped of punctuation: a handle may carry `.` and
-    # `_`, and removing them would let `keo.2` and `keo2` collide into one post.
-    handle = unicodedata.normalize("NFKD", (author or "").strip().lstrip("@").casefold())
-    handle = "".join(char for char in handle if not unicodedata.combining(char))
+    # Folded EXACTLY like the caption, and for the same reason. The first version kept the
+    # author's punctuation, on the theory that a handle carries `.` and `_` that must not be
+    # dropped. Measured on the FYP, that theory was wrong twice over: this surface renders a
+    # DISPLAY NAME, not a handle -- the Lab run returned `charli d'amelio`, spaces and curly
+    # apostrophe included -- and display names routinely carry emoji, which the dump turns into
+    # two dots. Read intact once and mangled once, the same author gave two keys, which is the
+    # exact failure the fingerprint exists to prevent.
+    handle = _fold(author or "")
     if not handle:
         return None
-    label = _KEEP.sub("", (posted_at_label or "").casefold()) or "nodate"
-    return f"{_PLATFORM}:{handle}:{label}:{_fingerprint(caption)}"
+
+    label = _KEEP.sub("", (posted_at_label or "").casefold())
+    fingerprint = _fingerprint(caption)
+
+    # An author alone is not a post. `tv_post_time` is absent from the FYP, so a caption-less
+    # video there would key on nothing but its author -- and every caption-less video that author
+    # ever posts would fold into that one row. Refusing is the same call as refusing a missing
+    # author: not storing beats storing something that answers "already seen?" wrongly forever.
+    if not label and fingerprint == "nocaption":
+        return None
+
+    return f"{_PLATFORM}:{handle}:{label or 'nodate'}:{fingerprint}"
 
 
 __all__ = ["tiktok_post_key"]

@@ -9,6 +9,11 @@ different shortcodes, and no numeric video id is rendered anywhere in the access
 this reads the three things the screen DOES show stably — author, post date, caption — and hands
 them to `tiktok_post_key`. The link is stored for navigating; the key is stored for recognising.
 
+SURFACE DIFFERENCE, measured 2026-08-30 through the Lab: a video opened FROM A PROFILE renders
+`tv_post_time` (`· 06-12`), the FYP does not. On the FYP the identity therefore rests on author +
+caption, and a caption-less video there cannot be identified at all — `collect_post` returns None
+rather than key every silent video of an author to one row.
+
 The clipboard can only be READ, not written: Android refuses `setPrimaryClip` from the automation
 agent ("Package android does not belong to 2000"). A sentinel is therefore impossible, and telling
 a fresh copy from a stale one is done by reading BEFORE and AFTER — which is what this does rather
@@ -126,7 +131,14 @@ class PostLinkActions(BaseAction):
             identity.get("caption"),
         )
         if not key:
-            self.logger.warning("collect_post: the author could not be read — post not identified")
+            # Two ways to land here, and the log has to say which: no author at all, or -- the
+            # common one on the FYP, where no post date is rendered -- a video with no caption
+            # either. Both leave too little to tell this post from the author's next one.
+            self.logger.warning(
+                f"collect_post: not enough to identify this post "
+                f"(author={identity.get('author')!r}, date={identity.get('posted_at_label')!r}, "
+                f"caption={(identity.get('caption') or '')[:30]!r})"
+            )
             return None
         return {**identity, "post_url": link, "post_key": key}
 
