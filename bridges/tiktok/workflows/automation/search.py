@@ -11,6 +11,7 @@ from bridges.tiktok.runtime.ipc import (
     send_status,
 )
 from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.tiktok.workflows.automation.runtime.ai import install_profile_ai_hooks
 from bridges.tiktok.runtime.video_callbacks import send_final_video_stats
 from bridges.tiktok.workflows.automation.runtime.search_callbacks import (
     return_to_tiktok_home,
@@ -20,6 +21,13 @@ from bridges.tiktok.workflows.automation.runtime.search_planning import (
     normalize_search_queries,
 )
 from bridges.tiktok.workflows.automation.runtime.search_query import run_search_query
+
+
+def _bridge_log(level: str, message: str) -> None:
+    """(level, message) -> loguru, the shape the AI hooks expect. Same helper as the Followers
+    and Target bridges — copied rather than shared because three lines behind an import is a
+    module nobody would open twice."""
+    getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
 
 
 def run_search_workflow(config: Dict[str, Any]):
@@ -51,6 +59,12 @@ def run_search_workflow(config: Dict[str, Any]):
         )
 
         manager, _bot_username = tiktok_startup(device_id, fetch_profile=True)
+
+        # The AI hooks were installed by the Followers and Target bridges only, so a feed run
+        # asking for `smartComments` got a workflow that could comment and no AI to write with:
+        # the hook never installed, `_pick_configured_comment` found no texts, and the run
+        # reported zero comments without a word. Same call, same place, as the other two.
+        install_profile_ai_hooks(config, log=_bridge_log)
 
         max_videos_total = config.get("maxVideos", 50)
         videos_per_query = max_videos_total // len(search_queries)

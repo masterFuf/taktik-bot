@@ -177,6 +177,17 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         The default in the mixin reads `_current_profile_username`, which the followers loop
         holds and a feed workflow does not — filing a comment under it here would attribute it
         to nobody, or worse to the last profile some other code touched.
+
+        KNOWN LIMIT, measured 2026-08-30: what the video screen offers is a DISPLAY NAME, not a
+        handle. `get_video_author` reads the `title` node or the avatar's description, and both
+        say `Kéo` where the handle is `keo2edit` — the handle is not rendered anywhere on that
+        screen. So a comment published from the feed is recorded under a display name.
+
+        That is accepted rather than hidden, because of what reads the column: the anti-tic guard
+        filters on account and `source='ai'`, never on the target, so it is unaffected. What IS
+        affected is any future "have we already commented on this person" question, which would
+        silently miss. Getting the handle would mean opening the profile for every comment — a
+        visit per gesture — so it is a product trade, not an oversight.
         """
         author = (getattr(self, '_current_video_author', '') or '').strip()
         return author.lstrip('@')

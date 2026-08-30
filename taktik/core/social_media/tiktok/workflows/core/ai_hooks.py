@@ -374,10 +374,14 @@ def install_tiktok_ai_hooks(
                     return original_comment(self_wf, comment_text, ai_metadata)
 
                 try:
+                    # Through the SAME question the mixin asks, not through one road's own field.
+                    # `_current_profile_username` is what the followers loop carries; a video feed
+                    # has no walked profile, so the hook logged `Commentaire IA pour @:` and filed
+                    # its emission under an empty name.
                     generated = generate_tiktok_comment(
                         ai,
                         self_wf.device,
-                        getattr(self_wf, "_current_profile_username", "") or "",
+                        self_wf._comment_target_username(),
                         account_persona=persona,
                         app_language=language,
                         account_id=getattr(self_wf, "_account_id", None),
