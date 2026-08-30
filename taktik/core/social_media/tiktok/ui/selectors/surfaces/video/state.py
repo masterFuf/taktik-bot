@@ -57,8 +57,27 @@ class VideoStateSelectors:
     def video_page_indicator(self) -> List[str]:
         return self._video_page_indicator_base + L("video_state.video_page_indicator")
 
+    # Fifteen selectors that answered on NONE of 117 captured screens. `@content-desc="Video
+    # liked"` is a label TikTok does not use, and the id half named `f4u`/`f57` — the 43.1.4
+    # pair — while 46.6.3 renders `g2c`/`g2w`. So `_is_video_already_liked()` always said no.
+    #
+    # That is not a missed optimisation. On TikTok, tapping like on an already-liked video
+    # UNLIKES it: a check stuck on "no" means the bot removes its own likes on any video it
+    # meets twice, and reports a like each time it does.
+    #
+    # Measured on device 2026-08-30, the same video before and after: the invitation button
+    # ("Attribuer un « J'aime » à la vidéo. 35,6 K") DISAPPEARS, and the icon beside it becomes
+    # `selected="true"`. The first anchor below reads that second fact and needs no id at all,
+    # so it survives the next rename: zero hits before the like, exactly one after, and nothing
+    # on any of the 117 other captured screens.
     _video_already_liked_base: List[str] = field(default_factory=lambda: [
-        '//*[@content-desc="Video liked"]',
+        '//*[@selected="true"][contains(@content-desc, "aime") or contains(@content-desc, "ike")'
+        ' or contains(@content-desc, "Like")]',
+        # 46.6.3's own ids, which the list was missing entirely.
+        *resource_ids_with("g2c", xpath_filter='[@selected="true"]'),
+        *resource_ids_with("g2w", xpath_filter='[@selected="true"]'),
+        # 43.1.4's, kept: they were never disproved, only untested — no capture of a liked video
+        # existed on that version.
         *resource_ids_with("f4u", xpath_filter='[@selected="true"]'),
         *resource_ids_with("f4u", xpath_filter='[@checked="true"]'),
         *resource_ids_with("f57", xpath_filter='[@selected="true"]'),
