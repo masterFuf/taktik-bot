@@ -352,11 +352,17 @@ def install_tiktok_ai_hooks(
 
     if ai_config.get("smartComments", False):
         try:
-            from taktik.core.social_media.tiktok.actions.business.workflows.followers.interaction import (
-                VideoInteractionMixin,
+            # Patched on the SHARED mixin, not on one of its users. `_try_comment_video` lives in
+            # `VideoCommentMixin`, which both the followers/target road and the video-feed road
+            # (For You, hashtag search) inherit. Patching `VideoInteractionMixin` would bind the
+            # attribute on the subclass only and leave the feed running the unpatched original —
+            # the hook would log "installed" and never fire there, which is exactly how the
+            # profile-analysis hook once installed cleanly onto a workflow that never entered it.
+            from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_comment import (
+                VideoCommentMixin,
             )
 
-            original_comment = VideoInteractionMixin._try_comment_video
+            original_comment = VideoCommentMixin._try_comment_video
             persona = ai_config.get("accountProfile") if isinstance(ai_config, dict) else None
             decision_mode = bool(ai_config.get("commentDecisionMode", False))
 
@@ -393,7 +399,7 @@ def install_tiktok_ai_hooks(
                 # filters on — a template repeating is the operator's choice, not a tic.
                 return original_comment(self_wf, generated["comment"], generated)
 
-            VideoInteractionMixin._try_comment_video = ai_try_comment_video
+            VideoCommentMixin._try_comment_video = ai_try_comment_video
             log("info", "TikTok AI Smart Comments hook installed")
         except Exception as exc:
             log("warning", f"Failed to install the TikTok Smart Comments hook: {exc}")

@@ -1,7 +1,7 @@
 """Data models for the TikTok Search workflow."""
 
-from typing import Optional
-from dataclasses import dataclass
+from typing import Optional, List
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -22,6 +22,13 @@ class SearchConfig:
     like_probability: float = 0.3
     follow_probability: float = 0.1
     favorite_probability: float = 0.05
+    #: Commenting reached this road on 2026-08-30, through the shared `VideoCommentMixin`. Zero
+    #: by default: a feed run that never asked to comment must behave exactly as it did before.
+    comment_probability: float = 0.0
+    max_comments_per_session: int = 10
+    #: The run's own comment texts. Empty and never defaulted to a built-in list — a generic
+    #: "Nice!" under a stranger's video is the most recognisable bot signature there is.
+    comment_texts: List[str] = field(default_factory=list)
     
     # Filtres
     min_likes: Optional[int] = None

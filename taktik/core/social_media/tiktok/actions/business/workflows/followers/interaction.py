@@ -11,9 +11,17 @@ from taktik.core.social_media.tiktok.services.behavior.watch_time import video_w
 
 from taktik.core.shared.telemetry.sink import emit_step
 
+from .._internal.video_comment import VideoCommentMixin
 
-class VideoInteractionMixin:
-    """Methods for interacting with videos on a follower's profile."""
+
+class VideoInteractionMixin(VideoCommentMixin):
+    """Methods for interacting with videos on a follower's profile.
+
+    Commenting lives in `VideoCommentMixin`, shared with the video-feed workflows: the For You
+    page and the hashtag search reach a video by another road and arrive at the same screen.
+    Keeping it here is what let the For You page like, follow and favourite a video while being
+    unable to comment on it.
+    """
 
     def _interact_with_profile_posts(self):
         """Interact with posts on the current profile.
@@ -213,95 +221,6 @@ class VideoInteractionMixin:
             self.logger.debug(f"Error favoriting video: {e}")
         return False
     
-    def _try_comment_video(self, comment_text: str = None, ai_metadata: dict = None) -> bool:
-        """Comment the video on screen. Returns True only once the comment actually left.
-
-        `comment_text=None` is the seam the AI hook wraps, exactly as Instagram's
-        `comment_on_post` does: given a text it publishes it, given none it falls back to the
-        run's own list. Same contract on both platforms so the smart-comment hook is the same
-        shape twice, not two shapes.
-
-        Until 2026-08-30 this branch was `# TODO: Implement commenting` with a `pass`. The
-        probability knob and the per-session cap were both read and both honoured — a run
-        configured to comment 30% of the time drew the dice, decided yes, and did nothing, then
-        reported zero comments as if the dice had said no.
-        """
-        text = (comment_text or "").strip() or self._pick_configured_comment()
-        if not text:
-            self.logger.debug("No comment text available — skipping the comment")
-            return False
-
-        actions = self._comment_actions()
-        if actions is None:
-            return False
-        try:
-            if not actions.open_comments():
-                self.logger.debug("Could not open the comment sheet — no comment")
-                return False
-            posted = actions.post_comment(text)
-            if posted:
-                self.logger.info(f'💬 Commented: "{text}"')
-                self._record_posted_comment(text, ai_metadata)
-            return posted
-        except Exception as exc:
-            self.logger.debug(f"Error commenting: {exc}")
-            return False
-        finally:
-            # A sheet left open hides the next video, and the swipe to it would scroll the
-            # comments instead. Closing is part of commenting, not a courtesy.
-            try:
-                actions.close_comments()
-            except Exception:
-                pass
-
-    def _comment_actions(self):
-        """The shared comment actions, built once per workflow."""
-        existing = getattr(self, "_comment_actions_instance", None)
-        if existing is not None:
-            return existing
-        try:
-            from taktik.core.social_media.tiktok.actions.atomic.comment_actions import CommentActions
-
-            self._comment_actions_instance = CommentActions(self.device)
-            return self._comment_actions_instance
-        except Exception as exc:
-            self.logger.debug(f"Comment actions unavailable: {exc}")
-            return None
-
-    def _record_posted_comment(self, text: str, ai_metadata: dict = None) -> None:
-        """Keep what was published, under platform='tiktok'.
-
-        Not bookkeeping for its own sake: `posted_comments` is what the anti-tic guard reads back
-        to show the model what THIS account just said, so it stops repeating its own openers.
-        Without this write that guard reads an empty list forever and the guard is a decoration.
-
-        Never raises — the comment is already live on the platform by the time we get here.
-        """
-        try:
-            from taktik.core.database.instagram_posted_comments import InstagramPostedComments
-
-            InstagramPostedComments.record(
-                target_username=self._current_profile_username,
-                comment_text=text,
-                account_id=getattr(self, "_account_id", None),
-                session_id=getattr(self, "_session_id", None),
-                ai_metadata=ai_metadata,
-                source="ai" if ai_metadata else "template",
-                platform="tiktok",
-            )
-        except Exception as exc:
-            self.logger.debug(f"Could not record the posted comment: {exc}")
-
-    def _pick_configured_comment(self) -> str:
-        """One of the run's own comment texts, at random. Empty when the run supplied none.
-
-        Deliberately NOT a built-in default list: a generic "Nice!" under a stranger's video is
-        the most recognisable bot signature there is, and a run that forgot to configure texts
-        should post nothing rather than that.
-        """
-        texts = [str(t).strip() for t in (getattr(self.config, "comment_texts", None) or []) if str(t).strip()]
-        return random.choice(texts) if texts else ""
-
     def _try_follow_current_profile(self) -> bool:
         """Try to follow the user from their profile page."""
         try:

@@ -15,6 +15,8 @@ import time
 import random
 
 from taktik.core.shared.telemetry.sink import emit_step
+
+from .video_comment import VideoCommentMixin
 from ....core.utils import parse_count
 from .base_workflow import BaseTikTokWorkflow
 from .models import VideoWorkflowStats
@@ -24,7 +26,7 @@ from .models import VideoWorkflowStats
 # Base workflow
 # ---------------------------------------------------------------------------
 
-class BaseVideoWorkflow(BaseTikTokWorkflow):
+class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
     """Base class for video-feed workflows (ForYou, Search, …).
 
     Inherits from BaseTikTokWorkflow:
@@ -132,6 +134,9 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
             max_likes_per_session, max_follows_per_session
         """
         cfg = self.config
+        # The addressee of anything published on this video, read where it is known rather than
+        # carried as state: `_comment_target_username` needs it and the feed has no walked profile.
+        self._current_video_author = (video_info.get('author') or '').strip()
 
         # Like
         if (self.stats.videos_liked < cfg.max_likes_per_session
@@ -151,6 +156,30 @@ class BaseVideoWorkflow(BaseTikTokWorkflow):
                 and not video_info.get('is_favorited')):
             if self._favorite_video(video_info):
                 self._actions_since_pause += 1
+
+        # Comment. Read with getattr because the two configs that reach here gained these knobs
+        # later than the rest — a run whose payload predates them must behave exactly as before,
+        # which means a probability of zero and no comment.
+        comment_probability = getattr(cfg, 'comment_probability', 0.0) or 0.0
+        max_comments = getattr(cfg, 'max_comments_per_session', 0) or 0
+        commented = getattr(self.stats, 'videos_commented', 0)
+        if (comment_probability > 0 and commented < max_comments
+                and random.random() < comment_probability):
+            if self._try_comment_video():
+                if hasattr(self.stats, 'videos_commented'):
+                    self.stats.videos_commented += 1
+                emit_step("comment", action="sheet", target=video_info.get('author'))
+                self._actions_since_pause += 1
+
+    def _comment_target_username(self) -> str:
+        """On a video feed the addressee is the AUTHOR of the video on screen.
+
+        The default in the mixin reads `_current_profile_username`, which the followers loop
+        holds and a feed workflow does not — filing a comment under it here would attribute it
+        to nobody, or worse to the last profile some other code touched.
+        """
+        author = (getattr(self, '_current_video_author', '') or '').strip()
+        return author.lstrip('@')
 
     # ------------------------------------------------------------------
     # Limits & pauses

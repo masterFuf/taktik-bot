@@ -14,6 +14,11 @@ def build_for_you_config(for_you_config_class, config: Dict[str, Any]):
         like_probability=config.get("likeProbability", 30) / 100.0,
         follow_probability=config.get("followProbability", 10) / 100.0,
         favorite_probability=config.get("favoriteProbability", 5) / 100.0,
+        # Commenting reached this road on 2026-08-30. Absent from the payload it stays at zero,
+        # so a run configured before it existed behaves exactly as it did.
+        comment_probability=config.get("commentProbability", 0) / 100.0,
+        max_comments_per_session=config.get("maxCommentsPerSession", 10),
+        comment_texts=config.get("commentTexts") or config.get("comments") or [],
         required_hashtags=config.get("requiredHashtags", []),
         excluded_hashtags=config.get("excludedHashtags", []),
         min_likes=config.get("minLikes"),
