@@ -101,6 +101,13 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
         return run_message_requests_workflow(config), workflow_type
 
+    if workflow_type == "notifications":
+        from bridges.tiktok.workflows.engagement.notifications import (
+            run_notifications_workflow,
+        )
+
+        return run_notifications_workflow(config), workflow_type
+
     if workflow_type == "dm_activity":
         from bridges.tiktok.workflows.engagement.activity import run_activity_workflow
 

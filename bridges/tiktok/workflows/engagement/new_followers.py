@@ -257,12 +257,60 @@ def _run_welcome_pass(config, manager, workflow, bot_username, followers, policy
         logger.info(f"🤖 Décisions IA: {stats}")
         send_log("info", f"AI welcome pass: {stats}")
 
+        # The attribution's raw material, and it costs nothing here: every profile has just been
+        # opened and every handle is already in hand. Recording it lets the front answer "of the
+        # people who followed us, how many had we engaged first?" -- see
+        # bridges/tiktok/engagement/runtime/notifications/persistence.py. A separate scan would
+        # have opened the same profiles a second time for the same thirteen seconds apiece.
+        _record_followers_as_notifications(bot_username, followers, resolved_handles)
+
         _follow_back_decided(workflow, follow_back_targets(decisions))
         _welcome_decided(config, manager, bot_username, welcome_dm_targets(decisions), policy)
 
     except Exception as exc:
         logger.error(f"Passe IA nouveaux followers en échec: {exc}")
         send_log("warning", f"AI welcome pass failed: {exc}")
+
+
+def _record_followers_as_notifications(
+    bot_username: Optional[str],
+    followers: List[Any],
+    resolved_handles: Dict[str, str],
+) -> None:
+    """Write one `new_follower` notification per resolved follower. Best-effort, never raises.
+
+    Only the resolved ones. A row filed under a display name joins to nothing, so the follower
+    would read as "never engaged" -- a confident wrong answer, and worse than no row at all.
+    """
+    from bridges.tiktok.engagement.runtime.notifications.scan import NEW_FOLLOWER_TYPE
+    from bridges.tiktok.engagement.runtime.notifications.persistence import (
+        record_scan_notifications,
+    )
+
+    items = []
+    for follower in followers or []:
+        shown = (getattr(follower, "username", None) or (
+            follower.get("username") if isinstance(follower, dict) else "") or "").strip()
+        handle = resolved_handles.get(shown)
+        if not handle:
+            continue
+        activity = getattr(follower, "activity", None)
+        if activity is None and isinstance(follower, dict):
+            activity = follower.get("activity")
+        items.append({
+            "type": NEW_FOLLOWER_TYPE,
+            "username": handle,
+            "time": activity or "",
+            "label": shown,
+        })
+
+    if not items:
+        return
+    try:
+        flags = record_scan_notifications(bot_username, items)
+        logger.info(f"🔔 {sum(flags)} nouvelle(s) notification(s) enregistrée(s)")
+    except Exception as exc:
+        logger.warning(f"Enregistrement des notifications impossible: {exc}")
 
 
 def _follow_back_decided(workflow, handles: List[str]) -> None:
