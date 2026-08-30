@@ -147,3 +147,37 @@ def read_activity(a, p):
             "unknown": unknown,
         },
     }
+
+
+@action("tt.activity.suggested.read")
+def read_suggested(a, p):
+    """READS ONLY: the accounts TikTok suggests at the bottom of the Activity SUMMARY.
+
+    Summary, not the expanded list -- the block does not exist behind "Tout voir", measured.
+    """
+    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
+
+    rows = ActivityActions(a.device).read_suggested_accounts()
+    return {
+        "success": bool(rows),
+        "message": ", ".join(r["name"] for r in rows[:6]) or "no suggestions on this screen",
+        "details": {"accounts": rows},
+    }
+
+
+@action("tt.activity.suggested.follow")
+def follow_suggested(a, p):
+    """Follow one suggested account. ACTS: it follows.
+
+    Params: name (required) -- the DISPLAY NAME as the row shows it. Judged by the button
+    disappearing from that row, never by the tap.
+    """
+    from taktik.core.social_media.tiktok.actions.atomic.activity_actions import ActivityActions
+
+    name = str((p or {}).get("name") or "").strip()
+    if not name:
+        return {"success": False, "message": "name is required"}
+
+    done = ActivityActions(a.device).follow_suggested_account(name)
+    logger.info(f"tt.activity.suggested.follow: {name!r} -> {done}")
+    return {"success": done, "message": f"followed {name}" if done else f"{name} still offers Follow"}

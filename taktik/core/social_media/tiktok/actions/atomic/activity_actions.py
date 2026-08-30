@@ -101,6 +101,67 @@ class ActivityActions(BaseAction):
                 self.logger.warning(f"🔔 Type de notification inconnu: {row.raw[:90]!r}")
         return collected
 
+    def read_suggested_accounts(self) -> List[Dict[str, Any]]:
+        """The accounts TikTok is suggesting at the bottom of the Activity summary.
+
+        On the SUMMARY, never on the expanded list: measured 2026-08-30, ten scrolls down the
+        "Tout voir" list found no block at all, and the same page opened without expanding shows
+        it straight away. `open_activity(expand=False)` is what gets here.
+
+        The names are DISPLAY NAMES, as everywhere. They are usable for tapping the row -- which
+        is what they are for -- and not for filing anyone under.
+        """
+        found: List[Dict[str, Any]] = []
+        for element in first_matching(self.device, self.activity_selectors.suggested_account_rows):
+            description = (getattr(element, "info", {}) or {}).get("contentDescription") or ""
+            name = self._name_in_remove_label(description)
+            if name and all(row["name"] != name for row in found):
+                found.append({"name": name, "label": description})
+        self.logger.info(f"🔔 {len(found)} compte(s) suggéré(s)")
+        return found
+
+    def follow_suggested_account(self, shown_name: str) -> bool:
+        """Follow ONE suggested account. True once its row stops offering the button.
+
+        The outcome, not the tap. TikTok replaces the button with a state the moment the follow
+        lands, so its disappearance from that row is the readable proof -- and the row is scoped
+        by name, so a disappearance elsewhere on the page proves nothing about this one.
+        """
+        name = (shown_name or "").strip()
+        if not name:
+            return False
+
+        selectors = self.activity_selectors.suggested_follow_button_for_name(name)
+        if not self._find_and_click(selectors, timeout=4):
+            self.logger.warning(f"Bouton « Suivre » introuvable pour {name!r}")
+            return False
+        self._human_like_delay('navigation')
+
+        deadline = time.time() + 6.0
+        while time.time() < deadline:
+            if not first_matching(self.device, selectors):
+                self.logger.info(f"➕ Suggestion suivie : {name!r}")
+                return True
+            time.sleep(0.8)
+
+        self.logger.warning(f"follow_suggested_account: {name!r} propose toujours « Suivre »")
+        return False
+
+    @staticmethod
+    def _name_in_remove_label(description: str) -> str:
+        """`Supprimer <NAME> des comptes suggérés` -> `<NAME>`.
+
+        Both languages, and both ends trimmed rather than split on a separator: a display name
+        can contain anything, spaces and the word "des" included.
+        """
+        for prefix, suffix in (
+            ("Supprimer ", " des comptes suggérés"),
+            ("Remove ", " from suggested accounts"),
+        ):
+            if description.startswith(prefix) and description.endswith(suffix):
+                return description[len(prefix):-len(suffix)].strip()
+        return ""
+
     def open_row(self, index: int) -> bool:
         """Tap the notification at `index`. Where it lands depends on the kind: a like opens the
         video, a follow opens the profile. The caller is the one that knows which."""

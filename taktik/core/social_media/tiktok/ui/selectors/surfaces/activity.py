@@ -67,6 +67,47 @@ class ActivitySelectors:
         '//android.widget.TextView[contains(@text, "⁨")]',
     ])
 
+    #: Suggested accounts, at the BOTTOM of the Activity SUMMARY.
+    #:
+    #: Measured 2026-08-30, and it decides how the page is opened: the block does NOT exist on the
+    #: expanded list behind "Tout voir". Ten scrolls down the full list found nothing; the same
+    #: page opened without expanding shows it at once. Anything that wants these accounts must
+    #: therefore open the Activity page with `expand=False`.
+    #:
+    #: Anchored on the REMOVE button, which is the only node that names the person -- the row's
+    #: own label is a display name in a TextView shared with everything else on the page.
+    suggested_accounts_header: List[str] = field(default_factory=lambda: [
+        '//*[@text="Comptes suggérés" or @text="Suggested accounts"]',
+    ])
+
+    suggested_account_rows: List[str] = field(default_factory=lambda: [
+        '//*[starts-with(@content-desc, "Supprimer ") and contains(@content-desc, "comptes suggérés")]',
+        '//*[starts-with(@content-desc, "Remove ") and contains(@content-desc, "suggested accounts")]',
+    ])
+
+    def suggested_follow_button_for_name(self, shown_name: str) -> List[str]:
+        """The Follow button of ONE suggested account, and nobody else's.
+
+        Scoped to the row, which is the DIRECT PARENT of the remove button -- measured: that
+        parent holds exactly one follow button and one name. Anything wider and the tap lands on
+        whichever suggestion happens to come first.
+
+        `Suivre en retour` is included: a suggestion can be someone who already follows us, and
+        the button then says that instead. It is the same gesture with a different label, and
+        excluding it would silently skip the warmest suggestions on the page.
+        """
+        safe = (shown_name or "").replace('"', "")
+        if not safe:
+            return []
+        row = (
+            f'//*[starts-with(@content-desc, "Supprimer {safe} ") '
+            f'or starts-with(@content-desc, "Remove {safe} ")]/..'
+        )
+        return [
+            f'{row}//*[@text="Suivre" or @text="Follow"]',
+            f'{row}//*[@text="Suivre en retour" or @text="Follow back"]',
+        ]
+
     #: The section headers, useful only to tell priority rows from the rest.
     section_header: List[str] = field(default_factory=lambda: [
         '//*[@text="Priorité" or @text="Priority" or @text="Autres" or @text="Others"]',
