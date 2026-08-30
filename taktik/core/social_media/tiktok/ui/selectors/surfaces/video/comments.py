@@ -89,12 +89,48 @@ class CommentSelectors:
         '//android.widget.TextView[@focusable="true"]',
     ])
 
+    #: The row that holds ONE comment: the author's `title` node, two levels up. Used to scope a
+    #: read to a single comment instead of pairing two flat lists by index -- a comment with no
+    #: body node yields no entry in the body list, and every pairing after it shifts by one, which
+    #: attributes one person's words to the next person down. Measured on 46.6.3: the row carries
+    #: author, body, date, the reply label and the like count, in that order.
+    comment_row: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/title")]/../..',
+    ])
+
     #: How many likes a comment has. `tv_like_count` is a READABLE id and clean everywhere, but it
     #: exists only on 46.6.3 and only on comments that have at least one like -- so an absent
     #: value means "no likes or old version", never "the sheet is not open".
     comment_like_count: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/tv_like_count")]',
     ])
+
+    # === One comment, read inside its own row ===
+
+    def author_at(self, anchor: str, index: int) -> List[str]:
+        """The author node of the row at `index` (0-based), addressed positionally.
+
+        `anchor` is whichever entry of `comment_author` resolved on this screen -- the package
+        name differs between the musically and trill builds, and a positional xpath built on a
+        selector that finds nothing addresses no row at all.
+        """
+        return [f"({anchor})[{index + 1}]"]
+
+    def body_at(self, anchor: str, index: int) -> List[str]:
+        """The body of the row at `index`, and nothing else that row happens to render.
+
+        The body is the row's focusable TextView -- the same structural rule `comment_text` uses,
+        scoped to one row instead of collected flat across all of them. Taking "the first text
+        after the author" instead looked simpler and was wrong twice: with the body absent it
+        returns the date, and with the date absent too it returns the localized reply label.
+        """
+        return [f"({anchor})[{index + 1}]/../..//android.widget.TextView[@focusable=\"true\"]"]
+
+    def like_count_at(self, anchor: str, index: int) -> List[str]:
+        """The like count of the row at `index`. Absent means no likes or 43.1.4, never "shut"."""
+        return [
+            f"({anchor})[{index + 1}]/../..//*[contains(@resource-id, \":id/tv_like_count\")]"
+        ]
 
     @property
     def reply_button(self) -> List[str]:

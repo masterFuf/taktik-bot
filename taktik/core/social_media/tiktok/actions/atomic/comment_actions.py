@@ -25,6 +25,8 @@ from taktik.core.shared.input.taktik_keyboard import (
 
 from ..core.base_action import BaseAction
 from ..core.utils import first_matching
+
+from ...services.profile.username import read_open_profile_handle
 from ...ui.selectors.surfaces.video import VIDEO_SELECTORS
 from ...ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
 
@@ -99,33 +101,209 @@ class CommentActions(BaseAction):
     # ------------------------------------------------------------------
 
     def read_comments(self, max_comments: int = 20) -> List[Dict[str, Any]]:
-        """The comments visible on the sheet: author, text, likes.
+        """The comments visible on the sheet: author, text, likes — each read INSIDE its own row.
 
         Returns [] when the sheet is not open — and logs why, so an empty list is never mistaken
         for "this video has no comments".
+
+        Read row by row rather than by pairing flat lists. The earlier version collected authors,
+        bodies and likes as three independent lists and joined them by index; since a text read
+        drops empty nodes, one comment without a body node shifted every pairing after it and
+        filed one person's words under the next person down. Measured on 46.6.3, that is not
+        hypothetical: an emoji-only comment reads as empty once the dump has eaten the emoji.
         """
         if not self.is_comment_sheet_open():
             self.logger.warning("read_comments: the comment sheet is not open — reading nothing")
             return []
 
-        authors = self._texts(self.comment_selectors.comment_author)
-        bodies = self._texts(self.comment_selectors.comment_text)
-        likes = self._texts(self.comment_selectors.comment_like_count)
-
-        # Paired by ORDER, not by index across independent lists: a comment with no like count
-        # has no node at all, so zipping the three would attach one comment's likes to another.
-        # Only author and body are paired, because they are the two fields every row carries.
-        comments: List[Dict[str, Any]] = []
-        for index, author in enumerate(authors[:max_comments]):
-            comments.append({
-                "author": author,
-                "text": bodies[index] if index < len(bodies) else "",
-                # Reported apart, never guessed: absent on 43.1.4 entirely, and absent on any
-                # comment with no like.
-                "like_count": likes[index] if index < len(likes) else None,
-            })
+        comments = [row for _, row in self._visible_rows(limit=max_comments)]
         self.logger.debug(f"💬 Read {len(comments)} comment(s)")
         return comments
+
+    def _visible_rows(self, limit: int = 50) -> List[tuple]:
+        """(index, fields) for each comment row on screen, fields read within that row.
+
+        The index is the row's position among the author nodes, and it is what a caller taps: the
+        display names repeat — two commenters rendered as `.` on one sheet — so picking a row by
+        its name opens the first of them over and over.
+        """
+        author_selector = self._author_selector()
+        if not author_selector:
+            return []
+
+        try:
+            count = len(self.device.xpath(author_selector).all())
+        except Exception:
+            return []
+
+        rows: List[tuple] = []
+        for index in range(min(count, limit)):
+            fields = self._row_fields(author_selector, index)
+            if fields:
+                rows.append((index, fields))
+        return rows
+
+    def _author_selector(self) -> str:
+        """The first author selector that resolves on this screen, or "".
+
+        A selector list is an ordered set of alternatives -- the package name differs between the
+        musically and trill builds -- so the one that matched has to be carried forward, not
+        re-guessed: a positional xpath built on a selector that finds nothing addresses no row.
+        """
+        for selector in self.comment_selectors.comment_author:
+            try:
+                if self.device.xpath(selector).all():
+                    return selector
+            except Exception:
+                continue
+        return ""
+
+    def _row_fields(self, author_selector: str, index: int) -> Optional[Dict[str, Any]]:
+        """Author, body and like count of the row at `index`, each read from that row's subtree.
+
+        Every xpath comes from the catalogue, scoped to one row. Reading three flat lists and
+        joining them by index -- what this replaced -- attributed one person's words to the next
+        person down as soon as a single row rendered no body node, which an emoji-only comment
+        does the moment the dump has eaten the emoji.
+        """
+        selectors = self.comment_selectors
+        author = self._first_text(selectors.author_at(author_selector, index))
+        if not author:
+            return None
+
+        return {
+            "author": author,
+            "text": self._first_text(selectors.body_at(author_selector, index)),
+            # None, never 0: absent means no likes or an old build, never "the sheet is shut".
+            "like_count": self._first_text(selectors.like_count_at(author_selector, index)) or None,
+        }
+
+    def _first_text(self, selectors) -> str:
+        """The text of the first node any of these selectors resolves to, or ""."""
+        for element in first_matching(self.device, selectors):
+            text = (getattr(element, "text", "") or "").strip()
+            if text:
+                return text
+        return ""
+
+    def read_commenter_handles(
+        self,
+        max_commenters: int = 20,
+        *,
+        max_scrolls: int = 8,
+    ) -> List[Dict[str, Any]]:
+        """The people who commented, by their HANDLE -- opening each profile to read it.
+
+        Why the detour, measured on 46.6.3 on 2026-08-30. A comment row carries four nodes and
+        not one of them is a username: `:id/title` holds the DISPLAY NAME, `:id/f1j` the body,
+        `:id/el6` the date, `:id/ejy` the reply link. Eight real rows from one post gave seven
+        display names no search would ever resolve:
+
+            'secretdrxx'   -> @secretdrxx        (the only one that would have worked by luck)
+            'Lau'          -> @laurie_bouchardd
+            '.'            -> @polo12079         (an emoji-only name, eaten by the dump)
+            'Benjamin ..'  -> @benjzmzn
+
+        A scrape that files people under those names produces rows no later workflow can match --
+        the same failure the welcome pass hit on the new-followers page, which renders display
+        names for the same reason.
+
+        Tapping the name opens the profile and `back` returns to the sheet at its scroll position;
+        both measured three times running. Rows are walked BY INDEX within a screenful, never by
+        name: display names repeat, and picking by name opens the first of them over and over.
+
+        Costs about 13 seconds per commenter, nearly all of it the profile round trip. That is the
+        price of a usable handle, and it is why `max_commenters` exists.
+        """
+        if not self.is_comment_sheet_open() and not self.open_comments():
+            self.logger.warning("read_commenter_handles: no comment sheet to read")
+            return []
+
+        collected: Dict[str, Dict[str, Any]] = {}
+        for _ in range(max_scrolls):
+            rows = self._visible_rows()
+            if not rows:
+                self.logger.debug("read_commenter_handles: no author row on this screenful")
+                break
+
+            found_here = 0
+            for index in range(len(rows)):
+                if len(collected) >= max_commenters:
+                    break
+                record = self._open_commenter_at(index)
+                if record and record["username"] not in collected:
+                    collected[record["username"]] = record
+                    found_here += 1
+                    self.logger.info(
+                        "\U0001f4ac {0!r} -> @{1}".format(record["display_name"], record["username"])
+                    )
+
+            if len(collected) >= max_commenters:
+                break
+
+            # Stop on "this pass brought nobody new", not on "the names look the same as before".
+            # Comparing display names was the obvious check and it is unreliable for the very
+            # reason this method exists: they repeat. Two rows rendering `..` after a scroll that
+            # DID move would read as a sheet that had not moved, and the walk would end early with
+            # no sign of it -- which is what an unexplained 4-out-of-8 run looked like.
+            if not found_here:
+                self.logger.debug(
+                    "read_commenter_handles: a full pass brought nobody new -- end of list"
+                )
+                break
+            self._scroll_comment_sheet()
+
+        self.logger.info(f"\U0001f4ac {len(collected)} commenter(s) identified")
+        return list(collected.values())
+
+    def _open_commenter_at(self, index: int) -> Optional[Dict[str, Any]]:
+        """Open the profile of the comment row at `index`, read the handle, come back.
+
+        Returns None whenever the round trip failed, INCLUDING failing to get back to the sheet:
+        a caller that kept walking indices on the wrong screen would tap whatever sits there.
+        """
+        author_selector = self._author_selector()
+        if not author_selector:
+            return None
+        fields = self._row_fields(author_selector, index)
+        if not fields:
+            return None
+
+        rows = first_matching(self.device, self.comment_selectors.comment_author)
+        if index >= len(rows):
+            return None
+        display_name = fields["author"]
+
+        try:
+            rows[index].click()
+        except Exception as exc:
+            self.logger.debug(f"read_commenter_handles: row {index} not tappable ({exc})")
+            return None
+        self._human_like_delay('navigation')
+
+        handle = read_open_profile_handle(self.device, label=display_name, timeout=6)
+        self.device.press("back")
+        time.sleep(1.2)
+
+        if not self.is_comment_sheet_open():
+            self.logger.warning(
+                "read_commenter_handles: back did not return to the comment sheet -- stopping"
+            )
+            return None
+        if not handle:
+            self.logger.debug(f"read_commenter_handles: no profile opened for {display_name!r}")
+            return None
+
+        return {"username": handle, "display_name": display_name, "text": fields["text"]}
+
+    def _scroll_comment_sheet(self) -> None:
+        """One scroll inside the sheet, through the humanized primitive every other list uses.
+
+        A short scale because a comment sheet is a third of the screen -- a full-height swipe
+        skips rows, and a skipped row is a commenter this never sees.
+        """
+        self._scroll_down(scale=0.4)
+        time.sleep(0.8)
 
     def comment_count(self) -> Optional[int]:
         """The sheet's own total, e.g. "16 commentaires" — None when it cannot be read."""
@@ -217,11 +395,18 @@ class CommentActions(BaseAction):
         return self.post_comment(text)
 
     def _tap_reply_of(self, author: str, to_text: Optional[str] = None) -> bool:
-        """The Reply button of the row belonging to `author` (and, when given, to `to_text`)."""
+        """The Reply button of the row belonging to `author` (and, when given, to `to_text`).
+
+        The body is read from the candidate's OWN row. It used to come from a flat list of every
+        body on the sheet, joined to the rows by index -- and since that list drops rows whose
+        body node is absent, `to_text` was matched against a neighbour's words. `to_text` exists
+        precisely because one person leaves several comments, so getting it wrong sends the reply
+        to the wrong comment, which is the failure it was added to prevent.
+        """
         rows = first_matching(self.device, self.comment_selectors.comment_author)
-        bodies = self._texts(self.comment_selectors.comment_text)
         replies = first_matching(self.device, self.comment_selectors.reply_button)
-        if not rows or not replies:
+        anchor = self._author_selector()
+        if not rows or not replies or not anchor:
             return False
 
         wanted_body = (to_text or "").strip()
@@ -230,7 +415,7 @@ class CommentActions(BaseAction):
             if name != author:
                 continue
             if wanted_body:
-                body = bodies[index] if index < len(bodies) else ""
+                body = self._first_text(self.comment_selectors.body_at(anchor, index))
                 if wanted_body not in body:
                     continue
             # Paired by order: one Reply per named row, in the same order. Falling back to the

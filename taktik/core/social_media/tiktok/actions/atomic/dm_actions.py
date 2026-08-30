@@ -1073,11 +1073,8 @@ class DMActions(BaseAction):
         DM guard that asks "have we already written to this person?" would never match.
         """
         from taktik.core.social_media.tiktok.services.profile.username import (
-            UNKNOWN_USERNAME,
-            clean_profile_username,
-            get_current_profile_username,
+            read_open_profile_handle,
         )
-        from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
         name = (shown_name or "").strip()
         if not name:
@@ -1100,14 +1097,9 @@ class DMActions(BaseAction):
 
         # Arrival, not the tap. A row that opened a conversation, an interstitial or nothing at
         # all must not be read as a profile — that is how a verdict describes the wrong screen.
-        if not self._element_exists(PROFILE_SELECTORS.profile_page_indicator, timeout=6):
-            self.logger.warning(f"Le tap sur {name!r} n'a pas ouvert un profil")
+        handle = read_open_profile_handle(self.device, label=name, timeout=6)
+        if not handle:
+            self.logger.warning(f"Le tap sur {name!r} n'a pas ouvert un profil lisible")
             return None
-
-        handle = get_current_profile_username(self.device)
-        if not handle or handle == UNKNOWN_USERNAME:
-            self.logger.warning(f"Profil ouvert pour {name!r} mais handle illisible")
-            return None
-        handle = clean_profile_username(handle)
         self.logger.info(f"👤 {name!r} → @{handle}")
         return handle
