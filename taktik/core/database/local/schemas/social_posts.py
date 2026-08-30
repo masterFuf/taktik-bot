@@ -12,9 +12,20 @@ and the post type are not what this table is for.
 
 The counters are a SNAPSHOT — a re-scan overwrites them and moves `last_scraped_at`.
 
-KEY — the URL, normalised. A link copied from the share sheet carries a per-copy `?igsh=`
-token, so two copies of the SAME post never compare equal as-is; keyed raw, one post would
-be stored once per copy.
+KEY — `post_key`, which is NOT the URL. On Instagram the normalised URL is a fine identity: a
+link copied from the share sheet carries a per-copy `?igsh=` token, and stripping it leaves a
+stable canonical form, so `post_key` is that normalised URL.
+
+TikTok has no such canonical form. Measured 2026-08-30: "Copy link" mints a WHOLE NEW short link
+on every copy — four copies of one video gave `vm.tiktok.com/ZN8FUVpSM`, `ZN8FUWHSs`, `ZN8FUcEWh`,
+`ZN8FUtvAr` — and no numeric video id is rendered anywhere in the accessibility tree. Keyed on the
+URL, one video would be stored once per visit, `find_by_url` would never hit the row it already
+held, and "have we engaged this post?" would answer no forever.
+
+So the two things are separated: `post_key` identifies, `post_url` navigates. The URL is refreshed
+on every scrape (the newest link is the one most likely to still resolve), while the key stays
+put. For TikTok the key is built from what the screen DOES show stably — the author, the post
+date, and a fingerprint of the caption.
 
 `instagram_posts` once existed for this purpose and was dropped as a dead table (Vague B):
 it was never written. Do not resurrect that name — this table has a writer.
@@ -32,7 +43,11 @@ def create_social_posts_tables(cursor: sqlite3.Cursor) -> None:
         CREATE TABLE IF NOT EXISTS social_posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             platform TEXT NOT NULL DEFAULT 'instagram',
-            -- Canonical shareable URL: the key, and what a post_url workflow navigates to.
+            -- Stable identity. NOT the URL: see the module docstring. Instagram uses its
+            -- normalised URL, TikTok a fingerprint, because TikTok has no canonical link.
+            post_key TEXT NOT NULL,
+            -- The link a post_url workflow navigates to. Refreshed on every scrape, because on
+            -- TikTok the newest copy is the one most likely to still resolve.
             post_url TEXT NOT NULL,
             -- Whose post it is. Known from the profile we walked, not read off the screen.
             author_username TEXT NOT NULL,
@@ -41,7 +56,7 @@ def create_social_posts_tables(cursor: sqlite3.Cursor) -> None:
             first_seen_at TEXT DEFAULT (datetime('now')),
             last_scraped_at TEXT DEFAULT (datetime('now')),
             sync_id TEXT,
-            UNIQUE(platform, post_url)
+            UNIQUE(platform, post_key)
         )
         """
     )
@@ -58,6 +73,12 @@ def create_social_posts_indexes(cursor: sqlite3.Cursor) -> None:
     cursor.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_social_posts_sync_id "
         "ON social_posts(sync_id)"
+    )
+    # `find_by_url` still exists and is still asked, so the URL keeps an index of its own —
+    # it is simply no longer what makes a row unique.
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_social_posts_url "
+        "ON social_posts(platform, post_url)"
     )
 
 

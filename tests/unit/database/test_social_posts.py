@@ -58,17 +58,30 @@ def test_the_table_holds_only_what_the_collector_writes():
     create_schema(conn)
     cols = {row[1] for row in conn.execute("PRAGMA table_info(social_posts)")}
     assert cols == {
-        "id", "platform", "post_url", "author_username", "likes_count", "comments_count",
-        "first_seen_at", "last_scraped_at", "sync_id",
+        "id", "platform", "post_key", "post_url", "author_username", "likes_count",
+        "comments_count", "first_seen_at", "last_scraped_at", "sync_id",
     }
 
 
-def test_a_url_is_unique_per_platform():
+def test_the_identity_is_unique_per_platform_and_the_url_is_not():
+    """La clé a quitté l'URL le 2026-08-30. Sur Instagram les deux disent la même chose — l'URL
+    normalisée EST l'identité — mais TikTok fabrique un lien court différent à chaque copie, donc
+    une vidéo serait stockée une fois par visite si l'URL faisait foi."""
     conn = sqlite3.connect(":memory:")
     create_schema(conn)
-    conn.execute("INSERT INTO social_posts (platform, post_url, author_username) VALUES ('instagram', 'u', 'a')")
+    conn.execute("INSERT INTO social_posts (platform, post_key, post_url, author_username) "
+                 "VALUES ('instagram', 'k', 'u', 'a')")
+
     with pytest.raises(sqlite3.IntegrityError):
-        conn.execute("INSERT INTO social_posts (platform, post_url, author_username) VALUES ('instagram', 'u', 'b')")
+        conn.execute("INSERT INTO social_posts (platform, post_key, post_url, author_username) "
+                     "VALUES ('instagram', 'k', 'autre-url', 'b')")
+
+    # Deux liens différents pour la MÊME identité : c'est le cas TikTok, et il doit passer.
+    conn.execute("INSERT INTO social_posts (platform, post_key, post_url, author_username) "
+                 "VALUES ('tiktok', 'tiktok:keo:0612:abc', 'https://vm.tiktok.com/AAA/', 'keo')")
+    conn.execute("UPDATE social_posts SET post_url = 'https://vm.tiktok.com/BBB/' "
+                 "WHERE platform = 'tiktok'")
+    assert conn.execute("SELECT COUNT(*) FROM social_posts WHERE platform='tiktok'").fetchone()[0] == 1
 
 
 def test_an_empty_legacy_table_is_rebuilt_without_the_cut_columns():
@@ -154,3 +167,36 @@ def test_an_accounts_posts_come_biggest_first(repo):
     assert urls == ["https://www.instagram.com/p/A/", "https://www.instagram.com/reel/B/"]
     assert repo.count_for_author("alice") == 2
     assert repo.list_for_author("") == []
+
+def test_a_tiktok_post_keeps_one_row_across_four_different_links(repo):
+    """Le cas mesuré : quatre copies du lien d'une même vidéo rendent quatre URLs. Sans identité
+    séparée, la vidéo serait stockée quatre fois et aucune relecture ne retrouverait la ligne."""
+    from taktik.core.database.tiktok_post_identity import tiktok_post_key
+
+    key = tiktok_post_key("Kéo", "· 06-12", "Le secret de ma réussite en bio")
+    for short in ("ZN8FUVpSM", "ZN8FUWHSs", "ZN8FUcEWh", "ZN8FUtvAr"):
+        repo.record(
+            post_url=f"https://vm.tiktok.com/{short}/",
+            author_username="keo2edit",
+            likes_count=10,
+            platform="tiktok",
+            post_key=key,
+        )
+
+    assert repo.query("SELECT COUNT(*) AS n FROM social_posts")[0]["n"] == 1
+    row = repo.find_by_key(key, platform="tiktok")
+    assert row is not None
+    # L'URL retenue est la DERNIÈRE vue : sur TikTok la copie la plus récente est celle qui a le
+    # plus de chances de résoudre encore.
+    assert row["post_url"].endswith("ZN8FUtvAr/")
+
+
+def test_instagram_still_keys_on_its_normalised_url(repo):
+    """Rien ne change pour la plateforme dont l'URL EST l'identité : le paramètre est optionnel
+    et retombe sur l'URL normalisée."""
+    repo.record(post_url=SHARE_LINK, author_username="alice", likes_count=1)
+    repo.record(post_url=SAME_POST_OTHER_COPY, author_username="alice", likes_count=2)
+
+    assert repo.query("SELECT COUNT(*) AS n FROM social_posts")[0]["n"] == 1
+    row = repo.find_by_key("https://www.instagram.com/p/DAbC123xyz/")
+    assert row is not None and row["likes_count"] == 2
