@@ -53,14 +53,18 @@ def resolve_account_id(bot_username: Optional[str]) -> Optional[int]:
     if not _looks_like_handle(username):
         logger.warning("[DM] Logged-in TikTok account unreadable; DM persistence skipped")
         return None
-    try:
-        configure_db_service()
-        account_id, _ = get_db_service().get_or_create_account(username, is_bot=True)
-        logger.info(f"[DM] Resolved logged-in account @{username} (id={account_id})")
-        return account_id
-    except Exception as exc:
-        logger.warning(f"[DM] Account identity resolution failed: {exc}")
+    # Through the TIKTOK repository. `get_db_service().get_or_create_account(...)` was what this
+    # called, and it resolves against Instagram: measured 2026-08-30, five TikTok DMs had been
+    # filed under 6590, the INSTAGRAM id of @marvin.ndiaye.extraits, while that account's TikTok
+    # interactions sit under 4982. Nothing errored; the rows simply belonged to nobody.
+    from taktik.core.database.tiktok_account_identity import resolve_tiktok_account_id
+
+    account_id = resolve_tiktok_account_id(username, logger=logger)
+    if account_id is None:
+        logger.warning("[DM] Account identity resolution failed")
         return None
+    logger.info(f"[DM] Resolved logged-in account @{username} (id={account_id})")
+    return account_id
 
 
 def _partner_profile_id(handle: str) -> Optional[int]:

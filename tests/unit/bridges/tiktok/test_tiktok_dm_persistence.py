@@ -162,14 +162,30 @@ def test_our_message_stays_ours_when_the_header_changes_case(database, persisten
 
 
 def test_the_logged_in_handle_is_normalised_before_it_becomes_an_account(persistence, monkeypatch):
+    """Le pseudo est normalisé, ET la ligne cherchée est bien celle de TIKTOK.
+
+    Le point de branchement a bougé le 2026-08-30. Ce test remplaçait `persistence.get_db_service`,
+    qui menait au dépôt INSTAGRAM : `WHERE platform = 'instagram'`. Comme
+    `accounts.legacy_account_id` est numéroté par plateforme, l'appel rendait un identifiant
+    parfaitement valide appartenant à un autre compte — cinq DM TikTok se sont retrouvés sous
+    l'identifiant Instagram du même pseudo. La résolution passe maintenant par le dépôt TikTok, et
+    c'est ce que ce test vérifie en plus de la normalisation.
+    """
+    from taktik.core.database import tiktok_account_identity
+
     seen = []
 
-    class FakeService:
+    class FakeTikTokRepo:
         def get_or_create_account(self, username, is_bot=False):
             seen.append((username, is_bot))
             return 42, False
 
-    monkeypatch.setattr(persistence, "get_db_service", lambda: FakeService())
+    class FakeService:
+        tiktok = FakeTikTokRepo()
+
+    monkeypatch.setattr(tiktok_account_identity, "get_db_service", lambda: FakeService())
+    monkeypatch.setattr(tiktok_account_identity, "configure_db_service", lambda: None)
+
     assert persistence.resolve_account_id("@AlloCinGles") == 42
     assert seen == [("allocingles", True)]
 
