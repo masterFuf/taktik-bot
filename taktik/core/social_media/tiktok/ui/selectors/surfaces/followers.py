@@ -213,10 +213,30 @@ class FollowersSelectors:
         return L("followers.profile_reposted_tab")
 
     # === Back button (in-app) ===
+    #: La fleche de retour d'une liste. Mesure le 2026-09-01 sur les deux versions : c'est un
+    #: `ImageView` cliquable en haut a gauche, SANS texte ni content-desc — il n'existe aucun
+    #: ancrage lisible sur ce noeud, sur aucune des deux. Seul l'id le designe, et il change :
+    #: `b9b` en 43.1.4, `bqo` en 46.6.3. Sans le second, un run 46 restait coince sur la liste
+    #: (trois consommateurs, dont la sortie du parcours d'abonnes).
+    #:
+    #: Le dernier recours est une route GEOMETRIQUE et se lit comme telle : le premier ImageView
+    #: cliquable sans libelle qui precede la rangee d'onglets. Nu, ce motif tire sur dix-huit
+    #: ecrans ; cadre par les onglets il est propre, mais il reste positionnel et passe donc
+    #: apres les deux ids.
+    #:
+    #: A savoir, parce que la mesure le montre : ce champ tire aussi sur quinze ecrans hors liste
+    #: (feuilles de commentaires, recherche). Ce n'est PAS le defaut habituel — `b9b`/`bqo` sont
+    #: les ids de la fleche de retour partout dans l'app, donc chacun de ces tirs designe une
+    #: vraie fleche de retour et la taper fait la bonne chose. Un ancrage qui ne sait pas dire non
+    #: est une decoration quand il designe AUTRE chose ; ici il designe la meme.
     back_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/b9b")]',
+        '//*[contains(@resource-id, ":id/bqo")]',
         '//*[contains(@resource-id, ":id/b9c")]',
         '//android.widget.ImageView[contains(@resource-id, ":id/b9b")]',
+        '//*[@clickable="true"][starts-with(@content-desc, "Suivis ")]'
+        '/ancestor::android.widget.HorizontalScrollView[1]/preceding-sibling::*[1]'
+        '//android.widget.ImageView[@clickable="true"][not(@content-desc) or @content-desc=""]',
     ])
 
     # === Followers list page detection === — language-dependent (locales overlay)

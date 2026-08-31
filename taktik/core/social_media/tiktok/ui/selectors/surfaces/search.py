@@ -72,8 +72,19 @@ class SearchSelectors:
     ])
     
     # Legacy selectors for compatibility — base neutre (resource-id) + overlay locales/
+    #: `giv` est l'id de 43.1.4 ; en 46.6.3 le champ s'appelle `v1v`, et le champ n'etait donc
+    #: PAS ATTEIGNABLE sur la version recente — mesure le 2026-09-01 en comparant les memes neuf
+    #: surfaces sur les deux appareils. L'alternative localisee ne rattrapait rien : elle cherche
+    #: un `content-desc` que ce champ ne porte sur aucune des deux versions (il porte son texte).
+    #:
+    #: Le repli structurel ferme la porte a la prochaine mutation d'id, et il est place EN DERNIER
+    #: parce qu'il ne sait pas dire non : un `EditText` cadre par la loupe existe aussi sur le
+    #: filtre d'une liste d'abonnes et sur la feuille de commentaires. Il n'est juste qu'apres une
+    #: navigation vers la recherche, ce que fait son unique appelant.
     _search_bar_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/giv")]',
+        '//*[contains(@resource-id, ":id/v1v")]',
+        '//*[@content-desc="Rechercher"]/ancestor::*[2]//android.widget.EditText',
     ])
 
     @property
