@@ -57,7 +57,12 @@ class FollowersSelectors:
     ])
 
     # === Profile page elements ===
+    #: `qh5` est un id de 43.1.4 et ne resout nulle part en 46.6.3 — mesure le 2026-09-01 sur les
+    #: dix surfaces capturees de chaque version. Le pseudo, lui, se designe tout seul : c'est le
+    #: seul bouton de l'ecran dont le texte commence par « @ ». Verifie sur les deux versions, sur
+    #: le profil pilote comme sur un profil visite, et neutre en langue par construction.
     profile_username: List[str] = field(default_factory=lambda: [
+        '//android.widget.Button[starts-with(@text, "@")]',
         '//*[contains(@resource-id, ":id/qh5")]',
         '//android.widget.Button[contains(@resource-id, ":id/qh5")]',
     ])
@@ -166,7 +171,11 @@ class FollowersSelectors:
     ])
 
     # === Profile page - Video grid ===
+    #: Meme histoire que `profile_username` : `gxd` est de 43.1.4 et lit zero en 46.6.3. Les
+    #: vignettes, elles, portent un id NOMME (`cover`) sur les deux versions, et la grille est le
+    #: parent du conteneur cliquable de la premiere. Verifie sur les deux.
     profile_grid: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/cover")]/ancestor::*[@clickable="true"][1]/..',
         '//*[contains(@resource-id, ":id/gxd")]',
         '//android.widget.GridView[contains(@resource-id, ":id/gxd")]',
     ])
