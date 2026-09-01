@@ -454,17 +454,26 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[contains(@content-desc, \"Follow\")]",
         "//android.widget.Button[@text=\"Follow\"]",
     ],
+    # « Follower » AU SINGULIER quand le compte n'en a qu'un — mesure le 2026-09-01 sur la capture
+    # anglaise d'un compte a 1 abonne, ou les deux alternatives lisaient zero. Le francais gerait
+    # deja les deux graphies ; l'anglais exigeait le pluriel exact et ratait donc tout compte
+    # neuf, c'est-a-dire precisement ceux qu'on fait demarrer.
+    #
+    # `qfv`/`qfw` sont les ids de 43.1.4 (46.6.3 dit `svt`/`svu`), donc la route par les freres
+    # passe devant : elle ne depend d'aucun id et vaut sur les deux versions.
     "profile.followers_count": [
-        "//*[contains(@resource-id, \":id/qfv\")][@text=\"Followers\"]/..//*[contains(@resource-id, \":id/qfw\")]",
-        "//android.widget.TextView[@text=\"Followers\"]/preceding-sibling::android.widget.TextView",
+        "//android.widget.TextView[@text=\"Followers\" or @text=\"Follower\"]/preceding-sibling::android.widget.TextView",
+        "//*[contains(@resource-id, \":id/qfv\")][@text=\"Followers\" or @text=\"Follower\"]/..//*[contains(@resource-id, \":id/qfw\")]",
     ],
     "profile.following_button": [
         "//android.widget.Button[@text=\"Following\"]",
         "//android.widget.Button[contains(@text, \"Friends\")]",
     ],
+    # Pas de piege de singulier ici (« Following » est invariable), mais le meme ordre : la route
+    # par les freres, qui vaut sur les deux versions, passe devant celle qui nomme un id de 43.1.4.
     "profile.following_count": [
-        "//*[contains(@resource-id, \":id/qfv\")][@text=\"Following\"]/..//*[contains(@resource-id, \":id/qfw\")]",
         "//android.widget.TextView[@text=\"Following\"]/preceding-sibling::android.widget.TextView",
+        "//*[contains(@resource-id, \":id/qfv\")][@text=\"Following\"]/..//*[contains(@resource-id, \":id/qfw\")]",
     ],
     "profile.liked_videos_tab": [
         "//*[@content-desc=\"Liked videos\"]",
