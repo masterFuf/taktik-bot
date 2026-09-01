@@ -160,6 +160,19 @@ class SearchNavigationMixin(BaseAction):
         
         # Wait for keyboard to appear and search field to be active
         time.sleep(0.5)
+
+        # Step 2b: EMPTY the field before typing into it.
+        #
+        # The keyboard broadcast APPENDS — it types characters, it does not replace a value. When a
+        # search finds nothing (a profile that was deleted, banned or renamed), this function
+        # returns False and leaves the query sitting in the box. The next profile then typed itself
+        # onto the end of the last one — 'deletedusernextuser' — which matches nobody either, so
+        # every profile after the first missing one failed in turn. Measured: a qualification run
+        # of 50 profiles stopped producing after 7.
+        #
+        # Cheap and unconditional: clearing an already-empty field costs one broadcast, and makes
+        # the search independent of whatever the previous one left behind.
+        self._clear_text_with_taktik_keyboard()
         
         # Step 3: Type username using Taktik Keyboard (reliable ADB broadcast)
         if not self._type_with_taktik_keyboard(username):

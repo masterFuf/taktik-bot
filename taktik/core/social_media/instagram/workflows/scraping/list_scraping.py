@@ -112,6 +112,14 @@ class ScrapingListMixin(DeepQualifyMixin):
             IPCEmitter.emit_scraping_profile_visit(username, profile_data)
         else:
             self.logger.warning(f"Could not get profile info for @{username}")
+            # We navigated here ourselves and never arrived: the profile could not be OPENED.
+            # On a list of profiles saved months ago that is the ordinary case, not an anomaly —
+            # accounts get deleted, banned, or renamed, and the search then matches nobody. Saying
+            # so plainly is what lets an operator find those rows again and decide what to do with
+            # them; the generic "read empty" below would blame the screen for an account that is
+            # simply gone.
+            if navigate:
+                return 'profile unreachable (deleted, renamed or banned)'
 
         # The page gave us NOTHING — do not qualify a profile we never read.
         #
