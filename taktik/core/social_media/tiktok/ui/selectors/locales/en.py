@@ -273,8 +273,13 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@text=\"System notifications\"]",
     ],
     # --- logout ---
-    # Le flux de deconnexion n'a jamais tourne en anglais ; ces libelles viennent des dumps
-    # anglais d'origine du fichier neutre, pas d'une mesure. A CONFIRMER.
+    # VERIFIE le 2026-09-01, hors appareil, contre les neuf captures anglaises stockees :
+    # `settings_and_privacy` repond sur le menu anglais et `settings_screen_indicator` sur la page
+    # anglaise. Le flux n'a toujours pas TOURNE en anglais de bout en bout — c'est une lecture de
+    # captures, pas un run — mais les libelles ne sont plus des suppositions.
+    #
+    # `logout_button` reste non mesurable : la capture anglaise des reglages s'arrete a
+    # « Cache & mobile » et n'atteint pas la ligne de deconnexion. Trou de capture, pas defaut.
     "logout.settings_and_privacy": [
         "//*[@clickable=\"true\"][@content-desc=\"Settings and privacy\"]",
         "//*[@content-desc=\"Settings and privacy\"]",
