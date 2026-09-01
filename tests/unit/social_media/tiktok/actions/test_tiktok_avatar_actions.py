@@ -34,10 +34,19 @@ class _Result:
 
 
 class _Screen:
-    """Un écran dont chaque sélecteur du catalogue rend ce qu'on lui dit."""
+    """Un écran dont chaque sélecteur du catalogue rend ce qu'on lui dit.
 
-    def __init__(self, by_selector):
+    Il rend aussi sa TAILLE, parce que le seuil minimum d'un avatar en est derive : un chiffre en
+    pixels encode un seul telephone et rejetterait la vraie photo sur un ecran moins dense.
+    1080 de large est la mesure d'origine, celle sur laquelle les tailles de ces tests sont ecrites.
+    """
+
+    def __init__(self, by_selector, size=(1080, 2400)):
         self.by_selector = by_selector
+        self._size = size
+
+    def get_screen_size(self):
+        return self._size
 
     def xpath(self, selector):
         for fragment, nodes in self.by_selector.items():
@@ -102,3 +111,41 @@ def test_a_node_without_readable_bounds_is_skipped_not_crashed_on():
     screen = _Screen({":id/ss_": [_Broken(), _Node(786, 306, 252)]})
 
     assert _actions(screen)._largest_avatar_bounds() == (786, 306, 1038, 558)
+
+
+# --- le seuil suit l'écran, pas un téléphone ------------------------------------------------
+
+
+@pytest.mark.parametrize("largeur,attendu", [(720, 72.0), (1080, 108.0), (1440, 144.0)])
+def test_the_minimum_follows_the_screen_width(largeur, attendu):
+    """Un seuil en PIXELS encode un seul téléphone.
+
+    L'avatar mesure environ 0,24 de la largeur et le badge à côté un quart de ça, soit 0,06 : un
+    seuil à 0,10 passe entre les deux sur n'importe quelle densité. Écrit en dur à 100 px, il
+    aurait rejeté la vraie photo sur un écran moins dense — le filtre censé écarter le badge aurait
+    écarté l'avatar.
+    """
+    actions = _actions(_Screen({}, size=(largeur, largeur * 2)))
+
+    assert actions._min_avatar_side() == pytest.approx(attendu)
+
+
+def test_an_unreadable_screen_falls_back_to_the_old_literal():
+    """Le repli n'est juste nulle part, mais il est joignable : sans taille d'écran, rien d'autre
+    n'est calculable et refuser de choisir empêcherait toute capture."""
+    class _Muet:
+        def get_screen_size(self):
+            raise RuntimeError("pas de device")
+
+    actions = _actions(_Screen({}))
+    actions.device = _Muet()
+
+    assert actions._min_avatar_side() == 100.0
+
+
+def test_a_small_screen_still_accepts_its_avatar():
+    """La moitié qui compte : sur un 720 de large, un avatar de 90 px passe — le littéral 100 le
+    rejetait, et la capture d'avatar rendait vide sans rien dire."""
+    petit = _Screen({":id/ss_": [_Node(40, 300, 90)]}, size=(720, 1600))
+
+    assert _actions(petit)._largest_avatar_bounds() is not None

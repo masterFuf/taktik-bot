@@ -23,8 +23,18 @@ from typing import Any, Optional
 from ...core.base_action import BaseAction
 from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
-#: The badge is a quarter of the avatar's size; anything under this is not a profile picture.
-_MIN_AVATAR_PX = 100
+#: The smallest thing that can be the avatar, as a FRACTION OF SCREEN WIDTH -- not a pixel count.
+#:
+#: A literal 100 px encodes one screen. Measured on a 1080-wide phone the avatar is 256 px, so
+#: 0.24 of the width, and the story badge beside it is about a quarter of that, so 0.06. A
+#: threshold at 0.10 sits cleanly between the two on any density: 108 px on a 1080 screen, 72 on
+#: a 720 one, 144 on a 1440 one. The literal would have rejected the real avatar on a low-density
+#: device -- the filter meant to exclude the badge would have excluded the picture.
+_MIN_AVATAR_WIDTH_RATIO = 0.10
+
+#: Last resort when the screen cannot be measured at all: the old literal, which is right for the
+#: 1080-wide phones this was written on and wrong nowhere it can now be reached.
+_MIN_AVATAR_PX_FALLBACK = 100
 
 #: Enough for a thumbnail, small enough to travel in a bridge message and sit in a row.
 _JPEG_QUALITY = 85
@@ -90,6 +100,7 @@ class AvatarActions(BaseAction):
         """
         best = None
         best_area = 0
+        minimum = self._min_avatar_side()
         for selector in self.profile_selectors.own_avatar_container:
             try:
                 found = self.device.xpath(selector).all()
@@ -101,7 +112,7 @@ class AvatarActions(BaseAction):
                     continue
                 left, top, right, bottom = bounds
                 width, height = right - left, bottom - top
-                if width < _MIN_AVATAR_PX or height < _MIN_AVATAR_PX:
+                if width < minimum or height < minimum:
                     continue
                 area = width * height
                 if area > best_area:
@@ -109,6 +120,16 @@ class AvatarActions(BaseAction):
             if best:
                 return best
         return best
+
+    def _min_avatar_side(self) -> float:
+        """The threshold in pixels FOR THIS SCREEN, derived from its width."""
+        try:
+            width, _height = self.device.get_screen_size()
+            if width and width > 0:
+                return width * _MIN_AVATAR_WIDTH_RATIO
+        except Exception as exc:
+            self.logger.debug(f"avatar: screen size unreadable ({exc}); pixel fallback")
+        return float(_MIN_AVATAR_PX_FALLBACK)
 
     @staticmethod
     def _bounds_of(element: Any) -> Optional[tuple]:
