@@ -41,7 +41,13 @@ _JPEG_QUALITY = 85
 
 
 class AvatarActions(BaseAction):
-    """Read the connected account's profile picture off its own profile page."""
+    """Read a profile picture off the profile page currently on screen.
+
+    Written for our own account first; a VISITED profile carries the same picture in a different
+    container depending on the build, which is why the search covers both. Measured on the ten
+    captured surfaces of each version: on a visited profile `own_avatar_container` answers on
+    46.6.3 and `profile_photo` on 43.1.4 — neither alone covers both, their union does.
+    """
 
     def __init__(self, device):
         super().__init__(device)
@@ -55,6 +61,15 @@ class AvatarActions(BaseAction):
         None on every failure rather than a placeholder: a front that receives a picture believes
         it, and an account showing someone else's face is worse than an account showing none.
         Must be called while our own profile page is up.
+        """
+        return self.capture_avatar()
+
+    def capture_avatar(self) -> Optional[str]:
+        """The avatar of WHATEVER profile is on screen, ours or somebody else's.
+
+        Same body, no second spelling: the only thing that differed between the two cases was
+        which container the picture sits in, and the search now covers both. 789 stored TikTok
+        profiles carry no picture at all because the visited-profile extractor never asked for one.
         """
         bounds = self._largest_avatar_bounds()
         if not bounds:
@@ -101,7 +116,13 @@ class AvatarActions(BaseAction):
         best = None
         best_area = 0
         minimum = self._min_avatar_side()
-        for selector in self.profile_selectors.own_avatar_container:
+        # Les DEUX conteneurs : sur un profil visite, `own_avatar_container` repond en 46.6.3 et
+        # `profile_photo` en 43.1.4. Prendre l'un des deux seulement rend une version aveugle.
+        containers = list(self.profile_selectors.own_avatar_container)
+        for extra in getattr(self.profile_selectors, "profile_photo", ()):
+            if extra not in containers:
+                containers.append(extra)
+        for selector in containers:
             try:
                 found = self.device.xpath(selector).all()
             except Exception:
