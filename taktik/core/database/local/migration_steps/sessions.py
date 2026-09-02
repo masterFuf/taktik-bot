@@ -150,6 +150,14 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
         )
     except sqlite3.OperationalError:
         pass
+    # Mirrors the front migration: the Target Search "Source" badge looks sessions up by target.
+    try:
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_unified_target "
+            "ON sessions_unified(platform, target)"
+        )
+    except sqlite3.OperationalError:
+        pass
 
     # Idempotent, column-aware backfill from the two legacy tables.
     try:
