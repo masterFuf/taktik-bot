@@ -57,12 +57,22 @@ class BaseTikTokWorkflow:
         self.behavior_state = BehaviorSessionState()
         for action in (self.click, self.navigation, self.scroll, self.detection):
             action.behavior_state = self.behavior_state
+            # ...AND on the facade that action holds. `SharedBaseAction` wraps a raw device in a
+            # facade OF ITS OWN when it is handed one, so four actions mean four distinct facade
+            # objects -- none of them the `device` this workflow was given.
+            #
+            # Setting it on `self.device` alone therefore reached nothing that moves a finger.
+            # Measured on a live For You run: the planner chose velocities of 1.069 and 1.083 and
+            # every flick executed at exactly 1.0, because `_motor` found no state on the facade
+            # and returned its fallback. The styles rotated, the energy drifted, and the gestures
+            # ignored all of it.
+            try:
+                action.device.behavior_state = self.behavior_state
+            except Exception:
+                pass
 
-        # The DEVICE needs it too, and that is where it was missing. The atomic actions decide
-        # WHAT to do; the facade is what actually moves the finger, and it was the only object in
-        # the chain still doing so with no memory of the run -- every scroll independently sampled,
-        # nothing carried from one to the next. Set defensively: a raw uiautomator2 device (Lab,
-        # probes) is not ours to annotate.
+        # Kept for the case where a workflow IS handed a facade: then `self.device` is one of the
+        # objects above and this is what sets it.
         try:
             self.device.behavior_state = self.behavior_state
         except Exception:
