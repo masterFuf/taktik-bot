@@ -466,7 +466,8 @@ class AIService(CommentGenerationMixin):
             if niche_val not in known_sub_niches and niche_val != "Other":
                 logger.info(f"[AIService] Proposed new sub-niche '{niche_val}' for @{username}")
             results[username] = {
-                "niche_category": self._canonicalize_niche_category(data.get("niche_category")),
+                "niche_category": self._canonicalize_niche_category(
+                    data.get("niche_category"), self._niche_categories),
                 "niche": niche_val,
                 "gender": str(data.get("gender") or "unknown"),
             }
@@ -611,7 +612,17 @@ class AIService(CommentGenerationMixin):
     # High-level AI operations
     # ------------------------------------------------------------------
 
-    # Ordered list of supported niche categories (must match NICHE_CATEGORIES in niche-taxonomy.ts)
+    # Fallback list for the STANDALONE bot, which receives no injected taxonomy.
+    #
+    # It used to be the only list, under a comment asking the next editor to keep it in step with
+    # niche-taxonomy.ts. That did not hold: the desktop app added `visual_media` (Photo, Video &
+    # Film) on 2026-08-21 and this copy never learnt it, so every profile the model correctly
+    # classified there failed the exact-match test below and was clamped to `other`. Measured on
+    # the production base: 1 115 of the 9 136 qualifications written since carry `other` with a
+    # photography or cinema sub-niche.
+    #
+    # When a taxonomy IS injected, `_niche_categories` derives the buckets from its keys and this
+    # list is not consulted — a copy that cannot drift because it is no longer the source.
     NICHE_CATEGORIES = [
         "lifestyle", "travel", "fitness_sports", "food_drink", "fashion",
         "beauty_wellness", "tech_education", "business_marketing", "music_entertainment",
@@ -629,9 +640,18 @@ class AIService(CommentGenerationMixin):
         "entertainment": "music_entertainment",
         "arts_and_culture": "music_entertainment",
         "music": "music_entertainment",
-        "cinema": "music_entertainment",
-        "film_and_cinema": "music_entertainment",
         "media": "music_entertainment",
+        # image as a TRADE — see `visual_media` in the app's taxonomy. `_SYNONYM_FALLBACK` sends
+        # these back to their pre-split bucket for the standalone bot, which has no such niche.
+        "cinema": "visual_media",
+        "film_and_cinema": "visual_media",
+        "film": "visual_media",
+        "video": "visual_media",
+        "videography": "visual_media",
+        "cinematography": "visual_media",
+        "photography": "visual_media",
+        "photo": "visual_media",
+        "acting": "visual_media",
         # visual arts / craft / literature
         "art": "art_design",
         "arts": "art_design",
@@ -639,7 +659,6 @@ class AIService(CommentGenerationMixin):
         "art_and_design": "art_design",
         "arts_and_crafts": "art_design",
         "crafts": "art_design",
-        "photography": "art_design",
         "books_and_literature": "art_design",
         "literature": "art_design",
         # beauty
@@ -723,6 +742,24 @@ class AIService(CommentGenerationMixin):
         "none": "other",
     }
 
+    # Where each redirected synonym goes when this instance has no `visual_media` bucket.
+    #
+    # Keyed on the INCOMING slug, not on the target: before the 2026-08-21 split the image trades
+    # were spread over two niches — the camera crafts under Art & Design, the screen ones under
+    # Music & Entertainment — so a single target-keyed fallback would send `cinema` to Art & Design,
+    # which is not where the standalone bot used to put it.
+    _SYNONYM_FALLBACK = {
+        "cinema": "music_entertainment",
+        "film_and_cinema": "music_entertainment",
+        "film": "music_entertainment",
+        "acting": "music_entertainment",
+        "photography": "art_design",
+        "photo": "art_design",
+        "video": "art_design",
+        "videography": "art_design",
+        "cinematography": "art_design",
+    }
+
     @classmethod
     def _synonyms_without_joiners(cls) -> Dict[str, str]:
         """The synonym table keyed on its joiner-free form, built once.
@@ -740,22 +777,40 @@ class AIService(CommentGenerationMixin):
             cls._SYNONYMS_NO_JOINERS = cached
         return cached
 
+    @property
+    def _niche_categories(self) -> list:
+        """The category keys this instance may return.
+
+        The injected taxonomy IS the list when there is one: the prompt asks the model to pick
+        among its keys, so anything else here would reject the answer we asked for. `other` is
+        appended because the payload deliberately omits it — it is the catch-all, never a choice.
+        Without an injection (standalone bot), the frozen list stands.
+        """
+        if self.niche_taxonomy:
+            return [*self.niche_taxonomy.keys(), "other"]
+        return self.NICHE_CATEGORIES
+
     @classmethod
-    def _canonicalize_niche_category(cls, raw: Any) -> str:
-        """Clamp a model-emitted niche_category onto the 16 canonical buckets.
+    def _canonicalize_niche_category(cls, raw: Any, allowed: Any = None) -> str:
+        """Clamp a model-emitted niche_category onto the canonical buckets.
 
         The classification prompt lists the allowed keys, but the output was never
         validated: real runs persisted free-text slugs into the indexed
         profile_following.niche_category column, fragmenting one concept across
         several spellings. Resolution order: exact match, then synonym remap, then
         single-token overlap; anything ambiguous fails closed to 'other'.
+
+        `allowed` names the buckets to clamp onto; callers with an injected taxonomy pass
+        `self._niche_categories`, so a bucket the app added is accepted the day it is added
+        rather than the day someone remembers to copy it here.
         """
+        categories = list(allowed) if allowed else cls.NICHE_CATEGORIES
         if not raw:
             return "other"
         slug = re.sub(r"[^a-z0-9]+", "_", str(raw).strip().lower()).strip("_")
         if not slug:
             return "other"
-        if slug in cls.NICHE_CATEGORIES:
+        if slug in categories:
             return slug
 
         # Look the synonym up on the JOINER-FREE form, on both sides. "arts & culture"
@@ -768,11 +823,17 @@ class AIService(CommentGenerationMixin):
 
         mapped = cls._NICHE_CATEGORY_SYNONYMS.get(slug) or cls._synonyms_without_joiners().get(_strip_joiners(slug))
         if mapped:
-            return mapped
+            # A synonym may name a bucket this instance does not have — the table sends the image
+            # trades to `visual_media`, which the standalone bot does not know. Fall back to where
+            # that same slug landed before the split rather than dropping the answer.
+            if mapped not in categories:
+                mapped = cls._SYNONYM_FALLBACK.get(slug) or cls._SYNONYM_FALLBACK.get(_strip_joiners(slug))
+            if mapped and mapped in categories:
+                return mapped
         # Last resort: token overlap with the canonical buckets (unique winner only).
         tokens = {t for t in slug.split("_") if t and t not in stop}
         best, best_overlap, tied = "other", 0, False
-        for cat in cls.NICHE_CATEGORIES:
+        for cat in categories:
             overlap = len(tokens & set(cat.split("_")))
             if overlap > best_overlap:
                 best, best_overlap, tied = cat, overlap, False
@@ -1262,7 +1323,8 @@ class AIService(CommentGenerationMixin):
         niche = classification.get("niche", "?")
         # Clamp the model's category onto the 16 canonical buckets and write it back so the
         # emitted event AND the persisted row both carry the canonical slug (never free text).
-        niche_cat = self._canonicalize_niche_category(classification.get("niche_category"))
+        niche_cat = self._canonicalize_niche_category(
+            classification.get("niche_category"), self._niche_categories)
         classification["niche_category"] = niche_cat
         # Detect proposed sub-niches (not in canonical taxonomy) for monitoring
         if niche and niche not in self._known_sub_niches and niche != "Other":
@@ -1360,7 +1422,8 @@ class AIService(CommentGenerationMixin):
         # Build result summary for AgentPanel
         niche = classification.get("niche", "?")
         score = classification.get("score", 0)
-        niche_cat = self._canonicalize_niche_category(classification.get("niche_category"))
+        niche_cat = self._canonicalize_niche_category(
+            classification.get("niche_category"), self._niche_categories)
         classification["niche_category"] = niche_cat
         summary = classification.get("summary", "")
         result_text = f"[{niche_cat}] {niche} — Score: {score}/100"
