@@ -78,8 +78,17 @@ taktik/core/social_media/instagram/REFACTORING_SUMMARY.md
 # Compat backup files
 taktik/core/compat/data/*BACKUP*.md
 
-# Local device upload configs
-.tiktok_config_*.json
+# Configs de run ecrites a la racine par l'app, une par appareil et par workflow.
+#
+# Elles portent le NUMERO DE SERIE du telephone et les COMPTES CIBLES du run. Ce depot est
+# public : une seule qui passe et c'est du materiel client sur GitHub.
+#
+# Le motif est large a dessein. Il y avait douze noms distincts cote app (`fileStem`) et un seul
+# etait couvert : `.tiktok_config_*` ne matche pas `.tiktok_followers_config_*`. Onze fichiers
+# etaient donc a portee d'un `git add -A`, dont celui d'un run lance ce soir. Couvrir la famille
+# plutot que ses membres evite d'avoir a revenir ici chaque fois qu'un workflow est ajoute.
+.*config_*.json
+.tiktok_publish_*.json
 .youtube_upload_config_*.json
 
 # Agent & workflow config files (device-specific, not versioned)
