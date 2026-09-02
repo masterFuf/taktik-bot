@@ -13,6 +13,7 @@ class VideoEngagementSelectors:
 
     _like_button_base: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "f4u"),
+        *resource_id_with_descendant("g2w", "g2c"),
     ])
 
     @property
@@ -25,20 +26,21 @@ class VideoEngagementSelectors:
 
     _like_button_for_count_base: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "f4u"),
+        *resource_id_with_descendant("g2w", "g2c"),
     ])
 
     @property
     def like_button_for_count(self) -> List[str]:
         return self._like_button_for_count_base + L("video_engagement.like_button_for_count")
 
-    _like_count_base: List[str] = field(default_factory=lambda: [*resource_ids("f4z")])
+    _like_count_base: List[str] = field(default_factory=lambda: [*resource_ids("f4z", "g2j")])
 
     @property
     def like_count(self) -> List[str]:
         return self._like_count_base + L("video_engagement.like_count_anchors")
 
     _comment_button_base: List[str] = field(default_factory=lambda: [
-        *resource_ids("dtv"),
+        *resource_ids("dtv", "em1"),
         '//android.widget.Button[contains(@content-desc, "comments")]',
     ])
 
@@ -47,7 +49,7 @@ class VideoEngagementSelectors:
         return self._comment_button_base + L("video_engagement.comment_button")
 
     _comment_button_for_count_base: List[str] = field(default_factory=lambda: [
-        *resource_ids("dtv"),
+        *resource_ids("dtv", "em1"),
         '//*[contains(@content-desc, "comments")]',
     ])
 
@@ -62,7 +64,7 @@ class VideoEngagementSelectors:
         return self._comment_count_base + L("video_engagement.comment_count_anchors")
 
     _favorite_button_base: List[str] = field(default_factory=lambda: [
-        *resource_ids("guh"),
+        *resource_ids("guh", "i1l"),
     ])
 
     @property
@@ -77,7 +79,8 @@ class VideoEngagementSelectors:
 
     _share_button_base: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "t_j"),
-        *resource_ids_with("f57", xpath_filter='[contains(@content-desc, "Partager une vidéo")]'),
+        *resource_id_with_descendant("g2w", "vrq"),
+        *resource_ids_with("f57", "g2w", xpath_filter='[contains(@content-desc, "Partager une vidéo")]'),
         '//android.widget.Button[contains(@content-desc, "Partager une vidéo")]',
         '//*[contains(@content-desc, "Partager une vidéo")]',
     ])
@@ -86,7 +89,7 @@ class VideoEngagementSelectors:
     def share_button(self) -> List[str]:
         return self._share_button_base + L("video_engagement.share_button")
 
-    _share_count_base: List[str] = field(default_factory=lambda: [*resource_ids("t_2")])
+    _share_count_base: List[str] = field(default_factory=lambda: [*resource_ids("t_2", "vr7")])
 
     @property
     def share_count(self) -> List[str]:

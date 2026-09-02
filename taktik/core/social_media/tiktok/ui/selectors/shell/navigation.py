@@ -31,6 +31,7 @@ class NavigationSelectors:
 
     _home_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/mkq")]',
+        '//*[contains(@resource-id, ":id/ofc")]',  # 46.6.3
     ])
 
     @property
@@ -64,6 +65,7 @@ class NavigationSelectors:
 
     _profile_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/mks")]',
+        '//*[contains(@resource-id, ":id/ofe")]',  # 46.6.3
     ])
 
     @property
@@ -102,6 +104,7 @@ class NavigationSelectors:
     # Resource-id: irz (from ui_dump_20260111_121059.xml)
     _search_button_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/irz")]',
+        '//*[contains(@resource-id, ":id/k3x")]',  # 46.6.3
     ])
 
     @property

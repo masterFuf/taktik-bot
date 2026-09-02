@@ -12,10 +12,10 @@ class VideoStateSelectors:
     """Selectors for stateful video-page detection and toggles."""
 
     _video_liked_indicator_base: List[str] = field(default_factory=lambda: [
-        *resource_ids_with("f4u", xpath_filter='[@selected="true"]'),
-        *resource_ids_with("f4u", xpath_filter='[@checked="true"]'),
-        *resource_ids_with("f57", xpath_filter='[@selected="true"]'),
-        *resource_ids_with("f57", xpath_filter='[@checked="true"]'),
+        *resource_ids_with("f4u", "g2c", xpath_filter='[@selected="true"]'),
+        *resource_ids_with("f4u", "g2c", xpath_filter='[@checked="true"]'),
+        *resource_ids_with("f57", "g2w", xpath_filter='[@selected="true"]'),
+        *resource_ids_with("f57", "g2w", xpath_filter='[@checked="true"]'),
     ])
 
     @property
@@ -23,10 +23,10 @@ class VideoStateSelectors:
         return self._video_liked_indicator_base + L("video_state.video_liked_indicator")
 
     _unlike_indicator_base: List[str] = field(default_factory=lambda: [
-        *resource_ids_with("f4u", xpath_filter='[@selected="true"]'),
-        *resource_ids_with("f4u", xpath_filter='[@checked="true"]'),
-        *resource_ids_with("f57", xpath_filter='[@selected="true"]'),
-        *resource_ids_with("f57", xpath_filter='[@checked="true"]'),
+        *resource_ids_with("f4u", "g2c", xpath_filter='[@selected="true"]'),
+        *resource_ids_with("f4u", "g2c", xpath_filter='[@checked="true"]'),
+        *resource_ids_with("f57", "g2w", xpath_filter='[@selected="true"]'),
+        *resource_ids_with("f57", "g2w", xpath_filter='[@checked="true"]'),
     ])
 
     @property
@@ -49,7 +49,9 @@ class VideoStateSelectors:
         *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Video"]'),
         *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Vidéo"]'),
         *resource_id_with_descendant("f57", "f4u"),
+        *resource_id_with_descendant("g2w", "g2c"),
         *resource_id_with_descendant("f57", "t_j"),
+        *resource_id_with_descendant("g2w", "vrq"),
         '//*[contains(@content-desc, "Partager une vidéo")]',
     ])
 
@@ -78,10 +80,10 @@ class VideoStateSelectors:
         *resource_ids_with("g2w", xpath_filter='[@selected="true"]'),
         # 43.1.4's, kept: they were never disproved, only untested — no capture of a liked video
         # existed on that version.
-        *resource_ids_with("f4u", xpath_filter='[@selected="true"]'),
-        *resource_ids_with("f4u", xpath_filter='[@checked="true"]'),
-        *resource_ids_with("f57", xpath_filter='[@selected="true"]'),
-        *resource_ids_with("f57", xpath_filter='[@checked="true"]'),
+        *resource_ids_with("f4u", "g2c", xpath_filter='[@selected="true"]'),
+        *resource_ids_with("f4u", "g2c", xpath_filter='[@checked="true"]'),
+        *resource_ids_with("f57", "g2w", xpath_filter='[@selected="true"]'),
+        *resource_ids_with("f57", "g2w", xpath_filter='[@checked="true"]'),
     ])
 
     @property
@@ -90,6 +92,7 @@ class VideoStateSelectors:
 
     _like_button_unliked_base: List[str] = field(default_factory=lambda: [
         *resource_id_with_descendant("f57", "f4u"),
+        *resource_id_with_descendant("g2w", "g2c"),
     ])
 
     @property
