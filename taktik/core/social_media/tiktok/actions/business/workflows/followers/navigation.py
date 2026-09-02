@@ -276,12 +276,23 @@ class NavigationMixin:
     
     def _go_back(self):
         """Press back button to return to previous screen.
-        
+
         Prioritizes in-app back button (for phones without system back button),
         falls back to system back if not found.
+
+        La sonde est COURTE, et c'est deliberе : une fleche de retour est de la chrome, elle est
+        dessinee avec l'ecran. Elle n'apparait pas deux secondes plus tard — un timeout de 2 s est
+        la forme d'attente qu'on donne a du contenu qui charge, pas a un bouton de barre. Quand la
+        fleche est la, elle est trouvee au premier sondage et rien ne change ; quand elle n'y est
+        pas, on arretait de l'attendre 1,4 s plus tard.
+
+        Mesure sur un run reel (Pixel 6a, 10 profils) : 9 sondes infructueuses, 22,7 s. Les cinq
+        selecteurs sont bons — l'ecran n'avait tout simplement pas de fleche, et le retour systeme
+        a fait le travail a chaque fois. Sur les runs de 200 profils, c'est huit minutes d'attente
+        pour un bouton absent.
         """
         try:
-            if self.click._find_and_click(self.followers_selectors.back_button, timeout=2):
+            if self.click._find_and_click(self.followers_selectors.back_button, timeout=0.6):
                 time.sleep(0.5)
                 return
             
