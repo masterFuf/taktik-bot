@@ -125,7 +125,11 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "conversation.reply_button": [],
     # --- country_picker ---
-    "country_picker.close_button": [],
+    "country_picker.close_button": [
+        # Meme mesure que `popup.collections_close`. L'ecran de choix du pays n'a jamais ete
+        # capture ; seul le libelle est etabli.
+        "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
+    ],
     "country_picker.screen_indicator": [],
     "country_picker.search_input": [],
     # --- detection ---
@@ -446,7 +450,15 @@ STRINGS: Dict[str, List[str]] = {
     "popup.close_button": [
         "//android.widget.ImageButton[@content-desc=\"Fermer\"]",
     ],
-    "popup.collections_close": [],
+    "popup.collections_close": [
+        # « Fermer » est le content-desc des boutons de fermeture en francais : mesure sur SIX
+        # noeuds, CINQ ecrans (feuille de commentaires, composeur, inbox, profil, menu de profil)
+        # et LES DEUX versions (43.1.4 et 46.6.3), tous avec des resource-id differents
+        # (b9b, bqo, fac, g9i, kbz). C'est le libelle qui est mesure, pas l'ecran : le popup
+        # Collections lui-meme n'est dans aucune capture, donc l'id `jyh` de l'entree anglaise
+        # n'est pas repris ici -- un id non verifie vaudrait moins que rien.
+        "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
+    ],
     "popup.collections_not_now": [],
     "popup.collections_popup": [],
     "popup.comment_input_area": [],
@@ -722,7 +734,10 @@ STRINGS: Dict[str, List[str]] = {
     "profile.profile_views_button": [
         "//*[@content-desc=\"Vues du profil\"]",
     ],
-    "profile.story_close_button": [],
+    "profile.story_close_button": [
+        # Meme mesure. La visionneuse de story n'a jamais ete capturee.
+        "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
+    ],
     "profile.unable_to_send_message": [],
     "profile.verified_badge": [],
     "profile.videos_tab": [
