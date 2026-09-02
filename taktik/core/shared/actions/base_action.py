@@ -91,9 +91,20 @@ class SharedBaseAction:
         
         start_time = time.time()
         last_error = None
-        
+
+        # Rien a chercher : on le dit et on rend la main. La boucle ci-dessous dormait sinon
+        # jusqu'au bout du timeout sans jamais interroger l'ecran, puis annoncait « aucun element
+        # trouve » -- une phrase qui envoie chercher un selecteur casse alors que la liste etait
+        # vide. Mesure sur un run reel : 3 s perdues, et le bouton « Pas interesse » d'une page de
+        # suggestion jamais clique, parce que son entree francaise est une liste vide.
+        if not selectors:
+            self.logger.warning("🚫 Aucun selecteur fourni — rien n'a ete cherche")
+            emit_step("selector_miss", action="find_and_click", target=None,
+                      selector_count=0, timeout_s=timeout, elapsed_ms=0, empty_list=True)
+            return False
+
         self.logger.debug(f"🔍 Searching for elements with {len(selectors)} selectors")
-        
+
         while time.time() - start_time < timeout:
             for i, selector in enumerate(selectors):
                 try:
