@@ -2,7 +2,13 @@
 
 from typing import Any, Dict
 
-from bridges.tiktok.runtime.ipc import logger, send_action, send_message, send_pause
+from bridges.tiktok.runtime.ipc import (
+    logger,
+    send_action,
+    send_message,
+    send_pause,
+    send_profile_captured,
+)
 
 
 def create_total_stats() -> Dict[str, int]:
@@ -85,10 +91,14 @@ def wire_followers_callbacks(
             stats=merge_live_stats(total_stats, stats_dict, current_target, target_idx, total_targets),
         )
 
+    def on_profile(profile_data):
+        send_profile_captured(profile_data)
+
     def on_pause(duration: int):
         send_pause(duration)
         logger.info(f"⏸️ Taking a break for {duration}s")
 
     workflow.set_on_action_callback(on_action)
+    workflow.set_on_profile_callback(on_profile)
     workflow.set_on_stats_callback(on_stats)
     workflow.set_on_pause_callback(on_pause)

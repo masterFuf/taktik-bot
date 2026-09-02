@@ -85,6 +85,35 @@ def send_relevance(
     )
 
 
+def send_profile_captured(profile: dict) -> None:
+    """Send what was read off a visited profile, so the desktop can SHOW and KEEP it.
+
+    Instagram has emitted `profile_captured` for months and the panel reads it: the avatar in the
+    current-profile card comes from there. TikTok emitted a bare `action/profile_visit` carrying a
+    username, which is why the same card showed a letter in a coloured circle.
+
+    `profile_pic_base64` is a data URI or absent. The desktop writes it to a file and stores the
+    `taktik-img://` URL, exactly as it already does for a For You video's author -- the picture
+    itself never touches a database row.
+    """
+    if not profile or not profile.get("username"):
+        return
+    _ipc.send(
+        "profile_captured",
+        platform="tiktok",
+        username=profile.get("username"),
+        display_name=profile.get("display_name"),
+        followers_count=profile.get("followers_count"),
+        following_count=profile.get("following_count"),
+        likes_count=profile.get("likes_count"),
+        videos_count=profile.get("videos_count"),
+        biography=profile.get("biography"),
+        is_private=bool(profile.get("is_private", False)),
+        is_verified=bool(profile.get("is_verified", False)),
+        profile_pic_base64=profile.get("profile_pic_base64"),
+    )
+
+
 def send_profile_classification(username: str, classification: dict, result: str = "") -> None:
     """Send the AI classification of a TikTok profile so the desktop PERSISTS it.
 
@@ -119,5 +148,6 @@ __all__ = [
     "send_action",
     "send_pause",
     "send_relevance",
+    "send_profile_captured",
     "send_profile_classification",
 ]

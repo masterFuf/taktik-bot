@@ -42,6 +42,8 @@ class ProfileProcessingMixin:
 
             # Send profile visit action for Live Activity
             self._send_action('profile_visit', self._current_profile_username)
+            # ...and what the profile actually looks like, which the action event cannot carry.
+            self._send_profile(profile_data)
 
             self.logger.info(
                 f"👤 Visiting profile @{self._current_profile_username} "

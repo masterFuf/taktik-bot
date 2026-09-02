@@ -113,7 +113,16 @@ class FollowersWorkflow(
         # Followers-specific callbacks
         self._on_action_callback: Optional[Callable] = None
         self._on_user_callback: Optional[Callable] = None
+        self._on_profile_callback: Optional[Callable] = None
     
+    def set_on_profile_callback(self, callback: Callable):
+        """Called once per visited profile, with what was read off its screen.
+
+        Separate from the action callback, which carries a name and nothing else -- and a name is
+        all the panel ever had to show for a visited profile.
+        """
+        self._on_profile_callback = callback
+
     def set_on_action_callback(self, callback: Callable):
         """Set callback for action events (like, follow, etc.)."""
         self._on_action_callback = callback
@@ -543,6 +552,15 @@ class FollowersWorkflow(
         self._send_stats_update()
         self._send_action('filter', username)
         return True
+
+    def _send_profile(self, profile_data):
+        """Hand the desktop what was read off a visited profile, picture included."""
+        if not profile_data or not self._on_profile_callback:
+            return
+        try:
+            self._on_profile_callback(profile_data)
+        except Exception as e:
+            self.logger.warning(f"Profile callback error: {e}")
 
     def _send_action(self, action: str, target: str = ""):
         """Send action event via callback."""

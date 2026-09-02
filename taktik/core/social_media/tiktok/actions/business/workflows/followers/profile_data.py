@@ -29,6 +29,11 @@ class ProfileDataMixin:
         Returns the extracted profile dict, or None when nothing could be read. The filtering
         step needs those very numbers, and re-reading the screen for them would pay the
         extraction twice and could disagree with what was just persisted.
+
+        The avatar rides on the returned dict and NOT into the database write: it is 11 Ko of
+        base64 and belongs in a file, which is the desktop's job. The bot's part is to look at
+        the screen while it is standing in front of it -- which it had never done here, leaving
+        789 stored TikTok profiles without a picture while the face was on screen every time.
         """
         if not self._current_profile_username or self._current_profile_username == "unknown":
             return None
@@ -71,6 +76,9 @@ class ProfileDataMixin:
             if posts:
                 profile_data['videos_count'] = len(posts)
             
+            # After the DB dict is built, so the picture cannot reach the row.
+            avatar = self._capture_profile_avatar()
+
             try:
                 saved = self._followers_repository.save_profile(
                     account_id=self._account_id,
@@ -83,9 +91,28 @@ class ProfileDataMixin:
             except Exception as e:
                 self.logger.debug(f"Error saving profile data: {e}")
 
+            if avatar:
+                profile_data['profile_pic_base64'] = avatar
+
             return profile_data
 
         except Exception as e:
             self.logger.debug(f"Error extracting profile data: {e}")
 
         return None
+
+    def _capture_profile_avatar(self):
+        """The visited profile's avatar, or None.
+
+        Never raises into the visit: a missing picture is a missing picture, and a profile that
+        was read correctly must not be lost because a crop failed.
+        """
+        try:
+            from taktik.core.social_media.tiktok.actions.atomic.detection.avatar_actions import (
+                AvatarActions,
+            )
+
+            return AvatarActions(self.device).capture_avatar()
+        except Exception as exc:
+            self.logger.debug(f"Avatar capture skipped: {exc}")
+            return None
