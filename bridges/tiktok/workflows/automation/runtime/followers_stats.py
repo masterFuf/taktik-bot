@@ -2,13 +2,8 @@
 
 from typing import Any, Dict
 
-from bridges.tiktok.runtime.ipc import (
-    logger,
-    send_action,
-    send_message,
-    send_pause,
-    send_profile_captured,
-)
+from bridges.tiktok.runtime.ipc import send_message
+from bridges.tiktok.workflows.automation.runtime.workflow_callbacks import wire_workflow_callbacks
 
 
 def create_total_stats() -> Dict[str, int]:
@@ -79,11 +74,12 @@ def wire_followers_callbacks(
     target_idx: int,
     total_targets: int,
 ) -> None:
-    """Wire live bridge callbacks for one Followers workflow instance."""
+    """Wire live bridge callbacks for one Followers workflow instance.
 
-    def on_action(action_info):
-        send_action(action_info.get("action", "unknown"), action_info.get("target", ""))
-        logger.info(f"🎯 Action: {action_info.get('action')} on @{action_info.get('target', '')}")
+    Only the stats shape is this bridge's own -- a distributed run names its current target and
+    its position in the list. Everything else lives in `wire_workflow_callbacks`, so a callback
+    added to the family cannot reach one bridge and miss the other.
+    """
 
     def on_stats(stats_dict):
         send_message(
@@ -91,14 +87,4 @@ def wire_followers_callbacks(
             stats=merge_live_stats(total_stats, stats_dict, current_target, target_idx, total_targets),
         )
 
-    def on_profile(profile_data):
-        send_profile_captured(profile_data)
-
-    def on_pause(duration: int):
-        send_pause(duration)
-        logger.info(f"⏸️ Taking a break for {duration}s")
-
-    workflow.set_on_action_callback(on_action)
-    workflow.set_on_profile_callback(on_profile)
-    workflow.set_on_stats_callback(on_stats)
-    workflow.set_on_pause_callback(on_pause)
+    wire_workflow_callbacks(workflow, on_stats=on_stats)
