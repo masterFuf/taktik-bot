@@ -720,7 +720,20 @@ STRINGS: Dict[str, List[str]] = {
         "Amis",
     ],
     "profile.privacy_blocked_message": [],
-    "profile.private_indicator": [],
+    "profile.private_indicator": [
+        # Mesure le 2026-09-02 : @allocingles passe en prive, ouvert depuis l'autre telephone.
+        # Le noeud porteur est un TextView SANS resource-id -- seul son texte le designe.
+        #
+        # La PHRASE et non le mot. L'entree anglaise dit `contains(@text, "private")` ; le calque
+        # francais `contains(@text, "priv")` tire sur tout ce qui contient « privacy », et sur un
+        # telephone francais il tirerait sur une bio disant « MP prive » ou « coach prive ».
+        # Verifie sur sept ecrans (profil prive, cinq profils publics, deux fils) : la phrase
+        # complete repond une fois et se tait six fois, le mot seul se trompe.
+        "//*[contains(@text, \"Ce compte est priv\")]",
+        # Le second ancrage : la phrase d'explication, celle-la porte un id. Mesure sur 46.6.3 ;
+        # inerte ailleurs, donc sans risque en second.
+        "//*[contains(@resource-id, \":id/smm\")][contains(@text, \"Abonne-toi\")]",
+    ],
     "profile.private_videos_tab": [
         "//*[contains(@content-desc, \"Vidéos privées\")]",
     ],
