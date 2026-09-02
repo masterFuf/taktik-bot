@@ -139,6 +139,15 @@ class SharedBaseAction:
         if last_error:
             self.logger.debug(f"Last error: {last_error}")
 
+        # L'ecran affiche quelque chose que le catalogue ne sait pas nommer : c'est le seul moment
+        # ou sa capture vaut quelque chose. Plafonnee par run, dedoublonnee par empreinte, et
+        # incapable de faire echouer quoi que ce soit -- voir `diagnostics/miss_capture.py`.
+        try:
+            from taktik.core.shared.diagnostics.miss_capture import capturer_echec
+            capturer_echec(self.device, selectors=selectors)
+        except Exception:
+            pass
+
         # A selector that stops matching is THE signal that an app update broke something, and it
         # used to produce a warning line and nothing else: no name on the wire, so neither the run
         # log nor a crash report could say which one gave up.
