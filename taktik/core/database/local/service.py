@@ -744,6 +744,62 @@ class LocalDatabaseService:
             logger.debug(f"Error updating location_city for profile {profile_id}: {e}")
             return False
 
+    def mark_profile_unreachable(self, username: str, platform: str = 'instagram') -> bool:
+        """Record that this profile could not be OPENED: deleted, banned or renamed.
+
+        Marks, never deletes. A search finding nobody is not proof of death — a rename keeps the
+        account alive under another handle, and a whole run has already failed on a search field
+        that was never cleared. Eleven tables point at a profile, and a local DELETE does not
+        propagate: the other installs would keep the row and hand it back on the next pull.
+
+        `updated_at` is bumped with it, or the mark would never leave this machine — the Turso
+        delta is keyed on that column.
+
+        The counter is what a later purge reads: one failure is noise, a profile that answers
+        nobody three runs in a row is gone.
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """UPDATE social_profiles
+                      SET unreachable_at = datetime('now'),
+                          unreachable_count = COALESCE(unreachable_count, 0) + 1,
+                          updated_at = datetime('now')
+                    WHERE platform = ? AND username = ?""",
+                (platform, username)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.debug(f"Error marking @{username} unreachable: {e}")
+            return False
+
+    def clear_profile_unreachable(self, username: str, platform: str = 'instagram') -> bool:
+        """This profile answered: it is alive, whatever we recorded before.
+
+        The counter resets rather than decrements — three failures followed by a success describe
+        a profile that is reachable, not one that is two-thirds dead. Only touches rows that
+        carried a mark, so a normal run does not rewrite 193k rows (and does not bump their
+        `updated_at`, which would push the whole base through the sync).
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                """UPDATE social_profiles
+                      SET unreachable_at = NULL,
+                          unreachable_count = 0,
+                          updated_at = datetime('now')
+                    WHERE platform = ? AND username = ? AND unreachable_at IS NOT NULL""",
+                (platform, username)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.debug(f"Error clearing unreachable mark for @{username}: {e}")
+            return False
+
     def cleanup_orphan_sessions(self) -> int:
         """Mark any IN_PROGRESS sessions as INTERRUPTED (app crashed/closed unexpectedly)."""
         return self._scraping_sessions.cleanup_orphans()

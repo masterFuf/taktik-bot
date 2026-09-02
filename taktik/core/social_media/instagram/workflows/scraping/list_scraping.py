@@ -24,6 +24,11 @@ from .deep_qualify import DeepQualifyMixin
 console = Console()
 
 
+# The one skip reason that describes the ACCOUNT rather than a choice made about it: the profile
+# could not be opened at all. Named once so the workflow and the marker cannot drift apart.
+UNREACHABLE_REASON = 'profile unreachable (deleted, renamed or banned)'
+
+
 def _read_nothing(profile_data: Dict[str, Any]) -> bool:
     """True when the profile page yielded no fact at all — the screen was not there to be read.
 
@@ -119,7 +124,7 @@ class ScrapingListMixin(DeepQualifyMixin):
             # them; the generic "read empty" below would blame the screen for an account that is
             # simply gone.
             if navigate:
-                return 'profile unreachable (deleted, renamed or banned)'
+                return UNREACHABLE_REASON
 
         # The page gave us NOTHING — do not qualify a profile we never read.
         #
@@ -187,6 +192,20 @@ class ScrapingListMixin(DeepQualifyMixin):
                 self.logger.debug(f"AI screenshot capture failed for @{username}: {_e}")
 
         return None
+
+    def _mark_unreachable(self, username: str) -> None:
+        """Best effort: a failed mark must never end the run it was meant to describe."""
+        try:
+            self._local_db().mark_profile_unreachable(username)
+        except Exception as exc:
+            self.logger.debug(f"Could not mark @{username} unreachable: {exc}")
+
+    def _clear_unreachable(self, username: str) -> None:
+        """The profile answered — drop any mark it was carrying."""
+        try:
+            self._local_db().clear_profile_unreachable(username)
+        except Exception as exc:
+            self.logger.debug(f"Could not clear unreachable mark for @{username}: {exc}")
 
     def _scrape_usernames(self, usernames: List[str], source_name: str = 'usernames') -> List[Dict[str, Any]]:
         """Qualify an explicit list of profiles: go to each one, read it, move on.
@@ -264,8 +283,15 @@ class ScrapingListMixin(DeepQualifyMixin):
             if filter_reason:
                 self.logger.info(f"⏭️  @{username} — skipped ({filter_reason})")
                 IPCEmitter.emit_profile_skipped(username, filter_reason)
+                # A profile we could not OPEN is a fact about the account, not about this run:
+                # record it so it stops being queued, and so a later purge has something to read.
+                # Every other reason is a filter decision — the profile is alive and was simply
+                # not wanted this time, which must never mark it as gone.
+                if filter_reason == UNREACHABLE_REASON:
+                    self._mark_unreachable(username)
                 continue
 
+            self._clear_unreachable(username)
             scraped.append(profile_data)
             self.scraped_profiles.append(profile_data)
             profile_id = self._save_profile_immediately(profile_data)

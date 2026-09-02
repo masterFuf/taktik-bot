@@ -125,7 +125,22 @@ def run_social_profiles_unification_migrations(cursor: sqlite3.Cursor) -> None:
         cursor.execute("ALTER TABLE social_profiles ADD COLUMN ai_screenshot_path TEXT")
     except sqlite3.OperationalError:
         pass
+    # unreachable_at / unreachable_count: the bot could not OPEN this profile — deleted, banned or
+    # renamed. Marked rather than deleted: a search finding nobody is not proof of death (a rename
+    # keeps the account alive, and a whole run has already failed on a search field that was never
+    # cleared), 11 tables point at a profile, and a local DELETE does not propagate — the other PCs
+    # would keep the row. The counter is what allows a later purge, on repeated confirmation.
+    # Mirrors the front migration; both sides write the same base.
+    for _column, _ddl in (
+        ("unreachable_at", "ALTER TABLE social_profiles ADD COLUMN unreachable_at TEXT"),
+        ("unreachable_count", "ALTER TABLE social_profiles ADD COLUMN unreachable_count INTEGER DEFAULT 0"),
+    ):
+        try:
+            cursor.execute(_ddl)
+        except sqlite3.OperationalError:
+            pass
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_social_profiles_username ON social_profiles(platform, username)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_social_profiles_unreachable ON social_profiles(platform, unreachable_at)")
     # Front Target Search sorts by created_at DESC over ~150k profiles; index makes the
     # ORDER BY ... LIMIT use an index walk (front page load ~1.5s -> ~15ms). Mirrors the front index.
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_social_profiles_platform_created ON social_profiles(platform, created_at)")
