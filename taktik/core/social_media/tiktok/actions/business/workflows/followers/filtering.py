@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Mapping, Optional
 
-from taktik.core.shared.config import resolve_filter_criteria
+from taktik.core.shared.config import FILTER_BLOCK_KEYS, resolve_filter_criteria
 from taktik.core.shared.filtering import apply_comprehensive_filter
 
 
@@ -48,6 +48,18 @@ _CRITERIA_ALIASES = {
 #: Handled apart from the aliases: this one is inverted, not renamed.
 _SKIP_PRIVATE_KEYS = ("skipPrivateAccounts", "skip_private_accounts")
 
+#: Names the TikTok workflow config OWNS at its top level, and which mean something else there.
+#:
+#: `maxFollowers` is the run's visit budget -- the page calls it "Followers to process" -- and
+#: it is also, word for word, the evaluator's "reject anyone above N followers". Reading the
+#: flat key as a criterion turned a 20-profile run into "refuse everyone with more than 20
+#: followers": four profiles visited, four rejected, zero interactions, and a log line saying
+#: `Too many followers (73 > 20)` where 20 was the budget.
+#:
+#: Ignored only when read off the FLAT config. Inside a filter block the same name is a
+#: criterion and nothing else, because that is the only reason to put it there.
+_WORKFLOW_OWNED_KEYS = ("maxFollowers", "max_followers")
+
 
 def resolve_tiktok_filter_criteria(config: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
     """Read the filter criteria out of a TikTok workflow config, in either casing.
@@ -59,6 +71,7 @@ def resolve_tiktok_filter_criteria(config: Optional[Mapping[str, Any]]) -> Dict[
     if not resolved:
         return {}
 
+    declared = _names_declared_in_a_block(config)
     criteria: Dict[str, Any] = {}
     for key, value in resolved.items():
         if value is None or value == "":
@@ -72,8 +85,25 @@ def resolve_tiktok_filter_criteria(config: Optional[Mapping[str, Any]]) -> Dict[
             if value:
                 criteria["allow_private"] = False
             continue
+        if key in _WORKFLOW_OWNED_KEYS and key not in declared:
+            # A budget, not a threshold. See `_WORKFLOW_OWNED_KEYS`.
+            continue
         criteria[_CRITERIA_ALIASES.get(key, key)] = value
     return criteria
+
+
+def _names_declared_in_a_block(config: Mapping[str, Any]) -> set:
+    """The criterion names the producer put inside a filter block.
+
+    Presence in the block is the intent: nobody nests `maxFollowers` under `filters` to say how
+    many profiles a run may visit.
+    """
+    declared = set()
+    for key in FILTER_BLOCK_KEYS:
+        block = config.get(key)
+        if isinstance(block, Mapping):
+            declared.update(block)
+    return declared
 
 
 def tiktok_profile_for_filtering(

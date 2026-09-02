@@ -20,7 +20,12 @@ from typing import Any, Dict, Mapping
 #: Nested block names, most specific first. A rebuilt config carries the criteria under
 #: ``filter_criteria``; a config coming straight from a producer carries them under
 #: ``filters``.
-_NESTED_KEYS = ("filters", "filter_criteria")
+#:
+#: Public, because the block is also a STATEMENT OF INTENT and a caller may need to read it as
+#: one. A criterion sitting in the block was put there to filter; the same name sitting flat on
+#: the config may well belong to the workflow instead -- which is how a TikTok run came to
+#: reject every profile above its own visit budget.
+FILTER_BLOCK_KEYS = ("filters", "filter_criteria")
 
 
 def resolve_filter_criteria(config: Mapping[str, Any] | None) -> Dict[str, Any]:
@@ -38,9 +43,9 @@ def resolve_filter_criteria(config: Mapping[str, Any] | None) -> Dict[str, Any]:
         return {}
 
     resolved: Dict[str, Any] = {
-        key: value for key, value in config.items() if key not in _NESTED_KEYS
+        key: value for key, value in config.items() if key not in FILTER_BLOCK_KEYS
     }
-    for key in _NESTED_KEYS:
+    for key in FILTER_BLOCK_KEYS:
         block = config.get(key)
         if isinstance(block, Mapping):
             resolved.update(block)
