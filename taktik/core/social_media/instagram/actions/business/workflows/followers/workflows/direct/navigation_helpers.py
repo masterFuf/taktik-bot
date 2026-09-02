@@ -54,9 +54,9 @@ class DirectNavigationMixin:
         try:
             # Through the service's repository, like every other bot write — never a
             # connection opened on the side (AGENTS.md: no direct SQL in a workflow).
-            from taktik.core.database.local.service import LocalDatabaseService
+            from taktik.core.database.local.service import get_local_database
 
-            LocalDatabaseService().account_restrictions.record_signal(
+            get_local_database().account_restrictions.record_signal(
                 account_username,
                 platform="instagram",
                 signal=signal,

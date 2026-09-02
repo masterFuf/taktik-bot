@@ -28,8 +28,14 @@ class InstagramPostAnalysis:
 
     @staticmethod
     def _db():
-        from taktik.core.database.local.service import LocalDatabaseService
-        return LocalDatabaseService()
+        # Le SINGLETON, pas une instance neuve. Construire le service rejoue TOUTE la suite de
+        # migrations et rebatit le moteur SQLAlchemy : 56 ms mesurees, et surtout un verrou
+        # d'ecriture sur une base partagee avec Electron et le renderer. Vu dans un log de run
+        # reel : un commentaire poste declenchait une reinitialisation complete de la base, deux
+        # fois — une pour `record`, une pour `attach_post_url`.
+        from taktik.core.database.local.service import get_local_database
+
+        return get_local_database()
 
     @staticmethod
     def cache_key(post_author: Optional[str], post_caption: Optional[str]) -> Optional[str]:

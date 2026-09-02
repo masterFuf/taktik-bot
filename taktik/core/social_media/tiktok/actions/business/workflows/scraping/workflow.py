@@ -436,9 +436,9 @@ class ScrapingWorkflow:
         """
         if getattr(self, "_db_service", None) is None:
             try:
-                from taktik.core.database.local.service import LocalDatabaseService
+                from taktik.core.database.local.service import get_local_database
 
-                self._db_service = LocalDatabaseService()
+                self._db_service = get_local_database()
             except Exception as exc:
                 logger.warning(f"Local database unavailable: {exc}")
                 self._db_service = False
