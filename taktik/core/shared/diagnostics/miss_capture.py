@@ -38,13 +38,57 @@ MAX_PAR_RUN = 6
 #: DERNIÈRE de la série, donc dix-neuf échecs de suite sur le même écran n'en écrivent qu'un.
 SURFACE = "selector_miss"
 
+#: Combien de fois le MEME selecteur doit echouer d'affilee avant qu'on parle de blocage.
+#: Un run sain rate un selecteur puis passe a autre chose ; un run bloque redemande le meme.
+SEUIL_BLOCAGE = 8
+
 _captures = 0
+_dernier_selecteur: Optional[str] = None
+_repetitions = 0
+_blocage_signale = False
 
 
 def reinitialiser() -> None:
-    """Remet le plafond à zéro. Appelé au démarrage d'un run."""
-    global _captures
+    """Remet le plafond ET la serie de blocage à zéro. Appelé au démarrage d'un run."""
+    global _captures, _dernier_selecteur, _repetitions, _blocage_signale
     _captures = 0
+    _dernier_selecteur = None
+    _repetitions = 0
+    _blocage_signale = False
+
+
+def _compter_repetition(selecteur: str) -> int:
+    """Compte les echecs consecutifs sur le MEME selecteur. Rend le compte courant.
+
+    Pourquoi le selecteur et non l'empreinte de l'ecran : l'empreinte coute un `dump_hierarchy`
+    (~225 ms), et le plafond d'ecriture existe precisement pour ne pas le payer en boucle — une
+    garde qui s'appuierait dessus deviendrait aveugle au moment ou la boucle s'installe. Le
+    selecteur, lui, est deja dans la main de l'appelant : le comptage est gratuit.
+
+    Et il dit la meme chose : un workflow bloque redemande le meme bouton introuvable.
+    """
+    global _dernier_selecteur, _repetitions, _blocage_signale
+    if selecteur != _dernier_selecteur:
+        _dernier_selecteur = selecteur
+        _repetitions = 1
+        _blocage_signale = False
+    else:
+        _repetitions += 1
+    return _repetitions
+
+
+def blocage_a_signaler() -> bool:
+    """Le seuil vient d'etre franchi — une seule fois par serie, pour ne pas inonder le fil."""
+    global _blocage_signale
+    if _repetitions >= SEUIL_BLOCAGE and not _blocage_signale:
+        _blocage_signale = True
+        return True
+    return False
+
+
+def repetitions() -> int:
+    """Combien de fois le selecteur courant a echoue d'affilee."""
+    return _repetitions
 
 
 def capturer_echec(
@@ -69,7 +113,12 @@ def capturer_echec(
     Ne lève jamais : un run ne rate pas parce qu'un diagnostic n'a pas pu écrire.
     """
     global _captures
-    if _captures >= MAX_PAR_RUN or not selectors:
+    if not selectors:
+        return None
+    # Compte d'abord : la serie doit continuer a se mesurer une fois le plafond d'ECRITURE
+    # atteint, sinon la garde de blocage s'eteint juste quand la boucle commence.
+    _compter_repetition(str(selectors[0])[:110])
+    if _captures >= MAX_PAR_RUN:
         return None
 
     try:
@@ -96,4 +145,5 @@ def capturer_echec(
         return None
 
 
-__all__ = ["capturer_echec", "reinitialiser", "MAX_PAR_RUN", "SURFACE"]
+__all__ = ["capturer_echec", "reinitialiser", "blocage_a_signaler", "repetitions",
+           "MAX_PAR_RUN", "SEUIL_BLOCAGE", "SURFACE"]

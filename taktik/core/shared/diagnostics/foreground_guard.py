@@ -80,4 +80,29 @@ def paquet_etranger(device: Any, platform: Optional[str], *, force: bool = False
         return None
 
 
-__all__ = ["paquet_etranger", "reinitialiser", "INTERVALLE_MINIMUM_S"]
+def lien_perdu(device: Any) -> bool:
+    """Le poste ne parle plus a ce telephone.
+
+    Le mode de defaillance le plus banal d'un run de nuit : veille profonde, cable qui bouge, hub
+    USB qui decroche. Chaque appel device leve ensuite, les `except` defensifs les avalent un par
+    un, et le run se termine sans avoir rien fait — sans que le processus meure, donc sans rapport
+    de crash. Au reveil : un run « termine », zero action, aucune explication.
+
+    Ce n'est PAS la meme question que « l'application a plante » : `window_size` repond encore
+    quand l'app est morte, et se tait quand c'est le lien. Les distinguer est tout l'enjeu, parce
+    qu'aujourd'hui les deux se presentent comme un selecteur introuvable.
+
+    Ne demande rien de plus qu'une lecture triviale : le but est de savoir si le telephone repond,
+    pas ce qu'il affiche.
+    """
+    if device is None:
+        return True
+    try:
+        cible = getattr(device, "_device", None) or device
+        cible.window_size()
+        return False
+    except Exception:
+        return True
+
+
+__all__ = ["paquet_etranger", "lien_perdu", "reinitialiser", "INTERVALLE_MINIMUM_S"]

@@ -184,8 +184,29 @@ class SharedBaseAction:
         # le meme `False`. Un tap humanise atterrit parfois sur un lien sponsorise, et le run passe
         # alors le reste de sa vie a taper dans le vide sans que rien ne le dise. Coute une lecture
         # de premier plan, bornee par un intervalle -- et seulement sur un echec deja constate.
+        # Le meme selecteur introuvable, encore et encore : c'est un blocage, pas une suite
+        # d'echecs independants. Le comptage est gratuit — l'appelant tient deja le selecteur —
+        # la ou une garde par empreinte d'ecran couterait un dump a chaque tour.
         try:
-            from taktik.core.shared.diagnostics.foreground_guard import paquet_etranger
+            from taktik.core.shared.diagnostics.miss_capture import (
+                SEUIL_BLOCAGE, blocage_a_signaler, repetitions)
+            if blocage_a_signaler():
+                self.logger.warning(
+                    f"🔁 Blocage : le meme selecteur echoue depuis {repetitions()} tentatives "
+                    f"— {selectors[0][:90] if selectors else '?'}")
+                emit_step(
+                    "stuck_on_selector",
+                    action="find_and_click",
+                    target=selectors[0][:120] if selectors else None,
+                    repetitions=repetitions(),
+                    threshold=SEUIL_BLOCAGE,
+                    platform=self._platform,
+                )
+        except Exception:
+            pass
+
+        try:
+            from taktik.core.shared.diagnostics.foreground_guard import lien_perdu, paquet_etranger
             etranger = paquet_etranger(self.device, self._platform)
             if etranger:
                 self.logger.warning(
@@ -197,6 +218,18 @@ class SharedBaseAction:
                     action="find_and_click",
                     target=selectors[0][:120] if selectors else None,
                     foreground_package=etranger,
+                    platform=self._platform,
+                )
+            elif etranger is None and lien_perdu(self.device):
+                # Le premier plan est illisible ET le telephone ne repond plus : ce n'est pas un
+                # selecteur perime, c'est le lien qui est tombe. Les deux se presentent pareil --
+                # un element introuvable -- et c'est justement ce que personne ne distinguait.
+                self.logger.warning(
+                    "🔌 Lien perdu : le telephone ne repond plus — ce n'est pas un selecteur perime")
+                emit_step(
+                    "device_unreachable",
+                    action="find_and_click",
+                    target=selectors[0][:120] if selectors else None,
                     platform=self._platform,
                 )
         except Exception:
