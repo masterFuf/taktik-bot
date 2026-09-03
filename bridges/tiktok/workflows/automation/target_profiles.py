@@ -26,7 +26,7 @@ from bridges.tiktok.workflows.automation.runtime.followers_planning import (
     build_followers_config,
 )
 from bridges.tiktok.workflows.automation.runtime.followers_stats import create_total_stats
-from bridges.tiktok.workflows.automation.runtime.workflow_callbacks import wire_workflow_callbacks
+from bridges.tiktok.workflows.automation.runtime.workflow_callbacks import wire_single_pass_callbacks
 
 
 def _bridge_log(level: str, message: str) -> None:
@@ -105,7 +105,7 @@ def run_target_profiles_workflow(config: Dict[str, Any]) -> bool:
         send_message("workflow_start", target="", targets=profiles, current_target_index=0)
 
         total_stats = create_total_stats()
-        _wire_callbacks(workflow, total_stats, len(profiles))
+        wire_single_pass_callbacks(workflow, total_stats, total_targets=len(profiles))
 
         send_status("running", f"Engaging {len(profiles)} profiles")
 
@@ -133,22 +133,6 @@ def run_target_profiles_workflow(config: Dict[str, Any]) -> bool:
         logger.error(error_msg)
         send_error(error_msg)
         return False
-
-
-def _wire_callbacks(workflow: Any, total_stats: Dict[str, Any], total_profiles: int) -> None:
-    """Live bridge callbacks. Single pass, so the totals ARE the run's stats.
-
-    This function used to wire the four callbacks by hand and knew nothing of the profile one --
-    so every avatar this workflow captured was dropped on the floor. It now delegates, and only
-    keeps what is genuinely its own: a single-pass run reports its totals directly.
-    """
-
-    def on_stats(stats_dict):
-        payload = {**total_stats, **stats_dict}
-        payload["total_targets"] = total_profiles
-        send_message("followers_stats", stats=payload)
-
-    wire_workflow_callbacks(workflow, on_stats=on_stats)
 
 
 __all__ = ["build_profile_list", "run_target_profiles_workflow"]

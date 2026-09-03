@@ -25,7 +25,7 @@ from bridges.tiktok.workflows.automation.runtime.followers_planning import (
     build_followers_config,
 )
 from bridges.tiktok.workflows.automation.runtime.followers_stats import create_total_stats
-from bridges.tiktok.workflows.automation.target_profiles import _wire_callbacks
+from bridges.tiktok.workflows.automation.runtime.workflow_callbacks import wire_single_pass_callbacks
 
 
 def _bridge_log(level: str, message: str) -> None:
@@ -101,7 +101,10 @@ def run_post_url_workflow(config: Dict[str, Any]) -> bool:
         send_message("workflow_start", target=post_url, targets=[], current_target_index=0)
 
         total_stats = create_total_stats()
-        _wire_callbacks(workflow, total_stats, max_profiles)
+        # No `total_targets`: this run DISCOVERS its commenters as it reads them, so `max_profiles`
+        # is a ceiling, not a count. Announcing it would read as "3 of 20" on a video that has
+        # three commenters -- the shape of the budget that once arrived as a follower cap.
+        wire_single_pass_callbacks(workflow, total_stats)
 
         send_status("running", "Opening the video and reading its comments")
 
