@@ -883,8 +883,22 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # Mesure le 2026-08-30 sur 46.6.3 : la liste des parametres ne porte PAS de ligne
     # « Langue » ; elle est derriere ce tiroir.
+    # Mesure sur appareil le 2026-09-03, DANS LES DEUX VERSIONS (43.1.4 et 46.6.3), depart propre
+    # et defilement de tout l'ecran : le libelle est expose a la fois en `text` ET en
+    # `content-desc` sur les deux. Le champ figurait parmi les « morts en 46.6.3 » de la mesure du
+    # 2026-09-01 — il ne l'est pas. C'est le piege que cette spec nomme elle-meme : un champ absent
+    # d'un itineraire de capture n'est pas un champ mort.
+    #
+    # Le `content-desc` est ajoute quand meme, par symetrie avec `language_row` juste dessous :
+    # l'ecran est en Jetpack Compose, et Compose expose ses libelles en description. `language_row`
+    # a du apprendre cette lecon separement — la ou `@text` repond en 43.1.4 et se tait en 46.6.3.
+    #
+    # La troisieme piste (l'ancetre clickable d'un TextView) est muette sur les DEUX versions
+    # mesurees. Gardee en dernier recours : elle ne coute une tentative que si les deux premieres
+    # ont echoue.
     "settings.content_and_display_row": [
         "//android.widget.TextView[@text=\"Contenu et affichage\"]",
+        "//*[@content-desc=\"Contenu et affichage\"]",
         "//*[@clickable=\"true\"][.//android.widget.TextView[@text=\"Contenu et affichage\"]]",
     ],
     # Mesure le 2026-08-30 sur 46.6.3 : l'ecran des reglages est en Jetpack Compose et cette
