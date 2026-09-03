@@ -30,7 +30,11 @@ def foreground_package(device: Any) -> Optional[str]:
 
 
 def is_app_running(device: Any, package_name: str, platform: str) -> bool:
-    """Check whether a package is currently in the foreground."""
+    """Is THIS package in the foreground right now?
+
+    The exact question, for a caller that knows which package it drives — the active Instagram
+    clone, for instance. `is_platform_foreground` answers the looser one.
+    """
     if device is None:
         return False
     try:
@@ -39,6 +43,22 @@ def is_app_running(device: Any, package_name: str, platform: str) -> bool:
     except Exception as exc:
         logger.warning(f"Could not check if {platform} is running: {exc}")
         return False
+
+
+def is_platform_foreground(device: Any, platform: str) -> bool:
+    """Is ANY of this platform's apps in the foreground — official build, variant, or clone?
+
+    The looser question, for a caller that does not care WHICH TikTok is open. Comparing against
+    one constant was the mistake this replaces: `com.zhiliaoapp.musically` is one of four shipping
+    TikTok packages, and no Taktik clone matches any of them.
+
+    Callers that DO care — anything driving one specific clone — want `is_app_running` with the
+    package they hold. The two questions are different, and a single function answering both by
+    guessing would answer neither.
+    """
+    from taktik.core.clone.packages.package_map import belongs_to_platform
+
+    return belongs_to_platform(foreground_package(device), platform)
 
 
 def is_package_installed(device_id: str, package_name: str) -> bool:

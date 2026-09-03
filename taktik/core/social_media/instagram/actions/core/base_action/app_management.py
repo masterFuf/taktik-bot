@@ -1,17 +1,16 @@
 """Instagram app management — open, check running, debug screen."""
 
 from taktik.core.clone import get_active_package
+from taktik.core.shared.device.app_inspection import is_app_running
 
 
 class AppManagementMixin:
     """Mixin: gestion app Instagram (open, is_open, debug screen)."""
 
     def _is_instagram_open(self) -> bool:
-        try:
-            current_app = self.device.app_current()
-            return current_app.get('package') == get_active_package()
-        except Exception:
-            return False
+        # Delegue a la primitive partagee : le meme fait etait etabli de cinq facons, et deux
+        # d'entre elles avaient deja diverge (voir `InstagramManager.is_running`).
+        return is_app_running(self.device, get_active_package(), "instagram")
     
     def _open_instagram(self) -> bool:
         try:

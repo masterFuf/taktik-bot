@@ -1,3 +1,5 @@
+from taktik.core.clone import get_active_package
+from taktik.core.shared.device.app_inspection import is_app_running
 from taktik.core.shared.platform.social_media_base import SocialMediaBase
 from taktik.core.shared.device.manager import DeviceManager
 from loguru import logger
@@ -18,14 +20,19 @@ class InstagramManager(SocialMediaBase):
         return self.device_manager.is_app_installed(self.PACKAGE_NAME)
 
     def is_running(self) -> bool:
+        """Instagram est-il au premier plan ?
+
+        Compare au paquet **actif**, pas a la constante officielle. Sur un appareil ou le clone est
+        le paquet utilise, comparer a `PACKAGE_NAME` rendait `False` alors qu'Instagram etait bien
+        a l'ecran — et la meme question, posee cent lignes plus loin par `AppManagementMixin`,
+        rendait `True`. Deux controles du meme fait qui se contredisaient.
+
+        Hors run, `get_active_package()` vaut le paquet officiel : le comportement est alors
+        exactement celui d'avant.
+        """
         if not self.device_manager.connect():
             return False
-        try:
-            current_app = self.device_manager.device.app_current()
-            return current_app['package'] == self.PACKAGE_NAME
-        except Exception as e:
-            self.logger.error(f"Erreur lors de la vérification d'Instagram: {e}")
-            return False
+        return is_app_running(self.device_manager.device, get_active_package(), "instagram")
 
     def launch(self) -> bool:
         self.logger.info("Lancement d'Instagram...")

@@ -11,6 +11,7 @@ from loguru import logger
 
 from taktik.core.shared.platform.social_media_base import SocialMediaBase
 from taktik.core.shared.device.manager import DeviceManager
+from taktik.core.shared.device.app_inspection import is_app_running
 
 
 class ThreadsManager(SocialMediaBase):
@@ -29,14 +30,12 @@ class ThreadsManager(SocialMediaBase):
         return self.device_manager.is_app_installed(self.PACKAGE_NAME)
 
     def is_running(self) -> bool:
+        # Comparaison exacte : aucun clone n'est declare pour Threads, donc la question est
+        # « ce paquet-la est-il devant ». Deleguee malgre tout, pour qu'il n'y ait qu'un endroit
+        # ou lire le premier plan.
         if not self.device_manager.connect():
             return False
-        try:
-            current_app = self.device_manager.device.app_current()
-            return current_app["package"] == self.PACKAGE_NAME
-        except Exception as e:
-            self.logger.error(f"Error checking Threads running state: {e}")
-            return False
+        return is_app_running(self.device_manager.device, self.PACKAGE_NAME, "threads")
 
     def launch(self) -> bool:
         self.logger.info("Launching Threads...")

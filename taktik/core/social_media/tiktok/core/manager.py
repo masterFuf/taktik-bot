@@ -3,6 +3,7 @@ from typing import Optional
 from loguru import logger
 
 from taktik.core.clone.packages.package_map import get_package_variants
+from taktik.core.shared.device.app_inspection import is_platform_foreground
 from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.shared.platform.social_media_base import SocialMediaBase
 
@@ -56,14 +57,14 @@ class TikTokManager(SocialMediaBase):
         return self._resolve_package() is not None
 
     def is_running(self) -> bool:
+        """TikTok est-il au premier plan ?
+
+        L'appartenance a l'ensemble, pas l'egalite a une constante : quatre paquets TikTok
+        circulent, et les clones Taktik n'en portent aucun. La primitive partagee connait les deux.
+        """
         if not self.device_manager.connect():
             return False
-        try:
-            current_app = self.device_manager.device.app_current()
-            return current_app["package"] in TIKTOK_PACKAGES
-        except Exception as e:
-            self.logger.error(f"Erreur lors de la verification de TikTok: {e}")
-            return False
+        return is_platform_foreground(self.device_manager.device, "tiktok")
 
     def launch(self) -> bool:
         self.logger.info("Lancement de TikTok...")
