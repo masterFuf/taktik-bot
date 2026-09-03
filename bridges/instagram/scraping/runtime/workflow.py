@@ -36,5 +36,9 @@ def run_scraping_workflow(device_manager, scraping_config: dict, bridge_config: 
     return {
         "success": result.get('success', False),
         "totalScraped": result.get('total_scraped', 0),
+        # Le pourquoi, a cote du combien. Le bridge ACHEMINE ce verdict, il ne le calcule pas :
+        # seul le workflow sait distinguer « cette cible n'avait rien » de « on n'y est jamais
+        # arrive », et cette nuance est ce qui separe un run sain d'une panne silencieuse.
+        "completionReason": result.get('completion_reason'),
         "error": result.get('error'),
     }

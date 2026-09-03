@@ -20,6 +20,7 @@ Internal structure (SRP split):
 import json
 import sys
 import time
+from taktik.core.social_media.instagram.workflows.scraping.outcome import scraping_outcome
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from loguru import logger
@@ -200,8 +201,16 @@ class ScrapingWorkflow(
             return {"success": False, "error": "No usernames provided"}
 
         scraped = self._scrape_usernames(usernames, source_name=self.config.get('source_name', 'manual selection'))
+        # Ici la « surface » est le profil lui-meme : il n'y a pas de liste a ouvrir. Un profil
+        # collecte prouve qu'on a su en atteindre au moins un ; zero sur une liste non vide veut
+        # dire qu'aucun n'a ete joint (comptes disparus, renommes, navigation cassee).
         return {
-            "success": True,
+            **scraping_outcome(
+                sources_reached=len(scraped),
+                sources_skipped=0,
+                sources_failed=len(usernames) - len(scraped),
+                total_scraped=len(scraped),
+            ),
             "total_scraped": len(scraped),
             "requested": len(usernames),
             "profiles": scraped,
@@ -219,7 +228,12 @@ class ScrapingWorkflow(
         
         total_scraped = 0
         targets_info = []  # Store info about each target
-        
+        # Ce que la boucle a REELLEMENT fait, pour que le verdict porte sur la surface atteinte et
+        # non sur le nombre collecte -- voir `outcome.scraping_outcome`.
+        sources_reached = 0   # la liste (ou le post) s'est ouverte
+        sources_skipped = 0   # ecartee pour une raison connue : compte prive
+        sources_failed = 0    # jamais atteinte : navigation ou ouverture en echec
+
         for target in target_usernames:
             if not self._should_continue():
                 self.logger.info("⏱️ Session time limit reached")
@@ -234,6 +248,7 @@ class ScrapingWorkflow(
             # Navigate to target profile
             if not self.nav_actions.navigate_to_profile(target):
                 self.logger.warning(f"Failed to navigate to @{target}")
+                sources_failed += 1
                 continue
             
             time.sleep(1.5)
@@ -246,6 +261,7 @@ class ScrapingWorkflow(
             if profile_info and profile_info.get('is_private', False):
                 console.print(f"[yellow]🔒 @{target}: Compte privé — ignoré[/yellow]")
                 self.logger.warning(f"Private account @{target} — skipped (followers/following list inaccessible)")
+                sources_skipped += 1
                 continue
 
             remaining_to_scrape = max_profiles_requested - total_scraped
@@ -304,6 +320,7 @@ class ScrapingWorkflow(
                     scrape_commenters=scrape_post_commenters
                 )
                 total_scraped += len(profiles_from_target)
+                sources_reached += 1
                 console.print(f"[green]✅ Scraped {len(profiles_from_target):,} profiles from @{target}'s post[/green]")
                 continue
             
@@ -312,14 +329,17 @@ class ScrapingWorkflow(
             if scrape_type == 'followers':
                 if not self.nav_actions.open_followers_list():
                     self.logger.warning(f"Failed to open followers list of @{target}")
+                    sources_failed += 1
                     continue
             else:
                 if not self.nav_actions.open_following_list():
                     self.logger.warning(f"Failed to open following list of @{target}")
+                    sources_failed += 1
                     continue
             
             time.sleep(1.5)
-            
+            sources_reached += 1
+
             # Check if followers list is limited (Meta Verified / Business accounts)
             is_limited = self.detection_actions.is_followers_list_limited()
             if is_limited:
@@ -349,8 +369,17 @@ class ScrapingWorkflow(
             time.sleep(1)
         
         return {
-            "success": True,
+            **scraping_outcome(
+                sources_reached=sources_reached,
+                sources_skipped=sources_skipped,
+                sources_failed=sources_failed,
+                total_scraped=total_scraped,
+            ),
             "total_scraped": total_scraped,
-            "targets_processed": len(target_usernames),
+            # `len(target_usernames)` comptait les cibles DEMANDEES : un `continue` sur une
+            # navigation ratee les comptait quand meme comme traitees.
+            "targets_processed": sources_reached + sources_skipped,
+            "targets_requested": len(target_usernames),
+            "targets_failed": sources_failed,
             "targets_info": targets_info
         }

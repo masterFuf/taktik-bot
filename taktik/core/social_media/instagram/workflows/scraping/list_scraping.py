@@ -3,6 +3,7 @@
 import time
 from datetime import datetime
 
+from taktik.core.social_media.instagram.workflows.scraping.outcome import scraping_outcome
 from taktik.core.app.ai.spend import AI_SPEND_PROFILE
 from typing import Dict, Any, List, Optional
 from rich.console import Console
@@ -853,6 +854,10 @@ class ScrapingListMixin(DeepQualifyMixin):
 
         total_scraped = 0
         posts_checked_total = 0
+        # La surface d'un hashtag est sa GRILLE de resultats. L'ouvrir est ce qui separe « ce
+        # hashtag n'avait rien » de « on n'y est jamais arrive » -- voir `outcome`.
+        sources_reached = 0
+        sources_failed = 0
 
         for hashtag in hashtags:
             if not self._should_continue():
@@ -865,8 +870,10 @@ class ScrapingListMixin(DeepQualifyMixin):
             # Navigate to hashtag
             if not self.nav_actions.navigate_to_hashtag(hashtag):
                 self.logger.error(f"Failed to navigate to #{hashtag}")
+                sources_failed += 1
                 continue
 
+            sources_reached += 1
             time.sleep(2)
 
             posts_checked = 0
@@ -961,9 +968,15 @@ class ScrapingListMixin(DeepQualifyMixin):
             console.print(f"[green]✅ #{hashtag}: {total_scraped} profiles scraped ({posts_checked} posts checked)[/green]")
 
         return {
-            "success": True,
+            **scraping_outcome(
+                sources_reached=sources_reached,
+                sources_skipped=0,
+                sources_failed=sources_failed,
+                total_scraped=total_scraped,
+            ),
             "total_scraped": total_scraped,
-            "posts_checked": posts_checked_total
+            "posts_checked": posts_checked_total,
+            "hashtags_failed": sources_failed,
         }
 
     def _scrape_post_url(self) -> Dict[str, Any]:
@@ -982,6 +995,9 @@ class ScrapingListMixin(DeepQualifyMixin):
         max_profiles = self.config.get('max_profiles', 200)
         enrich_profiles = self.config.get('enrich_profiles', False)
         total_scraped = 0
+        # La surface d'un post est le post lui-meme : y arriver est la condition de tout le reste.
+        sources_reached = 0
+        sources_failed = 0
 
         for post_url in post_urls:
             if not self._should_continue():
@@ -999,8 +1015,10 @@ class ScrapingListMixin(DeepQualifyMixin):
             # Navigate to post via deep link
             if not self.nav_actions.navigate_to_post_url(post_url):
                 self.logger.error(f"Failed to navigate to post: {post_url}")
+                sources_failed += 1
                 continue
 
+            sources_reached += 1
             time.sleep(2)
 
             if scrape_likers:
@@ -1052,8 +1070,14 @@ class ScrapingListMixin(DeepQualifyMixin):
                 total_scraped += len(commenters)
 
         return {
-            "success": True,
-            "total_scraped": total_scraped
+            **scraping_outcome(
+                sources_reached=sources_reached,
+                sources_skipped=0,
+                sources_failed=sources_failed,
+                total_scraped=total_scraped,
+            ),
+            "total_scraped": total_scraped,
+            "posts_failed": sources_failed,
         }
 
     def _open_likers_list(self) -> bool:
