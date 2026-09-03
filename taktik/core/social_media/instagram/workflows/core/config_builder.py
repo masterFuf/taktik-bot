@@ -26,6 +26,21 @@ SUPPORTED_WORKFLOW_TYPES = (
 _TARGET_ACTIONS = ("interact_with_followers", "interact_with_profiles")
 
 
+def _int_or_default(config: Dict[str, Any], key: str, default: int) -> int:
+    """The configured value, or `default` when the key is absent OR null.
+
+    Replaces `int(config.get(key, default) or 0)`, which looks equivalent and is not: `get` only
+    returns the default when the key is MISSING. A key present with `null` — which is what an
+    optional field of the app's payload sends — fell through to the `or 0`, so the default was
+    never reached and the feature was silently switched off.
+
+    A deliberate 0 still survives: it is not None, so it passes through untouched. That is the
+    whole difference with `or default`, which would erase it.
+    """
+    raw = config.get(key)
+    return default if raw is None else int(raw)
+
+
 def _build_action_config(
     *,
     raw_config: Dict[str, Any],
@@ -125,12 +140,12 @@ def _build_action_config(
             # Suggestions-only run: the feed is only a corridor to the carousel, and no
             # like, comment or story is performed.
             "suggestions_only": bool(feed_config.get("suggestionsOnly", False)),
-            "max_carousel_scrolls": int(feed_config.get("maxCarouselScrolls", 12) or 0),
-            "max_suggestion_follows": int(feed_config.get("maxSuggestionFollows", 20) or 0),
+            "max_carousel_scrolls": _int_or_default(feed_config, "maxCarouselScrolls", 12),
+            "max_suggestion_follows": _int_or_default(feed_config, "maxSuggestionFollows", 20),
             "suggestions_contacts_choice": (
                 "allow" if feed_config.get("allowContactsAccess", False) else "deny"
             ),
-            "max_suggestion_passes": int(feed_config.get("maxSuggestionPasses", 1) or 0),
+            "max_suggestion_passes": _int_or_default(feed_config, "maxSuggestionPasses", 1),
         }
 
     action_config: Dict[str, Any] = {
