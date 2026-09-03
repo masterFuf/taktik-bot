@@ -207,186 +207,183 @@ class ProblematicPageDetector:
         
         return is_detected
     
-    def _close_problematic_page(self, page_type: str, close_methods: list) -> bool:
+    # ── Fermetures, une par méthode ───────────────────────────────────────────────────────────
+    #
+    # Ces onze gestes vivaient dans une cascade `if method == … elif …` à l'intérieur d'un `for`
+    # et d'un `try` : cinq niveaux d'imbrication avant d'atteindre le travail utile, et la cascade
+    # continuait. Mesuré : 13 niveaux de profondeur, score de complexité 261, dans un corpus dont
+    # la médiane est 1.
+    #
+    # Chacune rend True quand elle a TENTÉ quelque chose — l'appelant vérifie alors si la page
+    # s'est fermée — et False quand elle n'était pas applicable, auquel cas l'appelant passe à la
+    # suivante. C'est ce que les `continue` de la cascade exprimaient.
+
+    def _close_via_back(self) -> bool:
+        self.device.press("back")
+        return True
+
+    def _close_via_not_now(self) -> bool:
+        for selector in POPUP_SELECTORS.not_now_selectors:
+            elements = self.device.xpath(selector)
+            if elements.exists:
+                elements.click()
+                logger.info(f"✅ Bouton 'Not Now' cliqué avec: {selector}")
+                break
+        return True
+
+    def _close_via_x(self) -> bool:
+        return self._click_button_from_selectors(
+            PROBLEMATIC_PAGE_SELECTORS.close_button_selectors, "X/Close")
+
+    def _close_via_tap_outside(self) -> bool:
+        """Taper la page DERRIÈRE la feuille, dans la bande laissée visible au-dessus d'elle.
+
+        Ce geste tapait autrefois au quart de l'écran, sans condition. Sur une feuille qui remplit
+        l'écran — la feuille de partage Direct le fait une fois déployée — ce point tombe dans sa
+        propre grille de destinataires : le tap SÉLECTIONNAIT UN DESTINATAIRE au lieu de fermer
+        quoi que ce soit, armant un « envoyer ce post à quelqu'un » qu'un tap de confirmation
+        aurait pu compléter.
+
+        Quand il n'y a pas de bande au-dessus de la feuille, il n'y a rien à taper dehors : on rend
+        False et l'appelant passe à la méthode suivante.
         """
-        Try to close a problematic page through the available methods.
-        
-        Args:
-            page_type: Type de page à fermer
-                close_methods: closing methods to try
-        
-        Returns:
-            bool: True si la fermeture a réussi
+        from ...actions.atomic.interaction.bottom_sheet import sheet_outside_tap_point
+
+        point = sheet_outside_tap_point(self.device)
+        if point is None:
+            logger.debug("tap_outside: sheet covers the screen, nothing outside to tap")
+            return False
+        self.device.click(point[0], point[1])
+        return True
+
+    def _swipe_handle_down(self, selectors, etiquette: str) -> bool:
+        """Faire glisser la poignée d'une feuille vers le bas. Rend False si aucune n'est trouvée.
+
+        La garde des 10 % du haut n'est pas cosmétique : une poignée tout en haut signifie une
+        feuille déployée à fond, et un glissement partant de là ouvrirait le panneau de
+        notifications d'Android au lieu de fermer la feuille. Dans ce cas on appuie sur retour.
+        """
+        info = self.device.info
+        hauteur = info.get('displayHeight', 1920)
+        for selector in selectors:
+            try:
+                element = self.device(**selector)
+                if not element.exists():
+                    continue
+                bounds = element.info.get('bounds', {})
+                if not bounds:
+                    continue
+                hx = (bounds['left'] + bounds['right']) // 2
+                hy = (bounds['top'] + bounds['bottom']) // 2
+                if hy < int(hauteur * 0.10):
+                    logger.info(f"{etiquette}: poignée dans les 10% du haut (y={hy}) — retour arrière")
+                    self.device.press('back')
+                else:
+                    fin_y = int(hauteur * 0.95)
+                    logger.info(f"{etiquette}: ({hx},{hy}) → ({hx},{fin_y})")
+                    self._swipe(hx, hy, hx, fin_y, 0.3)
+                return True
+            except Exception:
+                continue
+        return False
+
+    def _swipe_from_middle(self, etiquette: str) -> bool:
+        """Repli sans poignée : partir du MILIEU de l'écran, jamais du haut."""
+        info = self.device.info
+        largeur = info.get('displayWidth', 1080)
+        hauteur = info.get('displayHeight', 1920)
+        x = largeur // 2
+        depart_y = int(hauteur * 0.50)
+        fin_y = int(hauteur * 0.92)
+        logger.info(f"{etiquette} (repli): ({x},{depart_y}) → ({x},{fin_y})")
+        self._swipe(x, depart_y, x, fin_y, 0.3)
+        return True
+
+    def _close_via_swipe_down(self) -> bool:
+        if self._swipe_handle_down([{'resourceIdMatches': '.*bottom_sheet_drag_handle_prism'}],
+                                   "swipe_down handle"):
+            return True
+        return self._swipe_from_middle("swipe_down")
+
+    def _close_via_swipe_down_handle(self) -> bool:
+        if self._swipe_handle_down(PROBLEMATIC_PAGE_SELECTORS.drag_handle_selectors, "swipe handle"):
+            return True
+        logger.warning("Handle non trouvé, utilisation de coordonnées sûres (50% → 92%)")
+        return self._swipe_from_middle("swipe handle approximatif")
+
+    def _close_via_terminate(self) -> bool:
+        return self._click_button_from_selectors(
+            PROBLEMATIC_PAGE_SELECTORS.terminate_button_selectors, "Terminé")
+
+    def _close_via_ok(self) -> bool:
+        return self._click_button_from_selectors(
+            PROBLEMATIC_PAGE_SELECTORS.ok_button_selectors, "OK")
+
+    def _close_via_background_dimmer(self) -> bool:
+        return self._click_button_from_selectors(
+            PROBLEMATIC_PAGE_SELECTORS.background_dimmer_selectors, "Background dimmer")
+
+    def _close_via_allow_permission(self) -> bool:
+        return self._click_button_from_selectors(
+            PROBLEMATIC_PAGE_SELECTORS.allow_permission_button_selectors, "Allow permission")
+
+    def _close_via_ad_consent(self) -> bool:
+        """Popup de consentement publicitaire Meta : deux pages (choix, puis accord)."""
+        return self._handle_ad_consent_flow()
+
+    def _closers(self) -> dict:
+        """La table qui remplace la cascade : un nom de méthode, le geste qui la réalise.
+
+        Construite ici plutôt qu'en attribut de classe : les valeurs sont des méthodes liées, et
+        une table de classe les capturerait non liées.
+        """
+        return {
+            'back_button': self._close_via_back,
+            'not_now_button': self._close_via_not_now,
+            'x_button': self._close_via_x,
+            'tap_outside': self._close_via_tap_outside,
+            'swipe_down': self._close_via_swipe_down,
+            'swipe_down_handle': self._close_via_swipe_down_handle,
+            'terminate_button': self._close_via_terminate,
+            'ok_button': self._close_via_ok,
+            'tap_background_dimmer': self._close_via_background_dimmer,
+            'allow_permission_button': self._close_via_allow_permission,
+            'ad_consent_flow': self._close_via_ad_consent,
+        }
+
+    def _close_problematic_page(self, page_type: str, close_methods: list) -> bool:
+        """Essayer de fermer une page problématique par les méthodes disponibles.
+
+        La boucle ne fait plus que trois choses : choisir le geste, le tenter, vérifier. Ce qui
+        était onze branches imbriquées est devenu onze méthodes plates et une table.
         """
         logger.info(f"🔧 Tentative de fermeture de la page {page_type}")
-        
+        closers = self._closers()
+
         for method in close_methods:
+            geste = closers.get(method)
+            if geste is None:
+                logger.warning(f"Méthode de fermeture inconnue: {method}")
+                continue
             try:
                 logger.info(f"Essai de la méthode: {method}")
-                
-                if method == 'back_button':
-                    # Use the automation API for the back button
-                    self.device.press("back")
-                    
-                elif method == 'not_now_button':
-                    # Look for a "Not now" button
-                    for selector in POPUP_SELECTORS.not_now_selectors:
-                        elements = self.device.xpath(selector)
-                        if elements.exists:
-                            elements.click()
-                            logger.info(f"✅ Bouton 'Not Now' cliqué avec: {selector}")
-                            break
-                
-                elif method == 'x_button':
-                    if not self._click_button_from_selectors(
-                        PROBLEMATIC_PAGE_SELECTORS.close_button_selectors, "X/Close"
-                    ):
-                        continue
-                            
-                elif method == 'tap_outside':
-                    # Tap the page BEHIND the sheet, in the strip left visible above it.
-                    #
-                    # This used to tap a quarter of the way down the screen unconditionally. On a
-                    # sheet that fills the screen — the Direct share sheet does once expanded —
-                    # that point is inside the sheet's own recipient grid, so the tap SELECTED A
-                    # DM RECIPIENT instead of closing anything, arming a "send this post to
-                    # someone" that a later confirm tap could have completed. When there is no
-                    # strip above the sheet there is nothing to tap outside of, and the caller
-                    # falls through to the next method in its list.
-                    from ...actions.atomic.interaction.bottom_sheet import sheet_outside_tap_point
+                if not geste():
+                    continue
 
-                    point = sheet_outside_tap_point(self.device)
-                    if point is None:
-                        logger.debug("tap_outside: sheet covers the screen, nothing outside to tap")
-                        continue
-                    self.device.click(point[0], point[1])
-
-
-                elif method == 'swipe_down':
-                    # Swipe down to dismiss the popup
-                    # Try the drag handle first, for a precise swipe
-                    info = self.device.info
-                    screen_width = info.get('displayWidth', 1080)
-                    screen_height = info.get('displayHeight', 1920)
-
-                    handle_swiped = False
-                    for sel in [{'resourceIdMatches': '.*bottom_sheet_drag_handle_prism'}]:
-                        try:
-                            el = self.device(**sel)
-                            if el.exists():
-                                b = el.info.get('bounds', {})
-                                if b:
-                                    hx = (b['left'] + b['right']) // 2
-                                    hy = (b['top'] + b['bottom']) // 2
-                                    # Only swipe if handle is NOT in top 10% (would open notifications)
-                                    if hy >= int(screen_height * 0.10):
-                                        end_y = int(screen_height * 0.95)
-                                        logger.info(f"swipe_down handle found: ({hx},{hy}) → ({hx},{end_y})")
-                                        self._swipe(hx, hy, hx, end_y, 0.3)
-                                        handle_swiped = True
-                                    else:
-                                        logger.info(f"Handle in top 10% (y={hy}), using press back instead")
-                                        self.device.press('back')
-                                        handle_swiped = True
-                                    break
-                        except Exception:
-                            pass
-
-                    if not handle_swiped:
-                        # Fallback: swipe from screen center-ish (safe zone, never from top)
-                        start_x = screen_width // 2
-                        start_y = int(screen_height * 0.50)
-                        end_y = int(screen_height * 0.92)
-                        logger.info(f"swipe_down fallback: ({start_x},{start_y}) → ({start_x},{end_y})")
-                        self._swipe(start_x, start_y, start_x, end_y, 0.3)
-                
-                elif method == 'swipe_down_handle':
-                    # Specific path for the grey handle: target the element directly
-                    handle_found = False
-                    screen_info = self.device.info
-                    screen_height = screen_info.get('displayHeight', 1920)
-                    screen_width = screen_info.get('displayWidth', 1080)
-
-                    for selector in PROBLEMATIC_PAGE_SELECTORS.drag_handle_selectors:
-                        try:
-                            element = self.device(**selector)
-                            if element.exists():
-                                bounds = element.info.get('bounds', {})
-                                if bounds:
-                                    handle_x = (bounds['left'] + bounds['right']) // 2
-                                    handle_y = (bounds['top'] + bounds['bottom']) // 2
-                                    end_y = int(screen_height * 0.95)
-
-                                    if handle_y < int(screen_height * 0.10):
-                                        # Handle fully expanded — swipe would open notifications, use back
-                                        logger.info(f"Handle in top 10% (y={handle_y}), pressing back")
-                                        self.device.press('back')
-                                    else:
-                                        logger.info(f"Swipe handle: ({handle_x},{handle_y}) → ({handle_x},{end_y})")
-                                        self._swipe(handle_x, handle_y, handle_x, end_y, 0.3)
-                                    handle_found = True
-                                    break
-                        except Exception:
-                            pass
-
-                    if not handle_found:
-                        logger.warning("Handle non trouvé, utilisation de coordonnées sûres (50% → 92%)")
-                        handle_x = screen_width // 2
-                        handle_y = int(screen_height * 0.50)
-                        end_y = int(screen_height * 0.92)
-                        logger.info(f"Swipe handle approximatif: ({handle_x},{handle_y}) → ({handle_x},{end_y})")
-                        self._swipe(handle_x, handle_y, handle_x, end_y, 0.3)
-                
-                elif method == 'terminate_button':
-                    if not self._click_button_from_selectors(
-                        PROBLEMATIC_PAGE_SELECTORS.terminate_button_selectors, "Terminé"
-                    ):
-                        continue
-                
-                elif method == 'ok_button':
-                    if not self._click_button_from_selectors(
-                        PROBLEMATIC_PAGE_SELECTORS.ok_button_selectors, "OK"
-                    ):
-                        continue
-                
-                elif method == 'tap_background_dimmer':
-                    if not self._click_button_from_selectors(
-                        PROBLEMATIC_PAGE_SELECTORS.background_dimmer_selectors, "Background dimmer"
-                    ):
-                        continue
-                
-                elif method == 'allow_permission_button':
-                    # Click the Android permission "Allow" button
-                    if not self._click_button_from_selectors(
-                        PROBLEMATIC_PAGE_SELECTORS.allow_permission_button_selectors,
-                        "Allow permission",
-                    ):
-                        continue
-                
-                elif method == 'ad_consent_flow':
-                    # Meta Ad Consent popup: 2-page flow
-                    # Page 1: Select "Use free of charge with ads" → Click "Continue"
-                    # Page 2: Click "Agree"
-                    if not self._handle_ad_consent_flow():
-                        continue
-                
-                # Shorter wait, to keep the process quick
+                # Attente courte, pour garder le processus rapide.
                 time.sleep(1.0)
-                
-                # Vérifier si la fermeture a fonctionné
+
                 if self._verify_page_closed(page_type):
                     logger.success(f"✅ Méthode {method} réussie")
                     return True
-                else:
-                    logger.warning(f"⚠️ Méthode {method} n'a pas fermé la page")
-                    
+                logger.warning(f"⚠️ Méthode {method} n'a pas fermé la page")
             except Exception as e:
                 logger.error(f"Erreur avec la méthode {method}: {e}")
                 continue
-        
+
         logger.error(f"❌ Toutes les méthodes de fermeture ont échoué pour {page_type}")
         return False
-    
+
     def _verify_page_closed(self, page_type: str) -> bool:
         """
         Vérifie si une page problématique a été fermée.
