@@ -123,6 +123,54 @@ def test_provider_error_does_not_kill_the_session():
     assert ok is True
 
 
+def test_repeated_read_failures_stop_the_session():
+    # A protection that can no longer be evaluated has stopped protecting. Two failures still
+    # change nothing; the third stops the run, with a motive that says why rather than a silent
+    # "no cap".
+    def boom():
+        raise RuntimeError('db down')
+
+    sm = _sm(warmup={'max_actions_per_day': 1})
+    sm.set_daily_usage_provider(boom)
+    assert sm.should_continue()[0] is True
+    assert sm.should_continue()[0] is True
+
+    ok, reason = sm.should_continue()
+    assert ok is False
+    assert reason.code == 'daily_budget_unreadable'
+    assert reason.family == 'failed'
+    assert reason.params == {'failures': 3}
+
+
+def test_a_successful_read_clears_the_failure_streak():
+    # The streak must be CONSECUTIVE: two failures then a good read must not leave the run one
+    # failure away from stopping.
+    state = {'fail': True}
+
+    def flaky():
+        if state['fail']:
+            raise RuntimeError('db down')
+        return {'total': 0, 'follows': 0, 'comments': 0}
+
+    sm = _sm(warmup={'max_actions_per_day': 500})
+    sm.set_daily_usage_provider(flaky)
+    assert sm.should_continue()[0] is True
+    assert sm.should_continue()[0] is True
+    state['fail'] = False
+    assert sm.should_continue()[0] is True   # streak reset here
+    state['fail'] = True
+    assert sm.should_continue()[0] is True
+    assert sm.should_continue()[0] is True
+    assert sm.should_continue()[0] is False  # third failure since the reset
+
+
+def test_no_provider_never_counts_as_a_failure():
+    # Standalone: `None` from the read means "nothing to enforce", not "the read failed".
+    sm = _sm(warmup={'max_actions_per_day': 1})
+    for _ in range(10):
+        assert sm.should_continue()[0] is True
+
+
 def test_update_config_refreshes_warmup_caps():
     sm = _sm(warmup={'max_actions_per_day': 500})
     sm.set_daily_usage_provider(lambda: {'total': 60, 'follows': 0, 'comments': 0})

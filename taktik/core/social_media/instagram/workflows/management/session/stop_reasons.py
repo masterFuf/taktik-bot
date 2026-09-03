@@ -362,6 +362,26 @@ def no_targets() -> StopReason:
     return _reason("no_targets", FAMILY_FAILED, "no_targets")
 
 
+def daily_budget_unreadable(failures: Any) -> StopReason:
+    """The daily-budget guard could not be evaluated, several attempts in a row.
+
+    Fail-open is the right default for a DIAGNOSTIC and the wrong one for a PROTECTION, because
+    the two errors do not cost the same. This cap exists so a young account does not get banned:
+    applying it wrongly costs a shortened run, not applying it when it should have costs the
+    account. Reading nothing used to mean "no cap", every time and silently -- so a locked DB or
+    a schema that moved switched the guard off with nothing but a log line to say so.
+
+    One failure still changes nothing: reads fail transiently and a run must not die for that.
+    Several in a row mean the protection is no longer evaluable, and a protection you cannot
+    evaluate has stopped protecting.
+    """
+    return _reason(
+        "daily_budget_unreadable", FAMILY_FAILED,
+        f"Daily budget unreadable ({failures} consecutive read failures)",
+        failures=failures,
+    )
+
+
 def crashed(error: Any) -> StopReason:
     """The run died on an unhandled exception.
 

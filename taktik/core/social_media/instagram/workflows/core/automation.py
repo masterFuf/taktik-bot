@@ -289,17 +289,22 @@ class InstagramAutomation:
     def _today_usage_for_warmup(self) -> Dict[str, int]:
         """Today's action totals for the active account, for the warmup daily-budget stop.
 
-        Returns empty totals (never trips the cap) when no account is resolved yet or the read
-        fails — the front launch gate remains the primary guard; the bot cap is defense in depth.
+        Two situations used to return the same empty totals, and they are not the same thing:
+        no account resolved yet is the NORMAL state at the start of a session, while a failed
+        read is an anomaly. Merging them meant the guard could not tell "nothing to enforce yet"
+        from "I can no longer evaluate the cap".
+
+        So: empty totals when there is no account (unchanged, never trips the cap), and the
+        read error is left to propagate. The caller — `SessionManager._read_daily_usage` —
+        already catches it without killing the run, and now counts it: the decision of what a
+        streak of failures means belongs there, next to the session state that measures it.
+
+        The front launch gate remains the primary guard; the bot cap is defense in depth.
         """
         account_id = getattr(self, 'active_account_id', None)
         if not account_id:
             return {}
-        try:
-            return get_db_service().get_today_totals(account_id)
-        except Exception as exc:
-            self.logger.warning(f"Warmup daily-usage read failed (continuing without cap): {exc}")
-            return {}
+        return get_db_service().get_today_totals(account_id)
 
     def _create_workflow_session(self, action_override: Dict[str, Any] = None) -> Optional[int]:
         return self.helpers.create_workflow_session(action_override)

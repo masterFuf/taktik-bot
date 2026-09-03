@@ -14,6 +14,13 @@ from . import stop_reasons
 log = logger.bind(module="session-manager")
 
 
+#: Consecutive failures of the daily-usage read before the warmup cap stops the session.
+#: Not one: reads fail transiently, and a run must not die for that. Not never either, which is
+#: what "continue without cap" amounted to -- a persistent condition (a locked DB, a schema that
+#: moved) switched the protection off for good, with nothing but a log line to say so.
+_DAILY_USAGE_FAILURES_BEFORE_STOP = 3
+
+
 class SessionManager:
     """Manages automation sessions with limits and action probabilities."""
 
@@ -75,6 +82,10 @@ class SessionManager:
         # holds the account_id + DB. Kept as a callable so SessionManager never owns a repository
         # (DI: the DB read is injected, not hidden here). None -> the daily-cap check is skipped.
         self._daily_usage_provider: Optional[Callable[[], Dict[str, int]]] = None
+        # Consecutive failures of that read. One is transient and changes nothing; reaching the
+        # threshold means the cap can no longer be evaluated, which is not the same thing as
+        # "no cap" -- see _check_daily_budget.
+        self._daily_usage_failures = 0
 
     def should_continue(self) -> tuple[bool, str]:
         """Check if session should continue based on defined limits.
@@ -167,12 +178,19 @@ class SessionManager:
         global budget still left room to like and watch stories.
         
 
-        Best-effort: a read error must not kill the session. The provider reads the account
-        daily totals on each call, and this is consulted once per profile, so the read
-        frequency stays negligible.
+        Best-effort, but not unconditionally: a read error must not kill the session, and a cap
+        that can no longer be READ must not silently become "no cap" either. The two errors do
+        not cost the same -- applying the cap wrongly shortens a run, failing to apply it can
+        lose the account -- so the guard tolerates isolated failures and stops after
+        `_DAILY_USAGE_FAILURES_BEFORE_STOP` in a row.
+
+        The provider reads the account daily totals on each call, and this is consulted once per
+        profile, so the read frequency stays negligible.
         """
         usage = self._read_daily_usage()
         if usage is None:
+            if self._daily_usage_failures >= _DAILY_USAGE_FAILURES_BEFORE_STOP:
+                return stop_reasons.daily_budget_unreadable(self._daily_usage_failures)
             return ""
 
         max_actions = int(self._warmup_policy.get('max_actions_per_day', 0) or 0)
@@ -182,15 +200,25 @@ class SessionManager:
         return ""
 
     def _read_daily_usage(self) -> Optional[Dict[str, int]]:
-        """The account daily totals, or None when there is nothing to enforce."""
+        """The account daily totals, or None when there is nothing to enforce.
+
+        `None` covers three situations that are NOT the same: standalone (no provider), no warmup
+        policy, and a read that failed. Only the third is an anomaly, and only it is counted --
+        the streak resets on the first successful read, so a transient failure leaves no trace.
+        """
         provider = self._daily_usage_provider
         if provider is None or not self._warmup_policy:
             return None
         try:
-            return provider() or {}
+            usage = provider() or {}
         except Exception as exc:  # noqa: BLE001 — the guard must never fail a run
-            log.warning(f"Daily-budget provider failed (continuing without cap): {exc}")
+            self._daily_usage_failures += 1
+            log.warning(
+                f"Daily-budget provider failed ({self._daily_usage_failures} in a row): {exc}"
+            )
             return None
+        self._daily_usage_failures = 0
+        return usage
 
     def exhausted_intents(self) -> set:
         """The actions whose budget is spent — SESSION ceilings and DAILY sub-quotas together.
