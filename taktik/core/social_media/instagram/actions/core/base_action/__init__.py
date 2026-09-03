@@ -61,6 +61,7 @@ class BaseAction(
     """
     
     _device_facade_class = DeviceFacade
+    _platform = "instagram"
     
     def __init__(self, device):
         super().__init__(device)

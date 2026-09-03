@@ -30,6 +30,7 @@ class BaseAction(SharedBaseAction):
     """
     
     _device_facade_class = DeviceFacade
+    _platform = "tiktok"
     
     def __init__(self, device):
         super().__init__(device)

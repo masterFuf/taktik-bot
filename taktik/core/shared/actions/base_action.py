@@ -38,6 +38,11 @@ class SharedBaseAction:
     
     # Subclasses can set this to their DeviceFacade subclass
     _device_facade_class = BaseDeviceFacade
+
+    # Which app these actions drive. A DATUM, not a branch: the diagnostics below file their
+    # captures under it and ask "am I still in the right app" against it. `None` keeps the old
+    # behaviour exactly -- the foreground check is skipped and the capture is filed as unknown.
+    _platform: Optional[str] = None
     
     def __init__(self, device):
         if isinstance(device, BaseDeviceFacade):
@@ -144,7 +149,32 @@ class SharedBaseAction:
         # incapable de faire echouer quoi que ce soit -- voir `diagnostics/miss_capture.py`.
         try:
             from taktik.core.shared.diagnostics.miss_capture import capturer_echec
-            capturer_echec(self.device, selectors=selectors)
+            # `platform` was never passed, so EVERY miss -- Instagram included, since its
+            # BaseAction inherits this class -- was filed under the parameter default. The 45
+            # captures on disk all claim `tiktok` for that reason alone.
+            capturer_echec(self.device, selectors=selectors, platform=self._platform or "unknown")
+        except Exception:
+            pass
+
+        # « Je n'ai pas trouve mon bouton » et « je ne suis plus dans l'application » produisaient
+        # le meme `False`. Un tap humanise atterrit parfois sur un lien sponsorise, et le run passe
+        # alors le reste de sa vie a taper dans le vide sans que rien ne le dise. Coute une lecture
+        # de premier plan, bornee par un intervalle -- et seulement sur un echec deja constate.
+        try:
+            from taktik.core.shared.diagnostics.foreground_guard import paquet_etranger
+            etranger = paquet_etranger(self.device, self._platform)
+            if etranger:
+                self.logger.warning(
+                    f"🚪 Hors application : le premier plan est {etranger}, pas {self._platform} — "
+                    f"la recherche ne pouvait pas aboutir"
+                )
+                emit_step(
+                    "app_left_foreground",
+                    action="find_and_click",
+                    target=selectors[0][:120] if selectors else None,
+                    foreground_package=etranger,
+                    platform=self._platform,
+                )
         except Exception:
             pass
 
