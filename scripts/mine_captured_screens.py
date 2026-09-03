@@ -46,6 +46,12 @@ PISTES = {
     "profile.unable_to_send_message": ("Impossible d'envoyer", "ne peut pas recevoir", "message"),
     "video_state.user_followed_indicator": ("Suivi(e)", "Ami(e)s", "Se désabonner"),
     "country_picker.screen_indicator": ("pays", "région"),
+    # Cherché sur appareil le 2026-09-03, en 43.1.4 ET en 46.6.3, sur les onglets « Top » et
+    # « Utilisateurs » d'une recherche, quatre défilements chacun : ni l'id anglais `:id/sm6`, ni
+    # un libellé de ce genre n'apparaissent. Les onglets de résultats semblent avoir remplacé le
+    # bouton. Ces mots sont donc une PISTE pour le jour où un run le rencontrera ailleurs — pas
+    # une description de ce qu'on a vu.
+    "search.view_all_button": ("Voir tout", "Tout afficher", "Afficher tout", "Voir plus"),
 }
 
 _TEXTE = re.compile(r'(?:\stext|content-desc)="([^"]{2,80})"')
@@ -103,11 +109,41 @@ def manquants() -> dict:
         return {}
 
 
-def candidats(chemin: str, mots) -> list:
+def plateforme_du_dump(dump: str) -> str:
+    """La plateforme dont cet écran vient VRAIMENT, lue dans le dump.
+
+    Le dossier ne suffit pas : jusqu'au 2026-09-03 l'appelant partagé ne passait pas sa plateforme
+    à `capturer_echec`, dont le défaut valait « tiktok » — donc les écrans Instagram atterrissaient
+    ici. Sans ce filtre, l'outil proposait `message_composer_container` et
+    `profile_header_following_stacked_familiar`, deux identifiants **Instagram**, comme pistes pour
+    des contrôles TikTok. Une piste venue de la mauvaise application est pire qu'aucune piste : elle
+    ressemble à une preuve.
+
+    Le paquet le plus fréquent hors barre système : le premier `package=` d'un dump est celui de
+    `com.android.systemui`, pas celui de l'application à l'écran.
+    """
+    from collections import Counter
+
+    from taktik.core.clone.packages.package_map import belongs_to_platform
+
+    paquets = Counter(
+        p for p in re.findall(r'package="([^"]+)"', dump)
+        if p not in ("com.android.systemui", "android")
+    )
+    for paquet, _ in paquets.most_common(3):
+        for plateforme in ("tiktok", "instagram"):
+            if belongs_to_platform(paquet, plateforme):
+                return plateforme
+    return "inconnue"
+
+
+def candidats(chemin: str, mots, plateforme_attendue: str = "tiktok") -> list:
     """Les nœuds de cette capture dont le libellé porte un des mots."""
     try:
         dump = io.open(chemin, encoding="utf-8", errors="replace").read()
     except Exception:
+        return []
+    if plateforme_du_dump(dump) not in (plateforme_attendue, "inconnue"):
         return []
     trouves = []
     for noeud in re.findall(r"<node[^>]*/?>", dump):
@@ -161,13 +197,19 @@ def main() -> int:
             for chemin in captures[:400]:
                 trouves = candidats(chemin, mots)
                 if trouves:
-                    vus.append((chemin, trouves))
+                    try:
+                        origine = plateforme_du_dump(
+                            io.open(chemin, encoding="utf-8", errors="replace").read())
+                    except Exception:
+                        origine = "inconnue"
+                    vus.append((chemin, trouves, origine))
             if not vus:
                 print(f"      pas encore vu   (mots cherchés : {', '.join(mots)})")
                 continue
             print(f"      TROUVÉ dans {len(vus)} capture(s) :")
-            for chemin, trouves in vus[:3]:
-                print(f"        {os.path.basename(chemin)}")
+            for chemin, trouves, origine in vus[:3]:
+                marque = "" if origine == "tiktok" else f"   [ecran {origine} — a lire avec prudence]"
+                print(f"        {os.path.basename(chemin)}{marque}")
                 if args.details:
                     for rid, libelle in trouves[:4]:
                         print(f"           id={rid:<10} « {libelle} »")
