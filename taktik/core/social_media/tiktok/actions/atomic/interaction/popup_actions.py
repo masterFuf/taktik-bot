@@ -10,6 +10,7 @@ from loguru import logger
 from ...core.base_action import BaseAction
 from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ....ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.shared.behavior.tap import tap_element_human
 
 
 class PopupActions(BaseAction):
@@ -101,7 +102,10 @@ class PopupActions(BaseAction):
         try:
             close_elem = self.device(description=self.popup_selectors.follow_friends_close_description)
             if close_elem.exists:
-                close_elem.click()
+                # Le moins exposé des six — un popup se ferme vite et une fois — mais le geste ne
+                # coûte pas plus cher humanisé.
+                if not tap_element_human(self.device, close_elem, logger=self.logger):
+                    close_elem.click()
                 self._human_like_delay('click')
                 self.logger.info("✅ Closed 'Follow your friends' popup via description")
                 return True

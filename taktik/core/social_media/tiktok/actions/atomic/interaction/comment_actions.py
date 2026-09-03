@@ -29,6 +29,7 @@ from ...core.utils import first_matching
 from ....services.profile.username import read_open_profile_handle
 from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
 from ....ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
+from taktik.core.shared.behavior.tap import tap_element_human
 
 
 class CommentActions(BaseAction):
@@ -275,7 +276,10 @@ class CommentActions(BaseAction):
         display_name = fields["author"]
 
         try:
-            rows[index].click()
+            # Point echantillonne dans les bornes, jamais le centre exact : ce geste se repete a
+            # chaque commentaire d'un run. Repli sur le clic centre si les bornes sont illisibles.
+            if not tap_element_human(self.device, rows[index], logger=self.logger):
+                rows[index].click()
         except Exception as exc:
             self.logger.debug(f"read_commenter_handles: row {index} not tappable ({exc})")
             return None
@@ -351,7 +355,10 @@ class CommentActions(BaseAction):
             return False
 
         try:
-            send[0].click()
+            # Le bouton « envoyer » d'un commentaire : geste d'interaction publique, repete a
+            # chaque cible. C'est celui ou le centre exact se remarque le plus.
+            if not tap_element_human(self.device, send[0], logger=self.logger):
+                send[0].click()
         except Exception as e:
             self.logger.warning(f"post_comment: could not tap send: {e}")
             return False
@@ -423,7 +430,8 @@ class CommentActions(BaseAction):
             if index >= len(replies):
                 return False
             try:
-                replies[index].click()
+                if not tap_element_human(self.device, replies[index], logger=self.logger):
+                    replies[index].click()
                 return True
             except Exception as e:
                 self.logger.debug(f"Could not tap Reply for @{author}: {e}")
@@ -446,7 +454,8 @@ class CommentActions(BaseAction):
             self.logger.warning("The comment composer was not found")
             return False
         try:
-            inputs[0].click()
+            if not tap_element_human(self.device, inputs[0], logger=self.logger):
+                inputs[0].click()
         except Exception as e:
             self.logger.warning(f"Could not focus the comment composer: {e}")
             return False

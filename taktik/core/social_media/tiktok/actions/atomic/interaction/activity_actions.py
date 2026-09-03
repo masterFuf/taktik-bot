@@ -20,6 +20,7 @@ from ...core.utils import first_matching
 from ....ui.selectors.surfaces.activity import ACTIVITY_SELECTORS
 from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
 from ....services.notifications.activity import ActivityRow, parse_activity_row
+from taktik.core.shared.behavior.tap import tap_element_human
 
 
 class ActivityActions(BaseAction):
@@ -169,7 +170,8 @@ class ActivityActions(BaseAction):
         if index >= len(rows):
             return False
         try:
-            rows[index].click()
+            if not tap_element_human(self.device, rows[index], logger=self.logger):
+                rows[index].click()
         except Exception as exc:
             self.logger.debug(f"open_row: row {index} not tappable ({exc})")
             return False
