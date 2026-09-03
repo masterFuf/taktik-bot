@@ -39,16 +39,16 @@ def _reset_lang():
         active_locale, set_active_locale,
     )
     before = active_locale()
-    language._detected_lang = None
+    language._DETECTION._detected_lang = None
     yield
-    language._detected_lang = None
+    language._DETECTION._detected_lang = None
     set_active_locale(before)
 
 
 @pytest.fixture
 def _no_inplace_filtering(monkeypatch):
     """Neutralise the destructive half of `detect_and_optimize` (see above)."""
-    monkeypatch.setattr(language, 'optimize_selector_dataclass', lambda inst, lang: 0)
+    monkeypatch.setattr(language._DETECTION, 'optimize_selector_dataclass', lambda inst, lang: 0)
 
 
 # The English resource-ids that are present on EVERY Instagram dump, whatever the app language.
@@ -102,7 +102,7 @@ def test_ambiguous_scores_stay_unknown():
 def test_unknown_keeps_all_selectors(monkeypatch):
     """'unknown' must not run the in-place filtering (that is what protects a bad detection)."""
     removed = []
-    monkeypatch.setattr(language, 'optimize_selector_dataclass',
+    monkeypatch.setattr(language._DETECTION, 'optimize_selector_dataclass',
                         lambda inst, lang: removed.append(lang) or 0)
     lang = language.detect_and_optimize(_FakeDevice(_ENGLISH_IDS))
     assert lang == 'unknown'
@@ -168,11 +168,11 @@ def test_redetection_only_happens_while_the_language_is_undecided(_no_inplace_fi
     """Detection runs at startup on whatever screen the app opened on. This is the second
     chance the log promised and nothing ever performed — but a decided language must never
     be re-opened: a later screen could only turn a good answer into a worse one."""
-    language._detected_lang = 'unknown'
+    language._DETECTION._detected_lang = 'unknown'
     assert language.redetect_if_unknown(_FakeDevice(_ENGLISH_IDS + _REEL_FR)) == 'fr'
 
     # already decided -> the new dump is not even read
-    language._detected_lang = 'fr'
+    language._DETECTION._detected_lang = 'fr'
     assert language.redetect_if_unknown(_FakeDevice(_ENGLISH_IDS + _REEL_EN)) == 'fr'
 
 

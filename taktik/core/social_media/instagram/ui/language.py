@@ -14,11 +14,9 @@ Usage (early in any workflow):
 
 import re
 from typing import List, Optional, Set
-from loguru import logger
 
-from taktik.core.shared.ui import language_engine as engine
+from taktik.core.shared.ui.language_detection import LanguageDetection
 
-log = logger.bind(module="instagram-language")
 
 # ──────────────────────────────────────────────────────────────
 # Vocabulary sets — words that ONLY appear in one language
@@ -173,209 +171,63 @@ _EN_WORDS: Set[str] = {
 # Regex to extract quoted text values from XPath selectors
 # Matches @text="...", @content-desc="...", @hint="...", contains(@text, "..."), etc.
 # Two alternations to handle apostrophes inside double-quoted strings (e.g. "J'aime")
-_FR_PATTERNS = engine.compile_vocabulary(_FR_WORDS)
-_EN_PATTERNS = engine.compile_vocabulary(_EN_WORDS)
 
-# A wrong language is WORSE than no language: it strips the correct selectors, whereas
-# 'unknown' keeps them all (overlay union). So we only commit when the winner is both
-# solid and clearly ahead; otherwise we stay 'unknown' and keep every locale.
+
+# ──────────────────────────────────────────────────────────────
+# Cablage
+# ──────────────────────────────────────────────────────────────
 #
-# The bar is expressed on the FULL vocabulary above, not on the navigation probes it
-# replaced: those only exist on the navigation bar, so any content screen scored zero on
-# both sides and detection gave up. A score floor plus a RATIO margin makes the rule
-# stricter than a bare comparison while firing far more often.
-_MIN_SCORE = 3.0
-_MIN_RATIO = 2.0
+# L'orchestration vit dans `shared/ui/language_detection.py` : elle etait ici en double avec
+# Instagram, dont quatre fonctions identiques caractere pour caractere. Ne reste que ce qui differe
+# vraiment — le vocabulaire ci-dessus.
+#
+# L'etat est porte par l'INSTANCE, pas par le module : un meme telephone peut afficher Instagram en
+# francais et TikTok en anglais, et un etat partage ferait passer la langue de l'une a l'autre.
 
-
-# ──────────────────────────────────────────────────────────────
-# Singleton state
-# ──────────────────────────────────────────────────────────────
-
-_detected_lang: Optional[str] = None  # 'en', 'fr', 'unknown'
+_DETECTION = LanguageDetection("Instagram", _FR_WORDS, _EN_WORDS)
 
 
 def get_detected_language() -> Optional[str]:
-    """Return the currently detected language, or None if not yet detected."""
-    return _detected_lang
+    """The detected language, or None when detection has not run yet."""
+    return _DETECTION.get_detected_language()
+
+
+def reset_detected_language() -> None:
+    """Reset the state, which matters between two accounts on the same device."""
+    _DETECTION.reset()
+
+
+def detect_language(device) -> str:
+    """Detect the app language from a single UI dump. Returns 'en', 'fr' or 'unknown'."""
+    return _DETECTION.detect_language(device)
 
 
 def redetect_if_unknown(device) -> Optional[str]:
-    """Try detection again, but ONLY if the language is still undecided.
+    """Try detection again, but ONLY if the language is still undecided."""
+    return _DETECTION.redetect_if_unknown(device, detect_and_optimize)
 
-    Detection runs once at startup, on whatever screen the app happens to open on — a loading
-    feed, sometimes an interstitial, sometimes something that scores nothing at all. A single
-    undecided dump used to leave the whole session in union mode.
-
-    This is that second chance. Call it once the bot stands on a screen it CHOSE: the account's
-    own profile is the richest available, and the startup sequence goes there anyway. A language
-    already decided is never re-opened — re-running detection later could only turn a good answer
-    into a worse one.
-    """
-    if _detected_lang not in (None, 'unknown'):
-        return _detected_lang
-    log.info("🌐 Language still undecided — retrying detection on the current screen")
-    return detect_and_optimize(device)
-
-
-# ──────────────────────────────────────────────────────────────
-# Language detection from UI dump
-# ──────────────────────────────────────────────────────────────
-
-def detect_language(device) -> str:
-    """Detect the app language from a single UI dump.
-
-    Returns ``'en'``, ``'fr'`` or ``'unknown'``.
-    """
-    global _detected_lang
-
-    try:
-        xml = engine.read_dump(device)
-        if not xml:
-            log.warning("No usable UI dump for language detection")
-            _detected_lang = 'unknown'
-            return _detected_lang
-
-        outcome = engine.decide(
-            xml, _FR_PATTERNS, _EN_PATTERNS,
-            min_score=_MIN_SCORE, min_ratio=_MIN_RATIO,
-        )
-        _detected_lang = outcome.language
-
-        log.info(
-            f"🌐 Language detected: {_detected_lang} "
-            f"(FR={outcome.fr_score}, EN={outcome.en_score})"
-        )
-        if _detected_lang == 'unknown':
-            # Say WHAT was seen, not just the score: an undecided detection is only
-            # actionable if the next reader can tell "empty screen" from "scores too
-            # close".
-            log.info(
-                f"🌐 Language undecided on this screen — keeping all locales "
-                f"({outcome.values_seen} visible strings; "
-                f"FR matched {outcome.fr_matched[:6] or 'nothing'}; "
-                f"EN matched {outcome.en_matched[:6] or 'nothing'}). "
-                "Re-detected later on the account's own profile."
-            )
-        return _detected_lang
-
-    except Exception as e:
-        log.error(f"Language detection failed: {e}")
-        _detected_lang = 'unknown'
-        return _detected_lang
-
-
-# ──────────────────────────────────────────────────────────────
-# Selector classification
-# ──────────────────────────────────────────────────────────────
 
 def _classify_selector(xpath: str) -> str:
     """Classify one xpath against this platform's vocabulary."""
-    return engine.classify_selector(xpath, _FR_WORDS, _EN_WORDS)
+    return _DETECTION.classify_selector(xpath)
 
 
 def filter_selectors(selectors: List[str], lang: str) -> List[str]:
     """Drop the selectors targeting another language. Undecided keeps them all."""
-    return engine.filter_selectors(selectors, lang, _FR_WORDS, _EN_WORDS)
+    return _DETECTION.filter_selectors(selectors, lang)
 
 
 def optimize_selector_dataclass(instance, lang: str) -> int:
     """Filter every list field of a selector dataclass in place. Returns the count removed."""
-    return engine.optimize_selector_dataclass(instance, lang, _FR_WORDS, _EN_WORDS)
+    return _DETECTION.optimize_selector_dataclass(instance, lang)
 
-
-# ──────────────────────────────────────────────────────────────
-# Main entry point
-# ──────────────────────────────────────────────────────────────
 
 def detect_and_optimize(device, override: Optional[str] = None) -> str:
-    """
-    Detect app language (or honor ``override``) and activate the matching locale.
+    """Detect (or force) the app language AND optimize every known selector singleton."""
+    from . import selectors as _barrel
+    from .selectors.locales import available_locales, set_active_locale
 
-    Called once, early in the workflow, after the device is connected and
-    Instagram is open. Sets the active locale so migrated selectors inject the
-    right language via ``L()`` (see ``ui/selectors/locales/``), and additionally
-    runs the legacy in-place filter as a fallback for selector dataclasses not
-    yet migrated to the overlay.
-
-    Args:
-        device: DeviceFacade instance.
-        override: Force a language code (e.g. from the Cartography Lab language
-            picker) instead of auto-detecting. Unknown codes fall back to
-            'unknown' (keep-all). When None, the language is auto-detected.
-
-    Returns:
-        Active language string ('en', 'fr', 'unknown').
-    """
-    global _detected_lang
-
-    # Locale overlay: migrated selectors read their language fragments from the
-    # active locale set here.
-    from .selectors.locales import set_active_locale, available_locales
-
-    if override:
-        lang = override if override in available_locales() else 'unknown'
-        _detected_lang = lang
-        log.info(f"🌐 Language override: {override!r} -> {lang}")
-    else:
-        lang = detect_language(device)
-
-    set_active_locale(lang if lang != 'unknown' else None)
-
-    if lang == 'unknown':
-        log.info("Language unknown — overlay union + no in-place filtering")
-        return lang
-
-    # Import all selector singletons from the centralized selectors package
-    from .selectors import (
-        PROFILE_SELECTORS, NAVIGATION_SELECTORS, BUTTON_SELECTORS,
-        AUTH_SELECTORS, DETECTION_SELECTORS, POST_SELECTORS,
-        POST_DETAIL_SELECTORS, POST_COMMENTS_SELECTORS, POST_LIKERS_SELECTORS,
-        POST_SHARE_SHEET_SELECTORS, POST_GRID_SELECTORS, POST_REELS_SELECTORS,
-        TEXT_INPUT_SELECTORS, UNFOLLOW_SELECTORS, POPUP_SELECTORS,
-        FEED_SELECTORS, HASHTAG_SELECTORS, STORY_SELECTORS,
-        FOLLOWERS_LIST_SELECTORS, DM_SELECTORS, SCROLL_SELECTORS,
-        CONTENT_CREATION_SELECTORS, NOTIFICATION_SELECTORS,
-        PROBLEMATIC_PAGE_SELECTORS, DEBUG_SELECTORS,
+    return _DETECTION.detect_and_optimize(
+        device, override, barrel=_barrel, set_active_locale=set_active_locale,
+        available_locales=available_locales,
     )
-
-    instances = [
-        ("ProfileSelectors", PROFILE_SELECTORS),
-        ("NavigationSelectors", NAVIGATION_SELECTORS),
-        ("ButtonSelectors", BUTTON_SELECTORS),
-        ("AuthSelectors", AUTH_SELECTORS),
-        ("DetectionSelectors", DETECTION_SELECTORS),
-        ("PostDetailSelectors", POST_DETAIL_SELECTORS),
-        ("PostCommentsSelectors", POST_COMMENTS_SELECTORS),
-        ("PostLikersSelectors", POST_LIKERS_SELECTORS),
-        ("PostShareSheetSelectors", POST_SHARE_SHEET_SELECTORS),
-        ("PostGridSelectors", POST_GRID_SELECTORS),
-        ("PostReelsSelectors", POST_REELS_SELECTORS),
-        ("PostSelectors", POST_SELECTORS),
-        ("TextInputSelectors", TEXT_INPUT_SELECTORS),
-        ("UnfollowSelectors", UNFOLLOW_SELECTORS),
-        ("PopupSelectors", POPUP_SELECTORS),
-        ("FeedSelectors", FEED_SELECTORS),
-        ("HashtagSelectors", HASHTAG_SELECTORS),
-        ("StorySelectors", STORY_SELECTORS),
-        ("FollowersListSelectors", FOLLOWERS_LIST_SELECTORS),
-        ("DMSelectors", DM_SELECTORS),
-        ("ScrollSelectors", SCROLL_SELECTORS),
-        ("ContentCreationSelectors", CONTENT_CREATION_SELECTORS),
-        ("NotificationSelectors", NOTIFICATION_SELECTORS),
-        ("ProblematicPageSelectors", PROBLEMATIC_PAGE_SELECTORS),
-        ("DebugSelectors", DEBUG_SELECTORS),
-    ]
-
-    total_removed = 0
-    for name, inst in instances:
-        try:
-            removed = optimize_selector_dataclass(inst, lang)
-            if removed > 0:
-                log.debug(f"  {name}: {removed} selectors removed")
-            total_removed += removed
-        except Exception as e:
-            log.warning(f"  {name}: optimization failed: {e}")
-
-    log.info(f"🌐 Selector optimization complete: {total_removed} wrong-language selectors removed (lang={lang})")
-    return lang

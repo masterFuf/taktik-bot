@@ -16,11 +16,9 @@ Usage, early in a workflow:
 
 from typing import List, Optional, Set
 
-from loguru import logger
 
-from taktik.core.shared.ui import language_engine as engine
+from taktik.core.shared.ui.language_detection import LanguageDetection
 
-log = logger.bind(module="tiktok-language")
 
 # ──────────────────────────────────────────────────────────────
 # Vocabulary: words that appear in ONE language only.
@@ -121,179 +119,61 @@ _EN_WORDS: Set[str] = {
     "private", "following",
 }
 
-_FR_PATTERNS = engine.compile_vocabulary(_FR_WORDS)
-_EN_PATTERNS = engine.compile_vocabulary(_EN_WORDS)
-
-# A wrong language is WORSE than no language: it strips the correct selectors, whereas
-# 'unknown' keeps them all. The bar is a score floor plus a RATIO margin, so a one-point
-# lead at low score levels is not enough to commit.
-_MIN_SCORE = 3.0
-_MIN_RATIO = 2.0
-
-
-def redetect_if_unknown(device) -> Optional[str]:
-    """Try detection again, but ONLY if the language is still undecided.
-
-    Detection runs once, on whatever screen TikTok happens to show. A language already
-    decided is never re-opened: a later screen could only turn a good answer into a worse one.
-    """
-    if _detected_lang not in (None, "unknown"):
-        return _detected_lang
-    log.info("🌐 TikTok language still undecided — retrying detection on the current screen")
-    return detect_and_optimize(device)
-
 
 # ──────────────────────────────────────────────────────────────
-# État singleton
+# Cablage
 # ──────────────────────────────────────────────────────────────
+#
+# L'orchestration vit dans `shared/ui/language_detection.py` : elle etait ici en double avec
+# Instagram, dont quatre fonctions identiques caractere pour caractere. Ne reste que ce qui differe
+# vraiment — le vocabulaire ci-dessus.
+#
+# L'etat est porte par l'INSTANCE, pas par le module : un meme telephone peut afficher TikTok en
+# anglais et Instagram en francais, et un etat partage ferait passer la langue de l'une a l'autre.
 
-_detected_lang: Optional[str] = None  # 'en', 'fr', 'unknown'
+_DETECTION = LanguageDetection("TikTok", _FR_WORDS, _EN_WORDS)
 
 
 def get_detected_language() -> Optional[str]:
     """The detected language, or None when detection has not run yet."""
-    return _detected_lang
+    return _DETECTION.get_detected_language()
 
 
-def reset_detected_language():
+def reset_detected_language() -> None:
     """Reset the state, which matters between two accounts on the same device."""
-    global _detected_lang
-    _detected_lang = None
+    _DETECTION.reset()
 
-
-# ──────────────────────────────────────────────────────────────
-# Language detection from a UI dump
-# ──────────────────────────────────────────────────────────────
 
 def detect_language(device) -> str:
-    """Detect the app language from a single UI dump.
-
-    Returns ``'en'``, ``'fr'`` or ``'unknown'``.
-    """
-    global _detected_lang
-
-    try:
-        xml = engine.read_dump(device)
-        if not xml:
-            log.warning("No usable UI dump for TikTok language detection")
-            _detected_lang = "unknown"
-            return _detected_lang
-
-        outcome = engine.decide(
-            xml, _FR_PATTERNS, _EN_PATTERNS,
-            min_score=_MIN_SCORE, min_ratio=_MIN_RATIO,
-        )
-        _detected_lang = outcome.language
-
-        log.info(
-            f"🌐 TikTok language detected: {_detected_lang} "
-            f"(FR={outcome.fr_score}, EN={outcome.en_score})"
-        )
-        if _detected_lang == "unknown":
-            log.info(
-                f"🌐 TikTok language undecided on this screen — keeping all locales "
-                f"({outcome.values_seen} visible strings; "
-                f"FR matched {outcome.fr_matched[:6] or 'nothing'}; "
-                f"EN matched {outcome.en_matched[:6] or 'nothing'})."
-            )
-        return _detected_lang
-
-    except Exception as exc:
-        log.error(f"TikTok language detection failed: {exc}")
-        _detected_lang = "unknown"
-        return _detected_lang
+    """Detect the app language from a single UI dump. Returns 'en', 'fr' or 'unknown'."""
+    return _DETECTION.detect_language(device)
 
 
-# ──────────────────────────────────────────────────────────────
-# Selector classification
-# ──────────────────────────────────────────────────────────────
+def redetect_if_unknown(device) -> Optional[str]:
+    """Try detection again, but ONLY if the language is still undecided."""
+    return _DETECTION.redetect_if_unknown(device, detect_and_optimize)
+
 
 def _classify_selector(xpath: str) -> str:
     """Classify one xpath against this platform's vocabulary."""
-    return engine.classify_selector(xpath, _FR_WORDS, _EN_WORDS)
+    return _DETECTION.classify_selector(xpath)
 
 
 def filter_selectors(selectors: List[str], lang: str) -> List[str]:
     """Drop the selectors targeting another language. Undecided keeps them all."""
-    return engine.filter_selectors(selectors, lang, _FR_WORDS, _EN_WORDS)
+    return _DETECTION.filter_selectors(selectors, lang)
 
 
 def optimize_selector_dataclass(instance, lang: str) -> int:
     """Filter every list field of a selector dataclass in place. Returns the count removed."""
-    return engine.optimize_selector_dataclass(instance, lang, _FR_WORDS, _EN_WORDS)
+    return _DETECTION.optimize_selector_dataclass(instance, lang)
 
-
-# ──────────────────────────────────────────────────────────────
-# Main entry point
-# ──────────────────────────────────────────────────────────────
 
 def detect_and_optimize(device, override: Optional[str] = None) -> str:
-    """
-    Detect the app language, or force it through ``override``, AND optimize every
-    known selector singleton.
-
-    Call once, early in a workflow, after connecting to the device and opening the
-    app; any screen exposing the bottom navigation is enough.
-
-    Args:
-        device: DeviceFacade.
-        override: force a language instead of detecting it; an unknown value
-            falls back on undecided.
-
-    Returns:
-        The active language.
-    """
-    if override:
-        lang = override if override in ("en", "fr") else "unknown"
-        log.info(f"🌐 Language override: {override!r} -> {lang}")
-    else:
-        lang = detect_language(device)
-
-    # Overlay: the migrated selectors read from the active locale.
-    from .selectors.locales import set_active_locale
-    set_active_locale(lang if lang != "unknown" else None)
-
-    if lang == "unknown":
-        log.info("Language unknown — overlay union + no in-place filtering")
-        return lang
-
-    # Every dataclass singleton the barrel exports, derived rather than listed.
-    #
-    # This was a hand-written enumeration of 23 names — the THIRD list of the same objects, beside
-    # the barrel's own `__all__` and `TIKTOK_SELECTOR_DOMAINS`. Ten catalogues had already fallen
-    # out of the compat map that way, unreachable by any override, so a fourth hand-copy was the
-    # last thing this needed. The compat map keeps its literal spelling because its keys are a
-    # contract (override YAML addresses `domain.field`); this list has no such contract — its
-    # names are only log labels — so it derives.
-    #
-    # Facades are skipped by construction: `is_dataclass` is False for them, and a facade would
-    # be optimised through its `__getattr__` onto a phantom attribute, which is exactly the bug
-    # the clone patcher was just fixed for.
-    from dataclasses import is_dataclass
-
+    """Detect (or force) the app language AND optimize every known selector singleton."""
     from . import selectors as _barrel
+    from .selectors.locales import set_active_locale
 
-    instances = []
-    seen: set = set()
-    for _name in getattr(_barrel, "__all__", ()):
-        if not _name.endswith("SELECTORS"):
-            continue
-        _obj = getattr(_barrel, _name, None)
-        if _obj is None or not is_dataclass(_obj) or id(_obj) in seen:
-            continue
-        seen.add(id(_obj))
-        instances.append((type(_obj).__name__, _obj))
-
-    total_removed = 0
-    for name, inst in instances:
-        try:
-            n = optimize_selector_dataclass(inst, lang)
-            if n > 0:
-                log.debug(f"  • {name}: removed {n} wrong-language selector(s)")
-            total_removed += n
-        except Exception as e:
-            log.warning(f"  • {name}: optimization failed ({e})")
-
-    log.info(f"✅ TikTok selectors optimized for '{lang}' "
-             f"({total_removed} wrong-language selector(s) removed)")
-    return lang
+    return _DETECTION.detect_and_optimize(
+        device, override, barrel=_barrel, set_active_locale=set_active_locale,
+    )

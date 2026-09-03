@@ -33,15 +33,15 @@ def _reset_lang():
         active_locale, set_active_locale,
     )
     before = active_locale()
-    language._detected_lang = None
+    language._DETECTION._detected_lang = None
     yield
-    language._detected_lang = None
+    language._DETECTION._detected_lang = None
     set_active_locale(before)
 
 
 @pytest.fixture
 def _no_inplace_filtering(monkeypatch):
-    monkeypatch.setattr(language, 'optimize_selector_dataclass', lambda inst, lang: 0)
+    monkeypatch.setattr(language._DETECTION, 'optimize_selector_dataclass', lambda inst, lang: 0)
 
 
 # Present on EVERY TikTok dump, whatever the app language.
@@ -92,13 +92,13 @@ def test_ambiguous_scores_stay_unknown():
 
 
 def test_redetection_only_happens_while_the_language_is_undecided(_no_inplace_filtering):
-    language._detected_lang = 'unknown'
+    language._DETECTION._detected_lang = 'unknown'
     french = _ENGLISH_IDS + (
         '<node content-desc="Accueil" /><node content-desc="Profil" />'
         '<node content-desc="Abonnements" /><node text="J’aime" />'
     )
     assert language.redetect_if_unknown(_FakeDevice(french)) == 'fr'
 
-    language._detected_lang = 'fr'
+    language._DETECTION._detected_lang = 'fr'
     english = _ENGLISH_IDS + '<node content-desc="Home" /><node content-desc="Followers" />'
     assert language.redetect_if_unknown(_FakeDevice(english)) == 'fr'
