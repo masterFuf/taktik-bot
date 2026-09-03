@@ -194,6 +194,23 @@ class SharedBaseAction:
                 self.logger.warning(
                     f"🔁 Blocage : le meme selecteur echoue depuis {repetitions()} tentatives "
                     f"— {selectors[0][:90] if selectors else '?'}")
+                # Un run bloque depuis huit tentatives merite qu'on regarde si l'application est
+                # encore la. Le dialogue de crash Android n'etait reconnu nulle part : le bot
+                # voyait un ecran qu'aucun selecteur ne nomme, et enchainait ses timeouts. Le
+                # constat coute un dump, paye ICI seulement -- pas a chaque echec.
+                from taktik.core.shared.diagnostics.android_crash import constater
+                signature = constater(self.device)
+                if signature:
+                    self.logger.warning(
+                        f"💥 L'application cible a plante : Android affiche son dialogue "
+                        f"({signature}) — ce n'est pas un selecteur perime")
+                    emit_step(
+                        "target_app_crashed",
+                        action="find_and_click",
+                        target=selectors[0][:120] if selectors else None,
+                        signature=signature,
+                        platform=self._platform,
+                    )
                 emit_step(
                     "stuck_on_selector",
                     action="find_and_click",

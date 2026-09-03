@@ -50,7 +50,14 @@ class ProblematicPageSelectors:
         {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_frame'}
     ])
 
+    # `com.android.packageinstaller` n'est PAS le paquet qui sert les dialogues de permission sur
+    # les appareils du parc : mesure du 2026-09-03 sur Android 12 et Android 16, c'est
+    # `com.google.android.permissioncontroller`. L'identifiant complet ne resolvait donc rien.
+    # L'ENTREE de l'id (`permission_allow_button`), elle, est posee par le framework et survit au
+    # changement de paquet — d'ou la correspondance partielle, la meme forme que le reste du
+    # catalogue utilise deja pour les ids d'application.
     allow_permission_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
+        {'resourceIdMatches': r'.*:id/permission_allow_button'},
         {'resourceId': 'com.android.packageinstaller:id/permission_allow_button'},
         {'text': 'AUTORISER'},
         {'text': 'ALLOW'},

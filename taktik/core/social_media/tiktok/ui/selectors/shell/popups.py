@@ -223,6 +223,22 @@ class PopupSelectors:
     @property
     def system_deny_button(self) -> List[str]:
         return self._system_deny_button_base + L("popup.system_deny_button")
+
+    # Le pendant du precedent, qui manquait. Mesure du 2026-09-03 : sur les Pixel du parc
+    # (Android 12 et 16) le paquet installe est `com.google.android.permissioncontroller` — celui
+    # que le catalogue Instagram cherchait, `com.android.packageinstaller`, n'existe sur aucun.
+    # La correspondance PARTIELLE en tete couvre les trois familles et celles a venir : l'entree
+    # de l'id est posee par le framework, le prefixe de paquet ne l'est pas.
+    _system_allow_button_base: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/permission_allow_button")]',
+        '//*[@resource-id="com.android.packageinstaller:id/permission_allow_button"]',
+        '//*[@resource-id="com.android.permissioncontroller:id/permission_allow_button"]',
+        '//*[@resource-id="com.google.android.permissioncontroller:id/permission_allow_button"]',
+    ])
+
+    @property
+    def system_allow_button(self) -> List[str]:
+        return self._system_allow_button_base + L("popup.system_allow_button")
     
     system_input_method_popup: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="android:id/alertTitle"][contains(@text, "saisie")]',

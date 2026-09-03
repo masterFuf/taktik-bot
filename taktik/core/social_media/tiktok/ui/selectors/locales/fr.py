@@ -494,6 +494,13 @@ STRINGS: Dict[str, List[str]] = {
     "popup.suggestion_close": [],
     "popup.suggestion_follow_back": [],
     "popup.suggestion_not_interested": [],
+    # Les LIBELLES du bouton d'autorisation d'un dialogue systeme. Les identifiants, eux,
+    # ne dependent pas de la langue et vivent dans `_system_allow_button_base`.
+    "popup.system_allow_button": [
+        "//*[@text=\"AUTORISER\"][@clickable=\"true\"]",
+        "//*[@text=\"Autoriser\"][@clickable=\"true\"]",
+        "//*[contains(@text, \"Autoriser\") and @clickable=\"true\"]",
+    ],
     "popup.system_deny_button": [
         "//*[@text=\"REFUSER\"][@clickable=\"true\"]",
         "//*[@text=\"Refuser\"][@clickable=\"true\"]",

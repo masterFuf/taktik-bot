@@ -437,6 +437,12 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \":id/bjl\")][@text=\"Not interested\"]",
         "//android.widget.Button[@text=\"Not interested\"]",
     ],
+    # Les LIBELLES du bouton d'autorisation d'un dialogue systeme. Les identifiants, eux,
+    # ne dependent pas de la langue et vivent dans `_system_allow_button_base`.
+    "popup.system_allow_button": [
+        "//*[@text=\"ALLOW\"][@clickable=\"true\"]",
+        "//*[@text=\"Allow\"][@clickable=\"true\"]",
+    ],
     "popup.system_deny_button": [
         "//*[@text=\"DENY\"][@clickable=\"true\"]",
         "//*[@text=\"Deny\"][@clickable=\"true\"]",
