@@ -1,8 +1,14 @@
-"""The shared evaluator must stay indistinguishable from the Instagram one it was lifted from.
+"""L'evaluateur partage, et le fait qu'Instagram n'en ait plus d'autre.
 
-Instagram still calls its own `FilteringBusiness`, because switching a live decision path is a
-separate, deliberate step. Until it does, only a test keeps the two from drifting: a copy nobody
-compares is a fork, and this one decides whether a client's profile is interacted with or skipped.
+Il a ete ecrit pour Instagram, puis remonte dans `shared/` le jour ou TikTok en a eu besoin. Le
+deplacement s'etait arrete a mi-chemin : Instagram gardait sa copie, et ce fichier gardait les deux
+d'diverger. Le basculement a ete fait le 2026-09-03, apres confrontation des deux evaluateurs sur
+400 profils generes — zero verdict divergent.
+
+Ce que ce fichier surveille a donc change de nature. Comparer la facade a ce qu'elle appelle serait
+tautologique ; ce qui compte desormais est qu'elle **delegue** — qu'aucune seconde implementation ne
+reapparaisse dans la classe. Le reste teste l'evaluateur partage lui-meme, sur les cas limites qui
+decident si le profil d'un client est interagi ou ignore.
 """
 
 import itertools
@@ -55,9 +61,28 @@ def instagram_filter():
     "profile,criteria", list(itertools.product(PROFILES, CRITERIA)),
     ids=lambda value: str(value.get("username", "criteria"))[:24],
 )
-def test_shared_evaluator_matches_the_instagram_one(instagram_filter, profile, criteria):
+def test_the_instagram_facade_returns_what_the_shared_evaluator_returns(
+    instagram_filter, profile, criteria
+):
+    """Le contrat vu de l'appelant : la facade rend exactement le verdict partage."""
     assert apply_comprehensive_filter(profile, criteria) == instagram_filter.apply_comprehensive_filter(
         profile, criteria
+    )
+
+
+def test_the_instagram_class_holds_no_second_implementation():
+    """Ce qui empeche la copie de revenir.
+
+    Le test precedent est desormais satisfait par construction, puisque la facade appelle
+    l'evaluateur partage. Celui-ci est le seul qui echouerait si quelqu'un recopiait les etages de
+    filtrage dans la classe — ce qui est exactement ce qui s'etait produit la premiere fois.
+    """
+    etages = ("_apply_basic_filters", "_apply_advanced_filters", "_apply_content_filters",
+              "_apply_behavior_filters", "_determine_final_category")
+    presents = [nom for nom in etages if hasattr(FilteringBusiness, nom)]
+    assert presents == [], (
+        f"FilteringBusiness a retrouve une implementation propre : {presents}. "
+        "L'evaluateur vit dans shared/filtering ; la classe delegue."
     )
 
 
