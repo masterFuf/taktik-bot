@@ -29,7 +29,6 @@ from typing import Any, Callable, Dict, List, Optional
 from loguru import logger
 from lxml import etree
 
-from taktik.core.shared.behavior.gesture import sample_swipe
 from taktik.core.shared.input.taktik_keyboard import type_text_human
 from taktik.core.shared.vision import locate_text_on_screen
 
@@ -154,36 +153,46 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                 return matches
         return []
 
+    def _gesture_device(self):
+        """Le device vu a travers la facade, qui est l'owner du geste humanise.
+
+        En production ce workflow recoit un `CloneAwareDeviceProxy`, qui n'a pas `human_scroll` :
+        la facade doit etre posee ici, une fois. C'est le meme piege que « une action enveloppe le
+        device dans SON facade » — un objet qui n'expose pas le geste ne le rend pas indisponible,
+        il le rend invisible.
+        """
+        if hasattr(self.device, "human_scroll"):
+            return self.device
+        cached = getattr(self, "_gesture_facade", None)
+        if cached is None:
+            from taktik.core.shared.device.facade import BaseDeviceFacade
+
+            cached = BaseDeviceFacade(self.device)
+            self._gesture_facade = cached
+        return cached
+
     def _human_scroll(self, direction: str = "up") -> bool:
-        """One humanized scroll using the shared calibration engine (real swipe
-        trajectories via ``sample_swipe`` + ``swipe_points``), not a fixed straight
-        swipe. Falls back to a plain swipe along the sampled endpoints, then to a
-        centred straight swipe."""
+        """Un defilement humanise, par la primitive partagee.
+
+        Ce workflow reconstruisait sa propre mecanique autour de `sample_swipe`, et **degradait en
+        silence** : quand l'echantillonnage echouait, le repli etait un swipe parfaitement droit,
+        centre, a distance et duree fixes — la signature exacte qu'un detecteur d'automatisation
+        cherche — et la fonction rendait `True`. Le run croyait avoir defile humainement, et le seul
+        temoin etait un `logger.debug`. Deux autres defauts suivaient : le chemin n'etait pas prepare
+        (`_prepare_gesture_path` ecarte les zones interdites, sans quoi un geste demarre dans un reel
+        est lu comme « ouvrir le reel »), et le repli figeait un ecran de 1080x2220.
+
+        `human_scroll` porte tout cela. Un echec est desormais un echec : rien ne se fait passer
+        pour un geste humain.
+
+        `direction` reste exprimee en direction du GESTE ("up" = doigt vers le haut = avancer), la
+        convention des appelants de ce fichier ; la facade, elle, parle en direction de PAGE.
+        """
+        page_direction = "down" if direction == "up" else "up"
         try:
-            width, height = self.device.window_size()
-        except Exception:
-            width, height = 1080, 2220
-        try:
-            path, duration = sample_swipe(int(width), int(height), direction=direction)
+            return bool(self._gesture_device().human_scroll(page_direction))
         except Exception as exc:
-            self.logger.debug(f"sample_swipe failed: {exc}")
-            path, duration = None, 0.4
-        if path:
-            raw = getattr(self.device, "_device", None) or self.device
-            try:
-                if hasattr(raw, "swipe_points"):
-                    raw.swipe_points(path, duration / max(1, len(path) - 1))
-                    return True
-                self.device.swipe(path[0][0], path[0][1], path[-1][0], path[-1][1], duration=duration)
-                return True
-            except Exception as exc:
-                self.logger.debug(f"human swipe exec failed: {exc}")
-        try:
-            x = int(width) // 2
-            self.device.swipe(x, int(height * 0.72), x, int(height * 0.32), duration=0.4)
-            return True
-        except Exception as exc:
-            self.logger.warning(f"Swipe failed: {exc}")
+            self.logger.warning(f"Humanized scroll failed: {exc}")
             return False
 
     def _scroll_down(self, times: int = 1) -> None:
