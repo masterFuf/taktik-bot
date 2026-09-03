@@ -25,7 +25,7 @@ peut demander plus tard « quel écran affichait quelque chose qu'on ne savait p
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 from loguru import logger
 
@@ -51,11 +51,20 @@ def capturer_echec(
     device: Any,
     *,
     selectors: Sequence[str],
-    platform: str = "tiktok",
+    platform: str = "unknown",
     app_version: str = "",
     language: str = "",
-) -> Optional[str]:
-    """Capture l'écran d'un échec de recherche. Rend le chemin XML écrit, ou None.
+) -> Optional[Dict[str, Any]]:
+    """Capture l'écran d'un échec de recherche. Rend le RECORD de la capture, ou None.
+
+    Le record plutôt que le seul chemin : l'empreinte, le paquet au premier plan et le drapeau
+    `lossy` sont ce qui rend la capture exploitable **ailleurs** — dans un rapport d'incident, par
+    exemple, où le fichier lui-même ne voyage pas. Un chemin seul sur la machine de l'utilisateur
+    est un diagnostic que personne n'ira chercher.
+
+    `platform` vaut `"unknown"` par défaut et non `"tiktok"` : le défaut précédent rangeait sous
+    TikTok tous les échecs Instagram, puisque l'appelant partagé ne le passait pas. Un rangement
+    honnête vaut mieux qu'un faux.
 
     Ne lève jamais : un run ne rate pas parce qu'un diagnostic n'a pas pu écrire.
     """
@@ -81,7 +90,7 @@ def capturer_echec(
         chemin = record.get("xmlPath")
         if chemin:
             logger.debug(f"[miss] ecran inconnu garde : {chemin}")
-        return chemin
+        return record
     except Exception as exc:  # noqa: BLE001 — un diagnostic ne fait jamais echouer un run
         logger.debug(f"[miss] capture impossible : {exc}")
         return None

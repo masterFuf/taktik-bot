@@ -152,7 +152,31 @@ class SharedBaseAction:
             # `platform` was never passed, so EVERY miss -- Instagram included, since its
             # BaseAction inherits this class -- was filed under the parameter default. The 45
             # captures on disk all claim `tiktok` for that reason alone.
-            capturer_echec(self.device, selectors=selectors, platform=self._platform or "unknown")
+            record = capturer_echec(
+                self.device, selectors=selectors, platform=self._platform or "unknown")
+            if record:
+                # La capture est le diagnostic le plus CHER a produire -- elle coute un
+                # `dump_hierarchy` sur l'appareil -- et elle restait sur le disque de
+                # l'utilisateur, ou personne n'irait la chercher. Ce pas la fait voyager : pas le
+                # fichier, mais de quoi savoir qu'un ecran inconnu a ete rencontre, lequel, et ce
+                # qu'on y cherchait.
+                emit_step(
+                    "screen_capture",
+                    action="selector_miss",
+                    target=selectors[0][:120] if selectors else None,
+                    fingerprint=record.get("layoutFingerprint"),
+                    surface=record.get("surface"),
+                    platform=record.get("platform"),
+                    foreground_package=record.get("foregroundPackage"),
+                    app_version=record.get("appVersion") or None,
+                    xml_path=record.get("xmlPath"),
+                    screenshot_path=record.get("screenshotPath"),
+                    layout_changed=record.get("layoutChanged"),
+                    # `dump_hierarchy` passe par `stripInvalidXMLChars` d'AOSP et mange les emoji.
+                    # Le drapeau doit voyager avec la capture : une analyse qui repose sur un
+                    # libelle a emoji conclurait faux, et c'est la seule chose qui l'empeche.
+                    lossy=record.get("lossy"),
+                )
         except Exception:
             pass
 
