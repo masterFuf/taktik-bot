@@ -218,14 +218,7 @@ class GmailWorkflow(GmailOtpReadingMixin):
                     # Wait for the email page to transition away before next iteration.
                     # Without this, the 1-second pause is often too short and the loop
                     # re-detects google_signin while the page is still animating.
-                    _deadline_nav = time.time() + 5.0
-                    while time.time() < _deadline_nav:
-                        try:
-                            if 'resource-id="identifierId"' not in self.device.dump_hierarchy():
-                                break
-                        except Exception:
-                            break
-                        time.sleep(0.5)
+                    self._wait_gone('//*[@resource-id="identifierId"]', 5.0, "champ e-mail")
                     time.sleep(0.5)
 
                 elif screen == "google_password":
@@ -241,16 +234,11 @@ class GmailWorkflow(GmailOtpReadingMixin):
                                            "Could not click Suivant after password entry")
                     _ipc.log("info", "✅ Password submitted")
                     # Wait for the password page to transition away before next iteration.
-                    _deadline_nav = time.time() + 6.0
-                    while time.time() < _deadline_nav:
-                        try:
-                            _h_nav = self.device.dump_hierarchy()
-                            if ('resource-id="Passwd"' not in _h_nav
-                                    and 'resource-id="password"' not in _h_nav):
-                                break
-                        except Exception:
-                            break
-                        time.sleep(0.5)
+                    # Google sert l'un OU l'autre identifiant selon la variante de page servie :
+                    # une seule expression les couvre, la ou la boucle testait les deux chaines.
+                    self._wait_gone(
+                        '//*[@resource-id="Passwd" or @resource-id="password"]', 6.0,
+                        "champ mot de passe")
                     time.sleep(0.5)
 
                 elif screen == "google_terms":
@@ -1194,6 +1182,32 @@ class GmailWorkflow(GmailOtpReadingMixin):
 
     def _element_exists(self, selectors: list, timeout: float = _EXIST_TIMEOUT) -> bool:
         return self._find_element(selectors, timeout=timeout) is not None
+
+    def _wait_gone(self, xpath: str, timeout: float, label: str) -> bool:
+        """Attendre qu'un element disparaisse, sans rapatrier l'arbre entier a chaque tour.
+
+        Ces attentes surveillaient leur champ en bouclant sur `dump_hierarchy()` toutes les
+        0,5 s : jusqu'a dix rapatriements de l'arbre XML complet — environ trois secondes
+        d'appareil — pour repondre a « ce champ a-t-il disparu ? ». `wait_gone` pose la question
+        a l'appareil, qui sait y repondre sans nous envoyer tout l'ecran.
+
+        Le meme fichier a deja ce raisonnement, cent lignes plus bas : `_detect_add_account_screen`
+        fait DELIBEREMENT un dump unique plutot que huit `xpath.wait()` sequentiels, et le chiffre
+        (« ~0,5-1 s au lieu de ~40-50 s »). C'est le bon arbitrage pour SA question — reconnaitre
+        parmi huit ecrans. Ces deux boucles posent la question inverse : un seul element, dont on
+        attend la disparition. Le meme outil y devient le mauvais choix.
+
+        Rend True si l'element a disparu. Un delai depasse n'est PAS une erreur : le code
+        continuait deja dans ce cas, et la boucle exterieure re-detectera l'ecran si besoin.
+        """
+        try:
+            gone = bool(self.device.xpath(xpath).wait_gone(timeout=timeout))
+        except Exception as exc:  # noqa: BLE001 — une attente ne fait pas echouer une inscription
+            _ipc.log("info", f"⏱️ Attente {label} impossible ({exc}) — on continue")
+            return False
+        if not gone:
+            _ipc.log("info", f"⏱️ {label} toujours a l'ecran apres {timeout:.0f}s — on continue")
+        return gone
 
     def _error(self, error_type: str, message: str) -> dict:
         _ipc.log("error", f"❌ {message}")
