@@ -12,6 +12,23 @@ from loguru import logger
 from taktik.core.shared.device.adb import run_adb_shell_process
 
 
+def foreground_package(device: Any) -> Optional[str]:
+    """Which package is on screen right now, or None when the question cannot be answered.
+
+    `None` means "unknown", never "another app": the device may be disconnected, asleep, or the
+    call may simply have failed. Callers must not conclude anything from it -- the whole point of
+    reading the foreground is to tell "I am elsewhere" from "I did not find my button", and an
+    unreadable device tells neither.
+    """
+    if device is None:
+        return None
+    try:
+        return (device.app_current() or {}).get("package") or None
+    except Exception as exc:  # noqa: BLE001 -- a diagnostic must never end a run
+        logger.debug(f"Foreground package unreadable: {exc}")
+        return None
+
+
 def is_app_running(device: Any, package_name: str, platform: str) -> bool:
     """Check whether a package is currently in the foreground."""
     if device is None:

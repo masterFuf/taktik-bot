@@ -23,6 +23,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from taktik.core.shared.app_paths import get_app_subdir
+from taktik.core.shared.device.app_inspection import foreground_package
 from taktik.core.shared.diagnostics.layout_fingerprint import (
     layout_fingerprint,
     screen_density,
@@ -84,6 +85,16 @@ def capture_surface(
         'density': screen_density(hierarchy),
         'runId': run_id,
         'actionOutcome': action_outcome,
+        # WHICH APP took this screenshot. Without it a capture taken in Chrome -- because a tap
+        # landed on a sponsored link and left the app -- is indistinguishable from one taken in
+        # Instagram, and the archive says only "a screen the catalogue could not name".
+        #
+        # Measured on a Pixel: `app_current()` costs ~440 ms, about TWICE a `dump_hierarchy`
+        # (~225 ms). It is paid here anyway because this function is only reached on a failure
+        # that already burned its timeout, and `miss_capture` caps it at six per run. Reading the
+        # package out of the XML we already hold would be free but WRONG: the first `package=`
+        # attribute in a dump is the system UI's status bar, not the app on screen.
+        'foregroundPackage': foreground_package(device),
         # `dump_hierarchy` goes through AOSP's `stripInvalidXMLChars`, which eats emoji. Said in
         # the record so nobody spends an afternoon wondering why an archived handle does not
         # match the one on screen.
