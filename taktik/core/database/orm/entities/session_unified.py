@@ -51,3 +51,6 @@ class SessionUnified(Base):
     created_at = Column(Text)
     updated_at = Column(Text)
     sync_id = Column(Text)
+    ai_cost_by_kind = Column(Text)
+    stop_reason_code = Column(Text)
+    stop_reason_params = Column(Text)

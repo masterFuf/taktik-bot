@@ -21,13 +21,14 @@ from taktik.core.database.orm.base import Base
 from taktik.core.database.orm.engine import create_orm_engine
 from taktik.core.database.orm.registry import PILOT_ENTITIES
 
-# Tables with an explicit raw fixture (DDL + seed) for read-match coverage.
+# Tables seeded for read-match coverage. The DDL is DERIVED from the entity, never
+# written out here: a hand-written CREATE TABLE is a second description of the mapping
+# that ages on its own, and it aged -- it went five columns behind `interactions` and
+# failed the test while the entity was the correct one. Parity against the REAL
+# migration schema belongs to scripts/orm_pilot/validate_entities.py, which runs on a
+# copy of the live DB; this fixture only has to hold rows the mapping can read back.
 _FIXTURE = {
     "app_config": {
-        "ddl": (
-            "CREATE TABLE app_config (key TEXT PRIMARY KEY, "
-            "value_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT)"
-        ),
         "seed": [
             ("INSERT INTO app_config (key, value_json, updated_at) VALUES (?,?,?)",
              [("device_groups", '{"groups": []}', "2026-06-07T10:00:00"),
@@ -36,13 +37,6 @@ _FIXTURE = {
         "order_by": "key",
     },
     "interactions": {
-        "ddl": (
-            "CREATE TABLE interactions (id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "platform TEXT NOT NULL DEFAULT 'instagram', legacy_id INTEGER, "
-            "session_id INTEGER, account_id INTEGER, profile_id INTEGER, "
-            "interaction_type TEXT NOT NULL, success INTEGER DEFAULT 1, content TEXT, "
-            "video_id TEXT, interaction_time TEXT, created_at TEXT, sync_id TEXT)"
-        ),
         "seed": [
             ("INSERT INTO interactions (platform, interaction_type, success, account_id) "
              "VALUES (?,?,?,?)",
@@ -59,9 +53,16 @@ _ENTITY_BY_TABLE = {e.__tablename__: e for e, _ in PILOT_ENTITIES}
 def fixture_db():
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
+    ddl_engine = create_engine(f"sqlite:///{path}")
+    try:
+        Base.metadata.create_all(
+            ddl_engine,
+            tables=[_ENTITY_BY_TABLE[t].__table__ for t in _FIXTURE],
+        )
+    finally:
+        ddl_engine.dispose()
     con = sqlite3.connect(path)
     for spec in _FIXTURE.values():
-        con.execute(spec["ddl"])
         for sql, params in spec["seed"]:
             con.executemany(sql, params)
     con.commit()

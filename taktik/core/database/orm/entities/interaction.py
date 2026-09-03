@@ -27,6 +27,11 @@ class Interaction(Base):
     interaction_time = Column(Text, nullable=True)
     created_at = Column(Text, nullable=True)
     sync_id = Column(Text, nullable=True)
+    account_username = Column(Text, nullable=True)
+    target_username = Column(Text, nullable=True)
+    origin_device_id = Column(Text, nullable=True)
+    session_sync_id = Column(Text, nullable=True)
+    source = Column(Text, nullable=True)
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Interaction id={self.id} type={self.interaction_type!r}>"

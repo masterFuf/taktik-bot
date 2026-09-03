@@ -37,3 +37,6 @@ class SocialProfile(Base):
     updated_at = Column(Text)
     sync_id = Column(Text)
     ai_screenshot_path = Column(Text)
+    primary_language = Column(Text)
+    unreachable_at = Column(Text)
+    unreachable_count = Column(Integer)

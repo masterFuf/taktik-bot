@@ -6,6 +6,9 @@ read on a COPY of the real DB, and that mapping does NOT mutate the physical sch
 
 Counterpart of front ``scripts/orm-pilot/validate-entities.cjs``.
 
+Checks column parity FIRST (every table column mapped, every mapped column real), then
+the read equivalence. The value comparison alone is blind to a column the entity forgot.
+
 Usage: python scripts/orm_pilot/validate_entities.py [path_to_real_db]
 """
 from __future__ import annotations
@@ -42,6 +45,47 @@ def _schema(conn: sqlite3.Connection, table: str):
     return row[0] if row else None
 
 
+def _check_column_parity(db_path: str) -> None:
+    """Every mapped column exists in the table, and every table column is mapped.
+
+    Comparing only the MAPPED columns (what the value check below does) cannot see a
+    column the entity forgot: the read succeeds, the field is simply absent from the
+    object. That blind spot had let fourteen columns drift across four entities --
+    ``interactions`` alone was missing five, including ``session_sync_id``.
+
+    Every mismatch is reported before exiting, so one drifted table does not hide the
+    others. Same contract as the front twin, ``scripts/orm-pilot/validate-entities.cjs``.
+    """
+    conn = sqlite3.connect(db_path)
+    failures = []
+    try:
+        for entity, _order_col in PILOT_ENTITIES:
+            table = entity.__tablename__
+            mapped = list(entity.__table__.columns.keys())
+            real = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+            if not real:
+                failures.append(f"{table}: not present in DB (entity maps a missing table)")
+                continue
+            missing = [c for c in mapped if c not in real]
+            extra = [c for c in real if c not in mapped]
+            if missing:
+                failures.append(
+                    f"{table}: entity maps columns absent from DB: {', '.join(missing)}"
+                )
+            if extra:
+                failures.append(
+                    f"{table}: DB columns not mapped by entity: {', '.join(extra)}"
+                )
+    finally:
+        conn.close()
+
+    if failures:
+        for f in failures:
+            print(f"FAIL: {f}")
+        _fail(f"{len(failures)} column-parity mismatch(es) across {len(PILOT_ENTITIES)} entities")
+    print(f"PASS column parity: {len(PILOT_ENTITIES)} entities map their table columns exactly")
+
+
 def main() -> None:
     real_db = sys.argv[1] if len(sys.argv) > 1 else _default_db()
     if not os.path.exists(real_db):
@@ -52,6 +96,8 @@ def main() -> None:
     for suffix in ("-wal", "-shm"):
         if os.path.exists(real_db + suffix):
             shutil.copyfile(real_db + suffix, copy + suffix)
+
+    _check_column_parity(copy)
 
     row_cap = 3000  # big tables: full count + first N rows compared
     engine = create_orm_engine(copy)

@@ -34,3 +34,5 @@ class Account(Base):
     created_at = Column(Text)
     updated_at = Column(Text)
     sync_id = Column(Text)
+    warmup_intensity = Column(Text)
+    warmup_preset_id = Column(Integer)
