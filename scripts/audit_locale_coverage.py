@@ -38,6 +38,25 @@ from taktik.core.social_media.tiktok.ui.selectors import locales as locales_modu
 import taktik.core.social_media.tiktok.ui.selectors.shell as shell_package
 import taktik.core.social_media.tiktok.ui.selectors.surfaces as surfaces_package
 
+#: Vide dans une langue, plein dans l'autre — et pourtant CORRECT, parce que le contrôle est
+#: atteint autrement. Une entrée par propriété, avec la mesure qui l'établit : sans ça, la seule
+#: façon de faire taire l'audit serait de recopier l'anglais en français, c'est-à-dire d'inventer
+#: un libellé que personne n'a lu sur un écran.
+#:
+#: Volontairement court. Un contrôle qu'on n'a pas encore VU reste rouge : « pas encore rencontré »
+#: n'est pas « mesuré et répondu autrement ».
+MESURE_AUTREMENT: Dict[str, str] = {
+    "VideoStateSelectors.user_followed_indicator": (
+        "Mesuré sur appareil français le 2026-09-04 (TikTok 46.x, Pixel 3a, langue détectée `fr`, "
+        "FR=10.5 EN=0.5). Le bouton « Following » / « Friends » que nomme l'entrée anglaise "
+        "n'existe pas sur le fil : sur « Pour toi » l'auteur non suivi porte un bouton "
+        "content-desc « Suivre <auteur> », et sur « Suivis » il n'y a AUCUN bouton de suivi. "
+        "is_user_followed() répond donc par ABSENCE, et rend bien « pas suivi » sur le premier "
+        "fil et « déjà suivi » sur le second, l'entrée française restant vide."
+    ),
+}
+
+
 #: Vides dans TOUTES les langues : le contrôle n'existe simplement pas encore. Ce n'est pas une
 #: dérive entre langues, et le signaler ici noierait celles qui en sont une. Elles restent
 #: visibles dans la sortie `--json`.
@@ -82,18 +101,30 @@ def main() -> int:
 
     #: Vide ici, plein ailleurs — le contrôle est mort dans cette langue-là.
     morts: Dict[str, List[str]] = {
-        langue: sorted(vides[langue] - partout) for langue in langues
+        langue: sorted(vides[langue] - partout - set(MESURE_AUTREMENT)) for langue in langues
+    }
+    #: Vide ici, plein ailleurs, mais mesuré comme atteint autrement — affiché, jamais compté.
+    mesures: Dict[str, List[str]] = {
+        langue: sorted((vides[langue] - partout) & set(MESURE_AUTREMENT)) for langue in langues
     }
     total = sum(len(v) for v in morts.values())
 
     if args.json:
-        print(json.dumps({"dead": morts, "empty_everywhere": sorted(partout)}, indent=2))
+        print(json.dumps({
+            "dead": morts,
+            "empty_everywhere": sorted(partout),
+            "measured_otherwise": {nom: MESURE_AUTREMENT[nom]
+                                   for noms in mesures.values() for nom in noms},
+        }, indent=2))
         return 1 if total else 0
+
+    mesurees = sum(len(v) for v in mesures.values())
 
     if not total:
         print(
             f"Locale coverage audit OK — {len(langues)} langue(s), "
             f"{len(partout)} propriété(s) vide(s) partout (contrôle absent, pas une dérive)"
+            + (f", {mesurees} atteinte(s) autrement (mesuré)" if mesurees else "")
         )
         return 0
 
@@ -107,6 +138,11 @@ def main() -> int:
             print(f"      {propriété}")
     if partout:
         print(f"\n  (et {len(partout)} vide(s) dans toutes les langues — contrôle absent, non compté)")
+    for langue, propriétés in mesures.items():
+        for propriété in propriétés:
+            print()
+            print(f"  [{langue}] {propriété} — atteint autrement, non compté :")
+            print(f"      {MESURE_AUTREMENT[propriété]}")
     return 1
 
 

@@ -1175,6 +1175,12 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Retirer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
         "//*[contains(@content-desc, \"Supprimer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
     ],
+    # VIDE À DESSEIN — ne pas traduire l'entrée anglaise. Mesuré le 2026-09-04 sur un Pixel 3a
+    # français (TikTok 46.x, langue détectée `fr`) : le bouton « Following » / « Friends » que
+    # nomme la liste anglaise n'existe sur AUCUN des deux fils. Sur « Pour toi », un auteur non
+    # suivi porte `content-desc="Suivre <auteur>"` ; sur « Suivis », il n'y a pas de bouton de
+    # suivi du tout. `is_user_followed()` répond donc par ABSENCE de ce bouton, et rend la bonne
+    # réponse sur les deux fils avec cette liste vide.
     "video_state.user_followed_indicator": [],
     "video_state.video_already_liked": [
         "//*[contains(@content-desc, \"Retirer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
