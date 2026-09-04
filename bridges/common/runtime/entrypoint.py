@@ -58,7 +58,7 @@ def run_bridge_main(
     # compte du precedent. `miss_capture.reinitialiser()` etait ecrit pour ce moment et n'etait
     # appele nulle part -- la note en tete de `foreground_guard` disait que ce point n'existait
     # pas ; il existe, c'est ici, et un processus de pont sert exactement un run.
-    for module in ('miss_capture', 'foreground_guard', 'screen_ring'):
+    for module in ('miss_capture', 'foreground_guard', 'screen_ring', 'run_halt'):
         try:
             __import__(f'taktik.core.shared.diagnostics.{module}', fromlist=['reinitialiser'])
             sys.modules[f'taktik.core.shared.diagnostics.{module}'].reinitialiser()

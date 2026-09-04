@@ -509,8 +509,16 @@ class FollowersWorkflow(
         
         Returns:
             str: The limit reason if reached, empty string otherwise.
-            Possible values: 'max_likes_reached', 'max_follows_reached', ''
+            Possible values: 'device_disconnected', 'target_app_crashed',
+            'max_likes_reached', 'max_follows_reached', ''
         """
+        # Ce que le run ne peut plus faire passe avant ses plafonds : les deux premiers motifs
+        # disent que le telephone n'est plus la, pas que le budget est epuise.
+        from taktik.core.shared.diagnostics.run_halt import arret_demande
+        arret = arret_demande()
+        if arret:
+            return arret['code']
+
         if self.stats.likes >= self.config.max_likes_per_session:
             return 'max_likes_reached'
         if self.stats.follows >= self.config.max_follows_per_session:

@@ -211,6 +211,12 @@ class SharedBaseAction:
                         signature=signature,
                         platform=self._platform,
                     )
+                    # Constater ne suffisait pas : le run continuait a chercher des boutons dans
+                    # une application qui n'est plus la. Le verrou est lu la ou l'on decide de
+                    # continuer -- une exception serait avalee comme toutes les autres.
+                    from taktik.core.shared.diagnostics.run_halt import (
+                        TARGET_APP_CRASHED, demander_arret)
+                    demander_arret(TARGET_APP_CRASHED, signature, platform=self._platform)
                 emit_step(
                     "stuck_on_selector",
                     action="find_and_click",
@@ -249,6 +255,12 @@ class SharedBaseAction:
                     target=selectors[0][:120] if selectors else None,
                     platform=self._platform,
                 )
+                # Un lien perdu ne revient pas tout seul dans une session : reessayer
+                # indefiniment transforme un arret propre en run fantome de plusieurs heures.
+                from taktik.core.shared.diagnostics.run_halt import (
+                    DEVICE_DISCONNECTED, demander_arret)
+                demander_arret(DEVICE_DISCONNECTED, "le telephone ne repond plus",
+                               platform=self._platform)
         except Exception:
             pass
 

@@ -8,6 +8,7 @@ from taktik.core.shared.behavior.policy import parse_behavior_policy
 from taktik.core.shared.behavior.profiles import resolve_pacing_profile
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
+from taktik.core.shared.diagnostics import run_halt
 from . import stop_reasons
 
 
@@ -95,6 +96,19 @@ class SessionManager:
             ``stop_reasons.StopReason``, which IS the English sentence it always was and
             additionally carries the structured code the desktop app reads.
         """
+        # Ce que le run ne peut plus faire, avant ce qu'il n'a plus le droit de faire : un run
+        # dont le telephone a disparu n'a pas a voir sa duree evaluee. Le verrou est pose par
+        # `base_action` quand il constate un lien perdu ou un plantage de l'application cible --
+        # deux pannes qui, jusqu'ici, laissaient la boucle tourner jusqu'a son plafond.
+        arret = run_halt.arret_demande()
+        if arret:
+            if arret["code"] == run_halt.DEVICE_DISCONNECTED:
+                reason = stop_reasons.device_disconnected(arret.get("detail"))
+            else:
+                reason = stop_reasons.target_app_crashed(arret.get("detail"))
+            log.info(f"🛑 Session ended: {reason}")
+            return False, reason
+
         # Durée totale de session (limite principale)
         session_duration = datetime.now() - self.session_start_time
         

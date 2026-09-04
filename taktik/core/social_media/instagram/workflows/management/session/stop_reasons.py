@@ -283,6 +283,8 @@ _FAMILY_BY_CODE = {
     "list_unavailable": FAMILY_FAILED,
     "followers_list_unavailable": FAMILY_FAILED,
     "empty_plan": FAMILY_FAILED,
+    "device_disconnected": FAMILY_FAILED,
+    "target_app_crashed": FAMILY_FAILED,
 }
 
 
@@ -392,6 +394,42 @@ def crashed(error: Any) -> StopReason:
     """
     text = str(error).strip() or error.__class__.__name__
     return _reason("crashed", FAMILY_FAILED, f"Workflow crashed: {text[:200]}", error=text[:200])
+
+
+def device_disconnected(detail: Any = None) -> StopReason:
+    """The link between the desktop and the phone dropped mid-run.
+
+    It used to be indistinguishable from a stale selector: both surface as "element not found".
+    The guard now tells them apart, and this is the motive it deserves — FAILED, because a run
+    that lost its phone did not run, whatever its counters say.
+
+    Measured shape of the bug it ends: the phone goes into deep sleep on a night run, or a USB
+    hub drops. Every device call raises, the workflow swallows them one by one — the `except`s
+    are everywhere by defensive construction — and the run finishes hours later having done
+    nothing. At the desk in the morning: a "completed" run, zero actions, no explanation.
+    """
+    text = str(detail).strip() if detail else ""
+    return _reason(
+        "device_disconnected",
+        FAMILY_FAILED,
+        f"Device disconnected{f': {text[:120]}' if text else ''}",
+        detail=text[:120] or None,
+    )
+
+
+def target_app_crashed(signature: Any = None) -> StopReason:
+    """Android is showing the target app's crash dialog.
+
+    A crashed app is a clean stop, not a page to close: the bot would otherwise keep looking for
+    buttons in an application that is no longer there, and file the run as completed.
+    """
+    text = str(signature).strip() if signature else ""
+    return _reason(
+        "target_app_crashed",
+        FAMILY_FAILED,
+        f"Target app crashed{f' ({text[:80]})' if text else ''}",
+        signature=text[:80] or None,
+    )
 
 
 # -- manual: someone pressed stop ----------------------------------------------

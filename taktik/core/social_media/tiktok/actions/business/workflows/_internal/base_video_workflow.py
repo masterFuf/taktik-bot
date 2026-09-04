@@ -228,7 +228,18 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
     # ------------------------------------------------------------------
 
     def _check_limits_reached(self) -> bool:
-        """Check if session limits are reached."""
+        """Check if session limits are reached.
+
+        Lit d'abord ce que le run ne PEUT plus faire, avant ce qu'il n'a plus le DROIT de faire :
+        un lien ADB tombe ou un plantage de TikTok laissait cette boucle tourner jusqu'a son
+        plafond, en avalant une exception par tour.
+        """
+        from taktik.core.shared.diagnostics.run_halt import arret_demande
+        arret = arret_demande()
+        if arret:
+            self.logger.warning(f"⛔ Arret : {arret['code']} — {arret.get('detail') or ''}")
+            return True
+
         if self.stats.videos_liked >= self.config.max_likes_per_session:
             self.logger.info("📊 Max likes per session reached")
             return True
