@@ -53,7 +53,13 @@ class ProblematicPageDetector:
                 return f.read()
         else:
             try:
-                return self.device.dump_hierarchy()
+                xml = self.device.dump_hierarchy()
+                try:
+                    from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
+                    _noter_ecran(xml, platform='instagram', note=context)
+                except Exception:  # noqa: BLE001
+                    pass
+                return xml
             except Exception as e:
                 logger.error(f"Erreur lors du dump UI pour {context}: {e}")
                 return None

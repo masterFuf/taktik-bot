@@ -72,6 +72,13 @@ def capture_surface(
     if not hierarchy:
         return None
 
+    # L'anneau prend le dump que nous tenons deja -- il ne redemande rien a l'appareil.
+    try:
+        from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
+        _noter_ecran(hierarchy, platform=platform, note=surface)
+    except Exception:  # noqa: BLE001 -- un diagnostic ne doit jamais terminer un run
+        pass
+
     fingerprint = layout_fingerprint(hierarchy)
     record: Dict[str, Any] = {
         'captureId': datetime.now().strftime('%Y-%m-%d-%H-%M-%S'),

@@ -65,6 +65,14 @@ class PopupHandler:
             self.logger.debug(f"_fast_detect: dump failed ({exc}) — falling back")
             return {'_fallback'}
 
+        # Ce dump etait lu puis jete. C'est le passage le plus frequent d'un run TikTok, donc
+        # celui qui rend l'anneau des ecrans vivant -- et il ne coute rien de plus a l'appareil.
+        try:
+            from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
+            _noter_ecran(xml, platform='tiktok')
+        except Exception:  # noqa: BLE001
+            pass
+
         def hit(selectors):
             for xp in (selectors if isinstance(selectors, list) else [selectors]):
                 try:

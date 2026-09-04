@@ -80,6 +80,13 @@ class FeedScrollMixin(PostReadingMixin):
         # nav button (always present) — the actual inline video is `FS.video_ids`.
         try:
             xml = self.device._device.dump_hierarchy()
+            # Ce dump est deja paye : le donner a l'anneau des ecrans ne coute rien a l'appareil,
+            # et c'est le passage le plus frequent d'un run Instagram.
+            try:
+                from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
+                _noter_ecran(xml, platform='instagram', note='feed_scroll')
+            except Exception:  # noqa: BLE001
+                pass
             root = etree.fromstring(xml.encode("utf-8"))
             remember_geometry = getattr(self, "_remember_post_action_geometry", None)
             if callable(remember_geometry):
