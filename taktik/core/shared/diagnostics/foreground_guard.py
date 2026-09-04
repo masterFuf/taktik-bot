@@ -21,11 +21,12 @@ minimum garde la detection vivante pendant tout le run en bornant le cout : au p
 toutes les `INTERVALLE_MINIMUM_S` secondes.
 
 **Aucune memoire de la sortie n'est gardee ici.** Un drapeau « ce run est sorti de l'app » devrait
-etre remis a zero au demarrage de chaque run, et ce point de depart commun aux deux plateformes
-n'existe pas encore cote Python -- `miss_capture.reinitialiser()` le suppose et n'est appele nulle
-part. Un etat qui ne sait pas quand recommencer est pire qu'absent : il ferait echouer d'emblee le
-run suivant du meme processus. Le seul etat porte ici est l'horodatage du dernier controle, qui ne
-peut rien casser en survivant a un run.
+etre remis a zero au demarrage de chaque run. Ce point de depart existe depuis le 2026-09-04 :
+`bridges/common/runtime/entrypoint.py::run_bridge_main`, le `main()` universel par lequel passe
+TOUT pont, appelle `reinitialiser()` sur ce module et sur `miss_capture`. Un etat qui ne sait pas
+quand recommencer serait pire qu'absent -- il ferait echouer d'emblee le run suivant du meme
+processus. Le seul etat porte ici reste l'horodatage du dernier controle, qui ne peut rien casser
+en survivant a un run.
 """
 
 from __future__ import annotations

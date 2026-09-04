@@ -52,6 +52,20 @@ def run_bridge_main(
         print(json.dumps({"type": "error", "message": f"Usage: {usage}"}))
         sys.exit(1)
 
+    # Le point de depart commun aux deux plateformes, cote Python. Les compteurs partages de
+    # diagnostic (plafond de captures, serie de blocage, horodatage du controle de premier plan)
+    # sont des etats de MODULE : sans remise a zero, ils entreraient dans le run suivant avec le
+    # compte du precedent. `miss_capture.reinitialiser()` etait ecrit pour ce moment et n'etait
+    # appele nulle part -- la note en tete de `foreground_guard` disait que ce point n'existait
+    # pas ; il existe, c'est ici, et un processus de pont sert exactement un run.
+    for module in ('miss_capture', 'foreground_guard'):
+        try:
+            __import__(f'taktik.core.shared.diagnostics.{module}', fromlist=['reinitialiser'])
+            sys.modules[f'taktik.core.shared.diagnostics.{module}'].reinitialiser()
+        except Exception:
+            # Un diagnostic qui empeche un pont de demarrer serait pire que pas de diagnostic.
+            pass
+
     config_path = sys.argv[1]
     try:
         config = load_bridge_config(config_path)
