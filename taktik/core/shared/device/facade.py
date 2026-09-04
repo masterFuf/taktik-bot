@@ -305,7 +305,14 @@ class BaseDeviceFacade:
             class _FacadeGestureHost(GestureMixin):
                 """Adapter: GestureMixin expects `self.device` to be the facade (so
                 `self.device._device` is the raw u2 and `self.device.swipe_coordinates` exists)."""
-                pass
+
+                def _gesture_start_exclusion_bounds(self):
+                    provider = getattr(self.device, "_gesture_start_exclusion_bounds", None)
+                    return provider() if callable(provider) else None
+
+                def _gesture_fallback_safe_x_band(self):
+                    provider = getattr(self.device, "_gesture_fallback_safe_x_band", None)
+                    return provider() if callable(provider) else (0.38, 0.62)
             host = _FacadeGestureHost()
             host.device = self
             host.logger = self.logger
