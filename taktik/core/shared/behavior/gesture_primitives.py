@@ -384,6 +384,7 @@ class GestureMixin:
 
     def _strong_flick(self, direction: str = "up", distance_px: Optional[float] = None,
                       vel_range: tuple = (9000.0, 13000.0),
+                      start_band: Optional[tuple] = None,
                       guard_start: bool = False,
                       velocity_scale: float = 1.0) -> bool:
         """A decisive fast FLICK that triggers a REAL Android fling so the content COASTS well past
@@ -398,6 +399,7 @@ class GestureMixin:
         try:
             path, _ = sample_swipe(int(self.screen_width), int(self.screen_height),
                                    direction=direction, distance_px=distance_px,
+                                   start_band=start_band,
                                    dist_cap_h=0.45)
             path = self._prepare_gesture_path(path, guard_start=guard_start)
             (sx, sy), (ex, ey) = path[0], path[-1]

@@ -35,7 +35,9 @@ def resource_ids_with(*ids: str, xpath_filter: str) -> List[str]:
     return [f"//*[{_any_package(rid)}]{xpath_filter}" for rid in ids]
 
 
-def resource_id_with_descendant(parent_id: str, child_id: str) -> List[str]:
+def resource_id_with_descendant(
+    parent_id: str, child_id: str, *, parent_filter: str = ""
+) -> List[str]:
     """Un parent stable qui CONTIENT un enfant stable — le couple qui departage.
 
     Necessaire parce que le conteneur est partage : `f57` designe le like ET le partage sur
@@ -45,4 +47,6 @@ def resource_id_with_descendant(parent_id: str, child_id: str) -> List[str]:
     processus, donc au meme paquet, et produire les neuf combinaisons pour n'en voir repondre
     qu'une etait huit essais pour rien.
     """
-    return [f"//*[({_any_package(parent_id)}) and .//*[{_any_package(child_id)}]]"]
+    return [
+        f"//*[({_any_package(parent_id)}) and .//*[{_any_package(child_id)}]]{parent_filter}"
+    ]

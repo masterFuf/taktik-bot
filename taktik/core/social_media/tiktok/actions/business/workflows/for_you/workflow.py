@@ -90,6 +90,12 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 
                 # Get video info immediately for real-time display
                 video_info = self.detection.get_video_info()
+
+                # A parsed hierarchy can prove that an earlier gesture opened a creator profile
+                # instead of advancing the feed. Do not report @None as a watched video or keep
+                # scrolling the profile grid; return through the existing bounded navigation.
+                if self._recover_off_video_surface(video_info):
+                    continue
                 
                 # Detect stuck state
                 if self._handle_stuck_video(video_info):
@@ -126,7 +132,7 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                     self.logger.info("📺 Skipping advertisement")
                     self.stats.ads_skipped += 1
                     self._send_stats_update()
-                    if not self.scroll.scroll_to_next_video():
+                    if not self._advance_to_next_video(video_info):
                         self.stats.errors += 1
                     continue
                 
@@ -149,12 +155,12 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 self._check_pause_needed()
                 
                 # Scroll to next video
-                if not self.scroll.scroll_to_next_video():
+                if not self._advance_to_next_video(video_info):
                     self.logger.warning("❌ Failed to scroll to next video")
                     if self.click.close_system_popup():
                         self.logger.info("✅ System popup was blocking, closed it")
                         time.sleep(0.5)
-                        self.scroll.scroll_to_next_video()
+                        self._advance_to_next_video(video_info)
                     else:
                         self.stats.errors += 1
                         if self.stats.errors > 5:
@@ -171,6 +177,30 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
             self._running = False
         
         return self.stats
+
+    def _advance_to_next_video(self, video_info: Dict[str, Any]) -> bool:
+        """Advance with the identity already captured for this video's callback and filters."""
+        return self.scroll.scroll_to_next_video(video_info.get('signature'))
+
+    def _recover_off_video_surface(self, video_info: Dict[str, Any]) -> bool:
+        """Return to For You when a parsed snapshot proves the feed video is gone."""
+        if video_info.get('video_visible') is not False:
+            return False
+
+        self.logger.warning("TikTok video surface lost; returning to the For You feed")
+        recovered = self._ensure_on_for_you(force_navigation=True)
+
+        # get_video_info shares its observation with the upcoming gesture. Navigation has made
+        # that observation stale, whether recovery succeeded or failed.
+        snapshot_device = getattr(self.detection, 'device', None)
+        clear_snapshot = getattr(snapshot_device, 'clear_video_snapshot', None)
+        if callable(clear_snapshot):
+            clear_snapshot()
+
+        if not recovered:
+            self.stats.errors += 1
+            self.logger.error("Failed to recover the For You feed after leaving the video surface")
+        return True
     
     def _train_on_video(self, video_info: Dict[str, Any]) -> bool:
         """Send the feed a signal about this video. True when the video's turn is over.
@@ -215,7 +245,7 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
         # through lets the ordinary pass swipe past it, which is the weak negative anyway.
         return False
 
-    def _ensure_on_for_you(self) -> bool:
+    def _ensure_on_for_you(self, force_navigation: bool = False) -> bool:
         """Ensure we're on the For You feed."""
         self.logger.debug("📱 Ensuring on For You feed")
         
@@ -224,7 +254,7 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
         time.sleep(0.3)
         
         # Check if already on For You
-        if self.detection.is_on_for_you_page():
+        if not force_navigation and self.detection.is_on_for_you_page():
             self.logger.debug("✅ Already on For You")
             return True
         

@@ -1,3 +1,5 @@
+from lxml import etree
+
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import (
     VIDEO_CREATOR_SELECTORS,
     VIDEO_ENGAGEMENT_SELECTORS,
@@ -5,6 +7,7 @@ from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import (
     VIDEO_SELECTORS,
     VIDEO_STATE_SELECTORS,
 )
+from tests.unit.social_media.tiktok.ui.test_tiktok_video_snapshot import VIDEO_43_XML
 
 
 def test_video_aggregate_delegates_to_creator_catalog():
@@ -37,3 +40,15 @@ def test_video_aggregate_delegates_to_media_catalog():
 def test_video_aggregate_delegates_to_state_catalog():
     assert VIDEO_SELECTORS.video_page_indicator == VIDEO_STATE_SELECTORS.video_page_indicator
     assert VIDEO_SELECTORS.like_button_unliked == VIDEO_STATE_SELECTORS.like_button_unliked
+
+
+def test_43_1_4_action_selectors_resolve_rail_buttons_not_creator_profile():
+    tree = etree.fromstring(VIDEO_43_XML.encode("utf-8"))
+
+    like_matches = tree.xpath(VIDEO_ENGAGEMENT_SELECTORS.like_button[0])
+    comment_matches = tree.xpath(VIDEO_ENGAGEMENT_SELECTORS.comment_button[0])
+
+    assert [node.get("resource-id").rsplit("/", 1)[-1] for node in like_matches] == ["f57"]
+    assert [node.get("resource-id").rsplit("/", 1)[-1] for node in comment_matches] == ["dtv"]
+    assert like_matches[0].get("bounds") == "[608,861][720,966]"
+    assert comment_matches[0].get("bounds") == "[580,966][720,1071]"

@@ -21,6 +21,48 @@ class DeviceFacade(BaseDeviceFacade):
     def __init__(self, device):
         super().__init__(device, module_name="tiktok-device-facade")
 
+    def remember_video_snapshot(self, snapshot) -> None:
+        """Share one parsed hierarchy across the atomic actions wrapping the same raw device."""
+        setattr(self._device, "_taktik_video_snapshot", snapshot)
+
+    def take_video_snapshot(self):
+        """Consume a snapshot saved by the preceding perception/advance boundary."""
+        snapshot = getattr(self._device, "_taktik_video_snapshot", None)
+        try:
+            delattr(self._device, "_taktik_video_snapshot")
+        except AttributeError:
+            pass
+        return snapshot
+
+    def clear_video_snapshot(self) -> None:
+        """Discard a cached observation after navigation changes the TikTok surface."""
+        try:
+            delattr(self._device, "_taktik_video_snapshot")
+        except AttributeError:
+            pass
+
+    def read_video_snapshot(self):
+        """Read and parse a fresh hierarchy, without any selector polling."""
+        from taktik.core.social_media.tiktok.ui.video_snapshot import parse_video_snapshot
+
+        return parse_video_snapshot(self._device.dump_hierarchy(compressed=False))
+
+    def _gesture_start_exclusion_bounds(self):
+        """Return live clickable video geometry for `GestureMixin` touch-down guarding."""
+        try:
+            snapshot = self.take_video_snapshot() or self.read_video_snapshot()
+        except Exception as exc:
+            self.logger.debug(f"TikTok gesture geometry unavailable: {exc}")
+            return None
+        if not snapshot.video_visible:
+            return []
+        return snapshot.interactive_bounds or None
+
+    @staticmethod
+    def _gesture_fallback_safe_x_band():
+        """Central media band used only when the live hierarchy cannot be read."""
+        return 0.38, 0.62
+
     # =========================================================================
     # Swipe overrides for TikTok's video UI — HUMANIZED (shared engine)
     #
@@ -99,7 +141,7 @@ class DeviceFacade(BaseDeviceFacade):
         except Exception:
             return 1.0, 1.0
 
-    def swipe_up(self, scale: float = 0.8, coast: bool = False):
+    def swipe_up(self, scale: float = 0.8, coast: bool = False, feed: bool = False):
         """Advance the feed / scroll a list DOWN — humanized. TikTok 'swipe up' (finger moves up)
         reveals the NEXT content = page 'down'.
 
@@ -114,11 +156,18 @@ class DeviceFacade(BaseDeviceFacade):
         # `coast` in the first place; the list path has no such call, so it spends its own.
         d, v = (self._motor("tiktok_feed_advance") if coast
                 else self._plan_gesture("tiktok_list_scroll_down", "controlled_swipe"))
+        host = self._gesture_host()
+        start_band = (0.34 * host.screen_height, 0.62 * host.screen_height) if feed else None
         if coast:
-            self.human_scroll("down", coast=True, distance_scale=d, velocity_scale=v)
+            host._strong_flick(
+                direction="up", velocity_scale=v, start_band=start_band, guard_start=True
+            )
         else:
-            self.human_scroll("down", distance_ratio=self._list_scroll_ratio(scale),
-                              distance_scale=d, velocity_scale=v)
+            ratio = self._list_scroll_ratio(scale)
+            host._human_swipe(
+                direction="up", distance_px=ratio * host.screen_height * d,
+                start_band=start_band, controlled=True, velocity_scale=v, guard_start=True,
+            )
 
     def swipe_down(self, scale: float = 0.8, coast: bool = False):
         """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'.

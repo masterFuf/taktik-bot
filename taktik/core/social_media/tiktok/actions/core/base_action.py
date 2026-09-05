@@ -212,7 +212,9 @@ class BaseAction(SharedBaseAction):
 
         Both land on the next video because the feed is a snapping pager; which one happens
         follows the session's current style rather than being fixed for the whole run."""
-        self.device.swipe_up(scale=0.8, coast=self._advance_mode("tiktok_feed_advance"))
+        self.device.swipe_up(
+            scale=0.8, coast=self._advance_mode("tiktok_feed_advance"), feed=True
+        )
         self._human_like_delay('scroll')
 
     def _swipe_to_previous_video(self):
