@@ -266,6 +266,72 @@ def mask_exhausted_intents(plan: InteractionPlan, exhausted) -> tuple:
     ), masked
 
 
+def resolve_against_availability(plan: InteractionPlan, *, story_available: bool,
+                                 posts_count=None) -> tuple:
+    """Confronter le plan a ce que le profil offre REELLEMENT. Rend (plan, retires).
+
+    Les intentions sont tirees a l'aveugle, avant d'avoir vu le profil : cinq des a l'arrivee,
+    puis on decouvre qu'il n'y a pas de story, ou pas de publication. Une intention sans support
+    ne produit rien -- mais elle a compte comme si le profil avait ete servi.
+
+    Mesure sur 40 sessions reelles (2026-09-05) : `story_percentage` valait 100, donc l'intention
+    « story » sortait a chaque profil ; 73 % des profils n'ont pas de story. Resultat, un profil
+    sur cinq recevait un FOLLOW et **rien d'autre** -- profil ouvert, suivi, on repart. Le reglage
+    a 100 % etait honore et sans effet, ce qui est exactement le genre de reglage qui trompe son
+    proprietaire.
+
+    Deux regles, dans cet ordre :
+
+    1. **Une intention sans support est retiree.** Pas de story -> pas de story ni de story-like ;
+       aucune publication -> ni like ni commentaire. `posts_count=None` veut dire « inconnu », pas
+       « zero » : on ne retire rien sur une ignorance.
+    2. **Le follow ne part jamais seul.** Suivre un compte sans avoir regarde une seule de ses
+       publications ni sa story ne ressemble a rien d'humain. Si, une fois (1) applique, le follow
+       est le seul geste qui atterrirait, il tombe aussi -- le profil est simplement passe.
+
+    Pure et sans dependance, comme le reste de ce module.
+    """
+    retires = []
+
+    # (1) Ce qui n'a rien sur quoi s'appliquer.
+    sans_publication = posts_count is not None and int(posts_count) <= 0
+    like_target = plan.like_target
+    do_comment = plan.do_comment
+    if sans_publication:
+        if like_target > 0:
+            retires.append('like')
+            like_target = 0
+        if do_comment:
+            retires.append('comment')
+            do_comment = False
+    if plan.do_watch_story and not story_available:
+        retires.append('story')
+
+    do_watch = plan.do_watch_story and story_available
+    do_story_like = plan.do_story_like and story_available
+
+    # (2) Le follow seul.
+    do_follow = plan.do_follow
+    if do_follow and like_target <= 0 and not do_comment and not do_watch:
+        retires.append('follow (seul)')
+        do_follow = False
+
+    if not retires:
+        return plan, []
+
+    return InteractionPlan(
+        like_target=like_target,
+        do_follow=do_follow,
+        do_comment=do_comment,
+        max_comments=plan.max_comments if do_comment else 0,
+        do_watch_story=do_watch,
+        story_like_slot=plan.story_like_slot if do_watch else -1,
+        max_story_slides=plan.max_story_slides,
+        do_story_like=do_story_like,
+        max_story_likes=plan.max_story_likes,
+    ), retires
+
+
 @dataclass
 class RelevanceGating:
     """Outcome of applying the AI engagement verdict to a resolved plan.
@@ -371,6 +437,7 @@ __all__ = [
     "sample_story_like_count",
     "sample_story_like_slots",
     "build_interaction_plan",
+    "resolve_against_availability",
     "empty_interaction_plan",
     "interaction_plan_from_payload",
 ]

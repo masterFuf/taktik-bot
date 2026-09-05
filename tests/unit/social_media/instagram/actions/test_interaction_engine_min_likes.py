@@ -201,17 +201,48 @@ def test_header_recovery_uses_visible_follow_action_as_immediate_stop_proof():
 
 
 def test_engine_logs_the_final_executable_plan():
-    eng = _Engine(_LikeBusiness(posts_liked=0), _ClickActions(follow_ok=False))
+    """Le plan annonce est celui qui va REELLEMENT s'executer, story comprise."""
+    eng = _Engine(_LikeBusiness(posts_liked=1), _ClickActions(follow_ok=True))
 
     eng._perform_interactions_on_profile(
         'erin',
-        _cfg(like_probability=0.0, follow_probability=1.0),
+        _cfg(like_probability=1.0, follow_probability=1.0, story_probability=1.0),
         profile_data=None,
     )
 
     final_logs = [message for message in eng.logger.infos if message.startswith('Plan final @erin:')]
+    assert len(final_logs) == 1
+    # Le nombre de likes est echantillonne entre min et max : le figer rendrait ce test
+    # dependant d'un tirage, pas du comportement.
+    assert 'follow=oui' in final_logs[0]
+    assert 'likes=0' not in final_logs[0]
+    # `story=non` alors que l'intention a ete tiree a 100 % : le profil n'en a pas.
+    assert 'story=non, like_story=non' in final_logs[0]
+
+
+def test_follow_seul_est_retire_quand_rien_dautre_ne_peut_atterrir():
+    """Suivre un compte sans regarder une seule publication ni sa story ne ressemble a rien.
+
+    Mesure sur 40 sessions reelles (2026-09-05) : un follow sur cinq partait ainsi. La cause
+    n'etait pas le follow mais l'ordre des decisions -- les cinq des sont jetes AVANT d'avoir vu
+    le profil, et `story_percentage: 100` sortait une intention « story » que 73 % des profils ne
+    pouvaient pas honorer.
+    """
+    clicks = _ClickActions(follow_ok=True)
+    eng = _Engine(_LikeBusiness(posts_liked=0), clicks)
+
+    res = eng._perform_interactions_on_profile(
+        'frank',
+        _cfg(like_probability=0.0, follow_probability=1.0, story_probability=1.0),
+        profile_data=None,
+    )
+
+    assert clicks.follow_calls == 0
+    assert res['follows'] == 0
+    assert res['actually_interacted'] is False
+    final_logs = [m for m in eng.logger.infos if m.startswith('Plan final @frank:')]
     assert final_logs == [
-        'Plan final @erin: likes=0, follow=oui, commentaires=0, '
+        'Plan final @frank: likes=0, follow=non, commentaires=0, '
         'story=non, like_story=non'
     ]
 

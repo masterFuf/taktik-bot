@@ -12,6 +12,7 @@ from taktik.core.shared.behavior.interaction_plan import (
     empty_interaction_plan,
     interaction_plan_from_payload,
     mask_exhausted_intents,
+    resolve_against_availability,
     sample_story_like_count,
     sample_story_like_slots,
 )
@@ -181,6 +182,31 @@ class InteractionEngineMixin:
             story_available = bool(plan.do_watch_story) and self.detection_actions.has_unseen_profile_story(
                 settle_attempts=3, settle_delay=0.35
             )
+
+            # Le plan a ete tire A L'AVEUGLE, avant d'avoir vu le profil. On sait maintenant ce
+            # qu'il offre : confronter les deux AVANT d'annoncer un « Plan final » -- sinon le plan
+            # annonce promet des gestes qui n'auront lieu nulle part.
+            #
+            # Le cas qui a motive ce point : `story_percentage` a 100 fait sortir l'intention
+            # « story » a chaque profil, mais 73 % des profils n'en ont pas. Un profil sur cinq
+            # recevait donc un FOLLOW et rien d'autre. Le reglage etait honore et sans effet.
+            #
+            # Ne s'applique pas au chemin a decision injectee : Electron a deja choisi, et ce
+            # module ne doit pas defaire ce choix.
+            if not uses_injected_decision:
+                plan, indisponibles = resolve_against_availability(
+                    plan, story_available=story_available, posts_count=posts_count,
+                )
+                if indisponibles:
+                    self.logger.info(
+                        f"🚫 @{username}: {', '.join(indisponibles)} retire(s) — rien a quoi "
+                        f"s'appliquer sur ce profil"
+                    )
+                    emit_step("plan_reduced", action="availability", target=username,
+                              removed=indisponibles)
+                    # Un plan vide n'ouvre plus rien : la story ne doit pas etre ouverte non plus.
+                    if not plan.do_watch_story:
+                        story_available = False
 
             plan_label = "Plan simulé" if decision_dry_run else "Plan final"
             self.logger.info(
