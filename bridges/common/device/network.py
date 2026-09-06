@@ -6,7 +6,11 @@ from typing import Literal
 
 from loguru import logger
 
-from bridges.common.device.network_probe import get_device_external_ip, read_public_ip
+from bridges.common.device.network_probe import (
+    get_device_external_ip,
+    measure_network_baseline,
+    read_public_ip,
+)
 from bridges.common.device.network_reset import (
     reset_airplane_cell,
     reset_airplane_mode,
@@ -189,7 +193,13 @@ def enforce_pre_session_ip_rotation(
 
     Returns False when the caller must abort. Emits the machine-readable error itself, so a bridge
     only has to propagate the exit.
+
+    Being that single entry point is also why the network BASELINE is measured here: it is the one
+    door every platform crosses at session start, with the device connected and before the first
+    gesture. Measuring it anywhere else would mean five call sites drifting apart.
     """
+    _emit_network_baseline(device_id)
+
     network_reset = config.get("networkReset") or {}
     if not network_reset.get("enabled", False):
         return True
@@ -206,6 +216,44 @@ def enforce_pre_session_ip_rotation(
         )
         return False
     return True
+
+
+def _emit_network_baseline(device_id: str) -> None:
+    """Record what the phone's connection looks like before the run touches anything.
+
+    A measurement, not a decision: nothing reads this value to lengthen a wait. It exists because
+    the question "was the network slow?" has so far only been answerable by inference — and
+    inference is how the weekend's 65 unperformed likes were nearly blamed on the wrong cause.
+
+    Both destinations on purpose. The step travels to the desktop and to an incident report; the
+    log line is what the run's own journal keeps, and the journal is what the black box collects
+    when nothing else was wired.
+    """
+    if not device_id:
+        return
+    try:
+        baseline = measure_network_baseline(device_id)
+        if not baseline:
+            logger.debug(f"Network baseline unreadable on {device_id}")
+            return
+
+        logger.info(
+            f"Network baseline: {baseline['rtt_ms']} ms avg, "
+            f"{baseline['packet_loss_pct']}% packet loss ({baseline['received']}/3 replies)"
+        )
+
+        from taktik.core.shared.telemetry import emit_step
+
+        emit_step(
+            "network_probe",
+            action="session_baseline",
+            target=device_id,
+            rtt_ms=baseline["rtt_ms"],
+            packet_loss_pct=baseline["packet_loss_pct"],
+            replies=baseline["received"],
+        )
+    except Exception as exc:  # noqa: BLE001 — a diagnostic never ends a run
+        logger.debug(f"Network baseline failed on {device_id}: {exc}")
 
 
 __all__ = [
