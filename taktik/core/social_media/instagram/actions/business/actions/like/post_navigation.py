@@ -8,6 +8,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.grid_entry import plan_prescroll, sample_entry_index, GRID_COLUMNS
 from taktik.core.shared.behavior.dwell import content_dwell
+from taktik.core.shared.diagnostics.miss_capture import signaler_ecran_inconnu
 from taktik.core.shared.telemetry import emit_step
 from ....core.ipc.emitter import IPCEmitter
 
@@ -418,6 +419,22 @@ class PostNavigationMixin:
             
             if not posts:
                 self.logger.error("No posts found in grid after scrolling")
+                # Les deux revelations ont echoue : la grille n'est pas « plus bas », elle n'est
+                # pas la. 86 des 87 pertes mesurees du 04 au 06/09 suivent immediatement une story,
+                # et personne n'a jamais vu cet ecran -- ce chemin lit `xpath(...).all()` en direct,
+                # hors de `_wait_for_element`, donc aucune capture ne se declenchait ici.
+                # `compter_serie=False` : ce selecteur ne doit pas remettre a 1 la serie de blocage
+                # d'un autre. `forcer_fichiers=True` : c'est l'ecran lui-meme qu'on vient chercher.
+                # Ne decide rien -- le retour reste `False`, a l'identique.
+                signaler_ecran_inconnu(
+                    self.device,
+                    selectors=[self.detection_selectors.post_thumbnail_selectors[0]],
+                    platform="instagram",
+                    action="grid_absent",
+                    contexte="grille_absente",
+                    compter_serie=False,
+                    forcer_fichiers=True,
+                )
                 return False
             
             first_post = posts[0]

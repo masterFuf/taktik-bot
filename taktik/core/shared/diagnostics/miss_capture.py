@@ -98,6 +98,9 @@ def capturer_echec(
     platform: str = "unknown",
     app_version: str = "",
     language: str = "",
+    contexte: str = "",
+    compter_serie: bool = True,
+    forcer_fichiers: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Capture l'écran d'un échec de recherche. Rend le RECORD de la capture, ou None.
 
@@ -110,6 +113,18 @@ def capturer_echec(
     TikTok tous les échecs Instagram, puisque l'appelant partagé ne le passait pas. Un rangement
     honnête vaut mieux qu'un faux.
 
+    Les trois options disent d'où vient l'appel, parce que la politique n'est pas la même selon
+    qu'un sélecteur manque au fil d'une recherche ou qu'un chemin nommé a constaté un échec précis :
+
+    - `contexte` : ce que l'appelant SAIT en plus du sélecteur, noté à côté de lui. Un dossier
+      d'écrans tous nommés « selector_miss » se trie en les ouvrant un par un.
+    - `compter_serie` : le comptage de blocage suit le MEME sélecteur qui échoue d'affilée. Un
+      appelant qui s'intercale avec un autre sélecteur remettrait ce compte à 1 et éteindrait la
+      garde juste au moment où la boucle s'installe — il passe donc `False`.
+    - `forcer_fichiers` : `capture_surface` n'écrit XML et PNG que si la forme a changé depuis la
+      dernière capture de la série. Un appelant qui capture précisément pour REGARDER l'écran doit
+      les demander, sinon il reçoit une empreinte et pas d'image.
+
     Ne lève jamais : un run ne rate pas parce qu'un diagnostic n'a pas pu écrire.
     """
     global _captures
@@ -117,7 +132,8 @@ def capturer_echec(
         return None
     # Compte d'abord : la serie doit continuer a se mesurer une fois le plafond d'ECRITURE
     # atteint, sinon la garde de blocage s'eteint juste quand la boucle commence.
-    _compter_repetition(str(selectors[0])[:110])
+    if compter_serie:
+        _compter_repetition(str(selectors[0])[:110])
     if _captures >= MAX_PAR_RUN:
         return None
 
@@ -131,7 +147,11 @@ def capturer_echec(
             language=language,
             # Le champ est libre, et c'est ce qui donne son sens a la capture : sans lui on garde
             # une image, avec lui on garde une QUESTION.
-            action_outcome=f"cherchait|{len(selectors)}|{cherche}",
+            action_outcome=(
+                f"cherchait|{len(selectors)}|{cherche}"
+                + (f"|{contexte}" if contexte else "")
+            ),
+            force_files=forcer_fichiers,
         )
         if not record:
             return None
@@ -145,5 +165,76 @@ def capturer_echec(
         return None
 
 
-__all__ = ["capturer_echec", "reinitialiser", "blocage_a_signaler", "repetitions",
-           "MAX_PAR_RUN", "SEUIL_BLOCAGE", "SURFACE"]
+def signaler_ecran_inconnu(
+    device: Any,
+    *,
+    selectors: Sequence[str],
+    platform: str = "unknown",
+    action: str = "selector_miss",
+    contexte: str = "",
+    compter_serie: bool = True,
+    forcer_fichiers: bool = False,
+    app_version: str = "",
+    language: str = "",
+) -> Optional[Dict[str, Any]]:
+    """Capturer l'écran ET le faire savoir. La porte unique pour « je ne reconnais pas cet écran ».
+
+    La capture est le diagnostic le plus CHER à produire — elle coûte un `dump_hierarchy` sur
+    l'appareil — et elle reste sur le disque de l'utilisateur, où personne n'ira la chercher.
+    L'événement ne fait pas voyager le fichier, mais de quoi savoir qu'un écran inconnu a été
+    rencontré, lequel, et ce qu'on y cherchait : c'est ce qui le rend exploitable dans un rapport
+    d'incident.
+
+    Les deux vont ensemble et sont donc écrits ensemble, une seule fois : le premier appelant
+    (`_wait_for_element`) portait les deux en ligne, et le second (la grille de profil introuvable)
+    aurait recopié vingt lignes pour rien.
+
+    Ne lève jamais.
+    """
+    try:
+        record = capturer_echec(
+            device,
+            selectors=selectors,
+            platform=platform,
+            app_version=app_version,
+            language=language,
+            contexte=contexte,
+            compter_serie=compter_serie,
+            forcer_fichiers=forcer_fichiers,
+        )
+        if not record:
+            return None
+
+        from taktik.core.shared.telemetry import emit_step
+
+        detail: Dict[str, Any] = {
+            "fingerprint": record.get("layoutFingerprint"),
+            "surface": record.get("surface"),
+            "platform": record.get("platform"),
+            "foreground_package": record.get("foregroundPackage"),
+            "app_version": record.get("appVersion") or None,
+            "xml_path": record.get("xmlPath"),
+            "screenshot_path": record.get("screenshotPath"),
+            "layout_changed": record.get("layoutChanged"),
+            # `dump_hierarchy` passe par `stripInvalidXMLChars` d'AOSP et mange les emoji. Le
+            # drapeau doit voyager avec la capture : une analyse qui repose sur un libellé à emoji
+            # conclurait faux, et c'est la seule chose qui l'empêche.
+            "lossy": record.get("lossy"),
+        }
+        if contexte:
+            detail["context"] = contexte
+
+        emit_step(
+            "screen_capture",
+            action=action,
+            target=str(selectors[0])[:120] if selectors else None,
+            **detail,
+        )
+        return record
+    except Exception as exc:  # noqa: BLE001 — un diagnostic ne fait jamais echouer un run
+        logger.debug(f"[miss] signalement impossible : {exc}")
+        return None
+
+
+__all__ = ["capturer_echec", "signaler_ecran_inconnu", "reinitialiser", "blocage_a_signaler",
+           "repetitions", "MAX_PAR_RUN", "SEUIL_BLOCAGE", "SURFACE"]
