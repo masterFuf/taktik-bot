@@ -1,6 +1,7 @@
 """Network inspection helpers for bridge device runtimes."""
 
 import re
+import shlex
 import time
 
 from loguru import logger
@@ -37,9 +38,18 @@ def _shell(device_id: str, command: str, timeout: int = 15) -> str:
     `run_adb_shell` splits the command on whitespace in its subprocess fallback, which shreds a
     `printf ... | toybox nc ...` pipeline. Going through `sh -c` keeps the command as one argument
     so the DEVICE shell parses it, whichever transport adb uses.
+
+    The quoting is not decoration. `adb shell` joins its arguments with spaces and sends the
+    result as ONE command line, without re-quoting: `["sh", "-c", "ping -c 3 1.1.1.1"]` reaches
+    the phone as `sh -c ping -c 3 1.1.1.1`, where `sh -c ping` runs ping with no argument at all
+    and the rest becomes $0, $1… Every command sent through this helper was returning ping's usage
+    text or nothing — measured on 18171JEC217045 the 2026-09-06, which is why `read_public_ip`
+    answered None on the whole fleet and `wait_for_internet` never saw a reply. `shlex.quote`
+    hands the device shell a single quoted word, quotes inside the command included.
     """
     try:
-        result = run_adb_shell_process(device_id, ["sh", "-c", command], timeout=timeout)
+        result = run_adb_shell_process(
+            device_id, ["sh", "-c", shlex.quote(command)], timeout=timeout)
         return f"{result.stdout or ''}\n{result.stderr or ''}".strip()
     except Exception as exc:
         logger.debug(f"ADB shell command failed on {device_id}: {exc}")
@@ -114,6 +124,56 @@ def wait_for_internet(device_id: str, timeout_seconds: float = 30.0) -> bool:
         time.sleep(3)
 
 
+#: One ping burst, not three round trips: `-c 3` returns the min/avg/max line in a single adb
+#: round trip, so the whole measurement costs one shell call instead of three.
+_PING_BURST = "ping -c 3 -W 2 1.1.1.1"
+_RTT_AVG_RE = re.compile(r"(?:rtt|round-trip)[^=]*=\s*[\d.]+/([\d.]+)/", re.IGNORECASE)
+_RTT_SAMPLE_RE = re.compile(r"time[=<]\s*([\d.]+)\s*ms", re.IGNORECASE)
+_LOSS_RE = re.compile(r"([\d.]+)%\s*packet loss", re.IGNORECASE)
+
+
+def measure_network_baseline(device_id: str) -> dict | None:
+    """Latency and packet loss as the PHONE sees them, at the start of a run. None when unreadable.
+
+    Why the phone and not the PC: the bot's waits are waits for Instagram to render on the device,
+    and the device is on its own SIM or its own Wi-Fi. The PC's connection says nothing about it —
+    it is a different network entirely, and on this fleet often a much better one.
+
+    Why at the start of a run and nowhere else: this is a BASELINE. Sixty-five likes were planned
+    and not performed over the weekend of 05-06/09, and the only way to tell a slow network from a
+    broken screen state is to know what the network looked like when the run began. Measuring it
+    inside a retry loop would cost a ping per failure and still not answer that question.
+
+    Reads only — it never changes a radio state, and never raises: a run does not fail because a
+    diagnostic could not ping.
+    """
+    output = _shell(device_id, _PING_BURST, timeout=20)
+    if not output:
+        return None
+
+    rtt: float | None = None
+    match = _RTT_AVG_RE.search(output)
+    if match:
+        rtt = float(match.group(1))
+    else:
+        # toybox does not always print the summary line; the per-packet times are still there.
+        samples = [float(value) for value in _RTT_SAMPLE_RE.findall(output)]
+        if samples:
+            rtt = sum(samples) / len(samples)
+
+    loss_match = _LOSS_RE.search(output)
+    loss = float(loss_match.group(1)) if loss_match else None
+
+    if rtt is None and loss is None:
+        return None
+
+    return {
+        "rtt_ms": round(rtt, 1) if rtt is not None else None,
+        "packet_loss_pct": loss,
+        "received": len(_RTT_SAMPLE_RE.findall(output)),
+    }
+
+
 def _read_global_flag(device_id: str, key: str) -> bool | None:
     """Read a `settings global` boolean; None when the value is absent or unparsable."""
     raw = run_adb_shell(device_id, f"settings get global {key}").strip()
@@ -142,6 +202,7 @@ __all__ = [
     "get_device_external_ip",
     "is_airplane_mode_enabled",
     "is_mobile_data_enabled",
+    "measure_network_baseline",
     "read_public_ip",
     "wait_for_internet",
 ]
