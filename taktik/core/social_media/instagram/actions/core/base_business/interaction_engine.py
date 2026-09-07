@@ -581,9 +581,15 @@ class InteractionEngineMixin:
             # qu'on en a change. Compter serait exactement le « bot qui invente ».
             deja_comptee = False
 
-            for idx in range(max_stories):
+            # La borne porte sur les slides VUES, pas sur les tours de boucle : un tour repris
+            # sur un doute ne doit pas manger le budget. La marge garde une fin garantie meme si
+            # chaque slide demandait une reprise (mesure sur appareil : 3 doutes sur 8 tours).
+            for _tour in range(max_stories * 2 + 2):
+                if stories_viewed >= max_stories:
+                    break
                 if not self.detection_actions.is_story_viewer_open():
                     break
+                idx = stories_viewed
 
                 scale_provider = getattr(self, "_behavior_reading_scale", None)
                 dwell_scale = (float(scale_provider("story_view"))
