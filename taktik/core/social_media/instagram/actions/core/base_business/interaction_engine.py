@@ -20,6 +20,36 @@ from taktik.core.shared.telemetry import emit_step
 from taktik.core.shared.behavior.dwell import story_dwell
 
 
+def why_like_fell_short(
+    *,
+    technical_failure: bool,
+    failure_stage: Optional[str],
+    posts_count: Optional[int],
+    min_likes: int,
+) -> str:
+    """Dire POURQUOI le like n'a pas atteint son seuil, au lieu de deviner.
+
+    Le message affichait « (not enough posts) » quelle que soit la cause -- et la plus frequente
+    est l'inverse de ce qu'il affirmait : la grille n'a pas pu s'ouvrir, sur des profils qui en
+    ont des centaines (@silvia_gi_sen, 1004 publications, 06/09). L'etape d'echec remonte deja
+    jusqu'ici (`failure_stage`), elle n'etait simplement pas lue.
+
+    Ordre volontaire : un echec technique explique tout le reste, y compris un compte de
+    publications qui paraitrait faible. Et `posts_count` a `None` veut dire « inconnu », jamais
+    « zero » -- on ne l'accuse pas d'une ignorance.
+    """
+    if technical_failure:
+        return f"the post grid could not be opened ({failure_stage or 'unknown stage'})"
+    if posts_count is not None:
+        try:
+            total = int(posts_count)
+        except (TypeError, ValueError):
+            total = None
+        if total is not None and total < min_likes:
+            return f"the profile only has {total} post(s)"
+    return "the likes did not land"
+
+
 class InteractionEngineMixin:
     """Mixin: moteur d'interaction unifié (perform_interactions, stories, IPC events)."""
 
@@ -305,9 +335,15 @@ class InteractionEngineMixin:
                     # engine (target, hashtag, post_url, feed, notifications).
                     like_meets_threshold = (not should_like) or result['likes'] >= min_likes
                     if should_like and not like_meets_threshold:
+                        pourquoi = why_like_fell_short(
+                            technical_failure=bool(likes_result.get('technical_failure')),
+                            failure_stage=likes_result.get('failure_stage'),
+                            posts_count=posts_count,
+                            min_likes=min_likes,
+                        )
                         self.logger.info(
-                            f"⏭️ @{username}: only {result['likes']}/{min_likes} min likes possible "
-                            f"(not enough posts) — like won't count, still evaluating follow/story"
+                            f"⏭️ @{username}: only {result['likes']}/{min_likes} min likes — "
+                            f"{pourquoi}; like won't count, still evaluating follow/story"
                         )
 
                     if (like_meets_threshold and result['likes'] > 0) or result['comments'] > 0:
