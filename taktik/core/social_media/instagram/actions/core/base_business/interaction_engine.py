@@ -18,6 +18,7 @@ from taktik.core.shared.behavior.interaction_plan import (
 )
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.shared.behavior.dwell import story_dwell
+from ...atomic.story_state import compare_slides, observe_slide
 
 
 def why_like_fell_short(
@@ -570,6 +571,16 @@ class InteractionEngineMixin:
             watch_times = []
             story_like_times = []
 
+            # Ce qu'on regarde en arrivant sur la slide, pour savoir en repartant si c'est
+            # encore la meme. Une story dure de 2,5 s a 27 s (mesure du 2026-09-07, 19 durees) :
+            # une attente de 2 a 5 s tombe donc parfois APRES la fin de la slide, et le tap qui
+            # suivait en sautait alors une sans que personne le voie.
+            avant = observe_slide(self.device)
+            incertitudes = 0
+            # Un tour repris sur un doute ne compte pas une seconde slide : rien ne prouve
+            # qu'on en a change. Compter serait exactement le « bot qui invente ».
+            deja_comptee = False
+
             for idx in range(max_stories):
                 if not self.detection_actions.is_story_viewer_open():
                     break
@@ -579,9 +590,39 @@ class InteractionEngineMixin:
                                if callable(scale_provider) else 1.0)
                 view_duration = story_dwell(random.uniform(2, 5) * dwell_scale)
                 time.sleep(view_duration)
-                stories_viewed += 1
-                watch_times.append(self._action_timestamp())
-                self._count_live('stories_watched')
+                if not deja_comptee:
+                    stories_viewed += 1
+                    watch_times.append(self._action_timestamp())
+                    self._count_live('stories_watched')
+                deja_comptee = False
+
+                # A-t-elle defile toute seule pendant qu'on la regardait ?
+                apres = observe_slide(self.device)
+                # Ne rien savoir n'est pas un evenement : on retombe alors exactement sur le
+                # comportement d'avant (regarder, puis taper).
+                verdict = compare_slides(avant, apres) if apres is not None else 'same'
+                if verdict == 'gone':
+                    emit_step("story", action="ended_alone", target=username, slide=idx + 1)
+                    self.logger.debug(f"Story @{username}: terminee seule apres la slide {idx + 1}")
+                    break
+                if verdict == 'advanced':
+                    # Elle a avance sans nous : taper ferait sauter la slide sur laquelle on
+                    # vient d'arriver. On prend la nouvelle comme reference et on la regarde.
+                    emit_step("story", action="advanced_alone", target=username, slide=idx + 1)
+                    self.logger.debug(f"Story @{username}: slide {idx + 1} passee seule, pas de tap")
+                    avant = apres
+                    incertitudes = 0
+                    continue
+                if verdict == 'unsure' and incertitudes == 0:
+                    # L'image a change mais rien ne le prouve (une video bouge aussi). On laisse
+                    # passer UN tour plutot que de taper sur une slide peut-etre deja partie ;
+                    # au tour suivant on tape, pour ne pas rester bloque sur une video animee.
+                    incertitudes += 1
+                    deja_comptee = True
+                    avant = apres
+                    continue
+                incertitudes = 0
+                avant = apres
 
                 # Like this slide if it's one of the planned (varied) slots.
                 if want_like and idx in like_slots:
@@ -595,6 +636,7 @@ class InteractionEngineMixin:
                         pass
 
                 has_next = self.nav_actions.navigate_to_next_story()
+                avant = observe_slide(self.device) if has_next else avant
                 # Safety net: should an advance tap still land on an interactive sticker (countdown,
                 # poll…), it opens a consumption sheet OVER the story — back out of it so the story
                 # flow isn't blocked (the advance itself already steers around such stickers).
