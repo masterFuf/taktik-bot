@@ -102,9 +102,12 @@ class _StoryAdvanceHost(SearchNavigationMixin):
         self.behavior_state = _BehaviorState()
         self.swipes = []
         self.delays = []
+        self.taps = []
+        self.viewer_present = True
+        self.presence_lue = 0
         self.device = SimpleNamespace(
             info={"displayWidth": 1080, "displayHeight": 2280},
-            human_tap=lambda _zone, quick=False: quick,
+            human_tap=self._human_tap,
             human_hswipe=self._human_hswipe,
             click=lambda *_args: None,
         )
@@ -121,6 +124,15 @@ class _StoryAdvanceHost(SearchNavigationMixin):
     @staticmethod
     def _wait_for_element(_selector, timeout=0):
         return timeout == 2
+
+    def _is_element_present(self, _selectors):
+        """Par defaut le host est DANS la visionneuse ; les tests de la garde le contredisent."""
+        self.presence_lue += 1
+        return self.viewer_present
+
+    def _human_tap(self, zone, quick=False):
+        self.taps.append((zone, quick))
+        return quick
 
     def _human_hswipe(self, direction, **kwargs):
         self.swipes.append((direction, kwargs))
@@ -233,3 +245,50 @@ def test_generic_post_pager_propagates_horizontal_swipe_failure(monkeypatch):
 
     assert host.behavior_state.calls == [("generic_post_pager", "hswipe")]
     assert host.delays == []
+
+
+# --- la garde : ne jamais taper dans l'ecran d'en dessous -------------------------------------
+#
+# Une story se termine toute seule, Instagram rend la main au profil, et le tap d'avancement
+# suivant tombe dans la GRILLE (la zone d'avancement couvre 0,30-0,70 h, soit les vignettes).
+# Une publication s'ouvre : 86 des 87 pertes de grille du 04 au 07/09 suivent une story, et les
+# captures d'ecran du 07/09 montrent l'ecran « Publications » ouvert sur la cible.
+
+def test_aucun_tap_quand_la_visionneuse_est_deja_partie():
+    host = _VerifiedStoryAdvanceHost([(False, ((), (), ()))], viewer_present=False)
+
+    assert host.navigate_to_next_story() is False
+    assert host.taps == []
+    assert host.delays == []
+
+
+def test_une_signature_vide_mais_une_visionneuse_presente_laisse_taper():
+    """Une story sans marqueur textuel rend une signature vide : ce n'est pas une sortie."""
+    host = _VerifiedStoryAdvanceHost([(False, ((), (), ()))], viewer_present=True)
+
+    assert host.navigate_to_next_story() is True
+    assert len(host.taps) == 1
+    assert host.presence_lue == 1
+
+
+def test_une_signature_qui_porte_la_story_ne_coute_aucune_lecture():
+    """Le cas courant : la signature vient d'etre lue, la garde ne redemande rien a l'appareil."""
+    signature = (True, (((1, 3),), (("reel_viewer_title", "", "kamirussoa"),), ()))
+    host = _VerifiedStoryAdvanceHost([signature, (True, (((2, 3),), (), ()))])
+
+    assert host.navigate_to_next_story() is True
+    assert host.presence_lue == 0
+    assert len(host.taps) == 1
+
+
+def test_la_garde_ne_touche_pas_le_retour_arriere():
+    """La garde ne vise que l'AVANCEMENT.
+
+    Un retour arriere est un swipe horizontal, pas un tap dans une zone qui recouvre la grille :
+    il ne peut pas ouvrir une publication, et rien ne justifie de le priver d'une signature vide.
+    """
+    host = _VerifiedStoryAdvanceHost([(False, ((), (), ()))], viewer_present=False)
+
+    assert host.navigate_to_previous_story() is True
+    assert host.swipes == [("right", {"distance_scale": 1.04, "velocity_scale": 0.90})]
+    assert host.presence_lue == 0

@@ -11,10 +11,28 @@ from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_hswipe_raw
+from taktik.core.shared.telemetry import emit_step
 from ..story_state import parse_story_position
 
 
 _STORY_TRANSITION_POLL_DELAYS = (0.12, 0.18, 0.28, 0.40)
+
+
+def _signature_shows_a_story(signature) -> bool:
+    """True quand la signature porte au moins un marqueur de la visionneuse.
+
+    `_story_transition_signature` rend `(fiable, (positions, identites, barres))`, ou `None` si
+    l'ecran n'a pas pu etre lu. Les trois tuples vides veulent dire qu'AUCUN element de story n'est
+    a l'ecran -- la visionneuse est partie. Le drapeau `fiable`, lui, ne dit que si la signature
+    permet de REJETER une transition ; il vaut `False` sur une story sans marqueur de position,
+    donc il ne peut pas servir a repondre a cette question-ci.
+    """
+    if not signature:
+        return False
+    try:
+        return any(signature[1])
+    except (IndexError, TypeError):
+        return False
 
 
 def _safe_story_advance_zone(screen_width: int, screen_height: int, sticker: Optional[dict]):
@@ -486,6 +504,28 @@ class SearchNavigationMixin(BaseAction):
             tap_x = (zx0 + zx1) // 2
             tap_y = (zy0 + zy1) // 2
             before_signature = self._story_transition_signature()
+
+            # Ne jamais taper sans savoir sur QUOI. Une story se termine toute seule, et Instagram
+            # rend alors la main au profil : le tap d'avancement suivant part quand meme, et la
+            # zone d'avancement (0,62-0,88 w x 0,30-0,70 h) tombe en plein dans la GRILLE du
+            # profil. Une publication s'ouvre, le follow tape le bouton du post au lieu de celui du
+            # profil, et la phase like ne trouve plus de vignettes -- « (not enough posts) » sur un
+            # compte qui en a mille. Mesure du 04 au 07/09 : 86 des 87 pertes de grille suivent
+            # immediatement une story, et les captures d'ecran du 07/09 montrent l'ecran
+            # « Publications » ouvert sur la cible.
+            #
+            # La signature vient d'etre lue, donc le cas courant ne coute RIEN : elle porte des
+            # marqueurs tant qu'on est dans la visionneuse. Ce n'est que sur une signature vide --
+            # ecran illisible, ou story sans marqueur textuel -- qu'on paie une verification.
+            if not _signature_shows_a_story(before_signature) and not self._is_element_present(
+                self.detection_selectors.story_viewer_indicators
+            ):
+                self.logger.debug(
+                    "Story viewer already gone before the advance tap — not tapping into the "
+                    "profile underneath"
+                )
+                emit_step("story", action="advance_skipped", reason="viewer_gone")
+                return False
 
             # Human-tap a varied point in the (sticker-safe) right-side advance zone; quick tap so a
             # held press never pauses the story. Fall back to the zone centre if sampling fails.
