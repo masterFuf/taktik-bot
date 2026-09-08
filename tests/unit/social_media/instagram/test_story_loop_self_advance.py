@@ -24,8 +24,14 @@ from taktik.core.social_media.instagram.actions.atomic.story_state import (  # n
 
 
 class _Detection:
-    def __init__(self, ouvertures):
+    def __init__(self, ouvertures, sur_un_post=False):
         self._restantes = ouvertures
+        self.sur_un_post = sur_un_post
+        self.post_lu = 0
+
+    def is_on_post_screen(self):
+        self.post_lu += 1
+        return self.sur_un_post
 
     def has_stories(self):
         return True
@@ -44,6 +50,7 @@ class _Detection:
 class _Clicks:
     def __init__(self):
         self.like_calls = 0
+        self.fermetures = 0
 
     def click_story_ring(self):
         return True
@@ -55,22 +62,32 @@ class _Clicks:
     def close_story(self):
         return True
 
+    def close_story_if_open(self, _detection):
+        """La production expose cette methode ; sans elle le host retombait sur un `back` a
+        l'aveugle en fin de methode, qui polluait le comptage des retours."""
+        self.fermetures += 1
+        return True
+
 
 class _Nav:
-    def __init__(self):
+    def __init__(self, sortie_apres=None):
         self.taps = 0
+        self._sortie_apres = sortie_apres
 
     def navigate_to_next_story(self):
         self.taps += 1
+        if self._sortie_apres is not None and self.taps >= self._sortie_apres:
+            return False
         return True
 
 
 class _Host(InteractionEngineMixin):
-    def __init__(self, ouvertures=50):
-        self.detection_actions = _Detection(ouvertures)
+    def __init__(self, ouvertures=50, sur_un_post=False, sortie_apres=None):
+        self.detection_actions = _Detection(ouvertures, sur_un_post)
         self.click_actions = _Clicks()
-        self.nav_actions = _Nav()
-        self.device = types.SimpleNamespace(press=lambda *_a, **_k: None)
+        self.nav_actions = _Nav(sortie_apres)
+        self.retours = []
+        self.device = types.SimpleNamespace(press=lambda touche: self.retours.append(touche))
         self.logger = types.SimpleNamespace(
             debug=lambda *a, **k: None, error=lambda *a, **k: None, info=lambda *a, **k: None)
 
@@ -87,16 +104,18 @@ class _Host(InteractionEngineMixin):
         return None
 
 
-def _jouer(monkeypatch, observations, *, max_stories=3):
+def _jouer(monkeypatch, observations, *, max_stories=3, sur_un_post=False, sortie_apres=None,
+           do_story_like=False, fallback_like_slot=0):
     """`observations` est la suite que `observe_slide` rendra, appel apres appel."""
     monkeypatch.setattr(ie.time, 'sleep', lambda _s: None)
     monkeypatch.setattr(ie.random, 'uniform', lambda a, _b: a)
     suite = list(observations)
     monkeypatch.setattr(ie, 'observe_slide',
                         lambda *_a, **_k: suite.pop(0) if suite else suite_derniere(observations))
-    host = _Host()
+    host = _Host(sur_un_post=sur_un_post, sortie_apres=sortie_apres)
     res = host._view_stories_on_current_profile(
-        'u', do_story_like=False, max_stories=max_stories)
+        'u', do_story_like=do_story_like, max_stories=max_stories,
+        fallback_like_slot=fallback_like_slot)
     return host, res
 
 
@@ -186,3 +205,41 @@ def test_une_story_qui_defile_entierement_seule_est_comptee_juste(monkeypatch):
 
     assert host.nav_actions.taps == 0
     assert res['stories_viewed'] == 3
+
+
+# --- le filet : le tap final a ouvert une publication -------------------------------------------
+#
+# Entre la garde de `navigate_to_next_story` et l'injection du tap, la story peut se terminer. Le
+# tap tombe alors sur le profil, dans la bande qui porte la grille. Mesure du 08/09 : les six
+# pertes de grille qui restent suivent TOUTES une story.
+
+def test_une_publication_ouverte_par_le_tap_final_est_refermee(monkeypatch):
+    host, _res = _jouer(monkeypatch, [vue('8 h')] * 8,
+                        max_stories=1, sur_un_post=True, sortie_apres=1)
+
+    assert host.retours == ['back']
+
+
+def test_rien_n_est_referme_quand_on_est_bien_revenu_au_profil(monkeypatch):
+    host, _res = _jouer(monkeypatch, [vue('8 h')] * 8,
+                        max_stories=1, sur_un_post=False, sortie_apres=1)
+
+    assert host.retours == []
+
+
+def test_le_like_de_secours_ne_part_pas_apres_un_retour_de_publication(monkeypatch):
+    """Le filet passe AVANT le like de secours, et l'annule.
+
+    Le slot planifie (5) n'est jamais atteint sur une story d'une slide : sans publication ouverte,
+    le secours tire pour qu'un story-like promis arrive quand meme. Mais apres un retour de
+    publication la visionneuse n'est plus la — ce like partirait sur le PROFIL.
+    """
+    sans_post, _ = _jouer(monkeypatch, [vue('8 h')] * 8, max_stories=1,
+                          sortie_apres=1, do_story_like=True, fallback_like_slot=5)
+    assert sans_post.click_actions.like_calls == 1, "le secours doit tirer dans le cas normal"
+
+    avec_post, _ = _jouer(monkeypatch, [vue('8 h')] * 8, max_stories=1, sur_un_post=True,
+                          sortie_apres=1, do_story_like=True, fallback_like_slot=5)
+
+    assert avec_post.retours == ['back']
+    assert avec_post.click_actions.like_calls == 0

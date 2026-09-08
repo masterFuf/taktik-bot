@@ -648,10 +648,31 @@ class InteractionEngineMixin:
                 # flow isn't blocked (the advance itself already steers around such stickers).
                 self._recover_from_blocking_modal(username, context="story")
                 if not has_next:
+                    # Filet, et il vient AVANT le like de secours : entre la garde de
+                    # `navigate_to_next_story` et l'injection du tap, la story peut se terminer.
+                    # Le tap tombe alors sur le profil, dans la bande qui porte la GRILLE, et
+                    # ouvre une publication -- liker la, ce serait liker ce post-la.
+                    # Mesure du 08/09 : le correctif a fait tomber les pertes de grille de 2,2-3,2 %
+                    # a 1,2 % des profils, et les six qui restent suivent TOUTES une story. Cette
+                    # course-la est incompressible ; ce qui se rattrape, c'est l'ecran ou elle
+                    # nous laisse.
+                    sorti_sur_une_publication = False
+                    try:
+                        if self.detection_actions.is_on_post_screen():
+                            self.logger.debug(
+                                f"Story @{username}: le tap final a ouvert une publication — retour")
+                            emit_step("story", action="post_opened_by_tap", target=username)
+                            self.device.press("back")
+                            self._human_like_delay("navigation")
+                            sorti_sur_une_publication = True
+                    except Exception:
+                        pass
+
                     # Last slide: if likes were planned but none landed yet (story shorter
                     # than the sampled slots), leave a single like here so a planned
-                    # story-like still happens.
-                    if want_like and stories_liked == 0:
+                    # story-like still happens. Jamais apres un retour de publication : la
+                    # visionneuse n'est plus la, et ce like partirait sur le profil.
+                    if want_like and stories_liked == 0 and not sorti_sur_une_publication:
                         try:
                             if self.click_actions.like_story():
                                 stories_liked += 1
