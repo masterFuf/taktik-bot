@@ -79,8 +79,21 @@ MIN_SELF_USES = 4
 
 
 def _fold(value: str) -> str:
+    """Lowercased, accents KEPT.
+
+    Stripping accents conflates words French keeps apart — `marche`/`marché`, `trace`/`tracé`,
+    `cote`/`côté`. Measured while widening the reference to 1 396 nouns, that produced a
+    confident correction of "la marche" into "du marché": a fabrication, and precisely the
+    failure this script exists to avoid. A model that drops an accent simply will not match,
+    which costs a missed correction rather than an invented one — the right way round.
+    """
+    return unicodedata.normalize("NFC", value or "").lower()
+
+
+def _bare(value: str) -> str:
+    """Accent-free, for comparing against the exclusion lists, which are written unaccented."""
     decomposed = unicodedata.normalize("NFD", value or "")
-    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
 
 
 def pairs(texts: Iterable[str], language: str = "fr") -> Iterator[Tuple[str, str, str]]:
@@ -89,12 +102,15 @@ def pairs(texts: Iterable[str], language: str = "fr") -> Iterator[Tuple[str, str
     if not determiners:
         return
     pattern = re.compile(
-        r"\b(" + "|".join(sorted(determiners, key=len, reverse=True)) + r")\s+([a-z]{3,20})\b"
+        r"\b(" + "|".join(sorted(determiners, key=len, reverse=True))
+        + r")\s+([^\W\d_]{3,20})\b",
+        re.UNICODE,
     )
     excluded = NON_NOUNS.get(language, set())
     for text in texts:
         for determiner, noun in pattern.findall(_fold(text)):
-            if noun in excluded or noun in determiners:
+            # Only the LIST comparison folds; the key that enters the lexicon keeps its accents.
+            if _bare(noun) in excluded or noun in determiners:
                 continue
             yield noun, determiners[determiner], f"{determiner} {noun}"
 
@@ -113,33 +129,85 @@ def reference_lexicon(texts: Iterable[str], language: str = "fr") -> Dict[str, T
     }
 
 
-def _published(db: Path, language: str) -> List[str]:
+def _corpora(db: Path, language: str) -> Dict[str, List[str]]:
+    """The three bodies of `language` text the base already holds, kept apart on purpose.
+
+    Our own published comments are one witness. The other two are written by REAL PEOPLE — the
+    captions of the posts we commented on, and the bios of the profiles we classified — and a
+    person is a better authority on their own language than any model. The bios corpus alone is
+    two orders of magnitude larger than our comments.
+
+    They are not merged blindly: `merged_lexicon` keeps a noun only when every corpus that knows
+    it agrees. Measured 2026-09-10 on 98 nouns shared between our comments and the captions,
+    there was not one disagreement — which is what makes the model-written corpus usable at all.
+    """
     connection = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
-        return [row[0] for row in connection.execute(
-            "SELECT comment_text FROM posted_comments "
-            "WHERE source='ai' AND comment_text <> '' AND COALESCE(language,?)=?",
-            (language, language),
-        )]
+        def rows(sql: str, *params) -> List[str]:
+            try:
+                return [r[0] for r in connection.execute(sql, params) if r[0]]
+            except sqlite3.Error:
+                return []
+
+        return {
+            "our published comments": rows(
+                "SELECT comment_text FROM posted_comments "
+                "WHERE source='ai' AND comment_text <> '' AND COALESCE(language,?)=?",
+                language, language),
+            "post captions (humans)": rows(
+                "SELECT DISTINCT post_caption FROM posted_comments WHERE post_caption <> ''"),
+            "profile bios (humans)": rows(
+                "SELECT biography FROM instagram_profiles "
+                "WHERE biography IS NOT NULL AND biography <> ''"),
+        }
     finally:
         connection.close()
+
+
+def merged_lexicon(corpora: Dict[str, List[str]], language: str = "fr"
+                   ) -> Tuple[Dict[str, Tuple[str, int, str]], List[Tuple[str, Dict[str, str]]]]:
+    """One lexicon from several corpora, and the nouns they disagree about.
+
+    A disagreement is DROPPED, never arbitrated by majority. It usually means the two corpora
+    are not talking about the same word: `trace`/`tracé` and `marche`/`marché` collided that way
+    while accents were still being folded, and the rule caught both before they could produce a
+    confident wrong correction.
+    """
+    per_corpus = {name: reference_lexicon(texts, language) for name, texts in corpora.items()}
+    merged: Dict[str, Tuple[str, int, str]] = {}
+    conflicts: List[Tuple[str, Dict[str, str]]] = []
+    for noun in set().union(*[set(lex) for lex in per_corpus.values()]) if per_corpus else ():
+        opinions = {name: lex[noun] for name, lex in per_corpus.items() if noun in lex}
+        genders = {entry[0] for entry in opinions.values()}
+        if len(genders) > 1:
+            conflicts.append((noun, {name: e[0] for name, e in opinions.items()}))
+            continue
+        best = max(opinions.values(), key=lambda entry: entry[1])
+        merged[noun] = (next(iter(genders)), sum(e[1] for e in opinions.values()), best[2])
+    return merged, conflicts
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, required=True,
-                        help="taktik-data.db — supplies the reference corpus (published comments)")
+                        help="taktik-data.db — supplies the reference corpora")
     parser.add_argument("--target", type=Path,
                         help="JSON list of comments written by the model being audited")
     parser.add_argument("--language", default="fr")
     parser.add_argument("--self-check", action="store_true",
-                        help="report the reference model's own inconsistencies instead")
+                        help="report each corpus's own inconsistencies instead")
     args = parser.parse_args()
 
-    reference_texts = _published(args.db, args.language)
-    reference = reference_lexicon(reference_texts, args.language)
-    print(f"reference : {len(reference_texts)} published comments -> "
-          f"{len(reference)} nouns with an invariable gender")
+    corpora = _corpora(args.db, args.language)
+    reference, conflicts = merged_lexicon(corpora, args.language)
+    for name, texts in corpora.items():
+        print(f"   {name:<24}{len(texts):>7} texts, {sum(map(len, texts)) // 1000:>6} kc")
+    print(f"reference : {len(reference)} nouns with an invariable gender, "
+          f"{len(conflicts)} dropped for disagreeing")
+    for noun, opinions in conflicts[:8]:
+        print(f"   dropped {noun:<18}{opinions}")
+
+    reference_texts = corpora["our published comments"]
 
     if args.self_check or not args.target:
         counts: Dict[str, collections.Counter] = collections.defaultdict(collections.Counter)
