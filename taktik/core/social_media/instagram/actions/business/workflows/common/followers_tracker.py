@@ -34,6 +34,10 @@ class FollowersTracker:
         # Internal state used to detect anomalies
         self.visited_usernames: List[str] = []  # Ordre de visite
         self.visible_history: List[List[str]] = []  # history of the visible pages
+        # Scroll counter at the time of each entry of `visible_history`, same length and same
+        # order. It is what tells "I looked five times" from "I scrolled five times" — see
+        # `_pages_settled_after_each_scroll`.
+        self.visible_history_scrolls: List[int] = []
         self.scroll_count = 0
         self.loop_detected_count = 0
         self.repeats_to_end = 5  # identical pages needed to call the end
@@ -71,7 +75,8 @@ class FollowersTracker:
             self.first_page_usernames = visible_usernames.copy()
         
         self.visible_history.append(visible_usernames.copy())
-        
+        self.visible_history_scrolls.append(self.scroll_count)
+
         # === DÉTECTION DE BOUCLE (style Insomniac) ===
         loop_detected = False
         is_same_as_previous = False
@@ -120,6 +125,29 @@ class FollowersTracker:
         
         return loop_detected
     
+    def _pages_settled_after_each_scroll(self) -> List[List[str]]:
+        """One page per scroll: the LAST state seen while the list had not moved again.
+
+        `visible_history` is fed on EVERY scan, and the loop deliberately rescans the same page
+        while it still holds a fresh follower (process one -> back -> rescan). So the history
+        naturally contains runs of identical pages that no scroll separates: reading it raw
+        answers "did I look at the same page N times", which is always true on a page being
+        worked through, instead of "did N scrolls fail to bring anything new".
+
+        Collapsing on the scroll counter restores the intended question. Same split as the
+        `new_usernames_found == 0` gate that protects `ScrollEndDetector` in the direct loop —
+        this tracker was simply never given it.
+        """
+        pages: List[List[str]] = []
+        last_scroll: Optional[int] = None
+        for page, scrolls in zip(self.visible_history, self.visible_history_scrolls):
+            if pages and scrolls == last_scroll:
+                pages[-1] = page  # same scroll: the later reading is the settled one
+            else:
+                pages.append(page)
+                last_scroll = scrolls
+        return pages
+
     def is_end_of_list(self) -> bool:
         """
         Detect whether the end of the list is reached.
@@ -127,33 +155,40 @@ class FollowersTracker:
         Conditions guarding against false positives:
         - a minimum number of scrolls performed
         - a minimum number of usernames seen
-        - the last N pages are identical
+        - the last N pages, one per scroll, are identical
         """
         # Avoid false positives at the very start of a session
         if self.scroll_count < 10:
             return False
-        
+
         # Count the unique usernames seen in the history
         all_seen_usernames = set()
         for page in self.visible_history:
             all_seen_usernames.update(page)
-        
+
         if len(all_seen_usernames) < 50:
             return False
-        
-        if len(self.visible_history) < self.repeats_to_end:
+
+        # One page per scroll, never one per look: five rescans of a page the loop is still
+        # working through are not five scrolls that brought nothing.
+        pages = self._pages_settled_after_each_scroll()
+
+        if len(pages) < self.repeats_to_end:
             return False
-        
-        last_page = self.visible_history[-1]
+
+        last_page = pages[-1]
         for i in range(2, self.repeats_to_end + 1):
-            if self.visible_history[-i] != last_page:
+            if pages[-i] != last_page:
                 return False
-        
+
         self._log_event("END_OF_LIST_DETECTED", {
-            "message": f"Mêmes followers vus {self.repeats_to_end} fois consécutives après {self.scroll_count} scrolls",
+            "message": f"Mêmes followers vus après {self.repeats_to_end} scrolls consécutifs "
+                       f"(total {self.scroll_count} scrolls)",
             "last_page": last_page[:5],
             "total_visited": len(self.visited_usernames),
-            "scroll_count": self.scroll_count
+            "scroll_count": self.scroll_count,
+            "scans": len(self.visible_history),
+            "pages_after_scroll": len(pages),
         })
         return True
     

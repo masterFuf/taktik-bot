@@ -134,18 +134,35 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
             # Same shape for the relaunch: one per stretch of progress, never on a block.
             restart_spent_at = None
 
-            def list_was_only_loading(reason, already_seen=None):
+            def reopen_source_list():
+                """Last resort of the net: leave the list and open it again.
+
+                Lands at the TOP, so the scroll allowance goes back — the same rule, and for the
+                same reason, as after a relaunch: the run must be able to scroll down past what
+                it has already worked.
+                """
+                nonlocal scroll_attempts
+                if not self._reopen_source_list(
+                        target_username, config, deep_link_percentage, force_search_for_target):
+                    return False
+                scroll_attempts = 0
+                return True
+
+            def list_was_only_loading(reason, already_seen=None, reopen=None):
                 """True if the list came back — the caller must then resume, not stop.
 
                 `already_seen` is required at the gate where the screen was NOT empty: there,
                 only a row we have never seen proves the list moved.
+
+                `reopen` is passed only where the screen IS empty: on a full page there is a
+                position worth keeping, and leaving would trade it for rows already worked.
                 """
                 nonlocal reload_spent_at, scroll_detector, consecutive_empty_screens
                 nonlocal consecutive_top_loops, no_new_profiles_count, known_usernames_streak
                 if reload_spent_at is not None and stats['interacted'] <= reload_spent_at:
                     return False
                 if not self._list_came_back_after_waiting(
-                        reload_policy, reason, total_usernames_seen, already_seen):
+                        reload_policy, reason, total_usernames_seen, already_seen, reopen):
                     return False
                 reload_spent_at = stats['interacted']
                 # The same gates the private-zone transport clears, for the same reason: they
@@ -215,7 +232,8 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         # screen / navigation drift). Blind-scrolling further is pure waste and
                         # a detectable non-human burst.
                         self.logger.error("🛑 Followers list unavailable (4 consecutive empty scans) — ending run")
-                        if list_was_only_loading(stop_reasons.list_unavailable()):
+                        if list_was_only_loading(stop_reasons.list_unavailable(),
+                                                 reopen=reopen_source_list):
                             continue
                         session_stop_reason = session_stop_reason or stop_reasons.list_unavailable()
                         break
@@ -223,7 +241,14 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                     end_reason = self._handle_empty_followers_screen(
                         scroll_detector, total_usernames_seen)
                     if end_reason:
-                        if list_was_only_loading(end_reason):
+                        # Instagram showing its suggestions block IS positive evidence that the
+                        # list ended — the app said so. Reopening there would only re-walk from
+                        # the top for nothing. Everywhere else an empty screen says nothing, and
+                        # reopening is the only remedy the net has not tried.
+                        reopen_unexplained = (
+                            None if getattr(end_reason, 'code', '') == 'end_of_list_suggestions'
+                            else reopen_source_list)
+                        if list_was_only_loading(end_reason, reopen=reopen_unexplained):
                             continue
                         session_stop_reason = session_stop_reason or end_reason
                         break

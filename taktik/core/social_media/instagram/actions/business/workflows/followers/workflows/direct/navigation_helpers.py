@@ -328,8 +328,47 @@ class DirectNavigationMixin:
         emit_step('app_restart', action='recovered', target=target_username)
         return True
 
+    def _reopen_source_list(self, target_username, config, deep_link_percentage,
+                            force_search_for_target):
+        """Leave the source list and open it again — the one way out that waiting cannot test.
+
+        A list served empty and a list that has ended are the same screen, and until now the net
+        could only try ONE remedy: wait longer. Measured over 15 empty-screen stops, waiting
+        brought the rows back once. Reopening asks the other question — is the VIEW dead, or is
+        Instagram refusing to serve this list at all — and the two answers call for opposite
+        moves.
+
+        Reuses the production path, the same two calls as `_recover_after_break`'s last resort:
+        navigate to the target, open the list its `interaction_type` names. It lands at the TOP,
+        so the caller must give the scroll allowance back, exactly as after a relaunch.
+        """
+        interaction_type = (config or {}).get('interaction_type', 'followers')
+        self.logger.info(
+            f"🔁 Reopening the {interaction_type} list of @{target_username} — waiting changed nothing"
+        )
+        try:
+            if not self.nav_actions.navigate_to_profile(
+                    target_username,
+                    deep_link_usage_percentage=deep_link_percentage,
+                    force_search=force_search_for_target):
+                self.logger.warning("🔁 Could not get back to the target profile")
+                return False
+            self._human_like_delay('click')
+            opened = (self.nav_actions.open_following_list() if interaction_type == 'following'
+                      else self.nav_actions.open_followers_list())
+        except Exception as exc:  # noqa: BLE001 — a rescue must not become the failure
+            self.logger.error(f"Could not reopen the source list: {exc}")
+            return False
+
+        if not opened:
+            self.logger.warning("🔁 The list would not reopen")
+            return False
+
+        self._human_like_delay('navigation')
+        return True
+
     def _list_came_back_after_waiting(self, policy, reason, total_usernames_seen=0,
-                                      already_seen=None):
+                                      already_seen=None, reopen=None):
         """Wait, rescan, and say whether the list was merely slow to load.
 
         Called ONLY where the run was about to stop on a spent source. Reading the screen is
@@ -339,6 +378,11 @@ class DirectNavigationMixin:
         never empty in the first place ("no new usernames"): there, rows being visible proves
         nothing — only a row we have NOT seen does. Without it the net would report success on
         the page it was already stuck on, burn its one chance, and change nothing.
+
+        `reopen` is the last resort, and the caller passes it ONLY where the screen is empty:
+        on a page that is full but exhausted, leaving would throw away the position to reread
+        rows we have already worked. It runs once, after every wait has failed, so a list that
+        was merely slow still costs nothing more than before.
         """
         if policy is None or not policy.covers(reason):
             return False
@@ -359,8 +403,26 @@ class DirectNavigationMixin:
                           waited_seconds=seconds, attempt=index, seen=total_usernames_seen)
                 return True
 
+        # Three outcomes, and the metric must keep them apart: a list nobody tried to reopen, a
+        # reopen that could not even reach the screen, and a screen that came back empty anyway.
+        # Only the third says something about Instagram rather than about us.
+        reopened = 'not_tried'
+        if reopen is not None:
+            reopened = 'ok' if reopen() else 'failed'
+
+        if reopened == 'ok':
+            visible = self.detection_actions.get_visible_followers_with_elements()
+            if visible:
+                self.logger.info("✅ The list came back once reopened — resuming from the top")
+                emit_step('list_reload', action='recovered_after_reopen', target=code,
+                          waited_seconds=policy.budget_seconds, seen=total_usernames_seen,
+                          rows=len(visible))
+                return True
+            self.logger.info("🏁 Still empty after reopening — Instagram is not serving this list")
+
         emit_step('list_reload', action='gave_up', target=code,
-                  waited_seconds=policy.budget_seconds, seen=total_usernames_seen)
+                  waited_seconds=policy.budget_seconds, seen=total_usernames_seen,
+                  reopened=reopened)
         self.logger.info(
             f"🏁 Nothing came back after {policy.budget_seconds:.0f}s — the source is finished"
         )
