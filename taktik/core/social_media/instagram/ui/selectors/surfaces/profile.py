@@ -34,10 +34,16 @@ class ProfileSelectors:
     bio: List[str] = field(default_factory=lambda: [
         # The bio moved into a Jetpack Compose container on IG 442 (`profile_user_info_compose_view`),
         # and `profile_header_bio_text` disappeared. The text node is reached by TAG, not by
-        # `@class=`: uiautomator2 renames every `<node class="X">` to `<X>`, so `@class` no longer
-        # exists in its tree and `//*[@class="android.widget.TextView"]` matched nothing (0 on a live
-        # 442 device, where `//android.widget.TextView` matched 14). The legacy resource-id stays as a
-        # fallback for older builds that still expose it.
+        # `@class=`: uiautomator2 renames every `<node class="X">` to `<X>` and DROPS the attribute,
+        # so `@class` does not exist in the tree a selector is evaluated against. The legacy
+        # resource-id stays as a fallback for older builds that still expose it.
+        #
+        # THAT RENAMING IS uiautomator2's, NOT THE DEVICE'S — and believing otherwise cost this
+        # selector two weeks of silence. The device returns `<node class="android.widget.TextView">`;
+        # only `d.xpath()` rewrites it. Read with plain lxml, this selector matched 0 on a real
+        # 2026-09-09 dump. Anything parsing `get_xml_dump()` must go through
+        # `shared/device/ui_dump.parse_ui_dump`, which applies the same rewrite, so one selector
+        # means one thing in both engines.
         '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//android.widget.TextView',
         '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]',
         '//*[contains(@resource-id, "profile_header_bio_text")]'

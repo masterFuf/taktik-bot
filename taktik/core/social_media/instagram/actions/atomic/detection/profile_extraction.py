@@ -142,7 +142,7 @@ class ProfileExtractionMixin(BaseAction):
         Returns:
             Dict with keys: username, full_name, biography
         """
-        from lxml import etree
+        from taktik.core.shared.device.ui_dump import parse_ui_dump
         
         results = {
             'username': None,
@@ -155,7 +155,9 @@ class ProfileExtractionMixin(BaseAction):
             return results
         
         try:
-            tree = etree.fromstring(xml_content.encode('utf-8'))
+            tree = parse_ui_dump(xml_content)
+            if tree is None:
+                return results
             
             # Extract username
             for selector in self.selectors.username:
@@ -273,7 +275,7 @@ class ProfileExtractionMixin(BaseAction):
         Returns:
             Dict with all enriched profile fields
         """
-        from lxml import etree
+        from taktik.core.shared.device.ui_dump import parse_ui_dump
         
         results = {
             'username': None,
@@ -301,7 +303,9 @@ class ProfileExtractionMixin(BaseAction):
             return results
         
         try:
-            tree = etree.fromstring(xml_content.encode('utf-8'))
+            tree = parse_ui_dump(xml_content)
+            if tree is None:
+                return results
             
             # Extract username from action bar
             username_selectors = PROFILE_SELECTORS.enrichment_username_selectors
@@ -463,7 +467,7 @@ class ProfileExtractionMixin(BaseAction):
         return it as a JPEG base64 data URL. `scale` upsamples the crop (Lanczos)."""
         import base64
         import io
-        from lxml import etree
+        from taktik.core.shared.device.ui_dump import parse_ui_dump
         from PIL import Image
 
         try:
@@ -472,7 +476,9 @@ class ProfileExtractionMixin(BaseAction):
             if not xml_content:
                 return None
 
-            tree = etree.fromstring(xml_content.encode('utf-8'))
+            tree = parse_ui_dump(xml_content)
+            if tree is None:
+                return None
 
             # Find the avatar ImageView bounds
             bounds = None
@@ -541,7 +547,7 @@ class ProfileExtractionMixin(BaseAction):
         Language-neutral: finds the bio TextView (resource-id based) whose text carries
         the truncation ellipsis "…"/"...". Used as the OCR region to locate the expander.
         """
-        from lxml import etree
+        from taktik.core.shared.device.ui_dump import parse_ui_dump
         xml = xml_content
         if xml is None:
             try:
@@ -551,7 +557,9 @@ class ProfileExtractionMixin(BaseAction):
         if not xml:
             return None
         try:
-            tree = etree.fromstring(xml.encode("utf-8"))
+            tree = parse_ui_dump(xml)
+            if tree is None:
+                return None
         except Exception:
             return None
         for selector in PROFILE_SELECTORS.enrichment_bio_selectors:
