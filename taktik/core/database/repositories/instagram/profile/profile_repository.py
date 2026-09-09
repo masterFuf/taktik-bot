@@ -127,6 +127,7 @@ class ProfileRepository(BaseRepository):
                 {ai["profession_tags"]} AS profession_tags,
                 {ai["city"]} AS cities,
                 {ai["analysis"]} AS analysis_json,
+                {ai["gender"]} AS ai_gender,
                 sp.ai_analysis,
                 sp.ai_qualified
             FROM instagram_profiles p

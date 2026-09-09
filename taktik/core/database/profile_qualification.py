@@ -89,7 +89,12 @@ class ProfileQualification:
         insights = analysis.get("following_insights")
         # The model returns [] when it had no following sample — keep the string contract.
         decoded["following_insights"] = insights if isinstance(insights, str) else ""
-        decoded["gender"] = analysis.get("gender") or ""
+        # The COLUMN first, the JSON second. `analysis_json` carries a gender in only ~10 %
+        # of the rows whose `ai_gender` column is filled (measured on 3 000 classified
+        # profiles, 2026-09-09) -- and where both exist they agree, 306 times out of 306.
+        # Reading the JSON alone made this field look present while answering "" for
+        # nine profiles in ten.
+        decoded["gender"] = decoded.get("ai_gender") or analysis.get("gender") or ""
         decoded["age_group"] = analysis.get("age_group") or ""
         decoded["country"] = analysis.get("country") or ""
 

@@ -65,6 +65,15 @@ def profile_ai_read_model(conn: sqlite3.Connection, profile_alias: str) -> Dict[
     columns = {row[1] for row in conn.execute("PRAGMA table_info(instagram_profiles)").fetchall()}
     city = f"{profile_alias}.location_city" if "location_city" in columns else "NULL"
 
+    # `ai_gender` is checked per COLUMN, not just per table, unlike the niche fields above.
+    # `profile_qualification` belongs to the desktop app, so its shape follows the app's
+    # version and not the bot's; this column arrived later than the others, which means a
+    # base served by an older app has the table WITHOUT it. Selecting it blindly would fail
+    # the whole query and take the niche down with it.
+    def _gender(table: str, alias: str) -> str:
+        names = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        return f"{alias}.ai_gender" if "ai_gender" in names else "NULL"
+
     if _exists(conn, "profile_qualification"):
         return {
             "join": f"""
@@ -79,6 +88,7 @@ def profile_ai_read_model(conn: sqlite3.Connection, profile_alias: str) -> Dict[
             "profession_tags": "pq.ai_profession_tags",
             "city": f"COALESCE(pq.location_city, {city})",
             "analysis": "pq.analysis_json",
+            "gender": _gender("profile_qualification", "pq"),
         }
 
     if _exists(conn, "profile_ai_enrichments"):
@@ -101,6 +111,7 @@ def profile_ai_read_model(conn: sqlite3.Connection, profile_alias: str) -> Dict[
             "profession_tags": "pae.ai_profession_tags",
             "city": f"COALESCE(pae.location_city, {city})",
             "analysis": "pae.analysis_json",
+            "gender": _gender("profile_ai_enrichments", "pae"),
         }
 
     return {
@@ -111,6 +122,7 @@ def profile_ai_read_model(conn: sqlite3.Connection, profile_alias: str) -> Dict[
         "profession_tags": "NULL",
         "city": city,
         "analysis": "NULL",
+        "gender": "NULL",
     }
 
 
