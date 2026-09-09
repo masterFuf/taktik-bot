@@ -132,13 +132,22 @@ class IPCEmitter:
 
     @staticmethod
     def emit_profile_classification(username: str, classification: Dict[str, Any],
-                                   result: str = "", screenshot: Optional[str] = None) -> None:
+                                   result: str = "", screenshot: Optional[str] = None,
+                                   model: Optional[str] = None, provider: Optional[str] = None,
+                                   cost_usd: Optional[float] = None) -> None:
         """Emit an AI profile classification so the desktop PERSISTS it (front owns the DB/sync).
 
         Mirrors the scraping path: the desktop upserts niche/profession/gender/age into the
         canonical qualification store. Used by the interaction hook, which previously classified a
         profile (paying for the vision call) but never sent it, so the niche was lost and re-paid
-        for on the next pass. No-op in standalone (no bridge adapter)."""
+        for on the next pass. No-op in standalone (no bridge adapter).
+
+        `model` is the model that ACTUALLY answered, as reported by the transport. Carrying it is
+        what lets a stored qualification say who produced it: without it the desktop wrote the
+        literal 'profile_ai' — a source tag, not a model — on every row, and 14 901 qualifications
+        landed with no way to tell one model from another. That matters the day the classifier
+        model changes: the comparison of what each one gives IN PRODUCTION can only be made on
+        rows that name it, and a row written before the change can never be re-attributed."""
         bridge = _get_bridge()
         if not bridge:
             return
@@ -146,6 +155,7 @@ class IPCEmitter:
             if hasattr(bridge, "send_instagram_profile_classification"):
                 bridge.send_instagram_profile_classification(
                     username, classification, result=result, screenshot=screenshot,
+                    model=model, provider=provider, cost_usd=cost_usd,
                 )
         except Exception as exc:
             log.debug(f"IPC profile classification event error: {exc}")

@@ -30,6 +30,7 @@ __all__ = [
     'ProfileRepository',
     'InteractionRepository',
     'PostAnalysisRepository',
+    'PromptCaptureRepository',
     'PostedCommentRepository',
     'SessionRepository',
     'ScrapedProfileRepository',
@@ -38,4 +39,4 @@ __all__ = [
     'StatsRepository',
     'TikTokRepository',
 ]
-from .eval import AIBenchmarkRepository  # noqa: E402,F401
+from .eval import AIBenchmarkRepository, PromptCaptureRepository  # noqa: E402,F401

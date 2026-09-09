@@ -20,6 +20,7 @@ from ..repositories import (
     InteractionRepository,
     PostAnalysisRepository,
     AIBenchmarkRepository,
+    PromptCaptureRepository,
     PostedCommentRepository,
     SessionRepository,
     ScrapedProfileRepository,
@@ -80,6 +81,7 @@ class LocalDatabaseService:
         self._posted_comments: Optional[PostedCommentRepository] = None
         self._post_analysis: Optional[PostAnalysisRepository] = None
         self._ai_benchmarks: Optional[AIBenchmarkRepository] = None
+        self._prompt_captures: Optional[PromptCaptureRepository] = None
         self._sessions: Optional[SessionRepository] = None
         self._scraped_profiles: Optional[ScrapedProfileRepository] = None
         self._social_posts: Optional[SocialPostRepository] = None
@@ -150,6 +152,7 @@ class LocalDatabaseService:
         self._posted_comments = PostedCommentRepository(conn, orm)
         self._post_analysis = PostAnalysisRepository(conn, orm)
         self._ai_benchmarks = AIBenchmarkRepository(conn, orm)
+        self._prompt_captures = PromptCaptureRepository(conn, orm)
         self._sessions = SessionRepository(conn, orm)
         self._scraped_profiles = ScrapedProfileRepository(conn, orm)
         self._social_posts = SocialPostRepository(conn, orm)
@@ -226,6 +229,13 @@ class LocalDatabaseService:
         if not self._ai_benchmarks:
             self._init_repositories()
         return self._ai_benchmarks
+
+    @property
+    def prompt_captures(self) -> PromptCaptureRepository:
+        """Access PromptCaptureRepository for what was actually sent to a model."""
+        if not self._prompt_captures:
+            self._init_repositories()
+        return self._prompt_captures
 
     @property
     def sessions(self) -> SessionRepository:

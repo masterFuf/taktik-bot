@@ -29,8 +29,10 @@ class RecordingAdapter:
         self.calls.append(("feed_decision", author, action, reason, comment, visit_profile))
 
     def send_instagram_profile_classification(self, username, classification, result="",
-                                              screenshot=None):
-        self.calls.append(("classification", username, classification, result, screenshot))
+                                              screenshot=None, model=None, provider=None,
+                                              cost_usd=None):
+        self.calls.append(("classification", username, classification, result, screenshot,
+                           model, provider, cost_usd))
 
 
 def teardown_function():
@@ -115,12 +117,30 @@ def test_emit_profile_classification_forwards_to_adapter():
     classification = {"niche_category": "Music & Entertainment", "niche": "performer",
                       "gender": "F", "age_group": "25-34"}
     IPCEmitter.emit_profile_classification("adelinekhelif", classification,
-                                           result="[Music & Entertainment] performer")
+                                           result="[Music & Entertainment] performer",
+                                           model="qwen/qwen3.7-flash", provider="openrouter",
+                                           cost_usd=0.000041)
 
     assert adapter.calls == [
         ("classification", "adelinekhelif", classification,
-         "[Music & Entertainment] performer", None),
+         "[Music & Entertainment] performer", None,
+         "qwen/qwen3.7-flash", "openrouter", 0.000041),
     ]
+
+
+def test_emit_profile_classification_carries_the_model_that_answered():
+    """Without it the desktop wrote the literal 'profile_ai' on every row.
+
+    A qualification that cannot name the model behind it is unusable the day the classifier
+    changes: the two models' production output can only be compared on rows that say which one
+    produced them, and a row already written can never be re-attributed.
+    """
+    adapter = RecordingAdapter()
+    IPCEmitter.configure_bridge_adapter(adapter)
+
+    IPCEmitter.emit_profile_classification("carol", {"niche": "x"}, model="google/gemini-3.1-flash-lite")
+
+    assert adapter.calls[0][5] == "google/gemini-3.1-flash-lite"
 
 
 def test_emit_profile_classification_is_noop_without_bridge_adapter():
