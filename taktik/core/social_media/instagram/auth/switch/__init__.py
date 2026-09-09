@@ -23,9 +23,15 @@ from typing import Callable, List, Optional
 
 from loguru import logger
 
+from taktik.core.social_media.account_management import (
+    AccountCatalog,
+    is_account_username,
+    normalize_account_username,
+)
+
 from ...ui.selectors.shell.auth import AUTH_SELECTORS
-from .models import SwitchResult
 from ..logout import InstagramLogout
+from .models import SwitchResult
 
 # Profile-header stats leak into the dump behind the switcher sheet as content-desc like
 # "36followers" / "1posts" / "91following". A username never has this "<digits><stat-word>" shape,
@@ -34,11 +40,6 @@ _STAT_RE = re.compile(
     r"^\d+\s*(posts?|followers?|following|abonn\w*|abonn[ée]s?|publications?|mentions?|reels?|tagged)$",
     re.IGNORECASE,
 )
-
-# An Instagram @handle: lowercase letters/digits/dot/underscore, 1–30 chars. Mirrors the front's
-# anti-pollution guard in recordDeviceSighting — anything else (display names with spaces, empty)
-# is not a real account username and must never be recorded as the device's active account.
-_HANDLE_RE = re.compile(r"^[a-z0-9._]{1,30}$")
 
 
 class InstagramSwitchAccount:
@@ -53,6 +54,11 @@ class InstagramSwitchAccount:
         notifier: Optional[Callable[[str], None]] = None,
         on_active_account: Optional[Callable[[str], None]] = None,
         on_step: Optional[Callable[[str, dict], None]] = None,
+        max_attempts: int = 2,
+        transition_timeout: float = 10.0,
+        poll_interval: float = 0.5,
+        sleeper: Optional[Callable[[float], None]] = None,
+        clock: Optional[Callable[[], float]] = None,
     ):
         self.device = device
         self.device_id = device_id
@@ -69,6 +75,11 @@ class InstagramSwitchAccount:
         # (one card per step: navigate_profile / active_account / logout / enumerate / select /
         # switched / relogin). No-op by default (Lab / tests).
         self._emit_step_cb = on_step or (lambda _step, _data: None)
+        self.max_attempts = max(1, int(max_attempts))
+        self.transition_timeout = max(0.0, float(transition_timeout))
+        self.poll_interval = max(0.01, float(poll_interval))
+        self._sleep = sleeper or time.sleep
+        self._clock = clock or time.monotonic
 
     def _emit_step(self, step: str, **data) -> None:
         self._emit_step_cb(step, data)
@@ -87,7 +98,7 @@ class InstagramSwitchAccount:
 
     @staticmethod
     def _norm(username: str) -> str:
-        return (username or "").lstrip("@").strip().lower()
+        return normalize_account_username(username)
 
     def _on_home_feed(self) -> bool:
         return self._element_exists(self.auth.home_feed_indicators)
@@ -136,7 +147,7 @@ class InstagramSwitchAccount:
                 labels.append(desc)
         return labels
 
-    def _accounts_from_labels(self, labels: List[str]) -> List[str]:
+    def _account_catalog_from_labels(self, labels: List[str]) -> AccountCatalog:
         """Filter clickable content-descs down to the connected-account usernames.
 
         Each row's content-desc is the username (sometimes suffixed with ",  New notifications").
@@ -144,24 +155,28 @@ class InstagramSwitchAccount:
         """
         exclude = {label.lower() for label in self.auth.account_row_exclude_labels}
         found: List[str] = []
-        seen = set()
         for desc in labels:
             # Drop a trailing ",  New notifications" / ", Nouvelles notifications".
             name = desc.split(",")[0].strip()
             low = name.lower()
-            if not name or low in exclude or low in seen:
+            if not name or low in exclude:
                 continue
             # A username has no spaces (handles use letters/digits/._ only) and is never a
             # profile stat ("36followers") or a story label ("x's story").
             if " " in name or "'s story" in low or _STAT_RE.match(name):
                 continue
-            seen.add(low)
             found.append(name)
-        return found
+        return AccountCatalog.from_values(found)
+
+    def _accounts_from_labels(self, labels: List[str]) -> List[str]:
+        return list(self._account_catalog_from_labels(labels).accounts)
+
+    def _account_catalog_on_screen(self) -> AccountCatalog:
+        return self._account_catalog_from_labels(self._clickable_labels())
 
     def _list_accounts_on_screen(self) -> List[str]:
         """The connected-account usernames visible on the current screen (one UI dump)."""
-        return self._accounts_from_labels(self._clickable_labels())
+        return list(self._account_catalog_on_screen().accounts)
 
     def _switcher_is_open(self) -> bool:
         """The account switcher sheet / picker is open (shows the "Use another profile" button)."""
@@ -182,7 +197,7 @@ class InstagramSwitchAccount:
             button = self._find_element(self.auth.profile_username_switcher_button)
             if button is not None:
                 break
-            time.sleep(0.6)
+            self._sleep(0.6)
         if button is None:
             self.logger.warning("account switcher: profile @username button not found")
             self._notify("Profile @username button not found")
@@ -195,15 +210,130 @@ class InstagramSwitchAccount:
             self.logger.warning(f"account switcher: tap failed: {exc}")
             self._notify(f"Tap failed: {exc}")
             return False
-        time.sleep(2.5)  # let the sheet animate fully in
-        return self._switcher_is_open()
+        return bool(self._wait_until(self._switcher_is_open, self.transition_timeout))
 
     def _select_account(self, target: str) -> bool:
-        clean = target.lstrip("@")
-        for selector in self.auth.saved_profile_tile_selectors(target, clean):
+        clean = self._norm(target)
+        if not is_account_username(clean):
+            return False
+        for selector in self.auth.exact_saved_profile_tile_selectors(clean):
             if self._click_first_match([selector], f"account @{clean}"):
                 return True
         return False
+
+    def _wait_until(self, condition: Callable[[], object], timeout: float):
+        """Poll an observable UI condition under one total monotonic deadline."""
+        deadline = self._clock() + max(0.0, timeout)
+        while True:
+            value = condition()
+            if value:
+                return value
+            remaining = deadline - self._clock()
+            if remaining <= 0:
+                return None
+            self._sleep(min(self.poll_interval, remaining))
+
+    def _close_account_switcher(self) -> bool:
+        """Close the non-destructive profile switcher and confirm it disappeared."""
+        if not self._switcher_is_open():
+            return True
+        try:
+            self.device.press("back")
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"Account switch recovery stage=close failed: {exc}")
+            return False
+        return bool(
+            self._wait_until(
+                lambda: not self._switcher_is_open(),
+                min(self.transition_timeout, 3.0),
+            )
+        )
+
+    def _wait_for_selected_account(self, target: str) -> tuple[str, Optional[str]]:
+        """Wait for login expiry or a readable active username after selecting a row."""
+        deadline = self._clock() + self.transition_timeout
+        last_active: Optional[str] = None
+        while True:
+            if self._password_required():
+                return "session_expired", last_active
+            try:
+                active = self.detect_active_account()
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning(f"Account switch target=@{target} stage=verify read failed: {exc}")
+                active = None
+            if active:
+                last_active = active
+                if active == target:
+                    return "verified", active
+            remaining = deadline - self._clock()
+            if remaining <= 0:
+                return "verification_failed", last_active
+            self._sleep(min(self.poll_interval, remaining))
+
+    def _logout_to_picker_for_switch(self) -> tuple[bool, Optional[str], Optional[str]]:
+        """Compatibility fallback retaining the switcher's historical error codes."""
+        if not self._logout._open_profile_tab():
+            return False, "profile_tab_not_found", "profile_tab"
+        if not self._logout._open_options_menu():
+            return False, "options_menu_not_found", "options_menu"
+        if not self._logout._find_and_click_logout():
+            return False, "logout_button_not_found", "logout_button"
+        if not self._logout._confirm_logout():
+            return False, "logout_confirm_failed", "logout_confirm"
+        if not self._ensure_on_picker():
+            return False, "picker_unreachable", "open_picker"
+        return True, None, None
+
+    def _failure(
+        self,
+        *,
+        target: str,
+        message: str,
+        error_type: str,
+        stage: str,
+        category: str,
+        attempts: int,
+        active: Optional[str],
+        accounts: List[str],
+        state_known: bool,
+        relogin_required: bool = False,
+        previous: Optional[str] = None,
+    ) -> SwitchResult:
+        self.logger.warning(
+            f"Account switch current=@{active or '?'} target=@{target} "
+            f"attempt={attempts}/{self.max_attempts} stage={stage} error={error_type}"
+        )
+        return SwitchResult(
+            False,
+            message,
+            error_type,
+            switched_to=target if relogin_required else None,
+            relogin_required=relogin_required,
+            detected_accounts=accounts,
+            requested_username=target,
+            previous_username=previous,
+            active_username=active,
+            attempts=attempts,
+            failure_stage=stage,
+            failure_category=category,
+            state_known=state_known,
+        )
+
+    def _restore_previous_account(
+        self,
+        previous: Optional[str],
+        catalog: AccountCatalog,
+    ) -> Optional[str]:
+        """Best-effort restoration after the compatibility logout fallback."""
+        if not previous or not catalog.contains(previous) or catalog.is_ambiguous(previous):
+            return None
+        self.logger.info(
+            f"Account switch current=@? target=@{previous} attempt=0 stage=restore_previous"
+        )
+        if not self._select_account(previous):
+            return None
+        outcome, active = self._wait_for_selected_account(previous)
+        return active if outcome == "verified" else None
 
     def _logged_in_now(self) -> bool:
         """We are logged in (home feed) and NOT on the picker → the switch landed."""
@@ -248,7 +378,7 @@ class InstagramSwitchAccount:
             self.logger.warning(f"detect_active_account failed: {exc}")
             return None
         username = self._norm(raw)
-        if not username or not _HANDLE_RE.match(username):
+        if not is_account_username(username):
             self.logger.warning(f"detect_active_account: no valid username (got {raw!r})")
             return None
         self.logger.info(f"👤 Active account on device: @{username}")
@@ -260,88 +390,213 @@ class InstagramSwitchAccount:
     def switch_to(self, target_username: str) -> SwitchResult:
         target = self._norm(target_username)
         if not target:
-            return SwitchResult(False, "No target username", "no_target")
+            return SwitchResult(
+                False,
+                "No target username",
+                "no_target",
+                failure_stage="validate",
+                failure_category="account_not_found",
+                state_known=False,
+            )
+        if not is_account_username(target):
+            return SwitchResult(
+                False,
+                f"@{target} is not a valid Instagram username",
+                "invalid_target",
+                requested_username=target,
+                failure_stage="validate",
+                failure_category="account_not_found",
+                state_known=False,
+            )
 
-        self.logger.info(f"🔀 Switching to @{target}")
+        self.logger.info(f"Account switch current=@? target=@{target} attempt=0 stage=detect")
         self._notify(f"Switching to @{target}")
-        time.sleep(1.5)  # let IG settle after launch
+        on_picker = self._on_landing_account_list()
+        active = None if on_picker else self.detect_active_account()
+        previous = active
+        if active == target:
+            self.logger.info(f"Account switch current=@{active} target=@{target} attempt=0 stage=noop")
+            return SwitchResult(
+                True,
+                f"@{target} is already active",
+                switched_to=target,
+                requested_username=target,
+                previous_username=active,
+                active_username=active,
+                already_active=True,
+                attempts=0,
+                state_known=True,
+            )
 
         detected: List[str] = []
+        last_failure: Optional[SwitchResult] = None
+        logout_fallback_used = False
 
-        # 0. LANDING PICKER: when the accounts are logged out, IG opens directly on the account
-        # picker — select the target right there (no profile tab, no logout).
-        if self._on_landing_account_list():
-            detected = self._list_accounts_on_screen()
-            self.logger.info(f"📋 Landing picker accounts: {detected}")
-            self._notify(f"{len(detected)} account(s) on this device")
-            self._emit_step("enumerate", accounts=detected)
-            if not any(self._norm(a) == target for a in detected):
-                return SwitchResult(False, f"@{target} is not connected on this device",
-                                    "target_not_connected", detected_accounts=detected)
-            self._notify(f"Selecting @{target}…")
-            self._emit_step("select", username=target)
+        for attempt in range(1, self.max_attempts + 1):
+            self.logger.info(
+                f"Account switch current=@{active or '?'} target=@{target} "
+                f"attempt={attempt}/{self.max_attempts} stage=open"
+            )
+            source = "picker"
+            destructive_picker = bool(logout_fallback_used)
+            if not self._on_landing_account_list():
+                destructive_picker = False
+                if self._open_account_switcher():
+                    source = "switcher"
+                elif not logout_fallback_used:
+                    logout_fallback_used = True
+                    self._notify("Opening the saved-account picker…")
+                    self._emit_step("logout", attempt=attempt)
+                    reached, error_type, stage = self._logout_to_picker_for_switch()
+                    if not reached:
+                        last_failure = self._failure(
+                            target=target,
+                            message="Account picker not reached",
+                            error_type=error_type or "picker_unreachable",
+                            stage=stage or "open_picker",
+                            category="ui_navigation_failure",
+                            attempts=attempt,
+                            active=active,
+                            accounts=detected,
+                            state_known=bool(active),
+                            previous=previous,
+                        )
+                        continue
+                    active = None
+                    destructive_picker = True
+                else:
+                    last_failure = self._failure(
+                        target=target,
+                        message="Account switcher could not be opened",
+                        error_type="switcher_unavailable",
+                        stage="open_switcher",
+                        category="selector_not_found",
+                        attempts=attempt,
+                        active=active,
+                        accounts=detected,
+                        state_known=bool(active),
+                        previous=previous,
+                    )
+                    continue
+
+            catalog = self._account_catalog_on_screen()
+            detected = list(catalog.accounts)
+            self._emit_step("enumerate", accounts=detected, attempt=attempt)
+            if catalog.is_ambiguous(target):
+                if source == "switcher":
+                    self._close_account_switcher()
+                elif destructive_picker:
+                    active = self._restore_previous_account(previous, catalog)
+                return self._failure(
+                    target=target,
+                    message=f"Multiple account rows match @{target}",
+                    error_type="ambiguous_target",
+                    stage="lookup",
+                    category="account_not_found",
+                    attempts=attempt,
+                    active=active,
+                    accounts=detected,
+                    state_known=bool(active) or source == "picker",
+                    previous=previous,
+                )
+            if not catalog.contains(target):
+                if source == "switcher":
+                    self._close_account_switcher()
+                elif destructive_picker:
+                    active = self._restore_previous_account(previous, catalog)
+                return self._failure(
+                    target=target,
+                    message=f"@{target} is not connected on this device",
+                    error_type="target_not_connected",
+                    stage="lookup",
+                    category="account_not_found",
+                    attempts=attempt,
+                    active=active,
+                    accounts=detected,
+                    state_known=bool(active) or source == "picker",
+                    previous=previous,
+                )
+
+            self._emit_step("select", username=target, attempt=attempt)
             if not self._select_account(target):
-                return SwitchResult(False, f"Could not tap @{target}", "select_failed",
-                                    detected_accounts=detected)
-            time.sleep(3)
-            if self._password_required():
-                self._emit_step("relogin", username=target)
-                return SwitchResult(True, f"@{target} requires re-login (session not saved)",
-                                    switched_to=target, relogin_required=True, detected_accounts=detected)
-            self._emit_active(target)  # target is now the active account → recale the DB
-            self._emit_step("switched", username=target)
-            self.logger.success(f"✅ Switched to @{target} (picker)")
-            return SwitchResult(True, f"Switched to @{target}", switched_to=target,
-                                detected_accounts=detected)
+                if source == "switcher":
+                    self._close_account_switcher()
+                last_failure = self._failure(
+                    target=target,
+                    message=f"Could not tap @{target}",
+                    error_type="select_failed",
+                    stage="select",
+                    category="selector_not_found",
+                    attempts=attempt,
+                    active=active,
+                    accounts=detected,
+                    state_known=bool(active) or source == "picker",
+                    previous=previous,
+                )
+                continue
 
-        # 1. An account is active (home feed). First READ the currently-active account (navigate to
-        # the own profile) so the device↔account DB link is recaled even before the switch — non-destructive, emits `active_account_detected`. Then reach the connected-accounts
-        # picker by LOGGING OUT — Profile tab → options menu → Log out → confirm → picker.
-        self.detect_active_account()
-        self._notify("An account is active — logging out to reach the account picker…")
-        self._emit_step("logout")
-        if not self._logout._open_profile_tab():
-            return SwitchResult(False, "Profile tab not found", "profile_tab_not_found")
-        if not self._logout._open_options_menu():
-            return SwitchResult(False, "Options menu not found", "options_menu_not_found")
-        if not self._logout._find_and_click_logout():
-            return SwitchResult(False, "Log out button not found", "logout_button_not_found",
-                                detected_accounts=detected)
-        self._logout._confirm_logout()
-        time.sleep(3)
+            outcome, observed = self._wait_for_selected_account(target)
+            if outcome == "session_expired":
+                self._emit_step("relogin", username=target, attempt=attempt)
+                return self._failure(
+                    target=target,
+                    message=f"@{target} requires re-login (session expired or not saved)",
+                    error_type="session_expired",
+                    stage="verify",
+                    category="login_session_expired",
+                    attempts=attempt,
+                    active=observed,
+                    accounts=detected,
+                    state_known=True,
+                    relogin_required=True,
+                    previous=previous,
+                )
+            if outcome == "verified":
+                self._emit_step("switched", username=target, attempt=attempt)
+                self.logger.info(
+                    f"Account switch current=@{observed} target=@{target} "
+                    f"attempt={attempt}/{self.max_attempts} stage=verified"
+                )
+                return SwitchResult(
+                    True,
+                    f"Switched to @{target}",
+                    switched_to=target,
+                    detected_accounts=detected,
+                    requested_username=target,
+                    previous_username=previous,
+                    active_username=observed,
+                    attempts=attempt,
+                    state_known=True,
+                )
 
-        # 3. Reach the account picker, handling Instagram auto-switching to another home feed.
-        if not self._ensure_on_picker():
-            return SwitchResult(False, "Account picker not reached", "picker_unreachable")
+            # A row tap may have changed the active session. Never report the pre-switch
+            # identity as current unless it was observed again after that destructive action.
+            active = observed
+            last_failure = self._failure(
+                target=target,
+                message=f"Instagram did not verify @{target} after selection",
+                error_type="verification_failed",
+                stage="verify",
+                category="switch_verification_failed",
+                attempts=attempt,
+                active=active,
+                accounts=detected,
+                state_known=bool(active) or self._on_account_picker(),
+                previous=previous,
+            )
 
-        # 4. Enumerate + select the target on the picker.
-        picker_accounts = self._list_accounts_on_screen()
-        self.logger.info(f"📋 {len(picker_accounts)} connected account(s): {picker_accounts}")
-        self._notify(f"{len(picker_accounts)} account(s) connected on this device")
-        self._emit_step("enumerate", accounts=picker_accounts)
-        if not any(self._norm(a) == target for a in picker_accounts):
-            return SwitchResult(False, f"@{target} is not connected on this device",
-                                "target_not_connected", detected_accounts=picker_accounts)
-        self._notify(f"Selecting @{target}…")
-        self._emit_step("select", username=target)
-        if not self._select_account(target):
-            return SwitchResult(False, f"Could not tap @{target}", "select_failed",
-                                detected_accounts=picker_accounts)
-        time.sleep(3)
-
-        # 5. Either it logged straight in, or the password screen appeared (session not saved).
-        if self._password_required():
-            self.logger.warning(f"🔐 @{target} requires re-login (session not saved)")
-            self._emit_step("relogin", username=target)
-            return SwitchResult(True, f"@{target} requires re-login (session not saved)",
-                                switched_to=target, relogin_required=True,
-                                detected_accounts=picker_accounts)
-
-        self._emit_active(target)  # target is now the active account → recale the DB
-        self._emit_step("switched", username=target)
-        self.logger.success(f"✅ Switched to @{target}")
-        return SwitchResult(True, f"Switched to @{target}", switched_to=target,
-                            detected_accounts=picker_accounts)
+        return last_failure or self._failure(
+            target=target,
+            message="Account switch attempts exhausted",
+            error_type="switcher_unavailable",
+            stage="open_switcher",
+            category="ui_navigation_failure",
+            attempts=self.max_attempts,
+            active=active,
+            accounts=detected,
+            state_known=bool(active),
+            previous=previous,
+        )
 
     def list_accounts(self) -> List[str]:
         """List the Instagram accounts logged in on the device — NON-destructive.

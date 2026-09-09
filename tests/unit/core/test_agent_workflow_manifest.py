@@ -9,6 +9,10 @@ def test_agent_workflow_manifest_loads_canonical_ids_from_repo_manifest():
     assert manifest.contains("instagram.automation.feed")
     assert manifest.contains("tiktok.standalone.upload_post")
     assert manifest.contains("youtube.publish.upload_post")
+    assert manifest.contains("instagram.account.switch_account")
+    assert manifest.contains("instagram.account.list_accounts")
+    assert manifest.contains("tiktok.account.switch_account")
+    assert manifest.contains("tiktok.account.list_accounts")
     assert "feed" in manifest.workflow_types("instagram", "automation")
 
 

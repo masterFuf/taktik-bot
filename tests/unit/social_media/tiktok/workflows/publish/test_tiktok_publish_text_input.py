@@ -1,11 +1,88 @@
 import subprocess
 
 from taktik.core.social_media.tiktok.services.publish.text_input import (
+    caption_text_matches,
     clear_caption_text,
     escape_adb_input_text,
+    focus_caption_field,
+    read_caption_field_text,
     type_ascii_text_with_adb,
     type_caption_text,
 )
+
+
+class FakeCaptionField:
+    def __init__(self, text="Add description...", *, hint="Add description...", accepts_text=True):
+        self.text = text
+        self.hint = hint
+        self.accepts_text = accepts_text
+        self.clicks = 0
+        self.focused = False
+
+    @property
+    def info(self):
+        return {"text": self.text, "hint": self.hint, "focused": self.focused}
+
+    def click(self):
+        self.clicks += 1
+        self.focused = True
+
+    def get_text(self):
+        return self.text
+
+    def set_text(self, text):
+        if self.accepts_text:
+            self.text = text
+        return self.accepts_text
+
+
+class FakeCaptionDevice:
+    def __init__(self, field=None):
+        self.field = field
+
+    class _XPath:
+        def __init__(self, field):
+            self.field = field
+
+        def wait(self, timeout=0):
+            return self.field is not None
+
+        def __bool__(self):
+            return self.field is not None
+
+        def __getattr__(self, name):
+            return getattr(self.field, name)
+
+    def xpath(self, _selector):
+        return self._XPath(self.field)
+
+
+def test_focus_caption_field_clicks_the_actual_editable_before_input():
+    field = FakeCaptionField()
+
+    focused = focus_caption_field(FakeCaptionDevice(field), selectors=["//caption"], timeout=0)
+
+    assert focused is not None
+    assert field.clicks == 1
+    assert field.focused is True
+
+
+def test_read_caption_field_text_treats_visible_hint_as_empty():
+    field = FakeCaptionField()
+    assert read_caption_field_text(field) == ""
+
+
+def test_caption_text_matches_requires_caption_and_every_expected_hashtag():
+    assert caption_text_matches(
+        "Angels — explained in under a minute. #stickman #animation",
+        "Angels — explained in under a minute.",
+        ["stickman", "animation"],
+    )
+    assert not caption_text_matches(
+        "Angels — explained in under a minute. #stickman",
+        "Angels — explained in under a minute.",
+        ["stickman", "animation"],
+    )
 
 
 def completed(returncode: int = 0, stderr: str = "") -> subprocess.CompletedProcess:
@@ -39,6 +116,19 @@ def test_type_caption_text_uses_taktik_keyboard_first():
     )
 
     assert calls == [(("device-1", "hello"), {"delay_mean": 70, "delay_deviation": 10})]
+
+
+def test_keyboard_ack_log_never_claims_text_was_inserted():
+    messages = []
+
+    assert type_caption_text(
+        "device-1",
+        "hello",
+        type_keyboard=lambda *_args, **_kwargs: True,
+        log=lambda level, message: messages.append((level, message)),
+    )
+
+    assert messages == [("debug", "[caption] Taktik Keyboard command accepted; awaiting UI verification")]
 
 
 def test_type_caption_text_falls_back_to_adb_for_ascii_when_keyboard_fails():

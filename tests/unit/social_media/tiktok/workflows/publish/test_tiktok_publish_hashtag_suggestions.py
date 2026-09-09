@@ -48,3 +48,19 @@ def test_tap_hashtag_suggestion_from_dump_returns_false_without_candidates():
 
     assert not tap_hashtag_suggestion_from_dump(device, settle_delay=0)
     assert device.clicks == []
+
+
+def test_tap_hashtag_suggestion_from_4673_dump_prefers_exact_jt_text():
+    device = FakeDumpDevice(
+        '<hierarchy>'
+        '<node resource-id="pkg:id/f15" class="android.widget.LinearLayout" clickable="true" bounds="[0,548][720,637]">'
+        '<node resource-id="pkg:id/jt_" class="android.widget.TextView" text="#stickman" bounds="[28,576][155,609]" />'
+        '</node>'
+        '<node resource-id="pkg:id/f15" class="android.widget.LinearLayout" clickable="true" bounds="[0,637][720,726]">'
+        '<node resource-id="pkg:id/jt_" class="android.widget.TextView" text="#stickmanwar" bounds="[28,665][197,698]" />'
+        '</node>'
+        '</hierarchy>'
+    )
+
+    assert tap_hashtag_suggestion_from_dump(device, "stickman", settle_delay=0)
+    assert device.clicks == [(91, 592)]

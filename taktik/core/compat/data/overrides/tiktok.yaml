@@ -17,8 +17,78 @@ meta:
   app: tiktok
   package: com.zhiliaoapp.musically
   baseline_version: "43.1.4"
-  last_updated: "2026-03-05"
+  last_updated: "2026-09-05"
 
-versions: {}
+versions:
+  "46.7.3":
+    account_switch.profile_switcher_button:
+      - '//android.widget.Button[contains(@resource-id, ":id/su7")]'
+      - '//android.widget.Button[contains(@resource-id, ":id/sr3")]/preceding::android.widget.Button[@clickable="true"][1]'
+    account_switch.profile_username:
+      - '//android.widget.Button[contains(@resource-id, ":id/sr3")]'
+      - '//android.widget.Button[starts-with(@text, "@")]'
+    account_switch.switcher_indicator:
+      - '//*[contains(@resource-id, ":id/pke")]'
+      - '//*[@text="Switch account" or @content-desc="Switch account"]'
+    account_switch.account_rows:
+      - '//android.widget.Button[contains(@resource-id, ":id/lkp")]'
+      - '//*[@content-desc="Bottom sheet"]//android.widget.Button[@clickable="true" and @content-desc!="" and @content-desc!="Close"]'
+    account_switch.username_labels:
+      - '//*[contains(@resource-id, ":id/n72")]'
+    account_switch.active_indicators:
+      - '//*[contains(@resource-id, ":id/fiu")]'
+      - '//*[@content-desc="Checkmark"]'
+    account_switch.close_button:
+      - '//*[@content-desc="Bottom sheet"]//*[@content-desc="Close"]'
+      - '//*[@content-desc="Close"]'
+    account_switch.account_row_templates:
+      - '//android.widget.Button[contains(@resource-id, ":id/lkp") and translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="{username}"]'
+      - '//*[@content-desc="Bottom sheet"]//android.widget.Button[translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")="{username}"]'
+    publish_media_picker._upload_btn_base:
+      - '//*[contains(@resource-id, ":id/upload_hot_area") and @clickable="true"]'
+      - '//*[contains(@resource-id, ":id/mfb")]/ancestor::*[@clickable="true"][1]'
+      - '//*[contains(@resource-id, ":id/upload_hot_area")]'
+    publish_media_picker._upload_dump_resource_ids:
+      - 'upload_hot_area'
+      - 'mfb'
+    publish_media_picker._gallery_first_item_rids:
+      - '(//*[contains(@resource-id, ":id/jfy")]//*[contains(@resource-id, ":id/kvf")])[1]'
+      - '(//*[contains(@resource-id, ":id/jfy")]/*[.//*[contains(@resource-id, ":id/gl8")]])[1]'
+      - '(//*[contains(@resource-id, ":id/gl8")]/ancestor::*[@clickable="true"])[1]'
+      - '(//*[contains(@resource-id, ":id/jfy")]/*[.//*[contains(@resource-id, ":id/oo0")]])[1]'
+      - '(//android.widget.ImageView[contains(@resource-id, ":id/oo0")]/ancestor::*[@clickable="true"])[1]'
+      - '(//android.widget.ImageView[contains(@resource-id, ":id/oo0")])[1]'
+    publish_media_picker._gallery_picker_xml_markers:
+      - ':id/viewpager_choose_media'
+      - ':id/jfy'
+      - ':id/gl8'
+      - ':id/oo0'
+    publish_media_picker._camera_creation_control_markers:
+      - ':id/upload_hot_area'
+      - ':id/mfb'
+      - ':id/tj8'
+    publish_media_picker._next_btn_base:
+      - '//*[contains(@resource-id, ":id/xip") and (starts-with(@text, "Next") or starts-with(@content-desc, "Next"))]'
+      - '//*[contains(@resource-id, ":id/xip")]'
+    publish_composer._caption_input_base:
+      - '//*[@resource-id="com.zhiliaoapp.musically:id/h3a" and @class="android.widget.EditText"]'
+      - '//*[contains(@resource-id, ":id/h3a") and @class="android.widget.EditText"]'
+      - '//android.widget.EditText[@hint="Add description..." or @text="Add description..."]'
+      - '(//android.widget.EditText[@clickable="true" and @focusable="true"])[1]'
+    publish_composer._post_btn_base:
+      - '//*[contains(@resource-id, ":id/t66") and (@text="Post" or @content-desc="Post")]'
+      - '//*[contains(@resource-id, ":id/t6b") and (@text="Post" or @content-desc="Post")]'
+      - '//*[contains(@resource-id, ":id/t66")]'
+      - '//*[contains(@resource-id, ":id/t6b")]'
+    publish_composer._post_screen_xml_markers_base:
+      - ':id/h3a'
+      - ':id/t6b'
+    publish_composer._hashtag_suggestion_nodes:
+      - '//*[contains(@resource-id, ":id/jt_") and starts-with(@text, "#")]'
+      - '//*[@class="android.widget.TextView" and starts-with(@text, "#")]'
+    publish_composer._hashtag_suggestion_rows:
+      - '//*[contains(@resource-id, ":id/jt_") and starts-with(@text, "#")]/ancestor::*[contains(@resource-id, ":id/f15") and @clickable="true"][1]'
+      - '//*[contains(@resource-id, ":id/jt_") and starts-with(@text, "#")]/ancestor::*[@clickable="true"][1]'
+      - '(//*[contains(@resource-id, ":id/f15") and @clickable="true"])[1]'
   # Add version-specific overrides here as new app versions are discovered.
   # Only include selectors that CHANGED — unchanged selectors inherit from Python.

@@ -14,6 +14,14 @@ class SwitchResult:
         switched_to: Optional[str] = None,
         relogin_required: bool = False,
         detected_accounts: Optional[List[str]] = None,
+        requested_username: Optional[str] = None,
+        previous_username: Optional[str] = None,
+        active_username: Optional[str] = None,
+        already_active: bool = False,
+        attempts: int = 0,
+        failure_stage: Optional[str] = None,
+        failure_category: Optional[str] = None,
+        state_known: bool = False,
     ):
         self.success = success
         self.message = message
@@ -27,6 +35,14 @@ class SwitchResult:
         # Usernames seen on the account picker during the switch (device-connected accounts),
         # so the front can refresh its list.
         self.detected_accounts = detected_accounts or []
+        self.requested_username = requested_username
+        self.previous_username = previous_username
+        self.active_username = active_username
+        self.already_active = already_active
+        self.attempts = attempts
+        self.failure_stage = failure_stage
+        self.failure_category = failure_category
+        self.state_known = state_known
 
     def __repr__(self):
         return (

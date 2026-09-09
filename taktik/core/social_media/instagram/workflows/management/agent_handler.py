@@ -9,15 +9,20 @@ from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.management.login import LoginWorkflow
 from taktik.core.social_media.instagram.workflows.management.logout import LogoutWorkflow
 from taktik.core.social_media.instagram.workflows.management.signup import SignupWorkflow
+from taktik.core.social_media.instagram.workflows.management.switch import SwitchAccountWorkflow
 
 
 INSTAGRAM_ACCOUNT_LOGIN_WORKFLOW_ID = "instagram.account.login"
 INSTAGRAM_ACCOUNT_LOGOUT_WORKFLOW_ID = "instagram.account.logout"
 INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID = "instagram.account.register"
+INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID = "instagram.account.switch_account"
+INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID = "instagram.account.list_accounts"
 INSTAGRAM_ACCOUNT_WORKFLOW_IDS = (
     INSTAGRAM_ACCOUNT_LOGIN_WORKFLOW_ID,
     INSTAGRAM_ACCOUNT_LOGOUT_WORKFLOW_ID,
     INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID,
+    INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID,
+    INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID,
 )
 WorkflowFactory = Callable[..., Any]
 
@@ -29,6 +34,7 @@ def build_instagram_account_handler(
     login_workflow_factory: WorkflowFactory = LoginWorkflow,
     logout_workflow_factory: WorkflowFactory = LogoutWorkflow,
     signup_workflow_factory: WorkflowFactory = SignupWorkflow,
+    switch_workflow_factory: WorkflowFactory = SwitchAccountWorkflow,
 ) -> WorkflowHandler:
     """Build an injectable Instagram account handler without bridge startup."""
 
@@ -49,6 +55,21 @@ def build_instagram_account_handler(
             workflow = signup_workflow_factory(device, device_id)
             return workflow.execute(**params)
 
+        if invocation.workflow_id in {
+            INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID,
+            INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID,
+        }:
+            workflow = switch_workflow_factory(device, device_id)
+            if invocation.workflow_id == INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID:
+                target = _required_string(
+                    merged,
+                    "target_username",
+                    "targetUsername",
+                    message="Instagram switch_account requires targetUsername",
+                )
+                return workflow.execute(target)
+            return workflow.list_accounts()
+
         raise ValueError(f"Unsupported Instagram account workflow id: {invocation.workflow_id}")
 
     return handler
@@ -62,6 +83,7 @@ def register_instagram_account_handlers(
     login_workflow_factory: WorkflowFactory = LoginWorkflow,
     logout_workflow_factory: WorkflowFactory = LogoutWorkflow,
     signup_workflow_factory: WorkflowFactory = SignupWorkflow,
+    switch_workflow_factory: WorkflowFactory = SwitchAccountWorkflow,
 ) -> WorkflowRegistry:
     """Register Instagram account handlers into an injected Agent registry."""
     handler = build_instagram_account_handler(
@@ -70,6 +92,7 @@ def register_instagram_account_handlers(
         login_workflow_factory=login_workflow_factory,
         logout_workflow_factory=logout_workflow_factory,
         signup_workflow_factory=signup_workflow_factory,
+        switch_workflow_factory=switch_workflow_factory,
     )
     for workflow_id in INSTAGRAM_ACCOUNT_WORKFLOW_IDS:
         registry.register(workflow_id, handler)
@@ -133,11 +156,12 @@ def _register_params(payload: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _required_string(payload: Mapping[str, Any], name: str, *, message: str) -> str:
-    value = _optional_string(payload, name)
-    if not value:
-        raise ValueError(message)
-    return value
+def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:
+    for name in names:
+        value = _optional_string(payload, name)
+        if value:
+            return value
+    raise ValueError(message)
 
 
 def _optional_string(payload: Mapping[str, Any], name: str) -> str | None:

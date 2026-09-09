@@ -11,13 +11,14 @@ from bridges.tiktok.runtime.ipc import _ipc, send_error, send_status
 
 
 class TikTokAccountBridge(TikTokAccountWorkflowMixin, TikTokAccountSessionMixin):
-    """Bridge for TikTok account management (login / logout / register / change_language)."""
+    """Bridge for TikTok account management, including native signed-in switching."""
 
     def __init__(self, config: dict):
         self.config = config
         self.device_id = config.get("deviceId")
         self.workflow_type = config.get("workflowType")
         self.package_name = config.get("packageName")
+        self.android_user_id = config.get("androidUserId")
         self._connection = None
 
         setup_signal_handlers(ipc=_ipc)
@@ -34,7 +35,8 @@ class TikTokAccountBridge(TikTokAccountWorkflowMixin, TikTokAccountSessionMixin)
         if not self.workflow_type:
             send_error(
                 "workflowType is required "
-                "('login', 'logout', 'register' or 'change_language')"
+                "('login', 'logout', 'register', 'change_language', "
+                "'switch_account' or 'list_accounts')"
             )
             return 1
 
@@ -50,6 +52,10 @@ class TikTokAccountBridge(TikTokAccountWorkflowMixin, TikTokAccountSessionMixin)
             return self._run_register(device)
         if self.workflow_type == "change_language":
             return self._run_change_language(device)
+        if self.workflow_type == "switch_account":
+            return self._run_switch_account(device)
+        if self.workflow_type == "list_accounts":
+            return self._run_list_accounts(device)
 
         send_error(f"Unknown workflowType: {self.workflow_type}")
         return 1

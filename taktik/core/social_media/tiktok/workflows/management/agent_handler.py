@@ -10,6 +10,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_
     bool_param,
     int_param,
     merge_invocation_payload,
+    optional_int_param,
     value_param,
 )
 from taktik.core.social_media.tiktok.workflows.management.login.login_workflow import (
@@ -21,15 +22,20 @@ from taktik.core.social_media.tiktok.workflows.management.logout.logout_workflow
 from taktik.core.social_media.tiktok.workflows.management.signup.signup_workflow import (
     TikTokSignupWorkflow,
 )
+from taktik.core.social_media.tiktok.auth.switch import TikTokSwitchAccount
 
 
 TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID = "tiktok.account.login"
 TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID = "tiktok.account.logout"
 TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID = "tiktok.account.register"
+TIKTOK_ACCOUNT_SWITCH_WORKFLOW_ID = "tiktok.account.switch_account"
+TIKTOK_ACCOUNT_LIST_WORKFLOW_ID = "tiktok.account.list_accounts"
 TIKTOK_ACCOUNT_WORKFLOW_IDS = (
     TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID,
     TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID,
     TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID,
+    TIKTOK_ACCOUNT_SWITCH_WORKFLOW_ID,
+    TIKTOK_ACCOUNT_LIST_WORKFLOW_ID,
 )
 WorkflowFactory = Callable[..., Any]
 
@@ -42,6 +48,7 @@ def build_tiktok_account_handler(
     login_workflow_factory: WorkflowFactory = TikTokLoginWorkflow,
     logout_workflow_factory: WorkflowFactory = TikTokLogoutWorkflow,
     signup_workflow_factory: WorkflowFactory = TikTokSignupWorkflow,
+    switch_workflow_factory: WorkflowFactory = TikTokSwitchAccount,
 ) -> WorkflowHandler:
     """Build an injectable TikTok account handler without bridge startup."""
 
@@ -62,6 +69,28 @@ def build_tiktok_account_handler(
             workflow = signup_workflow_factory(device, device_id, notifier=notifier)
             return workflow.execute(**params)
 
+        if invocation.workflow_id in {
+            TIKTOK_ACCOUNT_SWITCH_WORKFLOW_ID,
+            TIKTOK_ACCOUNT_LIST_WORKFLOW_ID,
+        }:
+            workflow = switch_workflow_factory(
+                device,
+                device_id,
+                android_user_id=optional_int_param(
+                    merged, "android_user_id", "androidUserId"
+                ),
+                notifier=notifier,
+            )
+            if invocation.workflow_id == TIKTOK_ACCOUNT_SWITCH_WORKFLOW_ID:
+                target = _required_string(
+                    merged,
+                    "target_username",
+                    "targetUsername",
+                    message="TikTok switch_account requires targetUsername",
+                )
+                return workflow.switch_account(target)
+            return workflow.list_accounts()
+
         raise ValueError(f"Unsupported TikTok account workflow id: {invocation.workflow_id}")
 
     return handler
@@ -76,6 +105,7 @@ def register_tiktok_account_handlers(
     login_workflow_factory: WorkflowFactory = TikTokLoginWorkflow,
     logout_workflow_factory: WorkflowFactory = TikTokLogoutWorkflow,
     signup_workflow_factory: WorkflowFactory = TikTokSignupWorkflow,
+    switch_workflow_factory: WorkflowFactory = TikTokSwitchAccount,
 ) -> WorkflowRegistry:
     """Register TikTok account handlers into an injected Agent registry."""
     handler = build_tiktok_account_handler(
@@ -85,6 +115,7 @@ def register_tiktok_account_handlers(
         login_workflow_factory=login_workflow_factory,
         logout_workflow_factory=logout_workflow_factory,
         signup_workflow_factory=signup_workflow_factory,
+        switch_workflow_factory=switch_workflow_factory,
     )
     for workflow_id in TIKTOK_ACCOUNT_WORKFLOW_IDS:
         registry.register(workflow_id, handler)

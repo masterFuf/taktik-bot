@@ -28,6 +28,7 @@ from ...social_media.instagram.ui.selectors import (
     FOLLOWERS_LIST_SELECTORS as IG_FOLLOWERS_LIST,
 )
 from ...social_media.tiktok.ui.selectors import (
+    ACCOUNT_SWITCH_SELECTORS as TT_ACCOUNT_SWITCH,
     AUTH_SELECTORS as TT_AUTH,
     SIGNUP_SELECTORS as TT_SIGNUP,
     LOGOUT_SELECTORS as TT_LOGOUT,
@@ -82,6 +83,7 @@ INSTAGRAM_SELECTOR_DOMAINS = {
 }
 
 TIKTOK_SELECTOR_DOMAINS = {
+    "account_switch": TT_ACCOUNT_SWITCH,
     "auth": TT_AUTH,
     "signup": TT_SIGNUP,
     "logout": TT_LOGOUT,

@@ -7,6 +7,8 @@ that leak behind the switcher sheet, and story labels; stripping the trailing
 """
 
 from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
+from taktik.core.social_media.instagram.auth.switch.models import SwitchResult
+from taktik.core.social_media.instagram.workflows.management.switch import SwitchAccountWorkflow
 
 
 def _dump(*content_descs: str) -> str:
@@ -23,9 +25,13 @@ class _FakeDevice:
 
     def __init__(self, xml: str):
         self._xml = xml
+        self.pressed = []
 
     def dump_hierarchy(self):
         return self._xml
+
+    def press(self, key):
+        self.pressed.append(key)
 
 
 def _switcher(*content_descs: str) -> InstagramSwitchAccount:
@@ -132,6 +138,27 @@ def test_detect_active_account_rejects_non_handle(monkeypatch):
     assert emitted == []
 
 
+def test_switch_to_active_account_is_a_non_destructive_noop(monkeypatch):
+    import taktik.core.social_media.instagram.auth.switch as switch_mod
+
+    monkeypatch.setattr(switch_mod.time, "sleep", lambda *_args, **_kwargs: None)
+    switcher = _switcher()
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: False)
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "account.two")
+    monkeypatch.setattr(
+        switcher._logout,
+        "_open_profile_tab",
+        lambda: (_ for _ in ()).throw(AssertionError("already-active switch must not log out")),
+    )
+
+    result = switcher.switch_to("@Account.Two")
+
+    assert result.success is True
+    assert result.already_active is True
+    assert result.active_username == "account.two"
+    assert result.attempts == 0
+
+
 def test_list_accounts_returns_active_account_when_logged_in(monkeypatch):
     # When an account is active (not on the picker), list_accounts is non-destructive: it reads the
     # active account from the profile and returns just that one (instead of the old empty list).
@@ -176,3 +203,256 @@ def test_list_saved_accounts_empty_when_picker_unreached(monkeypatch):
     monkeypatch.setattr(switcher, "detect_active_account", lambda: None)
     monkeypatch.setattr(switcher, "_logout_to_picker", lambda: False)
     assert switcher.list_saved_accounts() == []
+
+
+def _fast_switcher(*content_descs: str, max_attempts: int = 2) -> InstagramSwitchAccount:
+    return InstagramSwitchAccount(
+        _FakeDevice(_dump(*content_descs)),
+        "device-1",
+        max_attempts=max_attempts,
+        transition_timeout=0,
+        sleeper=lambda _seconds: None,
+    )
+
+
+def test_switch_from_picker_succeeds_only_after_active_username_verification(monkeypatch):
+    switcher = _fast_switcher("target.account")
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: True)
+    monkeypatch.setattr(switcher, "_select_account", lambda _target: True)
+    monkeypatch.setattr(switcher, "_password_required", lambda: False)
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "target.account")
+
+    result = switcher.switch_to("@Target.Account")
+
+    assert result.success is True
+    assert result.active_username == "target.account"
+    assert result.attempts == 1
+
+
+def test_switch_reports_expired_session_as_failure(monkeypatch):
+    switcher = _fast_switcher("target.account")
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: True)
+    monkeypatch.setattr(switcher, "_select_account", lambda _target: True)
+    monkeypatch.setattr(switcher, "_password_required", lambda: True)
+
+    result = switcher.switch_to("target.account")
+
+    assert result.success is False
+    assert result.error_type == "session_expired"
+    assert result.relogin_required is True
+    assert result.failure_stage == "verify"
+    assert result.attempts == 1
+
+
+def test_switch_missing_target_closes_native_switcher_and_keeps_prior_account(monkeypatch):
+    switcher = _fast_switcher("current.account")
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: False)
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "current.account")
+    monkeypatch.setattr(switcher, "_open_account_switcher", lambda: True)
+    monkeypatch.setattr(switcher, "_switcher_is_open", lambda: True)
+    monkeypatch.setattr(
+        switcher._logout,
+        "_open_profile_tab",
+        lambda: (_ for _ in ()).throw(AssertionError("native switcher must be used first")),
+    )
+
+    result = switcher.switch_to("missing.account")
+
+    assert result.success is False
+    assert result.error_type == "target_not_connected"
+    assert result.active_username == "current.account"
+    assert result.state_known is True
+    assert switcher.device.pressed == ["back"]
+
+
+def test_logout_fallback_restores_previous_account_when_target_is_missing(monkeypatch):
+    switcher = _fast_switcher("current.account")
+    picker = False
+    selections = []
+
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: picker)
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "current.account")
+    monkeypatch.setattr(switcher, "_open_account_switcher", lambda: False)
+    monkeypatch.setattr(switcher._logout, "_open_profile_tab", lambda: True)
+    monkeypatch.setattr(switcher._logout, "_open_options_menu", lambda: True)
+    monkeypatch.setattr(switcher._logout, "_find_and_click_logout", lambda: True)
+    monkeypatch.setattr(switcher._logout, "_confirm_logout", lambda: True)
+
+    def reach_picker():
+        nonlocal picker
+        picker = True
+        return True
+
+    monkeypatch.setattr(switcher, "_ensure_on_picker", reach_picker)
+    monkeypatch.setattr(
+        switcher,
+        "_select_account",
+        lambda target: selections.append(target) or target == "current.account",
+    )
+    monkeypatch.setattr(
+        switcher,
+        "_wait_for_selected_account",
+        lambda target: ("verified", target),
+    )
+
+    result = switcher.switch_to("missing.account")
+
+    assert result.success is False
+    assert result.error_type == "target_not_connected"
+    assert result.previous_username == "current.account"
+    assert result.active_username == "current.account"
+    assert result.state_known is True
+    assert selections == ["current.account"]
+
+
+def test_verification_failure_does_not_report_stale_previous_account_as_active(monkeypatch):
+    switcher = _fast_switcher("target.account", max_attempts=1)
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: False)
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "current.account")
+    monkeypatch.setattr(switcher, "_open_account_switcher", lambda: True)
+    monkeypatch.setattr(switcher, "_select_account", lambda _target: True)
+    monkeypatch.setattr(
+        switcher,
+        "_wait_for_selected_account",
+        lambda _target: ("verification_failed", None),
+    )
+    monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
+
+    result = switcher.switch_to("target.account")
+
+    assert result.success is False
+    assert result.error_type == "verification_failed"
+    assert result.previous_username == "current.account"
+    assert result.active_username is None
+    assert result.state_known is False
+
+
+def test_switch_rejects_duplicate_target_rows_as_ambiguous(monkeypatch):
+    switcher = _fast_switcher("target.account", "@TARGET.ACCOUNT")
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: True)
+    monkeypatch.setattr(
+        switcher,
+        "_select_account",
+        lambda _target: (_ for _ in ()).throw(AssertionError("ambiguous target must not be tapped")),
+    )
+
+    result = switcher.switch_to("target.account")
+
+    assert result.success is False
+    assert result.error_type == "ambiguous_target"
+    assert result.failure_stage == "lookup"
+
+
+def test_logout_fallback_restores_previous_account_when_target_is_ambiguous(monkeypatch):
+    switcher = _fast_switcher("current.account", "target.account", "@TARGET.ACCOUNT")
+    picker = False
+    selections = []
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: picker)
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "current.account")
+    monkeypatch.setattr(switcher, "_open_account_switcher", lambda: False)
+    monkeypatch.setattr(switcher._logout, "_open_profile_tab", lambda: True)
+    monkeypatch.setattr(switcher._logout, "_open_options_menu", lambda: True)
+    monkeypatch.setattr(switcher._logout, "_find_and_click_logout", lambda: True)
+    monkeypatch.setattr(switcher._logout, "_confirm_logout", lambda: True)
+
+    def reach_picker():
+        nonlocal picker
+        picker = True
+        return True
+
+    monkeypatch.setattr(switcher, "_ensure_on_picker", reach_picker)
+    monkeypatch.setattr(
+        switcher,
+        "_select_account",
+        lambda target: selections.append(target) or target == "current.account",
+    )
+    monkeypatch.setattr(
+        switcher,
+        "_wait_for_selected_account",
+        lambda target: ("verified", target),
+    )
+
+    result = switcher.switch_to("target.account")
+
+    assert result.success is False
+    assert result.error_type == "ambiguous_target"
+    assert result.active_username == "current.account"
+    assert result.state_known is True
+    assert selections == ["current.account"]
+
+
+def test_switch_retries_selector_miss_and_succeeds_on_second_attempt(monkeypatch):
+    switcher = _fast_switcher("target.account")
+    outcomes = iter([False, True])
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: True)
+    monkeypatch.setattr(switcher, "_select_account", lambda _target: next(outcomes))
+    monkeypatch.setattr(switcher, "_password_required", lambda: False)
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "target.account")
+
+    result = switcher.switch_to("target.account")
+
+    assert result.success is True
+    assert result.attempts == 2
+
+
+def test_switch_reports_selector_failure_after_all_retries(monkeypatch):
+    switcher = _fast_switcher("target.account", max_attempts=2)
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: True)
+    monkeypatch.setattr(switcher, "_select_account", lambda _target: False)
+
+    result = switcher.switch_to("target.account")
+
+    assert result.success is False
+    assert result.error_type == "select_failed"
+    assert result.failure_category == "selector_not_found"
+    assert result.failure_stage == "select"
+    assert result.attempts == 2
+
+
+def test_switch_reports_verification_failure_after_all_retries(monkeypatch):
+    switcher = _fast_switcher("target.account", max_attempts=2)
+    monkeypatch.setattr(switcher, "_on_landing_account_list", lambda: True)
+    monkeypatch.setattr(switcher, "_select_account", lambda _target: True)
+    monkeypatch.setattr(switcher, "_password_required", lambda: False)
+    monkeypatch.setattr(switcher, "detect_active_account", lambda: "wrong.account")
+
+    result = switcher.switch_to("target.account")
+
+    assert result.success is False
+    assert result.error_type == "verification_failed"
+    assert result.active_username == "wrong.account"
+    assert result.failure_stage == "verify"
+    assert result.attempts == 2
+
+
+def test_switch_workflow_preserves_legacy_keys_and_adds_diagnostics():
+    workflow = SwitchAccountWorkflow(_FakeDevice(_dump()), "device-1")
+    workflow.switch_manager = type(
+        "Manager",
+        (),
+        {
+            "switch_to": lambda self, target: SwitchResult(
+                False,
+                "not verified",
+                "verification_failed",
+                requested_username=target,
+                active_username="previous.account",
+                attempts=2,
+                failure_stage="verify",
+                failure_category="switch_verification_failed",
+                state_known=True,
+            )
+        },
+    )()
+
+    result = workflow.execute("target.account")
+
+    assert result["success"] is False
+    assert result["switched_to"] is None
+    assert result["relogin_required"] is False
+    assert result["requested_username"] == "target.account"
+    assert result["active_username"] == "previous.account"
+    assert result["attempts"] == 2
+    assert result["failure_stage"] == "verify"
+    assert result["failure_category"] == "switch_verification_failed"
+    assert result["state_known"] is True

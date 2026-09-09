@@ -18,8 +18,39 @@ class TikTokAccountSessionMixin:
         if device is None:
             return None
 
+        if not self._validate_android_user(device):
+            return None
+
         self._launch_tiktok()
         return device
+
+    def _validate_android_user(self, device) -> bool:
+        """Refuse to operate in a different Android profile than requested."""
+        if self.android_user_id in (None, ""):
+            self.android_user_id = None
+            return True
+        try:
+            requested = int(self.android_user_id)
+            if requested < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            send_error("androidUserId must be a non-negative integer")
+            return False
+
+        try:
+            response = device.shell("am get-current-user")
+            output = getattr(response, "output", response)
+            current = int(str(output).strip())
+        except Exception as exc:  # noqa: BLE001
+            send_error(f"Could not verify androidUserId {requested}: {exc}")
+            return False
+        if current != requested:
+            send_error(
+                f"androidUserId {requested} is not the active Android user (current: {current})"
+            )
+            return False
+        self.android_user_id = requested
+        return True
 
     def _setup_database(self) -> bool:
         try:
@@ -51,8 +82,11 @@ class TikTokAccountSessionMixin:
             platform="tiktok",
             package_override=self.package_name,
         )
-        # Clean restart (force-stop + launch) for a consistent initial state, like every bridge.
-        app_service.restart()
+        if self.workflow_type in {"switch_account", "list_accounts"} and app_service.is_running():
+            send_status("initializing", "TikTok already open — using the current account state")
+        else:
+            # Login/logout/register retain their known clean starting state.
+            app_service.restart()
         self._patch_clone_selectors(app_service.package)
         time.sleep(2)
 

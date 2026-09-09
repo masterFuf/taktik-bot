@@ -66,6 +66,24 @@ def test_tap_upload_button_tries_selector_dump_and_fallbacks_in_order(monkeypatc
     assert calls == ["selector", "dump", "right", "bottom"]
 
 
+def test_tap_upload_button_does_nothing_when_create_opened_gallery_directly(monkeypatch):
+    calls = []
+    monkeypatch.setattr(publish_navigation, "is_gallery_picker_open", lambda _device: True)
+    monkeypatch.setattr(
+        publish_navigation,
+        "tap_element",
+        lambda *_args, **_kwargs: calls.append("selector") or True,
+    )
+    monkeypatch.setattr(
+        publish_navigation,
+        "tap_upload_right_strip_fallback",
+        lambda *_args, **_kwargs: calls.append("coordinate") or True,
+    )
+
+    assert tap_upload_button(FakeDevice())
+    assert calls == []
+
+
 def test_ensure_gallery_picker_open_retries_upload_when_still_on_camera(monkeypatch):
     gallery_states = iter([False, True])
     tap_calls = []

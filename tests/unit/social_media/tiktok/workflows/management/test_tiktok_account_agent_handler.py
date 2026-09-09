@@ -2,9 +2,11 @@ import pytest
 
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
 from taktik.core.social_media.tiktok.workflows.management import (
+    TIKTOK_ACCOUNT_LIST_WORKFLOW_ID,
     TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID,
     TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID,
     TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID,
+    TIKTOK_ACCOUNT_SWITCH_WORKFLOW_ID,
     register_tiktok_account_handlers,
 )
 
@@ -26,6 +28,26 @@ class FakeWorkflow:
 
 class FakeNotifier:
     pass
+
+
+class FakeSwitchWorkflow:
+    instances = []
+
+    def __init__(self, device, device_id, *, android_user_id=None, notifier=None):
+        self.device = device
+        self.device_id = device_id
+        self.android_user_id = android_user_id
+        self.notifier = notifier
+        self.calls = []
+        self.instances.append(self)
+
+    def switch_account(self, target):
+        self.calls.append(("switch_account", target))
+        return {"success": True, "active_username": target}
+
+    def list_accounts(self):
+        self.calls.append(("list_accounts",))
+        return {"success": True, "accounts": ["one", "two"]}
 
 
 def test_tiktok_account_login_handler_executes_with_normalized_params():
@@ -193,3 +215,71 @@ def test_tiktok_account_login_rejects_missing_password_before_workflow_creation(
         )
 
     assert FakeWorkflow.instances == []
+
+
+@pytest.mark.parametrize(
+    ("workflow_id", "params", "expected_call"),
+    [
+        (
+            TIKTOK_ACCOUNT_SWITCH_WORKFLOW_ID,
+            {"targetUsername": "@creator", "androidUserId": "10"},
+            ("switch_account", "@creator"),
+        ),
+        (TIKTOK_ACCOUNT_LIST_WORKFLOW_ID, {"androidUserId": 0}, ("list_accounts",)),
+    ],
+)
+def test_tiktok_account_switch_handlers_use_native_workflow_contract(
+    workflow_id, params, expected_call
+):
+    FakeSwitchWorkflow.instances = []
+    registry = WorkflowRegistry()
+    device = object()
+    register_tiktok_account_handlers(
+        registry,
+        device=device,
+        device_id="device-1",
+        login_workflow_factory=FakeWorkflow,
+        logout_workflow_factory=FakeWorkflow,
+        signup_workflow_factory=FakeWorkflow,
+        switch_workflow_factory=FakeSwitchWorkflow,
+    )
+    executor = AgentPlanExecutor(registry)
+
+    events = executor.execute(
+        AgentPlan(
+            plan_id="plan-switch",
+            steps=[
+                PlanStep(
+                    step_id="step-switch",
+                    workflow=WorkflowInvocation(
+                        platform="tiktok",
+                        workflow_id=workflow_id,
+                        params=params,
+                    ),
+                )
+            ],
+        )
+    )
+
+    workflow = FakeSwitchWorkflow.instances[0]
+    assert workflow.device is device
+    assert workflow.device_id == "device-1"
+    assert workflow.android_user_id == int(params["androidUserId"])
+    assert workflow.calls == [expected_call]
+    assert events[-1].payload["success"] is True
+
+
+def test_tiktok_account_switch_handler_requires_target_username():
+    registry = WorkflowRegistry()
+    register_tiktok_account_handlers(
+        registry,
+        device=object(),
+        device_id="device-1",
+        switch_workflow_factory=FakeSwitchWorkflow,
+    )
+
+    with pytest.raises(ValueError, match="requires targetUsername"):
+        registry.resolve(TIKTOK_ACCOUNT_SWITCH_WORKFLOW_ID)(
+            WorkflowInvocation(platform="tiktok", workflow_id=TIKTOK_ACCOUNT_SWITCH_WORKFLOW_ID),
+            {},
+        )

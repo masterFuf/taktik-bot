@@ -43,6 +43,14 @@ class SwitchAccountWorkflow:
                 'switched_to': Optional[str],
                 'relogin_required': bool,
                 'detected_accounts': list[str],
+                'requested_username': Optional[str],
+                'active_username': Optional[str],
+                'previous_username': Optional[str],
+                'already_active': bool,
+                'attempts': int,
+                'failure_stage': Optional[str],
+                'failure_category': Optional[str],
+                'state_known': bool,
             }
         """
         self.logger.info(f"🚀 Starting switch-account workflow → @{target_username}")
@@ -56,6 +64,14 @@ class SwitchAccountWorkflow:
             'switched_to': switch_result.switched_to,
             'relogin_required': switch_result.relogin_required,
             'detected_accounts': switch_result.detected_accounts,
+            'requested_username': switch_result.requested_username,
+            'active_username': switch_result.active_username,
+            'previous_username': switch_result.previous_username,
+            'already_active': switch_result.already_active,
+            'attempts': switch_result.attempts,
+            'failure_stage': switch_result.failure_stage,
+            'failure_category': switch_result.failure_category,
+            'state_known': switch_result.state_known,
         }
 
         if result['success']:
