@@ -17,6 +17,7 @@ Usage:
 
 import time
 import base64
+import hashlib
 import json
 import os
 import re
@@ -25,6 +26,7 @@ from loguru import logger
 
 from taktik.core.shared.actions.optional_call import run_bounded_optional
 from ..prompting import platform_label as _platform_label
+from ..prompting import cacheable_system
 from ..spend import (
     AI_SPEND_AUDIENCE, AI_SPEND_OTHER, AI_SPEND_POST, AI_SPEND_PROFILE, AI_SPEND_VERDICT,
     normalize_spend_kind,
@@ -32,7 +34,24 @@ from ..spend import (
 from ..comments.generation import CommentGenerationMixin
 
 # Two fixed models by task nature (both multimodal). Single source of truth for every LLM call.
-MODEL_ANALYSIS = "google/gemini-3.1-flash-lite"     # classify / analyse / describe (high volume)
+MODEL_ANALYSIS = "google/gemini-3.1-flash-lite"     # analyse / describe / text (post analysis)
+
+# The profile classifier, and ONLY it. A third constant is a deliberate exception to the
+# two-fixed-models rule, and it exists because the two tasks stopped having the same evidence
+# behind them on 2026-09-09:
+#
+#   - Profile classification was BENCHED on 60 real cases against the model it replaces:
+#     41 µ$ against 590 (-93 %), better on gender (91 % vs 87 %) and on cities (83 % vs 79 %),
+#     never a WRONG country (0 % against 5 %), and its category spread sits inside the noise our
+#     own model shows against its own stored answers (66 % vs 61 %). It carries 84 % of the bill.
+#   - Post analysis was NOT benched, and it is not a field-by-field answer a bench can score: it
+#     is free text, and that text is fed to the comment writer as `post_description`. Switching it
+#     blind would let a worse description degrade comments through the back door — the one part of
+#     the product where being wrong is visible to a real person.
+#
+# So the classifier moves and the describer stays, until a bench says otherwise. Collapse this
+# back into MODEL_ANALYSIS the day post analysis is measured too.
+MODEL_CLASSIFICATION = "qwen/qwen3.7-flash"        # classify a profile from its screenshot
 MODEL_GENERATION = "google/gemini-3-flash-preview"  # comment / DM / persona / scheduler (quality)
 # Back-compat aliases for the few `import DEFAULT_*` sites; both resolve to the analysis model.
 DEFAULT_TEXT_MODEL = MODEL_ANALYSIS
@@ -55,19 +74,21 @@ VISION_IMAGE_MAX_EDGE = 768
 
 # Which upstream backend OpenRouter should route to, and why it is a PREFERENCE and not a pin.
 #
-# The prompt cache only pays off when consecutive calls land on the same warm instance. Measured
-# over 3 879 August calls, it fired 48,7 % of the time — and the misses are not a TTL expiring:
-# at under 60 s between calls the hit rate is 37 %, at 60-180 s it is 63 %. That is routing, not
-# time. Every miss re-bills ~1 800 prefix tokens at full price instead of a fifth.
+# The prompt cache only pays off when consecutive calls land on the same warm instance, which is
+# why this preference exists. It WORKS — do not tighten it further.
 #
-# `allow_fallbacks` stays TRUE on purpose. A hard pin to a slug that is renamed, saturated or down
-# fails EVERY call in a run; a preference that cannot be honoured simply routes elsewhere and we
-# lose the cache, which is exactly where we are today. The cost of being wrong is asymmetric, so
-# the safe side is the one that degrades.
+# Re-measured 2026-09-09 on 1 501 logged production calls, now that `_call_openrouter` records the
+# served backend: routing is honoured 100 % of the time (Google AI Studio for the Gemini models,
+# Alibaba for qwen), and the cache is hit **98 % on `classify_profile_niche` via flash-lite (919
+# calls) and 99 % via qwen (366 calls)**. The 48,7 % measured over 3 879 August calls, and the note
+# that used to sit here saying we were losing the cache to routing, are both STALE: the preference
+# fixed it. The calls that showed 0 % were the ones whose prompt was never SPLIT (comment
+# generation, since fixed) or that have no cacheable prefix at all (`analyze_post`, whose ~200
+# prompt tokens sit under an image that changes every call).
 #
-# The served backend is logged (see `_call_openrouter`) because we never recorded it: the run log
-# said `provider=openrouter`, which is the gateway, not the backend. Without that line there is no
-# way to tell whether this preference is honoured — re-read it before tightening anything here.
+# `allow_fallbacks` stays TRUE on purpose, and the measurement above is the argument FOR leaving it
+# alone rather than against: a hard pin to a slug that is renamed, saturated or down fails EVERY
+# call in a run, and we are already getting the routing we want without paying that risk.
 PROVIDER_PREFERENCE = {
     "order": ["google-ai-studio", "google-vertex"],
     "allow_fallbacks": True,
@@ -75,28 +96,6 @@ PROVIDER_PREFERENCE = {
 
 # Platform display label for prompts (so the provider is reusable across platforms,
 # not hardcoded to Instagram). Defaults keep the Instagram wording byte-equivalent.
-
-
-def cacheable_system(stable: str, variable: str = "") -> list:
-    """Build a system message split into a CACHED prefix and a per-call remainder.
-
-    Gemini bills a cache hit at a tenth of the normal input price
-    ($0.025 vs $0.25 per M on the analysis model), but the discount is NOT automatic:
-    measured against production prompts, implicit caching never fired once — every call
-    paid full price for a prefix that was byte-identical each time. An explicit
-    `cache_control` breakpoint is what activates it.
-
-    `stable` must be identical across calls (taxonomy + generic instructions); anything
-    that varies per account, per language or per profile belongs in `variable`, AFTER the
-    breakpoint, or every call writes a fresh cache entry instead of reading one.
-
-    A prefix shorter than roughly 1.5k tokens is silently not cached by the provider (the
-    standalone bot, which gets no injected taxonomy, lands there) — harmless, just no gain.
-    """
-    blocks = [{"type": "text", "text": stable, "cache_control": {"type": "ephemeral"}}]
-    if variable:
-        blocks.append({"type": "text", "text": variable})
-    return blocks
 
 
 def parse_json_response(text: str) -> Any:
@@ -145,10 +144,20 @@ class AIService(CommentGenerationMixin):
         # vision_model params remain for signature compatibility but are ignored.
         self.model_analysis = MODEL_ANALYSIS
         self.model_generation = MODEL_GENERATION
+        # The profile classifier — see MODEL_CLASSIFICATION for why it is not model_analysis.
+        self.model_classification = MODEL_CLASSIFICATION
         # Back-compat aliases: some callers read .vision_model / .text_model for display labels;
         # both point at the analysis model (classification/vision is the common case).
         self.vision_model = MODEL_ANALYSIS
         self.text_model = MODEL_ANALYSIS
+        # Endpoints that refuse to have reasoning switched off (see `_call_openrouter`).
+        # Learned from their first 400 and remembered, so the refusal is provoked once per
+        # model rather than once per call.
+        self._models_requiring_reasoning: set = set()
+        # Hashes of the stable prompt halves this PROCESS has already handed out in a capture.
+        # The body travels once; every later call carries only its 64-character pointer, which
+        # is what keeps 9 KB of identical text from being written on all 15 000 profiles a month.
+        self._captured_prompt_hashes: set = set()
         # Premium niche taxonomy injected by the desktop app via the bridge config
         # (slug -> [sub-niche labels]). The open-source bot does NOT own this list;
         # when nothing is injected, profile classification stays free-form so the
@@ -180,28 +189,69 @@ class AIService(CommentGenerationMixin):
             "HTTP-Referer": "https://taktik-bot.com",
             "X-Title": "TAKTIK Bot",
         }
-        body = json.dumps({
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            # Asks for the cost + cache breakdown alongside the token counts, so a run log
-            # can prove whether the cached prefix is actually being HIT. Without it a
-            # regression that silently kills caching reads exactly like a working setup.
-            "usage": {"include": True},
-            "provider": PROVIDER_PREFERENCE,
-        }).encode("utf-8")
+        def build_body(reasoning: dict) -> bytes:
+            return json.dumps({
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                # Asks for the cost + cache breakdown alongside the token counts, so a run log
+                # can prove whether the cached prefix is actually being HIT. Without it a
+                # regression that silently kills caching reads exactly like a working setup.
+                "usage": {"include": True},
+                "reasoning": reasoning,
+                "provider": PROVIDER_PREFERENCE,
+            }).encode("utf-8")
 
-        req = urllib.request.Request(OPENROUTER_API_URL, data=body, headers=headers, method="POST")
+        # Every call here asks for a JSON answer, never for a train of thought, and nothing
+        # downstream reads a `reasoning` field. Left on its default a reasoning model spends
+        # its whole output budget thinking: measured 2026-09-09 on the same prompt and capture,
+        # qwen3.7-flash returned 900 reasoning tokens, `content = null`, `finish_reason=length`
+        # and SEVEN times the price — paid in full, unusable.
+        #
+        # No single value works everywhere, which is why both are here:
+        #   qwen3.7-flash        accepts {"enabled": false}, IGNORES {"effort": "minimal"}
+        #   gpt-5-nano, glm-5.3  REJECT  {"enabled": false} with HTTP 400 "Reasoning is
+        #                        mandatory for this endpoint", accept {"effort": "minimal"}
+        # So we ask for the strong form first and fall back once on that specific 400. Both
+        # were verified INERT on the two production models (gemini-3.1-flash-lite and
+        # gemini-3-flash-preview answer the same tokens at the same cost with or without),
+        # so this changes nothing today and makes a model swap safe by construction.
+        REASONING_OFF = {"enabled": False}
+        REASONING_MINIMAL = {"effort": "minimal"}
 
-        def request_once() -> Dict[str, Any]:
+        # Remembered per model for the life of the service: the endpoint's answer does not
+        # change between two calls, and without this the 400 is re-provoked on EVERY call --
+        # 60 wasted round trips over one benchmark run. The refusal is free in money, not in
+        # time, and the classification sits on the critical path of a run.
+        first_choice = (
+            REASONING_MINIMAL
+            if model in self._models_requiring_reasoning
+            else REASONING_OFF
+        )
+
+        req = urllib.request.Request(
+            OPENROUTER_API_URL, data=build_body(first_choice), headers=headers, method="POST"
+        )
+
+        # One-element list rather than a flag: the retry happens inside a closure, and a
+        # rebound local would not survive back out of it.
+        attempted_minimal_reasoning: list = []
+
+        def request_once(request) -> Dict[str, Any]:
             try:
                 with urllib.request.urlopen(
-                    req, timeout=OPENROUTER_SOCKET_TIMEOUT_SECONDS
+                    request, timeout=OPENROUTER_SOCKET_TIMEOUT_SECONDS
                 ) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     choice = data.get("choices", [{}])[0]
-                    text = choice.get("message", {}).get("content", "")
+                    message = choice.get("message", {}) or {}
+                    # `content` can be present AND null — a reasoning model that spent its
+                    # whole budget thinking returns exactly that. `.get(key, "")` hands back
+                    # the None, not the default, and the caller died on `.strip()` with
+                    # "'NoneType' object has no attribute 'strip'" — an error that names a
+                    # Python type instead of the empty answer that caused it.
+                    text = message.get("content") or ""
                     usage = data.get("usage", {})
                     # OpenRouter returns cost in usage.cost (not usage.total_cost)
                     cost = usage.get("cost") or usage.get("total_cost")
@@ -213,6 +263,31 @@ class AIService(CommentGenerationMixin):
                             f"[AIService] {model} hit the {max_tokens}-token ceiling "
                             f"(completion={usage.get('completion_tokens')}); response is truncated"
                         )
+                    # An answer that came back empty is a FAILED call, not a successful one
+                    # carrying an empty string: reported as success it travels down the
+                    # pipeline as an unparsable payload and surfaces three layers later as a
+                    # JSON error, naming the parser instead of the model. `cost_usd` is kept
+                    # on the failure so the caller still bills it — see the ledger gate below,
+                    # which reports on "were we charged", not on "did it work".
+                    if not text.strip():
+                        reasoning_tokens = (
+                            (usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0
+                        )
+                        detail = (
+                            f" — the model spent {reasoning_tokens} tokens reasoning and returned no answer"
+                            if reasoning_tokens else ""
+                        )
+                        logger.error(
+                            f"[AIService] {model} returned an empty answer "
+                            f"(finish_reason={finish_reason}){detail}"
+                        )
+                        return {
+                            "success": False,
+                            "error": f"empty answer from {model} (finish_reason={finish_reason})",
+                            "model": data.get("model", model),
+                            "usage": usage,
+                            "cost_usd": cost,
+                        }
                     return {
                         "success": True,
                         "text": text.strip(),
@@ -233,6 +308,31 @@ class AIService(CommentGenerationMixin):
                     error_body = exc.read().decode("utf-8")
                 except Exception:
                     pass
+                # Some endpoints refuse to have reasoning switched off at all and answer
+                # 400 "Reasoning is mandatory for this endpoint" — gpt-5-nano and glm-5.3
+                # both do. Asking them for the MINIMAL effort instead gets the same result
+                # we wanted (0 reasoning tokens, measured) and is the only form they accept.
+                # Retried once, on this message only: a blanket retry would re-send every
+                # 400, and a quota or malformed-request error must stay one call.
+                if (
+                    exc.code == 400
+                    and "reasoning" in error_body.lower()
+                    and not attempted_minimal_reasoning
+                ):
+                    attempted_minimal_reasoning.append(True)
+                    self._models_requiring_reasoning.add(model)
+                    logger.info(
+                        f"[AIService] {model} requires reasoning — retrying with minimal "
+                        f"effort, and remembering it for this model"
+                    )
+                    return request_once(
+                        urllib.request.Request(
+                            OPENROUTER_API_URL,
+                            data=build_body(REASONING_MINIMAL),
+                            headers=headers,
+                            method="POST",
+                        )
+                    )
                 logger.error(
                     f"[AIService] OpenRouter HTTP {exc.code}: {error_body[:300]}"
                 )
@@ -249,7 +349,7 @@ class AIService(CommentGenerationMixin):
         # normal ai_error from the caller thread; a late response cannot revive a
         # stale Agent card.
         bounded = run_bounded_optional(
-            request_once,
+            lambda: request_once(req),
             timeout_seconds=OPENROUTER_TOTAL_TIMEOUT_SECONDS,
             label=f"OpenRouter {model} request",
         )
@@ -269,7 +369,12 @@ class AIService(CommentGenerationMixin):
                 "success": False,
                 "error": "OpenRouter request ended without a response",
             }
-        if result.get("success"):
+        # Gated on "were we BILLED", not on "did it work". A call the provider charged for
+        # and that came back empty is still money out of the account, and reporting it only
+        # on success is how spend escapes the ledger again — the exact defect the ai_spend
+        # transport was introduced to close. A reasoning model that burns its budget thinking
+        # bills in full and answers nothing, so this is not a theoretical case.
+        if result.get("success") or isinstance(result.get("cost_usd"), (int, float)):
             # Single audit line per LLM call: which model ACTUALLY served it (the API may
             # route elsewhere than the requested slug), how many tokens, and what it cost.
             # Previously both were captured and silently dropped, so a post-hoc audit of a
@@ -287,10 +392,13 @@ class AIService(CommentGenerationMixin):
             # hit rate collapses is answered by whether this value keeps changing between calls.
             upstream = result.get("upstream")
             upstream_txt = f" · via={upstream}" if upstream else ""
+            # A billed call that answered nothing must not read like a normal one in the run
+            # log: same shape, one word of difference, so a grep over the costs still finds it.
+            outcome_txt = "" if result.get("success") else " · EMPTY ANSWER"
             logger.info(
                 f"[AIService] {label or 'call'} · model={served}{routed} · "
                 f"tokens={usage.get('prompt_tokens', '?')}{cached_txt}+{usage.get('completion_tokens', '?')} · "
-                f"cost={cost_txt}{upstream_txt}"
+                f"cost={cost_txt}{upstream_txt}{outcome_txt}"
             )
             # The session's ONLY cost ledger. Reported here, at the single point every paid
             # call passes through, so spend cannot escape accounting: the per-card events
@@ -304,6 +412,41 @@ class AIService(CommentGenerationMixin):
                 except Exception as exc:
                     logger.debug(f"[AIService] ai_spend emit failed: {exc}")
         return result
+
+
+    def build_prompt_capture(self, system_prompt: Union[str, list], user_prompt: str) -> Dict[str, Any]:
+        """What was actually sent, in the shape the capture store expects.
+
+        Returns `{hash, system?, user}` — the sha256 of the stable half, that half's TEXT only the
+        first time this process hands out that hash, and the variable half in full.
+
+        The image is deliberately absent: it already lives in `media` under `ai_<username>.jpg`,
+        and inlining its base64 (~55 KB) would put back exactly the weight this design removes.
+
+        Pure: it reads nothing and writes nothing. The database layer decides what to do with it,
+        which is what keeps a provider from owning a table.
+        """
+        if isinstance(system_prompt, list):
+            # `cacheable_system()` returns blocks; the stable half is what carries the breakpoint,
+            # and the rest is joined behind it so the hash describes the WHOLE system message.
+            text = "\n".join(
+                block.get("text", "") for block in system_prompt if isinstance(block, dict)
+            )
+        else:
+            text = system_prompt or ""
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        capture: Dict[str, Any] = {"hash": digest, "user": user_prompt}
+        # Created on demand rather than read straight off the instance: the mixin is exercised on
+        # services built without `__init__` (test doubles, partial construction), and a capture is
+        # diagnostic material — it must never be the reason a real call raises.
+        seen = getattr(self, "_captured_prompt_hashes", None)
+        if seen is None:
+            seen = set()
+            self._captured_prompt_hashes = seen
+        if digest not in seen:
+            seen.add(digest)
+            capture["system"] = text
+        return capture
 
     def _image_to_base64_url(self, image_path: str) -> Optional[str]:
         """Convert an image file to a data URL for vision models."""
@@ -508,11 +651,15 @@ class AIService(CommentGenerationMixin):
 
     def vision_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                           temperature: float = 0.3, max_tokens: int = 1500,
-                          label: str = "vision", kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
-        """Vision completion — sends an image + prompt to the vision model.
+                          label: str = "vision", kind: str = AI_SPEND_OTHER,
+                          model: str = None) -> Dict[str, Any]:
+        """Vision completion — sends an image + prompt to a vision model.
 
         `system_prompt` is either a plain string or the block list built by
-        `cacheable_system()` when the prefix is worth caching."""
+        `cacheable_system()` when the prefix is worth caching.
+
+        `model` defaults to the describer; the profile classifier passes its own, which is a
+        different model since 2026-09-09 (see MODEL_CLASSIFICATION)."""
         # Downscaled + JPEG (see _image_for_vision): device screenshots are huge PNGs and
         # the image dominates each vision call's token cost. Never sends more than the raw.
         image_url = self._image_for_vision(image_path)
@@ -526,13 +673,14 @@ class AIService(CommentGenerationMixin):
                 {"type": "text", "text": user_prompt},
             ]},
         ]
-        return self._call_openrouter(self.vision_model, messages, temperature, max_tokens, kind=kind,
-                                     label=label)
+        return self._call_openrouter(model or self.vision_model, messages, temperature, max_tokens,
+                                     kind=kind, label=label)
 
     def vision_json_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
                                temperature: float = 0.3, max_tokens: int = 1500,
                                label: str = "vision",
-                               kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
+                               kind: str = AI_SPEND_OTHER,
+                               model: str = None) -> Dict[str, Any]:
         """Vision completion whose answer must be JSON — retried once if it comes back unusable.
 
         Upstream truncation is rare but real: replaying the exact production call 9 times in a
@@ -547,7 +695,7 @@ class AIService(CommentGenerationMixin):
         for attempt in (1, 2):
             last = self.vision_completion(system_prompt, user_prompt, image_path,
                                           temperature=temperature, max_tokens=max_tokens,
-                                          label=label, kind=kind)
+                                          label=label, kind=kind, model=model)
             if not last.get("success"):
                 return last  # transport/HTTP failure: retrying here would just double the wait
 
@@ -1137,7 +1285,9 @@ class AIService(CommentGenerationMixin):
             self.ipc.ai_profile_analyzing(
                 username,
                 prompt=ipc_prompt,
-                model=self.vision_model,
+                # The classifier, not the describer: a card that names the wrong model is how a
+                # switch looks like it never happened.
+                model=self.model_classification,
                 image_url=screenshot_thumb,
                 avatar_url=avatar_thumb,
                 prompt_key="promptClassifyProfile",
@@ -1292,8 +1442,14 @@ class AIService(CommentGenerationMixin):
         result = self.vision_json_completion(system_prompt, user_prompt, screenshot_path,
                                              temperature=0.2,
                                              max_tokens=1100 if include_engagement else 900,
-                                             label=f"classify_profile_niche @{username}", kind=AI_SPEND_PROFILE)
+                                             label=f"classify_profile_niche @{username}",
+                                             kind=AI_SPEND_PROFILE,
+                                             model=self.model_classification)
         duration_ms = int((time.time() - t0) * 1000)
+        # What was SENT, beside what came back. Built here and carried on the result rather than
+        # written from this file: a provider that writes to SQLite is the layering this codebase
+        # keeps undoing. The image is not in it — it already lives in `media`.
+        prompt_capture = self.build_prompt_capture(system_prompt, user_prompt)
 
         logger.debug(
             f"[AIService] classify_profile_niche @{username} — raw response:\n"
@@ -1355,6 +1511,7 @@ class AIService(CommentGenerationMixin):
         return {
             "success": True,
             "classification": classification,
+            "prompt_capture": prompt_capture,
             "model": result.get("model"),
             "provider": "openrouter",
             "cost_usd": result.get("cost_usd"),
