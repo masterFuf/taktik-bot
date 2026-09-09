@@ -11,7 +11,10 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_C
 from .templates import DEFAULT_TEMPLATES, get_random_comment, validate_comment, get_templates, add_custom_template
 
 
-class CommentAction(BaseBusinessAction):
+from .thread_context import ThreadContextMixin
+
+
+class CommentAction(ThreadContextMixin, BaseBusinessAction):
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "comment")
@@ -133,6 +136,17 @@ class CommentAction(BaseBusinessAction):
                     source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'template'),
                 )
                 stats['comment_id'] = comment_id
+                # Bind the prompt capture written when the model answered to the comment it
+                # produced. Two rows a few seconds apart, joined by an id rather than by a
+                # timestamp: the explain panel then reads one row, not a nearest match.
+                capture_id = (ai_metadata or {}).get('capture_id')
+                if capture_id and comment_id:
+                    try:
+                        from taktik.core.database.ai_prompt_captures import AiPromptCaptures
+
+                        AiPromptCaptures.attach_comment(capture_id, comment_id)
+                    except Exception as exc:  # noqa: BLE001 — diagnostics never break a run
+                        self.logger.debug(f"Could not bind prompt capture to comment: {exc}")
                 if comment_id and config.get('capture_post_url', True):
                     self._attach_post_url(comment_id)
 

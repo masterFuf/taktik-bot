@@ -56,6 +56,13 @@ _resolve_base_language = resolve_base_language
 _resolve_comment_language = resolve_comment_language
 
 
+def _record_prompt_capture(*args, **kwargs):
+    """Deferred import: `taktik.core.database` must not be imported at module load."""
+    from taktik.core.database.ai_prompt_captures import AiPromptCaptures
+
+    return AiPromptCaptures.record(*args, **kwargs)
+
+
 def _load_cached_qualification(username: str) -> "dict | None":
     """This profile's already-stored AI qualification, or None if it was never classified.
 
@@ -427,6 +434,37 @@ def install_instagram_ai_hooks(
                     except Exception:
                         recent_comments = []
 
+                    # The thread, read HERE and nowhere else. Every pre-generation skip gate is
+                    # behind us, so we never pay the sheet on a post already thrown away; the
+                    # screenshot has been frozen on disk since well before, so nothing that
+                    # happens on screen now can reach the vision pass; and `post_author` is
+                    # known, which is what tells the author's own replies from a stranger's.
+                    #
+                    # It does not add a navigation: `comment_on_post` opens the same sheet a few
+                    # seconds later anyway, and hands it back open — its own branch then skips
+                    # the click. One sheet transition per post instead of two.
+                    thread_context = None
+                    try:
+                        thread_context = self_comment.read_thread_context(
+                            post_author=post_author or username,
+                            own_recent_texts=recent_comments,
+                            comment_lang=comment_lang,
+                            base_lang=base_lang,
+                        )
+                    except Exception as exc:  # noqa: BLE001 — context never blocks a comment
+                        log("warning", f"Thread context unavailable for @{username}: {exc}")
+
+                    # The target's grammatical gender. Already classified and stored for 84 %
+                    # of profiles, and until now never handed to the writer — so every gendered
+                    # form addressed to a French account was a coin flip. Read through the SAME
+                    # gate the interaction hook uses, never an inline query.
+                    target_gender = ""
+                    try:
+                        cached = _load_cached_qualification(username or "")
+                        target_gender = (cached or {}).get("gender") or ""
+                    except Exception as exc:  # noqa: BLE001 — agreement is a bonus, never a blocker
+                        log("warning", f"Gender unavailable for @{username}: {exc}")
+
                     result = ai.generate_smart_comment(
                         post_description=post_desc,
                         username=username or "unknown",
@@ -439,6 +477,8 @@ def install_instagram_ai_hooks(
                         require_relevance_decision=decision_mode,
                         post_published=post_published,
                         recent_comments=recent_comments,
+                        thread_context=thread_context,
+                        target_gender=target_gender,
                     )
                     if (
                         decision_mode
@@ -473,6 +513,23 @@ def install_instagram_ai_hooks(
                             # model, what did it cost, why this comment" later on.
                             ai_metadata={
                                 "source": "ai",
+                                # The capture is written BEFORE the comment exists — that is
+                                # deliberate: a comment refused downstream keeps its prompt, and
+                                # those are exactly the ones worth reading. The id travels here
+                                # so the action can bind the two once the comment is published.
+                                "capture_id": _record_prompt_capture(
+                                    result.get("prompt_capture"),
+                                    kind="comment",
+                                    username=username,
+                                    model=result.get("model"),
+                                    persona=account_persona,
+                                    meta={
+                                        "language": comment_lang,
+                                        "anti_tic_window": len(recent_comments or []),
+                                        "had_vision_description": bool(post_desc),
+                                        "decision_mode": bool(decision_mode),
+                                    },
+                                ),
                                 "model": result.get("model"),
                                 "cost_usd": result.get("cost_usd"),
                                 "reasoning": result.get("reasoning"),
@@ -816,6 +873,28 @@ def install_instagram_ai_hooks(
                                 f"[{classification.get('niche_category', '?')}] "
                                 f"{classification.get('niche', '?')}"
                             ),
+                            # The model that ACTUALLY served this call, straight from the
+                            # transport — not the constant we asked for. OpenRouter may route
+                            # elsewhere than the requested slug, and a stored qualification that
+                            # names the requested model rather than the served one is worse than
+                            # one that names none: it looks authoritative and is wrong.
+                            model=result.get("model"),
+                            provider=result.get("provider"),
+                            cost_usd=result.get("cost_usd"),
+                        )
+                        # What the classifier was actually asked. Written here rather than in
+                        # the provider, and after the answer rather than before it, so a call
+                        # that failed outright leaves no orphan capture.
+                        _record_prompt_capture(
+                            result.get("prompt_capture"),
+                            kind="profile",
+                            username=username,
+                            model=result.get("model"),
+                            meta={
+                                "language": language,
+                                "include_engagement": bool(wants_verdict),
+                                "taxonomy_entries": len(getattr(ai, "niche_taxonomy", {}) or {}),
+                            },
                         )
                         # Surface the engagement verdict on profile_data. Always displayed as the
                         # decision trace; when relevanceGating.enabled, the interaction engine

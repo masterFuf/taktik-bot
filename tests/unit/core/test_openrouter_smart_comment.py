@@ -120,7 +120,12 @@ def _service_capturing_prompt(monkeypatch, captured):
     svc = _service(monkeypatch, '{"reasoning": "r", "comment": "c"}')
 
     def fake_completion(system_prompt, user_prompt, **k):
-        captured["system"] = system_prompt
+        # The system message is now a pair of blocks (a cached prefix + the per-call rest), so
+        # these tests read the two joined: they assert WHAT the prompt says, and the side each
+        # rule lands on is pinned separately in `test_comment_gender_agreement`.
+        captured["system"] = system_prompt if isinstance(system_prompt, str) else "".join(
+            block.get("text", "") for block in system_prompt
+        )
         captured["user"] = user_prompt
         return {"success": True, "text": '{"reasoning": "r", "comment": "c"}',
                 "model": "test/model", "cost_usd": 0.0}

@@ -20,7 +20,14 @@ def _service(response_text, success=True):
     svc.captured = {}
 
     def _completion(system, user, **kwargs):
-        svc.captured = {"system": system, "user": user, **kwargs}
+        # The system message is a pair of blocks since the prompt was split for the cache
+        # (a stable prefix + the per-call rest). These tests assert WHAT it says, so they read
+        # the two joined; which side each rule lands on is pinned in
+        # `test_comment_gender_agreement`.
+        joined = system if isinstance(system, str) else "".join(
+            block.get("text", "") for block in system
+        )
+        svc.captured = {"system": joined, "user": user, **kwargs}
         if not success:
             return {"success": False, "error": "provider down"}
         return {"success": True, "text": response_text, "model": "m", "cost_usd": 0.0001}
