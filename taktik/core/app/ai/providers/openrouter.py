@@ -96,6 +96,11 @@ VISION_IMAGE_MAX_EDGE = 768
 # `allow_fallbacks` stays TRUE on purpose, and the measurement above is the argument FOR leaving it
 # alone rather than against: a hard pin to a slug that is renamed, saturated or down fails EVERY
 # call in a run, and we are already getting the routing we want without paying that risk.
+# Waits before retrying a rate-limited call. Two, growing: the upstream says "retry shortly",
+# and a burst typically clears within seconds. A third wait would only stall a run on an
+# upstream that is saturated for longer than a burst.
+RATE_LIMIT_BACKOFF_SECONDS = (2.0, 6.0)
+
 PROVIDER_PREFERENCE = {
     "order": ["google-ai-studio", "google-vertex"],
     "allow_fallbacks": True,
@@ -244,6 +249,7 @@ class AIService(CommentGenerationMixin):
         # One-element list rather than a flag: the retry happens inside a closure, and a
         # rebound local would not survive back out of it.
         attempted_minimal_reasoning: list = []
+        rate_limit_waits: list = []
 
         def request_once(request) -> Dict[str, Any]:
             try:
@@ -340,12 +346,36 @@ class AIService(CommentGenerationMixin):
                             method="POST",
                         )
                     )
+                # 429 is the one HTTP failure that says what to do: OpenRouter's upstream
+                # rate limit answers "Please retry shortly". Returning it as a plain failure
+                # threw the generation away — a comment silently not written. Measured on
+                # 2026-09-10: 0 rate limits in 396 production calls on qwen, but repeated ones
+                # the moment calls were fired back to back, which is what 200 accounts in
+                # parallel will look like. Two waits, growing, then give up: a third would only
+                # hold a run hostage to an upstream that is not coming back.
+                if exc.code == 429 and len(rate_limit_waits) < len(RATE_LIMIT_BACKOFF_SECONDS):
+                    wait = RATE_LIMIT_BACKOFF_SECONDS[len(rate_limit_waits)]
+                    rate_limit_waits.append(wait)
+                    logger.warning(
+                        f"[AIService] {model} rate-limited upstream — waiting {wait:.0f}s "
+                        f"before retry {len(rate_limit_waits)}/{len(RATE_LIMIT_BACKOFF_SECONDS)}"
+                    )
+                    time.sleep(wait)
+                    return request_once(
+                        urllib.request.Request(
+                            OPENROUTER_API_URL, data=request.data, headers=headers,
+                            method="POST",
+                        )
+                    )
                 logger.error(
                     f"[AIService] OpenRouter HTTP {exc.code}: {error_body[:300]}"
                 )
                 return {
                     "success": False,
                     "error": f"HTTP {exc.code}: {error_body[:200]}",
+                    # Distinguishable from a real failure, so a caller can decide to fall back
+                    # to another model rather than drop the work.
+                    "rate_limited": exc.code == 429,
                 }
             except Exception as exc:
                 logger.error(f"[AIService] OpenRouter error: {exc}")
