@@ -37,6 +37,38 @@ from mine_agreement_glossary import _corpora, merged_lexicon  # noqa: E402
 
 OUT = ROOT / "taktik" / "core" / "app" / "ai" / "data" / "agreement_fr.tsv"
 
+# A SECOND way for a noun to earn its place, next to the usage corpus.
+#
+# The corpus is small and grows slowly, and it cost a real catch: "ce déconnexion" went out in
+# production on 2026-09-10 because `déconnexion` — which Lexique holds, correctly, as feminine —
+# had not been seen three times in our own French.
+#
+# These suffixes do NOT confirm the gender; taken from Lexique they would be circular. They
+# confirm the word is a NATIVE FRENCH FORMATION, which is what makes its dictionary entry
+# trustworthy. That is exactly the property `box`, `typo` and `french` lack: their Lexique entry
+# is a different word from the one modern usage means, and no French suffix vouches for them.
+#
+# Only suffixes measured at 99 % or better against Lexique's own 36 871 nouns are kept. `-ité`
+# (98.8 %), `-sion` (98.4 %), `-ette` (95.5 %), `-eur` (92.8 %) and `-ure` (89.0 %) are left out.
+NATIVE_SUFFIXES = (
+    ("xion", "f"),    # 100.0 %
+    ("aison", "f"),   # 100.0 %
+    ("isme", "m"),    # 100.0 %
+    ("tion", "f"),    # 99.9 %
+    ("ment", "m"),    # 99.9 % — jument is the single exception
+    ("ance", "f"),    # 99.6 %
+    ("age", "m"),     # 99.3 %
+    ("ence", "f"),    # 99.0 %
+)
+
+
+def native_gender(word: str) -> str:
+    """The gender a French derivational suffix implies, or "" when none applies."""
+    for suffix, gender in NATIVE_SUFFIXES:
+        if word.endswith(suffix) and len(word) > len(suffix) + 1:
+            return gender
+    return ""
+
 
 def dictionary_genders(lexique: Path) -> Dict[str, str]:
     """Nouns Lexique commits to a gender for, and nothing else.
@@ -85,14 +117,27 @@ def main() -> int:
     usage_lexicon, _ = merged_lexicon(corpora, "fr")
     usage = {word: entry[0] for word, entry in usage_lexicon.items()}
 
-    agreed = {w: g for w, g in sorted(dictionary.items()) if usage.get(w) == g}
+    # Usage CONTRADICTING the dictionary is always disqualifying. Usage being SILENT is not:
+    # a native French formation vouches for its own entry.
     disputed = {w: (dictionary[w], usage[w]) for w in dictionary
                 if w in usage and usage[w] != dictionary[w]}
+    agreed, by_usage, by_morphology = {}, 0, 0
+    for word, gender in sorted(dictionary.items()):
+        if word in disputed:
+            continue
+        if usage.get(word) == gender:
+            agreed[word] = gender
+            by_usage += 1
+        elif word not in usage and native_gender(word) == gender:
+            agreed[word] = gender
+            by_morphology += 1
 
     print(f"dictionary : {len(dictionary)} nouns (Lexique)")
     print(f"real usage : {len(usage)} nouns "
           f"({sum(len(t) for t in corpora.values())} texts)")
-    print(f"   AGREED   {len(agreed)}  -> shipped")
+    print(f"   SHIPPED  {len(agreed)}")
+    print(f"      confirmed by real usage        {by_usage}")
+    print(f"      vouched for by a French suffix {by_morphology}")
     print(f"   disputed {len(disputed)} -> dropped: "
           f"{', '.join(sorted(disputed)[:8])}")
 
@@ -106,8 +151,15 @@ def main() -> int:
 #      that is also a verb, an adjective or a pronoun is excluded, which removes `dont`, `super`,
 #      `magnifique` and the ordinals with no hand-kept list.
 #
-#   2. Our own corpus: {len(usage)} nouns whose gender never varies across the profile bios, post
-#      captions and published comments in the base — French written by real people, now.
+#   2. Either our own corpus — {len(usage)} nouns whose gender never varies across the profile
+#      bios, post captions and published comments in the base, French written by real people —
+#      or a French derivational suffix that vouches for the word being a native formation
+#      (-tion, -xion, -ance, -ence, -aison, -ment, -isme, -age; only those measured at 99 %+
+#      against Lexique's own nouns). The suffix does not confirm the GENDER, which would be
+#      circular; it confirms the word is the kind whose dictionary entry can be trusted, which
+#      is exactly what `box`, `typo` and `french` are not.
+#
+#      Usage CONTRADICTING the dictionary always disqualifies. Usage being silent does not.
 #
 # The second authority removes the failures the dictionary alone produced: `box`, `typo` and
 # `french` carry a gender in Lexique that modern usage contradicts, and correcting them

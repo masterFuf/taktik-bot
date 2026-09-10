@@ -68,6 +68,31 @@ def test_an_elided_determiner_is_never_expanded():
     assert agreement.apply(text, "fr") == (text, [])
 
 
+def test_a_native_french_formation_is_covered_even_when_our_corpus_is_silent():
+    """The recall gap that cost a real comment, on 2026-09-10.
+
+    "ce déconnexion mentale" went out in production because `déconnexion` — which the dictionary
+    holds, correctly, as feminine — had not been seen three times in our own French. A French
+    derivational suffix now vouches for a word being a NATIVE formation, which is what makes its
+    dictionary entry trustworthy. It does not vouch for the gender, which would be circular.
+    """
+    fixed, notes = agreement.apply("C'est exactement ce déconnexion mentale", "fr")
+    assert fixed == "C'est exactement cette déconnexion mentale"
+    assert notes == ["ce déconnexion -> cette déconnexion"]
+
+
+def test_a_loanword_stays_out_even_though_the_dictionary_knows_it():
+    """The other half of the same rule, and the reason it is a suffix and not a frequency.
+
+    `box`, `typo` and `french` all have a Lexique entry, and it is a DIFFERENT WORD from the one
+    modern usage means. No French suffix vouches for them, so they never ship — which is what
+    stops the corrector from writing "le box" over a perfectly good "la box".
+    """
+    words = agreement.lexicon("fr")
+    for loanword in ("box", "typo", "french", "media"):
+        assert loanword not in words, loanword
+
+
 def test_a_word_the_lexicon_does_not_know_is_left_alone():
     """An unresolved gender is not a mistake. Skipping costs a correction we never made;
     guessing costs one we introduced."""
