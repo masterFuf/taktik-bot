@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
+from .. import agreement as _agreement
 from .. import glossary as _glossary
 from ..prompting import cacheable_system, platform_label as _platform_label
 from ..spend import AI_SPEND_COMMENT
@@ -379,6 +380,10 @@ Respond with ONLY a JSON object, on a single line, nothing else:
         except Exception:
             logger.debug(f"[AI-Reply] unparseable response for @{username}: {raw[:120]}")
 
+        reply, agreement_fixes = _agreement.apply(reply, language)
+        if agreement_fixes:
+            logger.info(f"[agreement] reply @{username or '?'}: {', '.join(agreement_fixes)}")
+
         if not should_reply:
             reply = ""
 
@@ -395,6 +400,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             "comment": reply,
             "reasoning": reasoning,
             "should_reply": should_reply,
+            "agreement_fixes": agreement_fixes,
             "model": result.get("model"),
             "provider": "openrouter",
             "cost_usd": result.get("cost_usd"),
@@ -636,6 +642,12 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             comment = safe_comment.strip().strip('"').strip("'")
             used_safe_comment = True
 
+        # The determiners, last: after the anchor has decided WHICH of the two written comments
+        # is published, so the check runs once, on the string that actually goes out.
+        comment, agreement_fixes = _agreement.apply(comment, language)
+        if agreement_fixes:
+            logger.info(f"[agreement] @{username or '?'}: {', '.join(agreement_fixes)}")
+
         if self.ipc and should_comment:
             # Attach the DECISION CONTEXT to the card: WHY (reasoning), what the post was about
             # (vision description + author caption) and the exact image sent to the model.
@@ -665,6 +677,9 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             "anchor": anchor,
             "anchor_ok": anchor_ok,
             "used_safe_comment": used_safe_comment,
+            # What the determiner check changed, if anything. Empty is the normal answer; a
+            # non-empty list is the only trace that a mistake was caught before publication.
+            "agreement_fixes": agreement_fixes,
             # The prompt this comment came out of, persona block and anti-tic window included, AS
             # THEY WERE at this moment. A persona edited later would otherwise silently rewrite
             # the explanation of every comment already published under the old one.

@@ -52,7 +52,14 @@ MODEL_ANALYSIS = "google/gemini-3.1-flash-lite"     # analyse / describe / text 
 # So the classifier moves and the describer stays, until a bench says otherwise. Collapse this
 # back into MODEL_ANALYSIS the day post analysis is measured too.
 MODEL_CLASSIFICATION = "qwen/qwen3.7-flash"        # classify a profile from its screenshot
-MODEL_GENERATION = "google/gemini-3-flash-preview"  # comment / DM / persona / scheduler (quality)
+MODEL_GENERATION = "qwen/qwen3.7-flash"            # comment / DM / persona / scheduler
+# Switched from gemini-3-flash on 2026-09-10, after the determiner check made it safe.
+# The measurement, on 1 370 generated comments: 477 -> 28 uSD each, and the ONE class of
+# mistake this model makes that the other did not -- a determiner disagreeing with its
+# noun -- is caught by `app/ai/agreement.py` against a lexicon two independent authorities
+# agree on. At 200 accounts with DM conversations that is 60 $/month against 3,50 $.
+# What is NOT solved and is the reason to keep watching: compound nouns ("le face a face"),
+# and every word the lexicon does not yet cover. Read a run before trusting a number.
 # Back-compat aliases for the few `import DEFAULT_*` sites; both resolve to the analysis model.
 DEFAULT_TEXT_MODEL = MODEL_ANALYSIS
 DEFAULT_VISION_MODEL = MODEL_ANALYSIS
