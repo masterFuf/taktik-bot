@@ -333,6 +333,46 @@ class VideoDetector(BaseAction):
             include_comment_count: Also fetch comment count (slower).
             full_description: Expand truncated descriptions and parse hashtags.
         """
+        # One accessibility snapshot replaces the old chain of author/description/sound/count/
+        # state XPath polls. On slower phones each XPath may fetch a hierarchy of its own, which
+        # was the unexplained 25-35 second gap between videos. It also keeps all fields from the
+        # same frame instead of occasionally combining the outgoing and incoming video.
+        snapshot = None
+        try:
+            snapshot = self.device.take_video_snapshot() or self.device.read_video_snapshot()
+            # The gesture guard consumes this same observation just before touch-down. This is
+            # why avoiding clickable overlays does not cost another Galaxy A11 hierarchy dump.
+            self.device.remember_video_snapshot(snapshot)
+        except Exception as exc:
+            self.logger.debug(f"Video snapshot unavailable, using selector fallback: {exc}")
+
+        # A successfully parsed hierarchy is authoritative even when it says there is no video.
+        # Falling back on that valid negative result was the long-run regression: after an
+        # accidental creator-profile navigation, every video selector polled until timeout and
+        # still returned empty metadata. Reserve the selector fallback for a dump/parse failure.
+        if snapshot is not None and snapshot.hierarchy_parsed:
+            desc_parsed = (
+                _parse_description(snapshot.description)
+                if snapshot.description
+                else {'description_text': None, 'hashtags': []}
+            )
+            info: Dict[str, Any] = {
+                'author': snapshot.author,
+                'description': desc_parsed.get('description_text'),
+                'description_text': desc_parsed.get('description_text'),
+                'hashtags': desc_parsed.get('hashtags', []),
+                'sound': snapshot.sound,
+                'like_count': snapshot.like_count,
+                'is_liked': snapshot.is_liked,
+                'is_favorited': snapshot.is_favorited,
+                'is_ad': snapshot.is_ad,
+                'signature': snapshot.signature,
+                'video_visible': snapshot.video_visible,
+            }
+            if include_comment_count and snapshot.video_visible:
+                info['comment_count'] = self.get_video_comment_count()
+            return info
+
         if full_description:
             desc_parsed = self.get_video_description_parsed()
         else:
@@ -350,6 +390,10 @@ class VideoDetector(BaseAction):
             'is_liked': self.is_video_liked(),
             'is_favorited': self.is_video_favorited(),
             'is_ad': self.is_ad_video(),
+            'signature': None,
+            # None means the hierarchy fast path was unavailable; unlike an explicit False it
+            # must not force feed recovery based on an unverified surface.
+            'video_visible': None,
         }
         if include_comment_count:
             info['comment_count'] = self.get_video_comment_count()

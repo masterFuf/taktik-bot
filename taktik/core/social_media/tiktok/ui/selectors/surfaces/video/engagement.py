@@ -12,8 +12,22 @@ class VideoEngagementSelectors:
     """Selectors for like, comment, favorite, and share controls."""
 
     _like_button_base: List[str] = field(default_factory=lambda: [
-        *resource_id_with_descendant("f57", "f4u"),
-        *resource_id_with_descendant("g2w", "g2c"),
+        *resource_id_with_descendant(
+            "f57", "f4u", parent_filter=(
+                '[(contains(@content-desc, "Like video") or '
+                'contains(@content-desc, "Unlike video") or '
+                'contains(@content-desc, "Attribuer") or '
+                'contains(@content-desc, "Retirer") or @selected="true")]'
+            ),
+        ),
+        *resource_id_with_descendant(
+            "g2w", "g2c", parent_filter=(
+                '[(contains(@content-desc, "Like video") or '
+                'contains(@content-desc, "Unlike video") or '
+                'contains(@content-desc, "Attribuer") or '
+                'contains(@content-desc, "Retirer") or @selected="true")]'
+            ),
+        ),
     ])
 
     @property
@@ -25,8 +39,12 @@ class VideoEngagementSelectors:
         return L("video_engagement.like_button_content_desc_fallbacks")
 
     _like_button_for_count_base: List[str] = field(default_factory=lambda: [
-        *resource_id_with_descendant("f57", "f4u"),
-        *resource_id_with_descendant("g2w", "g2c"),
+        *resource_id_with_descendant(
+            "f57", "f4u", parent_filter='[contains(@content-desc, "likes") or contains(@content-desc, "J\'aime") or contains(@content-desc, "J’aime")]',
+        ),
+        *resource_id_with_descendant(
+            "g2w", "g2c", parent_filter='[contains(@content-desc, "likes") or contains(@content-desc, "J\'aime") or contains(@content-desc, "J’aime")]',
+        ),
     ])
 
     @property
@@ -40,7 +58,10 @@ class VideoEngagementSelectors:
         return self._like_count_base + L("video_engagement.like_count_anchors")
 
     _comment_button_base: List[str] = field(default_factory=lambda: [
-        *resource_ids("dtv", "em1"),
+        *resource_ids_with(
+            "dtv", "em1",
+            xpath_filter='[self::android.widget.Button][contains(@content-desc, "comment")]',
+        ),
         '//android.widget.Button[contains(@content-desc, "comments")]',
     ])
 
@@ -49,7 +70,10 @@ class VideoEngagementSelectors:
         return self._comment_button_base + L("video_engagement.comment_button")
 
     _comment_button_for_count_base: List[str] = field(default_factory=lambda: [
-        *resource_ids("dtv", "em1"),
+        *resource_ids_with(
+            "dtv", "em1",
+            xpath_filter='[self::android.widget.Button][contains(@content-desc, "comment")]',
+        ),
         '//*[contains(@content-desc, "comments")]',
     ])
 
