@@ -13,7 +13,11 @@ import time
 import pytest
 
 from taktik.core.shared.device import media_store
-from taktik.core.shared.device.media_store import parse_pushed_timestamp, purge_pushed_media
+from taktik.core.shared.device.media_store import (
+    delete_pushed_media,
+    parse_pushed_timestamp,
+    purge_pushed_media,
+)
 
 
 def _name(hours_ago: float, prefix="TAKTIK", ext=".png"):
@@ -88,3 +92,28 @@ def test_parse_rejects_foreign_names():
     assert parse_pushed_timestamp("IMG_20240101_120000.jpg") is None
     assert parse_pushed_timestamp("holiday.png") is None
     assert parse_pushed_timestamp(_name(1)) is not None
+
+
+def test_delete_pushed_media_removes_exact_owned_file_and_mediastore_rows(adb):
+    fake = adb([])
+    remote_path = f"/sdcard/DCIM/Camera/{_name(0)}"
+
+    assert delete_pushed_media("dev", remote_path)
+    assert fake.removed == [remote_path]
+    assert len(fake.deleted_rows) == 2
+
+
+@pytest.mark.parametrize(
+    "remote_path",
+    [
+        "/sdcard/DCIM/Camera/holiday.mp4",
+        "/sdcard/DCIM/Camera/TAKTIK_not_a_timestamp.mp4",
+        "/sdcard/Download/TAKTIK_20260905_120000.mp4",
+    ],
+)
+def test_delete_pushed_media_rejects_foreign_or_outside_paths(adb, remote_path):
+    fake = adb([])
+
+    assert not delete_pushed_media("dev", remote_path)
+    assert fake.removed == []
+    assert fake.deleted_rows == []

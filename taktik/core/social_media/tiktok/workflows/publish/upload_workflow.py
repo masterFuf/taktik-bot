@@ -20,6 +20,8 @@ import os
 import time
 
 from taktik.core.shared.device.media_store import (
+    delete_pushed_media,
+    purge_pushed_media,
     push_media,
     trigger_media_scan,
     scan_wait_for,
@@ -60,10 +62,12 @@ from taktik.core.social_media.tiktok.services.publish.screen_detector import (
     wait_for_tiktok_home,
 )
 from taktik.core.social_media.tiktok.services.publish.text_input import (
+    caption_text_matches,
     clear_caption_text,
+    focus_caption_field,
+    read_caption_field_text,
     type_caption_text,
 )
-from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import tap_caption_focus_fallback
 from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_COMPOSER_SELECTORS,
@@ -82,6 +86,11 @@ _NULL_NOTIFIER, _CURRENT_NOTIFIER, _ipc = create_workflow_notifier_context(
     "tiktok_publish_notifier",
     default=LoggingWorkflowNotifier(),
 )
+
+
+def _should_delete_temp_media(*, post_started: bool, publish_confirmed: bool) -> bool:
+    """Keep media only while an unconfirmed post may still be reading it."""
+    return publish_confirmed or not post_started
 
 # ---------------------------------------------------------------------------
 # Sélecteurs
@@ -143,6 +152,9 @@ class TikTokUploadWorkflow:
         dict with keys: success, message, error_type
         """
         token = _CURRENT_NOTIFIER.set(self._notifier)
+        remote_path: str | None = None
+        post_started = False
+        publish_confirmed = False
         try:
             caption, hashtags, dropped_hashtags = sanitize_caption_and_hashtags(caption, hashtags)
             if dropped_hashtags:
@@ -157,6 +169,7 @@ class TikTokUploadWorkflow:
                 return self._error("file_not_found", f"File not found: {local_path}")
 
             # 2-3. Push file + trigger MediaStore indexing (shared service)
+            purge_pushed_media(self.device_id, log=_ipc.log)
             _ipc.log("info", f"📤 Pushing file to device: {os.path.basename(local_path)}")
             remote_path = push_media(self.device_id, local_path)
             if not remote_path:
@@ -241,17 +254,16 @@ class TikTokUploadWorkflow:
             _ipc.status("publishing", "Publishing...")
             self._capture("07_before_post")
             self._recover_from_video_edit_screen()
-            if not tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=5.0):
+            posted = tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=5.0)
+            if not posted:
                 self._recover_from_video_edit_screen()
-                if tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=3.0):
-                    time.sleep(3.0)
-                    dismiss_post_popups(self.device, log=_ipc.log)
-                    _ipc.status("success", "Post published successfully!")
-                    _ipc.log("info", "âœ… TikTok post published")
-                    self._capture("08_posted")
-                    force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
-                    return {"success": True, "message": "Post published successfully", "error_type": None}
-                return self._error("post_btn_not_found", "Post button not found")
+                posted = tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=3.0)
+                if not posted:
+                    return self._error("post_btn_not_found", "Post button not found")
+
+            # From here the app may still be reading the gallery copy in the background.
+            # Never delete it unless commit is positively confirmed.
+            post_started = True
 
             time.sleep(1.8)
 
@@ -266,6 +278,7 @@ class TikTokUploadWorkflow:
                     "publish_not_committed",
                     "TikTok did not appear to finish publishing before timeout",
                 )
+            publish_confirmed = True
 
             dismiss_post_popups(self.device, log=_ipc.log)
 
@@ -279,6 +292,13 @@ class TikTokUploadWorkflow:
 
             return {"success": True, "message": "Post published successfully", "error_type": None}
         finally:
+            # Safe pre-post failures and confirmed publishes no longer leave gallery junk.
+            # An unconfirmed in-flight post keeps its source until the next stale purge.
+            if remote_path and _should_delete_temp_media(
+                post_started=post_started,
+                publish_confirmed=publish_confirmed,
+            ):
+                delete_pushed_media(self.device_id, remote_path, log=_ipc.log)
             _CURRENT_NOTIFIER.reset(token)
 
     # ------------------------------------------------------------------
@@ -320,47 +340,103 @@ class TikTokUploadWorkflow:
     # ------------------------------------------------------------------
 
     def _fill_caption(self, caption: str, hashtags: list[str]) -> bool:
-        """Fill caption and validate TikTok hashtag suggestions one by one."""
-        # ── Focus the EditText ───────────────────────────────────────────────
-        el = find_element(self.device, PUBLISH_COMPOSER_SELECTORS.caption_input, timeout=5.0)
-        try:
-            if el:
-                el.click()
-            else:
-                tap_caption_focus_fallback(self.device, log=_ipc.log)
-            time.sleep(0.5)
-        except Exception as e:
-            _ipc.log("warning", f"[caption] focus failed: {e}")
+        """Focus, enter, and prove the complete caption from TikTok's live field."""
+        field = focus_caption_field(
+            self.device,
+            selectors=PUBLISH_COMPOSER_SELECTORS.caption_input,
+            timeout=5.0,
+        )
+        if field is None:
+            _ipc.log("error", "[caption] real editable field could not be focused")
+            return False
+        time.sleep(0.5)
 
         if not clear_caption_text(self.device_id, log=_ipc.log):
             _ipc.log("debug", "[caption] clear text skipped or failed")
 
-        caption = (caption or "").strip()
-        if caption and not type_caption_text(
-            self.device_id, caption, delay_mean=85, delay_deviation=25, log=_ipc.log
-        ):
+        if read_caption_field_text(field):
+            try:
+                field.set_text("")
+                time.sleep(0.2)
+            except Exception as exc:
+                _ipc.log("warning", f"[caption] accessibility clear failed: {exc}")
+        if read_caption_field_text(field):
+            _ipc.log("error", "[caption] field did not clear")
             return False
 
-        for index, tag in enumerate(hashtags or []):
-            clean_tag = str(tag).lstrip("#").strip()
-            if not clean_tag:
-                continue
+        caption = (caption or "").strip()
+        clean_tags = [str(tag).lstrip("#").strip() for tag in (hashtags or [])]
+        clean_tags = [tag for tag in clean_tags if tag]
 
-            prefix = " " if (index > 0 or caption) else ""
-            token = f"{prefix}#{clean_tag}"
-            if not type_caption_text(
-                self.device_id, token, delay_mean=70, delay_deviation=18, log=_ipc.log
-            ):
-                return False
-
+        if caption:
+            keyboard_ack = type_caption_text(
+                self.device_id, caption, delay_mean=85, delay_deviation=25, log=_ipc.log
+            )
             time.sleep(0.25)
-            if not self._confirm_hashtag_suggestion(clean_tag):
-                _ipc.log("warning", f"[hashtag] could not confirm suggestion for #{clean_tag}")
-                type_caption_text(self.device_id, " ", delay_mean=40, delay_deviation=10, log=_ipc.log)
-                time.sleep(0.15)
+            if not caption_text_matches(read_caption_field_text(field), caption, []):
+                if keyboard_ack:
+                    _ipc.log(
+                        "warning",
+                        "[caption] keyboard command succeeded but live field was unchanged; "
+                        "using accessibility text input",
+                    )
+                if not self._set_and_verify_caption(field, caption, []):
+                    return False
+
+        entered_tags: list[str] = []
+        for clean_tag in clean_tags:
+            prefix = " " if (entered_tags or caption) else ""
+            keyboard_ack = type_caption_text(
+                self.device_id,
+                f"{prefix}#{clean_tag}",
+                delay_mean=70,
+                delay_deviation=18,
+                log=_ipc.log,
+            )
+            entered_tags.append(clean_tag)
+            time.sleep(0.25)
+
+            if not caption_text_matches(
+                read_caption_field_text(field), caption, entered_tags
+            ):
+                if keyboard_ack:
+                    _ipc.log(
+                        "warning",
+                        f"[hashtag] keyboard acknowledged #{clean_tag} but it was not visible; "
+                        "using accessibility text input",
+                    )
+                if not self._set_and_verify_caption(field, caption, entered_tags):
+                    return False
+
+            if self._confirm_hashtag_suggestion(clean_tag):
+                if not caption_text_matches(
+                    read_caption_field_text(field), caption, entered_tags
+                ):
+                    _ipc.log("error", f"[hashtag] field changed unexpectedly after #{clean_tag}")
+                    return False
+            else:
+                _ipc.log("debug", f"[hashtag] no suggestion shown for #{clean_tag}; field text is authoritative")
 
         dismiss_keyboard(self.device, self.device_id, log=_ipc.log)
+        actual = read_caption_field_text(field)
+        if not caption_text_matches(actual, caption, clean_tags):
+            _ipc.log("error", f"[caption] final live verification failed (visible length={len(actual)})")
+            return False
+
+        _ipc.log("info", "[caption] verified caption and hashtags in TikTok's live editable field")
         return True
+
+    @staticmethod
+    def _set_and_verify_caption(field, caption: str, hashtags: list[str]) -> bool:
+        """Use Unicode-safe accessibility input, then prove the exact visible value."""
+        expected = build_caption(caption, hashtags)
+        try:
+            field.set_text(expected)
+            time.sleep(0.25)
+        except Exception as exc:
+            _ipc.log("warning", f"[caption] accessibility text input failed: {exc}")
+            return False
+        return caption_text_matches(read_caption_field_text(field), caption, hashtags)
 
     def _confirm_hashtag_suggestion(self, expected_tag: str | None = None) -> bool:
         """Tap the first item in TikTok's hashtag autocomplete suggestion list.

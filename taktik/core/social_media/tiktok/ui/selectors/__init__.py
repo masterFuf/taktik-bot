@@ -18,6 +18,8 @@ from .flows import (
     PublishSelectors,
 )
 from .shell import (
+    AccountSwitchSelectors,
+    ACCOUNT_SWITCH_SELECTORS,
     AuthSelectors,
     AUTH_SELECTORS,
     CountryPickerSelectors,
@@ -66,6 +68,7 @@ from .surfaces import (
 
 __all__ = [
     "TIKTOK_PACKAGE",
+    "AccountSwitchSelectors",
     "AuthSelectors",
     "SignupSelectors",
     "LogoutSelectors",
@@ -93,6 +96,7 @@ __all__ = [
     "PublishProgressSelectors",
     "PublishSelectors",
     "AUTH_SELECTORS",
+    "ACCOUNT_SWITCH_SELECTORS",
     "SIGNUP_SELECTORS",
     "LOGOUT_SELECTORS",
     "COUNTRY_PICKER_SELECTORS",

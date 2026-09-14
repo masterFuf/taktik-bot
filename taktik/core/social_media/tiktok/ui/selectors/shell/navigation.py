@@ -31,6 +31,7 @@ class NavigationSelectors:
 
     _home_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/mkq")]',
+        '//*[contains(@resource-id, ":id/oee")]',  # current TikTok
         '//*[contains(@resource-id, ":id/ofc")]',  # 46.6.3
     ])
 
@@ -65,6 +66,7 @@ class NavigationSelectors:
 
     _profile_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/mks")]',
+        '//*[contains(@resource-id, ":id/oeg")]',  # current TikTok
         '//*[contains(@resource-id, ":id/ofe")]',  # 46.6.3
     ])
 
@@ -114,6 +116,7 @@ class NavigationSelectors:
     # === Tab selected states (for page detection) ===
     _home_tab_selected_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/mkq")][@selected="true"]',
+        '//*[contains(@resource-id, ":id/oee")][@selected="true"]',  # current TikTok
     ])
 
     @property

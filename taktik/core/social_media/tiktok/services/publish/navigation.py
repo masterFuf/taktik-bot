@@ -50,6 +50,11 @@ def tap_upload_button(
     log: LogFn | None = None,
 ) -> bool:
     """Tap Upload/Gallery using selectors, dump bounds, then coordinate fallbacks."""
+    # TikTok 46.7.3 can open Recents directly when Create is tapped. Any further
+    # "Upload" tap would land on a gallery item (the old coordinate fallback did).
+    if is_gallery_picker_open(device):
+        _log(log, "debug", "[upload] gallery already open; skipping Upload tap")
+        return True
     if tap_element(device, selectors.upload_btn, timeout=6.0):
         return True
     if tap_upload_button_from_dump(device, selectors=selectors, log=log):

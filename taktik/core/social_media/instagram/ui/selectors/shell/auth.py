@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 
 from ..locales import L
 
+
 @dataclass
 class AuthSelectors:
     """Selectors for Instagram authentication and login."""
@@ -92,6 +93,14 @@ class AuthSelectors:
             f'//*[@text="{clean_username}"]',
             f'//*[contains(@content-desc, "{target_username}") and @clickable="true"]',
             f'//*[contains(@content-desc, "{clean_username}") and @clickable="true"]'
+        ]
+
+    def exact_saved_profile_tile_selectors(self, username: str) -> List[str]:
+        """Exact picker-row selectors for a validated, normalized account handle."""
+        return [
+            '//android.view.ViewGroup[@clickable="true" and '
+            f'(@content-desc="{username}" or starts-with(@content-desc, "{username},"))]',
+            f'//*[@clickable="true"]//*[@text="{username}"]',
         ]
 
     def password_only_account_selectors(self, username: str) -> List[str]:
@@ -503,5 +512,6 @@ class AuthSelectors:
         'Reels', 'Message', 'Messages', 'Profile', 'Profil', 'Notifications',
         'Search and explore', 'Recherche et exploration', 'Rechercher',
     ])
+
 
 AUTH_SELECTORS = AuthSelectors()

@@ -73,6 +73,9 @@ def _for_you_config(payload: Mapping[str, Any]) -> ForYouConfig:
         favorite_probability=probability_param(
             payload, "favorite_probability", "favoriteProbability", default=0.05
         ),
+        comment_probability=probability_param(payload, "comment_probability", "commentProbability", default=0.0),
+        max_comments_per_session=int_param(payload, "max_comments_per_session", "maxCommentsPerSession", default=10),
+        comment_texts=list_param(payload, "comment_texts", "commentTexts"),
         required_hashtags=list_param(payload, "required_hashtags", "requiredHashtags"),
         excluded_hashtags=list_param(payload, "excluded_hashtags", "excludedHashtags"),
         min_likes=optional_int_param(payload, "min_likes", "minLikes"),

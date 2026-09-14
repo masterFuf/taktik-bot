@@ -4,9 +4,11 @@ from bridges.tiktok.account.runtime.account_login import TikTokAccountLoginMixin
 from bridges.tiktok.account.runtime.account_language import TikTokAccountLanguageMixin
 from bridges.tiktok.account.runtime.account_logout import TikTokAccountLogoutMixin
 from bridges.tiktok.account.runtime.account_register import TikTokAccountRegisterMixin
+from bridges.tiktok.account.runtime.account_switch import TikTokAccountSwitchMixin
 
 
 class TikTokAccountWorkflowMixin(
+    TikTokAccountSwitchMixin,
     TikTokAccountLanguageMixin,
     TikTokAccountLoginMixin,
     TikTokAccountLogoutMixin,

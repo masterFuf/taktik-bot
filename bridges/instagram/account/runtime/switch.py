@@ -8,6 +8,29 @@ from bridges.instagram.runtime.ipc import send_error, send_log, send_message, se
 class AccountSwitchRunnerMixin:
     """Run an Instagram account switch and emit bridge JSON events."""
 
+    def _account_workflow(self, device, workflow_name: str):
+        from taktik.core.social_media.instagram.workflows.management.switch import (
+            SwitchAccountWorkflow,
+        )
+
+        def _notify(message: str) -> None:
+            send_status("running", message)
+
+        def _emit_active(username: str) -> None:
+            send_message("active_account_detected", username=username, workflow=workflow_name)
+
+        def _emit_step(step: str, data: dict) -> None:
+            send_message("account_step", step=step, workflow=workflow_name, **data)
+
+        factory = getattr(self, "_switch_workflow_factory", SwitchAccountWorkflow)
+        return factory(
+            device,
+            self.device_id,
+            notifier=_notify,
+            on_active_account=_emit_active,
+            on_step=_emit_step,
+        )
+
     def _run_switch(self, device) -> int:
         target = (self.config.get("targetUsername") or "").strip()
         send_status("running", f"Switching account to @{target}…" if target else "Switching account…")
@@ -18,28 +41,7 @@ class AccountSwitchRunnerMixin:
             return 1
 
         try:
-            from taktik.core.social_media.instagram.workflows.management.switch import (
-                SwitchAccountWorkflow,
-            )
-
-            # Forward live progress lines as running status updates.
-            def _notify(message: str) -> None:
-                send_status("running", message)
-
-            # Recale the device↔account DB link on the front (account_device_history) whenever the
-            # bot reads/sets the active account — before logout (real state) and after a successful
-            # switch (new active account).
-            def _emit_active(username: str) -> None:
-                send_message("active_account_detected", username=username, workflow="switch_account")
-
-            # Narrate each device step in the Taktik Agent panel (one card per step).
-            def _emit_step(step: str, data: dict) -> None:
-                send_message("account_step", step=step, workflow="switch_account", **data)
-
-            workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify,
-                on_active_account=_emit_active, on_step=_emit_step,
-            )
+            workflow = self._account_workflow(device, "switch_account")
             result = workflow.execute(target)
 
             outcome = "success" if result["success"] else "error"
@@ -61,6 +63,14 @@ class AccountSwitchRunnerMixin:
                 switched_to=result.get("switched_to"),
                 relogin_required=result.get("relogin_required", False),
                 detected_accounts=detected,
+                requested_username=result.get("requested_username"),
+                active_username=result.get("active_username"),
+                previous_username=result.get("previous_username"),
+                already_active=result.get("already_active", False),
+                attempts=result.get("attempts", 0),
+                failure_stage=result.get("failure_stage"),
+                failure_category=result.get("failure_category"),
+                state_known=result.get("state_known", False),
             )
             return 0 if result["success"] else 1
         except Exception as exc:  # noqa: BLE001
@@ -74,25 +84,7 @@ class AccountSwitchRunnerMixin:
         send_status("running", "Reading connected accounts…")
         send_log("info", "List-accounts workflow")
         try:
-            from taktik.core.social_media.instagram.workflows.management.switch import (
-                SwitchAccountWorkflow,
-            )
-
-            def _notify(message: str) -> None:
-                send_status("running", message)
-
-            # When an account is active, list_accounts reads it from the profile and emits it here
-            # so the front recales the device↔account DB link (fixes a stale "current account").
-            def _emit_active(username: str) -> None:
-                send_message("active_account_detected", username=username, workflow="list_accounts")
-
-            def _emit_step(step: str, data: dict) -> None:
-                send_message("account_step", step=step, workflow="list_accounts", **data)
-
-            workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify,
-                on_active_account=_emit_active, on_step=_emit_step,
-            )
+            workflow = self._account_workflow(device, "list_accounts")
             result = workflow.list_accounts()
 
             accounts = result.get("accounts") or []
@@ -117,24 +109,7 @@ class AccountSwitchRunnerMixin:
         send_status("running", "Listing all saved accounts (logging out to open the picker)…")
         send_log("info", "List-saved-accounts workflow")
         try:
-            from taktik.core.social_media.instagram.workflows.management.switch import (
-                SwitchAccountWorkflow,
-            )
-
-            def _notify(message: str) -> None:
-                send_status("running", message)
-
-            # Recale the device↔account DB link with the active account before logout.
-            def _emit_active(username: str) -> None:
-                send_message("active_account_detected", username=username, workflow="list_saved_accounts")
-
-            def _emit_step(step: str, data: dict) -> None:
-                send_message("account_step", step=step, workflow="list_saved_accounts", **data)
-
-            workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify,
-                on_active_account=_emit_active, on_step=_emit_step,
-            )
+            workflow = self._account_workflow(device, "list_saved_accounts")
             result = workflow.list_saved_accounts()
 
             accounts = result.get("accounts") or []

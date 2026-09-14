@@ -5,6 +5,7 @@ from taktik.core.social_media.tiktok.services.publish.screen_detector import (
     is_video_edit_screen,
     wait_for_tiktok_home,
 )
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import PublishMediaPickerSelectors
 
 
 class FakeXpathResult:
@@ -31,6 +32,18 @@ def test_is_gallery_picker_open_reads_xml_marker():
     device = FakeDumpDevice('<node resource-id="pkg:id/mub" />')
 
     assert is_gallery_picker_open(device)
+
+
+def test_is_gallery_picker_open_detects_tiktok_4673_gallery_structure():
+    device = FakeDumpDevice(
+        '<node resource-id="com.zhiliaoapp.musically:id/viewpager_choose_media" />'
+        '<node resource-id="com.zhiliaoapp.musically:id/jfy" class="android.widget.GridView" />'
+    )
+
+    selectors = PublishMediaPickerSelectors(
+        _gallery_picker_xml_markers=[":id/viewpager_choose_media", ":id/jfy"]
+    )
+    assert is_gallery_picker_open(device, selectors=selectors)
 
 
 def test_is_camera_creation_screen_reads_xml_markers():

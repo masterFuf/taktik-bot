@@ -2,9 +2,11 @@ import pytest
 
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.management import (
+    INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID,
     INSTAGRAM_ACCOUNT_LOGIN_WORKFLOW_ID,
     INSTAGRAM_ACCOUNT_LOGOUT_WORKFLOW_ID,
     INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID,
+    INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID,
     register_instagram_account_handlers,
 )
 
@@ -21,6 +23,16 @@ class FakeWorkflow:
     def execute(self, **kwargs):
         self.calls.append(kwargs)
         return {"success": True, "message": "ok", "received": kwargs}
+
+
+class FakeSwitchWorkflow(FakeWorkflow):
+    def execute(self, target):
+        self.calls.append(("switch_account", target))
+        return {"success": True, "active_username": target}
+
+    def list_accounts(self):
+        self.calls.append(("list_accounts",))
+        return {"success": True, "accounts": ["one", "two"]}
 
 
 def test_instagram_account_login_handler_executes_with_bridge_compatible_params():
@@ -195,3 +207,88 @@ def test_instagram_account_register_rejects_missing_phone_before_workflow_creati
         )
 
     assert FakeWorkflow.instances == []
+
+
+@pytest.mark.parametrize(
+    ("workflow_id", "params", "expected_call"),
+    [
+        (
+            INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID,
+            {"targetUsername": "@creator"},
+            ("switch_account", "@creator"),
+        ),
+        (INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID, {}, ("list_accounts",)),
+    ],
+)
+def test_instagram_account_switch_handlers_use_existing_workflow_contract(
+    workflow_id, params, expected_call
+):
+    FakeSwitchWorkflow.instances = []
+    registry = WorkflowRegistry()
+    register_instagram_account_handlers(
+        registry,
+        device=object(),
+        device_id="device-1",
+        switch_workflow_factory=FakeSwitchWorkflow,
+    )
+
+    events = AgentPlanExecutor(registry).execute(
+        AgentPlan(
+            plan_id="plan-switch",
+            steps=[
+                PlanStep(
+                    step_id="step-switch",
+                    workflow=WorkflowInvocation(
+                        platform="instagram",
+                        workflow_id=workflow_id,
+                        params=params,
+                    ),
+                )
+            ],
+        )
+    )
+
+    assert FakeSwitchWorkflow.instances[0].calls == [expected_call]
+    assert events[-1].payload["success"] is True
+
+
+def test_instagram_account_switch_handler_requires_target_username():
+    registry = WorkflowRegistry()
+    register_instagram_account_handlers(
+        registry,
+        device=object(),
+        device_id="device-1",
+        switch_workflow_factory=FakeSwitchWorkflow,
+    )
+
+    with pytest.raises(ValueError, match="requires targetUsername"):
+        registry.resolve(INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID)(
+            WorkflowInvocation(
+                platform="instagram",
+                workflow_id=INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID,
+            ),
+            {},
+        )
+
+
+def test_instagram_account_switch_handler_uses_nonblank_compatible_alias():
+    FakeSwitchWorkflow.instances = []
+    registry = WorkflowRegistry()
+    register_instagram_account_handlers(
+        registry,
+        device=object(),
+        device_id="device-1",
+        switch_workflow_factory=FakeSwitchWorkflow,
+    )
+
+    result = registry.resolve(INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID)(
+        WorkflowInvocation(
+            platform="instagram",
+            workflow_id=INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID,
+            params={"targetUsername": "creator"},
+        ),
+        {"target_username": "   "},
+    )
+
+    assert result["success"] is True
+    assert FakeSwitchWorkflow.instances[0].calls == [("switch_account", "creator")]

@@ -5,12 +5,58 @@ from __future__ import annotations
 import subprocess
 from typing import Callable
 
+from taktik.core.social_media.tiktok.services.publish.caption import build_caption
+from taktik.core.social_media.tiktok.ui.xpath import find_element
+
 
 LogFn = Callable[[str, str], None]
 RunFn = Callable[..., subprocess.CompletedProcess]
 ActivateKeyboardFn = Callable[[str], object]
 ClearKeyboardFn = Callable[[str], bool]
 TypeKeyboardFn = Callable[..., bool]
+
+
+def focus_caption_field(device, *, selectors, timeout: float = 2.0):
+    """Find and explicitly focus TikTok's real editable caption field."""
+    field = find_element(device, selectors, timeout=timeout)
+    if field is None:
+        return None
+
+    try:
+        field.click()
+        info = field.info
+        if info.get("focusable") and info.get("focused") is False:
+            field.click()
+            if field.info.get("focused") is False:
+                return None
+        return field
+    except Exception:
+        return None
+
+
+def read_caption_field_text(field) -> str:
+    """Read visible text, treating TikTok's placeholder-as-text as empty."""
+    try:
+        info = field.info
+        text = field.get_text()
+        if text is None:
+            text = info.get("text", "")
+        hint = info.get("hint", "")
+        if hint and text == hint:
+            return ""
+        return str(text or "")
+    except Exception:
+        return ""
+
+
+def caption_text_matches(actual: str, caption: str, hashtags) -> bool:
+    """Require the normalized live field to equal caption plus every hashtag."""
+    expected = build_caption(caption, hashtags)
+    return _normalize_visible_text(actual) == _normalize_visible_text(expected)
+
+
+def _normalize_visible_text(text: str) -> str:
+    return " ".join(str(text or "").split())
 
 
 def clear_caption_text(
@@ -64,7 +110,11 @@ def type_caption_text(
             delay_mean=delay_mean,
             delay_deviation=delay_deviation,
         ):
-            _log(log, "debug", "[caption] text inserted with Taktik Keyboard")
+            _log(
+                log,
+                "debug",
+                "[caption] Taktik Keyboard command accepted; awaiting UI verification",
+            )
             return True
     except Exception as exc:
         _log(log, "debug", f"[caption] Taktik Keyboard failed: {exc}")

@@ -160,7 +160,7 @@ def text_is_truncated_utf16(text: Optional[str]) -> bool:
 
     - ``Cadeaux Personnalisés`` -> ``Cadeaux Personnalis\ufffds`` (the accent is GONE, not just
       the emoji);
-    - ``\U0001F4CD Metz`` -> ``=\ufffd Metz`` (``0x3D`` = ``=`` is the low byte of ``\ud83d``,
+    - ``\U0001F4CD Metz`` -> ``=\ufffd Metz`` (``0x3D`` = ``=`` is the low byte of ``\\ud83d``,
       the first surrogate; the second becomes the replacement character).
 
     Both shapes were reproduced exactly with ``s.encode('utf-16-le')[::2].decode('utf-8', 'replace')``

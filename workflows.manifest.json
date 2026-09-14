@@ -22,7 +22,9 @@
       "login",
       "register",
       "logout",
-      "change_language"
+      "change_language",
+      "switch_account",
+      "list_accounts"
     ],
     "engagement": [
       "dm_read",
@@ -70,7 +72,9 @@
       "login",
       "register",
       "logout",
-      "change_language"
+      "change_language",
+      "switch_account",
+      "list_accounts"
     ],
     "standalone": [
       "tiktok_unfollow",
