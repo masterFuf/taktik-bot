@@ -130,3 +130,29 @@ def test_social_graph_sync_dual_write_and_backfill(conn):
         "SELECT name FROM sqlite_master WHERE type='table' AND name='following_sync'",
     ).fetchone()
     assert dropped is None
+
+
+def test_active_followings_carry_the_bot_follow_date_live_from_interactions(conn):
+    """U2: the unfollow candidates' source. A hand follow has no bot date; an unfollowed row is gone."""
+    repo = SocialGraphRepository(conn)
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 7, 'bot7', 1)")
+    conn.execute("INSERT INTO social_profiles (platform, legacy_profile_id, username) VALUES ('instagram', 70, 'BotFollowed')")
+    followed_at = (datetime.now() - timedelta(days=9)).isoformat()
+    conn.execute(
+        """INSERT INTO interactions (platform, account_id, profile_id, interaction_type, interaction_time, success)
+           VALUES ('instagram', 7, 70, 'FOLLOW', ?, 1)""",
+        (followed_at,),
+    )
+    conn.commit()
+    repo.upsert_following("botfollowed", "", 7)
+    repo.upsert_following("handfollowed", "", 7)
+    repo.upsert_following("gone", "", 7)
+    repo.mark_unfollowed("gone", 7)
+
+    rows = {row["username"].lower(): row for row in repo.list_active_followings(7)}
+
+    assert set(rows) == {"botfollowed", "handfollowed"}
+    assert rows["botfollowed"]["last_bot_follow_at"] == followed_at
+    assert rows["handfollowed"]["last_bot_follow_at"] is None
+    assert rows["handfollowed"]["first_seen_at"]
+    assert repo.list_active_followings(0) == []

@@ -181,6 +181,39 @@ class SocialGraphRepository(BaseRepository):
             logger.debug(f"Error in get_active_following_usernames: {exc}")
             return set()
 
+    def list_active_followings(self, account_id: int) -> list:
+        """The active followings with who followed them and when: the unfollow candidates' source.
+
+        One row per account followed (`unfollowed_at` empty): `username`, `first_seen_at` (when a
+        following sync first saw it) and `last_bot_follow_at` (the bot's last successful FOLLOW of
+        that profile, from `interactions`; empty for a follow made by hand). Read live from
+        `interactions` rather than from the `followed_by_bot` flag, which is only as fresh as the
+        last sync that wrote it.
+        """
+        if not account_id:
+            return []
+        try:
+            return self.query_orm_first(
+                """SELECT s.username AS username,
+                          s.first_seen_at AS first_seen_at,
+                          (SELECT MAX(i.interaction_time)
+                             FROM interactions i
+                             JOIN social_profiles p ON p.legacy_profile_id = i.profile_id
+                            WHERE p.platform = s.platform
+                              AND p.username = s.username COLLATE NOCASE
+                              AND i.platform = s.platform
+                              AND i.account_id = s.account_id
+                              AND i.interaction_type = 'FOLLOW'
+                              AND i.success = 1) AS last_bot_follow_at
+                     FROM social_graph_sync s
+                    WHERE s.platform = ? AND s.account_id = ?
+                      AND s.direction = 'following' AND s.unfollowed_at IS NULL""",
+                (self.platform, account_id),
+            )
+        except Exception as exc:
+            logger.debug(f"Error in list_active_followings: {exc}")
+            return []
+
     def set_following_follower_back(
         self,
         username: str,

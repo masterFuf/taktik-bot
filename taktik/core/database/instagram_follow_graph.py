@@ -89,6 +89,11 @@ class InstagramFollowGraphService:
             return set()
 
     @classmethod
+    def list_active_followings(cls, account_id: int) -> list:
+        """Active followings with `last_bot_follow_at` and `first_seen_at` (see the repository)."""
+        return cls._repository().list_active_followings(account_id)
+
+    @classmethod
     def mark_not_follower_back(cls, username: str, account_id: int) -> None:
         """Mark a following as not following back."""
         cls._set_following_follower_back_flag(username=username, account_id=account_id, is_follower_back=False)
