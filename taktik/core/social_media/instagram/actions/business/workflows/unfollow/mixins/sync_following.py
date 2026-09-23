@@ -301,6 +301,9 @@ class SyncFollowingMixin:
         """
         config = config or {}
         stats = {
+            'fans_count': 0,
+            # Legacy keys the desktop reads: `non_followers_count` has always been the size of
+            # this category, i.e. the fans; `mutuals_count` was a deduction that no longer exists.
             'non_followers_count': 0,
             'mutuals_count': 0,
             'success': False,
@@ -370,54 +373,28 @@ class SyncFollowingMixin:
 
             # Extract every non-reciprocal account
             non_follower_usernames = self._extract_all_non_followers()
-            stats['non_followers_count'] = len(non_follower_usernames)
+            stats['non_followers_count'] = len(non_follower_usernames)  # the fans, see above
 
             self.logger.info(f"📋 Found {len(non_follower_usernames)} non-followers")
 
-            # Update the database
+            # These are FANS: they follow us and we do not follow them. That is all the category
+            # says. Until 2026-09-24 this block also wrote each fan as a FOLLOWING marked
+            # "does not follow back" (a following row for an account we do not follow), and marked
+            # every stored following absent from the category as a mutual: absent from the fans says
+            # nothing about whether an account WE follow follows us. Reciprocity now comes from the
+            # full followers sync of the run and the "Follows you" badge read on the profile.
             for username in non_follower_usernames:
-                InstagramFollowGraphService.mark_not_follower_back(username, account_id)
-
-            # Every stored following ABSENT from that list is reciprocal
-            all_followings = InstagramFollowGraphService.get_active_following_usernames(account_id)
-            non_followers_set = set(u.lower() for u in non_follower_usernames)
-
-            all_followings_lower = {u.lower() for u in all_followings}
-
-            for username in all_followings:
-                if username.lower() not in non_followers_set:
-                    InstagramFollowGraphService.mark_follower_back(username, account_id)
-                    stats['mutuals_count'] += 1
-
-            # ── Populate the follower side of the graph ──
-            # 1. Entries from "don't follow back" = confirmed followers
-            fans_count = 0
-            for username in non_follower_usernames:
-                is_following = username.lower() in all_followings_lower
                 InstagramFollowGraphService.upsert_follower(
                     username=username,
                     account_id=account_id,
-                    is_following_back=is_following,
-                    source='non_followers_category',
+                    is_following_back=False,
+                    source='fans_category',
                 )
-                if not is_following:
-                    fans_count += 1
-
-            # 2. Mutuals = our followings confirmed as followers too
-            for username in all_followings:
-                if username.lower() not in non_followers_set:
-                    InstagramFollowGraphService.upsert_follower(
-                        username=username,
-                        account_id=account_id,
-                        is_following_back=True,
-                        source='mutual_detection',
-                    )
-
-            stats['fans_count'] = fans_count
+            stats['fans_count'] = len(non_follower_usernames)
             stats['success'] = True
             self.logger.info(
-                f"✅ Non-follower sync complete: {stats['non_followers_count']} non-followers, "
-                f"{stats['mutuals_count']} mutuals, {fans_count} fans"
+                f"✅ Fans category read: {stats['fans_count']} followers you do not follow back "
+                f"(no reciprocity deduced for your followings)"
             )
 
             # Close the view to come back to a clean state

@@ -108,6 +108,26 @@ class UnfollowDecisionMixin:
             self.logger.debug(f"Error checking if should unfollow @{username}: {e}")
             return False, f"error: {e}"
     
+    def _profile_follows_you(self, username: str) -> Optional[bool]:
+        """Does @username follow us, read on its open profile: True, False, or None (unknown).
+
+        The last check before an unfollow (U6, 2026-09-24): the base chose the candidate, the
+        profile confirms. The badge is read through the localized `unfollow.follows_back_indicators`
+        ("Follows you", "Vous suit"). None whenever the screen is not @username's profile: the
+        ABSENCE of a badge proves something only on the right, loaded profile. The caller treats
+        None as a doubt, and a doubt as no unfollow.
+        """
+        try:
+            if not self.detection_actions.is_on_profile_screen():
+                return None
+            shown = (self.detection_actions.get_username_from_profile() or '').strip().lstrip('@')
+            if shown.lower() != username.strip().lstrip('@').lower():
+                return None
+            return bool(self._is_element_present(self._unfollow_sel.follows_back_indicators))
+        except Exception as e:
+            self.logger.debug(f"Could not read the follows-you badge of @{username}: {e}")
+            return None
+
     def _does_user_follow_back(self, username: str) -> bool:
         """Does this user follow us back?"""
         try:

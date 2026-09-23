@@ -53,6 +53,10 @@ class SyncFollowersMixin:
             'new_count': 0,
             'updated_count': 0,
             'total_seen': 0,
+            # True only when the end of the list was reached: the unfollow trusts the ABSENCE of
+            # an account from this list only then (see unfollow/candidates.py).
+            'complete': False,
+            'usernames': set(),
             'success': False,
         }
 
@@ -229,6 +233,7 @@ class SyncFollowersMixin:
                     max_no_new = 3 if mode != 'enriched' else 5
                     if no_new_count >= max_no_new:
                         self.logger.info(f"No new followers after {max_no_new} consecutive scrolls — end of list")
+                        stats['complete'] = True
                         break
                 else:
                     no_new_count = 0
@@ -255,6 +260,7 @@ class SyncFollowersMixin:
                         time.sleep(1.2)
                         scroll_attempts += 1
 
+            stats['usernames'] = set(seen_on_screen)
             stats['success'] = True
             self.logger.info(
                 f"✅ Followers sync complete: {stats['new_count']} new, "
