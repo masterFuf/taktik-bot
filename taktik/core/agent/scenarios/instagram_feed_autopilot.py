@@ -452,7 +452,9 @@ class TaktikAgentWorkflow:
 
             elif action in ("like", "like_comment", "like_save"):
                 if self.stats["likes"] < self.quotas["max_likes"]:
+                    wrote = False
                     if feed._like_current_post():
+                        wrote = True
                         self.stats["likes"] += 1
                         self._consecutive_skips = 0
                         time.sleep(random.uniform(*DELAY_AFTER_LIKE))
@@ -460,8 +462,12 @@ class TaktikAgentWorkflow:
                     if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                         comment_text = decision.get("comment", "")
                         if comment_text:
+                            wrote = True
                             self._post_comment(feed, comment_text, author)
                             self._consecutive_skips = 0
+
+                    if wrote and self._block_seen("like/comment"):
+                        break
 
             # Profile visit
             if decision.get("visit_profile") and author != "unknown":
@@ -639,14 +645,20 @@ class TaktikAgentWorkflow:
 
                 if action in ("like", "like_comment", "like_save"):
                     if self.stats["likes"] < self.quotas["max_likes"]:
+                        wrote = False
                         if feed._like_current_post():
+                            wrote = True
                             self.stats["likes"] += 1
                             time.sleep(random.uniform(*DELAY_AFTER_LIKE))
 
                         if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                             comment_text = decision.get("comment", "")
                             if comment_text:
+                                wrote = True
                                 self._post_comment(feed, comment_text, author)
+
+                        if wrote and self._block_seen("like/comment"):
+                            return
 
                 if decision.get("visit_profile") and author != "unknown":
                     if self.stats["profile_visits"] < self.quotas["max_profile_visits"]:
@@ -774,11 +786,16 @@ class TaktikAgentWorkflow:
         if decision["follow"] and self.stats["follows"] < self.quotas["max_follows"]:
             self._do_follow(username)
             time.sleep(random.uniform(*DELAY_AFTER_FOLLOW))
+            if self._block_seen("follow"):
+                self._navigate_to_feed()
+                return
 
         # Extra likes on the profile
         extra = min(decision.get("extra_likes", 0), 2)
         if extra > 0 and self.stats["likes"] < self.quotas["max_likes"]:
             self._like_profile_posts(username, extra)
+            # A refusal here sets the run's lock; `_should_stop` ends the loop on its next turn.
+            self._block_seen("like")
 
         time.sleep(random.uniform(*DELAY_AFTER_PROFILE_VISIT))
 
@@ -869,9 +886,35 @@ class TaktikAgentWorkflow:
     # Quota / stop helpers
     # ------------------------------------------------------------------
 
+    def _block_seen(self, action: str) -> bool:
+        """After a write: is Instagram refusing it ("Try again later")? One dump, never raises.
+
+        The detector sets the run's lock itself (`run_halt.ACTION_BLOCKED`), which
+        `_should_stop` reads: one sighting ends the session (secours 2, 2026-09-24).
+        """
+        try:
+            from taktik.core.social_media.instagram.ui.detectors.problematic_page import (
+                ProblematicPageDetector,
+            )
+            blocked = bool(ProblematicPageDetector(self.device).is_action_blocked())
+        except Exception as exc:
+            logger.debug(f"[TaktikAgent] block check after {action} failed: {exc}")
+            return False
+        if blocked:
+            logger.error(f"[TaktikAgent] Instagram refuses the {action} (\"Try again later\") — stopping")
+        return blocked
+
     def _should_stop(self, deadline: float) -> bool:
         if self._stop_requested:
             logger.info("[TaktikAgent] Stop requested by user")
+            return True
+        # The run's lock: a block ("Try again later") seen by the detector, a lost phone.
+        # The autopilot never read it (secours 2, 2026-09-24).
+        from taktik.core.shared.diagnostics import run_halt
+
+        halt = run_halt.arret_demande()
+        if halt:
+            logger.warning(f"[TaktikAgent] Run stop requested: {halt.get('code')}")
             return True
         if time.time() > deadline:
             logger.info("[TaktikAgent] Session duration limit reached")
