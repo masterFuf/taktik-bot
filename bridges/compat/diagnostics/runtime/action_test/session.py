@@ -27,6 +27,22 @@ class _SessionContextCache:
         self.value = None
 
 
+def _begin_action_run() -> None:
+    """Each Lab action is a run of its own: lift the run's stop lock left by the previous one.
+
+    `run_bridge_main` does this once per process, and a bridge process serves one run; this
+    one serves an action after another. Without it, a block or a lost phone seen by one action
+    would end every workflow action after it, in a session still open.
+    """
+    try:
+        from taktik.core.shared.diagnostics import run_halt
+
+        run_halt.reinitialiser()
+    except Exception:
+        # A diagnostic that stops an action from running would be worse than none.
+        pass
+
+
 def run_action_session_bridge() -> None:
     """Keep one device connection alive and execute action commands from stdin."""
     config = _load_config()
@@ -124,6 +140,7 @@ def run_action_session_bridge() -> None:
             continue
 
         tracer.reset()
+        _begin_action_run()
         _execute_action(
             action_registry,
             action_id,

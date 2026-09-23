@@ -99,11 +99,14 @@ class SessionManager:
         # Ce que le run ne peut plus faire, avant ce qu'il n'a plus le droit de faire : un run
         # dont le telephone a disparu n'a pas a voir sa duree evaluee. Le verrou est pose par
         # `base_action` quand il constate un lien perdu ou un plantage de l'application cible --
-        # deux pannes qui, jusqu'ici, laissaient la boucle tourner jusqu'a son plafond.
+        # deux pannes qui, jusqu'ici, laissaient la boucle tourner jusqu'a son plafond -- et par le
+        # detecteur Instagram des qu'il voit « Reessayez plus tard » (2026-09-24).
         arret = run_halt.arret_demande()
         if arret:
             if arret["code"] == run_halt.DEVICE_DISCONNECTED:
                 reason = stop_reasons.device_disconnected(arret.get("detail"))
+            elif arret["code"] == run_halt.ACTION_BLOCKED:
+                reason = stop_reasons.action_blocked()
             else:
                 reason = stop_reasons.target_app_crashed(arret.get("detail"))
             log.info(f"🛑 Session ended: {reason}")

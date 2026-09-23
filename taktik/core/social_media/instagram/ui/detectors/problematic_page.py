@@ -5,6 +5,7 @@ import time
 from typing import Optional, Dict, Any
 from loguru import logger
 from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
+from taktik.core.shared.diagnostics import run_halt
 from ..selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 
 
@@ -112,6 +113,9 @@ class ProblematicPageDetector:
                     # Check whether this is a restriction
                     is_soft_ban = config.get('is_soft_ban', False)
                     if is_soft_ban:
+                        # Closing the dialog used to be all: the run acted again right after.
+                        # The lock is set BEFORE the close, so the run stops at its next check.
+                        run_halt.demander_arret(run_halt.ACTION_BLOCKED, page_type)
                         logger.error(f"🛑 SOFT BAN DÉTECTÉ ({page_type}) - La session doit être arrêtée")
                         logger.warning(f"📊 Statistiques rate limiting: {self.get_rate_limit_stats()}")
                     
@@ -576,7 +580,12 @@ class ProblematicPageDetector:
         content = self._get_ui_content(context="action_blocked")
         if not content:
             return False
-        return self._is_page_detected(content, indicators)
+        blocked = self._is_page_detected(content, indicators)
+        if blocked:
+            # Whoever asked, the run stops: every loop that decides to continue reads this lock
+            # (`should_continue`), so one sighting is enough, wherever it happens.
+            run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page")
+        return blocked
 
     def should_stop_session(self) -> bool:
         """

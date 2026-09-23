@@ -20,8 +20,15 @@ chaque plateforme le traduit dans son propre vocabulaire d'arret. C'est la meme 
 reessayer indefiniment transforme un arret propre en run fantome de plusieurs heures. Le premier
 constat gagne et ne bouge plus : les suivants decriraient la meme panne avec moins de contexte.
 
+**Troisieme cas, le blocage (2026-09-24).** Instagram affiche « Reessayez plus tard » : le
+detecteur le voyait, fermait le dialogue, et le run agissait de nouveau -- le geste qui transforme
+une limite temporaire en restriction durable. Le detecteur pose maintenant `ACTION_BLOCKED` ici
+des qu'il voit le dialogue, et les boucles qui decident de continuer le lisent.
+
 Remis a zero au demarrage de chaque run par `run_bridge_main`, comme les autres compteurs
-partages -- sans quoi un run entrerait avec le verrou du precedent et s'arreterait d'emblee.
+partages -- sans quoi un run entrerait avec le verrou du precedent et s'arreterait d'emblee. La
+session persistante du Cartography Lab, qui sert une action apres l'autre, le remet a zero avant
+chaque action.
 """
 
 from __future__ import annotations
@@ -36,6 +43,10 @@ DEVICE_DISCONNECTED = "device_disconnected"
 
 #: Android affiche le dialogue de plantage de l'application cible.
 TARGET_APP_CRASHED = "target_app_crashed"
+
+#: La plateforme refuse les actions du compte (« Reessayez plus tard ») : agir encore est ce qui
+#: transforme une limite temporaire en restriction durable. Le premier signe arrete le run.
+ACTION_BLOCKED = "action_blocked"
 
 _arret: Optional[Dict[str, Any]] = None
 
@@ -66,5 +77,5 @@ def arret_demande() -> Optional[Dict[str, Any]]:
 
 __all__ = [
     "demander_arret", "arret_demande", "reinitialiser",
-    "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED",
+    "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED",
 ]
