@@ -305,12 +305,15 @@ class UnfollowBusiness(
                         if blocked:
                             stats['stop_reason'] = blocked
                             break
-                        time.sleep(random.randint(2, 5))
+                        self._pause_between_unfollows(effective_config)
                         continue
 
                     unfollows_done += 1
                     stats['unfollows_made'] += 1
                     self.logger.info(f"✅ Unfollowed @{username} ({unfollows_done}/{max_unfollows})")
+                    # The session counts it: it is what caps the unfollows of this run
+                    if self.session_manager is not None:
+                        self.session_manager.record_action('unfollow', success=True)
                     
                     # Enregistrer l'action
                     self._record_action(username, 'UNFOLLOW', 1)
@@ -326,10 +329,7 @@ class UnfollowBusiness(
                         stats['stop_reason'] = blocked
                         break
                     
-                    # Short pace between unfollows, shorter here since no profile is visited
-                    delay = random.randint(2, 5)
-                    self.logger.debug(f"⏳ Short delay: {delay}s")
-                    time.sleep(delay)
+                    self._pause_between_unfollows(effective_config)
                     
                 except Exception as e:
                     self.logger.warning(f"Error clicking Following button: {e}")
@@ -349,6 +349,20 @@ class UnfollowBusiness(
         
         return stats
     
+    def _pause_between_unfollows(self, config: Dict[str, Any]) -> None:
+        """The pause between two unfollows, drawn from the configured range.
+
+        The range comes from the page and the scheduler (`minDelay`/`maxDelay`, 2 to 5 s when
+        absent). It used to be a hardcoded 2-5 s whatever the settings said.
+        """
+        low, high = config.get('unfollow_delay_range') or (2, 5)
+        low, high = float(low), float(high)
+        if high < low:
+            low, high = high, low
+        delay = random.uniform(low, high)
+        self.logger.debug(f"⏳ Pause before the next unfollow: {delay:.1f}s")
+        time.sleep(delay)
+
     def _action_blocked_reason(self):
         """The stop reason when Instagram shows its rate-limit dialog now, else None.
 

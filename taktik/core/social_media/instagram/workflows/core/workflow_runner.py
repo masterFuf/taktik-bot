@@ -255,6 +255,15 @@ class WorkflowRunner:
         import time
         
         unfollow_business = self._get_unfollow_business()
+
+        # The ceilings, counted in unfollows: what is left of the session's maximum and of the
+        # day's unfollow budget. A spent ceiling ends the session with its own reason; it used to
+        # cap one batch, which the session relaunched until its duration ran out.
+        session_limit = action.get('max_unfollows', 50)
+        room, cap_reason = self._unfollow_allowance(session_limit)
+        if cap_reason:
+            self._finalize_on(cap_reason)
+            return False
         
         # Pré-étape 1: Sync following list (incrémental)
         self.logger.info("📊 Pre-step: syncing following list...")
@@ -274,7 +283,7 @@ class WorkflowRunner:
         
         # Étape principale: Unfollow
         config = {
-            'max_unfollows': action.get('max_unfollows', 50),
+            'max_unfollows': session_limit if room is None else room,
             'unfollow_delay_range': (
                 action.get('min_delay', 2),
                 action.get('max_delay', 5)
@@ -308,12 +317,32 @@ class WorkflowRunner:
         # A block ends the session at once, the same way as the followers workflow: the stop
         # reason travels with the result and the session is finalized with it here.
         stop_reason = result.get('stop_reason')
-        if stop_reason and not getattr(self.automation, 'session_finalized', False):
-            self.automation.helpers.finalize_session(
-                status=stop_reasons.terminal_status(stop_reason), reason=stop_reason)
+        if stop_reason:
+            self._finalize_on(stop_reason)
             return False
-        
-        return result.get('success', False)
+
+        # A ceiling reached during this batch ends the session too.
+        _room, cap_reason = self._unfollow_allowance(session_limit)
+        if cap_reason:
+            self._finalize_on(cap_reason)
+            return False
+
+        # Progress means unfollows made. A batch that unfollowed nobody used to report success,
+        # and the session relaunched it until its duration ran out, doing nothing but scrolling.
+        return result.get('unfollows_made', 0) > 0
+
+    def _unfollow_allowance(self, session_limit):
+        """(room, stop_reason) from the session manager; unlimited in its absence."""
+        session_manager = getattr(self.automation, 'session_manager', None)
+        if session_manager is None or not hasattr(session_manager, 'unfollow_allowance'):
+            return None, None
+        return session_manager.unfollow_allowance(session_limit)
+
+    def _finalize_on(self, reason) -> None:
+        """End the session with `reason`, once."""
+        if not getattr(self.automation, 'session_finalized', False):
+            self.automation.helpers.finalize_session(
+                status=stop_reasons.terminal_status(reason), reason=reason)
     
     def _run_feed_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the feed workflow."""

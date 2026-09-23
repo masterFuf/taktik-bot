@@ -119,14 +119,15 @@ class StatsRepository(BaseRepository):
                 COALESCE(total_likes, 0) as likes,
                 COALESCE(total_follows, 0) as follows,
                 COALESCE(total_comments, 0) as comments,
-                COALESCE(total_story_likes, 0) as story_likes
+                COALESCE(total_story_likes, 0) as story_likes,
+                COALESCE(total_unfollows, 0) as unfollows
             FROM daily_stats_unified
             WHERE platform = 'instagram' AND account_id = ? AND date = ?
             """,
             (account_id, today),
         )
         if not row:
-            return {'total': 0, 'likes': 0, 'follows': 0, 'comments': 0}
+            return {'total': 0, 'likes': 0, 'follows': 0, 'comments': 0, 'unfollows': 0}
         data = dict(row)
         total = (
             int(data.get('likes', 0)) + int(data.get('follows', 0)) + int(data.get('comments', 0))
@@ -137,6 +138,9 @@ class StatsRepository(BaseRepository):
             'likes': int(data.get('likes', 0)),
             'follows': int(data.get('follows', 0)),
             'comments': int(data.get('comments', 0)),
+            # Not in `total`: unfollows have their own daily budget (max_unfollows_per_day), and
+            # spending it must not eat the like/follow/comment budget, nor the reverse.
+            'unfollows': int(data.get('unfollows', 0) or 0),
         }
 
     def get_account_stats(self, account_id: int, days: int = 7) -> Dict[str, Any]:

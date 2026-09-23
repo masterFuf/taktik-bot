@@ -193,6 +193,24 @@ def daily_budget(count: Any, limit: Any) -> StopReason:
     )
 
 
+def unfollows_cap(count: Any, limit: Any) -> StopReason:
+    """The session made the unfollows it was asked for (the page's "Maximum d'unfollows")."""
+    return _reason(
+        "unfollows_cap", FAMILY_OK,
+        f"Unfollows limit reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
+def daily_unfollow_budget(count: Any, limit: Any) -> StopReason:
+    """The day's unfollow budget from the warmup policy is spent (a budget of its own)."""
+    return _reason(
+        "daily_unfollow_budget", FAMILY_OK,
+        f"Daily unfollow budget reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
 def session_action_cap(count: Any, limit: Any) -> StopReason:
     return _reason(
         "session_action_cap", FAMILY_OK,
