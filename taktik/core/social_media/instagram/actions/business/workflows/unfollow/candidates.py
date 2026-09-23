@@ -52,6 +52,8 @@ class FollowersSnapshot:
 @dataclass
 class CandidateSelection:
     candidates: List[str] = field(default_factory=list)
+    # the blacklisted candidates: forced, so the profile checks do not apply to them
+    forced: Set[str] = field(default_factory=set)
     # reason -> count, for the page ("why so few?") and the run log
     refusals: Dict[str, int] = field(default_factory=dict)
 
@@ -161,4 +163,5 @@ def select_candidates(
     forced.sort(key=lambda item: item[0])
     chosen.sort(key=lambda item: item[0])
     selection.candidates = [name for _, name in forced] + [name for _, name in chosen]
+    selection.forced = {name.lower() for _, name in forced}
     return selection

@@ -20,6 +20,11 @@ def send_unfollow_event(username: str, success: bool = True):
     _ipc.unfollow_event(username, success)
 
 
+def send_unfollow_plan(mode: str, candidates: int, refusals: dict = None):
+    """Send the unfollow decision taken on data: candidates, and the refusals per rule."""
+    _ipc.send("unfollow_plan", mode=mode, candidates=candidates, refusals=dict(refusals or {}))
+
+
 def send_follow_event(username: str, success: bool = True, profile_data: dict = None):
     """Send follow event to desktop app for real-time activity and WorkflowAnalyzer."""
     _ipc.follow_event(username, success, profile_data)
@@ -77,6 +82,7 @@ __all__ = [
     "send_instagram_action",
     "send_instagram_profile_visit",
     "send_unfollow_event",
+    "send_unfollow_plan",
     "send_follow_event",
     "send_like_event",
     "send_story_event",

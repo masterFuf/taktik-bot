@@ -1,15 +1,25 @@
-"""Business logic for Instagram unfollow workflow.
+"""The Instagram unfollow: one engine that decides on data, acts on screen, checks on screen.
 
-Unfollows accounts automatically.
-Utilisations typiques:
-- clean up the following list
-- unfollow the accounts that do not follow back
-- unfollow the inactive accounts
+Rebuilt on 2026-09-24 (U1 to U8 of the unfollow plan). Until then the desktop ran a list loop that
+tapped every "Following" button from the top of the list, in English only, counted every tap as
+an unfollow, ignored the mode, the lists, the delay since the follow and "bot follows only",
+stopped at no block and at no ceiling; a second loop that could decide had no caller, and a third
+unfollowed a given list through the search. One engine is left:
+
+1. sync the following list (and the followers list, for the modes that depend on reciprocity);
+2. choose the candidates from the base, rule by rule (`candidates.py`); in doubt, nobody;
+3. walk the following list; for each row of a candidate still followed: check its profile when a
+   rule needs the screen (the "Follows you" badge, verified or business accounts), tap the row
+   button, confirm a private account, read the row again (an unfollow counts only if the row now
+   offers to follow), stop at the first sign of a block, count it in the session, the day and
+   the warmup, pause the configured time.
 """
 
-import time
 import random
-from typing import Dict, List, Any, Optional
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Set
+
 from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
@@ -20,6 +30,7 @@ from taktik.core.social_media.instagram.workflows.management.session import stop
 
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
+from .candidates import FollowersSnapshot, records_from_rows, select_candidates
 from .mixins.decision import UnfollowDecisionMixin
 from .mixins.actions import UnfollowActionsMixin
 from .mixins.sync_following import SyncFollowingMixin
@@ -38,13 +49,28 @@ class UnfollowBusiness(
     # Bounded waits on the screen, in seconds (class attributes so a test can shorten them).
     confirm_dialog_timeout = 2.0
     row_state_timeout = 3.0
+    # Walking the following list: the most scrolls, and the scrolls in a row that show no new
+    # username before the end of the list is assumed.
+    max_list_scrolls = 150
+    end_of_list_scrolls = 3
+    # Candidates targeted per run beyond the unfollows allowed, to absorb the ones the list does
+    # not show (unfollowed elsewhere since the sync, or refused on their profile).
+    candidate_margin = 10
+    # Unfollows the screen did not confirm, in a row, before the run stops: a refusal that
+    # leaves no dialog, or a row that cannot be read, must not turn into an endless tapping.
+    max_unconfirmed_in_a_row = 3
 
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "unfollow", init_business_modules=False)
-        
+
         from ...common.workflow_defaults import UNFOLLOW_DEFAULTS
         self.default_config = {**UNFOLLOW_DEFAULTS}
-        
+        # Rows handled once in this SESSION (the runner keeps this instance for the session):
+        # an unfollow the screen did not confirm, or a refused one, is never tapped again by a
+        # later batch.
+        self._handled: Set[str] = set()
+        self._unconfirmed_in_a_row = 0
+
         # Sélecteurs centralisés (depuis selectors.py)
         self._unfollow_sel = UNFOLLOW_SELECTORS
         # Backward-compatible dict wrapper for existing code
@@ -58,297 +84,250 @@ class UnfollowBusiness(
             'sort_option_latest': self._unfollow_sel.sort_option_latest,
             'sort_option_earliest': self._unfollow_sel.sort_option_earliest,
         }
-    
-    # ─── Workflow 1: run_unfollow_workflow (profile-visit based) ──────────
+
+    # ─── The engine ────────────────────────────────────────────────────────────
 
     def run_unfollow_workflow(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Run the unfollow: sync, choose on data, act and check on screen.
+
+        `config` carries the whole page (and scheduler) setting: `max_unfollows`, `unfollow_mode`,
+        `bot_follows_only`, `min_days_since_follow`, `whitelist`, `blacklist`, `skip_verified`,
+        `skip_business`, `unfollow_delay_range`. Returns the statistics, with `stop_reason` set when
+        the run must end the session (a block).
         """
-        Run the unfollow workflow.
-        
-        Args:
-            config: workflow configuration
-            
-        Returns:
-            Dict of statistics
-        """
-        effective_config = {**self.default_config, **(config or {})}
-        
-        stats = {
-            'accounts_checked': 0,
-            'unfollows_made': 0,
-            'skipped_whitelisted': 0,
-            'skipped_blacklisted_forced': 0,
-            'skipped_not_bot_follow': 0,
-            'skipped_verified': 0,
-            'skipped_business': 0,
-            'skipped_recent': 0,
-            'skipped_followers': 0,
-            'skipped_not_mutual': 0,
-            'errors': 0,
-            'success': False
-        }
-        
+        cfg = {**self.default_config, **(config or {})}
+        mode = cfg.get('unfollow_mode', 'non-followers')
+        stats = self._new_stats()
+
         try:
-            unfollow_mode = effective_config.get('unfollow_mode', 'non-followers')
-            self.logger.info("🔄 Starting unfollow workflow")
-            self.logger.info(f"Mode: {unfollow_mode} | Max: {effective_config['max_unfollows']} | Cooldown: {effective_config.get('min_days_since_follow', 0)}d | Bot-only: {effective_config.get('bot_follows_only', False)}")
-            self.logger.info(f"Whitelist: {len(effective_config.get('whitelist', []))} | Blacklist: {len(effective_config.get('blacklist', []))}")
-            
-            # -- Incremental sync of the following list --
-            sync_stats = self.sync_following_list(effective_config)
+            account_id = self._get_account_id()
+            if not account_id:
+                self.logger.error("Unfollow: no active account, nothing can be decided")
+                stats['errors'] += 1
+                return stats
             self.logger.info(
-                f"📊 Sync: {sync_stats['new_count']} new, "
-                f"{sync_stats['updated_count']} updated, "
-                f"stopped_early={sync_stats['stopped_early']}"
+                f"🔄 Unfollow: mode={mode} | max={cfg.get('max_unfollows')} | "
+                f"bot follows only={cfg.get('bot_follows_only')} | "
+                f"min days since follow={cfg.get('min_days_since_follow')} | "
+                f"whitelist={len(cfg.get('whitelist') or [])} | blacklist={len(cfg.get('blacklist') or [])}"
             )
 
-            # -- Sync of the non-reciprocal accounts through the native category --
-            if unfollow_mode in ('non-followers', 'mutual'):
-                nf_stats = self.scrape_non_followers_category(effective_config)
-                self.logger.info(
-                    f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
-                    f"{nf_stats['mutuals_count']} mutuals"
+            # 1. What the base knows: the following list, and the followers when it matters.
+            following_sync = self.sync_following_list(cfg)
+            stats['following_sync'] = {k: following_sync.get(k) for k in
+                                       ('new_count', 'updated_count', 'total_seen', 'complete', 'departures')}
+            followers = None
+            if mode in ('non-followers', 'mutual'):
+                followers_sync = self.sync_followers_list({'mode': 'fast'})
+                followers = FollowersSnapshot(
+                    usernames=frozenset(followers_sync.get('usernames') or ()),
+                    complete=bool(followers_sync.get('complete')),
                 )
+                stats['followers_sync'] = {'total_seen': followers_sync.get('total_seen'),
+                                           'complete': followers.complete}
 
-            # Navigate to our own profile
-            if not self.nav_actions.navigate_to_profile_tab():
-                self.logger.error("Failed to navigate to own profile")
-                stats['errors'] += 1
-                return stats
-            
-            time.sleep(2)
-            
-            # Open the following list
-            if not self.nav_actions.open_following_list():
-                self.logger.error("Failed to open following list")
-                stats['errors'] += 1
-                return stats
-            
-            time.sleep(2)
-            
-            # Apply sorting based on unfollow mode
-            unfollow_mode = effective_config.get('unfollow_mode', 'non-followers')
-            if unfollow_mode == 'oldest':
-                # Sort by "Date followed: Earliest" to unfollow oldest first
-                self._set_following_list_sort('earliest')
-                time.sleep(1.5)
-            elif unfollow_mode == 'all':
-                # Sort by "Date followed: Latest" for "all following" mode
-                self._set_following_list_sort('latest')
-                time.sleep(1.5)
-            # For 'non-followers' mode, we keep default sorting
-            
-            # Extract the accounts that could be unfollowed
-            accounts_to_check = self._extract_following_accounts(
-                max_accounts=effective_config['max_unfollows'] * 3
+            # 2. The decision, on data.
+            selection = select_candidates(
+                records_from_rows(InstagramFollowGraphService.list_active_followings(account_id)),
+                cfg, followers, datetime.now(timezone.utc).replace(tzinfo=None),
             )
-            
-            if not accounts_to_check:
-                self.logger.warning("No accounts found in following list")
+            stats['candidates'] = len(selection.candidates)
+            stats['refusals'] = dict(selection.refusals)
+            self.logger.info(
+                f"📋 {len(selection.candidates)} candidate(s); refused: {selection.refusals or 'none'}"
+            )
+            IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates),
+                                          refusals=dict(selection.refusals))
+            if not selection.candidates:
+                stats['success'] = True
                 return stats
-            
-            self.logger.info(f"📋 {len(accounts_to_check)} accounts to check")
-            
-            unfollows_done = 0
-            
-            for username in accounts_to_check:
-                if unfollows_done >= effective_config['max_unfollows']:
-                    self.logger.info(f"✅ Reached max unfollows ({effective_config['max_unfollows']})")
-                    break
-                
-                stats['accounts_checked'] += 1
-                self.logger.info(f"[{stats['accounts_checked']}] Checking @{username}")
-                
-                # Vérifier si on doit unfollow ce compte
-                should_unfollow, reason = self._should_unfollow_account(username, effective_config)
-                
-                if not should_unfollow:
-                    self.logger.debug(f"Skipping @{username}: {reason}")
-                    if 'whitelisted' in reason:
-                        stats['skipped_whitelisted'] += 1
-                    elif 'not_followed_by_bot' in reason:
-                        stats['skipped_not_bot_follow'] += 1
-                    elif 'verified' in reason:
-                        stats['skipped_verified'] += 1
-                    elif 'business' in reason:
-                        stats['skipped_business'] += 1
-                    elif 'recent' in reason:
-                        stats['skipped_recent'] += 1
-                    elif 'not_mutual' in reason:
-                        stats['skipped_not_mutual'] += 1
-                    elif 'follower' in reason:
-                        stats['skipped_followers'] += 1
-                    continue
-                
-                # Effectuer l'unfollow
-                if self._unfollow_account(username):
-                    stats['unfollows_made'] += 1
-                    unfollows_done += 1
-                    self.logger.info(f"✅ Unfollowed @{username} ({unfollows_done}/{effective_config['max_unfollows']})")
-                    
-                    # Enregistrer l'action
-                    self._record_action(username, 'UNFOLLOW', 1)
 
-                    # Mark as unfollowed in the sync table
-                    try:
-                        account_id = self._get_account_id()
-                        if account_id:
-                            InstagramFollowGraphService.mark_unfollowed(username, account_id)
-                    except Exception:
-                        pass
-                    
-                    # Délai entre unfollows
-                    delay = random.randint(*effective_config['unfollow_delay_range'])
-                    self.logger.debug(f"⏳ Waiting {delay}s before next unfollow")
-                    time.sleep(delay)
-                else:
-                    stats['errors'] += 1
-            
+            # 3. On screen: open our following list and act on the candidates it shows.
+            max_unfollows = int(cfg.get('max_unfollows') or 0)
+            window = selection.candidates[:max_unfollows + self.candidate_margin] if max_unfollows \
+                else selection.candidates
+            if not self.nav_actions.navigate_to_profile_tab():
+                self.logger.error("Unfollow: could not open our profile")
+                stats['errors'] += 1
+                return stats
+            time.sleep(2)
+            if not self.nav_actions.open_following_list():
+                self.logger.error("Unfollow: could not open our following list")
+                stats['errors'] += 1
+                return stats
+            time.sleep(2)
+
+            self._unfollow_in_open_list(cfg, window, selection.forced, stats)
             stats['success'] = True
-            self.logger.info(f"✅ Unfollow workflow completed: {stats['unfollows_made']} unfollows")
-            
+            self.logger.info(
+                f"✅ Unfollow done: {stats['unfollows_made']} unfollowed, "
+                f"{stats['unconfirmed']} not confirmed, refused on profile: {stats['profile_refusals'] or 'none'}"
+            )
         except Exception as e:
-            self.logger.error(f"Error in unfollow workflow: {e}")
+            self.logger.error(f"Error in the unfollow workflow: {e}")
             stats['errors'] += 1
-        
         return stats
-    
-    # ─── Workflow 2: run_simple_unfollow_from_list (fast, no profile visit) ─
 
-    def run_simple_unfollow_from_list(self, config: Dict[str, Any] = None) -> Dict[str, Any]:
+    def unfollow_listed_accounts(self, usernames: List[str], config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Unfollow these accounts from our following list, with every screen check of the engine.
+
+        The production act-and-check path without the base's decision: what the Lab's unitary
+        unfollow calls (the accounts are the tester's choice). The mode's profile checks apply.
         """
-        SIMPLE unfollow: tap the following buttons directly in the list.
-        
-        This is much faster than visiting each profile.
-        The list of our own following must already be open.
-        
-        Args:
-            config: workflow configuration
-            
-        Returns:
-            Dict of statistics
-        """
-        effective_config = {**self.default_config, **(config or {})}
-        max_unfollows = effective_config.get('max_unfollows', 50)
-        
-        stats = {
+        cfg = {**self.default_config, **(config or {})}
+        stats = self._new_stats()
+        targets = [u.strip().lstrip('@') for u in usernames if u and u.strip().lstrip('@')]
+        stats['candidates'] = len(targets)
+        if not targets:
+            return stats
+        if not self.nav_actions.navigate_to_profile_tab() or not self.nav_actions.open_following_list():
+            self.logger.error("Unfollow: could not open our following list")
+            stats['errors'] += 1
+            return stats
+        time.sleep(2)
+        self._unfollow_in_open_list(cfg, targets, set(), stats)
+        stats['success'] = True
+        return stats
+
+    # ─── Walking the open following list ───────────────────────────────────────
+
+    @staticmethod
+    def _new_stats() -> Dict[str, Any]:
+        return {
+            'candidates': 0,
             'unfollows_made': 0,
             'unconfirmed': 0,
+            'refusals': {},
+            'profile_refusals': {},
             'errors': 0,
             'scrolls': 0,
             'stop_reason': None,
-            'success': False
+            'success': False,
         }
 
-        try:
-            self.logger.info("🔄 Starting SIMPLE unfollow workflow (direct button clicks)")
-            self.logger.info(f"Max unfollows: {max_unfollows}")
+    def _unfollow_in_open_list(self, cfg: Dict[str, Any], targets: List[str], forced: Set[str],
+                               stats: Dict[str, Any]) -> None:
+        """Act on the rows of `targets` that the open following list shows, top to bottom."""
+        mode = cfg.get('unfollow_mode', 'non-followers')
+        max_unfollows = int(cfg.get('max_unfollows') or 0)
+        pending = {name.lower() for name in targets}
+        # A row is handled once per session: an unfollow the screen did not confirm is not retried
+        # (tapping again and again is what Instagram answers with "Try again later"), a refused
+        # one neither.
+        handled = self._handled
+        pending -= handled
+        seen: Set[str] = set()
+        quiet_scrolls = 0
 
-            unfollows_done = 0
-            max_scrolls = 50
-            scroll_count = 0
-            no_button_count = 0
-            # Rows already tapped once. An unfollow the screen did not confirm is not retried: the
-            # row keeps its "following" button, and tapping it again and again is exactly the
-            # pattern Instagram answers with "Try again later".
-            attempted = set()
+        while pending and stats['scrolls'] < self.max_list_scrolls:
+            if max_unfollows and stats['unfollows_made'] >= max_unfollows:
+                break
+            rows = self._visible_follow_rows()
+            new_names = {row['username'].lower() for row in rows} - seen
+            seen |= new_names
+            row = next((r for r in rows if r['state'] == 'following'
+                        and r['username'].lower() in pending
+                        and r['username'].lower() not in handled), None)
+            if row is None:
+                quiet_scrolls = 0 if new_names else quiet_scrolls + 1
+                if quiet_scrolls >= self.end_of_list_scrolls:
+                    self.logger.info("End of the following list")
+                    break
+                self._scroll_following_list()
+                stats['scrolls'] += 1
+                time.sleep(1)
+                continue
 
-            while unfollows_done < max_unfollows and scroll_count < max_scrolls:
-                # Every visible row whose button says we follow the account, in any language
-                # (the button text goes through the shared state classifier, never a literal).
-                following_rows = [row for row in self._visible_follow_rows()
-                                  if row['state'] == 'following' and row['username'] not in attempted]
+            username = row['username']
+            key = username.lower()
+            handled.add(key)
+            pending.discard(key)
 
-                if not following_rows:
-                    self.logger.debug("No 'following' row button found on screen")
-                    no_button_count += 1
-                    if no_button_count >= 3:
-                        self.logger.info("No more Following buttons after 3 scrolls, stopping")
-                        break
-                    # Scroll to reveal more
-                    self._scroll_following_list()
-                    scroll_count += 1
-                    stats['scrolls'] += 1
-                    time.sleep(1)
+            refusal = self._profile_refusal(row, mode, key in forced, cfg)
+            if refusal:
+                stats['profile_refusals'][refusal] = stats['profile_refusals'].get(refusal, 0) + 1
+                self.logger.info(f"⏭ @{username} kept: {refusal}")
+                emit_step('unfollow_decision', action='skip', target=username, reason=refusal)
+                continue
+            if row.get('name_element') is not None and self._profile_was_opened(mode, key in forced, cfg):
+                # Back from the profile: the rows were redrawn, read the candidate's row again.
+                row = next((r for r in self._visible_follow_rows()
+                            if r['username'].lower() == key and r['state'] == 'following'), None)
+                if row is None:
+                    stats['profile_refusals']['row_lost'] = stats['profile_refusals'].get('row_lost', 0) + 1
+                    self.logger.info(f"⏭ @{username}: its row is no longer on screen after the profile")
                     continue
-                
-                no_button_count = 0  # Reset counter
 
-                # The first row, named by the username paired with its button
-                row = following_rows[0]
-                username = row['username']
-                attempted.add(username)
+            if not self._unfollow_row(row, cfg, stats):
+                break
 
-                # Try to tap the button
-                try:
-                    self.logger.info(f"[{unfollows_done + 1}/{max_unfollows}] Tapping the following button of @{username}")
-                    if not tap_element_human(self.device, row['button'], logger=self.logger):
-                        row['button'].click()
-                    time.sleep(1)
+    def _profile_was_opened(self, mode: str, forced: bool, cfg: Dict[str, Any]) -> bool:
+        """Did `_profile_refusal` open the profile for this row (so the list was redrawn)?"""
+        if forced:
+            return False
+        return (mode in ('non-followers', 'mutual')
+                or bool(cfg.get('skip_verified', True))
+                or bool(cfg.get('skip_business', False)))
 
-                    # A confirmation dialog can appear (private account)
-                    if self._tap_unfollow_confirm(timeout=self.confirm_dialog_timeout):
-                        time.sleep(0.5)
+    def _unfollow_row(self, row: Dict[str, Any], cfg: Dict[str, Any], stats: Dict[str, Any]) -> bool:
+        """Tap the row button, confirm, check the row, check for a block, count, pause.
 
-                    # Read the row again: the unfollow happened only if it now offers to follow.
-                    # Until 2026-09-24 every tap was counted, and 51 of the 298 unfollows in the
-                    # base had not happened (the same account "unfollowed" again 17 min later).
-                    row_state = self._wait_row_unfollowed(username)
-                    if row_state not in ('follow', 'follow_back'):
-                        stats['unconfirmed'] += 1
-                        self.logger.warning(
-                            f"⚠️ @{username}: the row still reads '{row_state}' after the tap — "
-                            f"unfollow NOT counted"
-                        )
-                        IPCEmitter.emit_unfollow(username, success=False)
-                        blocked = self._action_blocked_reason()
-                        if blocked:
-                            stats['stop_reason'] = blocked
-                            break
-                        self._pause_between_unfollows(effective_config)
-                        continue
+        Returns False when the walk must stop (a block).
+        """
+        username = row['username']
+        max_unfollows = int(cfg.get('max_unfollows') or 0)
+        try:
+            self.logger.info(
+                f"[{stats['unfollows_made'] + 1}/{max_unfollows or '∞'}] Tapping the following button of @{username}"
+            )
+            if not tap_element_human(self.device, row['button'], logger=self.logger):
+                row['button'].click()
+            time.sleep(1)
+            # A confirmation dialog can appear (private account)
+            if self._tap_unfollow_confirm(timeout=self.confirm_dialog_timeout):
+                time.sleep(0.5)
 
-                    unfollows_done += 1
-                    stats['unfollows_made'] += 1
-                    self.logger.info(f"✅ Unfollowed @{username} ({unfollows_done}/{max_unfollows})")
-                    # The session counts it: it is what caps the unfollows of this run
-                    if self.session_manager is not None:
-                        self.session_manager.record_action('unfollow', success=True)
-                    
-                    # Enregistrer l'action
-                    self._record_action(username, 'UNFOLLOW', 1)
-                    
-                    # Envoyer l'événement en temps réel au frontend si un bridge l'a injecté.
-                    IPCEmitter.emit_unfollow(username, success=True)
-                    IPCEmitter.emit_stats(unfollows=unfollows_done)
-
-                    # A block shows up right after the action it refuses. Acting again after
-                    # "Try again later" is what turns a temporary limit into a lasting one.
-                    blocked = self._action_blocked_reason()
-                    if blocked:
-                        stats['stop_reason'] = blocked
-                        break
-                    
-                    self._pause_between_unfollows(effective_config)
-                    
-                except Exception as e:
-                    self.logger.warning(f"Error clicking Following button: {e}")
-                    stats['errors'] += 1
-                    # Scroll on to further buttons
-                    self._scroll_following_list()
-                    scroll_count += 1
-                    stats['scrolls'] += 1
-                    time.sleep(1)
-            
-            stats['success'] = True
-            self.logger.info(f"✅ Simple unfollow workflow completed: {stats['unfollows_made']} unfollows in {stats['scrolls']} scrolls")
-            
+            # Read the row again: the unfollow happened only if it now offers to follow.
+            # Until 2026-09-24 every tap was counted, and 51 of the 298 unfollows in the base
+            # had not happened (the same account "unfollowed" again 17 min later).
+            row_state = self._wait_row_unfollowed(username)
+            if row_state in ('follow', 'follow_back'):
+                self._unconfirmed_in_a_row = 0
+                stats['unfollows_made'] += 1
+                self.logger.info(f"✅ Unfollowed @{username} ({stats['unfollows_made']}/{max_unfollows or '∞'})")
+                # The session counts it: it is what caps the unfollows of this run
+                if self.session_manager is not None:
+                    self.session_manager.record_action('unfollow', success=True)
+                # Base: the interaction, the day's totals, and the follow graph (closed)
+                self._record_action(username, 'UNFOLLOW', 1)
+                IPCEmitter.emit_unfollow(username, success=True)
+                IPCEmitter.emit_stats(unfollows=stats['unfollows_made'])
+            else:
+                stats['unconfirmed'] += 1
+                self._unconfirmed_in_a_row += 1
+                self.logger.warning(
+                    f"⚠️ @{username}: the row still reads '{row_state}' after the tap — unfollow NOT counted"
+                )
+                IPCEmitter.emit_unfollow(username, success=False)
         except Exception as e:
-            self.logger.error(f"Error in simple unfollow workflow: {e}")
+            self.logger.warning(f"Error unfollowing @{username}: {e}")
             stats['errors'] += 1
-        
-        return stats
-    
+
+        # A block shows up right after the action it refuses. Acting again after "Try again
+        # later" is what turns a temporary limit into a lasting one.
+        blocked = self._action_blocked_reason()
+        if blocked:
+            stats['stop_reason'] = blocked
+            return False
+        if self._unconfirmed_in_a_row >= self.max_unconfirmed_in_a_row:
+            self.logger.error(
+                f"🛑 {self._unconfirmed_in_a_row} unfollows in a row not confirmed by the screen — stopping"
+            )
+            stats['stop_reason'] = stop_reasons.unfollow_unconfirmed(self._unconfirmed_in_a_row)
+            return False
+        self._pause_between_unfollows(cfg)
+        return True
+
     def _pause_between_unfollows(self, config: Dict[str, Any]) -> None:
         """The pause between two unfollows, drawn from the configured range.
 
@@ -423,52 +402,3 @@ class UnfollowBusiness(
             if state in ('follow', 'follow_back') or time.time() >= deadline:
                 return state
             time.sleep(0.5)
-
-    # ─── Workflow 3: unfollow_specific_accounts ──────────────────────────
-
-    def unfollow_specific_accounts(self, usernames: List[str], config: Dict[str, Any] = None) -> Dict[str, Any]:
-        """
-        Unfollow a specific list of accounts.
-        
-        Args:
-            usernames: usernames to unfollow
-            config: Configuration
-            
-        Returns:
-            Dict of statistics
-        """
-        effective_config = {**self.default_config, **(config or {})}
-        
-        stats = {
-            'accounts_to_unfollow': len(usernames),
-            'unfollows_made': 0,
-            'errors': 0,
-            'success': False
-        }
-        
-        try:
-            self.logger.info(f"🔄 Unfollowing {len(usernames)} specific accounts")
-            
-            for i, username in enumerate(usernames, 1):
-                self.logger.info(f"[{i}/{len(usernames)}] Unfollowing @{username}")
-                
-                if self._unfollow_account(username):
-                    stats['unfollows_made'] += 1
-                    self._record_action(username, 'UNFOLLOW', 1)
-                    
-                    # Délai entre unfollows
-                    if i < len(usernames):
-                        delay = random.randint(*effective_config['unfollow_delay_range'])
-                        self.logger.debug(f"⏳ Waiting {delay}s before next unfollow")
-                        time.sleep(delay)
-                else:
-                    stats['errors'] += 1
-            
-            stats['success'] = True
-            self.logger.info(f"✅ Unfollowed {stats['unfollows_made']}/{len(usernames)} accounts")
-            
-        except Exception as e:
-            self.logger.error(f"Error in specific unfollow: {e}")
-            stats['errors'] += 1
-        
-        return stats

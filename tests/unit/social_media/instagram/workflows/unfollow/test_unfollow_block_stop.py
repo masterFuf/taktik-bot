@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml
+from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml, walk_list
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
@@ -54,7 +54,7 @@ def test_the_loop_stops_at_the_first_block():
     rows_after = follow_list_xml([("alice.fr", "Suivre"), ("bob_fr", "Suivi(e)")])
     business, screen = _business(_Detector(blocked_after=1), rows_before, rows_after)
 
-    stats = business.run_simple_unfollow_from_list({"max_unfollows": 5})
+    stats = walk_list(business, {"max_unfollows": 5})
 
     assert stats["unfollows_made"] == 1
     assert stats["stop_reason"].code == "action_blocked"
@@ -65,7 +65,7 @@ def test_a_block_after_an_unconfirmed_tap_stops_too():
     same = follow_list_xml([("alice.fr", "Suivi(e)"), ("bob_fr", "Suivi(e)")])
     business, screen = _business(_Detector(blocked_after=1), same, same)
 
-    stats = business.run_simple_unfollow_from_list({"max_unfollows": 5})
+    stats = walk_list(business, {"max_unfollows": 5})
 
     assert stats["unfollows_made"] == 0 and stats["unconfirmed"] == 1
     assert stats["stop_reason"].code == "action_blocked"
@@ -78,7 +78,7 @@ def test_no_block_no_stop_reason():
         follow_list_xml([("alice.fr", "Suivi(e)")]),
         follow_list_xml([("alice.fr", "Suivre")]),
     )
-    stats = business.run_simple_unfollow_from_list({"max_unfollows": 1})
+    stats = walk_list(business, {"max_unfollows": 1})
     assert stats["unfollows_made"] == 1 and stats["stop_reason"] is None
 
 
@@ -97,7 +97,7 @@ def test_the_runner_ends_the_session_on_the_block(monkeypatch):
         sync_following_list=lambda *a, **k: {"new_count": 0, "updated_count": 0},
         scrape_non_followers_category=lambda *a, **k: {"non_followers_count": 0, "mutuals_count": 0},
         nav_actions=SimpleNamespace(navigate_to_profile_tab=lambda: True, open_following_list=lambda: True),
-        run_simple_unfollow_from_list=lambda config: {
+        run_unfollow_workflow=lambda config: {
             "unfollows_made": 2, "success": True, "stop_reason": stop_reasons.action_blocked()},
     )
     monkeypatch.setattr(runner, "_get_unfollow_business", lambda: fake_business, raising=False)

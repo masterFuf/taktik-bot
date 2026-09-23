@@ -50,16 +50,18 @@ class UnfollowActionsMixin:
                 username = (el.text or '').strip().lstrip('@')
                 band = _vertical_band(el)
                 if username and band and self._is_valid_username(username):
-                    names.append((username, band[0]))
+                    names.append((username, band[0], el))
             for button in d.xpath(UNFOLLOW_SELECTORS.follow_list_row_button_selector(package)).all():
                 band = _vertical_band(button)
                 if band is None:
                     continue
-                username = next((name for name, centre in names if band[1] <= centre <= band[2]), None)
+                paired = next((entry for entry in names if band[1] <= entry[1] <= band[2]), None)
+                username = paired[0] if paired else None
                 if username is None and require_username:
                     continue
                 rows.append({
                     'username': username,
+                    'name_element': paired[2] if paired else None,
                     'button': button,
                     'state': classify_follow_state(button.text or '', PROFILE_SELECTORS) or 'unknown',
                 })
@@ -88,60 +90,6 @@ class UnfollowActionsMixin:
                 return False
             time.sleep(0.3)
 
-    def _unfollow_account(self, username: str) -> bool:
-        """
-        Unfollow one account.
-        
-        Args:
-            username: Nom d'utilisateur à unfollow
-            
-        Returns:
-            True si l'unfollow a réussi
-        """
-        try:
-            # Make sure we are on the profile
-            if not self.detection_actions.is_on_profile_screen():
-                if not self.nav_actions.navigate_to_profile(username):
-                    return False
-                time.sleep(1.5)
-            
-            # Tap the following button
-            clicked = self._find_and_click(self._unfollow_selectors['following_button'], timeout=3)
-            if clicked:
-                self._human_like_delay('click')
-
-            if not clicked:
-                self.logger.warning(f"Cannot find Following button for @{username}")
-                return False
-            
-            time.sleep(1)
-            
-            # Confirmer l'unfollow
-            if self._find_and_click(self._unfollow_selectors['unfollow_confirm'], timeout=3):
-                self._human_like_delay('click')
-                self.logger.debug(f"✅ Unfollow confirmed for @{username}")
-
-                # Back to the list
-                self._go_back_to_following_list()
-                return True
-            
-            # With no confirmation dialog the unfollow may have been immediate:
-            # check whether the button now offers to follow again
-            follow_button_indicators = self._unfollow_sel.follow_button_after_unfollow
-            
-            if self._is_element_present(follow_button_indicators):
-                self.logger.debug(f"✅ Unfollow successful for @{username} (no confirmation needed)")
-                self._go_back_to_following_list()
-                return True
-            
-            self.logger.warning(f"Cannot confirm unfollow for @{username}")
-            self._go_back_to_following_list()
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error unfollowing @{username}: {e}")
-            return False
-    
     def _go_back_to_following_list(self):
         """Go back to the following list."""
         try:
@@ -153,70 +101,6 @@ class UnfollowActionsMixin:
                 time.sleep(0.5)
         except Exception as e:
             self.logger.debug(f"Error going back to following list: {e}")
-    
-    def _extract_following_accounts(self, max_accounts: int = 100) -> List[str]:
-        """
-        Extract the accounts from the following list.
-        
-        Args:
-            max_accounts: Nombre max de comptes à extraire
-            
-        Returns:
-            List of usernames
-        """
-        accounts = []
-        seen_accounts = set()
-        scroll_attempts = 0
-        max_scroll_attempts = 15
-        
-        self.logger.info(f"📋 Extracting following accounts (max: {max_accounts})")
-        
-        while len(accounts) < max_accounts and scroll_attempts < max_scroll_attempts:
-            # Extract the visible accounts
-            new_accounts = self._get_visible_following_accounts()
-            
-            for username in new_accounts:
-                if username not in seen_accounts and len(accounts) < max_accounts:
-                    seen_accounts.add(username)
-                    accounts.append(username)
-            
-            if len(accounts) >= max_accounts:
-                break
-            
-            # Scroll to reveal more accounts
-            previous_count = len(accounts)
-            self.scroll_actions.scroll_down()
-            time.sleep(1.5)
-            scroll_attempts += 1
-            
-            # No new account after the scroll
-            if len(accounts) == previous_count:
-                self.logger.debug("No new accounts found after scroll")
-                break
-        
-        self.logger.info(f"✅ Extracted {len(accounts)} following accounts")
-        return accounts
-    
-    def _get_visible_following_accounts(self) -> List[str]:
-        """Read the usernames visible in the following list."""
-        accounts = []
-        
-        try:
-            for selector in self._unfollow_selectors['following_list_item']:
-                elements = self.device.xpath(selector)
-                if elements.exists:
-                    for element in elements.all():
-                        try:
-                            username = element.text
-                            if username and self._is_valid_username(username):
-                                accounts.append(self._clean_username(username))
-                        except Exception:
-                            continue
-                    break
-        except Exception as e:
-            self.logger.debug(f"Error extracting following accounts: {e}")
-        
-        return accounts
     
     def _scroll_following_list(self):
         """Scroll the following list down (humanized controlled scroll, was fixed-centre swipe)."""
@@ -237,6 +121,14 @@ class UnfollowActionsMixin:
         """
         try:
             self.logger.info(f"📊 Setting following list sort order to: {sort_order}")
+
+            # No known label for that option in this language (French, as of 2026-09-24): do not
+            # open the sheet at all. Opening it only to press back could, if the sheet had not
+            # opened yet, leave the list instead.
+            sort_selector_key = f'sort_option_{sort_order}'
+            if not self._unfollow_selectors.get(sort_selector_key):
+                self.logger.warning(f"No '{sort_order}' sort option known in this language — list left as is")
+                return False
             
             # Click on the sort button to open the sort modal
             sort_button_clicked = False

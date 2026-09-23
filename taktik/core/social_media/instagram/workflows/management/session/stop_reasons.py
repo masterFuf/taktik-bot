@@ -298,6 +298,7 @@ _FAMILY_BY_CODE = {
     "navigation_lost": FAMILY_FAILED,
     "stuck_at_top": FAMILY_FAILED,
     "action_blocked": FAMILY_FAILED,
+    "unfollow_unconfirmed": FAMILY_FAILED,
     "list_unavailable": FAMILY_FAILED,
     "followers_list_unavailable": FAMILY_FAILED,
     "empty_plan": FAMILY_FAILED,
@@ -354,6 +355,16 @@ def action_blocked() -> StopReason:
     this dialog, and the difference decides whether the next gesture makes things worse.
     """
     return _reason("action_blocked", FAMILY_FAILED, "action_blocked")
+
+
+def unfollow_unconfirmed(count: Any) -> StopReason:
+    """Several unfollows in a row the screen did not confirm: a silent refusal, or an unreadable
+    row. Tapping on would repeat the refused action, the pattern that ends in a block."""
+    return _reason(
+        "unfollow_unconfirmed", FAMILY_FAILED,
+        f"{count} unfollows in a row not confirmed by the screen",
+        count=count,
+    )
 
 
 def stuck_at_top(scans: Any) -> StopReason:

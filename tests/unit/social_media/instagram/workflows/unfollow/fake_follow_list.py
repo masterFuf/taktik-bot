@@ -120,7 +120,9 @@ class FakeScreen:
         self.click(x, y)
 
     def press(self, key):
+        # A back press also moves the script on (the profile closes, the list shows again).
         self.presses.append(key)
+        self.advance()
 
 
 class FakeFacade:
@@ -134,3 +136,64 @@ class FakeFacade:
         self.taps.append(tuple(bounds))
         self.device.advance()
         return True
+
+
+def walk_list(business, config=None, names=None):
+    """Run the engine's production list walk on the fake screen and return its stats.
+
+    The walk is `UnfollowBusiness._unfollow_in_open_list`, the inner loop of the one engine.
+    Mode "all" without verified/business checks: no profile is opened, the rows are acted on
+    directly; `names` defaults to every username the first screen shows.
+    """
+    cfg = {**business.default_config, "unfollow_mode": "all", "skip_verified": False,
+           "skip_business": False, **(config or {})}
+    targets = names if names is not None else [row["username"] for row in business._visible_follow_rows()]
+    stats = business._new_stats()
+    business._unfollow_in_open_list(cfg, targets, set(), stats)
+    return stats
+
+
+def profile_xml(username: str, follows_you: bool = False) -> str:
+    """A profile screen: its action bar names the account; "Vous suit" when it follows us."""
+    badge = ('<node index="3" text="Vous suit" resource-id="" class="android.widget.TextView" '
+             'content-desc="" bounds="[40,520][300,560]" />') if follows_you else ""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
+        '<node index="0" text="" resource-id="" class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">'
+        f'<node index="1" text="{username}" resource-id="{PKG}:id/action_bar_title" '
+        'class="android.widget.TextView" content-desc="" bounds="[200,100][800,160]" />'
+        + badge + "</node></hierarchy>"
+    )
+
+
+class FakeDetection:
+    """The detection facade, reading the fake screen: profile, list, and row state."""
+
+    def __init__(self, screen: FakeScreen, business):
+        self.screen = screen
+        self.business = business
+
+    def _title(self):
+        nodes = self.screen.tree().xpath(f'//*[@resource-id="{PKG}:id/action_bar_title"]')
+        return nodes[0].get("text") if nodes else None
+
+    def is_on_profile_screen(self):
+        return self._title() is not None
+
+    def get_username_from_profile(self):
+        return self._title()
+
+    def is_following_list_open(self):
+        return bool(self.screen.tree().xpath(f'//*[@resource-id="{PKG}:id/follow_list_username"]'))
+
+    def is_verified_account(self):
+        return False
+
+    def is_business_account(self):
+        return False
+
+    def get_row_follow_state(self, username):
+        for row in self.business._visible_follow_rows():
+            if row["username"] == username:
+                return row["state"]
+        return "unknown"

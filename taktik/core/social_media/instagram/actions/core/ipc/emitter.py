@@ -205,6 +205,19 @@ class IPCEmitter:
             log.debug(f"IPC unfollow event error: {exc}")
 
     @staticmethod
+    def emit_unfollow_plan(mode: str, candidates: int, refusals: Optional[Dict[str, int]] = None) -> None:
+        """Emit what the unfollow decided before touching the screen: how many candidates, and
+        how many accounts each rule kept (whitelist, bot follows only, follow too recent...)."""
+        bridge = _get_bridge()
+        if not bridge:
+            return
+        try:
+            if hasattr(bridge, "send_unfollow_plan"):
+                bridge.send_unfollow_plan(mode=mode, candidates=candidates, refusals=dict(refusals or {}))
+        except Exception as exc:
+            log.debug(f"IPC unfollow plan event error: {exc}")
+
+    @staticmethod
     def emit_stats(
         likes: int = 0,
         follows: int = 0,

@@ -99,22 +99,44 @@ def interact_with_feed(a, p):
 
 @action("engagement.unfollow_account")
 def unfollow_account(a, p):
-    """Unfollow ONE account via the production orchestration (tap Following + confirm modal
-    + verify) — distinct from the atomic ``profile.click_unfollow``. Must be on the target's
-    profile. Param: username (required, used for logging/verification)."""
-    username = (p.get("username") or "").strip()
+    """Unfollow ONE account from our following list, with every check of the engine (production
+    `UnfollowBusiness.unfollow_listed_accounts`): its row is found in the list, its profile
+    checked when the mode asks, the row button tapped, a private account confirmed, the row read
+    again (counted only if it now offers to follow), a block detected. DESTRUCTIVE. Params:
+    username (required), account, and the page fields (unfollow_mode, skip_verified...)."""
+    from bridges.compat.diagnostics.actions.instagram.unfollow import unfollow_config_from_params
+
+    username = (p.get("username") or "").strip().lstrip("@")
     if not username:
         return {"success": False, "message": "username param is required"}
-    ok = a.unfollow._unfollow_account(username)
-    return {"success": bool(ok), "message": f"@{username} unfollowed={ok}"}
+    cfg = {"unfollow_mode": "all", **unfollow_config_from_params(p)}
+    stats = a.unfollow.unfollow_listed_accounts([username], cfg)
+    ok = stats.get("unfollows_made", 0) == 1
+    return {"success": ok, "message": f"@{username} unfollowed={ok}", "details": _plain(stats)}
 
 
 @action("engagement.unfollow_from_list")
 def unfollow_from_list(a, p):
-    """Batch unfollow from the Following list via the production strategy
-    (UnfollowBusiness.run_simple_unfollow_from_list). DESTRUCTIVE — unfollows accounts. Uses
-    the default config; run on a test account."""
-    return _dict_result(a.unfollow.run_simple_unfollow_from_list(), "unfollow-from-list done", "unfollow-from-list failed")
+    """The whole unfollow step, as the page and the scheduler run it (production
+    `UnfollowBusiness.run_unfollow_workflow`): syncs, decision on data, checks and unfollows on
+    screen. DESTRUCTIVE: run on a test account. Params: account (required for the decision),
+    max_unfollows (1 by default here), and the page fields."""
+    from bridges.compat.diagnostics.actions.instagram.unfollow import unfollow_config_from_params
+
+    cfg = {"max_unfollows": 1, **unfollow_config_from_params(p)}
+    stats = a.unfollow.run_unfollow_workflow(cfg)
+    return {"success": bool(stats.get("success")),
+            "message": f"{stats.get('unfollows_made', 0)} unfollowed of {stats.get('candidates', 0)} candidate(s)",
+            "details": _plain(stats)}
+
+
+def _plain(stats):
+    """Stats as plain JSON (the stop reason as its code)."""
+    out = dict(stats or {})
+    reason = out.get("stop_reason")
+    if reason is not None:
+        out["stop_reason"] = getattr(reason, "code", str(reason))
+    return out
 
 
 def _ui_helpers(a):

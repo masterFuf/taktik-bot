@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml
+from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml, walk_list
 from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import UNFOLLOW_DEFAULTS
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
@@ -119,7 +119,7 @@ def test_the_loop_waits_the_configured_pause_and_counts_in_the_session(monkeypat
     business._scroll_following_list = lambda: None
     business.nav_actions.problematic_page_detector = SimpleNamespace(is_action_blocked=lambda: False)
 
-    stats = business.run_simple_unfollow_from_list({"max_unfollows": 1, "unfollow_delay_range": (7, 7)})
+    stats = walk_list(business, {"max_unfollows": 1, "unfollow_delay_range": (7, 7)})
 
     assert stats["unfollows_made"] == 1
     assert sm.counters["unfollows"] == 1
@@ -150,7 +150,7 @@ def _runner(monkeypatch, batch_result, session_manager=None):
         sync_following_list=lambda *a, **k: {"new_count": 0, "updated_count": 0},
         scrape_non_followers_category=lambda *a, **k: {"non_followers_count": 0, "mutuals_count": 0},
         nav_actions=SimpleNamespace(navigate_to_profile_tab=lambda: True, open_following_list=lambda: True),
-        run_simple_unfollow_from_list=run_batch,
+        run_unfollow_workflow=run_batch,
     )
     monkeypatch.setattr(runner, "_get_unfollow_business", lambda: business, raising=False)
     monkeypatch.setattr("time.sleep", lambda _s: None)

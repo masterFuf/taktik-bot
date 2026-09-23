@@ -7,7 +7,7 @@ These tests drive the real `UnfollowBusiness` list loop on a scripted screen.
 
 import pytest
 
-from fake_follow_list import FakeFacade, FakeScreen, PKG, follow_list_xml
+from fake_follow_list import FakeFacade, FakeScreen, PKG, follow_list_xml, walk_list
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
@@ -44,7 +44,7 @@ def test_a_confirmed_unfollow_is_counted_and_recorded(monkeypatch):
         follow_list_xml([("alice.fr", "Suivi(e)")]),
         follow_list_xml([("alice.fr", "Suivre")]),
     )
-    stats = business.run_simple_unfollow_from_list({"max_unfollows": 1})
+    stats = walk_list(business, {"max_unfollows": 1})
     assert stats["unfollows_made"] == 1 and stats["unconfirmed"] == 0
     assert recorded == [("alice.fr", "UNFOLLOW")]
     assert events == [("alice.fr", True)]
@@ -53,7 +53,7 @@ def test_a_confirmed_unfollow_is_counted_and_recorded(monkeypatch):
 def test_a_row_that_still_says_following_is_not_counted_nor_retried(monkeypatch):
     screen_before = follow_list_xml([("alice.fr", "Suivi(e)")])
     business, screen, recorded, events = _business(monkeypatch, screen_before, screen_before)
-    stats = business.run_simple_unfollow_from_list({"max_unfollows": 3})
+    stats = walk_list(business, {"max_unfollows": 3})
     assert stats["unfollows_made"] == 0 and stats["unconfirmed"] == 1
     assert recorded == []
     assert events == [("alice.fr", False)]
@@ -67,7 +67,7 @@ def test_a_private_account_is_confirmed_through_the_localized_dialog(monkeypatch
         follow_list_xml([("bob_prive", "Suivre")]),
     )
     # The first tap opens the dialog (screen 2), the dialog tap lands on screen 3.
-    stats = business.run_simple_unfollow_from_list({"max_unfollows": 1})
+    stats = walk_list(business, {"max_unfollows": 1})
     assert stats["unfollows_made"] == 1
     assert recorded == [("bob_prive", "UNFOLLOW")]
 
@@ -78,5 +78,5 @@ def test_follow_back_after_the_tap_also_counts(monkeypatch):
         follow_list_xml([("carla", "Suivi(e)")]),
         follow_list_xml([("carla", "Suivre en retour")]),
     )
-    assert business.run_simple_unfollow_from_list({"max_unfollows": 1})["unfollows_made"] == 1
+    assert walk_list(business, {"max_unfollows": 1})["unfollows_made"] == 1
     assert recorded == [("carla", "UNFOLLOW")]

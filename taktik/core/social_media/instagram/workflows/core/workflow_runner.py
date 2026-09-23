@@ -247,13 +247,14 @@ class WorkflowRunner:
         return total_interacted > 0
     
     def _run_unfollow_workflow(self, action: Dict[str, Any]) -> bool:
-        """Run the unfollow workflow.
-        
-        Orchestrates: sync_following → scrape_non_followers → unfollow.
-        Each sub-step is independent and reusable.
+        """Run one unfollow batch through the one engine, with the whole page setting.
+
+        Until 2026-09-24 this step kept only the maximum, the delays and verified/business, and
+        dropped the mode, the lists, the delay since the follow and "bot follows only" before
+        calling a loop that tapped every "Following" button from the top. The engine
+        (`UnfollowBusiness.run_unfollow_workflow`) now receives every field `config_builder`
+        builds, and runs its own syncs.
         """
-        import time
-        
         unfollow_business = self._get_unfollow_business()
 
         # The ceilings, counted in unfollows: what is left of the session's maximum and of the
@@ -264,57 +265,14 @@ class WorkflowRunner:
         if cap_reason:
             self._finalize_on(cap_reason)
             return False
-        
-        # Pré-étape 1: Sync following list (incrémental)
-        self.logger.info("📊 Pre-step: syncing following list...")
-        sync_stats = unfollow_business.sync_following_list()
-        self.logger.info(
-            f"📊 Following sync: {sync_stats['new_count']} new, "
-            f"{sync_stats['updated_count']} updated"
-        )
-        
-        # Pré-étape 2: Scrape non-followers (autonome — détecte l'état de navigation)
-        self.logger.info("📊 Pre-step: scraping non-followers...")
-        nf_stats = unfollow_business.scrape_non_followers_category()
-        self.logger.info(
-            f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
-            f"{nf_stats['mutuals_count']} mutuals"
-        )
-        
-        # Étape principale: Unfollow
-        config = {
-            'max_unfollows': session_limit if room is None else room,
-            'unfollow_delay_range': (
-                action.get('min_delay', 2),
-                action.get('max_delay', 5)
-            ),
-            'skip_verified': action.get('skip_verified', True),
-            'skip_business': action.get('skip_business', False)
-        }
-        
-        # Navigate to our own profile
-        self.logger.info("📱 Navigating to own profile...")
-        if not unfollow_business.nav_actions.navigate_to_profile_tab():
-            self.logger.error("Failed to navigate to own profile")
-            return False
-        
-        time.sleep(2)
-        
-        # Open the following list
-        self.logger.info("📋 Opening following list...")
-        if not unfollow_business.nav_actions.open_following_list():
-            self.logger.error("Failed to open following list")
-            return False
-        
-        time.sleep(2)
-        
-        # Run the simple workflow, tapping the buttons directly
-        result = unfollow_business.run_simple_unfollow_from_list(config)
-        
+
+        config = self._unfollow_engine_config(action, session_limit if room is None else room)
+        result = unfollow_business.run_unfollow_workflow(config)
+
         # Update the statistics
         self.automation.stats['unfollows'] = self.automation.stats.get('unfollows', 0) + result.get('unfollows_made', 0)
 
-        # A block ends the session at once, the same way as the followers workflow: the stop
+        # A block, or unfollows the screen keeps refusing, end the session at once: the stop
         # reason travels with the result and the session is finalized with it here.
         stop_reason = result.get('stop_reason')
         if stop_reason:
@@ -330,6 +288,21 @@ class WorkflowRunner:
         # Progress means unfollows made. A batch that unfollowed nobody used to report success,
         # and the session relaunched it until its duration ran out, doing nothing but scrolling.
         return result.get('unfollows_made', 0) > 0
+
+    @staticmethod
+    def _unfollow_engine_config(action: Dict[str, Any], max_unfollows) -> Dict[str, Any]:
+        """Every unfollow field of the step, as the engine reads it."""
+        return {
+            'max_unfollows': max_unfollows,
+            'unfollow_mode': action.get('unfollow_mode', 'non-followers'),
+            'unfollow_delay_range': (action.get('min_delay', 2), action.get('max_delay', 5)),
+            'skip_verified': action.get('skip_verified', True),
+            'skip_business': action.get('skip_business', False),
+            'min_days_since_follow': action.get('min_days_since_follow', 3),
+            'bot_follows_only': action.get('bot_follows_only', True),
+            'whitelist': list(action.get('whitelist') or []),
+            'blacklist': list(action.get('blacklist') or []),
+        }
 
     def _unfollow_allowance(self, session_limit):
         """(room, stop_reason) from the session manager; unlimited in its absence."""
@@ -389,13 +362,15 @@ class WorkflowRunner:
         """Get or create UnfollowBusiness instance."""
         from taktik.core.social_media.instagram.actions.business.workflows.unfollow import UnfollowBusiness
         
-        if hasattr(self.automation, 'unfollow_business'):
-            return self.automation.unfollow_business
-        return UnfollowBusiness(
-            self.automation.device,
-            self.automation.session_manager,
-            self.automation
-        )
+        # One instance per session: it remembers the rows already handled, so a later batch
+        # never taps again an unfollow the screen did not confirm.
+        if getattr(self.automation, 'unfollow_business', None) is None:
+            self.automation.unfollow_business = UnfollowBusiness(
+                self.automation.device,
+                self.automation.session_manager,
+                self.automation,
+            )
+        return self.automation.unfollow_business
     
     def _run_sync_following_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the sync_following workflow — incremental following list sync + non-follower detection.
@@ -417,7 +392,7 @@ class WorkflowRunner:
         # Scrape non-followers category (autonome — détecte l'état de navigation)
         nf_stats = unfollow_business.scrape_non_followers_category()
         self.logger.info(
-            f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
+            f"📊 Fans (followers you do not follow back): {nf_stats['non_followers_count']}, "
             f"{nf_stats['mutuals_count']} mutuals"
         )
         
@@ -525,7 +500,7 @@ class WorkflowRunner:
         
         nf_stats = unfollow_business.scrape_non_followers_category()
         self.logger.info(
-            f"📊 Non-followers: {nf_stats['non_followers_count']} non-followers, "
+            f"📊 Fans (followers you do not follow back): {nf_stats['non_followers_count']}, "
             f"{nf_stats['mutuals_count']} mutuals"
         )
         

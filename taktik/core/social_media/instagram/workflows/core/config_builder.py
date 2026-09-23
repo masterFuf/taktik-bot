@@ -95,7 +95,9 @@ def _build_action_config(
             "skip_verified": unfollow_config.get("skipVerified", True),
             "skip_business": unfollow_config.get("skipBusiness", False),
             "min_days_since_follow": unfollow_config.get("minDaysSinceFollow", 3),
-            "bot_follows_only": unfollow_config.get("botFollowsOnly", False),
+            # On by default (Kevin, 2026-09-23): manual follows are protected unless the user
+            # unticks it, the same default as the engine's.
+            "bot_follows_only": unfollow_config.get("botFollowsOnly", True),
             "whitelist": unfollow_config.get("whitelist", []),
             "blacklist": unfollow_config.get("blacklist", []),
         }
