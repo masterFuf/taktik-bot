@@ -48,3 +48,16 @@ def test_each_action_of_a_session_starts_without_the_previous_stop(monkeypatch):
         run_halt.reinitialiser()
 
     assert locks_seen == [None, None]
+
+
+def test_the_lab_probe_is_the_production_detector():
+    """Cartography Lab coverage: the block probe the workflows use, not a Lab-only copy."""
+    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+
+    register_actions()
+    asked = []
+    detector = types.SimpleNamespace(is_action_blocked=lambda: asked.append(1) or True)
+    bundle = types.SimpleNamespace(nav=types.SimpleNamespace(problematic_page_detector=detector))
+
+    assert ACTION_REGISTRY["detection.is_action_blocked"](bundle, {}) is True
+    assert asked == [1]
