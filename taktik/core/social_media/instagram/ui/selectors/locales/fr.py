@@ -944,6 +944,19 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Envoyer\")]",
     ],
     # --- unfollow ---
+    # Titre de l'onglet des abonnés de la vue unifiée. Relevé sur Instagram 447 en français
+    # (Pixel 6a, 2026-09-23) : « 673 followers », « 1 287 suivi(e)s », « 0 abonnements ». Le
+    # troisième onglet, « abonnements », est la liste des abonnements PAYANTS : jamais celle des
+    # comptes suivis, ni celle des abonnés.
+    "unfollow.followers_tab_labels": [
+        "followers",
+        "abonnés",
+    ],
+    # Catégorie des FANS de l'onglet des abonnés (ils vous suivent, vous ne les suivez pas).
+    # Relevé sur Instagram 447 en français (Pixel 6a, 2026-09-23).
+    "unfollow.fans_category_labels": [
+        "Followers que vous ne suivez pas",
+    ],
     "unfollow.follow_button_after_unfollow": [
         "//*[contains(@text, \"Suivre\") and not(contains(@text, \"Abonné\"))]",
     ],
@@ -961,7 +974,11 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"vous suit\")]",
         "//*[contains(@content-desc, \"Vous suit\")]",
     ],
-    "unfollow.sort_button": [],
+    # Icône de tri de la liste d'abonnements : content-desc relevé en 410 (Pixel 3a, 2026-06-19)
+    # et en 447 (Pixel 6a, 2026-09-23). Les options de la feuille de tri n'ont jamais été
+    # capturées en français : elles restent vides, et la synchro ne s'arrête plus sur un tri
+    # non confirmé (voir sync_following.py).
+    "unfollow.sort_button": ['//*[@content-desc="Trier par"]'],
     "unfollow.sort_option_default": [],
     "unfollow.sort_option_earliest": [],
     "unfollow.sort_option_latest": [],

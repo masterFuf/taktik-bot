@@ -236,36 +236,18 @@ class UnfollowBusiness(
             self.logger.info("🔄 Starting SIMPLE unfollow workflow (direct button clicks)")
             self.logger.info(f"Max unfollows: {max_unfollows}")
             
-            # Reach the underlying device
-            d = self.device.device
-            
-            # Check we are on the following list, with its tab selected
-            following_tab = d(
-                resourceId=UNFOLLOW_SELECTORS.following_tab_title_resource_id,
-                textContains=UNFOLLOW_SELECTORS.following_tab_text_probe,
-            )
-            if not following_tab.exists:
-                # Essayer de trouver n'importe quel onglet "following"
-                following_tab = d(textContains=UNFOLLOW_SELECTORS.following_tab_text_probe)
-            
-            # Selectors for the following button of a row
-            following_button_resource_id = UNFOLLOW_SELECTORS.following_list_button_resource_id
-            unfollow_confirm_resource_id = UNFOLLOW_SELECTORS.unfollow_confirm_resource_id
-            
             unfollows_done = 0
             max_scrolls = 50
             scroll_count = 0
             no_button_count = 0
-            
+
             while unfollows_done < max_unfollows and scroll_count < max_scrolls:
-                # Find every visible following button
-                following_buttons = d(
-                    resourceId=following_button_resource_id,
-                    text=UNFOLLOW_SELECTORS.following_button_text
-                )
-                
-                if not following_buttons.exists:
-                    self.logger.debug("No 'Following' buttons found on screen")
+                # Every visible row whose button says we follow the account, in any language
+                # (the button text goes through the shared state classifier, never a literal).
+                following_rows = [row for row in self._visible_follow_rows() if row['state'] == 'following']
+
+                if not following_rows:
+                    self.logger.debug("No 'following' row button found on screen")
                     no_button_count += 1
                     if no_button_count >= 3:
                         self.logger.info("No more Following buttons after 3 scrolls, stopping")
@@ -278,48 +260,22 @@ class UnfollowBusiness(
                     continue
                 
                 no_button_count = 0  # Reset counter
-                
-                # Tap the first following button found
-                # Read the associated username for the log
-                username = "unknown"
-                try:
-                    # The username sits in the same parent container
-                    button_info = following_buttons[0].info
-                    button_bounds = button_info.get('bounds', {})
-                    # Look for the username next to that button
-                    usernames_on_screen = d(resourceId=UNFOLLOW_SELECTORS.following_list_username_resource_id)
-                    if usernames_on_screen.exists:
-                        for i in range(usernames_on_screen.count):
-                            try:
-                                u_elem = usernames_on_screen[i]
-                                u_bounds = u_elem.info.get('bounds', {})
-                                # Same row when the top coordinates roughly match
-                                if abs(u_bounds.get('top', 0) - button_bounds.get('top', 0)) < 50:
-                                    username = u_elem.get_text() or "unknown"
-                                    break
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
-                
+
+                # The first row, named by the username paired with its button
+                row = following_rows[0]
+                username = row['username']
+
                 # Try to tap the button
                 try:
-                    self.logger.info(f"[{unfollows_done + 1}/{max_unfollows}] Clicking 'Following' for @{username}")
-                    if not tap_element_human(self.device, following_buttons[0], logger=self.logger):
-                        following_buttons[0].click()
+                    self.logger.info(f"[{unfollows_done + 1}/{max_unfollows}] Tapping the following button of @{username}")
+                    if not tap_element_human(self.device, row['button'], logger=self.logger):
+                        row['button'].click()
                     time.sleep(1)
-                    
-                    # A confirmation modal can appear (private account)
-                    confirm_button = d(
-                        resourceId=unfollow_confirm_resource_id,
-                        text=UNFOLLOW_SELECTORS.unfollow_confirm_text,
-                    )
-                    if confirm_button.exists(timeout=2):
-                        self.logger.debug("Modal detected, clicking 'Unfollow' to confirm")
-                        if not tap_element_human(self.device, confirm_button, logger=self.logger):
-                            confirm_button.click()
+
+                    # A confirmation dialog can appear (private account)
+                    if self._tap_unfollow_confirm(timeout=2):
                         time.sleep(0.5)
-                    
+
                     unfollows_done += 1
                     stats['unfollows_made'] += 1
                     self.logger.info(f"✅ Unfollowed @{username} ({unfollows_done}/{max_unfollows})")

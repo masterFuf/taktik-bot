@@ -4,13 +4,90 @@ import time
 import random
 from typing import Dict, List, Any, Optional
 
+from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
+    classify_follow_state,
+)
+from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
+
+def _vertical_band(element) -> Optional[tuple]:
+    """(centre, top, bottom) of an element's bounds, or None when they are unreadable."""
+    try:
+        bounds = tuple(element.bounds)  # (left, top, right, bottom)
+        if len(bounds) == 4 and bounds[3] > bounds[1]:
+            return (bounds[1] + bounds[3]) // 2, bounds[1], bounds[3]
+    except Exception:
+        pass
+    return None
 
 
 class UnfollowActionsMixin:
     """Mixin: perform unfollow, extract accounts, scroll & sort the following list."""
-    
+
+    # ─── Rows of an open follow list ──────────────────────────────────────────
+
+    def _visible_follow_rows(self, require_username: bool = True) -> List[Dict[str, Any]]:
+        """Every readable row of the open follow list: `username`, row `button`, and `state`.
+
+        A row carries one username and one action button, paired by vertical position: the
+        centre of the username falls inside the vertical range of the button, the same pairing
+        as `get_row_follow_state`. The button text goes through `classify_follow_state` and the
+        locale labels, so a row reads 'following' in English ("Following") as in French
+        ("Suivi(e)"), and 'follow_back' for "Follow back" / "Suivre en retour". With
+        `require_username`, a button nobody can name at its height is left out: an unfollow is
+        never tapped on an anonymous row (it used to be recorded on a profile called "unknown").
+        """
+        rows: List[Dict[str, Any]] = []
+        try:
+            d = self.device.device
+            package = get_active_package()
+            names = []
+            for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_username_selector(package)).all():
+                username = (el.text or '').strip().lstrip('@')
+                band = _vertical_band(el)
+                if username and band and self._is_valid_username(username):
+                    names.append((username, band[0]))
+            for button in d.xpath(UNFOLLOW_SELECTORS.follow_list_row_button_selector(package)).all():
+                band = _vertical_band(button)
+                if band is None:
+                    continue
+                username = next((name for name, centre in names if band[1] <= centre <= band[2]), None)
+                if username is None and require_username:
+                    continue
+                rows.append({
+                    'username': username,
+                    'button': button,
+                    'state': classify_follow_state(button.text or '', PROFILE_SELECTORS) or 'unknown',
+                })
+        except Exception as e:
+            self.logger.debug(f"Error reading the follow list rows: {e}")
+        return rows
+
+    def _tap_unfollow_confirm(self, timeout: float = 2.0) -> bool:
+        """Tap the confirmation dialog's unfollow button if it shows up within `timeout` seconds.
+
+        Instagram asks for it on private accounts. The button is found by the dialog id and the
+        localized unfollow label ("Unfollow", "Ne plus suivre"); returns False when no dialog came.
+        """
+        d = self.device.device
+        selectors = UNFOLLOW_SELECTORS.unfollow_confirm_selectors(get_active_package())
+        deadline = time.time() + timeout
+        while True:
+            for selector in selectors:
+                el = d.xpath(selector)
+                if el.exists:
+                    self.logger.debug("Confirmation dialog detected, confirming the unfollow")
+                    if not tap_element_human(self.device, el, logger=self.logger):
+                        el.click()
+                    return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(0.3)
+
     def _unfollow_account(self, username: str) -> bool:
         """
         Unfollow one account.

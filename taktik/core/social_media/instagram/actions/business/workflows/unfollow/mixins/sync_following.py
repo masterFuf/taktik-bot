@@ -72,8 +72,16 @@ class SyncFollowingMixin:
                 return stats
             time.sleep(1.5)
 
-            # Sort by most recently followed so the new ones come first
-            self._set_following_list_sort('latest')
+            # Sort by most recently followed so the new ones come first. The early stop on the
+            # first known account is only valid in that order: in the default order a known
+            # account can sit on the first row, and the sync used to stop there (1 row read out of
+            # 1 949 on a French phone, 2026-09-10, where no French sort option was known).
+            sorted_by_latest = self._set_following_list_sort('latest')
+            if not sorted_by_latest:
+                self.logger.warning(
+                    "sync_following_list: 'latest' sort not applied — reading the whole list "
+                    "instead of stopping at the first known account"
+                )
             time.sleep(1.5)
 
             # Read the already-known usernames to find the stop point
@@ -131,8 +139,9 @@ class SyncFollowingMixin:
 
                     # Si on rencontre un username déjà connu
                     if username in known_usernames:
-                        # En mode fast : on s'arrête dès qu'on retrouve un connu
-                        if mode != 'enriched':
+                        # Fast mode stops at the first known account, but only when the list is
+                        # sorted by follow date: otherwise that account says nothing about the rest
+                        if mode != 'enriched' and sorted_by_latest:
                             try:
                                 print(json.dumps({
                                     "type": "sync_user_discovered",
@@ -315,8 +324,13 @@ class SyncFollowingMixin:
             if unified_layout.exists:
                 # Unified view open: tap the followers tab
                 self.logger.debug("Already in unified follow list view, switching to Followers tab")
-                followers_tab = d.xpath(UNFOLLOW_SELECTORS.unified_followers_tab_selector(active_package))
-                if followers_tab.exists:
+                followers_tab = next(
+                    (tab for tab in (d.xpath(selector) for selector
+                                     in UNFOLLOW_SELECTORS.unified_followers_tab_selectors(active_package))
+                     if tab.exists),
+                    None,
+                )
+                if followers_tab is not None:
                     if not tap_element_human(self.device, followers_tab, logger=self.logger):
                         followers_tab.click()
                 else:
@@ -346,10 +360,7 @@ class SyncFollowingMixin:
             follow_back_visible = False
             for wait in range(5):
                 time.sleep(1)
-                if d(
-                    resourceId=UNFOLLOW_SELECTORS.active_follow_list_button_resource_id(active_package),
-                    text=UNFOLLOW_SELECTORS.follow_back_button_text,
-                ).exists:
+                if self._has_follow_back_row():
                     follow_back_visible = True
                     self.logger.debug(f"Non-followers view loaded after {wait + 1}s")
                     break
@@ -476,7 +487,7 @@ class SyncFollowingMixin:
         try:
             d = self.device.device
             pkg = get_active_package()
-            xpaths = UNFOLLOW_SELECTORS.non_followers_category_selectors(pkg)
+            xpaths = UNFOLLOW_SELECTORS.fans_category_selectors(pkg)
             for i, xpath in enumerate(xpaths):
                 el = d.xpath(xpath)
                 if el.exists:
@@ -543,11 +554,7 @@ class SyncFollowingMixin:
             username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
 
             # Confirm the right view through the presence of the follow-back button
-            follow_back_btn = d(
-                resourceId=UNFOLLOW_SELECTORS.active_follow_list_button_resource_id(active_package),
-                text=UNFOLLOW_SELECTORS.follow_back_button_text
-            )
-            if not follow_back_btn.exists:
+            if not self._has_follow_back_row():
                 self.logger.debug("No 'Follow back' buttons found — may not be in non-followers view")
                 return results
 
@@ -568,6 +575,14 @@ class SyncFollowingMixin:
             self.logger.debug(f"Error extracting non-follower usernames: {e}")
 
         return results
+
+    def _has_follow_back_row(self) -> bool:
+        """Does a row of the open list offer to follow back ("Follow back", "Suivre en retour")?
+
+        Read through the shared state classifier, never a literal label.
+        """
+        return any(row['state'] == 'follow_back'
+                   for row in self._visible_follow_rows(require_username=False))
 
     def _is_valid_username(self, username: str) -> bool:
         """Is this string a valid Instagram username?"""
