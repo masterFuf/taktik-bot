@@ -131,3 +131,43 @@ def test_every_workflow_step_emits_what_it_cost(steps):
     assert runner.run_workflow_step({"type": "initialize"}) is True
     assert [(s.category, s.action, s.detail["source"]) for s in steps] == [
         ("device_io", "workflow.initialize", "workflow")]
+
+
+class FakeAdbDevice:
+    """The adbutils device under a uiautomator2 device: shell2 falls back on shell (shell v1)."""
+
+    def __init__(self):
+        self.commands = []
+
+    def shell(self, cmd, **_kwargs):
+        self.commands.append(cmd)
+        return "dumpsys output"
+
+    def shell2(self, cmd, **_kwargs):
+        return self.shell(cmd)
+
+    def app_current(self):
+        return [self.shell(["dumpsys", "window", "windows"]), self.shell(["dumpsys", "activity", "top"])]
+
+
+def test_the_adb_round_trips_of_uiautomator2_itself_are_counted_once():
+    device, meter = FakeU2Device(), DeviceIoMeter()
+    device._dev = FakeAdbDevice()
+    instrument_device_io(device, meter)
+
+    device._dev.app_current()              # two dumpsys, outside Device.shell
+    device._dev.shell2("getprop x")        # shell v1: shell2 then shell, one round trip
+
+    assert meter.snapshot()["shells"] == 3
+
+
+def test_the_bot_s_own_adb_shell_is_counted(monkeypatch):
+    from taktik.core.shared.device import adb as adb_module
+    from taktik.core.shared.telemetry import device_io
+
+    meter = DeviceIoMeter()
+    monkeypatch.setattr(device_io, "METER", meter)
+    monkeypatch.setattr(adb_module, "_run_adb_shell", lambda _d, _c: "ok")
+
+    assert adb_module.run_adb_shell("phone", "settings get secure default_input_method") == "ok"
+    assert meter.snapshot()["shells"] == 1

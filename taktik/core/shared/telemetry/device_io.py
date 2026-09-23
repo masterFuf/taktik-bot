@@ -108,20 +108,34 @@ def instrument_device_io(device: Any, meter: DeviceIoMeter = METER) -> bool:
 
         device.jsonrpc_call = jsonrpc_call
 
-        original_shell = getattr(device, "shell", None)
-        if callable(original_shell):
-            def shell(*args, **kwargs):
+        # The adb round trips: through the adbutils device when there is one, since uiautomator2
+        # itself goes there without `Device.shell` (`app_current()` runs three `dumpsys`: 5.3 s on
+        # the Pixel 6a, uncounted at first). `shell2` may call `shell` (shell v1): only the
+        # outermost call of a thread is counted.
+        adb = getattr(device, "_dev", None)
+        targets = [(adb, name) for name in ("shell", "shell2") if callable(getattr(adb, name, None))]
+        if not targets:
+            targets = [(device, "shell")] if callable(getattr(device, "shell", None)) else []
+        depth = threading.local()
+        for owner, name in targets:
+            original = getattr(owner, name)
+
+            def counted(*args, _original=original, **kwargs):
+                if getattr(depth, "value", 0):
+                    return _original(*args, **kwargs)
+                depth.value = 1
                 started_at = time.perf_counter()
                 failed = False
                 try:
-                    return original_shell(*args, **kwargs)
+                    return _original(*args, **kwargs)
                 except BaseException:
                     failed = True
                     raise
                 finally:
+                    depth.value = 0
                     meter.record_shell(_elapsed_ms(started_at), failed)
 
-            device.shell = shell
+            setattr(owner, name, counted)
 
         setattr(device, _MARKER, True)
         return True
