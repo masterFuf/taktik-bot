@@ -57,23 +57,16 @@ class TypingMixin:
             return False
     
     def _activate_taktik_keyboard(self) -> bool:
-        """Activate Taktik Keyboard as the default IME."""
+        """Activate Taktik Keyboard as the default IME, through the shared owner.
+
+        It used to run its own `ime set`, a second switch that remembered nothing: the phone's
+        keyboard is now remembered and given back at the end of the session in ONE place
+        (`taktik.core.shared.input.taktik_keyboard`).
+        """
         try:
-            device_serial = self._get_device_serial()
-            
-            # Enable the IME
-            self._run_adb_shell(device_serial, f'ime enable {self._TAKTIK_KEYBOARD_IME}')
-            
-            # Set as default
-            result = self._run_adb_shell(device_serial, f'ime set {self._TAKTIK_KEYBOARD_IME}')
-            
-            if 'selected' in result.lower():
-                self.logger.debug("✅ Taktik Keyboard activated")
-                return True
-            else:
-                self.logger.warning(f"⚠️ Failed to activate Taktik Keyboard: {result}")
-                return False
-                
+            from taktik.core.shared.input.taktik_keyboard import activate_taktik_keyboard
+
+            return activate_taktik_keyboard(self._get_device_serial())
         except Exception as e:
             self.logger.error(f"❌ Error activating Taktik Keyboard: {e}")
             return False
