@@ -57,8 +57,11 @@ def test_the_fans_category_records_fans_and_never_a_following(monkeypatch):
 
 
 def _profile_screen(badge: bool) -> str:
+    # A loaded profile: the header's action button says we follow the account ("Suivi(e)").
     extra = ('<node index="5" text="Vous suit" resource-id="" class="android.widget.TextView" '
              'content-desc="" bounds="[40,500][300,540]" />') if badge else ""
+    extra += ('<node index="6" text="Suivi(e)" resource-id="com.instagram.android:id/profile_header_follow_button" '
+              'class="android.widget.Button" content-desc="" bounds="[40,600][500,680]" />')
     return follow_list_xml([], extra=extra)
 
 

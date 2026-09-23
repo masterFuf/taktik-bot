@@ -19,6 +19,8 @@ class UnfollowDecisionMixin:
 
     # Bounded wait for the profile to open after a tap on the row (class attribute for tests).
     profile_open_timeout = 4.0
+    # Bounded wait for the relationship of the open profile (badge, header button) to load.
+    badge_wait_timeout = 2.0
 
     def _profile_follows_you(self, username: str) -> Optional[bool]:
         """Does @username follow us, read on its open profile: True, False, or None (unknown).
@@ -28,14 +30,36 @@ class UnfollowDecisionMixin:
         ("Follows you", "Vous suit"). None whenever the screen is not @username's profile: the
         ABSENCE of a badge proves something only on the right, loaded profile. The caller treats
         None as a doubt, and a doubt as no unfollow.
+
+        The header and the name come from the list row's cache and show first; the badge comes
+        with the relationship data, like the header's action button. An absence read before that
+        button was read as "does not follow back", so the unfollow went on (review of
+        2026-09-24): the badge is now awaited, and its absence counts only once the header button
+        says what our relationship is. Neither within the wait: None.
         """
         try:
             if not self._on_profile_of(username):
                 return None
-            return bool(self._is_element_present(self._unfollow_sel.follows_back_indicators))
+            deadline = time.time() + self.badge_wait_timeout
+            while True:
+                if self._is_element_present(self._unfollow_sel.follows_back_indicators):
+                    return True
+                if self._relationship_loaded():
+                    # Loaded with the same data as the badge: look once more, then conclude.
+                    return bool(self._is_element_present(self._unfollow_sel.follows_back_indicators))
+                if time.time() >= deadline:
+                    return None
+                time.sleep(0.3)
         except Exception as e:
             self.logger.debug(f"Could not read the follows-you badge of @{username}: {e}")
             return None
+
+    def _relationship_loaded(self) -> bool:
+        """Does the profile header's action button say what our relationship is (loaded)?"""
+        try:
+            return self.click_actions.get_follow_button_state() != 'unknown'
+        except Exception:
+            return False
 
     def _on_profile_of(self, username: str) -> bool:
         """Is the screen the profile of @username (not another one, not the list)?"""

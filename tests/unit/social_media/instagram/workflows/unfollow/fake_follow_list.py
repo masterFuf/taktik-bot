@@ -89,6 +89,10 @@ class FakeSelector:
     def exists(self) -> bool:
         return bool(self._screen.tree().xpath(self._xpath))
 
+    def get_text(self) -> str:
+        found = self.all()
+        return found[0].text if found else ""
+
     def click(self):
         self._screen.clicks.append(self._xpath)
 
@@ -202,10 +206,17 @@ def walk_list(business, config=None, names=None):
     return stats
 
 
-def profile_xml(username: str, follows_you: bool = False) -> str:
-    """A profile screen: its action bar names the account; "Vous suit" when it follows us."""
+def profile_xml(username: str, follows_you: bool = False, loaded: bool = True) -> str:
+    """A profile screen: its action bar names the account; "Vous suit" when it follows us.
+
+    `loaded`: the relationship data arrived, so the header's action button says "Suivi(e)". Before
+    that, the name shows and neither the badge nor the button does.
+    """
     badge = ('<node index="3" text="Vous suit" resource-id="" class="android.widget.TextView" '
-             'content-desc="" bounds="[40,520][300,560]" />') if follows_you else ""
+             'content-desc="" bounds="[40,520][300,560]" />') if follows_you and loaded else ""
+    if loaded:
+        badge += (f'<node index="4" text="Suivi(e)" resource-id="{PKG}:id/profile_header_follow_button" '
+                  'class="android.widget.Button" content-desc="" bounds="[40,600][500,680]" />')
     return (
         '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
         '<node index="0" text="" resource-id="" class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">'

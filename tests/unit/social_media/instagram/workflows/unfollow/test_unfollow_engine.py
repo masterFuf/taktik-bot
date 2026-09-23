@@ -22,6 +22,7 @@ def _french_and_fast(monkeypatch):
     monkeypatch.setattr(UnfollowBusiness, "confirm_dialog_timeout", 0.0)
     monkeypatch.setattr(UnfollowBusiness, "row_state_timeout", 0.0)
     monkeypatch.setattr(UnfollowBusiness, "profile_open_timeout", 0.0)
+    monkeypatch.setattr(UnfollowBusiness, "badge_wait_timeout", 0.0)
     monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_unfollow", staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_stats", staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_unfollow_plan", staticmethod(lambda *a, **k: None))
@@ -268,3 +269,21 @@ def test_the_walk_sorts_the_list_oldest_first(monkeypatch):
 
     assert business._open_list_and_walk({}, ["a1"], set(), business._new_stats()) is True
     assert orders == ["earliest"]
+
+
+# ── The badge is read on a loaded profile only (review of 2026-09-24) ───────────
+
+def test_a_profile_still_loading_is_a_doubt_not_a_missing_badge():
+    business, screen, _recorded = _business(profile_xml("ghost", follows_you=True, loaded=False))
+    business.detection_actions = FakeDetection(screen, business)
+    assert business._profile_follows_you("ghost") is None
+
+
+def test_on_a_loaded_profile_the_badge_says_yes_or_no():
+    business, screen, _recorded = _business(profile_xml("ghost", follows_you=False))
+    business.detection_actions = FakeDetection(screen, business)
+    assert business._profile_follows_you("ghost") is False
+
+    business, screen, _recorded = _business(profile_xml("fan", follows_you=True))
+    business.detection_actions = FakeDetection(screen, business)
+    assert business._profile_follows_you("fan") is True
