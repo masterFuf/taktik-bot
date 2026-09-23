@@ -49,6 +49,10 @@ class SyncFollowingMixin:
             'updated_count': 0,
             'total_seen': 0,
             'stopped_early': False,
+            # True only when the whole list was read (end reached, no early stop): only then can
+            # an account missing from it be taken as unfollowed elsewhere.
+            'complete': False,
+            'departures': 0,
             'success': False,
         }
 
@@ -242,6 +246,7 @@ class SyncFollowingMixin:
 
                 if not new_found:
                     self.logger.info("No new accounts after scroll — end of following list")
+                    stats['complete'] = True
                     break
 
                 # Scroll only outside enriched mode, which re-scans first
@@ -267,6 +272,10 @@ class SyncFollowingMixin:
                         self._scroll_following_list()
                         time.sleep(1.5)
                         scroll_attempts += 1
+
+            if stats['complete'] and stats['total_seen'] > 0:
+                stats['departures'] = self._record_following_departures(
+                    account_id, known_usernames, seen_on_screen)
 
             stats['success'] = True
             self.logger.info(
@@ -552,6 +561,23 @@ class SyncFollowingMixin:
             self.logger.debug(f"Error extracting non-follower usernames: {e}")
 
         return results
+
+    def _record_following_departures(self, account_id: int, known: Set[str], seen: Set[str]) -> int:
+        """Mark as unfollowed the accounts the base says we follow and a COMPLETE read missed.
+
+        They were unfollowed elsewhere: by hand, from another device, or by Instagram. Until
+        2026-09-24 the sync never saw a departure, and such an account stayed "followed" in the
+        base forever. Called only after a complete read of the list; a partial one proves nothing.
+        A wrong mark is harmless in the safe direction (one candidate fewer), and the next sync
+        that sees the account clears it (`upsert_following`).
+        """
+        seen_lower = {name.lower() for name in seen}
+        gone = sorted(name for name in known if name.lower() not in seen_lower)
+        for username in gone:
+            InstagramFollowGraphService.mark_unfollowed(username, account_id)
+        if gone:
+            self.logger.info(f"📉 {len(gone)} account(s) no longer followed (unfollowed elsewhere)")
+        return len(gone)
 
     def _has_follow_back_row(self) -> bool:
         """Does a row of the open list offer to follow back ("Follow back", "Suivre en retour")?

@@ -161,6 +161,15 @@ class SocialGraphRepository(BaseRepository):
             )
             self._upsert_social_graph(account_id, username, "following",
                                       display_name=display_name, followed_by_bot=followed_by_bot, source=source)
+            # Seen in the following list, or just followed: followed NOW. An earlier unfollow is
+            # history, not the current state (the upsert's COALESCE would keep `unfollowed_at`,
+            # and a re-followed account stayed "unfollowed" forever).
+            self.execute(
+                "UPDATE social_graph_sync SET unfollowed_at = NULL "
+                "WHERE platform = ? AND account_id = ? AND username = ? COLLATE NOCASE "
+                "AND direction = 'following' AND unfollowed_at IS NOT NULL",
+                (self.platform, account_id, username),
+            )
             return "updated" if existing else "new"
         except Exception as exc:
             logger.debug(f"Error in upsert_following for @{username}: {exc}")

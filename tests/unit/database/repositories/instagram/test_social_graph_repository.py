@@ -156,3 +156,15 @@ def test_active_followings_carry_the_bot_follow_date_live_from_interactions(conn
     assert rows["handfollowed"]["last_bot_follow_at"] is None
     assert rows["handfollowed"]["first_seen_at"]
     assert repo.list_active_followings(0) == []
+
+
+def test_a_refollowed_account_is_active_again(conn):
+    """U7: an account seen in the following list, or followed again, is followed NOW."""
+    repo = SocialGraphRepository(conn)
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 8, 'bot8', 1)")
+    conn.commit()
+    repo.upsert_following("again", "", 8)
+    repo.mark_unfollowed("again", 8)
+    assert repo.get_active_following_usernames(8) == set()
+    repo.upsert_following("Again", "", 8, followed_by_bot=True, source="bot_follow")
+    assert repo.get_active_following_usernames(8) == {"again"}
