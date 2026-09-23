@@ -93,6 +93,13 @@ class FakeScreen:
         self.screens = list(screens)
         self.index = 0
         self.clicks: List[str] = []
+        self.taps: List[tuple] = []
+        self.presses: List[str] = []
+
+    info = {"displayWidth": 1080, "displayHeight": 2400}
+
+    def window_size(self):
+        return 1080, 2400
 
     def tree(self):
         return etree.fromstring(self.screens[self.index].encode("utf-8"))
@@ -103,6 +110,17 @@ class FakeScreen:
     def advance(self):
         if self.index < len(self.screens) - 1:
             self.index += 1
+
+    # A raw uiautomator2 tap: the screen moves on to what Instagram shows next.
+    def click(self, x, y):
+        self.taps.append((x, y))
+        self.advance()
+
+    def long_click(self, x, y, duration=0.0):
+        self.click(x, y)
+
+    def press(self, key):
+        self.presses.append(key)
 
 
 class FakeFacade:

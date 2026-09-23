@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
 from ..locales import L
+from ..shell.popups import POPUP_SELECTORS
 
 
 def _labels(key: str) -> List[str]:
@@ -104,14 +105,13 @@ class UnfollowSelectors:
         return _labels("profile.follow_state_labels_unfollow")
 
     def unfollow_confirm_selectors(self, app_id: str) -> List[str]:
-        """The dialog's primary button first, scoped by its id AND its label; then any button
-        carrying the label, for a layout where the id changed."""
+        """The dialog's primary button first, scoped by its id AND its label; then the existing
+        localized confirmation popup selectors (`popup.unfollow_confirmation_selectors`), for a
+        layout where the id changed."""
         button = self.active_resource_id(app_id, self.unfollow_confirm_resource_name)
         scoped = [f'//*[@resource-id="{button}"][contains(@text, "{label}")]'
                   for label in self.unfollow_confirm_labels]
-        loose = [f'//android.widget.Button[contains(@text, "{label}")]'
-                 for label in self.unfollow_confirm_labels]
-        return scoped + loose
+        return scoped + list(POPUP_SELECTORS.unfollow_confirmation_selectors)
 
     # === Username in the following list ===
     following_list_item: List[str] = field(default_factory=lambda: [

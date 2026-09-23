@@ -32,7 +32,11 @@ class UnfollowBusiness(
     BaseBusinessAction
 ):
     """Business logic for unfollowing Instagram accounts."""
-    
+
+    # Bounded waits on the screen, in seconds (class attributes so a test can shorten them).
+    confirm_dialog_timeout = 2.0
+    row_state_timeout = 3.0
+
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "unfollow", init_business_modules=False)
         
@@ -227,24 +231,30 @@ class UnfollowBusiness(
         
         stats = {
             'unfollows_made': 0,
+            'unconfirmed': 0,
             'errors': 0,
             'scrolls': 0,
             'success': False
         }
-        
+
         try:
             self.logger.info("🔄 Starting SIMPLE unfollow workflow (direct button clicks)")
             self.logger.info(f"Max unfollows: {max_unfollows}")
-            
+
             unfollows_done = 0
             max_scrolls = 50
             scroll_count = 0
             no_button_count = 0
+            # Rows already tapped once. An unfollow the screen did not confirm is not retried: the
+            # row keeps its "following" button, and tapping it again and again is exactly the
+            # pattern Instagram answers with "Try again later".
+            attempted = set()
 
             while unfollows_done < max_unfollows and scroll_count < max_scrolls:
                 # Every visible row whose button says we follow the account, in any language
                 # (the button text goes through the shared state classifier, never a literal).
-                following_rows = [row for row in self._visible_follow_rows() if row['state'] == 'following']
+                following_rows = [row for row in self._visible_follow_rows()
+                                  if row['state'] == 'following' and row['username'] not in attempted]
 
                 if not following_rows:
                     self.logger.debug("No 'following' row button found on screen")
@@ -264,6 +274,7 @@ class UnfollowBusiness(
                 # The first row, named by the username paired with its button
                 row = following_rows[0]
                 username = row['username']
+                attempted.add(username)
 
                 # Try to tap the button
                 try:
@@ -273,8 +284,22 @@ class UnfollowBusiness(
                     time.sleep(1)
 
                     # A confirmation dialog can appear (private account)
-                    if self._tap_unfollow_confirm(timeout=2):
+                    if self._tap_unfollow_confirm(timeout=self.confirm_dialog_timeout):
                         time.sleep(0.5)
+
+                    # Read the row again: the unfollow happened only if it now offers to follow.
+                    # Until 2026-09-24 every tap was counted, and 51 of the 298 unfollows in the
+                    # base had not happened (the same account "unfollowed" again 17 min later).
+                    row_state = self._wait_row_unfollowed(username)
+                    if row_state not in ('follow', 'follow_back'):
+                        stats['unconfirmed'] += 1
+                        self.logger.warning(
+                            f"⚠️ @{username}: the row still reads '{row_state}' after the tap — "
+                            f"unfollow NOT counted"
+                        )
+                        IPCEmitter.emit_unfollow(username, success=False)
+                        time.sleep(random.randint(2, 5))
+                        continue
 
                     unfollows_done += 1
                     stats['unfollows_made'] += 1
@@ -310,6 +335,22 @@ class UnfollowBusiness(
         
         return stats
     
+    def _wait_row_unfollowed(self, username: str, timeout: Optional[float] = None) -> str:
+        """The row state of @username, read until it offers to follow or `timeout` elapses.
+
+        A bounded wait on the state, not a fixed delay: the button flips in a few hundred ms on a
+        good connection and much later on a slow one. Returns the last state read
+        ('follow' / 'follow_back' on success; 'following', 'requested' or 'unknown' otherwise).
+        Reads through `get_row_follow_state`, the production read the Lab exposes as
+        `scraping.get_row_follow_state`.
+        """
+        deadline = time.time() + (self.row_state_timeout if timeout is None else timeout)
+        while True:
+            state = self.detection_actions.get_row_follow_state(username)
+            if state in ('follow', 'follow_back') or time.time() >= deadline:
+                return state
+            time.sleep(0.5)
+
     # ─── Workflow 3: unfollow_specific_accounts ──────────────────────────
 
     def unfollow_specific_accounts(self, usernames: List[str], config: Dict[str, Any] = None) -> Dict[str, Any]:
