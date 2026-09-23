@@ -12,6 +12,7 @@ import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
+from taktik.core.shared.diagnostics import run_halt
 from ..common.likers_base import LikersWorkflowBase
 from ....core.stats import create_workflow_stats
 from ....core.ipc import IPCEmitter
@@ -271,6 +272,12 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 while (posts_liked < effective_config['max_interactions'] and
                        posts_checked < effective_config['max_posts_to_check']):
 
+                    # The run's lock (a block seen anywhere, a lost phone): this loop never read
+                    # it, and kept liking after Instagram said stop (secours 2, 2026-09-24).
+                    if run_halt.arret_demande():
+                        self.logger.warning("⛔ Run stop requested — leaving the feed")
+                        break
+
                     posts_checked += 1
                     stats['posts_checked'] += 1
 
@@ -352,6 +359,10 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                             # profile, so nothing else counts it.
                             stats['posts_engaged'] = stats.get('posts_engaged', 0) + 1
                             self.stats_manager.increment('posts_engaged')
+                            # Instagram's "Try again later" after this like: the first refusal
+                            # ends the run, never the next like on top of it.
+                            if self._stop_if_action_blocked('feed', 'like/comment'):
+                                break
 
                         if liked:
                             feed_action = 'like_comment' if commented else 'like'
