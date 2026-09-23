@@ -54,7 +54,6 @@ BRIDGE_MODULES = {
     "youtube_upload_bridge":      "bridges.youtube.publish.upload",
     "youtube_action_test_bridge": "bridges.youtube.diagnostics.action_test",
     # Compat
-    "compat_bridge":            "bridges.compat.diagnostics.entrypoints.compat",
     "selector_test_bridge":     "bridges.compat.diagnostics.entrypoints.selector_test",
     "workflow_test_bridge":     "bridges.compat.diagnostics.entrypoints.workflow_test",
     "action_test_bridge":       "bridges.compat.diagnostics.entrypoints.action_test",
