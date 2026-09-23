@@ -54,9 +54,8 @@ class UnfollowSelectors:
     def followers_tab_labels(self) -> List[str]:
         return _labels("unfollow.followers_tab_labels")
 
-    def unified_followers_tab_selectors(self, app_id: str) -> List[str]:
-        layout = self.unified_follow_list_tab_layout_selector(app_id)
-        return [f'{layout}//*[contains(@text, "{label}")]' for label in self.followers_tab_labels]
+    def unified_followers_tab_selectors(self, app_id: str, selected: Optional[bool] = None) -> List[str]:
+        return self.unified_tab_selectors(app_id, "followers", selected)
 
     # === Following tab of the same view: "1 287 suivi(e)s", "48 following" (locales overlay) ===
     @property
@@ -64,11 +63,18 @@ class UnfollowSelectors:
         return _labels("unfollow.following_tab_labels")
 
     def unified_following_tab_selectors(self, app_id: str, selected: Optional[bool] = None) -> List[str]:
-        """The following tab's title; `selected=True` matches it only while it is the open tab
+        return self.unified_tab_selectors(app_id, "following", selected)
+
+    def tab_labels(self, kind: str) -> List[str]:
+        """The labels of a tab of the unified list: kind 'following' or 'followers'."""
+        return self.following_tab_labels if kind == "following" else self.followers_tab_labels
+
+    def unified_tab_selectors(self, app_id: str, kind: str, selected: Optional[bool] = None) -> List[str]:
+        """The title of the `kind` tab; `selected=True` matches it only while it is the open tab
         (the title button carries `selected="true"` on the tab shown)."""
         layout = self.unified_follow_list_tab_layout_selector(app_id)
         state = "" if selected is None else f' and @selected="{"true" if selected else "false"}"'
-        return [f'{layout}//*[contains(@text, "{label}"){state}]' for label in self.following_tab_labels]
+        return [f'{layout}//*[contains(@text, "{label}"){state}]' for label in self.tab_labels(kind)]
 
     def active_follow_list_button_resource_id(self, app_id: str) -> str:
         resource_name = self.following_list_button_resource_id.rsplit(':id/', 1)[-1]

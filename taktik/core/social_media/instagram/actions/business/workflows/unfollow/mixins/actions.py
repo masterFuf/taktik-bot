@@ -12,6 +12,7 @@ from taktik.core.social_media.instagram.actions.atomic.interaction.profile_inter
 )
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from ..list_proof import parse_tab_count
 
 
 def _vertical_band(element) -> Optional[tuple]:
@@ -91,6 +92,8 @@ class UnfollowActionsMixin:
             time.sleep(0.3)
 
     following_tab_timeout = 2.0
+    # After a tab switch the new list loads: its first rows are awaited this long.
+    list_load_timeout = 3.0
 
     def _ensure_following_tab(self) -> bool:
         """Make sure the open list is OUR FOLLOWING tab, not the followers one.
@@ -102,33 +105,74 @@ class UnfollowActionsMixin:
         checked, tapped when another one is shown, and the list refused when the following tab
         cannot be confirmed. A screen without the tab layout (one list per screen) is taken as is.
         """
+        return self._ensure_list_tab("following")
+
+    def _ensure_followers_tab(self) -> bool:
+        """The same guard for OUR FOLLOWERS tab: read on the following tab, the followers sync would
+        take every account we follow for a follower, and the mutual mode would unfollow them all."""
+        return self._ensure_list_tab("followers")
+
+    def _ensure_list_tab(self, kind: str) -> bool:
         d = self.device.device
         package = get_active_package()
         if not d.xpath(UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(package)).exists:
             return True
-        if self._following_tab_selected(package):
+        if self._list_tab_selected(package, kind):
             return True
         tab = next((element for element in (d.xpath(selector) for selector
-                                            in UNFOLLOW_SELECTORS.unified_following_tab_selectors(package))
+                                            in UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind))
                     if element.exists), None)
         if tab is None:
-            self.logger.error("Unified follow list without a following tab we can read: list refused")
+            self.logger.error(f"Unified follow list without a {kind} tab we can read: list refused")
             return False
-        self.logger.info("Unified follow list opened on another tab: switching to the following tab")
+        self.logger.info(f"Unified follow list opened on another tab: switching to the {kind} tab")
         if not tap_element_human(self.device, tab, logger=self.logger):
             tab.click()
         deadline = time.time() + self.following_tab_timeout
-        while not self._following_tab_selected(package):
+        while not self._list_tab_selected(package, kind):
             if time.time() >= deadline:
-                self.logger.error("Following tab tapped but not shown: list refused")
+                self.logger.error(f"{kind.capitalize()} tab tapped but not shown: list refused")
+                return False
+            time.sleep(0.3)
+        # The rows of the new tab load after the tab is shown: a read before them finds an empty
+        # list and concludes it ended (review of 2026-09-24).
+        self._wait_for_list_rows()
+        return True
+
+    def _list_tab_selected(self, package: str, kind: str) -> bool:
+        d = self.device.device
+        return any(d.xpath(selector).exists
+                   for selector in UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind, selected=True))
+
+    def _following_tab_selected(self, package: str) -> bool:
+        return self._list_tab_selected(package, "following")
+
+    def _wait_for_list_rows(self) -> bool:
+        """Wait, bounded, for the first username of the open list."""
+        d = self.device.device
+        selector = UNFOLLOW_SELECTORS.follow_list_username_selector(get_active_package())
+        deadline = time.time() + self.list_load_timeout
+        while not d.xpath(selector).exists:
+            if time.time() >= deadline:
                 return False
             time.sleep(0.3)
         return True
 
-    def _following_tab_selected(self, package: str) -> bool:
+    def _list_tab_count(self, kind: str) -> Optional[int]:
+        """The exact count the unified list shows on the `kind` tab ("1 287 suivi(e)s"), or None
+        (no tabs, or an abbreviated count): what a complete read must reach (`list_proof`)."""
         d = self.device.device
-        return any(d.xpath(selector).exists
-                   for selector in UNFOLLOW_SELECTORS.unified_following_tab_selectors(package, selected=True))
+        package = get_active_package()
+        labels = UNFOLLOW_SELECTORS.tab_labels(kind)
+        for selector in UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind):
+            try:
+                for element in d.xpath(selector).all():
+                    count = parse_tab_count(element.text, labels)
+                    if count is not None:
+                        return count
+            except Exception as exc:
+                self.logger.debug(f"Tab count not read ({kind}): {exc}")
+        return None
 
     def _go_back_to_following_list(self):
         """Go back to the following list.
@@ -148,12 +192,14 @@ class UnfollowActionsMixin:
         except Exception as e:
             self.logger.debug(f"Error going back to following list: {e}")
     
-    def _scroll_following_list(self):
-        """Scroll the following list down (humanized controlled scroll, was fixed-centre swipe)."""
+    def _scroll_following_list(self) -> bool:
+        """Scroll the follow list down (humanized controlled scroll). False when the gesture
+        failed: a read that could not scroll proves nothing about the end of the list."""
         try:
-            human_scroll_raw(self.device.device, "down", distance_ratio=0.4)
+            return human_scroll_raw(self.device.device, "down", distance_ratio=0.4) is not False
         except Exception as e:
             self.logger.debug(f"Error scrolling: {e}")
+            return False
     
     def _set_following_list_sort(self, sort_order: str = 'default') -> bool:
         """

@@ -19,6 +19,7 @@ from taktik.core.database.instagram_follow_graph import InstagramFollowGraphServ
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
+from ..list_proof import read_is_complete, scrolls_for
 
 
 class SyncFollowingMixin:
@@ -49,10 +50,14 @@ class SyncFollowingMixin:
             'updated_count': 0,
             'total_seen': 0,
             'stopped_early': False,
-            # True only when the whole list was read (end reached, no early stop): only then can
-            # an account missing from it be taken as unfollowed elsewhere.
+            # True only when the read reached the list's exact count, without an early stop
+            # (unfollow/list_proof.py): only then can an account missing from it be taken as
+            # unfollowed elsewhere.
             'complete': False,
+            'expected': None,
+            'end_reached': False,
             'departures': 0,
+            'departures_withheld': 0,
             'success': False,
         }
 
@@ -77,6 +82,8 @@ class SyncFollowingMixin:
             time.sleep(1.5)
             if not self._ensure_following_tab():
                 return stats
+            expected = self._list_tab_count('following')
+            stats['expected'] = expected
 
             # Sort by most recently followed so the new ones come first. The early stop on the
             # first known account is only valid in that order: in the default order a known
@@ -106,14 +113,21 @@ class SyncFollowingMixin:
 
             seen_on_screen: Set[str] = set()
             scroll_attempts = 0
-            max_scrolls = 60  # Sécurité anti-boucle infinie
+            # A fixed 60 scrolls read about 270 accounts: the bound follows the tab's count.
+            max_scrolls = scrolls_for(expected, 60)
             stop_signal = False
+            scroll_failed = False
+            quiet_rounds = 0
+            end_rounds = getattr(self, 'end_of_list_scrolls', 3)
 
             while scroll_attempts < max_scrolls and not stop_signal:
                 # Read the visible items with their UI references
                 username_elements = d(resourceId=username_resource_id)
                 if not username_elements.exists:
                     break
+                # Only rows that say we follow them: the list ends with suggestions ("Follow"), and
+                # a row whose button cannot be read yet is read again after the next scroll.
+                row_states = {row['username'].lower(): row['state'] for row in self._visible_follow_rows()}
 
                 new_found = False
                 count = username_elements.count
@@ -127,6 +141,8 @@ class SyncFollowingMixin:
                         continue
 
                     if username in seen_on_screen:
+                        continue
+                    if row_states.get(username.lower()) != 'following':
                         continue
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
@@ -246,14 +262,27 @@ class SyncFollowingMixin:
                 if stop_signal:
                     break
 
+                # The end of the list is several reads in a row without a new name (one used to
+                # be enough: a slow page looked like the end), and it counts only if the names
+                # read reach the tab's exact count.
                 if not new_found:
-                    self.logger.info("No new accounts after scroll — end of following list")
-                    stats['complete'] = True
-                    break
+                    quiet_rounds += 1
+                    if quiet_rounds >= end_rounds:
+                        stats['end_reached'] = True
+                        stats['complete'] = read_is_complete(len(seen_on_screen), expected, scroll_failed)
+                        self.logger.info(
+                            f"End of the following list: {len(seen_on_screen)} read of "
+                            f"{expected if expected is not None else '?'} "
+                            f"({'complete' if stats['complete'] else 'NOT proven complete'})"
+                        )
+                        break
+                else:
+                    quiet_rounds = 0
 
                 # Scroll only outside enriched mode, which re-scans first
                 if mode != 'enriched':
-                    self._scroll_following_list()
+                    if self._scroll_following_list() is False:
+                        scroll_failed = True
                     time.sleep(1.5)
                     scroll_attempts += 1
                 else:
@@ -271,13 +300,14 @@ class SyncFollowingMixin:
                             except Exception:
                                 continue
                     if not has_unseen:
-                        self._scroll_following_list()
+                        if self._scroll_following_list() is False:
+                            scroll_failed = True
                         time.sleep(1.5)
                         scroll_attempts += 1
 
             if stats['complete'] and stats['total_seen'] > 0:
                 stats['departures'] = self._record_following_departures(
-                    account_id, known_usernames, seen_on_screen)
+                    account_id, known_usernames, seen_on_screen, stats)
 
             stats['success'] = True
             self.logger.info(
@@ -564,17 +594,32 @@ class SyncFollowingMixin:
 
         return results
 
-    def _record_following_departures(self, account_id: int, known: Set[str], seen: Set[str]) -> int:
+    # Departures one read may mark at most: beyond, the read is more likely wrong than the base.
+    max_departure_share = 0.10
+    min_departures_cap = 5
+
+    def _record_following_departures(self, account_id: int, known: Set[str], seen: Set[str],
+                                     stats: Optional[Dict[str, Any]] = None) -> int:
         """Mark as unfollowed the accounts the base says we follow and a COMPLETE read missed.
 
         They were unfollowed elsewhere: by hand, from another device, or by Instagram. Until
         2026-09-24 the sync never saw a departure, and such an account stayed "followed" in the
         base forever. Called only after a complete read of the list; a partial one proves nothing.
         A wrong mark is harmless in the safe direction (one candidate fewer), and the next sync
-        that sees the account clears it (`upsert_following`).
+        that sees the account clears it (`upsert_following`). More departures than a tenth of the
+        known followings (5 at least) in one read are not applied: logged, and left to Kevin.
         """
         seen_lower = {name.lower() for name in seen}
         gone = sorted(name for name in known if name.lower() not in seen_lower)
+        cap = max(self.min_departures_cap, int(len(known) * self.max_departure_share))
+        if len(gone) > cap:
+            self.logger.warning(
+                f"📉 {len(gone)} followings missing from a complete read (cap {cap}): "
+                "not applied, the read is more likely wrong than the base"
+            )
+            if stats is not None:
+                stats['departures_withheld'] = len(gone)
+            return 0
         for username in gone:
             InstagramFollowGraphService.mark_unfollowed(username, account_id)
         if gone:

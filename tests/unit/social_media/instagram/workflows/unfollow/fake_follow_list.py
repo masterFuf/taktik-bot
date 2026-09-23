@@ -58,6 +58,9 @@ class FakeElement:
     def text(self) -> str:
         return self._node.get("text", "")
 
+    def get_text(self) -> str:
+        return self.text
+
     @property
     def attrib(self):
         return dict(self._node.attrib)
@@ -95,6 +98,28 @@ class FakeSelector:
         return found[0].bounds if found else None
 
 
+class FakeUiObject:
+    """A native uiautomator2 selector, `d(resourceId=...)`, read from the current XML."""
+
+    def __init__(self, screen: "FakeScreen", resource_id: str):
+        self._screen = screen
+        self._xpath = f'//*[@resource-id="{resource_id}"]'
+
+    def _nodes(self):
+        return self._screen.tree().xpath(self._xpath)
+
+    @property
+    def exists(self) -> bool:
+        return bool(self._nodes())
+
+    @property
+    def count(self) -> int:
+        return len(self._nodes())
+
+    def __getitem__(self, index: int) -> FakeElement:
+        return FakeElement(self._nodes()[index])
+
+
 class FakeScreen:
     """Stands for the raw uiautomator2 device: `xpath()` reads the current XML.
 
@@ -119,6 +144,9 @@ class FakeScreen:
 
     def xpath(self, xpath: str) -> FakeSelector:
         return FakeSelector(self, xpath)
+
+    def __call__(self, resourceId: str = "", **_kwargs) -> FakeUiObject:
+        return FakeUiObject(self, resourceId)
 
     def advance(self):
         if self.index < len(self.screens) - 1:
