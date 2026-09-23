@@ -211,21 +211,18 @@ STRINGS: Dict[str, List[str]] = {
     "followers.following_list_opener": [
         "//*[@clickable=\"true\"][.//android.widget.TextView[contains(@text, \"Suivis\")]]",
     ],
-    # Le bouton d'en-tete d'un profil deja suivi : « Suivis » ou « Ami(e)s » (reciproque).
-    #
-    # Trois precautions, chacune payee par une mesure sur les 61 captures.
-    # 1. Le texte porte une ESPACE FINALE — « Suivis » — donc `normalize-space`, pas l'egalite nue.
-    # 2. Cadre par la presence du pseudo (`Button` dont le texte commence par « @ »), faute de quoi
-    #    il tire sur 22 ecrans : onglet « Suivis » du fil, rangees d'inbox, listes d'abonnes.
-    # 3. Et surtout `not(preceding-sibling::TextView)` : sans lui il attrapait AUSSI le LIBELLE du
-    #    compteur « Suivis » de l'en-tete, qui a la valeur numerique pour frere precedent. Taper
-    #    celui-la ouvre la liste d'abonnements au lieu de desabonner — un mauvais bouton, silencieux.
-    # Avec les trois : 1 sur chacun des 3 profils suivis, 0 sur les 58 autres captures.
+    # Bouton de RANGEE de la liste d'abonnements (seul consommateur : l'unfollow TikTok,
+    # `unfollow/workflow.py`). L'entree precedente avait ete cadree sur un EN-TETE de profil : elle ne
+    # trouvait aucun des 6 a 9 boutons de la liste (0 sur les 5 captures de liste, 1 sur chaque profil),
+    # et l'unfollow TikTok en francais ne desabonnait donc personne (2026-09-24, T4).
+    # Sur la liste, chaque rangee porte un `Button` cliquable « Suivis » (on le suit) ou « Ami(e)s »
+    # (mutuel) ; l'intitule d'onglet « Suivis 39 » est un TextView, exclu par la classe et l'egalite.
+    # Mesure hors ligne (data/tiktok-parite, 87 captures) : 6 et 9 sur les listes d'abonnements 43.1.4
+    # et 46.6.3, 9 sur les deux listes « Suivis » du compte ; hors listes, seulement les abonnes mutuels
+    # d'une liste d'abonnes (« Ami(e)s », des comptes qu'on suit aussi) et la liste derriere la feuille
+    # de desabonnement. Aucun sur un profil.
     "followers.following_or_friends_button": [
-        "//*[normalize-space(@text)=\"Suivis\" or normalize-space(@text)=\"Ami(e)s\"]"
-        "[ancestor::*[.//android.widget.Button[starts-with(@text,\"@\")]]]"
-        "[not(preceding-sibling::android.widget.TextView)]"
-        "/ancestor::*[@clickable=\"true\"][1]",
+        "//android.widget.Button[normalize-space(@text)=\"Suivis\" or normalize-space(@text)=\"Ami(e)s\"]",
     ],
     "followers.following_tab": [
         "//*[@clickable=\"true\"][starts-with(@content-desc, \"Suivis\")]",
