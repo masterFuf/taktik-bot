@@ -3,6 +3,7 @@
 import sqlite3
 
 from taktik.core.database.local.migration_steps.instagram import (
+    _ensure_instagram_profile_column,
     run_instagram_profile_ai_migrations,
     run_instagram_profile_core_migrations,
 )
@@ -54,3 +55,18 @@ def test_a_missing_object_does_not_raise():
     run_instagram_profile_core_migrations(conn.cursor())
     run_instagram_profile_ai_migrations(conn.cursor())
     assert conn.execute("SELECT 1 FROM sqlite_master WHERE name='instagram_profiles'").fetchone() is None
+
+
+def test_a_failing_alter_is_logged_not_raised():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE instagram_profiles (id INTEGER PRIMARY KEY)")
+    _ensure_instagram_profile_column(conn.cursor(), "broken", "INTEGER DEFAULT (")   # invalid SQL
+    assert _columns(conn, "instagram_profiles") == {"id"}
+
+
+def test_a_database_error_while_probing_does_not_raise():
+    class BrokenCursor:
+        def execute(self, *_args):
+            raise sqlite3.OperationalError("database is locked")
+
+    _ensure_instagram_profile_column(BrokenCursor(), "website", "TEXT")
