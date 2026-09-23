@@ -100,7 +100,7 @@ class SessionManager:
         # dont le telephone a disparu n'a pas a voir sa duree evaluee. Le verrou est pose par
         # `base_action` quand il constate un lien perdu ou un plantage de l'application cible --
         # deux pannes qui, jusqu'ici, laissaient la boucle tourner jusqu'a son plafond -- et par le
-        # detecteur Instagram des qu'il voit « Reessayez plus tard » (2026-09-24).
+        # detecteur Instagram des qu'il voit « Reessayer plus tard » (2026-09-24).
         arret = run_halt.arret_demande()
         if arret:
             if arret["code"] == run_halt.DEVICE_DISCONNECTED:

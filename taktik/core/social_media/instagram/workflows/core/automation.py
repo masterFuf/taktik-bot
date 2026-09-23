@@ -385,7 +385,13 @@ class InstagramAutomation:
                 time.sleep(random.uniform(10, 30))
 
                 should_continue, stop_reason = self.session_manager.should_continue()
-                
+
+            # The loop can also end on its own condition: a stop decided before the first step
+            # (a block seen while closing the launch popups), or after the pause between two
+            # passes. Both used to leave the session open, announced "completed" by the bridge.
+            if not should_continue and not self.session_finalized:
+                self._finalize_session(status=stop_reasons.terminal_status(stop_reason), reason=stop_reason)
+
         except Exception as e:
             self.logger.error(f"Critical error executing workflow: {str(e)[:200]}", exc_info=True)
             # Emit the terminal event. This path used to log, mark the row ERROR and return, so
