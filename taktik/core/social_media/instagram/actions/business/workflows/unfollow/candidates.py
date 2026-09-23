@@ -25,10 +25,12 @@ afterwards (the "Follows you" badge, verified and business accounts): see the wo
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 MODES = ("non-followers", "mutual", "oldest", "all")
+# The page's default delay since the follow, in days: what an empty setting means.
+DEFAULT_MIN_DAYS_SINCE_FOLLOW = 3.0
 
 
 @dataclass(frozen=True)
@@ -62,13 +64,21 @@ class CandidateSelection:
 
 
 def _parse_time(value) -> Optional[datetime]:
-    """A stored time (ISO from `interactions`, `YYYY-MM-DD HH:MM:SS` from SQLite), or None."""
+    """A stored time (ISO from `interactions`, `YYYY-MM-DD HH:MM:SS` from SQLite), or None.
+
+    A time with an offset is converted to UTC before the offset is dropped: dropping it alone
+    moved a follow by the offset (hours, against a delay in days, but on the unsafe side for a
+    negative offset). A naive time is kept as it is.
+    """
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).replace(tzinfo=None)
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.replace(tzinfo=None)
 
 
 def records_from_rows(rows: Iterable[Dict]) -> List[FollowingRecord]:
@@ -114,8 +124,11 @@ def select_candidates(
         return selection
     whitelist = _clean(config.get('whitelist'))
     blacklist = _clean(config.get('blacklist'))
-    bot_only = bool(config.get('bot_follows_only', True))
-    min_days = float(config.get('min_days_since_follow', 0) or 0)
+    # An empty value is not a "no": `bot_follows_only` stays on unless it is False, and an empty
+    # delay is the page's default (3 days), not 0. In doubt, protect.
+    bot_only = config.get('bot_follows_only', True) is not False
+    raw_days = config.get('min_days_since_follow', DEFAULT_MIN_DAYS_SINCE_FOLLOW)
+    min_days = DEFAULT_MIN_DAYS_SINCE_FOLLOW if raw_days in (None, '') else float(raw_days)
     follower_names = {u.lower() for u in followers.usernames} if followers else set()
 
     forced: List[Tuple[datetime, str]] = []

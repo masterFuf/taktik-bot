@@ -132,3 +132,28 @@ def test_rows_become_records_with_bot_ownership_from_the_follow_date():
     assert records[0].followed_at == datetime(2026, 9, 10, 8, 0, 0)
     assert records[1].first_seen_at == datetime(2026, 9, 1, 10, 0, 0)
     assert records[2].followed_at is None and records[2].first_seen_at is None
+
+
+# ── Empty settings mean the safe default (review of 2026-09-24) ─────────────────
+
+@pytest.mark.parametrize("empty", [None, ""])
+def test_an_empty_bot_follows_only_still_protects_manual_follows(empty):
+    selection = select_candidates([_manual("by_hand", 30)],
+                                  _cfg(unfollow_mode="all", bot_follows_only=empty), None, NOW)
+    assert selection.candidates == [] and selection.refusals == {"not_followed_by_bot": 1}
+
+
+@pytest.mark.parametrize("empty", [None, ""])
+def test_an_empty_delay_is_the_default_three_days(empty):
+    records = [_bot("yesterday", 1), _bot("last_week", 7)]
+    selection = select_candidates(records, _cfg(unfollow_mode="all", min_days_since_follow=empty), None, NOW)
+    assert selection.candidates == ["last_week"]
+    assert selection.refusals == {"followed_too_recently": 1}
+
+
+def test_a_follow_date_with_an_offset_is_read_in_utc():
+    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.candidates import records_from_rows
+
+    # 10:00 at UTC-05:00 is 15:00 UTC; the offset used to be dropped, leaving 10:00.
+    record = records_from_rows([{"username": "late", "last_bot_follow_at": "2026-09-20T10:00:00-05:00"}])[0]
+    assert record.followed_at == datetime(2026, 9, 20, 15, 0, 0)
