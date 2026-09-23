@@ -144,6 +144,28 @@ def test_non_followers_run_decides_on_data_and_checks_the_badge(monkeypatch):
     assert stats["unfollows_made"] == 1
     assert stats["candidates"] == 2 and stats["refusals"] == {"not_followed_by_bot": 1}
     assert stats["profile_refusals"] == {"follows_back": 1}
+    # Back from each profile with the key the device obeys, never the Instagram facade's
+    # press('back'), which uiautomator2 ignores (C2, 2026-09-23).
+    assert screen.presses == ["back", "back"]
+
+
+def test_back_from_a_profile_reaches_the_list_with_a_key_the_device_obeys():
+    rows = follow_list_xml([("ghost", "Suivi(e)")])
+    business, screen, _recorded = _business(profile_xml("ghost"), rows)
+    business.detection_actions = FakeDetection(screen, business)
+
+    business._go_back_to_following_list()
+
+    assert business.detection_actions.is_following_list_open()
+    assert screen.presses == ["back"]
+
+
+def test_the_instagram_facade_press_back_is_ignored_by_the_device():
+    # Documents the facade defect the engine works around: press('back') becomes "KEYCODE_BACK",
+    # a key name the uiautomator2 server does not know. To fix in the facade itself (report).
+    business, screen, _recorded = _business(profile_xml("ghost"), follow_list_xml([]))
+    business.device.press("back")
+    assert screen.presses == ["KEYCODE_BACK"] and screen.index == 0
 
 
 def test_an_incomplete_followers_sync_unfollows_nobody_in_non_followers_mode(monkeypatch):

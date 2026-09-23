@@ -131,13 +131,19 @@ class UnfollowActionsMixin:
                    for selector in UNFOLLOW_SELECTORS.unified_following_tab_selectors(package, selected=True))
 
     def _go_back_to_following_list(self):
-        """Go back to the following list."""
+        """Go back to the following list.
+
+        With `press_back()` of the shared facade, which sends uiautomator2 the key NAME 'back'.
+        The Instagram facade's `press('back')` sends 'KEYCODE_BACK', a name the uiautomator2 server
+        does not know: the press is ignored without an error (12 presses out of 12 on the 4 phones
+        of C2, 2026-09-23), and the engine stayed on the profile it had opened.
+        """
         try:
             # Press back several times if needed
             for _ in range(3):
                 if self.detection_actions.is_following_list_open():
                     return
-                self.device.press('back')
+                self.device.press_back()
                 time.sleep(0.5)
         except Exception as e:
             self.logger.debug(f"Error going back to following list: {e}")
@@ -204,7 +210,7 @@ class UnfollowActionsMixin:
             
             self.logger.warning(f"Could not find sort option: {sort_order}")
             # Press back to close the modal if we couldn't select an option
-            self.device.press('back')
+            self.device.press_back()
             return False
             
         except Exception as e:

@@ -132,10 +132,17 @@ class FakeScreen:
     def long_click(self, x, y, duration=0.0):
         self.click(x, y)
 
+    # The key names the uiautomator2 server knows. It takes a name or an int code, and ignores
+    # anything else WITHOUT an error: "KEYCODE_BACK", which the Instagram facade's press('back')
+    # sends, presses nothing (12 back presses out of 12 on the 4 phones of C2, 2026-09-23).
+    KEY_NAMES = {"home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter",
+                 "delete", "del", "recent", "volume_up", "volume_down", "volume_mute", "camera", "power"}
+
     def press(self, key):
-        # A back press also moves the script on (the profile closes, the list shows again).
+        # A back press the device obeys moves the script on (the profile closes, the list shows).
         self.presses.append(key)
-        self.advance()
+        if isinstance(key, int) or str(key).lower() in self.KEY_NAMES:
+            self.advance()
 
 
 class FakeFacade:
@@ -149,6 +156,7 @@ class FakeFacade:
         self.taps.append(tuple(bounds))
         self.device.advance()
         return True
+
 
 
 def walk_list(business, config=None, names=None):
