@@ -206,3 +206,31 @@ def test_a_spent_day_budget_stops_before_any_sync(monkeypatch):
     assert runner._run_unfollow_workflow({"type": "unfollow", "max_unfollows": 5}) is False
     assert configs == []
     assert [r.code for r in finalized] == ["daily_unfollow_budget"]
+
+
+# ── The day's ACTION budget is not the unfollow's (review of 2026-09-24) ────────
+
+def test_a_spent_action_budget_does_not_end_an_unfollow_session():
+    sm = SessionManager({"session_settings": {"workflow_type": "unfollow",
+                                              "warmup_policy": {"max_actions_per_day": 40}}})
+    sm.set_daily_usage_provider(lambda: {"total": 40, "unfollows": 0})
+    assert sm.should_continue() == (True, "")
+
+
+def test_the_same_budget_still_ends_a_likes_session():
+    sm = SessionManager({"session_settings": {"workflow_type": "feed",
+                                              "warmup_policy": {"max_actions_per_day": 40}}})
+    sm.set_daily_usage_provider(lambda: {"total": 40, "unfollows": 0})
+    keep_going, reason = sm.should_continue()
+    assert keep_going is False and reason.code == "daily_budget"
+
+
+def test_an_unreadable_day_budget_stops_the_unfollow():
+    sm = _sm(warmup={"max_unfollows_per_day": 10})
+
+    def broken():
+        raise RuntimeError("base locked")
+
+    sm.set_daily_usage_provider(broken)
+    reasons = [sm.unfollow_allowance(5)[1] for _ in range(5)]
+    assert reasons[-1] is not None and reasons[-1].code == "daily_budget_unreadable"

@@ -163,7 +163,12 @@ class SessionManager:
         #
         # Active only when both the caps and a totals provider were injected; in standalone
         # both are absent and the behaviour is unchanged. A cap of zero means no limit.
-        stop_reason = self._check_daily_budget()
+        #
+        # Not for an unfollow session: an unfollow spends none of this budget (likes, follows,
+        # comments), and its own ceilings, the session maximum and the day's unfollow budget,
+        # are `unfollow_allowance`. The day's likes used to end an unfollow run before its
+        # first unfollow (review of 2026-09-24).
+        stop_reason = self._check_daily_budget() if workflow_type != 'unfollow' else ""
         if stop_reason:
             log.info(f"🛑 Session ended: {stop_reason}")
             return False, stop_reason
@@ -331,6 +336,10 @@ class SessionManager:
         daily_cap = int((self._warmup_policy or {}).get('max_unfollows_per_day', 0) or 0)
         if daily_cap > 0:
             usage = self._read_daily_usage()
+            # A day budget that can no longer be read is not "no budget" (same rule as the
+            # action budget): after a few failed reads in a row, the unfollow stops.
+            if usage is None and self._daily_usage_failures >= _DAILY_USAGE_FAILURES_BEFORE_STOP:
+                return 0, stop_reasons.daily_budget_unreadable(self._daily_usage_failures)
             if usage is not None:
                 today = int(usage.get('unfollows', 0) or 0)
                 day_room = max(daily_cap - today, 0)
