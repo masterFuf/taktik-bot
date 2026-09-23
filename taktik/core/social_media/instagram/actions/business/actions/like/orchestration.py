@@ -9,6 +9,7 @@ from ....core.base_business import BaseBusinessAction
 from ...management.profile import ProfileBusiness
 from .post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
 from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
@@ -338,6 +339,10 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                             posts_commented += 1
                             stats['posts_commented'] = posts_commented
                             self._notify_gesture(on_comment, 'comment')
+                        if run_halt.arret_demande():
+                            # A refusal seen after a gesture of this post: no next post.
+                            self.logger.warning("⛔ Run stop requested — leaving the posts")
+                            break
                 else:
                     self.logger.debug(f"Post #{posts_seen} not engaged")
 
@@ -456,15 +461,20 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         break
                     sig_before_read = None   # confirmed once; our own like changes the count
                 if step == 'like':
-                    if self.like_current_post():
-                        liked = True
-                    else:
+                    liked = bool(self.like_current_post())
+                    # "Try again later" right after the tap, before anything else touches the
+                    # screen (secours 2): a refused like can read as landed or as failed.
+                    if self._stop_if_action_blocked(username, 'like'):
+                        break
+                    if not liked:
                         self.logger.warning("Failed to like — aborting this post's sequence")
                         break
                 else:  # comment
                     if self._comment_current_post(username, custom_comments,
                                                   comment_template_category, config):
                         commented = True
+                    if self._stop_if_action_blocked(username, 'comment'):
+                        break
         return liked, commented
 
     def _read_post_description(self) -> None:

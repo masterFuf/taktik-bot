@@ -15,6 +15,7 @@ from loguru import logger
 from ....core.base_business import BaseBusinessAction
 from ....core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
@@ -117,6 +118,10 @@ class LikersWorkflowBase(BaseBusinessAction):
             new_likers_found = False
 
             for liker_data in visible_likers:
+                # The run's lock: a block on the previous row ends the list here, not after
+                # every new row of the screen. `should_continue` above names the stop.
+                if run_halt.arret_demande():
+                    break
                 username = liker_data['username']
 
                 if username in processed_usernames:
