@@ -15,6 +15,8 @@ from loguru import logger
 from ....core.base_business import BaseBusinessAction
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
+from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
@@ -234,6 +236,7 @@ class UnfollowBusiness(
             'unconfirmed': 0,
             'errors': 0,
             'scrolls': 0,
+            'stop_reason': None,
             'success': False
         }
 
@@ -298,6 +301,10 @@ class UnfollowBusiness(
                             f"unfollow NOT counted"
                         )
                         IPCEmitter.emit_unfollow(username, success=False)
+                        blocked = self._action_blocked_reason()
+                        if blocked:
+                            stats['stop_reason'] = blocked
+                            break
                         time.sleep(random.randint(2, 5))
                         continue
 
@@ -311,6 +318,13 @@ class UnfollowBusiness(
                     # Envoyer l'événement en temps réel au frontend si un bridge l'a injecté.
                     IPCEmitter.emit_unfollow(username, success=True)
                     IPCEmitter.emit_stats(unfollows=unfollows_done)
+
+                    # A block shows up right after the action it refuses. Acting again after
+                    # "Try again later" is what turns a temporary limit into a lasting one.
+                    blocked = self._action_blocked_reason()
+                    if blocked:
+                        stats['stop_reason'] = blocked
+                        break
                     
                     # Short pace between unfollows, shorter here since no profile is visited
                     delay = random.randint(2, 5)
@@ -335,6 +349,51 @@ class UnfollowBusiness(
         
         return stats
     
+    def _action_blocked_reason(self):
+        """The stop reason when Instagram shows its rate-limit dialog now, else None.
+
+        The same read and the same reason as the followers workflow when it loses its list
+        (`is_action_blocked`, `stop_reasons.action_blocked`): one detection, one rule, the first
+        sign stops the session. The signal is also stored with the account's restriction
+        history. Reading only: the dialog is left on screen, closing it would be acting again.
+        """
+        detector = getattr(getattr(self, 'nav_actions', None), 'problematic_page_detector', None)
+        if detector is None or not hasattr(detector, 'is_action_blocked'):
+            return None
+        try:
+            if not detector.is_action_blocked():
+                return None
+        except Exception as exc:  # noqa: BLE001 - a diagnosis must never end a run itself
+            self.logger.debug(f"Could not read the screen for a block: {exc}")
+            return None
+
+        account_username = getattr(getattr(self, 'automation', None), 'active_username', None)
+        self.logger.error(
+            "🛑 Instagram is rate-limiting this account (\"Try again later\") after an unfollow — "
+            "stopping the session"
+        )
+        emit_step('account_restriction', action='action_blocked', target=account_username or '')
+        if account_username and account_username != 'unknown':
+            try:
+                from taktik.core.database.local.service import get_local_database
+
+                get_local_database().account_restrictions.record_signal(
+                    account_username,
+                    platform="instagram",
+                    signal="action_blocked",
+                    source_type="UNFOLLOW",
+                    source_name=None,
+                    source_followers=None,
+                    streak=None,
+                    encounter_order=None,
+                    jump_index=None,
+                    gestures=None,
+                    session_id=self._get_session_id(),
+                )
+            except Exception as exc:  # noqa: BLE001 - losing a measurement must not lose the run
+                self.logger.debug(f"Could not persist the restriction signal: {exc}")
+        return stop_reasons.action_blocked()
+
     def _wait_row_unfollowed(self, username: str, timeout: Optional[float] = None) -> str:
         """The row state of @username, read until it offers to follow or `timeout` elapses.
 

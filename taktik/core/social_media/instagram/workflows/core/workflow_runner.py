@@ -304,6 +304,14 @@ class WorkflowRunner:
         
         # Update the statistics
         self.automation.stats['unfollows'] = self.automation.stats.get('unfollows', 0) + result.get('unfollows_made', 0)
+
+        # A block ends the session at once, the same way as the followers workflow: the stop
+        # reason travels with the result and the session is finalized with it here.
+        stop_reason = result.get('stop_reason')
+        if stop_reason and not getattr(self.automation, 'session_finalized', False):
+            self.automation.helpers.finalize_session(
+                status=stop_reasons.terminal_status(stop_reason), reason=stop_reason)
+            return False
         
         return result.get('success', False)
     
