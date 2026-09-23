@@ -158,9 +158,24 @@ def _runner(monkeypatch, batch_result, session_manager=None):
 
 
 def test_a_batch_without_unfollow_is_not_progress(monkeypatch):
-    runner, finalized, _ = _runner(monkeypatch, {"unfollows_made": 0, "success": True, "stop_reason": None})
+    runner, finalized, _ = _runner(monkeypatch, {"unfollows_made": 0, "success": True, "stop_reason": None,
+                                                 "candidates_left": 4})
     assert runner._run_unfollow_workflow({"type": "unfollow", "max_unfollows": 5}) is False
     assert finalized == []
+
+
+def test_a_batch_that_only_refused_candidates_on_their_profile_is_progress(monkeypatch):
+    runner, finalized, _ = _runner(monkeypatch, {"unfollows_made": 0, "success": True, "stop_reason": None,
+                                                 "candidates_left": 4, "profile_refusals": {"verified": 2}})
+    assert runner._run_unfollow_workflow({"type": "unfollow", "max_unfollows": 5}) is True
+    assert finalized == []
+
+
+def test_nobody_left_to_unfollow_ends_the_session_with_its_reason(monkeypatch):
+    runner, finalized, _ = _runner(monkeypatch, {"unfollows_made": 2, "success": True, "stop_reason": None,
+                                                 "candidates_left": 0, "refusals": {"whitelisted": 3}})
+    assert runner._run_unfollow_workflow({"type": "unfollow", "max_unfollows": 5}) is False
+    assert [r.code for r in finalized] == ["no_unfollow_candidates"]
 
 
 def test_the_session_ends_when_its_maximum_is_reached(monkeypatch):
@@ -177,7 +192,8 @@ def test_a_second_batch_gets_only_what_is_left(monkeypatch):
     sm.record_action("unfollow")
     sm.record_action("unfollow")
     runner, _finalized, configs = _runner(
-        monkeypatch, {"unfollows_made": 1, "success": True, "stop_reason": None}, session_manager=sm)
+        monkeypatch, {"unfollows_made": 1, "success": True, "stop_reason": None, "candidates_left": 5},
+        session_manager=sm)
     assert runner._run_unfollow_workflow({"type": "unfollow", "max_unfollows": 5}) is True
     assert configs[0]["max_unfollows"] == 3
 

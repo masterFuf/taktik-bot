@@ -299,6 +299,7 @@ _FAMILY_BY_CODE = {
     "stuck_at_top": FAMILY_FAILED,
     "action_blocked": FAMILY_FAILED,
     "unfollow_unconfirmed": FAMILY_FAILED,
+    "no_account": FAMILY_FAILED,
     "list_unavailable": FAMILY_FAILED,
     "followers_list_unavailable": FAMILY_FAILED,
     "empty_plan": FAMILY_FAILED,
@@ -365,6 +366,22 @@ def unfollow_unconfirmed(count: Any) -> StopReason:
         f"{count} unfollows in a row not confirmed by the screen",
         count=count,
     )
+
+
+def no_unfollow_candidates(unfollowed: Any, kept: Any) -> StopReason:
+    """The unfollow has nobody (left) to unfollow: every account it follows is kept by a rule
+    (whitelist, bot follows only, delay, mode) or was handled already. An expected end: a run
+    that finds nothing to clean is not a failure, and must not relaunch its syncs for nothing."""
+    return _reason(
+        "no_unfollow_candidates", FAMILY_OK,
+        f"No account left to unfollow ({unfollowed} unfollowed, {kept} kept by the rules)",
+        unfollowed=unfollowed, kept=kept,
+    )
+
+
+def no_account() -> StopReason:
+    """The bot could not tell which account is logged in: nothing can be decided for it."""
+    return _reason("no_account", FAMILY_FAILED, "no_account")
 
 
 def stuck_at_top(scans: Any) -> StopReason:

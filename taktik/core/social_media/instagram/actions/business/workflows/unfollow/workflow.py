@@ -31,6 +31,7 @@ from taktik.core.social_media.instagram.workflows.management.session import stop
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 from .candidates import FollowersSnapshot, records_from_rows, select_candidates
+from .list_proof import scrolls_for
 from .mixins.decision import UnfollowDecisionMixin
 from .mixins.actions import UnfollowActionsMixin
 from .mixins.sync_following import SyncFollowingMixin
@@ -70,6 +71,12 @@ class UnfollowBusiness(
         # later batch.
         self._handled: Set[str] = set()
         self._unconfirmed_in_a_row = 0
+        # The syncs run once per SESSION: a later batch decides again on the base (which our own
+        # unfollows keep up to date) instead of scrolling both lists again for minutes.
+        self._synced = False
+        self._followers: Optional[FollowersSnapshot] = None
+        # How far the walk may scroll the following list: set from the list's count.
+        self._walk_scroll_limit = self.max_list_scrolls
 
         # Sélecteurs centralisés (depuis selectors.py)
         self._unfollow_sel = UNFOLLOW_SELECTORS
@@ -104,6 +111,7 @@ class UnfollowBusiness(
             if not account_id:
                 self.logger.error("Unfollow: no active account, nothing can be decided")
                 stats['errors'] += 1
+                stats['stop_reason'] = stop_reasons.no_account()
                 return stats
             self.logger.info(
                 f"🔄 Unfollow: mode={mode} | max={cfg.get('max_unfollows')} | "
@@ -113,18 +121,23 @@ class UnfollowBusiness(
             )
 
             # 1. What the base knows: the following list, and the followers when it matters.
-            following_sync = self.sync_following_list(cfg)
-            stats['following_sync'] = {k: following_sync.get(k) for k in
-                                       ('new_count', 'updated_count', 'total_seen', 'complete', 'departures')}
-            followers = None
-            if mode in ('non-followers', 'mutual'):
-                followers_sync = self.sync_followers_list({'mode': 'fast'})
-                followers = FollowersSnapshot(
-                    usernames=frozenset(followers_sync.get('usernames') or ()),
-                    complete=bool(followers_sync.get('complete')),
-                )
-                stats['followers_sync'] = {'total_seen': followers_sync.get('total_seen'),
-                                           'complete': followers.complete}
+            # Once per session (see __init__).
+            if not self._synced:
+                following_sync = self.sync_following_list(cfg)
+                stats['following_sync'] = {k: following_sync.get(k) for k in
+                                           ('new_count', 'updated_count', 'total_seen', 'expected',
+                                            'complete', 'departures', 'departures_withheld')}
+                if mode in ('non-followers', 'mutual'):
+                    followers_sync = self.sync_followers_list({'mode': 'fast'})
+                    self._followers = FollowersSnapshot(
+                        usernames=frozenset(followers_sync.get('usernames') or ()),
+                        complete=bool(followers_sync.get('complete')),
+                    )
+                    stats['followers_sync'] = {'total_seen': followers_sync.get('total_seen'),
+                                               'expected': followers_sync.get('expected'),
+                                               'complete': self._followers.complete}
+                self._synced = True
+            followers = self._followers
 
             # 2. The decision, on data.
             selection = select_candidates(
@@ -138,38 +151,72 @@ class UnfollowBusiness(
             )
             IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates),
                                           refusals=dict(selection.refusals))
-            if not selection.candidates:
+            # The accounts a batch of this session handled already are out of the window BEFORE it
+            # is cut: a window of the oldest candidates held only the ones refused on their profile
+            # by the previous batch, and the session ended under its maximum (review 2026-09-24).
+            remaining = [name for name in selection.candidates if name.lower() not in self._handled]
+            stats['candidates_left'] = len(remaining)
+            if not remaining:
                 stats['success'] = True
+                stats['stop_reason'] = stop_reasons.no_unfollow_candidates(
+                    len(self._handled), sum(selection.refusals.values()))
                 return stats
 
             # 3. On screen: open our following list and act on the candidates it shows.
             max_unfollows = int(cfg.get('max_unfollows') or 0)
-            window = selection.candidates[:max_unfollows + self.candidate_margin] if max_unfollows \
-                else selection.candidates
-            if not self.nav_actions.navigate_to_profile_tab():
-                self.logger.error("Unfollow: could not open our profile")
-                stats['errors'] += 1
-                return stats
-            time.sleep(2)
-            if not self.nav_actions.open_following_list():
-                self.logger.error("Unfollow: could not open our following list")
-                stats['errors'] += 1
-                return stats
-            time.sleep(2)
-            if not self._ensure_following_tab():
-                stats['errors'] += 1
-                return stats
-
-            self._unfollow_in_open_list(cfg, window, selection.forced, stats)
-            stats['success'] = True
+            window = remaining[:max_unfollows + self.candidate_margin] if max_unfollows else remaining
+            if self._open_list_and_walk(cfg, window, selection.forced, stats):
+                stats['success'] = True
+            stats['candidates_left'] = sum(1 for name in selection.candidates
+                                           if name.lower() not in self._handled)
+            # What the profiles refused goes to the page with what the data refused.
+            refused = dict(selection.refusals)
+            for reason, count in stats['profile_refusals'].items():
+                refused[reason] = refused.get(reason, 0) + count
+            if stats['not_in_list']:
+                refused['not_in_list'] = refused.get('not_in_list', 0) + stats['not_in_list']
+            IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates), refusals=refused)
             self.logger.info(
                 f"✅ Unfollow done: {stats['unfollows_made']} unfollowed, "
-                f"{stats['unconfirmed']} not confirmed, refused on profile: {stats['profile_refusals'] or 'none'}"
+                f"{stats['unconfirmed']} not confirmed, refused on profile: {stats['profile_refusals'] or 'none'}, "
+                f"{stats['candidates_left']} candidate(s) left"
             )
         except Exception as e:
             self.logger.error(f"Error in the unfollow workflow: {e}")
             stats['errors'] += 1
+            stats['stop_reason'] = stats['stop_reason'] or stop_reasons.navigation_lost()
         return stats
+
+    def _open_list_and_walk(self, cfg: Dict[str, Any], targets: List[str], forced: Set[str],
+                            stats: Dict[str, Any]) -> bool:
+        """Step 3 of the engine: open OUR following list on its tab, oldest follows first, and act
+        on the rows of `targets`. Shared by the engine and the Lab's unitary unfollow, so the Lab
+        runs exactly the production step. False (with a failure stop reason) when the list could
+        not be opened: that is not "nothing to unfollow"."""
+        if not self.nav_actions.navigate_to_profile_tab():
+            self.logger.error("Unfollow: could not open our profile")
+            stats['errors'] += 1
+            stats['stop_reason'] = stop_reasons.navigation_lost()
+            return False
+        time.sleep(2)
+        if not self.nav_actions.open_following_list():
+            self.logger.error("Unfollow: could not open our following list")
+            stats['errors'] += 1
+            stats['stop_reason'] = stop_reasons.list_unavailable()
+            return False
+        time.sleep(2)
+        if not self._ensure_following_tab():
+            stats['errors'] += 1
+            stats['stop_reason'] = stop_reasons.list_unavailable()
+            return False
+        # The candidates come oldest follow first: so should the list, or on a big account the
+        # walk stops (its scroll bound) long before the oldest ones. Where the language has no
+        # known sort label (French today), the list stays in its own order.
+        if not self._set_following_list_sort('earliest'):
+            self.logger.info("Unfollow: 'earliest' sort not applied, walking the list in its own order")
+        self._walk_scroll_limit = scrolls_for(self._list_tab_count('following'), self.max_list_scrolls)
+        self._unfollow_in_open_list(cfg, targets, forced, stats)
+        return True
 
     def unfollow_listed_accounts(self, usernames: List[str], config: Dict[str, Any] = None) -> Dict[str, Any]:
         """Unfollow these accounts from our following list, with every screen check of the engine.
@@ -183,16 +230,12 @@ class UnfollowBusiness(
         stats['candidates'] = len(targets)
         if not targets:
             return stats
-        if not self.nav_actions.navigate_to_profile_tab() or not self.nav_actions.open_following_list():
-            self.logger.error("Unfollow: could not open our following list")
-            stats['errors'] += 1
-            return stats
-        time.sleep(2)
-        if not self._ensure_following_tab():
-            stats['errors'] += 1
-            return stats
-        self._unfollow_in_open_list(cfg, targets, set(), stats)
-        stats['success'] = True
+        # The tester names the accounts: an earlier attempt in this Lab session does not silently
+        # skip them (the engine never retries a handled row within a run session).
+        self._handled -= {name.lower() for name in targets}
+        self._unconfirmed_in_a_row = 0
+        if self._open_list_and_walk(cfg, targets, set(), stats):
+            stats['success'] = True
         return stats
 
     # ─── Walking the open following list ───────────────────────────────────────
@@ -207,6 +250,8 @@ class UnfollowBusiness(
             'profile_refusals': {},
             'errors': 0,
             'scrolls': 0,
+            'not_in_list': 0,
+            'candidates_left': 0,
             'stop_reason': None,
             'success': False,
         }
@@ -225,7 +270,7 @@ class UnfollowBusiness(
         seen: Set[str] = set()
         quiet_scrolls = 0
 
-        while pending and stats['scrolls'] < self.max_list_scrolls:
+        while pending and stats['scrolls'] < self._walk_scroll_limit:
             if max_unfollows and stats['unfollows_made'] >= max_unfollows:
                 break
             rows = self._visible_follow_rows()
@@ -237,7 +282,12 @@ class UnfollowBusiness(
             if row is None:
                 quiet_scrolls = 0 if new_names else quiet_scrolls + 1
                 if quiet_scrolls >= self.end_of_list_scrolls:
-                    self.logger.info("End of the following list")
+                    # The whole list was walked: a candidate it never showed is not followed any
+                    # more (unfollowed elsewhere, a follow request never accepted, a name the base
+                    # got wrong). Handled for this session, so the next batch takes the next ones.
+                    stats['not_in_list'] += len(pending)
+                    handled |= pending
+                    self.logger.info(f"End of the following list; {len(pending)} candidate(s) not in it")
                     break
                 self._scroll_following_list()
                 stats['scrolls'] += 1

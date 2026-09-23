@@ -181,3 +181,90 @@ def test_an_incomplete_followers_sync_unfollows_nobody_in_non_followers_mode(mon
 
     assert stats["candidates"] == 0 and stats["refusals"] == {"reciprocity_unknown": 1}
     assert screen.taps == [] and recorded == []
+
+
+# ── Batches of one session, failures, walk order (review of 2026-09-24) ─────────
+
+def _engine_on_data(monkeypatch, business, followings):
+    business._get_account_id = lambda: 1
+    calls = {"following": 0, "followers": 0, "walks": []}
+
+    def sync_following(cfg):
+        calls["following"] += 1
+        return {"complete": True}
+
+    def sync_followers(cfg):
+        calls["followers"] += 1
+        return {"usernames": set(), "complete": True}
+
+    business.sync_following_list = sync_following
+    business.sync_followers_list = sync_followers
+    business._open_list_and_walk = lambda cfg, targets, forced, stats: calls["walks"].append(list(targets)) or True
+    monkeypatch.setattr(unfollow_workflow.InstagramFollowGraphService, "list_active_followings",
+                        staticmethod(lambda account_id: [
+                            {"username": name, "last_bot_follow_at": f"2026-08-{day:02d}T10:00:00", "first_seen_at": None}
+                            for day, name in enumerate(followings, start=1)]))
+    return calls
+
+
+def test_the_window_leaves_out_what_an_earlier_batch_handled(monkeypatch):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["old1", "old2", "next3", "next4"])
+    business._handled |= {"old1", "old2"}
+    monkeypatch.setattr(UnfollowBusiness, "candidate_margin", 0)
+
+    business.run_unfollow_workflow({"unfollow_mode": "all", "max_unfollows": 1})
+
+    assert calls["walks"] == [["next3"]]
+
+
+def test_the_syncs_run_once_per_session(monkeypatch):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["a1", "a2"])
+
+    business.run_unfollow_workflow({"unfollow_mode": "non-followers", "max_unfollows": 1})
+    business.run_unfollow_workflow({"unfollow_mode": "non-followers", "max_unfollows": 1})
+
+    assert (calls["following"], calls["followers"]) == (1, 1) and len(calls["walks"]) == 2
+
+
+def test_nobody_to_unfollow_is_an_ok_end_with_its_reason(monkeypatch):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["a1"])
+    business._handled.add("a1")
+
+    stats = business.run_unfollow_workflow({"unfollow_mode": "all", "max_unfollows": 5})
+
+    assert stats["stop_reason"].code == "no_unfollow_candidates" and calls["walks"] == []
+
+
+@pytest.mark.parametrize("broken, code", [("navigate_to_profile_tab", "navigation_lost"),
+                                          ("open_following_list", "list_unavailable")])
+def test_a_list_that_cannot_be_opened_is_a_failure_not_an_empty_run(broken, code):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    business.nav_actions.navigate_to_profile_tab = lambda: True
+    business.nav_actions.open_following_list = lambda: True
+    setattr(business.nav_actions, broken, lambda: False)
+    stats = business._new_stats()
+
+    assert business._open_list_and_walk({}, ["a1"], set(), stats) is False
+    assert stats["stop_reason"].code == code
+
+
+def test_a_candidate_the_whole_list_never_shows_is_handled_for_the_session():
+    business, screen, recorded = _business(follow_list_xml([("someone", "Suivi(e)")]))
+    stats = walk_list(business, {"max_unfollows": 5}, names=["ghost_of_the_base"])
+    assert stats["not_in_list"] == 1 and "ghost_of_the_base" in business._handled
+    assert screen.taps == [] and recorded == []
+
+
+def test_the_walk_sorts_the_list_oldest_first(monkeypatch):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    business.nav_actions.navigate_to_profile_tab = lambda: True
+    business.nav_actions.open_following_list = lambda: True
+    orders = []
+    business._set_following_list_sort = lambda order: orders.append(order) or False
+    business._unfollow_in_open_list = lambda cfg, targets, forced, stats: None
+
+    assert business._open_list_and_walk({}, ["a1"], set(), business._new_stats()) is True
+    assert orders == ["earliest"]

@@ -285,9 +285,21 @@ class WorkflowRunner:
             self._finalize_on(cap_reason)
             return False
 
-        # Progress means unfollows made. A batch that unfollowed nobody used to report success,
-        # and the session relaunched it until its duration ran out, doing nothing but scrolling.
-        return result.get('unfollows_made', 0) > 0
+        # Nobody left to unfollow: the session ends now, with that reason, instead of a batch
+        # that would find it out again (review of 2026-09-24).
+        if result.get('success') and not result.get('candidates_left'):
+            self._finalize_on(stop_reasons.no_unfollow_candidates(
+                self.automation.stats.get('unfollows', 0), sum((result.get('refusals') or {}).values())))
+            return False
+
+        # Progress means candidates handled: unfollowed, refused on their profile, not in the list.
+        # A batch that handled nobody used to report success, and the session relaunched it until
+        # its duration ran out, doing nothing but scrolling. Each batch handling at least one of a
+        # finite list of candidates, the batches end.
+        handled_now = (result.get('unfollows_made', 0) + result.get('unconfirmed', 0)
+                       + result.get('not_in_list', 0)
+                       + sum((result.get('profile_refusals') or {}).values()))
+        return handled_now > 0
 
     @staticmethod
     def _unfollow_engine_config(action: Dict[str, Any], max_unfollows) -> Dict[str, Any]:
