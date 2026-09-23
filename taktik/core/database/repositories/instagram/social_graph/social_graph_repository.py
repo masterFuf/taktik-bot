@@ -258,6 +258,36 @@ class SocialGraphRepository(BaseRepository):
             logger.debug(f"Error in list_active_followings: {exc}")
             return []
 
+    def set_followings_reciprocity(self, account_id: int, follower_usernames) -> int:
+        """After a COMPLETE read of the followers list: every active following is reciprocal
+        (1) when it was seen among the followers, else not (0). Returns the rows written.
+
+        Nothing wrote `is_reciprocal` on the following rows since the fans category stopped
+        deducing it (U6), and the page's mutual / non-follower counts froze (review of
+        2026-09-24). Call it only with a proven-complete read: absence means "no" only then.
+        """
+        if not account_id:
+            return 0
+        followers = {str(name).lower() for name in (follower_usernames or ())}
+        try:
+            rows = self.query(
+                "SELECT username FROM social_graph_sync "
+                "WHERE platform = ? AND account_id = ? AND direction = 'following' AND unfollowed_at IS NULL",
+                (self.platform, account_id),
+            )
+            updates = [(1 if row[0].lower() in followers else 0, self.platform, account_id, row[0])
+                       for row in rows]
+            if not updates:
+                return 0
+            return self.execute_many(
+                "UPDATE social_graph_sync SET is_reciprocal = ? "
+                "WHERE platform = ? AND account_id = ? AND username = ? AND direction = 'following'",
+                updates,
+            )
+        except Exception as exc:
+            logger.debug(f"Error in set_followings_reciprocity: {exc}")
+            return 0
+
     def set_following_follower_back(
         self,
         username: str,

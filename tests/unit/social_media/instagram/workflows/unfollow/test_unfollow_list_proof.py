@@ -67,6 +67,7 @@ class Graph:
     def __init__(self, known_followings=()):
         self.known = {name.lower() for name in known_followings}
         self.followings, self.followers, self.unfollowed = [], [], []
+        self.reciprocity = []
 
     def install(self, monkeypatch):
         for module in (followers_mixin, following_mixin):
@@ -79,6 +80,8 @@ class Graph:
                                 staticmethod(lambda username, **_k: self.followers.append(username) or "new"))
             monkeypatch.setattr(service, "mark_unfollowed",
                                 staticmethod(lambda username, _a: self.unfollowed.append(username)))
+            monkeypatch.setattr(service, "set_followings_reciprocity",
+                                staticmethod(lambda _a, names: self.reciprocity.append(set(names)) or len(names)))
 
 
 def _business(screens, *, graph, monkeypatch):
@@ -113,6 +116,7 @@ def test_a_followers_read_that_reaches_the_count_is_complete(monkeypatch):
 
     assert stats["complete"] is True and stats["expected"] == 4
     assert stats["usernames"] == {"f1", "f2", "f3", "f4"}
+    assert graph.reciprocity == [{"f1", "f2", "f3", "f4"}]
 
 
 def test_a_followers_read_that_stops_short_of_the_count_proves_nothing(monkeypatch):
@@ -123,6 +127,7 @@ def test_a_followers_read_that_stops_short_of_the_count_proves_nothing(monkeypat
     stats = business.sync_followers_list({"mode": "fast"})
 
     assert stats["end_reached"] is True and stats["complete"] is False
+    assert graph.reciprocity == []   # a partial read writes no reciprocity
 
 
 def test_suggestion_rows_under_the_followers_are_not_followers(monkeypatch):

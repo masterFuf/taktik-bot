@@ -287,6 +287,9 @@ class SyncFollowersMixin:
                         scroll_attempts += 1
 
             stats['usernames'] = set(seen_on_screen)
+            if stats['complete']:
+                stats['reciprocity_written'] = InstagramFollowGraphService.set_followings_reciprocity(
+                    account_id, seen_on_screen)
             stats['success'] = True
             self.logger.info(
                 f"✅ Followers sync complete: {stats['new_count']} new, "

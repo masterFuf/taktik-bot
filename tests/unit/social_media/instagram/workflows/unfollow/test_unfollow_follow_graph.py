@@ -62,3 +62,10 @@ def test_a_complete_read_closes_the_accounts_unfollowed_elsewhere(graph):
     gone = _Sync()._record_following_departures(3, known={"alice", "bob", "carol"}, seen={"Alice", "carol"})
     assert gone == 1
     assert graph.calls == [("mark_unfollowed", {"username": "bob", "account_id": 3})]
+
+
+@pytest.mark.parametrize("shown", ["Marie Dupont", "Zoé", "a" * 31, "", "@"])
+def test_a_displayed_name_is_not_written_as_a_following(graph, shown):
+    """Review 2026-09-24: the feed suggestions record the NAME shown, not the handle."""
+    InstagramWorkflowStateService._update_follow_graph(shown, "FOLLOW", 3)
+    assert graph.calls == []

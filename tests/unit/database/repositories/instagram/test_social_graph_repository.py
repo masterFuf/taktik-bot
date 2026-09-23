@@ -248,3 +248,19 @@ def test_only_this_account_s_successful_follows_on_this_platform_count(conn):
     repo.upsert_following("w_account", "", 14)
 
     assert repo.list_active_followings(14)[0]["last_bot_follow_at"] is None
+
+
+def test_reciprocity_is_written_for_every_active_following_after_a_complete_read(conn):
+    """Review 2026-09-24 (M3): nothing wrote is_reciprocal on the following rows any more."""
+    repo = SocialGraphRepository(conn)
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 16, 'b16', 1)")
+    conn.commit()
+    for name in ("mutual", "one_way", "gone"):
+        repo.upsert_following(name, "", 16)
+    repo.mark_unfollowed("gone", 16)
+
+    assert repo.set_followings_reciprocity(16, {"Mutual", "someone_else"}) == 2
+
+    rows = {r["username"]: r["is_reciprocal"] for r in conn.execute(
+        "SELECT username, is_reciprocal FROM social_graph_sync WHERE account_id = 16 AND direction = 'following'")}
+    assert rows == {"mutual": 1, "one_way": 0, "gone": None}

@@ -22,6 +22,14 @@ from loguru import logger
 log = logger.bind(module="database-instagram-workflow-state")
 
 
+def _is_instagram_handle(value) -> bool:
+    """Is `value` an Instagram handle (1 to 30 of a-z, 0-9, '.', '_'), not a displayed name?"""
+    name = str(value or '').strip().lstrip('@')
+    return 0 < len(name) <= 30 and all(
+        char.isascii() and (char.islower() or char.isdigit() or char in '._') for char in name
+    )
+
+
 class InstagramWorkflowStateService:
     """Database facade for Instagram workflow state decisions."""
 
@@ -55,6 +63,12 @@ class InstagramWorkflowStateService:
         """
         kind = (action_type or '').upper()
         if kind not in ('FOLLOW', 'UNFOLLOW'):
+            return
+        if not _is_instagram_handle(username):
+            # Some paths record the NAME shown on screen ("Marie Dupont", from the feed
+            # suggestions): such a row can never be found in the following list, and it filled
+            # the oldest candidates of the unfollow with ghosts (review of 2026-09-24).
+            log.debug("Follow graph not updated for {}: {!r} is not an Instagram handle", kind, username)
             return
         try:
             from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
