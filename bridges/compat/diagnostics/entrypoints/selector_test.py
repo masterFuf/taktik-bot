@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 """
-Selector Test Bridge â€” Live-tests XPath selectors against a real device screen.
+Selector Test Bridge — Live-tests XPath selectors against a real device screen.
 
 Connects to a device via uiautomator2, then tests each selector from the
 VersionedSelectorRegistry by calling device.xpath(expr).exists on the live UI.

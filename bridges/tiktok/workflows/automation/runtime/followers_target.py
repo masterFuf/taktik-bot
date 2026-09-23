@@ -40,8 +40,8 @@ def run_followers_target(
 ) -> FollowersTargetResult:
     """Run the Followers workflow for one target and update aggregate stats."""
     logger.info(f"\n{'='*50}")
-    logger.info(f"ðŸŽ¯ Target {target_idx + 1}/{len(target_list)}: @{current_target}")
-    logger.info(f"ðŸ“Š Max profiles for this target: {target_max_followers}")
+    logger.info(f"🎯 Target {target_idx + 1}/{len(target_list)}: @{current_target}")
+    logger.info(f"📊 Max profiles for this target: {target_max_followers}")
     logger.info(f"{'='*50}")
 
     send_target_switch(current_target, target_idx, target_list)
@@ -70,7 +70,7 @@ def run_followers_target(
         len(target_list),
     )
 
-    logger.info(f"â–¶ï¸ Running followers workflow for @{current_target}...")
+    logger.info(f"▶️ Running followers workflow for @{current_target}...")
     stats = workflow.run(bot_username=effective_bot_username)
 
     record_target_stats(total_stats, stats)
@@ -80,7 +80,7 @@ def run_followers_target(
     completion_reason = getattr(stats, "completion_reason", "unknown")
 
     logger.info(
-        f"âœ… Target @{current_target} completed: "
+        f"✅ Target @{current_target} completed: "
         f"{stats.profiles_visited} profiles, {stats.likes} likes"
     )
 

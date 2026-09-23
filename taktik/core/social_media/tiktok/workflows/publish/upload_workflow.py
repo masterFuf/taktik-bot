@@ -247,7 +247,7 @@ class TikTokUploadWorkflow:
                     time.sleep(3.0)
                     dismiss_post_popups(self.device, log=_ipc.log)
                     _ipc.status("success", "Post published successfully!")
-                    _ipc.log("info", "âœ… TikTok post published")
+                    _ipc.log("info", "✅ TikTok post published")
                     self._capture("08_posted")
                     force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
                     return {"success": True, "message": "Post published successfully", "error_type": None}

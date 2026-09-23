@@ -19,10 +19,10 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
         send_error("No device ID provided")
         return False
 
-    logger.info(f"ðŸ‘‹ Starting TikTok Unfollow workflow on device: {device_id}")
+    logger.info(f"👋 Starting TikTok Unfollow workflow on device: {device_id}")
     if bot_username:
-        logger.info(f"ðŸ“Š Bot account: @{bot_username}")
-    logger.info(f"ðŸŽ¯ Max unfollows: {max_unfollows}")
+        logger.info(f"📊 Bot account: @{bot_username}")
+    logger.info(f"🎯 Max unfollows: {max_unfollows}")
     send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
 
     try:
@@ -61,7 +61,7 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
         stats = workflow.run()
 
         send_message("unfollow_stats", stats={"unfollowed": stats.unfollowed, "target": max_unfollows})
-        logger.success(f"âœ… Unfollow workflow completed: {stats.unfollowed} users unfollowed")
+        logger.success(f"✅ Unfollow workflow completed: {stats.unfollowed} users unfollowed")
         send_status("completed", f"Unfollowed {stats.unfollowed} users")
 
         return True

@@ -22,7 +22,7 @@ def wire_dm_read_callbacks(workflow) -> None:
 
     def on_conversation(conv_data):
         send_dm_conversation(conv_data)
-        logger.info(f"ðŸ“– Read conversation: {conv_data.get('name', 'unknown')}")
+        logger.info(f"📖 Read conversation: {conv_data.get('name', 'unknown')}")
 
     def on_stats(stats_dict):
         send_dm_stats(stats_dict)

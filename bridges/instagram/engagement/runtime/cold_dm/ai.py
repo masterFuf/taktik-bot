@@ -16,22 +16,22 @@ OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 def generate_ai_message(username: str, ai_prompt: str, openrouter_api_key: str) -> str:
     """Generate a personalized DM message for a user via OpenRouter."""
     try:
-        system_prompt = """Tu es un expert en cold outreach Instagram. Tu gÃ©nÃ¨res des messages directs personnalisÃ©s, naturels et engageants.
+        system_prompt = """Tu es un expert en cold outreach Instagram. Tu génères des messages directs personnalisés, naturels et engageants.
 
-RÃ¨gles:
+Règles:
 - Message court (1-3 phrases max)
 - Ton amical et professionnel
-- Pas de spam, pas de messages gÃ©nÃ©riques
-- Adapte le message au contexte donnÃ©
+- Pas de spam, pas de messages génériques
+- Adapte le message au contexte donné
 - Ne mentionne jamais que tu es une IA
-- RÃ©ponds UNIQUEMENT avec le texte du message, rien d'autre"""
+- Réponds UNIQUEMENT avec le texte du message, rien d'autre"""
 
-        user_prompt = f"""GÃ©nÃ¨re un message de prospection Instagram pour @{username}.
+        user_prompt = f"""Génère un message de prospection Instagram pour @{username}.
 
-Instructions spÃ©cifiques:
+Instructions spécifiques:
 {ai_prompt}
 
-Le message doit Ãªtre unique et personnalisÃ©. RÃ©ponds uniquement avec le texte du message."""
+Le message doit être unique et personnalisé. Réponds uniquement avec le texte du message."""
 
         headers = {
             "Authorization": f"Bearer {openrouter_api_key}",
