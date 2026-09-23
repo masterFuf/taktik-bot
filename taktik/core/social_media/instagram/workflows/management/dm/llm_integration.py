@@ -1,12 +1,17 @@
-"""LLM integration: context building, API calls, response cleaning, message filtering."""
+"""LLM integration: context building, API calls, response cleaning, message filtering.
 
-import json
-import urllib.request
-import urllib.error
+The call goes through the shared provider (`build_ai_service(...).text_completion`, then
+`_call_openrouter`), the single point every paid call passes through: rate-limit retry, cost log,
+and `ai_spend` when the workflow was given an `ipc`. This module is core: it never imports a bridge, so the notifier
+is injected (`self.ipc`), and the CLI runs without one.
+"""
+
 from typing import Optional
-from .auto_reply_models import DMAutoReplyConfig
 
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+from taktik.core.app.ai.factory import build_ai_service
+from taktik.core.app.ai.spend import AI_SPEND_DM
+
+from .auto_reply_models import DMAutoReplyConfig
 
 
 class DMLLMIntegrationMixin:
@@ -81,43 +86,22 @@ class DMLLMIntegrationMixin:
                 {"role": "user", "content": f"{context}\n\nUser message: {message}\n\nYour reply (keep it natural and concise):"}
             ]
             
-            headers = {
-                "Authorization": f"Bearer {config.openrouter_api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://taktik-bot.com",
-                "X-Title": "TAKTIK Bot",
-            }
-            body = json.dumps({
-                "model": config.llm_model,
-                "messages": messages,
-                "max_tokens": 150,
-                "temperature": 0.7,
-            }).encode("utf-8")
-            
-            req = urllib.request.Request(OPENROUTER_API_URL, data=body, headers=headers, method="POST")
-            
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                choice = data.get("choices", [{}])[0]
-                reply = choice.get("message", {}).get("content", "").strip()
-                
-                # Clean the reply
-                reply = self._clean_llm_response(reply)
-                
-                self.logger.debug(f"LLM generated ({len(reply)} chars)...")
-                return reply
-                    
-        except urllib.error.HTTPError as e:
-            error_body = ""
-            try:
-                error_body = e.read().decode("utf-8")
-            except Exception:
-                pass
-            self.logger.error(f"OpenRouter API error: {e.code} - {error_body[:300]}")
-            return None
+            service = build_ai_service(api_key=config.openrouter_api_key, ipc=getattr(self, "ipc", None))
+            result = service.text_completion(
+                messages[0]["content"], messages[1]["content"],
+                temperature=0.7, max_tokens=150, model=config.llm_model,
+                label="dm_auto_reply", kind=AI_SPEND_DM,
+            )
         except Exception as e:
             self.logger.error(f"Error calling LLM: {e}")
             return None
+
+        if not result.get("success"):
+            self.logger.error(f"OpenRouter API error: {result.get('error')}")
+            return None
+        reply = self._clean_llm_response(result.get("text", ""))
+        self.logger.debug(f"LLM generated ({len(reply)} chars)...")
+        return reply
 
     def _clean_llm_response(self, response: str) -> str:
         """Clean the LLM reply."""
