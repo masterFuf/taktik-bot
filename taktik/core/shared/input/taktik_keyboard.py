@@ -23,6 +23,10 @@ IME_MESSAGE_B64 = "ADB_INPUT_B64"
 IME_CLEAR_TEXT = "ADB_CLEAR_TEXT"
 # The keyboard given back when the phone's own was already the ADB one (Gboard, on the Pixels).
 GBOARD_IME = "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME"
+# uiautomator2 switches to its OWN input keyboard for send_keys, clear_text, hide_keyboard: an ADB
+# keyboard too, never a keyboard to give back.
+UIAUTOMATOR_IME = "com.github.uiautomator/.AdbKeyboard"
+ADB_IMES = frozenset({TAKTIK_KEYBOARD_IME, UIAUTOMATOR_IME})
 _ACTIVE_CACHE_TTL_SECONDS = 120.0
 _active_ime_cache: dict[str, float] = {}
 
@@ -34,23 +38,37 @@ _restore_lock = threading.Lock()
 _atexit_registered = False
 
 
-def _read_default_ime(device_id: str) -> Optional[str]:
-    value = (run_adb_shell(device_id, "settings get secure default_input_method") or "").strip()
+def _clean_ime(value: Optional[str]) -> Optional[str]:
+    value = (value or "").strip()
     return value if value and value != "null" else None
 
 
-def remember_original_keyboard(device_id: str) -> None:
-    """Remember the phone's keyboard before the FIRST switch of this process, and arrange for it
-    to be given back when the process ends (the end of the bridge, so of the session)."""
+def _read_default_ime(device_id: str) -> Optional[str]:
+    return _clean_ime(run_adb_shell(device_id, "settings get secure default_input_method"))
+
+
+def remember_original_keyboard(device_id: str, current: Optional[str] = None,
+                               known: bool = False) -> None:
+    """Remember the phone's keyboard the FIRST time this process looks at it, and arrange for it
+    to be given back when the process ends (the end of the bridge, so of the session).
+
+    `current`/`known`: the default keyboard the caller just read, to spare a second adb call. The
+    first look happens in `is_taktik_keyboard_active`, which every typing path runs BEFORE deciding
+    to switch: remembering only in `activate_taktik_keyboard` missed every phone already on the
+    ADB keyboard (the switch is skipped there), so the Pixels were never given anything back.
+    """
     global _atexit_registered
     with _restore_lock:
         if device_id in _original_ime:
             return
-        try:
-            _original_ime[device_id] = _read_default_ime(device_id)
-        except Exception as exc:  # the switch goes on; the restore falls back on another keyboard
-            logger.debug(f"Could not read the keyboard of {device_id}: {exc}")
-            _original_ime[device_id] = None
+        if known:
+            _original_ime[device_id] = _clean_ime(current)
+        else:
+            try:
+                _original_ime[device_id] = _read_default_ime(device_id)
+            except Exception as exc:  # the switch goes on; the restore falls back on another keyboard
+                logger.debug(f"Could not read the keyboard of {device_id}: {exc}")
+                _original_ime[device_id] = None
         if not _atexit_registered:
             atexit.register(restore_all_keyboards)
             _atexit_registered = True
@@ -59,7 +77,7 @@ def remember_original_keyboard(device_id: str) -> None:
 def _fallback_keyboard(device_id: str) -> Optional[str]:
     """The first enabled keyboard that is not the ADB one, Gboard first."""
     enabled = [line.strip() for line in (run_adb_shell(device_id, "ime list -s") or "").splitlines()
-               if line.strip() and line.strip() != TAKTIK_KEYBOARD_IME]
+               if line.strip() and line.strip() not in ADB_IMES]
     if GBOARD_IME in enabled:
         return GBOARD_IME
     return enabled[0] if enabled else None
@@ -74,7 +92,7 @@ def restore_original_keyboard(device_id: str) -> bool:
             return False
         original = _original_ime.pop(device_id)
     try:
-        target = original if original and original != TAKTIK_KEYBOARD_IME else _fallback_keyboard(device_id)
+        target = original if original and original not in ADB_IMES else _fallback_keyboard(device_id)
         if not target:
             logger.warning(f"No keyboard to give back to {device_id}: the ADB keyboard stays")
             return False
@@ -104,6 +122,8 @@ def is_taktik_keyboard_active(device_id: str) -> bool:
 
     try:
         result = run_adb_shell(device_id, "settings get secure default_input_method")
+        # The first look at this phone's keyboard in this process: what the session will give back.
+        remember_original_keyboard(device_id, current=result, known=True)
         active = TAKTIK_KEYBOARD_IME in result
         if active:
             _active_ime_cache[device_id] = time.time()
@@ -268,6 +288,7 @@ __all__ = [
     "restore_original_keyboard",
     "restore_all_keyboards",
     "GBOARD_IME",
+    "UIAUTOMATOR_IME",
     "type_with_taktik_keyboard",
     "type_text_human",
     "clear_text_with_taktik_keyboard",

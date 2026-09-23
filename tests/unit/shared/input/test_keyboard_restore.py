@@ -110,3 +110,40 @@ def test_the_instagram_typing_path_switches_through_the_shared_owner(monkeypatch
 
     assert Typist()._activate_taktik_keyboard() is True
     assert kb._original_ime == {"phone": SAMSUNG}
+
+
+# ── Review of 2026-09-24 ────────────────────────────────────────────────────────
+
+def test_a_phone_already_on_the_adb_keyboard_is_remembered_at_the_first_check(monkeypatch):
+    """The Pixels: every typing path checks first and skips the switch, since ADB is active."""
+    adb = FakeAdb(default=ADB)
+    monkeypatch.setattr(kb, "run_adb_shell", adb)
+
+    assert kb.is_taktik_keyboard_active("pixel") is True
+    assert kb.restore_original_keyboard("pixel") is True
+    assert adb.default == kb.GBOARD_IME
+    assert adb.commands.count("settings get secure default_input_method") == 1
+
+
+def test_uiautomator2_s_own_keyboard_is_never_given_back(monkeypatch):
+    adb = FakeAdb(default=kb.UIAUTOMATOR_IME, enabled=(kb.UIAUTOMATOR_IME, ADB, SAMSUNG))
+    monkeypatch.setattr(kb, "run_adb_shell", adb)
+    kb.is_taktik_keyboard_active("phone")
+    kb.restore_original_keyboard("phone")
+    assert adb.default == SAMSUNG
+
+
+def test_the_instagram_typing_check_goes_through_the_shared_owner(monkeypatch):
+    from taktik.core.social_media.instagram.actions.core.base_action.typing import TypingMixin
+
+    adb = FakeAdb(default=SAMSUNG, enabled=(SAMSUNG, ADB))
+    monkeypatch.setattr(kb, "run_adb_shell", adb)
+
+    class Typist(TypingMixin):
+        logger = kb.logger
+
+        def _get_device_serial(self):
+            return "phone"
+
+    assert Typist()._is_taktik_keyboard_active() is False
+    assert kb._original_ime == {"phone": SAMSUNG}

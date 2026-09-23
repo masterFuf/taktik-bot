@@ -47,11 +47,12 @@ class TypingMixin:
         self.logger.debug(f"✅ Finished typing {len(text)} chars")
 
     def _is_taktik_keyboard_active(self) -> bool:
-        """Check if Taktik Keyboard (ADB Keyboard) is the active IME."""
+        """Check if Taktik Keyboard (ADB Keyboard) is the active IME, through the shared owner
+        (which also remembers the phone's own keyboard, to give it back at the end)."""
         try:
-            device_serial = self._get_device_serial()
-            result = self._run_adb_shell(device_serial, 'settings get secure default_input_method')
-            return self._TAKTIK_KEYBOARD_IME in result
+            from taktik.core.shared.input.taktik_keyboard import is_taktik_keyboard_active
+
+            return is_taktik_keyboard_active(self._get_device_serial())
         except Exception as e:
             self.logger.debug(f"Cannot check keyboard status: {e}")
             return False
