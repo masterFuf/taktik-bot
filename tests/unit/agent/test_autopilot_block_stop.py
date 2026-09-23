@@ -112,3 +112,101 @@ def test_a_refused_follow_skips_the_extra_likes():
     assert calls["follow"] == 1
     assert calls["likes"] == 0
     assert calls["feed"] >= 1
+
+
+def test_a_lock_already_set_answers_without_a_dump():
+    """Set inside a like loop, by a comment, during a navigation: no second dump."""
+    phone = _CountingPhone(_FEED_SCREEN)
+    agent = _agent(phone)
+    run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page")
+
+    assert agent._block_seen("like") is True
+    assert phone.dumps == 0
+
+
+def test_no_profile_visit_after_a_block():
+    """A block seen in the hashtag burst: the loop still reached the profile visit of the post's
+    decision -- navigation, a paid AI call, then a follow, with no look at the lock."""
+    agent = _agent()
+    calls = []
+    agent._navigate_to_profile = lambda username: calls.append(username) or True
+    run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page")
+
+    agent._handle_profile_visit("alice")
+
+    assert calls == []
+
+
+class _CountingPhone(_Phone):
+    def __init__(self, xml):
+        super().__init__(xml)
+        self.dumps = 0
+
+    def dump_hierarchy(self, *a, **k):
+        self.dumps += 1
+        return super().dump_hierarchy(*a, **k)
+
+
+class _FeedAI:
+    def decide_feed_action(self, **_kwargs):
+        return {"action": "like_comment", "comment": "Superbe", "visit_profile": False,
+                "cost_usd": 0.0, "reason": "test"}
+
+
+def test_the_feed_loop_stops_between_a_refused_like_and_its_comment(monkeypatch):
+    import time as _time
+
+    import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
+    import taktik.core.social_media.instagram.actions.business.workflows.feed as feed_package
+
+    gestures = []
+
+    class _Feed:
+        def __init__(self, *_a, **_k):
+            pass
+
+        def _scroll_to_next_post(self):
+            gestures.append("scroll")
+
+        def _is_sponsored_post(self):
+            return False
+
+        def _is_reel_post(self):
+            return False
+
+        def _get_current_post_author(self):
+            return "bob"
+
+        def _like_current_post(self):
+            gestures.append("like")
+            return True
+
+        def _comment_current_post(self, _config):
+            gestures.append("comment")
+            return True
+
+    monkeypatch.setattr(feed_package, "FeedBusiness", _Feed)
+    monkeypatch.setattr(autopilot.random, "randint", lambda *_a: 1)
+
+    class _Screen(_Phone):
+        def dump_hierarchy(self, *a, **k):
+            return _BLOCK_DIALOG if "like" in gestures else _FEED_SCREEN
+
+    agent = _agent(_Screen(_FEED_SCREEN))
+    agent.config = {"skip_reels": True}
+    agent.ipc = None
+    agent.device_manager = None
+    agent._consecutive_skips = 0
+    agent._hashtag_pool = []
+    agent._ai = _FeedAI()
+    agent._take_screenshot = lambda _label: "/tmp/shot.png"
+    agent._session_start = _time.time()
+    agent.stats["posts_stopped"] = 0
+    agent._persona_block = ""
+    agent._stop_requested = False
+    agent.quotas.update({"max_profile_visits": 10, "session_duration_min": 5})
+
+    agent._run_feed_loop()
+
+    assert gestures == ["like"]
+    assert run_halt.arret_demande()["code"] == run_halt.ACTION_BLOCKED

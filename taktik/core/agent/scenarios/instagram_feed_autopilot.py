@@ -23,6 +23,7 @@ from loguru import logger
 from taktik.core.app.ai.spend import AI_SPEND_HASHTAGS
 
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.database import get_db_service
 from taktik.core.app.ai.comments.comment_ai import UserProfile
 from taktik.core.agent.decision.agent_ai import AgentAI
@@ -157,7 +158,10 @@ class TaktikAgentWorkflow:
             self._send_status("running", "Taktik Agent is active", message_key="agentStatusActive")
             self._run_feed_loop()
 
-            # Finalize
+            # Finalize. A stop on the run's lock is said, not folded into "completed".
+            halt = run_halt.arret_demande()
+            if halt:
+                self.stats["stop_reason"] = halt.get("code")
             self._context.update_stats(self.stats)
             self._send_status("completed", "Session completed", stats=self.stats,
                               message_key="agentStatusCompleted")
@@ -452,22 +456,21 @@ class TaktikAgentWorkflow:
 
             elif action in ("like", "like_comment", "like_save"):
                 if self.stats["likes"] < self.quotas["max_likes"]:
-                    wrote = False
                     if feed._like_current_post():
-                        wrote = True
                         self.stats["likes"] += 1
                         self._consecutive_skips = 0
+                        # Right after the like, before the comment touches the screen.
+                        if self._block_seen("like"):
+                            break
                         time.sleep(random.uniform(*DELAY_AFTER_LIKE))
 
                     if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                         comment_text = decision.get("comment", "")
                         if comment_text:
-                            wrote = True
                             self._post_comment(feed, comment_text, author)
                             self._consecutive_skips = 0
-
-                    if wrote and self._block_seen("like/comment"):
-                        break
+                            if self._block_seen("comment"):
+                                break
 
             # Profile visit
             if decision.get("visit_profile") and author != "unknown":
@@ -645,20 +648,18 @@ class TaktikAgentWorkflow:
 
                 if action in ("like", "like_comment", "like_save"):
                     if self.stats["likes"] < self.quotas["max_likes"]:
-                        wrote = False
                         if feed._like_current_post():
-                            wrote = True
                             self.stats["likes"] += 1
+                            if self._block_seen("like"):
+                                return
                             time.sleep(random.uniform(*DELAY_AFTER_LIKE))
 
                         if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                             comment_text = decision.get("comment", "")
                             if comment_text:
-                                wrote = True
                                 self._post_comment(feed, comment_text, author)
-
-                        if wrote and self._block_seen("like/comment"):
-                            return
+                                if self._block_seen("comment"):
+                                    return
 
                 if decision.get("visit_profile") and author != "unknown":
                     if self.stats["profile_visits"] < self.quotas["max_profile_visits"]:
@@ -745,6 +746,12 @@ class TaktikAgentWorkflow:
     def _handle_profile_visit(self, username: str):
         """Navigate to a profile, take a screenshot, and let AI decide whether to follow."""
         logger.info(f"[TaktikAgent] Visiting profile @{username}")
+
+        # The run's lock, set in the hashtag burst, on the feed or during a navigation: no
+        # visit, no paid AI call, no follow after a block (secours 2).
+        if run_halt.arret_demande():
+            logger.warning("[TaktikAgent] Run stop requested — no profile visit")
+            return
 
         if not self._navigate_to_profile(username):
             logger.warning(f"[TaktikAgent] Could not navigate to @{username}")
@@ -892,6 +899,8 @@ class TaktikAgentWorkflow:
         The detector sets the run's lock itself (`run_halt.ACTION_BLOCKED`), which
         `_should_stop` reads: one sighting ends the session (secours 2, 2026-09-24).
         """
+        if run_halt.arret_demande():
+            return True  # already seen (inside a like loop, a comment, a navigation): no dump
         try:
             from taktik.core.social_media.instagram.ui.detectors.problematic_page import (
                 ProblematicPageDetector,
@@ -910,8 +919,6 @@ class TaktikAgentWorkflow:
             return True
         # The run's lock: a block ("Try again later") seen by the detector, a lost phone.
         # The autopilot never read it (secours 2, 2026-09-24).
-        from taktik.core.shared.diagnostics import run_halt
-
         halt = run_halt.arret_demande()
         if halt:
             logger.warning(f"[TaktikAgent] Run stop requested: {halt.get('code')}")
