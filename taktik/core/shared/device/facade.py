@@ -186,6 +186,31 @@ class BaseDeviceFacade:
             self.logger.error(f"Error getting XML dump: {e}")
             return None
     
+    # === Screen photo (step 1 of the one-photo spec: available, wired into no workflow yet) ===
+
+    def _snapshot_source(self):
+        source = getattr(self, "_snapshot_source_instance", None)
+        if source is None:
+            from taktik.core.shared.device.snapshot import SnapshotSource
+
+            source = SnapshotSource(self.get_xml_dump)
+            self._snapshot_source_instance = source
+        return source
+
+    def snapshot(self, fresh: bool = False):
+        """One dump, parsed once as `d.xpath()` sees it: ask it every question about this
+        screen (`exists`, `find`, `first`), instead of one dump per selector. Kept 0.25 s, or until
+        `invalidate_snapshot()`."""
+        return self._snapshot_source().snapshot(fresh=fresh)
+
+    def invalidate_snapshot(self) -> None:
+        """The screen changed (a gesture): the next `snapshot()` takes a new photo."""
+        self._snapshot_source().invalidate()
+
+    def wait_for_snapshot(self, predicate, timeout: float, poll_ms: int = 300):
+        """New photos at a fixed pace until `predicate(photo)` holds: the photo, or None."""
+        return self._snapshot_source().wait_for(predicate, timeout, poll_ms)
+
     def screenshot(self, filename: str) -> bool:
         try:
             os.makedirs(os.path.dirname(filename) or '.', exist_ok=True)
