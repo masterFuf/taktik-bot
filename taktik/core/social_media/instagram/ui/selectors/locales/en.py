@@ -985,6 +985,11 @@ STRINGS: Dict[str, List[str]] = {
         "followers",
         "Followers",
     ],
+    # The tab of OUR FOLLOWING in the unified list: "48 following" (Instagram 410, 2026-09).
+    "unfollow.following_tab_labels": [
+        "following",
+        "Following",
+    ],
     # The FANS category of the followers tab: people who follow you, whom you do not follow.
     "unfollow.fans_category_labels": [
         "don't follow back",

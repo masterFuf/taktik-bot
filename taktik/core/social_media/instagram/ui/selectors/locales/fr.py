@@ -952,6 +952,11 @@ STRINGS: Dict[str, List[str]] = {
         "followers",
         "abonnés",
     ],
+    # Onglet de NOS ABONNEMENTS de la liste unifiée : « 1 287 suivi(e)s » (Instagram 410 et 447,
+    # septembre 2026). Pas « abonnements » : c'est l'onglet des abonnements PAYANTS.
+    "unfollow.following_tab_labels": [
+        "suivi(e)s",
+    ],
     # Catégorie des FANS de l'onglet des abonnés (ils vous suivent, vous ne les suivez pas).
     # Relevé sur Instagram 447 en français (Pixel 6a, 2026-09-23).
     "unfollow.fans_category_labels": [

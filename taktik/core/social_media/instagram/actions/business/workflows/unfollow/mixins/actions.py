@@ -90,6 +90,46 @@ class UnfollowActionsMixin:
                 return False
             time.sleep(0.3)
 
+    following_tab_timeout = 2.0
+
+    def _ensure_following_tab(self) -> bool:
+        """Make sure the open list is OUR FOLLOWING tab, not the followers one.
+
+        Since Instagram 410 the followers and following lists are one screen with tabs ("673
+        followers", "1 287 suivi(e)s", "0 abonnements", "À vérifier"), opened on the tab of the
+        counter tapped. A complete read of the wrong tab would record our followers as accounts we
+        follow, and mark every following it did not see as unfollowed elsewhere: the tab is
+        checked, tapped when another one is shown, and the list refused when the following tab
+        cannot be confirmed. A screen without the tab layout (one list per screen) is taken as is.
+        """
+        d = self.device.device
+        package = get_active_package()
+        if not d.xpath(UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(package)).exists:
+            return True
+        if self._following_tab_selected(package):
+            return True
+        tab = next((element for element in (d.xpath(selector) for selector
+                                            in UNFOLLOW_SELECTORS.unified_following_tab_selectors(package))
+                    if element.exists), None)
+        if tab is None:
+            self.logger.error("Unified follow list without a following tab we can read: list refused")
+            return False
+        self.logger.info("Unified follow list opened on another tab: switching to the following tab")
+        if not tap_element_human(self.device, tab, logger=self.logger):
+            tab.click()
+        deadline = time.time() + self.following_tab_timeout
+        while not self._following_tab_selected(package):
+            if time.time() >= deadline:
+                self.logger.error("Following tab tapped but not shown: list refused")
+                return False
+            time.sleep(0.3)
+        return True
+
+    def _following_tab_selected(self, package: str) -> bool:
+        d = self.device.device
+        return any(d.xpath(selector).exists
+                   for selector in UNFOLLOW_SELECTORS.unified_following_tab_selectors(package, selected=True))
+
     def _go_back_to_following_list(self):
         """Go back to the following list."""
         try:

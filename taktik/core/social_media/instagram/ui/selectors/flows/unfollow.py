@@ -58,6 +58,18 @@ class UnfollowSelectors:
         layout = self.unified_follow_list_tab_layout_selector(app_id)
         return [f'{layout}//*[contains(@text, "{label}")]' for label in self.followers_tab_labels]
 
+    # === Following tab of the same view: "1 287 suivi(e)s", "48 following" (locales overlay) ===
+    @property
+    def following_tab_labels(self) -> List[str]:
+        return _labels("unfollow.following_tab_labels")
+
+    def unified_following_tab_selectors(self, app_id: str, selected: Optional[bool] = None) -> List[str]:
+        """The following tab's title; `selected=True` matches it only while it is the open tab
+        (the title button carries `selected="true"` on the tab shown)."""
+        layout = self.unified_follow_list_tab_layout_selector(app_id)
+        state = "" if selected is None else f' and @selected="{"true" if selected else "false"}"'
+        return [f'{layout}//*[contains(@text, "{label}"){state}]' for label in self.following_tab_labels]
+
     def active_follow_list_button_resource_id(self, app_id: str) -> str:
         resource_name = self.following_list_button_resource_id.rsplit(':id/', 1)[-1]
         return self.active_resource_id(app_id, resource_name)

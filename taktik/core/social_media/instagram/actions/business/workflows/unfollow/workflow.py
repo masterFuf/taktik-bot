@@ -156,6 +156,9 @@ class UnfollowBusiness(
                 stats['errors'] += 1
                 return stats
             time.sleep(2)
+            if not self._ensure_following_tab():
+                stats['errors'] += 1
+                return stats
 
             self._unfollow_in_open_list(cfg, window, selection.forced, stats)
             stats['success'] = True
@@ -185,6 +188,9 @@ class UnfollowBusiness(
             stats['errors'] += 1
             return stats
         time.sleep(2)
+        if not self._ensure_following_tab():
+            stats['errors'] += 1
+            return stats
         self._unfollow_in_open_list(cfg, targets, set(), stats)
         stats['success'] = True
         return stats

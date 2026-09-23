@@ -36,6 +36,19 @@ def follow_list_xml(rows: Iterable[Tuple[Optional[str], str]], extra: str = "") 
     )
 
 
+def unified_tabs(selected: int, titles=("673 followers", "1 287 suivi(e)s", "0 abonnements", "À vérifier")) -> str:
+    """The tab strip of the unified follow list, as Instagram 447 draws it in French: the
+    title button of the tab shown carries selected="true". Pass it as `extra`."""
+    tabs = "".join(
+        f'<node index="{i}" text="{title}" resource-id="{PKG}:id/title" class="android.widget.Button" '
+        f'selected="{"true" if i == selected else "false"}" clickable="true" '
+        f'bounds="[{i * 270},279][{i * 270 + 260},405]" />'
+        for i, title in enumerate(titles)
+    )
+    return (f'<node index="0" text="" resource-id="{PKG}:id/unified_follow_list_tab_layout" '
+            f'class="android.widget.HorizontalScrollView" bounds="[0,279][1080,405]">{tabs}</node>')
+
+
 class FakeElement:
     def __init__(self, node):
         self._node = node

@@ -75,6 +75,8 @@ class SyncFollowingMixin:
                 self.logger.error("sync_following_list: failed to open following list")
                 return stats
             time.sleep(1.5)
+            if not self._ensure_following_tab():
+                return stats
 
             # Sort by most recently followed so the new ones come first. The early stop on the
             # first known account is only valid in that order: in the default order a known
