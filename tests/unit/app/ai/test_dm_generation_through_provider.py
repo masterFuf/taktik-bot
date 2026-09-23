@@ -19,7 +19,43 @@ import pytest
 from taktik.core.app.ai.providers import openrouter as provider
 from taktik.core.app.ai.providers.openrouter import MODEL_GENERATION
 
-REPO = pathlib.Path(__file__).resolve().parents[3]
+REPO = pathlib.Path(__file__).resolve().parents[4]  # tests/unit/app/ai/<file> -> core
+
+# The prompts, to the accent: the first L2 repair of the night was precisely these strings.
+COLD_DM_SYSTEM = """Tu es un expert en cold outreach Instagram. Tu génères des messages directs personnalisés, naturels et engageants.
+
+Règles:
+- Message court (1-3 phrases max)
+- Ton amical et professionnel
+- Pas de spam, pas de messages génériques
+- Adapte le message au contexte donné
+- Ne mentionne jamais que tu es une IA
+- Réponds UNIQUEMENT avec le texte du message, rien d'autre"""
+
+COLD_DM_USER = """Génère un message de prospection Instagram pour @lea.
+
+Instructions spécifiques:
+Parle de sa boulangerie
+
+Le message doit être unique et personnalisé. Réponds uniquement avec le texte du message."""
+
+TIKTOK_SYSTEM = (
+    "Tu es un expert en cold outreach TikTok. Tu génères des messages directs "
+    "personnalisés, naturels et engageants.\n\n"
+    "Règles:\n"
+    "- Message court (1-3 phrases max)\n"
+    "- Ton amical et adapté à TikTok\n"
+    "- Pas de spam, pas de messages génériques\n"
+    "- Adapte le message au contexte donné\n"
+    "- Ne mentionne jamais que tu es une IA\n"
+    "- Réponds UNIQUEMENT avec le texte du message, rien d'autre"
+)
+
+TIKTOK_USER = (
+    "Génère un message de prospection TikTok pour @tom.\n\n"
+    "Instructions spécifiques:\nTalk about skate\n\n"
+    "Le message doit être unique et personnalisé. Réponds uniquement avec le texte du message."
+)
 
 
 class _RecordingIpc:
@@ -96,12 +132,14 @@ def test_cold_dm_goes_through_the_provider_and_reports_its_cost(http):
     assert body["model"] == MODEL_GENERATION
     assert body["temperature"] == 0.8
     assert body["max_tokens"] == 200
-    system, user = body["messages"]
-    assert system["role"] == "system" and user["role"] == "user"
-    assert system["content"].startswith("Tu es un expert en cold outreach Instagram. Tu génères")
-    assert "Règles:" in system["content"]
-    assert user["content"].startswith("Génère un message de prospection Instagram pour @lea.")
-    assert "Parle de sa boulangerie" in user["content"]
+    assert body["messages"] == [
+        {"role": "system", "content": COLD_DM_SYSTEM},
+        {"role": "user", "content": COLD_DM_USER},
+    ]
+    # What the provider adds, on purpose: reasoning off (a reasoning model left on its default
+    # spends the whole 200-token budget thinking and answers nothing), and the cost breakdown.
+    assert body["reasoning"] == {"enabled": False}
+    assert body["usage"] == {"include": True}
     assert ipc.spend == [{"cost_usd": 0.00021, "model": MODEL_GENERATION,
                           "label": "cold_dm @lea", "kind": "dm"}]
 
@@ -142,8 +180,10 @@ def test_tiktok_outreach_goes_through_the_provider_and_reports_its_cost(http):
     assert body["model"] == MODEL_GENERATION
     assert body["temperature"] == 0.8
     assert body["max_tokens"] == 200
-    assert body["messages"][0]["content"].startswith("Tu es un expert en cold outreach TikTok.")
-    assert body["messages"][1]["content"].startswith("Génère un message de prospection TikTok pour @tom.")
+    assert body["messages"] == [
+        {"role": "system", "content": TIKTOK_SYSTEM},
+        {"role": "user", "content": TIKTOK_USER},
+    ]
     assert ipc.spend[0]["kind"] == "dm"
     assert ipc.spend[0]["label"] == "tiktok_dm_outreach @tom"
 
@@ -175,7 +215,9 @@ def _auto_reply(ipc=None):
             self.conversation_history = {}
             self.ipc = ipc
 
-    config = DMAutoReplyConfig(openrouter_api_key="key", system_prompt="Be nice.")
+    # A model distinct from MODEL_GENERATION, so the test sees which one is actually sent.
+    config = DMAutoReplyConfig(openrouter_api_key="key", system_prompt="Be nice.",
+                               llm_model="test/configured-model")
     return _Workflow(), config
 
 
@@ -190,7 +232,7 @@ def test_auto_reply_goes_through_the_provider_with_its_configured_model(http):
     assert reply == "Merci beaucoup !"
     body = calls[0]["body"]
     assert calls[0]["timeout"] == 30
-    assert body["model"] == config.llm_model
+    assert body["model"] == "test/configured-model"
     assert body["temperature"] == 0.7
     assert body["max_tokens"] == 150
     assert body["messages"] == [
