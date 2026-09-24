@@ -14,6 +14,8 @@ from ....atomic.scroll.scroll_actions import ScrollActions
 from ....core.base_action import BaseAction
 from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 from .....ui.labels import is_friends_button
+from .....services.followers.stop_policy import normalize_username
+from taktik.core.database.tiktok_follow_graph import TikTokFollowGraphService
 from .models import UnfollowConfig, UnfollowStats
 
 
@@ -25,6 +27,8 @@ class UnfollowWorkflow:
         self.config = config
         self.stats = UnfollowStats()
         self.stopped = False
+        self._account_id: Optional[int] = None
+        self._account_resolved = False
 
         # Action helpers
         self._nav = NavigationActions(device)
@@ -110,6 +114,14 @@ class UnfollowWorkflow:
                         logger.info(f"⏭️ Skipped friend: @{username or 'unknown'}")
                         continue
 
+                    # "Âge min. (jours)": an account the bot followed too recently stays.
+                    if self._followed_too_recently(username):
+                        self.stats.skipped_recent_follows += 1
+                        if self._on_skip:
+                            self._on_skip(username, "followed_too_recently")
+                        logger.info(f"⏭️ Followed too recently: @{username}")
+                        continue
+
                     # Click the button → unfollow (humanized tap; centre-click fallback)
                     if not self._base._human_tap_bounds(elem):
                         elem.click()
@@ -148,6 +160,41 @@ class UnfollowWorkflow:
         return self.stats
 
     # ── helpers ──────────────────────────────────────────────────────
+
+    def _followed_too_recently(self, username: Optional[str]) -> bool:
+        """Whether the bot followed this account less than `min_follow_age_days` ago.
+
+        Only a KNOWN recent follow holds an account back. No handle on the row, no acting account,
+        or no FOLLOW record for it (followed by hand, or before the base) means no known age, and
+        the run treats it as it did before the rule existed.
+        """
+        min_days = self.config.min_follow_age_days
+        handle = normalize_username(username)
+        if min_days <= 0 or not handle:
+            return False
+        account_id = self._acting_account_id()
+        if not account_id:
+            return False
+        days = TikTokFollowGraphService.get_days_since_follow(handle, account_id)
+        return days is not None and days < min_days
+
+    def _acting_account_id(self) -> Optional[int]:
+        """The acting account's id, resolved once, the way the list sync resolves it."""
+        if self._account_resolved:
+            return self._account_id
+        self._account_resolved = True
+        username = normalize_username(self.config.bot_username)
+        if not username:
+            logger.warning("Minimum follow age ignored: the acting account is unknown")
+            return None
+        try:
+            from taktik.core.database.local.service import get_local_database
+
+            self._account_id, _ = get_local_database().get_or_create_tiktok_account(username)
+        except Exception as e:
+            logger.warning(f"Minimum follow age ignored: could not resolve @{username} ({e})")
+            self._account_id = None
+        return self._account_id
 
     def _resolve_username(self, button_elem) -> Optional[str]:
         """Try to find the username associated with a Following/Friends button."""

@@ -31,7 +31,11 @@ class ScrapingWorkflow:
         self.device = device
         self.navigation = navigation
         self.config = config
-        self.stopped = False
+        self._stop_requested = False
+        #: Why the run ended: `completed`, `stopped_by_user`, or `max_duration_reached` once the
+        #: session budget is spent. The bridge files the session and words its last status from it.
+        self.completion_reason: Optional[str] = None
+        self._deadline: Optional[float] = None
         self.stats = ScrapingStats()
 
         self._base = BaseAction(device)
@@ -66,7 +70,32 @@ class ScrapingWorkflow:
         self._on_error = cb
 
     def stop(self):
-        self.stopped = True
+        self._stop_requested = True
+        if self.completion_reason is None:
+            self.completion_reason = "stopped_by_user"
+
+    @property
+    def stopped(self) -> bool:
+        """True once the operator stopped the run or its session budget is spent.
+
+        Every loop of this workflow already asks `stopped` before its next profile, scroll or
+        video; the deadline answers through the same question, so the time limit ends the run
+        exactly where a stop would, and no loop needed its own clock.
+        """
+        if self._stop_requested:
+            return True
+        if self._deadline is not None and time.monotonic() >= self._deadline:
+            if self.completion_reason is None:
+                self.completion_reason = "max_duration_reached"
+                logger.info(
+                    f"⏱️ Maximum session duration reached ({self.config.session_duration_minutes:g} minutes)"
+                )
+            return True
+        return False
+
+    def _start_session_clock(self) -> None:
+        minutes = self.config.session_duration_minutes or 0
+        self._deadline = time.monotonic() + minutes * 60 if minutes > 0 else None
 
     # ── emit helpers ─────────────────────────────────────────────────
 
@@ -95,6 +124,7 @@ class ScrapingWorkflow:
     def run(self) -> List[Dict[str, Any]]:
         """Run the scraping workflow. Returns list of scraped profiles."""
         all_profiles: List[Dict[str, Any]] = []
+        self._start_session_clock()
 
         try:
             if self.config.scrape_type == 'target':
@@ -146,6 +176,8 @@ class ScrapingWorkflow:
             logger.error(f"Scraping error: {e}")
             self._emit_error(str(e))
 
+        if self.completion_reason is None:
+            self.completion_reason = "completed"
         return all_profiles
 
     # ── target followers/following ───────────────────────────────────

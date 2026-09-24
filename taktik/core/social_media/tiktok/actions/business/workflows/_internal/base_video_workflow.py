@@ -292,6 +292,41 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         return False
 
     # ------------------------------------------------------------------
+    # Hashtag filter
+    # ------------------------------------------------------------------
+
+    def _rejected_by_hashtags(self, video_info: Dict[str, Any]) -> bool:
+        """Whether the caption fails the run's required / excluded hashtags.
+
+        The For You filter, moved here unchanged so the hashtag search applies the very same rule.
+        The search never had it: a Hashtag run sent `requiredHashtags` / `excludedHashtags` and
+        `run_search_workflow` dropped them. A config without the two lists passes everything.
+        """
+        required = getattr(self.config, 'required_hashtags', None) or []
+        excluded = getattr(self.config, 'excluded_hashtags', None) or []
+        description = video_info.get('description', '') or ''
+
+        # Required hashtags
+        if required:
+            has_required = any(
+                f"#{tag.lower()}" in description.lower()
+                for tag in required
+            )
+            if not has_required:
+                return True
+
+        # Excluded hashtags
+        if excluded:
+            has_excluded = any(
+                f"#{tag.lower()}" in description.lower()
+                for tag in excluded
+            )
+            if has_excluded:
+                return True
+
+        return False
+
+    # ------------------------------------------------------------------
     # Utility
     # ------------------------------------------------------------------
 

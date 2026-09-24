@@ -302,26 +302,9 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
             if self.config.max_likes and like_count > self.config.max_likes:
                 return True
         
-        # Check hashtag filters
-        description = video_info.get('description', '') or ''
-        
-        # Required hashtags
-        if self.config.required_hashtags:
-            has_required = any(
-                f"#{tag.lower()}" in description.lower() 
-                for tag in self.config.required_hashtags
-            )
-            if not has_required:
-                return True
-        
-        # Excluded hashtags
-        if self.config.excluded_hashtags:
-            has_excluded = any(
-                f"#{tag.lower()}" in description.lower() 
-                for tag in self.config.excluded_hashtags
-            )
-            if has_excluded:
-                return True
+        # Hashtag filters (shared with the hashtag search, BaseVideoWorkflow)
+        if self._rejected_by_hashtags(video_info):
+            return True
         
         return False
     
