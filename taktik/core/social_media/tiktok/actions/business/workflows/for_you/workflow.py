@@ -147,7 +147,14 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
 
                 # Check for pause
                 self._check_pause_needed()
-                
+
+                # A stop that came during the video (the operator, a block, the desktop gone) or
+                # a cap just reached ends the run here. Read only at the top of the loop, it
+                # cost one more swipe on a feed nobody was watching any more.
+                if not self._running or self._check_limits_reached():
+                    self.logger.info("📊 Session limits reached")
+                    break
+
                 # Scroll to next video
                 if not self.scroll.scroll_to_next_video():
                     self.logger.warning("❌ Failed to scroll to next video")

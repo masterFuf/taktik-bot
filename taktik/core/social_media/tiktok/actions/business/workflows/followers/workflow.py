@@ -519,9 +519,13 @@ class FollowersWorkflow(
         if arret:
             return arret['code']
 
-        if self.stats.likes >= self.config.max_likes_per_session:
+        # A cap of 0 means "never this action", not "already reached" (same rule as
+        # `BaseVideoWorkflow._check_limits_reached`); `max_followers` still bounds the run.
+        max_likes = self.config.max_likes_per_session
+        if max_likes > 0 and self.stats.likes >= max_likes:
             return 'max_likes_reached'
-        if self.stats.follows >= self.config.max_follows_per_session:
+        max_follows = self.config.max_follows_per_session
+        if max_follows > 0 and self.stats.follows >= max_follows:
             return 'max_follows_reached'
         return ''
     
