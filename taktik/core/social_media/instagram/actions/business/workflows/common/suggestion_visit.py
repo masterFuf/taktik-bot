@@ -24,6 +24,8 @@ import random
 import time
 from typing import Any, Callable, Dict, List, Optional
 
+from taktik.core.shared.diagnostics import run_halt
+
 
 class SuggestionSurface:
     """Contract a suggestions surface must fulfil to be visited.
@@ -122,6 +124,10 @@ def visit_suggestions(surface: SuggestionSurface, *, max_profiles: int = 5,
     empty_dump_streak = 0
 
     while result["visited"] < max_profiles:
+        # The run's lock: each visit is a paid AI qualification and maybe a follow.
+        if run_halt.arret_demande():
+            result["stop_reason"] = "action_blocked"
+            break
         if not surface.reach():
             result["stop_reason"] = getattr(surface, "reach_failure_reason", "zone_not_reached")
             break

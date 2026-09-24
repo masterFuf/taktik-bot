@@ -6,6 +6,8 @@ import re
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
+from taktik.core.shared.diagnostics import run_halt
+
 from ..common.likers_base import LikersWorkflowBase
 from ..common.list_sources import resolve_list_source
 from .interaction_plan import resolve_interaction_plan
@@ -113,6 +115,9 @@ class HashtagBusiness(
                 self.stats_manager.increment('likes')
                 self.logger.info(f"❤️ Post liked (@{author or 'unknown'})")
                 touched = True
+            # Instagram's "Try again later" right after the like, before the comment.
+            if self._stop_if_action_blocked(author or 'hashtag', 'like'):
+                return touched
 
         if comment_pct > 0 and random.randint(1, 100) <= comment_pct:
             result = self.comment_business.comment_on_post(
@@ -204,6 +209,11 @@ class HashtagBusiness(
         stop_reason = ''
 
         while posts_engaged < max_posts and examined < max_to_examine:
+            # The run's lock: this loop moved to the next post and engaged it after a block
+            # seen on the previous one (a refused like, a refused follow among its likers).
+            if run_halt.arret_demande():
+                stop_reason = stop_reasons.action_blocked()
+                break
             if need_to_open_post:
                 current = self._find_first_valid_post(hashtag, effective_config, skip_count=0)
                 if not current:
@@ -296,6 +306,10 @@ class HashtagBusiness(
                         account_id=account_id,
                     )
 
+            if run_halt.arret_demande():
+                stop_reason = stop_reasons.action_blocked()
+                break
+
             # Read the post like a person before moving on (carousel + caption + dwell),
             # the same pause the Feed workflow takes between two posts.
             try:
@@ -326,7 +340,9 @@ class HashtagBusiness(
         self.stats_manager.display_final_stats(workflow_name="HASHTAG")
 
         if finalize and self.automation and hasattr(self.automation, 'helpers'):
-            self.automation.helpers.finalize_session(status='COMPLETED', reason=stats['stop_reason'])
+            # The status follows the reason: a run stopped by Instagram's block did not complete.
+            self.automation.helpers.finalize_session(
+                status=stop_reasons.terminal_status(stats['stop_reason']), reason=stats['stop_reason'])
 
         return stats
 

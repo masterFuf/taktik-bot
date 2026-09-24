@@ -100,8 +100,12 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                 return stats
             
             # "Try again later" after the send, looked for BEFORE the popup is closed, which
-            # could dismiss it: the detector sets the run's lock (secours 2).
-            self._stop_if_action_blocked(username or '', 'comment')
+            # could dismiss it: the detector sets the run's lock. A refused comment is not
+            # posted: nothing is recorded, and no share sheet is opened after it.
+            if self._stop_if_action_blocked(username or '', 'comment'):
+                stats['blocked'] = True
+                self._close_comment_popup()
+                return stats
 
             self.logger.info(f"✅ Comment posted successfully ({len(comment_text)} chars)")
             stats['commented'] = True
