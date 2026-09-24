@@ -1,10 +1,21 @@
-"""Does the screen photo find exactly what `d.xpath()` finds? Every selector, every captured dump.
+"""Does the screen photo find exactly what production finds? Every selector, every captured dump.
 
 Step 1 of the one-photo spec. For each dump of a corpus (the `debug_ui` captures, never in this
-repository) and each selector of the Instagram and TikTok catalogues (every selector instance,
-every language), the elements found by `ScreenSnapshot` are compared, node by node (their path in
-the tree), with those uiautomator2's own engine finds (`PageSource.find_elements` after
-`strict_xpath`, what `d.xpath()` runs). Exit 1 on any difference.
+repository) and each selector of the Instagram and TikTok catalogues, the photo is compared with
+the production path on the same screen, node by node (their path in the tree), both ways:
+
+- Instagram's: `CloneAwareDeviceProxy.xpath()` (every Instagram bridge mounts it; it rewrites
+  `@resource-id` equalities) then uiautomator2's `d.xpath()`, against a photo taken with the
+  proxy's rewrite;
+- the plain `d.xpath()` (TikTok's bridges mount no proxy), against a plain photo.
+
+A selector uiautomator2 rejects must be rejected by the photo too. The number of evaluations the
+proxy's rewrite changes is printed: it proves the check sees that path at all (a first version
+of this proof compared the photo with a raw engine and was blind to it). Exit 1 on any difference.
+
+Selectors: every string of the selector catalogues (dataclass fields, properties, dict and list
+values, locale tables, all languages) that is an xpath or a uiautomator2 shorthand (`@id`,
+`^regex`, `%text%`); plain labels are left out. Modules that fail to import are named.
 
 Usage: python scripts/check_snapshot_equality.py [--corpus DIR] [--limit N] [--every K]
 The corpus defaults to $TAKTIK_DEBUG_UI, else ./debug_ui.
@@ -23,8 +34,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from uiautomator2.xpath import PageSource, strict_xpath  # noqa: E402
+import uiautomator2  # noqa: E402
+from uiautomator2.xpath import PageSource, XPathEntry  # noqa: E402
 
+from taktik.core.clone.device.proxy import CloneAwareDeviceProxy  # noqa: E402
 from taktik.core.shared.device.snapshot import ScreenSnapshot  # noqa: E402
 
 PLATFORM_PACKAGES = (
@@ -33,35 +46,43 @@ PLATFORM_PACKAGES = (
 )
 
 
-def _xpath_like(value) -> bool:
-    return isinstance(value, str) and value.strip()[:1] in ("/", "(")
+def _selector_like(value) -> bool:
+    if not isinstance(value, str):
+        return False
+    head = value.strip()[:1]
+    return head in ("/", "(", "@", "^") or (value.startswith("%") and len(value) > 1)
 
 
-def _collect_from(value, out: set) -> None:
-    if _xpath_like(value):
+def _collect_from(value, out: set, depth: int = 0) -> None:
+    if depth > 4:
+        return
+    if _selector_like(value):
         out.add(value)
+    elif isinstance(value, dict):
+        for item in value.values():
+            _collect_from(item, out, depth + 1)
     elif isinstance(value, (list, tuple, set, frozenset)):
         for item in value:
-            if _xpath_like(item):
-                out.add(item)
+            _collect_from(item, out, depth + 1)
 
 
-def catalogue_selectors() -> list:
-    """Every xpath of both catalogues: the selector instances (all languages: no locale active,
-    so the localized properties return the union) and the locale string tables themselves."""
+def catalogue_selectors():
+    """(selectors, modules that failed to import). No locale is active, so the localized
+    properties return every language."""
     found: set = set()
+    skipped = []
     for package_name in PLATFORM_PACKAGES:
         locales = importlib.import_module(package_name + ".locales")
         if hasattr(locales, "set_active_locale"):
             locales.set_active_locale(None)
         for table in getattr(locales, "_LOCALES", {}).values():
-            for value in table.values():
-                _collect_from(value, found)
+            _collect_from(dict(table), found)
         package = importlib.import_module(package_name)
         for info in pkgutil.walk_packages(package.__path__, package_name + "."):
             try:
                 module = importlib.import_module(info.name)
-            except Exception:
+            except Exception as exc:
+                skipped.append(f"{info.name}: {type(exc).__name__}")
                 continue
             for obj in list(vars(module).values()):
                 if not hasattr(type(obj), "__dataclass_fields__"):
@@ -76,24 +97,55 @@ def catalogue_selectors() -> list:
                     if callable(value):
                         continue
                     _collect_from(value, found)
-    return sorted(found)
+    return sorted(found), skipped
 
 
-def _paths_u2(source: PageSource, selector: str):
-    try:
-        root = source.root
-        tree = root.getroottree()
-        return [tree.getpath(el.elem) for el in source.find_elements(strict_xpath(selector))], None
-    except Exception as exc:
-        return None, type(exc).__name__
+class _U2Device:
+    """What uiautomator2's `d.xpath` needs to run; the screen is passed as `source`."""
+
+    wait_timeout = 1.0
+
+    def __init__(self):
+        self.xpath = XPathEntry(self)
 
 
-def _paths_snapshot(snap: ScreenSnapshot, selector: str):
-    elements = snap.elements(selector)
-    if snap._root is None:  # noqa: SLF001 — the proof reads the tree it evaluated on
-        return []
-    tree = snap._root.getroottree()  # noqa: SLF001
-    return [tree.getpath(el) for el in elements if hasattr(el, "tag")]
+class DumpCheck:
+    """One dump, parsed once per side: the production path and the photo."""
+
+    def __init__(self, xml: str):
+        self.source = PageSource(xml)
+        self.source.root
+        device = _U2Device()
+        self.plain = device.xpath
+        self.proxy = CloneAwareDeviceProxy(device, "com.instagram.android")
+        self.photo = ScreenSnapshot(xml)
+        self.photo_rewritten = ScreenSnapshot(xml, rewrite=self.proxy.rewrite_xpath)
+
+    @staticmethod
+    def _paths(elements):
+        return [el.elem.getroottree().getpath(el.elem) for el in elements]
+
+    def production(self, selector: str, rewrite: bool):
+        entry = self.proxy.xpath if rewrite else self.plain
+        try:
+            return self._paths(entry(selector, self.source).all()), None
+        except Exception as exc:
+            return None, type(exc).__name__
+
+    def photographed(self, selector: str, rewrite: bool):
+        photo = self.photo_rewritten if rewrite else self.photo
+        try:
+            return self._paths(photo.elements(selector)), None
+        except Exception as exc:
+            return None, type(exc).__name__
+
+    def compare(self, selector: str, rewrite: bool, production=None) -> str:
+        """'same', 'both_raise' or 'different'. `production`: its result, when already known."""
+        expected, expected_error = production or self.production(selector, rewrite)
+        got, got_error = self.photographed(selector, rewrite)
+        if expected_error or got_error:
+            return "both_raise" if expected_error == got_error else "different"
+        return "same" if expected == got else "different"
 
 
 def main() -> int:
@@ -111,38 +163,45 @@ def main() -> int:
     if not dumps:
         print(f"No dump under {corpus}: nothing to check")
         return 0
-    selectors = catalogue_selectors()
-    print(f"{len(dumps)} dumps x {len(selectors)} selectors")
+    selectors, skipped = catalogue_selectors()
+    version = getattr(uiautomator2, "__version__", None)
+    if version is None:
+        try:
+            from importlib.metadata import version as _version
+            version = _version("uiautomator2")
+        except Exception:
+            version = "unknown"
+    print(f"uiautomator2 {version}; {len(dumps)} dumps x {len(selectors)} selectors x 2 paths")
+    for line in skipped:
+        print(f"  module not imported: {line}")
 
     started = time.perf_counter()
-    evaluations = mismatches = u2_errors = unreadable = 0
+    counts = {"same": 0, "both_raise": 0, "different": 0}
+    rewrite_changes = unreadable = 0
     examples = []
     for dump in dumps:
         try:
-            xml = dump.read_text(encoding="utf-8", errors="replace")
-            source = PageSource.parse(xml)
-            _ = source.root
+            check = DumpCheck(dump.read_text(encoding="utf-8", errors="replace"))
         except Exception:
             unreadable += 1
             continue
-        snap = ScreenSnapshot(xml)
         for selector in selectors:
-            evaluations += 1
-            expected, error = _paths_u2(source, selector)
-            if error:
-                u2_errors += 1
-                continue  # uiautomator2 itself raises on it: nothing the photo must reproduce
-            if _paths_snapshot(snap, selector) != expected:
-                mismatches += 1
-                if len(examples) < 10:
-                    examples.append((dump.name, selector[:120]))
+            production = {rewrite: check.production(selector, rewrite) for rewrite in (True, False)}
+            for rewrite in (True, False):
+                verdict = check.compare(selector, rewrite, production[rewrite])
+                counts[verdict] += 1
+                if verdict == "different" and len(examples) < 10:
+                    examples.append((dump.name, rewrite, selector[:120]))
+            if production[True] != production[False]:
+                rewrite_changes += 1
     elapsed = time.perf_counter() - started
-    print(f"evaluations: {evaluations}, differences: {mismatches}, selectors uiautomator2 rejects: "
-          f"{u2_errors}, unreadable dumps: {unreadable}, {elapsed:.0f} s")
-    for name, selector in examples:
-        print(f"  DIFF {name}: {selector}")
-    return 1 if mismatches else 0
+    print(f"evaluations: {sum(counts.values())}, same: {counts['same']}, rejected on both sides: "
+          f"{counts['both_raise']}, differences: {counts['different']}, evaluations the proxy "
+          f"rewrite changes: {rewrite_changes}, unreadable dumps: {unreadable}, {elapsed:.0f} s")
+    for name, rewrite, selector in examples:
+        print(f"  DIFF {name} ({'proxy' if rewrite else 'plain'}): {selector}")
+    return 1 if counts["different"] else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

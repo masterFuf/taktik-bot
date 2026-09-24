@@ -193,15 +193,22 @@ class BaseDeviceFacade:
         if source is None:
             from taktik.core.shared.device.snapshot import SnapshotSource
 
-            source = SnapshotSource(self.get_xml_dump)
+            # The device's own selector rewrite, when it has one (Instagram's
+            # `CloneAwareDeviceProxy`): looked up on the class, so a device that answers every
+            # attribute (a mock, uiautomator2's forwarding) is not taken for a rewriter.
+            rewrite = (self._device.rewrite_xpath
+                       if callable(getattr(type(self._device), "rewrite_xpath", None)) else None)
+            source = SnapshotSource(self.get_xml_dump, rewrite=rewrite)
             self._snapshot_source_instance = source
         return source
 
-    def snapshot(self, fresh: bool = False):
-        """One dump, parsed once as `d.xpath()` sees it: ask it every question about this
-        screen (`exists`, `find`, `first`), instead of one dump per selector. Kept 0.25 s, or until
-        `invalidate_snapshot()`."""
-        return self._snapshot_source().snapshot(fresh=fresh)
+    def snapshot(self, max_age_s: float = 0.0):
+        """One dump, on which every question about this screen (`exists`, `find`, `first`) is
+        answered exactly as `self.xpath(...)` would answer it, instead of one dump per selector.
+        A new photo each call; `max_age_s` reuses the last one only for a caller that knows no
+        gesture happened since (the cache is per facade, and actions build their own).
+        Raises `SnapshotUnavailable` when the screen cannot be read."""
+        return self._snapshot_source().snapshot(max_age_s=max_age_s)
 
     def invalidate_snapshot(self) -> None:
         """The screen changed (a gesture): the next `snapshot()` takes a new photo."""
