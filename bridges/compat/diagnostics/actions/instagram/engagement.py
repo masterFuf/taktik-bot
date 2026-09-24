@@ -25,6 +25,21 @@ def like_current_post(a, p):
     return {"success": bool(ok), "message": "post liked" if ok else "like failed / already liked"}
 
 
+@action("engagement.like_feed_post")
+def like_feed_post(a, p):
+    """Like the home-feed post on screen the way the Feed workflow does: read its author
+    (``FeedBusiness._get_current_post_author``), then like it through the feed's own like
+    (``FeedBusiness._like_current_post(record_as=author)``), which files the like under that
+    author. An unreadable author means no like, as in the workflow. The Lab has no account,
+    so the ledger write is refused and logged; the gesture is the production one."""
+    author = a.feed._get_current_post_author()
+    if not author:
+        return {"success": False, "message": "post author unreadable: the feed does not engage this post"}
+    ok = a.feed._like_current_post(record_as=author)
+    return {"success": bool(ok), "message": f"@{author}: liked" if ok else f"@{author}: not liked / already liked",
+            "details": {"author": author}}
+
+
 @action("engagement.comment_on_post")
 def comment_on_post(a, p):
     """Comment on the CURRENTLY OPEN post via the orchestrated flow (open composer + type
