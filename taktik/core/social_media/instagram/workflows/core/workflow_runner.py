@@ -336,25 +336,18 @@ class WorkflowRunner:
                 status=stop_reasons.terminal_status(reason), reason=reason)
     
     def _run_feed_workflow(self, action: Dict[str, Any]) -> bool:
-        """Run the feed workflow."""
-        config = {
-            'max_interactions': action.get('max_interactions', 20),
-            'max_posts_to_check': action.get('max_posts_to_check', 30),
-            'like_percentage': action.get('like_percentage', 70),
-            'follow_percentage': action.get('follow_percentage', 15),
-            'comment_percentage': action.get('comment_percentage', 5),
-            'story_watch_percentage': action.get('story_watch_percentage', 10),
-            'max_likes_per_profile': action.get('max_likes_per_profile', 3),
-            'interact_with_post_author': action.get('interact_with_post_author', True),
-            'interact_with_post_likers': action.get('interact_with_post_likers', False),
-            'skip_reels': action.get('skip_reels', True),
-            'skip_ads': action.get('skip_ads', True),
-            'filter_criteria': resolve_filter_criteria(action),
-            'min_post_likes': action.get('min_post_likes', 0),
-            'max_post_likes': action.get('max_post_likes', 0),
-            'custom_comments': action.get('custom_comments', [])
-        }
-        
+        """Run the feed workflow with every setting of the step.
+
+        `config_builder` is the whitelist of what the page may send. This runner used to list a
+        dozen keys again, with defaults of its own, and drop everything else: the feed stories
+        (`view_feed_stories`, `story_like_percentage`), the suggestions mode, the ad capture, the
+        crawl toggles and the likers budget never reached the workflow, whose catalogue
+        defaults applied instead of the operator's settings. The step now goes through whole;
+        a key it does not carry takes `FEED_DEFAULTS`, merged by the workflow.
+        """
+        config = {key: value for key, value in action.items() if key != 'type'}
+        config['filter_criteria'] = resolve_filter_criteria(action)
+
         # Use the feed business object when available
         if hasattr(self.automation, 'feed_business'):
             result = self.automation.feed_business.interact_with_feed(config)

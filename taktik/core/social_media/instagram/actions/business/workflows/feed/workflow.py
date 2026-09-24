@@ -14,6 +14,7 @@ from loguru import logger
 
 from taktik.core.shared.diagnostics import run_halt
 from ..common.likers_base import LikersWorkflowBase
+from ..common.interaction_config import merge_operator_config
 from ....core.stats import create_workflow_stats
 from ....core.ipc import IPCEmitter
 from .post_actions import FeedPostActionsMixin
@@ -156,8 +157,10 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
         Returns:
             Dict of statistics
         """
-        effective_config = {**self.default_config, **(config or {})}
-        
+        # The operator's settings win in either spelling (percentage or probability), as in
+        # the hashtag and post URL workflows: see `merge_operator_config`.
+        effective_config = merge_operator_config(self.default_config, config)
+
         stats = create_workflow_stats('feed')
         
         try:
