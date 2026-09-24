@@ -747,16 +747,21 @@ def _raw_host(device, logger=None) -> _RawGestureHost:
 
 
 def human_scroll_raw(raw_device, direction: str = "down", distance_ratio: Optional[float] = None,
-                     coast: bool = False, logger=None) -> bool:
+                     coast: bool = False, logger=None, precise: bool = False) -> bool:
     """Humanized VERTICAL scroll for a bare u2 device. `direction='down'` advances (reveals the
-    NEXT content), `'up'` goes back. `coast=True` flings; `coast=False` (default) is a 1:1
-    controlled curve that preserves a precise travel distance. Mirrors `device.human_scroll`."""
+    NEXT content), `'up'` goes back. `coast=True` flings. Mirrors `device.human_scroll`.
+
+    Without `precise`, the curve is the sampled flick envelope: its travel is CAPPED at 34% of the
+    screen whatever `distance_ratio` asks (measured 2026-09-24: 0.4 and 0.8 both moved about 3 rows
+    of a follow list). `precise=True` is the controlled 1:1 drag that covers the distance asked, up
+    to 95% of the screen, for a reader that must advance a known amount (a list read page by page).
+    """
     host = _raw_host(raw_device, logger)
     g_dir = _PAGE_TO_GESTURE.get(direction, "up")
     distance_px = (distance_ratio * host.screen_height) if distance_ratio else None
     if coast:
         return host._strong_flick(direction=g_dir, distance_px=distance_px)
-    return host._human_swipe(direction=g_dir, distance_px=distance_px)
+    return host._human_swipe(direction=g_dir, distance_px=distance_px, controlled=precise)
 
 
 def human_hswipe_raw(raw_device, direction: str = "left", distance_ratio: float = 0.6,
