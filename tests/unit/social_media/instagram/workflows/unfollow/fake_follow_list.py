@@ -15,16 +15,23 @@ ROW_HEIGHT = 180
 TOP = 600
 
 
-def follow_list_xml(rows: Iterable[Tuple], extra: str = "", ig410: bool = False) -> str:
+def follow_list_xml(rows: Iterable[Tuple], extra: str = "", ig410: bool = False,
+                    suggestions_before: Optional[int] = None) -> str:
     """rows = [(username or None, button text[, display name])]; `extra` is appended inside the
     hierarchy. A display name is the line under the username, as Instagram lays it out. `ig410`
     places the username of a row as a Pixel 3 on Instagram 410 showed it (2026-09-24): its centre
-    a few pixels ABOVE the top of the row's button."""
+    a few pixels ABOVE the top of the row's button. `suggestions_before` puts the French header of
+    the suggestions section just above that row."""
     nodes = []
     for index, row in enumerate(rows):
         username, button_text = row[0], row[1]
         subtitle = row[2] if len(row) > 2 else None
         top = TOP + index * ROW_HEIGHT
+        if index == suggestions_before:
+            nodes.append(
+                f'<node index="0" text="Suggestions pour vous" resource-id="{PKG}:id/row_header_textview" '
+                f'class="android.widget.TextView" content-desc="" bounds="[0,{top - 25}][1080,{top - 5}]" />'
+            )
         name_top = top + 1 if ig410 else top + 40
         if username is not None:
             nodes.append(

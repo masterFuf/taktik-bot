@@ -12,8 +12,27 @@ from taktik.core.social_media.instagram.actions.atomic.interaction.profile_inter
     classify_follow_state,
 )
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from ..list_proof import parse_tab_count
+
+
+# A row button that CONTRADICTS the tab it is read on: its row is not part of that list. A blank
+# button says nothing and keeps its row. Deep in a long list Instagram 410 leaves most row buttons
+# blank for good (Pixel 3, 2026-09-24: 1 or 2 filled of 9, the same after 30 s and five more
+# drags); a read that waited for "Suivi(e)" on every row counted 1 or 2 rows a screen, then none,
+# and stopped at about 150 of 1 928 followings as if the list had ended.
+ROW_STATES_NOT_IN_TAB = {
+    # We do not follow them, or not yet
+    'following': frozenset({'follow', 'follow_back', 'requested'}),
+    # Nobody who follows us is offered a plain "Follow" ("Follow back" is)
+    'followers': frozenset({'follow'}),
+}
+
+
+def row_belongs_to_tab(state: Optional[str], tab: str) -> bool:
+    """Does a row whose button reads `state` belong to the `tab` list? None: no such row read."""
+    return state is not None and state not in ROW_STATES_NOT_IN_TAB[tab]
 
 
 # Where one drag of a follow list starts and ends, as shares of the screen: about 45% of travel,
@@ -81,27 +100,37 @@ class UnfollowActionsMixin:
         own: while the list was still moving, a username and its button came from two different
         positions of the list, the pairing failed, and rows were left out -- 85 of 232 on a phone
         (2026-09-24), which a list read then counted as never there.
+
+        The suggestions Instagram shows under a list are not rows of it: nothing at or below their
+        first sign is returned, and `suggestions_on_screen` then says the list ended on this screen.
         """
         rows: List[Dict[str, Any]] = []
+        self.suggestions_on_screen = False
         try:
             d = self.device.device
             package = get_active_package()
             screen = d.dump_hierarchy()
+            suggestions_top = self._suggestions_top(d, screen)
+            self.suggestions_on_screen = suggestions_top is not None
+
+            def above_suggestions(band) -> bool:
+                return suggestions_top is None or band[0] < suggestions_top
+
             names = []
             for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_username_selector(package), screen).all():
                 username = (el.text or '').strip().lstrip('@')
                 band = _vertical_band(el)
-                if username and band and self._is_valid_username(username):
+                if username and band and above_suggestions(band) and self._is_valid_username(username):
                     names.append((username, band[0], el))
             for button in d.xpath(UNFOLLOW_SELECTORS.follow_list_row_button_selector(package), screen).all():
                 band = _vertical_band(button)
-                if band is None:
+                if band is None or not above_suggestions(band):
                     continue
-        # Paired by the CLOSEST centre, within one button height: on Instagram 410 a row with a
-        # display name lifts its username so that its centre sits a few pixels ABOVE the button's
-        # top (measured on a Pixel 3, 2026-09-24). "The username's centre inside the button's
-        # range" then failed for nearly every row; a list read skipped them all and an unfollow
-        # could not read the row it had just changed.
+                # Paired by the CLOSEST centre, within one button height: on Instagram 410 a row
+                # with a display name lifts its username so that its centre sits a few pixels ABOVE
+                # the button's top (measured on a Pixel 3, 2026-09-24). "The username's centre
+                # inside the button's range" then failed for nearly every row; a list read skipped
+                # them all and an unfollow could not read the row it had just changed.
                 paired = _closest_on_row(band, names)
                 username = paired[0] if paired else None
                 if username is None and require_username:
@@ -125,6 +154,21 @@ class UnfollowActionsMixin:
         except Exception as e:
             self.logger.debug(f"Error reading the follow list rows: {e}")
         return rows
+
+    @staticmethod
+    def _suggestions_top(d, screen: str) -> Optional[int]:
+        """Top of the first sign of the suggestions under a follow list on this dump (their own
+        row ids, or their localized header), or None."""
+        tops = []
+        for selector in DETECTION_SELECTORS.suggestions_section_indicators:
+            try:
+                for element in d.xpath(selector, screen).all():
+                    band = _vertical_band(element)
+                    if band:
+                        tops.append(band[1])
+            except Exception:
+                continue
+        return min(tops) if tops else None
 
     def _sync_should_stop(self) -> bool:
         """The session's limits during a list read: its duration, the run's stop lock. A read of

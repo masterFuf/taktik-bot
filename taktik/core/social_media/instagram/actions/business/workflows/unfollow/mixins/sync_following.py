@@ -20,6 +20,7 @@ from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 from ..list_proof import read_is_complete, scrolls_for
+from .actions import row_belongs_to_tab
 
 
 class SyncFollowingMixin:
@@ -140,8 +141,9 @@ class SyncFollowingMixin:
                     if not rows and not d(resourceId=username_resource_id).exists:
                         break
                     entries = [(i, row['username'], row['name_element']) for i, row in enumerate(rows)]
-                # Only rows that say we follow them: the list ends with suggestions ("Follow"), and
-                # a row whose button cannot be read yet is read again after the next scroll.
+                # Every row but those whose button says we do not follow them. A blank button keeps
+                # its row: deep in a long list Instagram leaves most of them blank (see
+                # ROW_STATES_NOT_IN_TAB); the suggestions under the list are left out by position.
                 row_states = {row['username'].lower(): row['state'] for row in rows}
                 display_names = {row['username'].lower(): row.get('display_name', '') for row in rows}
 
@@ -149,7 +151,7 @@ class SyncFollowingMixin:
                 for i, username, el in entries:
                     if username in seen_on_screen:
                         continue
-                    if row_states.get(username.lower()) != 'following':
+                    if not row_belongs_to_tab(row_states.get(username.lower()), 'following'):
                         continue
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
@@ -264,22 +266,23 @@ class SyncFollowingMixin:
                 if stop_signal:
                     break
 
-                # The end of the list is several reads in a row without a new name (one used to
-                # be enough: a slow page looked like the end), and it counts only if the names
-                # read reach the tab's exact count.
-                if not new_found:
-                    quiet_rounds += 1
-                    if quiet_rounds >= end_rounds:
-                        stats['end_reached'] = True
-                        stats['complete'] = read_is_complete(len(seen_on_screen), expected, scroll_failed)
-                        self.logger.info(
-                            f"End of the following list: {len(seen_on_screen)} read of "
-                            f"{expected if expected is not None else '?'} "
-                            f"({'complete' if stats['complete'] else 'NOT proven complete'})"
-                        )
-                        break
-                else:
-                    quiet_rounds = 0
+                # The end of the list is the suggestions under it, or several reads in a row
+                # without a new name (one used to be enough: a slow page looked like the end); it
+                # counts only if the names read reach the tab's exact count.
+                quiet_rounds = 0 if new_found else quiet_rounds + 1
+                if self.suggestions_on_screen or quiet_rounds >= end_rounds:
+                    stats['end_reached'] = True
+                    stats['complete'] = read_is_complete(len(seen_on_screen), expected, scroll_failed)
+                    self.logger.info(
+                        f"End of the following list"
+                        f"{' (suggestions under it)' if self.suggestions_on_screen else ''}: "
+                        f"{len(seen_on_screen)} read of {expected if expected is not None else '?'} "
+                        f"({'complete' if stats['complete'] else 'NOT proven complete'})"
+                    )
+                    break
+                if quiet_rounds:
+                    # A screen without a new name: the next page may still be loading
+                    time.sleep(random.uniform(1.0, 2.0))
 
                 # Scroll only outside enriched mode, which re-scans first
                 if mode != 'enriched':
