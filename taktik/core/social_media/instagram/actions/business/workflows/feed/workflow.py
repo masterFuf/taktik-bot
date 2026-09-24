@@ -273,7 +273,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                        posts_checked < effective_config['max_posts_to_check']):
 
                     # The run's lock (a block seen anywhere, a lost phone): this loop never read
-                    # it, and kept liking after Instagram said stop (secours 2, 2026-09-24).
+                    # it, and kept liking after Instagram said stop (2026-09-24).
                     if run_halt.arret_demande():
                         self.logger.warning("⛔ Run stop requested — leaving the feed")
                         break
@@ -346,7 +346,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                                 self.logger.debug("Failed to like post")
 
                         # Instagram's "Try again later" right after the like, before the comment
-                        # touches the screen: the first refusal ends the run (secours 2).
+                        # touches the screen: the first refusal ends the run.
                         blocked = liked and self._stop_if_action_blocked(post_author or 'feed', 'like')
 
                         # Comment the post when configured

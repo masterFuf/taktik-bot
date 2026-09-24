@@ -2,7 +2,7 @@
 
 A bridge process serves one run and starts with the run's stop lock lifted; a Lab session is one
 process for many actions. Without a lift per action, a block or a lost phone seen by one action
-ended every workflow action after it while the session stayed open (secours 2, 2026-09-24).
+ended every workflow action after it while the session stayed open (2026-09-24).
 """
 
 import io

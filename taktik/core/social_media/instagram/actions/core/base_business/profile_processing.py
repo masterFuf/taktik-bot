@@ -10,6 +10,7 @@ This mixin only handles what happens WHILE on the profile screen.
 import time
 from typing import Optional, Dict, Any
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry.sink import emit_step
 from ..ipc import IPCEmitter
 from taktik.core.shared.config import resolve_filter_criteria
@@ -228,6 +229,13 @@ class ProfileProcessingMixin:
                 return result
             
             # === 5. Perform interactions ===
+            # The run's lock BEFORE the engine: the AI hooks wrapped around it pay for a capture
+            # and a classification first. A blocked run neither pays nor loses the profile,
+            # which is not marked processed and stays for a later run.
+            if run_halt.arret_demande():
+                result.status = ProfileProcessingResult.ERROR_INTERACTION
+                result.error_message = "run stop requested"
+                return result
             interaction = self._perform_interactions_on_profile(
                 username, config, profile_data=profile_data
             )

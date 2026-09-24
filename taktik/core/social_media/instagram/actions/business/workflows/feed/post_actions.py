@@ -180,7 +180,7 @@ class FeedPostActionsMixin:
                     self._human_like_delay('click')
                     time.sleep(1)
                     # "Try again later" after the send, looked for BEFORE the back that could
-                    # close it: the detector sets the run's lock (secours 2).
+                    # close it: the detector sets the run's lock.
                     check_block = getattr(self, '_stop_if_action_blocked', None)
                     if check_block is not None:
                         check_block('feed', 'comment')

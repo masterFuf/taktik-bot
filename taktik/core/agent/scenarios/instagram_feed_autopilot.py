@@ -133,6 +133,16 @@ class TaktikAgentWorkflow:
         self._session_start = time.time()
 
         try:
+            # Step 0: the app's language, before any localized selector (AGENTS.md invariant).
+            # Without it the active language stayed unknown for the whole session, and the
+            # block detector took any Instagram alert for a block on its ids alone.
+            try:
+                from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+
+                detect_and_optimize(self.device)
+            except Exception as exc:
+                logger.warning(f"[TaktikAgent] Language detection failed (non-fatal): {exc}")
+
             # Step 1: Identify the bot account and load persona
             if not self._initialize_persona():
                 return self._fail("Could not identify bot account", message_key="agentStatusErrNoAccount")
@@ -158,7 +168,8 @@ class TaktikAgentWorkflow:
             self._send_status("running", "Taktik Agent is active", message_key="agentStatusActive")
             self._run_feed_loop()
 
-            # Finalize. A stop on the run's lock is said, not folded into "completed".
+            # Finalize. A stop on the run's lock goes in the stats (the status stays "completed":
+            # the app has no status for it yet).
             halt = run_halt.arret_demande()
             if halt:
                 self.stats["stop_reason"] = halt.get("code")
@@ -459,10 +470,11 @@ class TaktikAgentWorkflow:
                     if feed._like_current_post():
                         self.stats["likes"] += 1
                         self._consecutive_skips = 0
-                        # Right after the like, before the comment touches the screen.
+                        # After the pause that follows a like (the dialog comes from the server
+                        # and can take a moment), before the comment touches the screen.
+                        time.sleep(random.uniform(*DELAY_AFTER_LIKE))
                         if self._block_seen("like"):
                             break
-                        time.sleep(random.uniform(*DELAY_AFTER_LIKE))
 
                     if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                         comment_text = decision.get("comment", "")
@@ -650,9 +662,9 @@ class TaktikAgentWorkflow:
                     if self.stats["likes"] < self.quotas["max_likes"]:
                         if feed._like_current_post():
                             self.stats["likes"] += 1
+                            time.sleep(random.uniform(*DELAY_AFTER_LIKE))
                             if self._block_seen("like"):
                                 return
-                            time.sleep(random.uniform(*DELAY_AFTER_LIKE))
 
                         if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                             comment_text = decision.get("comment", "")
@@ -748,13 +760,18 @@ class TaktikAgentWorkflow:
         logger.info(f"[TaktikAgent] Visiting profile @{username}")
 
         # The run's lock, set in the hashtag burst, on the feed or during a navigation: no
-        # visit, no paid AI call, no follow after a block (secours 2).
+        # visit, no paid AI call, no follow after a block.
         if run_halt.arret_demande():
             logger.warning("[TaktikAgent] Run stop requested — no profile visit")
             return
 
         if not self._navigate_to_profile(username):
             logger.warning(f"[TaktikAgent] Could not navigate to @{username}")
+            return
+        # The navigation itself looks for problem pages and may have just seen the block.
+        if run_halt.arret_demande():
+            logger.warning("[TaktikAgent] Run stop requested during the navigation — no AI call, no follow")
+            self._navigate_to_feed()
             return
 
         self.stats["profile_visits"] += 1
@@ -897,7 +914,7 @@ class TaktikAgentWorkflow:
         """After a write: is Instagram refusing it ("Try again later")? One dump, never raises.
 
         The detector sets the run's lock itself (`run_halt.ACTION_BLOCKED`), which
-        `_should_stop` reads: one sighting ends the session (secours 2, 2026-09-24).
+        `_should_stop` reads: one sighting ends the session (2026-09-24).
         """
         if run_halt.arret_demande():
             return True  # already seen (inside a like loop, a comment, a navigation): no dump
@@ -918,7 +935,7 @@ class TaktikAgentWorkflow:
             logger.info("[TaktikAgent] Stop requested by user")
             return True
         # The run's lock: a block ("Try again later") seen by the detector, a lost phone.
-        # The autopilot never read it (secours 2, 2026-09-24).
+        # The autopilot never read it (2026-09-24).
         halt = run_halt.arret_demande()
         if halt:
             logger.warning(f"[TaktikAgent] Run stop requested: {halt.get('code')}")

@@ -187,3 +187,21 @@ def test_a_thread_that_closes_ends_the_loop_instead_of_scrolling_blind(monkeypat
     wf._is_comments_view_open = lambda: False
     out = _run(wf, monkeypatch, {'like_comments': True, 'max_comment_likes': 5})
     assert out['seen'] == 0
+
+
+# ── A refusal in the thread ─────────────────────────────────────────────────
+
+def test_a_refused_comment_like_ends_the_thread(monkeypatch):
+    """Instagram's "Try again later" after a like: not one more like, on this screen or the next."""
+    from taktik.core.shared.diagnostics import run_halt
+
+    run_halt.reinitialiser()
+    wf = _workflow([[_c("alice"), _c("bob")], [_c("carol")]])
+    wf._stop_if_action_blocked = lambda username, action: (
+        run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page") or True)
+    try:
+        _run(wf, monkeypatch, {'like_comments': True})
+    finally:
+        run_halt.reinitialiser()
+
+    assert wf.comment_business.liked == ["alice"]

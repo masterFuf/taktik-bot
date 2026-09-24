@@ -280,6 +280,9 @@ class FeedSuggestionsMixin:
         root = self._suggestions_dump_root()
 
         while result['follows'] < max_follows and result['attempts'] < max_attempts:
+            if run_halt.arret_demande():
+                result['stop_reason'] = 'action_blocked'
+                break
             if not self._suggestions_session_allows():
                 result['stop_reason'] = 'session_limit'
                 break

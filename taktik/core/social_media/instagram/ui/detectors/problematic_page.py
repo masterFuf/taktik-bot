@@ -127,6 +127,14 @@ class ProblematicPageDetector:
             if not ui_content:
                 return False
             
+            # An Instagram alert that reaches the rate-limit threshold is decided HERE, before
+            # the patterns: on its ids alone it used to be "closed" by its primary button (the
+            # contacts request: address book uploaded), or to fall to the Android permission
+            # pattern, which taps "Allow".
+            handled = self._handle_instagram_alert(ui_content)
+            if handled is not None:
+                return handled
+
             # Vérifier chaque type de page problématique
             for page_type, config in self.detection_patterns.items():
                 if self._is_page_detected(ui_content, config['indicators']):
@@ -149,7 +157,8 @@ class ProblematicPageDetector:
                     if is_soft_ban:
                         # Closing the dialog used to be all: the run acted again right after.
                         # The lock is set BEFORE the close, so the run stops at its next check.
-                        run_halt.demander_arret(run_halt.ACTION_BLOCKED, page_type, evidence=evidence)
+                        run_halt.demander_arret(run_halt.ACTION_BLOCKED, f"{page_type} ({evidence})",
+                                                evidence=evidence)
                         logger.error(f"🛑 SOFT BAN DÉTECTÉ ({page_type}) - La session doit être arrêtée")
                         logger.warning(f"📊 Statistiques rate limiting: {self.get_rate_limit_stats()}")
                     
@@ -628,6 +637,38 @@ class ProblematicPageDetector:
             return None
         return 'ids_only'
 
+    def _handle_instagram_alert(self, content: str) -> Optional[Dict[str, Any]]:
+        """An Instagram alert (its `igds_alert_dialog_*` ids) that reaches the rate-limit threshold.
+
+        None: no such alert, or the block proven by its words (the pattern below closes it with its
+        OK, after setting the lock). Otherwise a result, and NEVER a tap on the primary button:
+        - the block on its ids alone (a language we cannot read): the lock is set and the dialog
+          left as it is; the run stops anyway, and an unread primary button may accept anything;
+        - another alert (the contacts request, an update prompt...): dismissed by its cancel
+          button, the refusal; left as it is when it has none.
+        """
+        pattern = self.detection_patterns.get('try_again_later_page') or {}
+        if _alert_dialog_text(content, pattern.get('dialog_text_ids') or []) is None:
+            return None
+        if not self._is_page_detected(content, pattern.get('indicators') or []):
+            return None
+        evidence = self._rate_limit_evidence(content)
+        if evidence == 'words':
+            return None
+        if evidence == 'ids_only':
+            run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page (ids_only)",
+                                    evidence=evidence)
+            logger.error("🛑 Instagram alert read on its ids alone (unknown language): run stopped, "
+                         "alert left open, its primary button never tapped")
+            return {'detected': True, 'closed': False, 'soft_ban': True,
+                    'page_type': 'try_again_later_page'}
+        closed = self._click_button_from_selectors(
+            PROBLEMATIC_PAGE_SELECTORS.alert_cancel_button_selectors, "Alert cancel")
+        logger.info(f"Instagram alert that is not the rate-limit dialog: "
+                    f"{'dismissed by its cancel button' if closed else 'no cancel button, left open'}")
+        return {'detected': True, 'closed': bool(closed), 'soft_ban': False,
+                'page_type': 'instagram_alert'}
+
     def is_action_blocked(self) -> bool:
         """Is Instagram showing its rate-limit dialog right now? Closes nothing.
 
@@ -642,8 +683,10 @@ class ProblematicPageDetector:
         if evidence is None:
             return False
         # Whoever asked, the run stops: every loop that decides to continue reads this lock
-        # (`should_continue`), so one sighting is enough, wherever it happens.
-        run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page", evidence=evidence)
+        # (`should_continue`), so one sighting is enough, wherever it happens. The evidence goes
+        # in the detail, which the stop's log line carries.
+        run_halt.demander_arret(run_halt.ACTION_BLOCKED, f"try_again_later_page ({evidence})",
+                                evidence=evidence)
         return True
 
 

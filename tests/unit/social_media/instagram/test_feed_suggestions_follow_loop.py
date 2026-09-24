@@ -422,5 +422,5 @@ def test_the_run_stop_lock_stops_it_even_without_a_session(no_pacing):
     finally:
         run_halt.reinitialiser()
 
-    assert result["stop_reason"] == "session_limit"
+    assert result["stop_reason"] == "action_blocked"
     assert device.taps == []

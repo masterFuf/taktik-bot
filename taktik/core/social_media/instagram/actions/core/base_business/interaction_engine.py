@@ -104,8 +104,8 @@ class InteractionEngineMixin:
         }
 
         # The run's lock (a block seen on the previous profile, during the navigation to this
-        # one, a lost phone): not one write here. Every workflow that visits profiles goes
-        # through this door, so this one read covers them all (secours 2).
+        # one, a lost phone): not one write here. Target, hashtag, post_url, likers and the feed
+        # author visits go through this door (the autopilot and the notifications do not).
         halt = run_halt.arret_demande()
         if halt:
             self.logger.warning(f"⛔ Run stop requested ({halt.get('code')}) — no interaction on @{username}")
@@ -302,7 +302,7 @@ class InteractionEngineMixin:
 
             # === PHASE START — the profile header is visible on arrival ===
             # After each phase that wrote, one look for Instagram's "Try again later": the first
-            # refusal ends the run (secours 2, 2026-09-24), never the next action on top of it.
+            # refusal ends the run (2026-09-24), never the next action on top of it.
             if story_phase == 'start':
                 self._do_watch_story(username, plan, profile_data, result)
                 if run_halt.arret_demande():  # the story loop looks after each like itself
@@ -693,7 +693,7 @@ class InteractionEngineMixin:
                     except Exception:
                         pass
                     # "Try again later" right after this like, before the next tap: the first
-                    # refusal ends the story here (secours 2).
+                    # refusal ends the story here.
                     if self._stop_if_action_blocked(username, 'story like'):
                         break
 

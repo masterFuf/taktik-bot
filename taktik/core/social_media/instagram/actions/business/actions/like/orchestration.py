@@ -463,7 +463,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 if step == 'like':
                     liked = bool(self.like_current_post())
                     # "Try again later" right after the tap, before anything else touches the
-                    # screen (secours 2): a refused like can read as landed or as failed.
+                    # screen: a refused like can read as landed or as failed.
                     if self._stop_if_action_blocked(username, 'like'):
                         break
                     if not liked:
