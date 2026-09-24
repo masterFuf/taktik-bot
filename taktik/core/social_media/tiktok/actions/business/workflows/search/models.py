@@ -37,6 +37,10 @@ class SearchConfig:
     # Filtres
     min_likes: Optional[int] = None
     max_likes: Optional[int] = None
+    #: Same meaning as the For You lists: the caption must carry one of `required_hashtags` and
+    #: none of `excluded_hashtags` (tags without `#`). Empty = no filter.
+    required_hashtags: List[str] = field(default_factory=list)
+    excluded_hashtags: List[str] = field(default_factory=list)
     
     # Limites de session
     max_likes_per_session: int = 50

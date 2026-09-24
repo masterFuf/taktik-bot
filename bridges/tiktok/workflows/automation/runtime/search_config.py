@@ -27,6 +27,10 @@ def build_search_config(
         repost_probability=config.get("repostProbability", 0) / 100.0,
         max_reposts_per_session=config.get("maxRepostsPerSession", 5),
         comment_texts=config.get("commentTexts") or config.get("comments") or [],
+        # The Hashtag page and the scheduler node send these; until 2026-09-24 only the For You
+        # runner read them, so a hashtag run filtered nothing.
+        required_hashtags=config.get("requiredHashtags") or [],
+        excluded_hashtags=config.get("excludedHashtags") or [],
         min_likes=config.get("minLikes"),
         max_likes=config.get("maxLikes"),
         max_likes_per_session=remaining_likes,

@@ -11,6 +11,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_
     bool_param,
     float_param,
     int_param,
+    list_param,
     merge_invocation_payload,
     optional_int_param,
     probability_param,
@@ -83,6 +84,8 @@ def _search_config(workflow_id: str, payload: Mapping[str, Any]) -> SearchConfig
         favorite_probability=probability_param(
             payload, "favorite_probability", "favoriteProbability", default=0.05
         ),
+        required_hashtags=list_param(payload, "required_hashtags", "requiredHashtags"),
+        excluded_hashtags=list_param(payload, "excluded_hashtags", "excludedHashtags"),
         min_likes=optional_int_param(payload, "min_likes", "minLikes"),
         max_likes=optional_int_param(payload, "max_likes", "maxLikes"),
         max_likes_per_session=int_param(

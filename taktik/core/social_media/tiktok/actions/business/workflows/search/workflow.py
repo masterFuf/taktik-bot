@@ -194,5 +194,9 @@ class SearchWorkflow(BaseVideoWorkflow):
         
         if self.config.max_likes and like_count > self.config.max_likes:
             return True
-        
+
+        # Hashtag filters: the For You rule, shared through BaseVideoWorkflow
+        if self._rejected_by_hashtags(video_info):
+            return True
+
         return False
