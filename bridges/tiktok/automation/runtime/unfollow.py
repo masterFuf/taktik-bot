@@ -10,10 +10,17 @@ from bridges.tiktok.runtime.startup import tiktok_startup
 
 def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok Unfollow workflow."""
+    from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.payload import (
+        unfollow_config_from_payload,
+    )
+
     device_id = config.get("deviceId")
-    max_unfollows = config.get("maxUnfollows") or config.get("max_unfollows", 20)
     bot_username = config.get("botUsername")
-    include_friends = not (config.get("skipFriends") or config.get("skip_friends", True))
+    # The page and the scheduler send `delay_min` / `delay_max`; this runner read `minDelay` /
+    # `maxDelay`, so every run paused 1 to 3 s whatever was set. One reader now, shared with the
+    # Agent handler.
+    wf_config = unfollow_config_from_payload(config)
+    max_unfollows = wf_config.max_unfollows
 
     if not device_id:
         send_error("No device ID provided")
@@ -27,18 +34,11 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
 
     try:
         from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow import (
-            UnfollowConfig,
             UnfollowWorkflow,
         )
 
         manager, _ = tiktok_startup(device_id, fetch_profile=True)
-
-        wf_config = UnfollowConfig(
-            max_unfollows=max_unfollows,
-            include_friends=include_friends,
-            min_delay=config.get("minDelay", 1.0),
-            max_delay=config.get("maxDelay", 3.0),
-        )
+        logger.info(f"⏱️ Pause between unfollows: {wf_config.min_delay:g}-{wf_config.max_delay:g} s")
 
         workflow = UnfollowWorkflow(manager.device_manager.device, wf_config)
         set_workflow(workflow)
