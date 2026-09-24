@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from copy import copy
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Set
 
 from loguru import logger
 
@@ -73,6 +73,19 @@ class SocialGraphRepository(BaseRepository):
         except Exception as exc:
             logger.debug(f"Error checking bot follow record for @{username}: {exc}")
             return False
+
+    def bot_followed_usernames(self, account_id: int) -> Set[str]:
+        """Every handle this account ever followed successfully, lowercased: what
+        `has_bot_follow_record` answers for one handle, read once for a whole list sync."""
+        if not account_id:
+            return set()
+        rows = self.query_orm_first(
+            """SELECT DISTINCT sp.username AS username FROM interactions i
+               JOIN social_profiles sp ON sp.legacy_profile_id = i.profile_id AND sp.platform = i.platform
+               WHERE i.platform = ? AND i.account_id = ? AND i.interaction_type = 'FOLLOW' AND i.success = 1""",
+            (self.platform, account_id),
+        )
+        return {str(row["username"]).lower() for row in rows if row.get("username")}
 
     def get_days_since_follow(self, username: str, account_id: int) -> Optional[int]:
         if not account_id:

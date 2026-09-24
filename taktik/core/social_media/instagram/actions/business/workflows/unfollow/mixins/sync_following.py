@@ -100,6 +100,8 @@ class SyncFollowingMixin:
             # Read the already-known usernames to find the stop point
             known_usernames = InstagramFollowGraphService.get_active_following_usernames(account_id)
             self.logger.info(f"📋 {len(known_usernames)} known followings in DB")
+            # The bot's follows, read once: one query per row used to follow every read
+            bot_follows = InstagramFollowGraphService.bot_followed_usernames(account_id)
 
             # For enriched mode, create a ProfileExtraction instance
             profile_extractor = None
@@ -121,25 +123,30 @@ class SyncFollowingMixin:
             end_rounds = getattr(self, 'end_of_list_scrolls', 3)
 
             while scroll_attempts < max_scrolls and not stop_signal:
-                # Read the visible items with their UI references
-                username_elements = d(resourceId=username_resource_id)
-                if not username_elements.exists:
+                if self._sync_should_stop():
+                    stats['stopped_by_session'] = True
                     break
+                # One read of the screen outside enriched mode: usernames, display names and the
+                # state of each row's button together. The per-element reads cost three device
+                # calls per row, and a sync of 1 928 followings took an hour (2026-09-24).
+                if mode == 'enriched':
+                    username_elements = d(resourceId=username_resource_id)
+                    if not username_elements.exists:
+                        break
+                    rows = self._visible_follow_rows()
+                    entries = self._live_follow_entries(username_elements)
+                else:
+                    rows = self._visible_follow_rows(with_display_names=True)
+                    if not rows and not d(resourceId=username_resource_id).exists:
+                        break
+                    entries = [(i, row['username'], row['name_element']) for i, row in enumerate(rows)]
                 # Only rows that say we follow them: the list ends with suggestions ("Follow"), and
                 # a row whose button cannot be read yet is read again after the next scroll.
-                row_states = {row['username'].lower(): row['state'] for row in self._visible_follow_rows()}
+                row_states = {row['username'].lower(): row['state'] for row in rows}
+                display_names = {row['username'].lower(): row.get('display_name', '') for row in rows}
 
                 new_found = False
-                count = username_elements.count
-                for i in range(count):
-                    try:
-                        el = username_elements[i]
-                        username = (el.get_text() or '').strip().lstrip('@')
-                        if not username or not self._is_valid_username(username):
-                            continue
-                    except Exception:
-                        continue
-
+                for i, username, el in entries:
                     if username in seen_on_screen:
                         continue
                     if row_states.get(username.lower()) != 'following':
@@ -148,16 +155,11 @@ class SyncFollowingMixin:
                     stats['total_seen'] += 1
                     new_found = True
 
-                    # Read the display name (subtitle)
-                    display_name = ''
-                    try:
-                        subtitle_els = d(
-                            resourceId=UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
-                        )
-                        if subtitle_els.exists and i < subtitle_els.count:
-                            display_name = subtitle_els[i].get_text() or ''
-                    except Exception:
-                        pass
+                    # The display name, paired to its row by position (it used to be taken by
+                    # index, and one row without a subtitle shifted every name after it)
+                    display_name = display_names.get(username.lower(), '')
+                    if mode == 'enriched' and not display_name:
+                        display_name = self._live_display_name(d, active_package, i)
 
                     # Si on rencontre un username déjà connu
                     if username in known_usernames:
@@ -184,7 +186,7 @@ class SyncFollowingMixin:
                         self.logger.debug(f"Known @{username} — processing anyway (enriched mode)")
 
                     # Following → upsert en BDD
-                    is_bot_follow = InstagramFollowGraphService.has_bot_follow_record(username, account_id)
+                    is_bot_follow = username.lower() in bot_follows
                     result = InstagramFollowGraphService.upsert_following(
                         username=username,
                         display_name=display_name,
@@ -283,7 +285,7 @@ class SyncFollowingMixin:
                 if mode != 'enriched':
                     if self._scroll_following_list() is False:
                         scroll_failed = True
-                    time.sleep(1.5)
+                    time.sleep(random.uniform(0.6, 1.1))  # the list settles; the next read is a dump
                     scroll_attempts += 1
                 else:
                     # En mode enrichi, on a break après chaque profil enrichi

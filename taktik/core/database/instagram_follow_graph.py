@@ -40,6 +40,17 @@ class InstagramFollowGraphService:
             return False
 
     @classmethod
+    def bot_followed_usernames(cls, account_id: int) -> set:
+        """Every handle this account followed successfully (lowercased), read once."""
+        if not account_id:
+            return set()
+        try:
+            return cls._repository().bot_followed_usernames(account_id=account_id)
+        except Exception as exc:
+            log.debug(f"Error reading the bot's follows: {exc}")
+            return set()
+
+    @classmethod
     def get_days_since_follow(cls, username: str, account_id: int) -> Optional[int]:
         """Return the number of full days since the most recent successful follow."""
         if not account_id:

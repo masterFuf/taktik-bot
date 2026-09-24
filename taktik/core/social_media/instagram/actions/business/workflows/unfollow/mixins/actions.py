@@ -15,6 +15,23 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PRO
 from ..list_proof import parse_tab_count
 
 
+# Share of the screen one scroll of a follow list travels: most of a screen, with a row or two of
+# overlap so no row falls between two reads.
+FOLLOW_LIST_SCROLL_RATIO = 0.8
+
+
+def _pair_subtitles(names_by_y, subtitles) -> Dict[str, str]:
+    """Each username's display name: the subtitle whose centre lies between its username's centre
+    and the next username's. A row without a subtitle gets none (never its neighbour's)."""
+    paired: Dict[str, str] = {}
+    for index, (y, username) in enumerate(names_by_y):
+        next_y = names_by_y[index + 1][0] if index + 1 < len(names_by_y) else float("inf")
+        below = [(sy, text) for sy, text in subtitles if y < sy < next_y]
+        if below:
+            paired[username] = min(below)[1]
+    return paired
+
+
 def _vertical_band(element) -> Optional[tuple]:
     """(centre, top, bottom) of an element's bounds, or None when they are unreadable."""
     try:
@@ -31,7 +48,8 @@ class UnfollowActionsMixin:
 
     # ─── Rows of an open follow list ──────────────────────────────────────────
 
-    def _visible_follow_rows(self, require_username: bool = True) -> List[Dict[str, Any]]:
+    def _visible_follow_rows(self, require_username: bool = True,
+                             with_display_names: bool = False) -> List[Dict[str, Any]]:
         """Every readable row of the open follow list: `username`, row `button`, and `state`.
 
         A row carries one username and one action button, paired by vertical position: the
@@ -41,6 +59,8 @@ class UnfollowActionsMixin:
         ("Suivi(e)"), and 'follow_back' for "Follow back" / "Suivre en retour". With
         `require_username`, a button nobody can name at its height is left out: an unfollow is
         never tapped on an anonymous row (it used to be recorded on a profile called "unknown").
+        `with_display_names` adds each row's `display_name` (the line under its username) from one
+        more read of the screen: the syncs used to make three device calls PER ROW for it.
         """
         rows: List[Dict[str, Any]] = []
         try:
@@ -66,9 +86,57 @@ class UnfollowActionsMixin:
                     'button': button,
                     'state': classify_follow_state(button.text or '', PROFILE_SELECTORS) or 'unknown',
                 })
+            if with_display_names:
+                names_by_y = sorted((entry[1], entry[0]) for entry in names)
+                subtitles = []
+                for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_subtitle_selector(package)).all():
+                    band = _vertical_band(el)
+                    if band:
+                        subtitles.append((band[0], (el.text or '').strip()))
+                display = _pair_subtitles(names_by_y, subtitles)
+                for row in rows:
+                    row['display_name'] = display.get(row['username'], '') if row['username'] else ''
         except Exception as e:
             self.logger.debug(f"Error reading the follow list rows: {e}")
         return rows
+
+    def _sync_should_stop(self) -> bool:
+        """The session's limits during a list read: its duration, the run's stop lock. A read of
+        a large list went on past the session's end (a 25-minute session, 2026-09-24)."""
+        session = getattr(self, 'session_manager', None)
+        if session is None or not hasattr(session, 'should_continue'):
+            return False
+        try:
+            keep_going, reason = session.should_continue()
+        except Exception:
+            return False
+        if not keep_going:
+            self.logger.warning(f"List read stopped by the session: {reason}")
+        return not keep_going
+
+    def _live_follow_entries(self, username_elements) -> List[tuple]:
+        """(index, username, element) of each username element, read one by one: the enriched
+        syncs tap into profiles and need live elements."""
+        entries = []
+        for i in range(username_elements.count):
+            try:
+                el = username_elements[i]
+                username = (el.get_text() or '').strip().lstrip('@')
+            except Exception:
+                continue
+            if username and self._is_valid_username(username):
+                entries.append((i, username, el))
+        return entries
+
+    def _live_display_name(self, d, package: str, index: int) -> str:
+        """The index-th display name of the list, read live (enriched syncs only)."""
+        try:
+            subtitle_els = d(resourceId=UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(package))
+            if subtitle_els.exists and index < subtitle_els.count:
+                return subtitle_els[index].get_text() or ''
+        except Exception:
+            pass
+        return ''
 
     def _tap_unfollow_confirm(self, timeout: float = 2.0) -> bool:
         """Tap the confirmation dialog's unfollow button if it shows up within `timeout` seconds.
@@ -194,9 +262,12 @@ class UnfollowActionsMixin:
     
     def _scroll_following_list(self) -> bool:
         """Scroll the follow list down (humanized controlled scroll). False when the gesture
-        failed: a read that could not scroll proves nothing about the end of the list."""
+        failed: a read that could not scroll proves nothing about the end of the list.
+
+        Most of a screen per gesture, keeping a row or two of overlap: at 0.4 a scroll moved about
+        3 of the 9 visible rows, and reading 1 928 followings took an hour (measured 2026-09-24)."""
         try:
-            return human_scroll_raw(self.device.device, "down", distance_ratio=0.4) is not False
+            return human_scroll_raw(self.device.device, "down", distance_ratio=FOLLOW_LIST_SCROLL_RATIO) is not False
         except Exception as e:
             self.logger.debug(f"Error scrolling: {e}")
             return False
