@@ -351,7 +351,8 @@ class SyncFollowersMixin:
     def _scroll_followers_list(self) -> bool:
         """Scroll the followers list down (humanized controlled scroll). False when it failed."""
         try:
-            return human_scroll_raw(self.device.device, "down", distance_ratio=FOLLOW_LIST_SCROLL_RATIO) is not False
+            return human_scroll_raw(self.device.device, "down", distance_ratio=FOLLOW_LIST_SCROLL_RATIO,
+                                    precise=True) is not False
         except Exception as e:
             self.logger.debug(f"Error scrolling followers list: {e}")
             return False
