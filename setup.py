@@ -10,7 +10,7 @@ setup(
         "click>=8.0.0",
         "rich>=10.0.0",
         "pure-python-adb>=0.3.0.dev0",  # Version de développement
-        "uiautomator2>=2.16.0",
+        "uiautomator2>=3.3.3",
         "cryptography>=35.0.0",
         "pyyaml>=6.0",
         "requests>=2.27.0",
