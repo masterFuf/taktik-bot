@@ -579,7 +579,7 @@ def test_the_hashtag_post_is_not_commented_after_a_refused_like():
     workflow.logger = _Logger()
     workflow.stats_manager = _Stats()
     workflow.nav_actions = types.SimpleNamespace(problematic_page_detector=ProblematicPageDetector(phone))
-    workflow.like_business = types.SimpleNamespace(like_current_post=lambda: gestures.append("like") or True)
+    workflow.like_business = types.SimpleNamespace(like_current_post=lambda **k: gestures.append("like") or True)
     workflow.comment_business = types.SimpleNamespace(
         comment_on_post=lambda **k: gestures.append("comment") or {"commented": True})
     stats = {"likes_made": 0, "comments_made": 0}
