@@ -156,8 +156,8 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
         Called right after the send button, BEFORE the post-comment pause and the sheet close:
         those take several seconds and tap the screen. Written after them, a run stopped or
         crashing in between left a published comment with no trace at all -- measured on
-        2026-09-24: comment sent at 10:42:42, run stopped at 10:42:48 while closing the sheet,
-        session without a single row, and the comment outside the session caps.
+        2026-09-24: the run stopped six seconds after the send, while closing the sheet, and the
+        session kept not a single row; the comment was outside the session caps.
 
         Three writes, on purpose:
          - the session counter, which the session caps read;

@@ -1,7 +1,7 @@
 """A gesture published on Instagram is counted and filed the moment it happens.
 
-2026-09-24, hashtag run: a comment was sent at 10:42:42 and the run stopped at 10:42:48, while
-the comments sheet was being closed. The comment action wrote its session counter, its ledger
+2026-09-24, hashtag run: a comment was sent and the run stopped six seconds later, while the
+comments sheet was being closed. The comment action wrote its session counter, its ledger
 row and its rich record only AFTER the post-comment pause and that close, so the session kept
 no row at all and the comment escaped the session caps. The like of the same posts pass never
 wrote anything but the live counter.
