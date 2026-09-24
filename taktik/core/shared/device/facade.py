@@ -8,11 +8,15 @@ inherit from this and override only what differs (app_id, swipe behavior, etc.).
 
 from typing import Any, Dict, Optional, List, Union, Tuple
 from enum import Enum
+import threading
 import time
 import os
 from loguru import logger
 
 from taktik.core.shared.telemetry import emit_step
+
+# Two first calls at once must not build two photo sources (one invalidation would be lost).
+_SNAPSHOT_SOURCE_LOCK = threading.Lock()
 
 
 class Direction(Enum):
@@ -189,17 +193,23 @@ class BaseDeviceFacade:
     # === Screen photo (step 1 of the one-photo spec: available, wired into no workflow yet) ===
 
     def _snapshot_source(self):
-        source = getattr(self, "_snapshot_source_instance", None)
-        if source is None:
-            from taktik.core.shared.device.snapshot import SnapshotSource
+        # Read from the instance itself: `getattr` would go through the facade's forwarding to the
+        # device, and a mock device would hand back a fake source that never dumps.
+        source = vars(self).get("_snapshot_source_instance")
+        if source is not None:
+            return source
+        with _SNAPSHOT_SOURCE_LOCK:
+            source = vars(self).get("_snapshot_source_instance")
+            if source is None:
+                from taktik.core.shared.device.snapshot import SnapshotSource
 
-            # The device's own selector rewrite, when it has one (Instagram's
-            # `CloneAwareDeviceProxy`): looked up on the class, so a device that answers every
-            # attribute (a mock, uiautomator2's forwarding) is not taken for a rewriter.
-            rewrite = (self._device.rewrite_xpath
-                       if callable(getattr(type(self._device), "rewrite_xpath", None)) else None)
-            source = SnapshotSource(self.get_xml_dump, rewrite=rewrite)
-            self._snapshot_source_instance = source
+                # The device's own selector rewrite, when it has one (Instagram's
+                # `CloneAwareDeviceProxy`): looked up on the class, so a device that answers every
+                # attribute (a mock, uiautomator2's forwarding) is not taken for a rewriter.
+                rewrite = (self._device.rewrite_xpath
+                           if callable(getattr(type(self._device), "rewrite_xpath", None)) else None)
+                source = SnapshotSource(self.get_xml_dump, rewrite=rewrite)
+                self._snapshot_source_instance = source
         return source
 
     def snapshot(self, max_age_s: float = 0.0):
