@@ -40,4 +40,40 @@ def build_interaction_config(config: Optional[Dict[str, Any]]) -> Dict[str, Any]
     }
 
 
-__all__ = ["build_interaction_config"]
+#: The same five intents in the two spellings a workflow receives: percentages (0-100, the
+#: workflow defaults and the CLI) and probabilities (0.0-1.0, what the runner sends through
+#: `ActionProbabilities.to_dict`).
+_PERCENTAGE_AND_PROBABILITY_KEYS = (
+    ('like_percentage', 'like_probability'),
+    ('follow_percentage', 'follow_probability'),
+    ('comment_percentage', 'comment_probability'),
+    ('story_watch_percentage', 'story_probability'),
+    ('story_like_percentage', 'story_like_probability'),
+)
+
+
+def merge_operator_config(defaults: Dict[str, Any],
+                          config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """The workflow defaults overlaid with the operator's config, the operator winning in
+    EITHER spelling.
+
+    A plain ``{**defaults, **config}`` keeps a default percentage next to the operator's
+    probability, and both readers downstream take the percentage: the hashtag posts pass reads
+    ``*_percentage`` only, and `_determine_interactions_from_config` prefers it. Measured on a
+    phone (2026-09-24): asked like 100 %, comment 0 %, the hashtag run applied the defaults --
+    like 80 %, comment 5 % -- and posted a comment on a stranger's reel. Each intent the operator
+    set is therefore written in both spellings.
+    """
+    config = config or {}
+    merged = {**defaults, **config}
+    for percentage_key, probability_key in _PERCENTAGE_AND_PROBABILITY_KEYS:
+        probability = config.get(probability_key)
+        percentage = config.get(percentage_key)
+        if percentage is None and probability is not None:
+            merged[percentage_key] = int(round(float(probability) * 100))
+        elif probability is None and percentage is not None:
+            merged[probability_key] = float(percentage) / 100.0
+    return merged
+
+
+__all__ = ["build_interaction_config", "merge_operator_config"]

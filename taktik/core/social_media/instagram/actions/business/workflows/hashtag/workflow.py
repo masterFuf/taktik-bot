@@ -8,6 +8,7 @@ from loguru import logger
 
 from ..common.likers_base import LikersWorkflowBase
 from ..common.list_sources import resolve_list_source
+from ..common.interaction_config import merge_operator_config
 from .interaction_plan import resolve_interaction_plan
 from ....core.stats import create_workflow_stats
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
@@ -332,7 +333,9 @@ class HashtagBusiness(
 
     def interact_with_hashtag_likers(self, hashtag: str, config: Dict[str, Any] = None,
                                      finalize: bool = True) -> Dict[str, Any]:
-        effective_config = {**self.default_config, **(config or {})}
+        # The operator's probabilities must beat the default percentages: both passes below
+        # read the percentage first (see `merge_operator_config`).
+        effective_config = merge_operator_config(self.default_config, config)
 
         # A single read of the post bounds, for both halves of the workflow. Written
         # flat: everything else reads that form.
