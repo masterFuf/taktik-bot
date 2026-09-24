@@ -113,9 +113,10 @@ def _business(screens, *, graph, monkeypatch):
 FOLLOWERS_TITLES = ("{n} followers", "4 suivi(e)s", "0 abonnements", "À vérifier")
 
 
-def _followers_page(rows, count, selected=0):
+def _followers_page(rows, count, selected=0, suggestions_before=None):
     titles = tuple(title.format(n=count) for title in FOLLOWERS_TITLES)
-    return follow_list_xml(rows, extra=unified_tabs(selected=selected, titles=titles))
+    return follow_list_xml(rows, extra=unified_tabs(selected=selected, titles=titles),
+                           suggestions_before=suggestions_before)
 
 
 def test_a_followers_read_that_reaches_the_count_is_complete(monkeypatch):
@@ -167,9 +168,10 @@ def test_the_followers_sync_leaves_the_following_tab(monkeypatch):
 FOLLOWING_TITLES = ("9 followers", "{n} suivi(e)s", "0 abonnements", "À vérifier")
 
 
-def _following_page(rows, count, ig410=False):
+def _following_page(rows, count, ig410=False, suggestions_before=None):
     titles = tuple(title.format(n=count) for title in FOLLOWING_TITLES)
-    return follow_list_xml(rows, extra=unified_tabs(selected=1, titles=titles), ig410=ig410)
+    return follow_list_xml(rows, extra=unified_tabs(selected=1, titles=titles), ig410=ig410,
+                           suggestions_before=suggestions_before)
 
 
 def test_a_partial_following_read_marks_no_departure(monkeypatch):
@@ -295,3 +297,78 @@ def test_an_ig410_list_is_read_whole(monkeypatch):
 
     assert graph.followings == [f"a{i}" for i in range(1, 7)]
     assert stats["complete"] is True
+
+
+# ── Blank row buttons (2026-09-24): deep in a long list Instagram 410 leaves them blank ─────────
+
+def test_blank_buttons_deep_in_the_following_list_keep_their_rows(monkeypatch):
+    """A read that waited for "Suivi(e)" on every row stopped at about 150 of 1 928 on a Pixel 3:
+    past the first screens, 1 or 2 buttons of 9 carried a text, the same 30 s later."""
+    graph = Graph()
+    pages = [_following_page([("a1", "Suivi(e)"), ("a2", "Suivi(e)"), ("a3", "")], 6),
+             _following_page([("a4", ""), ("a5", "Suivi(e)"), ("a6", "")], 6)]
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert graph.followings == ["a1", "a2", "a3", "a4", "a5", "a6"]
+    assert stats["complete"] is True
+
+
+def test_blank_buttons_keep_follower_rows(monkeypatch):
+    graph = Graph()
+    pages = [_followers_page([("f1", "Suivre en retour"), ("f2", "")], 4),
+             _followers_page([("f3", ""), ("f4", "Suivi(e)")], 4)]
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_followers_list({"mode": "fast"})
+
+    assert stats["usernames"] == {"f1", "f2", "f3", "f4"} and stats["complete"] is True
+
+
+def test_a_button_that_says_we_do_not_follow_still_excludes_its_row(monkeypatch):
+    graph = Graph()
+    pages = [_following_page([("a1", ""), ("fan", "Suivre en retour"), ("asked", "Demandé")], 1)]
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    business.sync_following_list({"mode": "fast"})
+
+    assert graph.followings == ["a1"]
+
+
+def test_the_suggestions_under_the_following_list_end_it_and_are_not_read(monkeypatch):
+    """Blank buttons no longer tell a suggestion from a following: their header does."""
+    graph = Graph()
+    rows = [("a1", "Suivi(e)"), ("a2", ""), ("s1", ""), ("s2", "Suivre")]
+    pages = [_following_page(rows, 2, suggestions_before=2),
+             _following_page([("never", "")], 2)]
+    business, screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert graph.followings == ["a1", "a2"]
+    assert stats["end_reached"] is True and stats["complete"] is True
+    assert screen.index == 0   # ended on that screen, no scroll past the suggestions
+
+
+def test_the_suggestions_under_the_followers_list_are_not_followers(monkeypatch):
+    graph = Graph()
+    rows = [("f1", "Suivre en retour"), ("f2", ""), ("s1", "")]
+    pages = [_followers_page(rows, 2, suggestions_before=2)]
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_followers_list({"mode": "fast"})
+
+    assert stats["usernames"] == {"f1", "f2"} and stats["complete"] is True
+
+
+def test_the_unfollow_never_taps_a_blank_button(monkeypatch):
+    """A blank button keeps its row in a list READ; an unfollow still needs the button to say we
+    follow: what a blank one does when tapped is unknown."""
+    graph = Graph()
+    business, _screen = _business([_following_page([("a1", ""), ("a2", "Suivi(e)")], 2)],
+                                  graph=graph, monkeypatch=monkeypatch)
+
+    states = {row["username"]: row["state"] for row in business._visible_follow_rows()}
+
+    assert states == {"a1": "unknown", "a2": "following"}
