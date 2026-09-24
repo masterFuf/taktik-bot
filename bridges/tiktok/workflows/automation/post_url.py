@@ -46,6 +46,22 @@ def read_post_url(config: Dict[str, Any]) -> str:
     return ""
 
 
+def read_profile_budget(config: Dict[str, Any], max_commenters: int) -> int:
+    """How many commenters to VISIT, in whichever key carries the budget.
+
+    The page sends it twice, as `maxProfiles` and as `maxVideos` (the name the live panel reads,
+    and the name `calculate_target_distribution` falls back to for the followers road). This
+    runner read `maxProfiles` and `maxFollowers` only, so a payload carrying the budget as
+    `maxVideos` alone ran with the commenter count instead. Same order as the followers road:
+    the specific name first, the shared one after, the commenter budget last.
+    """
+    for key in ("maxProfiles", "maxFollowers", "maxVideos"):
+        value = config.get(key)
+        if value:
+            return int(value)
+    return max_commenters
+
+
 def run_post_url_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok Post URL workflow."""
     device_id = config.get("deviceId")
@@ -79,7 +95,7 @@ def run_post_url_workflow(config: Dict[str, Any]) -> bool:
         # operator sets them separately: resolving a handle costs a profile open (~13 s) whether or
         # not that person is then worth interacting with.
         max_commenters = int(config.get("maxCommenters") or 20)
-        max_profiles = int(config.get("maxProfiles") or config.get("maxFollowers") or max_commenters)
+        max_profiles = read_profile_budget(config, max_commenters)
 
         workflow_config = build_followers_config(
             PostUrlConfig,
