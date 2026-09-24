@@ -218,9 +218,11 @@ STRINGS: Dict[str, List[str]] = {
     # Sur la liste, chaque rangee porte un `Button` cliquable « Suivis » (on le suit) ou « Ami(e)s »
     # (mutuel) ; l'intitule d'onglet « Suivis 39 » est un TextView, exclu par la classe et l'egalite.
     # Mesure hors ligne (data/tiktok-parite, 87 captures) : 6 et 9 sur les listes d'abonnements 43.1.4
-    # et 46.6.3, 9 sur les deux listes « Suivis » du compte ; hors listes, seulement les abonnes mutuels
-    # d'une liste d'abonnes (« Ami(e)s », des comptes qu'on suit aussi) et la liste derriere la feuille
-    # de desabonnement. Aucun sur un profil.
+    # et 46.6.3, 9 sur les deux listes « Suivis » du compte ; hors listes d'abonnements, seulement les
+    # rangees d'une liste d'abonnes pour des comptes qu'on suit aussi (« Suivis » ou « Ami(e)s ») et la
+    # liste derriere la feuille de desabonnement. Aucun sur un profil : le « Suivis » d'un profil suivi
+    # est un TextView. Les rangees n'ont pas d'espace finale ; `normalize-space` couvre l'en-tete qui
+    # en a une.
     "followers.following_or_friends_button": [
         "//android.widget.Button[normalize-space(@text)=\"Suivis\" or normalize-space(@text)=\"Ami(e)s\"]",
     ],
