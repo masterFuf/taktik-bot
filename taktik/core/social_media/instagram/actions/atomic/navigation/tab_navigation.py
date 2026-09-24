@@ -80,15 +80,14 @@ class TabNavigationMixin(BaseAction):
             # when already on the profile tab doesn't navigate back)
             if detection.is_on_profile_screen():
                 self.logger.debug(f"📱 On another user's profile, pressing back (attempt {attempt + 1})")
-                self._press_back(1)
-                self._human_like_delay('navigation')
+                self._back_one_screen()
                 if detection.is_on_own_profile():
                     self.logger.debug(f"✅ Back to own profile via back button (attempt {attempt + 1})")
                     return True
-            
+
             if self._find_and_click(self.selectors.profile_tab, timeout=15):
                 self._human_like_delay('navigation')
-                
+
                 if detection.is_on_own_profile():
                     self.logger.debug(f"✅ Successfully navigated to own profile (attempt {attempt + 1})")
                     return True
@@ -96,7 +95,13 @@ class TabNavigationMixin(BaseAction):
                     self.logger.debug(f"❌ Failed navigation attempt {attempt + 1}")
             else:
                 self.logger.debug(f"❌ Cannot click on profile tab (attempt {attempt + 1})")
-        
+                # A full-screen surface hides the bottom bar. Since Instagram 410 the followers /
+                # following lists do: every unfollow run that had read the following list then
+                # failed here three times, and its followers sync never ran (Pixel 3, 2026-09-24).
+                # One Back at a time, never out of Instagram.
+                if self._is_instagram_open():
+                    self._back_one_screen()
+
         self.logger.error("❌ Failed to navigate to own profile after 3 attempts")
         # Debug: dump UI hierarchy to understand what's on screen
         try:
@@ -113,6 +118,13 @@ class TabNavigationMixin(BaseAction):
         except Exception as e:
             self.logger.debug(f"UI dump failed: {e}")
         return False
+
+    def _back_one_screen(self) -> None:
+        """One real Back. `_press_back` goes through the Instagram facade's `press('back')`, which
+        sends uiautomator2 a key name it ignores without an error (12 Backs out of 12 without effect
+        on 4 phones, 2026-09-23); the shared facade's `press_back()` sends the name it knows."""
+        self.device.press_back()
+        self._human_like_delay('navigation')
 
     # === Screen detection helpers ===
 
