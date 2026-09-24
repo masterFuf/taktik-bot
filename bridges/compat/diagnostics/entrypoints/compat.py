@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 """
-Compat Bridge â€” Electron-spawnable bridge for the App Compatibility Framework.
+Compat Bridge — Electron-spawnable bridge for the App Compatibility Framework.
 
 Follows the same stdout JSON protocol as all other bridges.
 Spawned by electron/handlers/compat/compat.ts via ProcessManager.

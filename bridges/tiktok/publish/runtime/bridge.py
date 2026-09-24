@@ -121,9 +121,9 @@ class TikTokPublishBridge:
 
                 set_active_package(self.package_name)
                 patched = patch_selectors_for_package("tiktok", self.package_name)
-                send_log("info", f"ðŸ§¬ Package override: patched {patched} selector(s) for {self.package_name}")
+                send_log("info", f"🧬 Package override: patched {patched} selector(s) for {self.package_name}")
             except Exception as e:
-                send_log("warning", f"âš ï¸ Clone selector patching failed (non-fatal): {e}")
+                send_log("warning", f"⚠️ Clone selector patching failed (non-fatal): {e}")
 
         if self.post_type == "text":
             return self._run_text_post(device)

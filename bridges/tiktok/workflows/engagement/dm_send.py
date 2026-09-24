@@ -25,7 +25,7 @@ def run_dm_send_workflow(config: Dict[str, Any]):
         send_error("No messages to send")
         return False
 
-    logger.info(f"ðŸ“¤ Starting TikTok DM sending workflow on device: {device_id}")
+    logger.info(f"📤 Starting TikTok DM sending workflow on device: {device_id}")
     send_status("starting", f"Sending {len(messages)} messages")
 
     try:
@@ -45,7 +45,7 @@ def run_dm_send_workflow(config: Dict[str, Any]):
         set_workflow(workflow)
         wire_dm_send_callbacks(workflow)
 
-        logger.info(f"â–¶ï¸ Sending {len(messages)} messages...")
+        logger.info(f"▶️ Sending {len(messages)} messages...")
         send_status("running", f"Sending {len(messages)} messages")
 
         results = workflow.send_bulk_messages(messages)
@@ -58,7 +58,7 @@ def run_dm_send_workflow(config: Dict[str, Any]):
         stats = workflow.get_stats()
         send_dm_stats(stats.to_dict())
 
-        logger.success(f"âœ… DM sending completed: {sent_count}/{len(messages)} sent")
+        logger.success(f"✅ DM sending completed: {sent_count}/{len(messages)} sent")
         send_status("completed", f"Sent {sent_count}/{len(messages)} messages")
 
         return True

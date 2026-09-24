@@ -19,7 +19,7 @@ def run_dm_read_workflow(config: Dict[str, Any]):
         send_error("No device ID provided")
         return False
 
-    logger.info(f"ðŸ“¥ Starting TikTok DM reading workflow on device: {device_id}")
+    logger.info(f"📥 Starting TikTok DM reading workflow on device: {device_id}")
     send_status("starting", f"Initializing TikTok DM workflow on {device_id}")
 
     try:
@@ -38,14 +38,14 @@ def run_dm_read_workflow(config: Dict[str, Any]):
             delay_between_conversations=config.get("delayBetweenConversations", 1.0),
         )
 
-        logger.info("ðŸ“¥ Creating DM workflow...")
+        logger.info("📥 Creating DM workflow...")
         send_status("running", "Reading DM conversations")
 
         workflow = DMWorkflow(manager.device_manager.device, workflow_config)
         set_workflow(workflow)
         wire_dm_read_callbacks(workflow)
 
-        logger.info("â–¶ï¸ Reading conversations...")
+        logger.info("▶️ Reading conversations...")
         conversations = workflow.read_conversations()
 
         # Persistence is best-effort and comes AFTER the read: a database problem must not
@@ -58,7 +58,7 @@ def run_dm_read_workflow(config: Dict[str, Any]):
         stats = workflow.get_stats()
         send_dm_stats(stats.to_dict())
 
-        logger.success(f"âœ… DM reading completed: {len(conversations)} conversations")
+        logger.success(f"✅ DM reading completed: {len(conversations)} conversations")
         send_status("completed", f"Read {len(conversations)} conversations")
 
         return True
