@@ -30,16 +30,6 @@ def is_post_open(a, p):
     return result
 
 
-@action("detection.is_action_blocked")
-def is_action_blocked(a, p):
-    """Instagram's "Try again later" dialog on screen? The production probe itself: proven by the
-    dialog's own words, it closes nothing, and seen it sets the run's stop lock (lifted before
-    each Lab action)."""
-    result = a.nav.problematic_page_detector.is_action_blocked()
-    logger.info(f"Action blocked (Try again later): {result}")
-    return result
-
-
 @action("detection.get_current_screen")
 def get_current_screen(a, p):
     try:
