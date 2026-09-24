@@ -64,18 +64,30 @@ def _french_and_fast(monkeypatch):
 class Graph:
     """The follow graph service, in memory."""
 
-    def __init__(self, known_followings=()):
+    def __init__(self, known_followings=(), bot_follows=()):
         self.known = {name.lower() for name in known_followings}
+        self.bot_follows = {name.lower() for name in bot_follows}
         self.followings, self.followers, self.unfollowed = [], [], []
         self.reciprocity = []
+        self.bot_flags, self.display = {}, {}
+
+    def _upsert_following(self, username, **kwargs):
+        self.followings.append(username)
+        self.bot_flags[username] = kwargs.get("followed_by_bot")
+        self.display[username] = kwargs.get("display_name")
+        return "new"
+
+    @staticmethod
+    def _per_row_query(*_a, **_k):
+        raise AssertionError("the bot's follows are read once per sync, never per row")
 
     def install(self, monkeypatch):
         for module in (followers_mixin, following_mixin):
             service = module.InstagramFollowGraphService
             monkeypatch.setattr(service, "get_active_following_usernames", staticmethod(lambda _a: set(self.known)))
-            monkeypatch.setattr(service, "has_bot_follow_record", staticmethod(lambda _u, _a: False))
-            monkeypatch.setattr(service, "upsert_following",
-                                staticmethod(lambda username, **_k: self.followings.append(username) or "new"))
+            monkeypatch.setattr(service, "has_bot_follow_record", staticmethod(self._per_row_query))
+            monkeypatch.setattr(service, "bot_followed_usernames", staticmethod(lambda _a: set(self.bot_follows)))
+            monkeypatch.setattr(service, "upsert_following", staticmethod(self._upsert_following))
             monkeypatch.setattr(service, "upsert_follower",
                                 staticmethod(lambda username, **_k: self.followers.append(username) or "new"))
             monkeypatch.setattr(service, "mark_unfollowed",
@@ -201,3 +213,47 @@ def test_suggestion_rows_under_the_following_list_are_not_followings(monkeypatch
     business.sync_following_list({"mode": "fast"})
 
     assert graph.followings == ["a1"]
+
+
+# ── Speed (2026-09-24): 1 928 followings took an hour to read on a real phone ────────────────
+
+def test_the_bot_follows_are_read_once_and_flag_their_rows(monkeypatch):
+    graph = Graph(bot_follows=["a1"])
+    pages = [_following_page([("a1", "Suivi(e)"), ("a2", "Suivi(e)")], 2)]
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    business.sync_following_list({"mode": "fast"})
+
+    assert graph.bot_flags == {"a1": True, "a2": False}
+
+
+def test_each_display_name_stays_with_its_row_when_one_is_missing(monkeypatch):
+    """By index, a row without a subtitle shifted every name after it onto the wrong account."""
+    graph = Graph()
+    rows = [("a1", "Suivi(e)", "Alpha"), ("a2", "Suivi(e)"), ("a3", "Suivi(e)", "Gamma")]
+    business, _screen = _business([_following_page(rows, 3)], graph=graph, monkeypatch=monkeypatch)
+
+    business.sync_following_list({"mode": "fast"})
+
+    assert graph.display == {"a1": "Alpha", "a2": "", "a3": "Gamma"}
+
+
+def test_a_scroll_of_a_follow_list_travels_most_of_a_screen():
+    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.actions import (
+        FOLLOW_LIST_SCROLL_RATIO,
+    )
+
+    assert 0.7 <= FOLLOW_LIST_SCROLL_RATIO < 0.9
+
+
+def test_a_list_read_stops_when_the_session_ends(monkeypatch):
+    """A 25-minute session kept reading its list past its end: the read never asked the session."""
+    graph = Graph()
+    rows = [(f"a{i}", "Suivi(e)") for i in range(1, 6)]
+    business, _screen = _business([_following_page(rows, 5)], graph=graph, monkeypatch=monkeypatch)
+    business.session_manager = type("Session", (), {"should_continue": lambda self: (False, "duration")})()
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert graph.followings == [] and stats["stopped_by_session"] is True
+    assert stats["complete"] is False
