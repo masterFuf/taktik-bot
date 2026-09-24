@@ -65,6 +65,13 @@ class ProblematicPageSelectors:
         {'text': 'Allow'},
     ])
     
+    # The CANCEL button of an Instagram alert: the one way to dismiss an alert that is not the
+    # rate-limit dialog without accepting what it asks (the contacts request's primary button
+    # uploads the address book).
+    alert_cancel_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
+        {'resourceIdMatches': r'(.*:id/)?igds_alert_dialog_cancel_button'},
+    ])
+
     # === Detection patterns for problematic pages ===
     # Chaque pattern contient: indicators (textes à chercher), close_methods, et flags optionnels
     detection_patterns: Dict[str, Dict] = field(default_factory=lambda: {
@@ -103,7 +110,10 @@ class ProblematicPageSelectors:
             'dialog_texts': ['Réessayer plus tard', 'Try Again Later',
                              'Nous limitons la fréquence', 'We limit how often',
                              'certaines actions que vous pouvez effectuer', 'certain things on Instagram',
-                             'protéger notre communauté', 'protect our community'],
+                             'protéger notre communauté', 'protect our community',
+                             # Instagram's other restriction alert. Never captured by the bot: its
+                             # public wording, to check on a real one.
+                             'Temporarily Blocked', 'temporairement bloqu'],
         },
         'notifications_popup': {
             'indicators': ['Notifications', 'Get notifications when', 'shares photos, videos or channels', 
