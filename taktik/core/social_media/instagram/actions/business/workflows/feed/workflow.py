@@ -12,6 +12,7 @@ import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
+from taktik.core.shared.diagnostics import run_halt
 from ..common.likers_base import LikersWorkflowBase
 from ....core.stats import create_workflow_stats
 from ....core.ipc import IPCEmitter
@@ -271,6 +272,12 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 while (posts_liked < effective_config['max_interactions'] and
                        posts_checked < effective_config['max_posts_to_check']):
 
+                    # The run's lock (a block seen anywhere, a lost phone): this loop never read
+                    # it, and kept liking after Instagram said stop (2026-09-24).
+                    if run_halt.arret_demande():
+                        self.logger.warning("⛔ Run stop requested — leaving the feed")
+                        break
+
                     posts_checked += 1
                     stats['posts_checked'] += 1
 
@@ -338,14 +345,19 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                             else:
                                 self.logger.debug("Failed to like post")
 
+                        # Instagram's "Try again later" right after the like, before the comment
+                        # touches the screen: the first refusal ends the run.
+                        blocked = liked and self._stop_if_action_blocked(post_author or 'feed', 'like')
+
                         # Comment the post when configured
                         commented = False
-                        if liked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
+                        if liked and not blocked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
                             if self._comment_current_post(effective_config):
                                 stats['comments_made'] += 1
                                 self.stats_manager.increment('comments')
                                 self.logger.info(f"💬 Comment posted")
                                 commented = True
+                            blocked = self._stop_if_action_blocked(post_author or 'feed', 'comment')
 
                         if liked or commented:
                             # An engaged feed post IS the output of this workflow: it visits no
@@ -358,6 +370,11 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                             feed_reason = 'Commenté' if commented else 'Liké'
                         else:
                             feed_action, feed_reason = 'skip', 'Non liké (probabilité)'
+
+                        if blocked:
+                            # The copilot card of this post first: it was liked.
+                            IPCEmitter.emit_feed_decision(post_author, feed_action, reason=feed_reason)
+                            break
 
                         # Human reading of the post (carousel, caption, content-aware dwell)
                         # replaces the fixed sleep: time is actually spent in front of the post.

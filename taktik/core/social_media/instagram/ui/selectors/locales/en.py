@@ -980,6 +980,21 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Send\")]",
     ],
     # --- unfollow ---
+    # Title of the followers tab of the unified follow-list view ("673 followers").
+    "unfollow.followers_tab_labels": [
+        "followers",
+        "Followers",
+    ],
+    # The tab of OUR FOLLOWING in the unified list: "48 following" (Instagram 410, 2026-09).
+    "unfollow.following_tab_labels": [
+        "following",
+        "Following",
+    ],
+    # The FANS category of the followers tab: people who follow you, whom you do not follow.
+    "unfollow.fans_category_labels": [
+        "don't follow back",
+        "People you don",
+    ],
     "unfollow.follow_button_after_unfollow": [
         "//*[contains(@text, \"Follow\") and not(contains(@text, \"Following\"))]",
     ],

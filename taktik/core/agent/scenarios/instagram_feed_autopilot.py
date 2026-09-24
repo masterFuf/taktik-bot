@@ -23,6 +23,7 @@ from loguru import logger
 from taktik.core.app.ai.spend import AI_SPEND_HASHTAGS
 
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.database import get_db_service
 from taktik.core.app.ai.comments.comment_ai import UserProfile
 from taktik.core.agent.decision.agent_ai import AgentAI
@@ -132,6 +133,16 @@ class TaktikAgentWorkflow:
         self._session_start = time.time()
 
         try:
+            # Step 0: the app's language, before any localized selector (AGENTS.md invariant).
+            # Without it the active language stayed unknown for the whole session, and the
+            # block detector took any Instagram alert for a block on its ids alone.
+            try:
+                from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+
+                detect_and_optimize(self.device)
+            except Exception as exc:
+                logger.warning(f"[TaktikAgent] Language detection failed (non-fatal): {exc}")
+
             # Step 1: Identify the bot account and load persona
             if not self._initialize_persona():
                 return self._fail("Could not identify bot account", message_key="agentStatusErrNoAccount")
@@ -157,7 +168,11 @@ class TaktikAgentWorkflow:
             self._send_status("running", "Taktik Agent is active", message_key="agentStatusActive")
             self._run_feed_loop()
 
-            # Finalize
+            # Finalize. A stop on the run's lock goes in the stats (the status stays "completed":
+            # the app has no status for it yet).
+            halt = run_halt.arret_demande()
+            if halt:
+                self.stats["stop_reason"] = halt.get("code")
             self._context.update_stats(self.stats)
             self._send_status("completed", "Session completed", stats=self.stats,
                               message_key="agentStatusCompleted")
@@ -455,13 +470,19 @@ class TaktikAgentWorkflow:
                     if feed._like_current_post():
                         self.stats["likes"] += 1
                         self._consecutive_skips = 0
+                        # After the pause that follows a like (the dialog comes from the server
+                        # and can take a moment), before the comment touches the screen.
                         time.sleep(random.uniform(*DELAY_AFTER_LIKE))
+                        if self._block_seen("like"):
+                            break
 
                     if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                         comment_text = decision.get("comment", "")
                         if comment_text:
                             self._post_comment(feed, comment_text, author)
                             self._consecutive_skips = 0
+                            if self._block_seen("comment"):
+                                break
 
             # Profile visit
             if decision.get("visit_profile") and author != "unknown":
@@ -642,11 +663,15 @@ class TaktikAgentWorkflow:
                         if feed._like_current_post():
                             self.stats["likes"] += 1
                             time.sleep(random.uniform(*DELAY_AFTER_LIKE))
+                            if self._block_seen("like"):
+                                return
 
                         if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
                             comment_text = decision.get("comment", "")
                             if comment_text:
                                 self._post_comment(feed, comment_text, author)
+                                if self._block_seen("comment"):
+                                    return
 
                 if decision.get("visit_profile") and author != "unknown":
                     if self.stats["profile_visits"] < self.quotas["max_profile_visits"]:
@@ -734,8 +759,19 @@ class TaktikAgentWorkflow:
         """Navigate to a profile, take a screenshot, and let AI decide whether to follow."""
         logger.info(f"[TaktikAgent] Visiting profile @{username}")
 
+        # The run's lock, set in the hashtag burst, on the feed or during a navigation: no
+        # visit, no paid AI call, no follow after a block.
+        if run_halt.arret_demande():
+            logger.warning("[TaktikAgent] Run stop requested — no profile visit")
+            return
+
         if not self._navigate_to_profile(username):
             logger.warning(f"[TaktikAgent] Could not navigate to @{username}")
+            return
+        # The navigation itself looks for problem pages and may have just seen the block.
+        if run_halt.arret_demande():
+            logger.warning("[TaktikAgent] Run stop requested during the navigation — no AI call, no follow")
+            self._navigate_to_feed()
             return
 
         self.stats["profile_visits"] += 1
@@ -774,11 +810,16 @@ class TaktikAgentWorkflow:
         if decision["follow"] and self.stats["follows"] < self.quotas["max_follows"]:
             self._do_follow(username)
             time.sleep(random.uniform(*DELAY_AFTER_FOLLOW))
+            if self._block_seen("follow"):
+                self._navigate_to_feed()
+                return
 
         # Extra likes on the profile
         extra = min(decision.get("extra_likes", 0), 2)
         if extra > 0 and self.stats["likes"] < self.quotas["max_likes"]:
             self._like_profile_posts(username, extra)
+            # A refusal here sets the run's lock; `_should_stop` ends the loop on its next turn.
+            self._block_seen("like")
 
         time.sleep(random.uniform(*DELAY_AFTER_PROFILE_VISIT))
 
@@ -869,9 +910,35 @@ class TaktikAgentWorkflow:
     # Quota / stop helpers
     # ------------------------------------------------------------------
 
+    def _block_seen(self, action: str) -> bool:
+        """After a write: is Instagram refusing it ("Try again later")? One dump, never raises.
+
+        The detector sets the run's lock itself (`run_halt.ACTION_BLOCKED`), which
+        `_should_stop` reads: one sighting ends the session (2026-09-24).
+        """
+        if run_halt.arret_demande():
+            return True  # already seen (inside a like loop, a comment, a navigation): no dump
+        try:
+            from taktik.core.social_media.instagram.ui.detectors.problematic_page import (
+                ProblematicPageDetector,
+            )
+            blocked = bool(ProblematicPageDetector(self.device).is_action_blocked())
+        except Exception as exc:
+            logger.debug(f"[TaktikAgent] block check after {action} failed: {exc}")
+            return False
+        if blocked:
+            logger.error(f"[TaktikAgent] Instagram refuses the {action} (\"Try again later\") — stopping")
+        return blocked
+
     def _should_stop(self, deadline: float) -> bool:
         if self._stop_requested:
             logger.info("[TaktikAgent] Stop requested by user")
+            return True
+        # The run's lock: a block ("Try again later") seen by the detector, a lost phone.
+        # The autopilot never read it (2026-09-24).
+        halt = run_halt.arret_demande()
+        if halt:
+            logger.warning(f"[TaktikAgent] Run stop requested: {halt.get('code')}")
             return True
         if time.time() > deadline:
             logger.info("[TaktikAgent] Session duration limit reached")

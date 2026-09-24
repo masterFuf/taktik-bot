@@ -27,9 +27,45 @@ class _SessionContextCache:
         self.value = None
 
 
+def _register_step_telemetry() -> None:
+    """Forward the step telemetry of the actions (taps, scrolls, device io...) as `step_metric`
+    lines, like the workflow bridges do. The session bridge did not, so a Lab session measured
+    nothing (M1)."""
+    try:
+        from taktik.core.shared.telemetry import configure_telemetry_sink
+
+        configure_telemetry_sink(lambda metric: emit({
+            "type": "step_metric",
+            "category": metric.category,
+            "action": metric.action,
+            "target": metric.target,
+            "detail": metric.detail,
+            "ts": metric.ts,
+        }))
+    except Exception as exc:
+        logger.debug(f"Could not register the telemetry sink: {exc}")
+
+
+def _begin_action_run() -> None:
+    """Each Lab action is a run of its own: lift the run's stop lock left by the previous one.
+
+    A bridge process serves one run and starts with the lock lifted; this one serves an action
+    after another. Without this, a block or a lost phone seen by one action would end every
+    workflow action after it, in a session still open.
+    """
+    try:
+        from taktik.core.shared.diagnostics import run_halt
+
+        run_halt.reinitialiser()
+    except Exception:
+        # A diagnostic that stops an action from running would be worse than none.
+        pass
+
+
 def run_action_session_bridge() -> None:
     """Keep one device connection alive and execute action commands from stdin."""
     config = _load_config()
+    _register_step_telemetry()
     device_id = config.get("device_id", "")
     platform = config.get("platform", "instagram")
     mode = config.get("mode", "lab")
@@ -124,6 +160,7 @@ def run_action_session_bridge() -> None:
             continue
 
         tracer.reset()
+        _begin_action_run()
         _execute_action(
             action_registry,
             action_id,

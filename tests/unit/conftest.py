@@ -13,6 +13,16 @@ from taktik.core.database.local.schema import create_schema
 from taktik.core.database.local.migrations import run_migrations, _validate_sql_identifier
 
 
+@pytest.fixture(autouse=True)
+def _no_keyboard_given_back_at_exit(monkeypatch):
+    """No test leaves a phone whose keyboard `atexit` would "give back" with the real adb at the
+    end of pytest (the keyboard switch remembers the phone's own keyboard since 2026-09-24)."""
+    from taktik.core.shared.input import taktik_keyboard
+
+    monkeypatch.setattr(taktik_keyboard, "_original_ime", {})
+    monkeypatch.setattr(taktik_keyboard, "_atexit_registered", True)
+
+
 @pytest.fixture
 def tmp_db_path(tmp_path: pathlib.Path) -> str:
     """Return a path to a fresh temporary SQLite file (deleted after test)."""

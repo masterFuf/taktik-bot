@@ -8,6 +8,7 @@ import time
 
 from ..common.likers_base import LikersWorkflowBase
 from ..common.list_sources import resolve_list_source
+from ..common.interaction_config import merge_operator_config
 from .in_thread import engage_thread
 from ....core.stats import create_workflow_stats
 
@@ -44,8 +45,10 @@ class PostUrlBusiness(
         - navigation entirely by taps
         - ✅ Comportement humain réaliste
         """
-        effective_config = {**self.default_config, **(config or {})}
-        
+        # The operator's probabilities must beat the default percentages, which the profile
+        # pass reads first (see `merge_operator_config`).
+        effective_config = merge_operator_config(self.default_config, config)
+
         self.logger.info(f"[DEBUG] POST_URL config received: {config}")
         self.logger.info(f"[DEBUG] POST_URL effective config: max_interactions={effective_config.get('max_interactions', 'N/A')}")
         

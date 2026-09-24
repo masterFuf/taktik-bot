@@ -17,10 +17,11 @@ import random
 from typing import Dict, Any, List, Set
 
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
-from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
+from ..list_proof import read_is_complete, scrolls_for
+from .actions import LeftOutRows, row_belongs_to_tab
 
 
 class SyncFollowersMixin:
@@ -47,12 +48,17 @@ class SyncFollowersMixin:
         """
         config = config or {}
         mode = config.get('mode', 'fast')
-        max_scrolls = config.get('max_scrolls', 100)
 
         stats = {
             'new_count': 0,
             'updated_count': 0,
             'total_seen': 0,
+            # True only when the read reached the list's exact count (unfollow/list_proof.py): the
+            # unfollow trusts the ABSENCE of an account from this list only then (candidates.py).
+            'complete': False,
+            'expected': None,
+            'end_reached': False,
+            'usernames': set(),
             'success': False,
         }
 
@@ -75,6 +81,14 @@ class SyncFollowersMixin:
                 self.logger.error("sync_followers_list: failed to open followers list")
                 return stats
             time.sleep(3)
+            if not self._ensure_followers_tab():
+                return stats
+            expected = self._list_tab_count('followers')
+            stats['expected'] = expected
+            # 100 scrolls read about 450 accounts: a bigger list could never end (review of
+            # 2026-09-24). The bound follows the count when the tab gives it.
+            max_scrolls = config.get('max_scrolls') or scrolls_for(expected, 100)
+            scroll_failed = False
 
             # Wait for the list items to be actually loaded
             d = self.device.device
@@ -105,43 +119,52 @@ class SyncFollowersMixin:
             d = self.device.device
             active_package = get_active_package()
             username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
-            subtitle_resource_id = UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
 
             seen_on_screen: Set[str] = set()
+            left_out = LeftOutRows()
             scroll_attempts = 0
             no_new_count = 0
 
             while scroll_attempts < max_scrolls:
-                username_elements = d(resourceId=username_resource_id)
-                if not username_elements.exists:
-                    self.logger.debug("No username elements found on screen")
+                if self._sync_should_stop():
+                    stats['stopped_by_session'] = True
                     break
+                # One read of the screen outside enriched mode: usernames, display names and the
+                # state of each row's button together. The per-element reads cost three device
+                # calls per row, and a sync of 1 928 followings took an hour (2026-09-24).
+                if mode == 'enriched':
+                    username_elements = d(resourceId=username_resource_id)
+                    if not username_elements.exists:
+                        break
+                    rows = self._visible_follow_rows()
+                    entries = self._live_follow_entries(username_elements)
+                else:
+                    rows = self._visible_follow_rows(with_display_names=True)
+                    if not rows and not d(resourceId=username_resource_id).exists:
+                        break
+                    entries = [(i, row['username'], row['name_element']) for i, row in enumerate(rows)]
+                # Every row but those whose button contradicts the tab (a plain "Follow"). A blank
+                # button keeps its row: deep in a long list Instagram leaves most of them blank (see
+                # ROW_STATES_NOT_IN_TAB); the suggestions under the list are left out by position.
+                left_out.unpaired |= self.unpaired_on_screen
+                row_states = {row['username'].lower(): row['state'] for row in rows}
+                display_names = {row['username'].lower(): row.get('display_name', '') for row in rows}
 
                 new_found = False
-                count = username_elements.count
-                for i in range(count):
-                    try:
-                        el = username_elements[i]
-                        username = (el.get_text() or '').strip().lstrip('@')
-                        if not username or not self._is_valid_username(username):
-                            continue
-                    except Exception:
-                        continue
-
+                for i, username, el in entries:
                     if username in seen_on_screen:
+                        continue
+                    if not row_belongs_to_tab(row_states.get(username.lower()), 'followers'):
+                        left_out.refuse(username, row_states.get(username.lower()))
                         continue
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
                     new_found = True
 
-                    # Read the display name
-                    display_name = ''
-                    try:
-                        subtitle_els = d(resourceId=subtitle_resource_id)
-                        if subtitle_els.exists and i < subtitle_els.count:
-                            display_name = subtitle_els[i].get_text() or ''
-                    except Exception:
-                        pass
+                    # The display name, paired to its row by position (see sync_following)
+                    display_name = display_names.get(username.lower(), '')
+                    if mode == 'enriched' and not display_name:
+                        display_name = self._live_display_name(d, active_package, i)
 
                     # Determine if we follow this person back
                     is_following_back = username.lower() in known_followings
@@ -224,19 +247,29 @@ class SyncFollowersMixin:
                 if stats['total_seen'] > 0 and stats['total_seen'] % 10 == 0:
                     self._emit_sync_progress('followers', stats)
 
-                if not new_found:
-                    no_new_count += 1
-                    max_no_new = 3 if mode != 'enriched' else 5
-                    if no_new_count >= max_no_new:
-                        self.logger.info(f"No new followers after {max_no_new} consecutive scrolls — end of list")
-                        break
-                else:
-                    no_new_count = 0
+                # The end of the list: the suggestions under it, or several reads in a row without
+                # a new name; it counts only if the names read reach the tab's exact count.
+                no_new_count = 0 if new_found else no_new_count + 1
+                max_no_new = 3 if mode != 'enriched' else 5
+                if self.suggestions_on_screen or no_new_count >= max_no_new:
+                    stats['end_reached'] = True
+                    stats['complete'] = read_is_complete(len(seen_on_screen), expected, scroll_failed)
+                    self.logger.info(
+                        f"End of the followers list"
+                        f"{' (suggestions under it)' if self.suggestions_on_screen else f' ({max_no_new} reads without a new name)'}: "
+                        f"{len(seen_on_screen)} read of {expected if expected is not None else '?'} "
+                        f"({'complete' if stats['complete'] else 'NOT proven complete'})"
+                    )
+                    break
+                if no_new_count:
+                    # A screen without a new name: the next page may still be loading
+                    time.sleep(random.uniform(1.0, 2.0))
 
                 # Scroll only outside enriched mode, or when nothing unseen is left
                 if mode != 'enriched':
-                    self._scroll_followers_list()
-                    time.sleep(1.2)
+                    if self._scroll_followers_list() is False:
+                        scroll_failed = True
+                    time.sleep(random.uniform(0.5, 0.9))  # released still; the next read is ONE dump
                     scroll_attempts += 1
                 else:
                     remaining = d(resourceId=username_resource_id)
@@ -251,10 +284,19 @@ class SyncFollowersMixin:
                             except Exception:
                                 continue
                     if not has_unseen:
-                        self._scroll_followers_list()
+                        if self._scroll_followers_list() is False:
+                            scroll_failed = True
                         time.sleep(1.2)
                         scroll_attempts += 1
 
+            stats['usernames'] = set(seen_on_screen)
+            if stats['complete']:
+                stats['reciprocity_written'] = InstagramFollowGraphService.set_followings_reciprocity(
+                    account_id, seen_on_screen)
+            # What the read saw and did not count: a read short of the tab's count says why
+            stats['left_out'] = left_out.summary(seen_on_screen)
+            if stats['left_out']:
+                self.logger.info(f"Followers names seen but not read: {stats['left_out']}")
             stats['success'] = True
             self.logger.info(
                 f"✅ Followers sync complete: {stats['new_count']} new, "
@@ -312,12 +354,13 @@ class SyncFollowersMixin:
 
         return results
 
-    def _scroll_followers_list(self):
-        """Scroll the followers list down (humanized controlled scroll, was fixed-centre swipe)."""
+    def _scroll_followers_list(self) -> bool:
+        """Scroll the followers list down (humanized controlled scroll). False when it failed."""
         try:
-            human_scroll_raw(self.device.device, "down", distance_ratio=0.4)
+            return self._drag_follow_list()
         except Exception as e:
             self.logger.debug(f"Error scrolling followers list: {e}")
+            return False
 
     def _emit_sync_progress(self, list_type: str, stats: Dict[str, Any]):
         """Emit IPC progress message for the frontend."""

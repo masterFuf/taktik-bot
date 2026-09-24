@@ -62,6 +62,12 @@ class DeviceManager:
             self.device = u2.connect(self.device_id)
             logger.info(f"Connected to device: {self.device_id}")
 
+            # Count every server call and adb shell of this phone from here on (M1): what an action
+            # costs in dumps, round trips and waits. Pass-through, never raises.
+            from taktik.core.shared.telemetry.device_io import instrument_device_io
+
+            instrument_device_io(self.device)
+
             # The selector catalog is a process-global and must match THIS phone. Bridges patch
             # it in their own connect(); the standalone CLI has no such base class, so an
             # open-source run was facing baseline selectors on an app that had moved on. Doing

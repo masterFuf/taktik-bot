@@ -28,6 +28,7 @@ def register_actions() -> None:
     from bridges.compat.diagnostics.actions.instagram import scraping  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import scroll  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import settings  # noqa: F401
+    from bridges.compat.diagnostics.actions.instagram import unfollow  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import story  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import suggestions  # noqa: F401
     from bridges.compat.diagnostics.actions.instagram import tap  # noqa: F401

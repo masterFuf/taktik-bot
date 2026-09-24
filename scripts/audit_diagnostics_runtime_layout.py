@@ -34,7 +34,6 @@ IGNORED_ROOT_DIRS = {"__pycache__"}
 
 EXPECTED_FILES = (
     "../entrypoints/action_test.py",
-    "../entrypoints/compat.py",
     "../entrypoints/selector_test.py",
     "../entrypoints/tiktok_action_test.py",
     "../entrypoints/workflow_test.py",
@@ -45,7 +44,6 @@ EXPECTED_FILES = (
     "action_test/bundles/instagram.py",
     "action_test/bundles/tiktok.py",
     "registry/actions.py",
-    "registry/commands.py",
     "selector_test/request.py",
     "selector_test/runner.py",
     "workflow_test/config/catalog.py",

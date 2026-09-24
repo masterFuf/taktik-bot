@@ -65,6 +65,13 @@ class ProblematicPageSelectors:
         {'text': 'Allow'},
     ])
     
+    # The CANCEL button of an Instagram alert: the one way to dismiss an alert that is not the
+    # rate-limit dialog without accepting what it asks (the contacts request's primary button
+    # uploads the address book).
+    alert_cancel_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
+        {'resourceIdMatches': r'(.*:id/)?igds_alert_dialog_cancel_button'},
+    ])
+
     # === Detection patterns for problematic pages ===
     # Chaque pattern contient: indicators (textes à chercher), close_methods, et flags optionnels
     detection_patterns: Dict[str, Dict] = field(default_factory=lambda: {
@@ -94,7 +101,19 @@ class ProblematicPageSelectors:
                           'Contactez-nous', 'Tell us'],
             'close_methods': ['ok_button', 'back_button'],
             'is_soft_ban': True,
-            'track_stats': True
+            'track_stats': True,
+            # The indicators above hold the three GENERIC ids of every Instagram alert: the
+            # contacts request carries them too. The block is proven by the dialog's own
+            # words, read in its headline and subtext only (not in a bio behind it). Checked
+            # on the 33 real captures of this dialog (2026-09-24): all carry these words.
+            'dialog_text_ids': ['igds_alert_dialog_headline', 'igds_alert_dialog_subtext'],
+            'dialog_texts': ['Réessayer plus tard', 'Try Again Later',
+                             'Nous limitons la fréquence', 'We limit how often',
+                             'certaines actions que vous pouvez effectuer', 'certain things on Instagram',
+                             'protéger notre communauté', 'protect our community',
+                             # Instagram's other restriction alert. Never captured by the bot: its
+                             # public wording, to check on a real one.
+                             'Temporarily Blocked', 'temporairement bloqu'],
         },
         'notifications_popup': {
             'indicators': ['Notifications', 'Get notifications when', 'shares photos, videos or channels', 

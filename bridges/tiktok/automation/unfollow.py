@@ -19,7 +19,7 @@ from bridges.tiktok.runtime.ipc import _ipc, logger, send_error
 
 def main():
     """Main entry point - read config from stdin and run workflow."""
-    logger.info("ðŸŽµ TikTok Unfollow Bridge starting...")
+    logger.info("🎵 TikTok Unfollow Bridge starting...")
 
     try:
         config_line = sys.stdin.readline()
@@ -33,7 +33,7 @@ def main():
         config = config_data.get("config", {})
         config["deviceId"] = device_id
 
-        logger.info(f"ðŸ“‹ Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
+        logger.info(f"📋 Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
 
         # The page offers "reset IP before the run"; until now nothing here read it.
         if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Unfollow"):
@@ -42,10 +42,10 @@ def main():
         success = run_unfollow_workflow(config)
 
         if success:
-            logger.success("âœ… TikTok Unfollow workflow completed successfully")
+            logger.success("✅ TikTok Unfollow workflow completed successfully")
             sys.exit(0)
 
-        logger.error("âŒ TikTok Unfollow workflow failed")
+        logger.error("❌ TikTok Unfollow workflow failed")
         sys.exit(1)
 
     except json.JSONDecodeError as e:

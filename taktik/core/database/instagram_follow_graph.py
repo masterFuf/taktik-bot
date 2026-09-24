@@ -40,6 +40,17 @@ class InstagramFollowGraphService:
             return False
 
     @classmethod
+    def bot_followed_usernames(cls, account_id: int) -> set:
+        """Every handle this account followed successfully (lowercased), read once."""
+        if not account_id:
+            return set()
+        try:
+            return cls._repository().bot_followed_usernames(account_id=account_id)
+        except Exception as exc:
+            log.debug(f"Error reading the bot's follows: {exc}")
+            return set()
+
+    @classmethod
     def get_days_since_follow(cls, username: str, account_id: int) -> Optional[int]:
         """Return the number of full days since the most recent successful follow."""
         if not account_id:
@@ -87,6 +98,16 @@ class InstagramFollowGraphService:
         except Exception as exc:
             log.debug(f"Error in get_active_following_usernames: {exc}")
             return set()
+
+    @classmethod
+    def list_active_followings(cls, account_id: int) -> list:
+        """Active followings with `last_bot_follow_at` and `first_seen_at` (see the repository)."""
+        return cls._repository().list_active_followings(account_id)
+
+    @classmethod
+    def set_followings_reciprocity(cls, account_id: int, follower_usernames) -> int:
+        """Reciprocity of every active following, from a COMPLETE followers read (repository)."""
+        return cls._repository().set_followings_reciprocity(account_id, follower_usernames)
 
     @classmethod
     def mark_not_follower_back(cls, username: str, account_id: int) -> None:

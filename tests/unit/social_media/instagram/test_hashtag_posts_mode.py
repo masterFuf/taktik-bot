@@ -48,7 +48,9 @@ class _Host(HashtagBusiness):
         host = self
 
         class _Like:
-            def like_current_post(self):
+            def like_current_post(self, record_as=None):
+                # The like is filed under the post author (the ledger row is written there).
+                assert record_as == host._current()['author']
                 host.recorder.likes.append(host._current()['author'])
                 return host._like_ok
 
@@ -94,6 +96,9 @@ class _Host(HashtagBusiness):
 
     def _human_like_delay(self, *a, **k):
         pass
+
+    def _is_comments_view_open(self):
+        return False  # no stray comments sheet over these posts
 
     def _open_likers_popup(self, is_reel=False):
         self.likers_popup_opened = True

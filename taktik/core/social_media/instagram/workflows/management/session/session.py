@@ -1,7 +1,7 @@
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from loguru import logger
 
 from taktik.core.shared.behavior.policy import parse_behavior_policy
@@ -51,6 +51,7 @@ class SessionManager:
             'successful_interactions': 0,
             'profiles_processed': 0,  # Nombre de profils traités (visités)
             'follows': 0,
+            'unfollows': 0,
             'likes': 0,
             'comments': 0,
             # Liking a COMMENT is counted apart from liking a POST so the operator can read
@@ -99,13 +100,11 @@ class SessionManager:
         # Ce que le run ne peut plus faire, avant ce qu'il n'a plus le droit de faire : un run
         # dont le telephone a disparu n'a pas a voir sa duree evaluee. Le verrou est pose par
         # `base_action` quand il constate un lien perdu ou un plantage de l'application cible --
-        # deux pannes qui, jusqu'ici, laissaient la boucle tourner jusqu'a son plafond.
+        # deux pannes qui, jusqu'ici, laissaient la boucle tourner jusqu'a son plafond -- et par le
+        # detecteur Instagram des qu'il voit « Reessayer plus tard » (2026-09-24).
         arret = run_halt.arret_demande()
         if arret:
-            if arret["code"] == run_halt.DEVICE_DISCONNECTED:
-                reason = stop_reasons.device_disconnected(arret.get("detail"))
-            else:
-                reason = stop_reasons.target_app_crashed(arret.get("detail"))
+            reason = stop_reasons.for_halt(arret)
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
 
@@ -162,7 +161,12 @@ class SessionManager:
         #
         # Active only when both the caps and a totals provider were injected; in standalone
         # both are absent and the behaviour is unchanged. A cap of zero means no limit.
-        stop_reason = self._check_daily_budget()
+        #
+        # Not for an unfollow session: an unfollow spends none of this budget (likes, follows,
+        # comments), and its own ceilings, the session maximum and the day's unfollow budget,
+        # are `unfollow_allowance`. The day's likes used to end an unfollow run before its
+        # first unfollow (review of 2026-09-24).
+        stop_reason = self._check_daily_budget() if workflow_type != 'unfollow' else ""
         if stop_reason:
             log.info(f"🛑 Session ended: {stop_reason}")
             return False, stop_reason
@@ -313,6 +317,35 @@ class SessionManager:
             },
         }
 
+    def unfollow_allowance(self, session_limit: Any) -> tuple:
+        """How many unfollows this session may still make: (room, stop_reason).
+
+        Two ceilings, both counted in unfollows. The session's maximum, the page's "Maximum
+        d'unfollows": it used to cap one BATCH, which the session relaunched until its duration
+        ran out (164 unfollows in a morning on one account). And the day's unfollow budget of the
+        warmup policy, `max_unfollows_per_day`, read from today's totals like the action budget.
+        `room` is None when neither ceiling applies; `stop_reason` is set only when room is 0.
+        """
+        done = int(self.counters.get('unfollows', 0))
+        limit = int(session_limit or 0)
+        room: Optional[int] = max(limit - done, 0) if limit > 0 else None
+        if room == 0:
+            return 0, stop_reasons.unfollows_cap(done, limit)
+        daily_cap = int((self._warmup_policy or {}).get('max_unfollows_per_day', 0) or 0)
+        if daily_cap > 0:
+            usage = self._read_daily_usage()
+            # A day budget that can no longer be read is not "no budget" (same rule as the
+            # action budget): after a few failed reads in a row, the unfollow stops.
+            if usage is None and self._daily_usage_failures >= _DAILY_USAGE_FAILURES_BEFORE_STOP:
+                return 0, stop_reasons.daily_budget_unreadable(self._daily_usage_failures)
+            if usage is not None:
+                today = int(usage.get('unfollows', 0) or 0)
+                day_room = max(daily_cap - today, 0)
+                if day_room == 0:
+                    return 0, stop_reasons.daily_unfollow_budget(today, daily_cap)
+                room = day_room if room is None else min(room, day_room)
+        return room, None
+
     def record_profile_processed(self):
         """Record that a profile has been processed (visited for interaction).
         
@@ -336,6 +369,8 @@ class SessionManager:
 
         if action_type == 'follow_user' and success:
             self.counters['follows'] += 1
+        elif action_type == 'unfollow' and success:
+            self.counters['unfollows'] += 1
         elif action_type == 'like_posts' and success:
             self.counters['likes'] += 1
         elif action_type == 'comment_posts' and success:

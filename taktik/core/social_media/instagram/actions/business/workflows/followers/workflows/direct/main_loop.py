@@ -2,7 +2,7 @@
 
 import time
 from typing import Dict, Any
-from taktik.core.shared.diagnostics import capture_screen_snapshot
+from taktik.core.shared.diagnostics import capture_screen_snapshot, run_halt
 
 from ......core.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
@@ -274,6 +274,10 @@ class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessing
                         self.logger.debug(f"⚠️ Position lost: neither @{last_visited_username} nor @{next_expected_username} visible")
                 
                 for idx, follower_data in enumerate(visible_followers):
+                    # The run's lock: never open another row after a block. `should_continue`
+                    # at the top of the next pass names the stop.
+                    if run_halt.arret_demande():
+                        break
                     username = follower_data['username']
                     
                     # Skip when already seen in this session

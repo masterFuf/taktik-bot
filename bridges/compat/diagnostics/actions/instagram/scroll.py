@@ -102,6 +102,47 @@ def scroll_hashtag_next_post(a, p):
     }
 
 
+@action("hashtag.read_post_metadata")
+def hashtag_read_post_metadata(a, p):
+    """Post viewer (hashtag) -> read the author, the caption and the counters WITHOUT a gesture.
+
+    The exact production read of the hashtag workflow (`_extract_current_post_metadata`). On IG
+    447 a tap on a reel's collapsed caption opens the comments sheet over the reel, so this read
+    must leave the screen as it found it: run it on a reel, then check that no sheet opened."""
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import HashtagBusiness
+
+    hashtag = HashtagBusiness(a.device)
+    is_reel = hashtag._is_reel_post()
+    metadata = hashtag._extract_current_post_metadata(is_reel)
+    sheet_open = hashtag._is_comments_view_open()
+    details = {"is_reel": is_reel, "metadata": metadata, "comments_sheet_open_after": sheet_open}
+    if not metadata:
+        return {"success": False, "message": "auteur illisible — metadonnees non lues", "details": details}
+    return {
+        "success": not sheet_open,
+        "message": (f"@{metadata.get('author')} lu sans geste"
+                    + (" — mais une feuille de commentaires est ouverte" if sheet_open else "")),
+        "details": details,
+    }
+
+
+@action("hashtag.close_stray_comments_sheet")
+def hashtag_close_stray_comments_sheet(a, p):
+    """Post viewer (hashtag) -> close a comments sheet the run did not open, as the posts pass
+    does before engaging a post (production `_close_stray_comments_sheet`). No sheet: no key."""
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import HashtagBusiness
+
+    hashtag = HashtagBusiness(a.device)
+    was_open = hashtag._is_comments_view_open()
+    closed = hashtag._close_stray_comments_sheet()
+    details = {"was_open": was_open, "closed": closed}
+    if not was_open:
+        return {"success": True, "message": "aucune feuille de commentaires ouverte", "details": details}
+    return {"success": closed,
+            "message": "feuille de commentaires refermee" if closed else "la feuille reste ouverte",
+            "details": details}
+
+
 @action("scroll.reveal_post")
 def scroll_reveal_post(a, p):
     """Bring a real post's ENGAGEMENT BAR (like/comment row) into view so post.* tests

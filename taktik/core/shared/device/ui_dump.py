@@ -50,14 +50,16 @@ def index_of_closest_row(target_y: float, candidate_ys: List[float]) -> Optional
     return min(range(len(candidate_ys)), key=lambda i: abs(candidate_ys[i] - target_y))
 
 
-# Same normalisation uiautomator2 applies to a tag name: anything that cannot appear in an XML
-# name becomes an underscore, so `com.facebook.compose.view.MetaComposeView` survives and a class
-# carrying a `$` (inner classes do) does not produce an unparsable tree.
-_INVALID_TAG_CHARS = re.compile(r"[$@#\s]")
-
-
 def _safe_tag(value: str) -> str:
-    return _INVALID_TAG_CHARS.sub("_", value)
+    """The tag uiautomator2 gives a class, by uiautomator2's own function.
+
+    A copy claimed to be "the same normalisation" and was not: it turned `$` into `_` where
+    uiautomator2 writes `.`, so an inner class (`Row$Inner`) got another tag here than under
+    `d.xpath()`, and a class with `&` made this parser fail where uiautomator2 passes.
+    """
+    from uiautomator2.xpath import safe_xmlstr
+
+    return safe_xmlstr(value)
 
 
 def parse_ui_dump(xml_content: Optional[str]):
@@ -89,10 +91,10 @@ def parse_ui_dump(xml_content: Optional[str]):
         return None
     try:
         root = etree.fromstring(xml_content.encode("utf-8"))
+        for node in root.xpath("//node"):
+            node.tag = _safe_tag(node.attrib.pop("class", "")) or "node"
     except Exception:
         return None
-    for node in root.xpath("//node"):
-        node.tag = _safe_tag(node.attrib.pop("class", "")) or "node"
     return root
 
 

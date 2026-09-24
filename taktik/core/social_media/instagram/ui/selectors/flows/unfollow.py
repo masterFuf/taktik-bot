@@ -2,27 +2,39 @@ from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
 from ..locales import L
+from ..shell.popups import POPUP_SELECTORS
+
+
+def _labels(key: str) -> List[str]:
+    """The non-empty labels of a locale key (a label is a bare visible string, not an xpath)."""
+    return [label for label in L(key) if label and label.strip()]
+
 
 @dataclass
 class UnfollowSelectors:
-    """Selectors for the unfollow workflow."""
+    """Selectors for the unfollow workflow.
+
+    No visible text is written here. Until 2026-09-24 the list path looked for the literal
+    strings 'Following', 'Follow back', 'Unfollow' and 'Followers': on a phone in French it found
+    no button at all and spent its session scrolling. Every label now comes from the locale layer
+    (`L(...)`), and the row buttons are read through the shared state classifier
+    (`classify_follow_state`, the labels `profile.follow_state_labels_*`), so the list and the
+    profile header agree on what a button says, in every language.
+    """
 
     # === Following button on a profile (locales overlay) ===
     @property
     def following_button(self) -> List[str]:
         return L("unfollow.following_button")
 
-    # === Following button in the following list (for a plain unfollow) ===
+    # === Language-neutral resource ids of the follow lists ===
     following_list_button_resource_id: str = 'com.instagram.android:id/follow_list_row_large_follow_button'
     following_list_username_resource_id: str = 'com.instagram.android:id/follow_list_username'
-    following_tab_title_resource_id: str = 'com.instagram.android:id/title'
-    unfollow_confirm_resource_id: str = 'com.instagram.android:id/primary_button'
-    following_tab_text_probe: str = 'following'
-    following_button_text: str = 'Following'
-    follow_back_button_text: str = 'Follow back'
-    unfollow_confirm_text: str = 'Unfollow'
+    unfollow_confirm_resource_name: str = 'primary_button'
     unified_follow_list_tab_layout_resource_name: str = 'unified_follow_list_tab_layout'
     follow_list_subtitle_resource_name: str = 'follow_list_subtitle'
+    category_container_resource_name: str = 'container'
+    category_title_resource_name: str = 'title'
 
     def active_resource_id(self, app_id: str, resource_name: str) -> str:
         return f'{app_id}:id/{resource_name}'
@@ -34,11 +46,35 @@ class UnfollowSelectors:
         )
         return f'//*[@resource-id="{resource_id}"]'
 
-    def unified_followers_tab_selector(self, app_id: str) -> str:
-        return (
-            self.unified_follow_list_tab_layout_selector(app_id)
-            + '//*[contains(@text, "Followers")]'
-        )
+    # === Followers tab of the unified follow-list view (locales overlay) ===
+    # Its title carries the count and a label: "673 followers" on Instagram 447 in French and in
+    # English. The third tab, "abonnements" in French, is the paid SUBSCRIPTIONS list, not the
+    # following list: never use that word to find either.
+    @property
+    def followers_tab_labels(self) -> List[str]:
+        return _labels("unfollow.followers_tab_labels")
+
+    def unified_followers_tab_selectors(self, app_id: str, selected: Optional[bool] = None) -> List[str]:
+        return self.unified_tab_selectors(app_id, "followers", selected)
+
+    # === Following tab of the same view: "1 287 suivi(e)s", "48 following" (locales overlay) ===
+    @property
+    def following_tab_labels(self) -> List[str]:
+        return _labels("unfollow.following_tab_labels")
+
+    def unified_following_tab_selectors(self, app_id: str, selected: Optional[bool] = None) -> List[str]:
+        return self.unified_tab_selectors(app_id, "following", selected)
+
+    def tab_labels(self, kind: str) -> List[str]:
+        """The labels of a tab of the unified list: kind 'following' or 'followers'."""
+        return self.following_tab_labels if kind == "following" else self.followers_tab_labels
+
+    def unified_tab_selectors(self, app_id: str, kind: str, selected: Optional[bool] = None) -> List[str]:
+        """The title of the `kind` tab; `selected=True` matches it only while it is the open tab
+        (the title button carries `selected="true"` on the tab shown)."""
+        layout = self.unified_follow_list_tab_layout_selector(app_id)
+        state = "" if selected is None else f' and @selected="{"true" if selected else "false"}"'
+        return [f'{layout}//*[contains(@text, "{label}"){state}]' for label in self.tab_labels(kind)]
 
     def active_follow_list_button_resource_id(self, app_id: str) -> str:
         resource_name = self.following_list_button_resource_id.rsplit(':id/', 1)[-1]
@@ -51,34 +87,59 @@ class UnfollowSelectors:
     def active_follow_list_subtitle_resource_id(self, app_id: str) -> str:
         return self.active_resource_id(app_id, self.follow_list_subtitle_resource_name)
 
-    def non_followers_category_selectors(self, app_id: str) -> List[str]:
-        return [
-            '//*[contains(@content-desc, "don\'t follow back")]',
-            '//*[contains(@content-desc, "People you don")]',
-            (
-                f'//*[@resource-id="{self.active_resource_id(app_id, "container")}"]'
-                '[contains(@content-desc, "follow")]'
-            ),
-            (
-                f'//*[@resource-id="{self.active_resource_id(app_id, "title")}"]'
-                '[contains(@text, "don\'t follow back")]'
-            ),
-            (
-                f'//*[@resource-id="{self.active_resource_id(app_id, "title")}"]'
-                '[contains(@text, "follow back")]'
-            ),
-        ]
-    
+    def follow_list_username_selector(self, app_id: str) -> str:
+        """Every username of the open follow list (language-neutral)."""
+        return f'//*[@resource-id="{self.active_follow_list_username_resource_id(app_id)}"]'
+
+    def follow_list_subtitle_selector(self, app_id: str) -> str:
+        """Every display name (the line under the username) of the open follow list."""
+        return f'//*[@resource-id="{self.active_follow_list_subtitle_resource_id(app_id)}"]'
+
+    def follow_list_row_button_selector(self, app_id: str) -> str:
+        """Every row action button of the open follow list (language-neutral): its text is then
+        read through the shared state classifier."""
+        return f'//*[@resource-id="{self.active_follow_list_button_resource_id(app_id)}"]'
+
+    # === "Followers you don't follow back" category of the followers tab (locales overlay) ===
+    # These are FANS: people who follow you and whom you do not follow. The category says
+    # nothing about the accounts you follow.
+    @property
+    def fans_category_labels(self) -> List[str]:
+        return _labels("unfollow.fans_category_labels")
+
+    def fans_category_selectors(self, app_id: str) -> List[str]:
+        container = self.active_resource_id(app_id, self.category_container_resource_name)
+        title = self.active_resource_id(app_id, self.category_title_resource_name)
+        selectors: List[str] = []
+        for label in self.fans_category_labels:
+            selectors.append(f'//*[@resource-id="{container}"][contains(@content-desc, "{label}")]')
+            selectors.append(f'//*[@resource-id="{title}"][contains(@text, "{label}")]')
+        return selectors
+
     # === Unfollow confirmation in the popup (locales overlay) ===
     @property
     def unfollow_confirm(self) -> List[str]:
         return L("unfollow.unfollow_confirm")
 
+    @property
+    def unfollow_confirm_labels(self) -> List[str]:
+        """The label of the confirm button: the same unfollow labels the state classifier uses."""
+        return _labels("profile.follow_state_labels_unfollow")
+
+    def unfollow_confirm_selectors(self, app_id: str) -> List[str]:
+        """The dialog's primary button first, scoped by its id AND its label; then the existing
+        localized confirmation popup selectors (`popup.unfollow_confirmation_selectors`), for a
+        layout where the id changed."""
+        button = self.active_resource_id(app_id, self.unfollow_confirm_resource_name)
+        scoped = [f'//*[@resource-id="{button}"][contains(@text, "{label}")]'
+                  for label in self.unfollow_confirm_labels]
+        return scoped + list(POPUP_SELECTORS.unfollow_confirmation_selectors)
+
     # === Username in the following list ===
     following_list_item: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
     ])
-    
+
     # === Onglet following/abonnements (overlay locales/) ===
     @property
     def following_tab(self) -> List[str]:
@@ -92,6 +153,12 @@ class UnfollowSelectors:
     @property
     def sort_button(self) -> List[str]:
         return self._sort_button_base + L("unfollow.sort_button")
+
+    # The list's sort header ("Trié par Par défaut", "Sorted by Default"): it names the sort the
+    # list is in, so a tapped option is confirmed there (language-neutral id).
+    sort_entry_label: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/sorting_entry_row_option"]',
+    ])
 
     @property
     def sort_option_default(self) -> List[str]:

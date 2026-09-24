@@ -21,9 +21,14 @@ class AiPromptCaptures:
 
     @staticmethod
     def _db():
-        from taktik.core.database.local.service import LocalDatabaseService
+        # Le SINGLETON, pas une instance neuve -- meme correctif que `instagram_posted_comments`.
+        # Construire le service rejoue TOUTE la suite de migrations, rebatit le moteur SQLAlchemy
+        # et prend un verrou d'ecriture sur une base partagee avec Electron ; ce chemin est appele
+        # deux fois par commentaire (`record` puis `attach_comment`), et chaque instance neuve
+        # laissait en plus une connexion SQLite ouverte que personne ne fermait.
+        from taktik.core.database.local.service import get_local_database
 
-        return LocalDatabaseService()
+        return get_local_database()
 
     @staticmethod
     def record(

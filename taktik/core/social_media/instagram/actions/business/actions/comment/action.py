@@ -99,56 +99,47 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
             
+            # "Try again later" after the send, looked for BEFORE the popup is closed, which
+            # could dismiss it: the detector sets the run's lock. A refused comment is not
+            # posted: nothing is recorded, and no share sheet is opened after it.
+            if self._stop_if_action_blocked(username or '', 'comment'):
+                stats['blocked'] = True
+                self._close_comment_popup()
+                return stats
+
             self.logger.info(f"✅ Comment posted successfully ({len(comment_text)} chars)")
             stats['commented'] = True
             stats['comment_text'] = comment_text
             stats['success'] = True
-            
-            delay = random.uniform(*config['comment_delay_range'])
-            self.logger.debug(f"Waiting {delay:.1f}s after commenting")
-            time.sleep(delay)
-            
-            self._close_comment_popup()
-            
-            # Record local session counters
-            try:
-                if self.session_manager:
-                    self.session_manager.record_action('comment_posts', success=True)
-                    self.logger.debug("Comment session counter incremented")
-            except Exception as e:
-                self.logger.error(f"Failed to increment comment session counter: {e}")
-                stats['errors'] += 1
-            
-            # Two writes, on purpose:
-            #  - interactions: the ACTION LEDGER row (counters, quotas, Turso sync all read
-            #    it). Carries the text too, so the session drill-down shows it even for a
-            #    row with no rich record beside it.
-            #  - posted_comments: the RICH record — which post, which model wrote it, what
-            #    it cost, why. A comment is the only gesture with real content of its own.
-            if username:
-                self._record_action(username, 'COMMENT', 1, content=comment_text)
-                comment_id = InstagramPostedComments.record(
-                    target_username=username,
-                    comment_text=comment_text,
-                    account_id=self._get_account_id(),
-                    session_id=self._get_session_id(),
-                    ai_metadata=ai_metadata,
-                    source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'template'),
-                )
-                stats['comment_id'] = comment_id
+
+            # Written NOW, before the pause and the sheet close (see _record_posted_comment).
+            comment_id = self._record_posted_comment(
+                username, comment_text, ai_metadata,
+                source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'template'),
+            )
+            stats['comment_id'] = comment_id
+            if comment_id:
                 # Bind the prompt capture written when the model answered to the comment it
                 # produced. Two rows a few seconds apart, joined by an id rather than by a
                 # timestamp: the explain panel then reads one row, not a nearest match.
                 capture_id = (ai_metadata or {}).get('capture_id')
-                if capture_id and comment_id:
+                if capture_id:
                     try:
                         from taktik.core.database.ai_prompt_captures import AiPromptCaptures
 
                         AiPromptCaptures.attach_comment(capture_id, comment_id)
                     except Exception as exc:  # noqa: BLE001 — diagnostics never break a run
                         self.logger.debug(f"Could not bind prompt capture to comment: {exc}")
-                if comment_id and config.get('capture_post_url', True):
-                    self._attach_post_url(comment_id)
+
+            delay = random.uniform(*config['comment_delay_range'])
+            self.logger.debug(f"Waiting {delay:.1f}s after commenting")
+            time.sleep(delay)
+
+            self._close_comment_popup()
+
+            # The link needs the share sheet, hence the sheet closed first. Best-effort.
+            if comment_id and config.get('capture_post_url', True):
+                self._attach_post_url(comment_id)
 
             return stats
             
@@ -156,6 +147,49 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             self.logger.error(f"Error commenting on post: {e}")
             stats['errors'] += 1
             return stats
+
+    def _record_posted_comment(self, username: Optional[str], text: str,
+                               ai_metadata: Optional[Dict[str, Any]], source: str,
+                               **record_fields: Any) -> Optional[int]:
+        """Count and store a comment the moment it is published. Returns the posted_comments id.
+
+        Called right after the send button, BEFORE the post-comment pause and the sheet close:
+        those take several seconds and tap the screen. Written after them, a run stopped or
+        crashing in between left a published comment with no trace at all -- measured on
+        2026-09-24: the run stopped six seconds after the send, while closing the sheet, and the
+        session kept not a single row; the comment was outside the session caps.
+
+        Three writes, on purpose:
+         - the session counter, which the session caps read;
+         - interactions: the ACTION LEDGER row (counters, quotas, Turso sync all read it). It
+           carries the text, so the session drill-down shows it even without a rich record;
+         - posted_comments: the RICH record -- which post, which model wrote it, what it
+           cost, why. A comment is the only gesture with real content of its own.
+        The two rows need the target account; without one the comment is still counted.
+        """
+        if self.session_manager:
+            try:
+                self.session_manager.record_action('comment_posts', success=True)
+            except Exception as exc:
+                self.logger.error(f"Failed to increment comment session counter: {exc}")
+
+        if not username:
+            self.logger.warning(
+                "Comment published with no known target: counted in the session, "
+                "but no ledger row can be written"
+            )
+            return None
+
+        self._record_action(username, 'COMMENT', 1, content=text)
+        return InstagramPostedComments.record(
+            target_username=username,
+            comment_text=text,
+            account_id=self._get_account_id(),
+            session_id=self._get_session_id(),
+            ai_metadata=ai_metadata,
+            source=source,
+            **record_fields,
+        )
 
     def _attach_post_url(self, comment_id: int) -> None:
         """Best-effort: capture the post's shareable link and complete the stored comment.
@@ -549,31 +583,21 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                 return result
 
             self.logger.success(f"Replied to @{handle}")
-            time.sleep(random.uniform(*config['comment_delay_range']))
-            self._close_comment_popup()
-
-            if self.session_manager:
-                try:
-                    # A reply IS a published text: it consumes the comment budget, because
-                    # Instagram sees the same surface and the same spam signals.
-                    self.session_manager.record_action('comment_posts', success=True)
-                except Exception:
-                    pass
-
-            self._record_action(handle, 'COMMENT', 1, content=text)
-            result['comment_id'] = InstagramPostedComments.record(
-                target_username=handle,
-                comment_text=text,
-                account_id=self._get_account_id(),
-                session_id=self._get_session_id(),
-                ai_metadata=ai_metadata,
+            result['success'] = True
+            result['message'] = f'Replied to @{handle}'
+            # A reply IS a published text: it consumes the comment budget, because Instagram
+            # sees the same surface and the same spam signals. Written before the pause and
+            # the sheet close, like a comment (see _record_posted_comment).
+            result['comment_id'] = self._record_posted_comment(
+                handle, text, ai_metadata,
                 source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'custom'),
                 kind='reply',
                 reply_to_username=handle,
                 reply_to_text=reply_to_text or None,
             )
-            result['success'] = True
-            result['message'] = f'Replied to @{handle}'
+
+            time.sleep(random.uniform(*config['comment_delay_range']))
+            self._close_comment_popup()
             return result
 
         except Exception as exc:

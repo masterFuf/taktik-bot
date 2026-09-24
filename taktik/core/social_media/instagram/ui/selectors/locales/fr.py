@@ -944,6 +944,24 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Envoyer\")]",
     ],
     # --- unfollow ---
+    # Titre de l'onglet des abonnés de la vue unifiée. Relevé sur Instagram 447 en français
+    # (Pixel 6a, 2026-09-23) : « 673 followers », « 1 287 suivi(e)s », « 0 abonnements ». Le
+    # troisième onglet, « abonnements », est la liste des abonnements PAYANTS : jamais celle des
+    # comptes suivis, ni celle des abonnés.
+    "unfollow.followers_tab_labels": [
+        "followers",
+        "abonnés",
+    ],
+    # Onglet de NOS ABONNEMENTS de la liste unifiée : « 1 287 suivi(e)s » (Instagram 410 et 447,
+    # septembre 2026). Pas « abonnements » : c'est l'onglet des abonnements PAYANTS.
+    "unfollow.following_tab_labels": [
+        "suivi(e)s",
+    ],
+    # Catégorie des FANS de l'onglet des abonnés (ils vous suivent, vous ne les suivez pas).
+    # Relevé sur Instagram 447 en français (Pixel 6a, 2026-09-23).
+    "unfollow.fans_category_labels": [
+        "Followers que vous ne suivez pas",
+    ],
     "unfollow.follow_button_after_unfollow": [
         "//*[contains(@text, \"Suivre\") and not(contains(@text, \"Abonné\"))]",
     ],
@@ -961,10 +979,23 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"vous suit\")]",
         "//*[contains(@content-desc, \"Vous suit\")]",
     ],
-    "unfollow.sort_button": [],
-    "unfollow.sort_option_default": [],
-    "unfollow.sort_option_earliest": [],
-    "unfollow.sort_option_latest": [],
+    # Icône de tri de la liste d'abonnements : content-desc relevé en 410 (Pixel 3a, 2026-06-19)
+    # et en 447 (Pixel 6a, 2026-09-23). Options de la feuille de tri relevées en 410 (Pixel 3,
+    # 2026-09-24) : « Par défaut », « Date de suivi : plus récent », « Date de suivi : plus
+    # ancien », avec une espace insécable avant les deux-points ; d'où la comparaison par morceaux.
+    # Le tri ne compte qu'une fois confirmé par l'en-tête de la liste (_set_following_list_sort).
+    "unfollow.sort_button": ['//*[@content-desc="Trier par"]'],
+    "unfollow.sort_option_default": [
+        "//*[@resource-id=\"com.instagram.android:id/follow_list_sorting_option\"][@text=\"Par défaut\"]",
+    ],
+    "unfollow.sort_option_earliest": [
+        "//*[@resource-id=\"com.instagram.android:id/follow_list_sorting_option\"]"
+        "[starts-with(@text, \"Date de suivi\")][contains(@text, \"plus ancien\")]",
+    ],
+    "unfollow.sort_option_latest": [
+        "//*[@resource-id=\"com.instagram.android:id/follow_list_sorting_option\"]"
+        "[starts-with(@text, \"Date de suivi\")][contains(@text, \"plus récent\")]",
+    ],
     "unfollow.unfollow_confirm": [
         "//*[contains(@text, \"Ne plus suivre\")]",
         "//android.widget.Button[contains(@text, \"Ne plus suivre\")]",

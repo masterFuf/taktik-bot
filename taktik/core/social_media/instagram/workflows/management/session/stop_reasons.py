@@ -193,6 +193,24 @@ def daily_budget(count: Any, limit: Any) -> StopReason:
     )
 
 
+def unfollows_cap(count: Any, limit: Any) -> StopReason:
+    """The session made the unfollows it was asked for (the page's "Maximum d'unfollows")."""
+    return _reason(
+        "unfollows_cap", FAMILY_OK,
+        f"Unfollows limit reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
+def daily_unfollow_budget(count: Any, limit: Any) -> StopReason:
+    """The day's unfollow budget from the warmup policy is spent (a budget of its own)."""
+    return _reason(
+        "daily_unfollow_budget", FAMILY_OK,
+        f"Daily unfollow budget reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
 def session_action_cap(count: Any, limit: Any) -> StopReason:
     return _reason(
         "session_action_cap", FAMILY_OK,
@@ -280,11 +298,14 @@ _FAMILY_BY_CODE = {
     "navigation_lost": FAMILY_FAILED,
     "stuck_at_top": FAMILY_FAILED,
     "action_blocked": FAMILY_FAILED,
+    "unfollow_unconfirmed": FAMILY_FAILED,
+    "no_account": FAMILY_FAILED,
     "list_unavailable": FAMILY_FAILED,
     "followers_list_unavailable": FAMILY_FAILED,
     "empty_plan": FAMILY_FAILED,
     "device_disconnected": FAMILY_FAILED,
     "target_app_crashed": FAMILY_FAILED,
+    "desktop_gone": FAMILY_FAILED,
 }
 
 
@@ -336,6 +357,32 @@ def action_blocked() -> StopReason:
     this dialog, and the difference decides whether the next gesture makes things worse.
     """
     return _reason("action_blocked", FAMILY_FAILED, "action_blocked")
+
+
+def unfollow_unconfirmed(count: Any) -> StopReason:
+    """Several unfollows in a row the screen did not confirm: a silent refusal, or an unreadable
+    row. Tapping on would repeat the refused action, the pattern that ends in a block."""
+    return _reason(
+        "unfollow_unconfirmed", FAMILY_FAILED,
+        f"{count} unfollows in a row not confirmed by the screen",
+        count=count,
+    )
+
+
+def no_unfollow_candidates(unfollowed: Any, kept: Any) -> StopReason:
+    """The unfollow has nobody (left) to unfollow: every account it follows is kept by a rule
+    (whitelist, bot follows only, delay, mode) or was handled already. An expected end: a run
+    that finds nothing to clean is not a failure, and must not relaunch its syncs for nothing."""
+    return _reason(
+        "no_unfollow_candidates", FAMILY_OK,
+        f"No account left to unfollow ({unfollowed} unfollowed, {kept} kept by the rules)",
+        unfollowed=unfollowed, kept=kept,
+    )
+
+
+def no_account() -> StopReason:
+    """The bot could not tell which account is logged in: nothing can be decided for it."""
+    return _reason("no_account", FAMILY_FAILED, "no_account")
 
 
 def stuck_at_top(scans: Any) -> StopReason:
@@ -430,6 +477,36 @@ def target_app_crashed(signature: Any = None) -> StopReason:
         f"Target app crashed{f' ({text[:80]})' if text else ''}",
         signature=text[:80] or None,
     )
+
+
+def desktop_gone() -> StopReason:
+    """The desktop app that launched the run disappeared while it was running.
+
+    A crash, a forced stop, a window closed without its shutdown: the phone still answers, but
+    nobody reads the bridge's events any more and nobody can stop it. The bridge notices on its
+    own (``bridges/common/runtime/owner_watchdog.py``) and ends the run here rather than acting
+    unsupervised. FAILED, because the run did not go where it was set to go; it is the same
+    situation as the desktop's ``run_lost``, except that the bot was there to write the motive.
+    """
+    return _reason("desktop_gone", FAMILY_FAILED, "Desktop app gone")
+
+
+def for_halt(halt: Dict[str, Any]) -> StopReason:
+    """The motive for a run stopped by the shared halt latch (``shared/diagnostics/run_halt``).
+
+    The latch only carries a code, so that ``shared/`` never has to know this catalogue; each
+    platform translates it. One translation, read by the session limits AND by the stop-signal
+    handler: when the desktop disappears, whichever of the two ends the run must say so, not
+    "manual stop" nor "target app crashed".
+    """
+    code = halt.get("code")
+    if code == "device_disconnected":
+        return device_disconnected(halt.get("detail"))
+    if code == "action_blocked":
+        return action_blocked()
+    if code == "desktop_gone":
+        return desktop_gone()
+    return target_app_crashed(halt.get("detail"))
 
 
 # -- manual: someone pressed stop ----------------------------------------------

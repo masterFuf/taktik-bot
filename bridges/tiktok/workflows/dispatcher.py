@@ -27,7 +27,7 @@ def main():
 
     workflow_type = config.get("workflowType", "for_you")
     device_id = config.get("deviceId", "unknown")
-    logger.info(f"ðŸŽµ TikTok Bridge starting - workflow: {workflow_type}, device: {device_id}")
+    logger.info(f"🎵 TikTok Bridge starting - workflow: {workflow_type}, device: {device_id}")
 
     # A requested-but-failed IP rotation stops the run: acting from the previous account's IP is
     # exactly what the option exists to prevent.
@@ -38,10 +38,10 @@ def main():
         success, workflow_type = dispatch_tiktok_workflow(config)
 
         if success:
-            logger.success(f"âœ… TikTok {workflow_type} workflow completed successfully")
+            logger.success(f"✅ TikTok {workflow_type} workflow completed successfully")
             sys.exit(0)
 
-        logger.error(f"âŒ TikTok {workflow_type} workflow failed")
+        logger.error(f"❌ TikTok {workflow_type} workflow failed")
         sys.exit(1)
 
     except ImportError as e:

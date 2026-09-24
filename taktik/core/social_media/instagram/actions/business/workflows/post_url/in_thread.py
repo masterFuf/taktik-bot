@@ -85,6 +85,8 @@ def engage_thread(
                     outcome['comment_likes'] += 1
                 elif result.get('skipped_reason'):
                     outcome['skipped'] += 1
+                if _refused(workflow, comment['username'], 'comment like'):
+                    break
                 workflow._human_like_delay('click')
 
             if reply_enabled and outcome['replies'] < max_replies:
@@ -104,6 +106,7 @@ def engage_thread(
                 )
                 if reply.get('success'):
                     outcome['replies'] += 1
+                _refused(workflow, comment['username'], 'reply')  # sets the lock; the loop reads it
                 # Sending a reply closes the composer and can move the thread, so the next
                 # screen is re-read from scratch rather than trusted from before the send.
                 break
@@ -142,7 +145,19 @@ def _key(comment: Dict[str, Any]) -> str:
     return f"{comment.get('username', '')}:{(comment.get('text') or '')[:60]}"
 
 
+def _refused(workflow, username: str, action: str) -> bool:
+    """Instagram's "Try again later" after a gesture in the thread (sets the run's lock)."""
+    check = getattr(workflow, '_stop_if_action_blocked', None)
+    return bool(check and check(username, action))
+
+
 def _session_stopped(workflow) -> bool:
+    from taktik.core.shared.diagnostics import run_halt
+
+    # The run's lock, session or not: a refused like or reply in this thread.
+    if run_halt.arret_demande():
+        workflow.logger.warning("In-thread engagement stopped: run stop requested")
+        return True
     manager = getattr(workflow, 'session_manager', None)
     if manager is None:
         return False

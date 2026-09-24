@@ -40,6 +40,16 @@ from taktik.core.shared.diagnostics.surface_capture import captures_dir
 #: Contrôle encore vide -> les mots qui trahissent son écran. Volontairement LARGES : le but est
 #: de trouver l'écran, pas d'écrire le sélecteur. Un mot trop précis ne trouverait que ce qu'on
 #: sait déjà.
+#:
+#: Faux amis relevés le 2026-09-24 sur les 100 dumps TikTok français déjà sur disque (aucun des
+#: cinq écrans n'y figure). Ils portent le BON mot sur le MAUVAIS écran, et c'est exactement ce que
+#: ces pistes larges ramèneront — les reconnaître avant d'écrire quoi que ce soit :
+#:   - « Pas intéressé(e) » : sondage d'intérêt SOUS une vidéo normale du fil (43.1.4, bouton voisin
+#:     « Intéressé(e) »), et feuille de partage du fil. Ni l'un ni l'autre n'est la page de
+#:     suggestion plein écran (« Swipe up to skip », Follow back / Not interested).
+#:   - « Voir plus » : dépli de l'HISTORIQUE sur la page de saisie de la recherche, pas un bouton
+#:     de résultats.
+#:   - « Tout voir » (id `tv_see_all`) : liste « Nouveaux followers » de la boîte de réception.
 PISTES = {
     "popup.suggestion_not_interested": ("intéress", "interess", "suggér", "Non merci"),
     "popup.collections_not_now": ("Pas maintenant", "Plus tard", "collection"),

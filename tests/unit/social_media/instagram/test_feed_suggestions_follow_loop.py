@@ -386,3 +386,41 @@ def test_a_spent_comment_quota_does_not_block_follows(no_pacing):
     result = harness.follow_discover_suggestions(max_follows=1, delay_range=(0, 0), max_scrolls=1)
 
     assert result["follows"] == 1
+
+
+# ─────────────────────────────────────── the first "Try again later" ends the bulk follow
+
+SCREEN_TWO_FOLLOWABLE = _screen([
+    (400, "First Fresh", "Follow"),
+    (620, "Second Fresh", "Follow"),
+])
+
+
+def test_a_refused_follow_stops_the_bulk_follow(no_pacing):
+    """Instagram's rate-limit dialog after a follow: the next follow is what makes it last.
+    Checked BEFORE the verification, which would read a row hidden by the dialog as landed."""
+    device = _FakeDevice([SCREEN_TWO_FOLLOWABLE])
+    harness = _Harness(device)
+    harness._stop_if_action_blocked = lambda label, action: len(device.taps) > 0
+
+    result = harness.follow_discover_suggestions(max_follows=5, delay_range=(0, 0), max_scrolls=2)
+
+    assert len(device.taps) == 1
+    assert result["stop_reason"] == "action_blocked"
+    assert result["follows"] == 0
+    assert harness.recorded == []
+
+
+def test_the_run_stop_lock_stops_it_even_without_a_session(no_pacing):
+    from taktik.core.shared.diagnostics import run_halt
+
+    device = _FakeDevice([SCREEN_MIXED])
+    harness = _Harness(device)
+    run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page")
+    try:
+        result = harness.follow_discover_suggestions(max_follows=5, delay_range=(0, 0), max_scrolls=2)
+    finally:
+        run_halt.reinitialiser()
+
+    assert result["stop_reason"] == "action_blocked"
+    assert device.taps == []

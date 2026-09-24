@@ -6,7 +6,7 @@ import random
 from datetime import datetime
 from typing import Dict, Any, Optional
 from loguru import logger
-from taktik.core.shared.diagnostics import capture_screen_snapshot
+from taktik.core.shared.diagnostics import capture_screen_snapshot, run_halt
 from .....database.local.service import get_local_database
 from ...ui.language import redetect_if_unknown
 from ..management.session import stop_reasons
@@ -20,8 +20,12 @@ class WorkflowHelpers:
     
     def setup_signal_handlers(self):
         def signal_handler(signum, frame):
-            self.logger.info("Stop signal received (Ctrl+C), finalizing session...")
-            self.finalize_session(status='INTERRUPTED', reason=stop_reasons.manual_stop())
+            # The same signal ends the run whoever sends it. When the desktop app disappeared, the
+            # bridge's watchdog sends it after raising the halt latch: say that, not "manual stop".
+            halt = run_halt.arret_demande()
+            reason = stop_reasons.for_halt(halt) if halt else stop_reasons.manual_stop()
+            self.logger.info(f"Stop signal received, finalizing session: {reason}")
+            self.finalize_session(status='INTERRUPTED', reason=reason)
             sys.exit(0)
         
         signal.signal(signal.SIGINT, signal_handler)
