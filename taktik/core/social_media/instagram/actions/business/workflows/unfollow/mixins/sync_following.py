@@ -19,7 +19,7 @@ from taktik.core.database.instagram_follow_graph import InstagramFollowGraphServ
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
-from ..list_proof import describe_proof, proof_of_read, scrolls_for
+from ..list_proof import describe_proof, incremental_stop_allowed, proof_of_read, scrolls_for
 from .actions import LeftOutRows, row_belongs_to_tab
 
 
@@ -103,6 +103,15 @@ class SyncFollowingMixin:
             # Read the already-known usernames to find the stop point
             known_usernames = InstagramFollowGraphService.get_active_following_usernames(account_id)
             self.logger.info(f"📋 {len(known_usernames)} known followings in DB")
+            # The first known account is a stop point only when the list is sorted by follow date
+            # AND the base knows at least half of the tab's count (list_proof).
+            stop_at_first_known = sorted_by_latest and incremental_stop_allowed(len(known_usernames), expected)
+            if sorted_by_latest and not stop_at_first_known:
+                self.logger.info(
+                    f"sync_following_list: the base knows {len(known_usernames)} of {expected} "
+                    f"followings — reading the whole list instead of stopping at the first known account"
+                )
+            stats['incremental'] = stop_at_first_known
             # The bot's follows, read once: one query per row used to follow every read
             bot_follows = InstagramFollowGraphService.bot_followed_usernames(account_id)
 
@@ -172,7 +181,7 @@ class SyncFollowingMixin:
                     if username in known_usernames:
                         # Fast mode stops at the first known account, but only when the list is
                         # sorted by follow date: otherwise that account says nothing about the rest
-                        if mode != 'enriched' and sorted_by_latest:
+                        if mode != 'enriched' and stop_at_first_known:
                             try:
                                 print(json.dumps({
                                     "type": "sync_user_discovered",

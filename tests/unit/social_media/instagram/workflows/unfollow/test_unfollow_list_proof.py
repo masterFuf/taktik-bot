@@ -9,6 +9,7 @@ from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list
     PROOF_BY_SUGGESTIONS_END,
     count_tolerance,
     describe_proof,
+    incremental_stop_allowed,
     parse_tab_count,
     proof_of_read,
     read_is_complete,
@@ -527,3 +528,47 @@ def test_the_following_read_is_proved_by_the_suggestions_header_too(monkeypatch)
 
     assert graph.followings == names
     assert stats["complete"] is True and stats["proof"] == PROOF_BY_SUGGESTIONS_END
+
+
+# ── The incremental stop needs a base that knows the list (2026-09-24) ─────────────────────────
+# On a phone the base knew 6 followings of about 1 900, one of them in 1 394th position: the read
+# sorted by latest follow stopped there, and the 500 oldest were never read.
+
+def test_the_first_known_account_is_a_stop_point_only_when_the_base_knows_half_the_list():
+    assert not incremental_stop_allowed(6, 1900)
+    assert not incremental_stop_allowed(949, 1900)
+    assert incremental_stop_allowed(950, 1900)
+    assert incremental_stop_allowed(0, None)   # no count: the stop stays as before
+
+
+def _sorted_business(pages, graph, monkeypatch):
+    business, screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+    business._set_following_list_sort = lambda order: True
+    return business, screen
+
+
+def test_a_base_that_knows_little_reads_the_whole_sorted_list(monkeypatch):
+    graph = Graph(known_followings=["k1"])   # 1 known of 6
+    rows = [("a1", "Suivi(e)"), ("k1", "Suivi(e)"), ("a2", "Suivi(e)"),
+            ("a3", "Suivi(e)"), ("a4", "Suivi(e)"), ("a5", "Suivi(e)")]
+    business, _screen = _sorted_business([_following_page(rows[:3], 6), _following_page(rows[3:], 6)],
+                                         graph, monkeypatch)
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert stats["stopped_early"] is False and stats["incremental"] is False
+    assert graph.followings == ["a1", "k1", "a2", "a3", "a4", "a5"]
+    assert stats["complete"] is True
+
+
+def test_a_base_that_knows_the_list_still_stops_at_the_first_known(monkeypatch):
+    graph = Graph(known_followings=["k1", "k2", "k3", "k4"])   # 4 known of 6
+    rows = [("a1", "Suivi(e)"), ("k1", "Suivi(e)"), ("k2", "Suivi(e)"),
+            ("k3", "Suivi(e)"), ("k4", "Suivi(e)"), ("a2", "Suivi(e)")]
+    business, _screen = _sorted_business([_following_page(rows[:3], 6), _following_page(rows[3:], 6)],
+                                         graph, monkeypatch)
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert stats["stopped_early"] is True and stats["incremental"] is True
+    assert graph.followings == ["a1"] and stats["complete"] is False

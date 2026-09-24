@@ -103,6 +103,25 @@ def describe_proof(rule: Optional[str], seen: int, expected: Optional[int]) -> s
     return f"{seen} read of {total}: NOT proven complete"
 
 
+# The share of the tab's count the base must already know before a sorted read may stop at its
+# first known account, in percent.
+INCREMENTAL_STOP_MIN_KNOWN_PERCENT = 50
+
+
+def incremental_stop_allowed(known: int, expected: Optional[int]) -> bool:
+    """May a read sorted by latest follow stop at the first account the base already knows?
+
+    Only when the base knows at least half of the tab's count. On a phone (2026-09-24) the base
+    knew 6 followings of about 1 900, one of them in 1 394th position: the read stopped there and
+    the 500 oldest, the unfollow's first candidates, were never read. A base that knows so little
+    is not a stop point; the read goes to the end, where its end can be proved. Without a count,
+    the stop stays allowed, as before.
+    """
+    if expected is None:
+        return True
+    return known * 100 >= expected * INCREMENTAL_STOP_MIN_KNOWN_PERCENT
+
+
 def scrolls_for(expected: Optional[int], floor: int, ceiling: int = 3000) -> int:
     """Scrolls a whole list of `expected` accounts may take (4 to 5 rows a scroll, with margin)."""
     if not expected:
@@ -112,6 +131,7 @@ def scrolls_for(expected: Optional[int], floor: int, ceiling: int = 3000) -> int
 
 __all__ = [
     "PROOF_BY_COUNT", "PROOF_BY_SUGGESTIONS_END", "SUGGESTIONS_END_MAX_GAP_PERCENT",
+    "INCREMENTAL_STOP_MIN_KNOWN_PERCENT", "incremental_stop_allowed",
     "parse_tab_count", "count_tolerance", "proof_of_read", "read_is_complete", "describe_proof",
     "scrolls_for",
 ]
