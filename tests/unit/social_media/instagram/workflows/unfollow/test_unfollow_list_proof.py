@@ -5,8 +5,12 @@ import pytest
 from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml, unified_tabs
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list_proof import (
+    PROOF_BY_COUNT,
+    PROOF_BY_SUGGESTIONS_END,
     count_tolerance,
+    describe_proof,
     parse_tab_count,
+    proof_of_read,
     read_is_complete,
     scrolls_for,
 )
@@ -139,7 +143,7 @@ def test_a_followers_read_that_stops_short_of_the_count_proves_nothing(monkeypat
 
     stats = business.sync_followers_list({"mode": "fast"})
 
-    assert stats["end_reached"] is True and stats["complete"] is False
+    assert stats["end_reached"] is True and stats["complete"] is False and stats["proof"] is None
     assert graph.reciprocity == []   # a partial read writes no reciprocity
 
 
@@ -400,3 +404,126 @@ def test_a_name_refused_once_and_read_later_is_not_left_out(monkeypatch):
     stats = business.sync_following_list({"mode": "fast"})
 
     assert graph.followings == ["a1", "a2"] and stats["left_out"] == {}
+
+
+# ── The end of a list proved by its suggestions header (decision of 2026-09-24) ───────────────
+# A phone read 653 followers of 673 shown, every name seen read, and ended on the suggestions:
+# the 20 missing were accounts Instagram counts and never lists. The count rule alone (tolerance
+# 13) called it unproven, and the non-followers mode found no candidate on that account, ever.
+
+def test_the_phone_read_of_653_of_673_is_proved_by_the_suggestions_header():
+    assert proof_of_read(653, 673, False, suggestions_reached=True, left_out={}) == PROOF_BY_SUGGESTIONS_END
+    # The count rule alone does not prove it
+    assert proof_of_read(653, 673, False) is None
+    assert not read_is_complete(653, 673, False)
+
+
+def test_the_count_rule_still_proves_first():
+    assert proof_of_read(673, 673, False, suggestions_reached=True, left_out={}) == PROOF_BY_COUNT
+    assert proof_of_read(673 - count_tolerance(673), 673, False) == PROOF_BY_COUNT
+
+
+def test_a_gap_of_more_than_5_percent_is_not_proved_by_the_suggestions_header():
+    assert proof_of_read(950, 1000, False, suggestions_reached=True, left_out={}) == PROOF_BY_SUGGESTIONS_END
+    assert proof_of_read(940, 1000, False, suggestions_reached=True, left_out={}) is None   # 6 %
+
+
+def test_a_row_left_out_or_a_failed_scroll_or_no_header_proves_nothing():
+    assert proof_of_read(653, 673, False, suggestions_reached=True, left_out={"follow": 1}) is None
+    assert proof_of_read(653, 673, False, suggestions_reached=True, left_out={"no_button": 1}) is None
+    assert proof_of_read(653, 673, True, suggestions_reached=True, left_out={}) is None
+    assert proof_of_read(653, 673, False, suggestions_reached=False, left_out={}) is None
+    assert proof_of_read(653, None, False, suggestions_reached=True, left_out={}) is None
+
+
+def test_the_log_names_the_rule_that_proved_the_read():
+    assert "suggestions header" in describe_proof(PROOF_BY_SUGGESTIONS_END, 653, 673)
+    assert "count" in describe_proof(PROOF_BY_COUNT, 673, 673)
+    assert "NOT proven" in describe_proof(None, 150, 673)
+
+
+ROWS_PER_PAGE = 8
+
+
+def _followers_pages(names, count, *, last_rows=(), header=True):
+    """`names` as followers over several screens, the suggestions header under the last one."""
+    rows = [(name, "Suivi(e)") for name in names]
+    pages = [rows[i:i + ROWS_PER_PAGE] for i in range(0, len(rows), ROWS_PER_PAGE)]
+    last = pages.pop() + list(last_rows) + ([("suggested", "")] if header else [])
+    built = [_followers_page(page, count) for page in pages]
+    built.append(_followers_page(last, count,
+                                 suggestions_before=len(last) - 1 if header else None))
+    return built
+
+
+def test_a_followers_read_ended_by_the_suggestions_within_5_percent_is_complete(monkeypatch):
+    graph = Graph()
+    names = [f"f{i}" for i in range(96)]   # 96 of 100: 4 short, beyond the count's tolerance of 2
+    business, _screen = _business(_followers_pages(names, 100), graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_followers_list({"mode": "fast"})
+
+    assert stats["usernames"] == set(names) and stats["left_out"] == {}
+    assert stats["complete"] is True and stats["proof"] == PROOF_BY_SUGGESTIONS_END
+    assert graph.reciprocity == [set(names)]
+
+
+def test_a_followers_read_6_percent_short_of_the_count_is_not_complete(monkeypatch):
+    graph = Graph()
+    names = [f"f{i}" for i in range(94)]   # 94 of 100
+    business, _screen = _business(_followers_pages(names, 100), graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_followers_list({"mode": "fast"})
+
+    assert stats["end_reached"] is True
+    assert stats["complete"] is False and stats["proof"] is None and graph.reciprocity == []
+
+
+def test_a_followers_read_that_left_a_row_out_is_not_complete(monkeypatch):
+    graph = Graph()
+    names = [f"f{i}" for i in range(96)]
+    pages = _followers_pages(names, 100, last_rows=[("refused", "Suivre")])
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_followers_list({"mode": "fast"})
+
+    assert stats["left_out"] == {"follow": 1}
+    assert stats["complete"] is False and stats["proof"] is None
+
+
+def test_a_followers_read_after_a_failed_scroll_is_not_complete(monkeypatch):
+    graph = Graph()
+    names = [f"f{i}" for i in range(96)]
+    business, screen = _business(_followers_pages(names, 100), graph=graph, monkeypatch=monkeypatch)
+    failures = iter([False])
+    business._scroll_followers_list = lambda: screen.advance() or next(failures, True)
+
+    stats = business.sync_followers_list({"mode": "fast"})
+
+    assert stats["usernames"] == set(names)
+    assert stats["complete"] is False and stats["proof"] is None
+
+
+def test_a_followers_read_ended_without_the_header_needs_the_count(monkeypatch):
+    graph = Graph()
+    names = [f"f{i}" for i in range(96)]
+    pages = _followers_pages(names, 100, header=False)
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_followers_list({"mode": "fast"})
+
+    assert stats["end_reached"] is True and stats["complete"] is False and stats["proof"] is None
+
+
+def test_the_following_read_is_proved_by_the_suggestions_header_too(monkeypatch):
+    graph = Graph()
+    names = [f"a{i}" for i in range(96)]
+    rows = [(name, "Suivi(e)") for name in names]
+    pages = [_following_page(rows[i:i + ROWS_PER_PAGE], 100) for i in range(0, 88, ROWS_PER_PAGE)]
+    pages.append(_following_page(rows[88:] + [("suggested", "")], 100, suggestions_before=8))
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert graph.followings == names
+    assert stats["complete"] is True and stats["proof"] == PROOF_BY_SUGGESTIONS_END
