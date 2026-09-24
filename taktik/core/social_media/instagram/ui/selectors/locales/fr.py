@@ -980,13 +980,22 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Vous suit\")]",
     ],
     # Icône de tri de la liste d'abonnements : content-desc relevé en 410 (Pixel 3a, 2026-06-19)
-    # et en 447 (Pixel 6a, 2026-09-23). Les options de la feuille de tri n'ont jamais été
-    # capturées en français : elles restent vides, et la synchro ne s'arrête plus sur un tri
-    # non confirmé (voir sync_following.py).
+    # et en 447 (Pixel 6a, 2026-09-23). Options de la feuille de tri relevées en 410 (Pixel 3,
+    # 2026-09-24) : « Par défaut », « Date de suivi : plus récent », « Date de suivi : plus
+    # ancien », avec une espace insécable avant les deux-points ; d'où la comparaison par morceaux.
+    # Le tri ne compte qu'une fois confirmé par l'en-tête de la liste (_set_following_list_sort).
     "unfollow.sort_button": ['//*[@content-desc="Trier par"]'],
-    "unfollow.sort_option_default": [],
-    "unfollow.sort_option_earliest": [],
-    "unfollow.sort_option_latest": [],
+    "unfollow.sort_option_default": [
+        "//*[@resource-id=\"com.instagram.android:id/follow_list_sorting_option\"][@text=\"Par défaut\"]",
+    ],
+    "unfollow.sort_option_earliest": [
+        "//*[@resource-id=\"com.instagram.android:id/follow_list_sorting_option\"]"
+        "[starts-with(@text, \"Date de suivi\")][contains(@text, \"plus ancien\")]",
+    ],
+    "unfollow.sort_option_latest": [
+        "//*[@resource-id=\"com.instagram.android:id/follow_list_sorting_option\"]"
+        "[starts-with(@text, \"Date de suivi\")][contains(@text, \"plus récent\")]",
+    ],
     "unfollow.unfollow_confirm": [
         "//*[contains(@text, \"Ne plus suivre\")]",
         "//android.widget.Button[contains(@text, \"Ne plus suivre\")]",

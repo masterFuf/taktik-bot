@@ -154,6 +154,12 @@ class UnfollowSelectors:
     def sort_button(self) -> List[str]:
         return self._sort_button_base + L("unfollow.sort_button")
 
+    # The list's sort header ("Trié par Par défaut", "Sorted by Default"): it names the sort the
+    # list is in, so a tapped option is confirmed there (language-neutral id).
+    sort_entry_label: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/sorting_entry_row_option"]',
+    ])
+
     @property
     def sort_option_default(self) -> List[str]:
         return L("unfollow.sort_option_default")

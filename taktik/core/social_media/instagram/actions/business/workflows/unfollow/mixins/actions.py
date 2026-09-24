@@ -379,7 +379,30 @@ class UnfollowActionsMixin:
         except Exception as e:
             self.logger.debug(f"Error scrolling: {e}")
             return False
-    
+
+    # How long the list's sort header may take to name the option just tapped
+    sort_confirm_timeout = 3.0
+
+    def _sort_confirmed(self, option_text: str) -> bool:
+        """Does the list's sort header now name `option_text` ("Trié par Date de suivi : plus
+        récent")? Compared with the spaces normalized: Instagram puts a non-breaking space before
+        the colon in French (Pixel 3, IG 410, 2026-09-24)."""
+        def plain(text: str) -> str:
+            return ' '.join((text or '').replace('\u00a0', ' ').split())
+
+        wanted = plain(option_text)
+        if not wanted:
+            return False
+        deadline = time.time() + self.sort_confirm_timeout
+        while True:
+            for selector in self._unfollow_selectors['sort_entry_label']:
+                label = self.device.xpath(selector)
+                if label.exists and wanted in plain(label.get_text()):
+                    return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(0.3)
+
     def _set_following_list_sort(self, sort_order: str = 'default') -> bool:
         """
         Set the sorting order for the following list.
@@ -427,11 +450,18 @@ class UnfollowActionsMixin:
             for selector in self._unfollow_selectors[sort_selector_key]:
                 element = self.device.xpath(selector)
                 if element.exists:
+                    chosen = element.get_text() or ''
                     if not tap_element_human(self.device, element, logger=self.logger):
                         element.click()
-                    self.logger.info(f"✅ Selected sort option: {sort_order}")
-                    time.sleep(0.5)
-                    return True
+                    # The early stop of the sync relies on this order: a tap is not enough, the
+                    # list's header must now name the option.
+                    if self._sort_confirmed(chosen):
+                        self.logger.info(f"✅ Sort confirmed on screen: {sort_order}")
+                        return True
+                    self.logger.warning(f"Sort option '{sort_order}' tapped but not confirmed on screen")
+                    if self.device.xpath(selector).exists:  # the sheet did not close
+                        self.device.press_back()
+                    return False
             
             self.logger.warning(f"Could not find sort option: {sort_order}")
             # Press back to close the modal if we couldn't select an option

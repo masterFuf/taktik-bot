@@ -213,6 +213,14 @@ class FakeFacade:
         self.device.advance()
         return True
 
+    # What the Instagram facade forwards to the raw device
+    def xpath(self, xpath: str, source: Optional[str] = None) -> FakeSelector:
+        return self.device.xpath(xpath, source)
+
+    # The shared facade's Back, which sends the key NAME the server knows
+    def press_back(self):
+        self.device.press("back")
+
 
 
 def walk_list(business, config=None, names=None):
