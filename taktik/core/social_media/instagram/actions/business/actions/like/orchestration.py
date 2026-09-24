@@ -417,12 +417,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             # the button (which would toggle the like back off).
             if should_double_tap_like() and self._double_tap_like_image():
                 self.logger.debug("Post liked via image double-tap")
-                self._record_post_like(record_as)
+                self.record_post_like(record_as)
                 return True
 
             if self.click_actions.like_post():
                 self.logger.debug("Post liked successfully (button)")
-                self._record_post_like(record_as)
+                self.record_post_like(record_as)
                 return True
             else:
                 self.logger.warning("Failed to like")
@@ -432,9 +432,14 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             self.logger.error(f"Error liking current post: {e}")
             return False
 
-    def _record_post_like(self, username: Optional[str]) -> None:
+    def record_post_like(self, username: Optional[str]) -> None:
         """Ledger row and session counter for ONE post like, written at the gesture. Never
-        fails the like: the post is liked on Instagram whatever happens here."""
+        fails the like: the post is liked on Instagram whatever happens here.
+
+        Public because it is THE way a post like is filed: `like_current_post(record_as=...)`
+        calls it, and so does the Feed, whose like keeps its own gesture (it must tell an
+        already-liked post apart, which `like_current_post` counts as liked) but must not
+        keep a second way of recording it."""
         if not username:
             return
         if self.session_manager:

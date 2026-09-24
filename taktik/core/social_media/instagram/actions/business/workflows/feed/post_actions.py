@@ -60,9 +60,15 @@ class FeedPostActionsMixin:
             self.logger.debug(f"Error getting post author: {e}")
             return None
     
-    def _like_current_post(self) -> bool:
+    def _like_current_post(self, record_as: Optional[str] = None) -> bool:
         """Like the current feed post, alternating like methods like a human would:
-        sometimes a tap on the like button, sometimes a double-tap on the image."""
+        sometimes a tap on the like button, sometimes a double-tap on the image.
+
+        `record_as` is the post author. Given, the like is filed at the gesture -- ledger row
+        and session counter -- by `LikeOrchestration.record_post_like`, the function the
+        hashtag posts pass files its likes with (`like_current_post(record_as=...)`). The
+        gesture stays the feed's: an already-liked post returns False here, and nothing is
+        recorded for it."""
         try:
             # Locate the like button and bail out if the post is already liked.
             like_button = None
@@ -87,6 +93,7 @@ class FeedPostActionsMixin:
                 self.logger.debug("❤️ Liking via the like button")
                 if not self._human_tap_element(like_button):
                     like_button.click()  # centre-click fallback
+                self._record_feed_like(record_as)
                 self._human_like_delay('click')
                 return True
 
@@ -101,12 +108,19 @@ class FeedPostActionsMixin:
             )
             if not self.device.human_double_tap(image_region):
                 self.device.double_click(screen_width // 2, int(screen_height * 0.4))
+            self._record_feed_like(record_as)
             self._human_like_delay('click')
             return True
 
         except Exception as e:
             self.logger.debug(f"Error liking post: {e}")
             return False
+
+    def _record_feed_like(self, author: Optional[str]) -> None:
+        """File a feed like the moment it is given, before the pause that follows it: a run
+        stopped during that pause must not leave a like on Instagram with no trace here."""
+        if author:
+            self.like_business.record_post_like(author)
     
     def _extract_post_metadata(self) -> Optional[Dict[str, Any]]:
         """Metadata of the currently visible post (likes, comments)."""
@@ -126,7 +140,13 @@ class FeedPostActionsMixin:
             return None
     
     def _comment_current_post(self, config: Dict[str, Any]) -> bool:
-        """Comment the post currently visible in the feed."""
+        """Comment the post currently visible in the feed.
+
+        No longer used by the Feed workflow, which comments through
+        `CommentAction.comment_on_post` (the hashtag posts pass's comment): that one files the
+        comment at the send and closes the sheet it opened, where this one records nothing
+        and closes with the facade's back key, which uiautomator2 ignores. Still called by the
+        Taktik Agent feed autopilot (`agent/scenarios/instagram_feed_autopilot.py`)."""
         try:
             # Take the custom comments, or fall back on the defaults
             custom_comments = config.get('custom_comments', [])

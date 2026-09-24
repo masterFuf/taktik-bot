@@ -11,6 +11,7 @@ from ..common.list_sources import resolve_list_source
 from ..common.interaction_config import merge_operator_config
 from .in_thread import engage_thread
 from ....core.stats import create_workflow_stats
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
 from .mixins.url_handling import PostUrlHandlingMixin
 from .mixins.extractors import PostUrlExtractorsMixin
@@ -71,6 +72,17 @@ class PostUrlBusiness(
             if not self.nav_actions.navigate_to_post_via_deep_link(post_url):
                 self.logger.error("Failed to navigate to post")
                 stats['errors'] += 1
+                # The post was never reached, so nobody was examined: this is not a post that
+                # ran dry. Returning without a motive let the driver see "zero interactions, no
+                # reason", and the session loop filed the run COMPLETED as "sources exhausted".
+                # Same motive and same end as the hashtag workflow when its page is never
+                # reached.
+                stats['stop_reason'] = stop_reasons.navigation_lost()
+                if finalize and self.automation and hasattr(self.automation, 'helpers'):
+                    self.automation.helpers.finalize_session(
+                        status=stop_reasons.terminal_status(stats['stop_reason']),
+                        reason=stats['stop_reason'],
+                    )
                 return stats
             
             time.sleep(2)
@@ -164,7 +176,10 @@ class PostUrlBusiness(
             # finalize=False: a multi-URL run finalises ONCE at the driver level —
             # finalising here would end the session after the first post.
             if finalize and stats.get('stop_reason') and self.automation and hasattr(self.automation, 'helpers'):
-                self.automation.helpers.finalize_session(status='COMPLETED', reason=stats['stop_reason'])
+                self.automation.helpers.finalize_session(
+                    status=stop_reasons.terminal_status(stats['stop_reason']),
+                    reason=stats['stop_reason'],
+                )
 
         except Exception as e:
             self.logger.error(f"General error in Post URL workflow: {e}")

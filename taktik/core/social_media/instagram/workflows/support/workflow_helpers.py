@@ -378,6 +378,58 @@ class WorkflowHelpers:
             self.logger.error(f"❌ Error creating session: {e}")
             return None
     
+    def final_stats(self) -> Dict[str, int]:
+        """The session's totals for the end-of-run `stats` event, read from the action ledger.
+
+        The ledger (`interactions`, one row per gesture, written at the gesture) is what the
+        session row is aggregated from at finalisation, and what the live counters mirror. The
+        event used to read `automation.stats`, a second tally that only some runners fed: the
+        unfollow, post URL and feed runners added their results to it, the hashtag and target
+        runners never did. Measured on a phone (2026-09-24, hashtag run): three likes, the live
+        counter and the session row at 3, the final event at 0 -- and the run page showed 0.
+
+        Keys are those of `automation.stats` (`interactions` carries the engaged profiles).
+        Without a session or a readable ledger, `automation.stats` is all there is.
+        """
+        session_id = getattr(self.automation, 'current_session_id', None)
+        if session_id:
+            try:
+                counts = get_local_database().get_session_stats(session_id)
+            except Exception as exc:  # noqa: BLE001 -- the event must still leave
+                self.logger.warning(f"Session totals unreadable, falling back on the run tally: {exc}")
+                counts = None
+            if counts:
+                return {
+                    'likes': int(counts.get('total_likes', 0) or 0),
+                    'follows': int(counts.get('total_follows', 0) or 0),
+                    'comments': int(counts.get('total_comments', 0) or 0),
+                    'unfollows': int(counts.get('total_unfollows', 0) or 0),
+                    'interactions': int(counts.get('profiles_engaged', 0) or 0),
+                }
+        stats = getattr(self.automation, 'stats', None) or {}
+        return {key: int(stats.get(key, 0) or 0)
+                for key in ('likes', 'follows', 'comments', 'unfollows', 'interactions')}
+
+    def _posts_engaged(self) -> int:
+        """The posts the session engaged, read where the workflows that engage posts count them.
+
+        It was read from `automation.actions.stats_manager`, which does not exist (the actions
+        facade keeps its manager under `stats`): every session was filed with zero posts, and a
+        feed run, which visits no profile, was filed as empty. The feed's manager lives on the
+        runner's `feed_business`, the hashtag's on `hashtag_interaction_manager`; both last the
+        whole session. Never raises.
+        """
+        total = 0
+        for owner in (getattr(self.automation, 'feed_business', None),
+                      getattr(self.automation, 'hashtag_interaction_manager', None)):
+            try:
+                stats = getattr(getattr(owner, 'stats_manager', None), 'stats', None)
+                if isinstance(stats, dict):
+                    total += int(stats.get('posts_engaged', 0) or 0)
+            except (TypeError, ValueError):
+                continue
+        return total
+
     def update_workflow_session(self, session_id: int, status: str = 'COMPLETED', reason: Any = None) -> bool:
         # Every caller of this method ends the session (COMPLETED, INTERRUPTED via the
         # signal handler, ERROR in automation), so finalize with the full snapshot:
@@ -393,13 +445,7 @@ class WorkflowHelpers:
                 # workflow that opens no profile writes nothing to the interactions table and
                 # therefore came out at zero, then hidden
                 # comme session vide.
-                posts_engaged = 0
-                try:
-                    manager = getattr(self.automation.actions, 'stats_manager', None)
-                    if manager is not None:
-                        posts_engaged = int(manager.stats.get('posts_engaged', 0) or 0)
-                except Exception:
-                    posts_engaged = 0
+                posts_engaged = self._posts_engaged()
 
                 success = local_db.finalize_session(
                     session_id, status,
