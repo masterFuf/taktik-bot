@@ -285,7 +285,7 @@ class SyncFollowingMixin:
                 if mode != 'enriched':
                     if self._scroll_following_list() is False:
                         scroll_failed = True
-                    time.sleep(random.uniform(0.6, 1.1))  # the list settles; the next read is a dump
+                    time.sleep(random.uniform(0.5, 0.9))  # released still; the next read is ONE dump
                     scroll_attempts += 1
                 else:
                     # En mode enrichi, on a break après chaque profil enrichi

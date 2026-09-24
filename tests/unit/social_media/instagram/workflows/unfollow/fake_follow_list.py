@@ -86,12 +86,14 @@ class FakeElement:
 
 
 class FakeSelector:
-    def __init__(self, screen: "FakeScreen", xpath: str):
+    def __init__(self, screen: "FakeScreen", xpath: str, source: Optional[str] = None):
         self._screen = screen
         self._xpath = xpath
+        self._source = source
 
     def all(self) -> List[FakeElement]:
-        return [FakeElement(node) for node in self._screen.tree().xpath(self._xpath)]
+        tree = etree.fromstring(self._source.encode("utf-8")) if self._source else self._screen.tree()
+        return [FakeElement(node) for node in tree.xpath(self._xpath)]
 
     @property
     def exists(self) -> bool:
@@ -154,8 +156,12 @@ class FakeScreen:
     def tree(self):
         return etree.fromstring(self.screens[self.index].encode("utf-8"))
 
-    def xpath(self, xpath: str) -> FakeSelector:
-        return FakeSelector(self, xpath)
+    def xpath(self, xpath: str, source: Optional[str] = None) -> FakeSelector:
+        return FakeSelector(self, xpath, source)
+
+    def dump_hierarchy(self, *_a, **_k) -> str:
+        self.dumps = getattr(self, "dumps", 0) + 1
+        return self.screens[self.index]
 
     def __call__(self, resourceId: str = "", **_kwargs) -> FakeUiObject:
         return FakeUiObject(self, resourceId)
