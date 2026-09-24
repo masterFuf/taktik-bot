@@ -923,7 +923,9 @@ def install_instagram_ai_hooks(
 
             original_like_current = LikeOrchestration.like_current_post
 
-            def ai_like_current_post(self_like):
+            def ai_like_current_post(self_like, *args, **kwargs):
+                # Every argument goes through: `record_as` (the post author the hashtag posts
+                # pass and the ledger need) was dropped here, and each like raised TypeError.
                 try:
                     tmp_dir = os.path.join(tempfile.gettempdir(), "taktik_ai")
                     os.makedirs(tmp_dir, exist_ok=True)
@@ -936,7 +938,7 @@ def install_instagram_ai_hooks(
                     )
                 except Exception as exc:
                     log("warning", f"AI post analysis before like error: {exc}")
-                return original_like_current(self_like)
+                return original_like_current(self_like, *args, **kwargs)
 
             LikeOrchestration.like_current_post = ai_like_current_post
             log("info", "AI Post Analysis hook installed")
