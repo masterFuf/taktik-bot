@@ -5,7 +5,7 @@ import random
 from typing import Dict, List, Any, Optional
 
 from taktik.core.clone import get_active_package
-from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
     classify_follow_state,
@@ -15,9 +15,11 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PRO
 from ..list_proof import parse_tab_count
 
 
-# Share of the screen one scroll of a follow list travels: most of a screen, with a row or two of
-# overlap so no row falls between two reads.
-FOLLOW_LIST_SCROLL_RATIO = 0.8
+# Where one drag of a follow list starts and ends, as shares of the screen: about 45% of travel,
+# which leaves about three rows of overlap between two reads.
+FOLLOW_LIST_DRAG_X = (0.35, 0.65)
+FOLLOW_LIST_DRAG_FROM = (0.76, 0.80)
+FOLLOW_LIST_DRAG_TO = (0.31, 0.35)
 
 
 def _pair_subtitles(names_by_y, subtitles) -> Dict[str, str]:
@@ -59,20 +61,26 @@ class UnfollowActionsMixin:
         ("Suivi(e)"), and 'follow_back' for "Follow back" / "Suivre en retour". With
         `require_username`, a button nobody can name at its height is left out: an unfollow is
         never tapped on an anonymous row (it used to be recorded on a profile called "unknown").
-        `with_display_names` adds each row's `display_name` (the line under its username) from one
-        more read of the screen: the syncs used to make three device calls PER ROW for it.
+        `with_display_names` adds each row's `display_name` (the line under its username): the
+        syncs used to make three device calls PER ROW for it.
+
+        ONE dump answers for the usernames, the buttons and the names. Each `.all()` used to take its
+        own: while the list was still moving, a username and its button came from two different
+        positions of the list, the pairing failed, and rows were left out -- 85 of 232 on a phone
+        (2026-09-24), which a list read then counted as never there.
         """
         rows: List[Dict[str, Any]] = []
         try:
             d = self.device.device
             package = get_active_package()
+            screen = d.dump_hierarchy()
             names = []
-            for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_username_selector(package)).all():
+            for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_username_selector(package), screen).all():
                 username = (el.text or '').strip().lstrip('@')
                 band = _vertical_band(el)
                 if username and band and self._is_valid_username(username):
                     names.append((username, band[0], el))
-            for button in d.xpath(UNFOLLOW_SELECTORS.follow_list_row_button_selector(package)).all():
+            for button in d.xpath(UNFOLLOW_SELECTORS.follow_list_row_button_selector(package), screen).all():
                 band = _vertical_band(button)
                 if band is None:
                     continue
@@ -89,7 +97,7 @@ class UnfollowActionsMixin:
             if with_display_names:
                 names_by_y = sorted((entry[1], entry[0]) for entry in names)
                 subtitles = []
-                for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_subtitle_selector(package)).all():
+                for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_subtitle_selector(package), screen).all():
                     band = _vertical_band(el)
                     if band:
                         subtitles.append((band[0], (el.text or '').strip()))
@@ -261,15 +269,24 @@ class UnfollowActionsMixin:
             self.logger.debug(f"Error going back to following list: {e}")
     
     def _scroll_following_list(self) -> bool:
-        """Scroll the follow list down (humanized controlled scroll). False when the gesture
-        failed: a read that could not scroll proves nothing about the end of the list.
+        """Advance the follow list by a known amount. False when the gesture failed: a read
+        that could not scroll proves nothing about the end of the list."""
+        return self._drag_follow_list()
 
-        Most of a screen per gesture, keeping a row or two of overlap, as a PRECISE drag: the
-        default curve caps its travel at 34% of the screen, which moved about 3 of the 9 visible rows,
-        and reading 1 928 followings took an hour (measured 2026-09-24)."""
+    def _drag_follow_list(self) -> bool:
+        """Press, carry the list up about 45% of the screen, release at near-zero velocity.
+
+        Measured on a phone (2026-09-24): the sampled scroll curve is capped at 34% of the screen
+        (about 3 rows of 9), and a fast drag released at speed let the list coast past rows nobody
+        read. A drag that stops before lifting moves the list exactly where the finger went, leaving
+        about three rows of overlap between two reads. Points vary with each gesture."""
         try:
-            return human_scroll_raw(self.device.device, "down", distance_ratio=FOLLOW_LIST_SCROLL_RATIO,
-                                    precise=True) is not False
+            d = self.device.device
+            width, height = d.window_size()
+            x = int(width * random.uniform(*FOLLOW_LIST_DRAG_X))
+            start = (x, int(height * random.uniform(*FOLLOW_LIST_DRAG_FROM)))
+            end = (x + int(width * random.uniform(-0.03, 0.03)), int(height * random.uniform(*FOLLOW_LIST_DRAG_TO)))
+            return human_drag_between_raw(d, start, end, duration=random.uniform(0.55, 0.8)) is not False
         except Exception as e:
             self.logger.debug(f"Error scrolling: {e}")
             return False

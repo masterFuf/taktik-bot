@@ -238,12 +238,36 @@ def test_each_display_name_stays_with_its_row_when_one_is_missing(monkeypatch):
     assert graph.display == {"a1": "Alpha", "a2": "", "a3": "Gamma"}
 
 
-def test_a_scroll_of_a_follow_list_travels_most_of_a_screen():
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.actions import (
-        FOLLOW_LIST_SCROLL_RATIO,
-    )
+def test_one_dump_answers_for_the_whole_screen(monkeypatch):
+    """Two dumps (names, then buttons) taken while the list still moved paired nothing: 85 rows of
+    232 went unread on a phone."""
+    graph = Graph()
+    rows = [(f"a{i}", "Suivi(e)", f"Name {i}") for i in range(1, 5)]
+    business, screen = _business([_following_page(rows, 4)], graph=graph, monkeypatch=monkeypatch)
 
-    assert 0.7 <= FOLLOW_LIST_SCROLL_RATIO < 0.9
+    found = business._visible_follow_rows(with_display_names=True)
+
+    assert [row["username"] for row in found] == ["a1", "a2", "a3", "a4"]
+    assert screen.dumps == 1
+
+
+def test_a_drag_of_the_list_travels_about_45_percent_and_varies(monkeypatch):
+    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import actions
+
+    drags = []
+    monkeypatch.setattr(actions, "human_drag_between_raw",
+                        lambda device, start, end, duration=0.65: drags.append((start, end)) or True)
+    graph = Graph()
+    business, _screen = _business([_following_page([("a1", "Suivi(e)")], 1)], graph=graph,
+                                  monkeypatch=monkeypatch)
+    del business._scroll_following_list  # the real one, not the harness shortcut
+
+    for _ in range(20):
+        assert business._scroll_following_list() is True
+
+    travels = [(start[1] - end[1]) / 2400 for start, end in drags]
+    assert all(0.40 <= travel <= 0.50 for travel in travels)
+    assert len({start for start, _end in drags}) > 1
 
 
 def test_a_list_read_stops_when_the_session_ends(monkeypatch):

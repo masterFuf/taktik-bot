@@ -17,12 +17,10 @@ import random
 from typing import Dict, Any, List, Set
 
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
-from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 from ..list_proof import read_is_complete, scrolls_for
-from .actions import FOLLOW_LIST_SCROLL_RATIO
 
 # Row states of a real follower: the button offers to follow back, says we follow, or that we
 # asked to. A plain "Follow" row is a suggestion under the list, not a follower.
@@ -267,7 +265,7 @@ class SyncFollowersMixin:
                 if mode != 'enriched':
                     if self._scroll_followers_list() is False:
                         scroll_failed = True
-                    time.sleep(random.uniform(0.6, 1.1))  # the list settles; the next read is a dump
+                    time.sleep(random.uniform(0.5, 0.9))  # released still; the next read is ONE dump
                     scroll_attempts += 1
                 else:
                     remaining = d(resourceId=username_resource_id)
@@ -351,8 +349,7 @@ class SyncFollowersMixin:
     def _scroll_followers_list(self) -> bool:
         """Scroll the followers list down (humanized controlled scroll). False when it failed."""
         try:
-            return human_scroll_raw(self.device.device, "down", distance_ratio=FOLLOW_LIST_SCROLL_RATIO,
-                                    precise=True) is not False
+            return self._drag_follow_list()
         except Exception as e:
             self.logger.debug(f"Error scrolling followers list: {e}")
             return False
