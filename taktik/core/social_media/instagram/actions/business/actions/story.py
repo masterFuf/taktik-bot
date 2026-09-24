@@ -11,6 +11,7 @@ from taktik.core.shared.behavior.interaction_plan import (
     sample_story_like_slots,
 )
 from taktik.core.shared.behavior.dwell import story_dwell
+from taktik.core.shared.diagnostics import run_halt
 
 
 class StoryBusiness(BaseBusinessAction):
@@ -220,10 +221,17 @@ class StoryBusiness(BaseBusinessAction):
 
             opened = 0
             tray_scrolls = 0
+            refused = False
 
             # Watch up to `max_feed_profiles` friends; scroll the tray to reach more than
             # the few bubbles initially visible (bounded by `max_tray_scrolls`).
-            while opened < max_feed_profiles:
+            while opened < max_feed_profiles and not refused:
+                # The run's lock (a block seen anywhere, a lost phone): the tray reads it
+                # before opening the next friend, as the feed loop does before each post.
+                if run_halt.arret_demande():
+                    self.logger.warning("Run stop requested: leaving the stories tray")
+                    break
+
                 visible_stories = self.detection_actions.count_visible_feed_stories(skip_own_story=True)
                 if visible_stories <= 0:
                     self.logger.info("No more visible friends' stories in feed tray")
@@ -263,7 +271,9 @@ class StoryBusiness(BaseBusinessAction):
                         break
 
                     metadata = self.detection_actions.get_story_viewer_metadata()
-                    current_username = metadata.get('title') or current_username or 'unknown'
+                    # No 'unknown' stand-in: a slide whose author cannot be read is watched,
+                    # never liked nor reacted to, and files no row under a made-up name.
+                    current_username = metadata.get('title') or current_username
 
                     # Never watch/like/react a sponsored story — advance past it.
                     if metadata.get('is_ad'):
@@ -279,17 +289,24 @@ class StoryBusiness(BaseBusinessAction):
                     time.sleep(view_duration)
 
                     stats['stories_viewed'] += 1
-                    self._record_action(current_username, 'STORY_WATCH', 1)
+                    if current_username:
+                        self._record_action(current_username, 'STORY_WATCH', 1)
 
                     # Like this slide if it's one of the planned (varied) positions.
-                    if story_index in like_slots:
+                    if current_username and story_index in like_slots:
                         if self.click_actions.like_story():
                             likes_done += 1
                             stats['stories_liked'] += 1
                             self._record_action(current_username, 'STORY_LIKE', 1)
+                        # "Try again later" right after the like, before the next tap: the
+                        # first refusal ends the tray (same look as the profile story loop).
+                        if self._stop_if_action_blocked(current_username, 'story like'):
+                            refused = True
+                            break
 
                     # One reaction, on the planned slide only.
-                    if react_slots and not reacted_this and story_index in react_slots:
+                    if (current_username and react_slots and not reacted_this
+                            and story_index in react_slots):
                         if self.click_actions.react_to_story(
                             reaction=config.get('reaction'),
                             emoji_index=config.get('reaction_index'),
@@ -297,15 +314,20 @@ class StoryBusiness(BaseBusinessAction):
                             reacted_this = True
                             stats['stories_reacted'] += 1
                             self._record_action(current_username, 'STORY_REACTION', 1)
+                        if self._stop_if_action_blocked(current_username, 'story reaction'):
+                            refused = True
+                            break
 
                     if story_index < max_stories - 1:
                         if not self.nav_actions.navigate_to_next_story(settle=False):
                             # Last slide early: if likes were planned but none landed, leave one.
-                            if like_slots and likes_done == 0:
+                            if current_username and like_slots and likes_done == 0:
                                 if self.click_actions.like_story():
                                     likes_done += 1
                                     stats['stories_liked'] += 1
                                     self._record_action(current_username, 'STORY_LIKE', 1)
+                                if self._stop_if_action_blocked(current_username, 'story like'):
+                                    refused = True
                             break
                         self._wait_after_story_advance(config)
 
