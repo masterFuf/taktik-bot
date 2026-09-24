@@ -116,3 +116,19 @@ def test_fail_open_for_unknown_username():
 def test_no_rows_is_unknown():
     host = _host([], [])
     assert host.get_row_follow_state("alice") == "unknown"
+
+
+def test_an_ig410_row_whose_username_sits_above_its_button():
+    """Measured on a Pixel 3, Instagram 410 (2026-09-24): with a display name under it, a username's
+    centre is a few pixels ABOVE its button's top. "The centre inside the button's range" read
+    'unknown' for nearly every row, and an unfollow could not be confirmed."""
+    set_active_locale("fr")
+    names = [_El("kalenacook_", (231, 989, 700, 1039)), _El("cindy.dermo", (231, 1168, 700, 1218)),
+             _El("sandy_peron", (231, 1781, 700, 1831))]
+    btns = [_El("Suivi(e)", (700, 1021, 1040, 1109)), _El("Suivre", (700, 1219, 1040, 1307)),
+            _El("Suivi(e)", (700, 1813, 1040, 1901))]
+    host = _host(names, btns)
+
+    assert host.get_row_follow_state("kalenacook_") == "following"
+    assert host.get_row_follow_state("cindy.dermo") == "follow"
+    assert host.get_row_follow_state("sandy_peron") == "following"

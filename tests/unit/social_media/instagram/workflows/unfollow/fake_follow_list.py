@@ -15,18 +15,21 @@ ROW_HEIGHT = 180
 TOP = 600
 
 
-def follow_list_xml(rows: Iterable[Tuple], extra: str = "") -> str:
+def follow_list_xml(rows: Iterable[Tuple], extra: str = "", ig410: bool = False) -> str:
     """rows = [(username or None, button text[, display name])]; `extra` is appended inside the
-    hierarchy. A display name is the line under the username, as Instagram lays it out."""
+    hierarchy. A display name is the line under the username, as Instagram lays it out. `ig410`
+    places the username of a row as a Pixel 3 on Instagram 410 showed it (2026-09-24): its centre
+    a few pixels ABOVE the top of the row's button."""
     nodes = []
     for index, row in enumerate(rows):
         username, button_text = row[0], row[1]
         subtitle = row[2] if len(row) > 2 else None
         top = TOP + index * ROW_HEIGHT
+        name_top = top + 1 if ig410 else top + 40
         if username is not None:
             nodes.append(
                 f'<node index="0" text="{username}" resource-id="{PKG}:id/follow_list_username" '
-                f'class="android.widget.TextView" content-desc="" bounds="[200,{top + 40}][700,{top + 90}]" />'
+                f'class="android.widget.TextView" content-desc="" bounds="[200,{name_top}][700,{name_top + 50}]" />'
             )
         if subtitle is not None:
             nodes.append(

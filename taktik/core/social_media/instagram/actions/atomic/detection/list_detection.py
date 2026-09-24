@@ -107,8 +107,8 @@ class ListDetectionMixin(BaseAction):
         Returns: 'follow' | 'follow_back' | 'following' | 'requested' | 'unknown'.
         Unknown when the row is unreadable or partially scrolled, and the caller then falls back
         on the profile-level guard. Each row carries exactly one username and one button, paired
-        by vertical position: the centre of the username falls inside the vertical range of the
-        button of the same row. No label is hardcoded: the text is classified through the
+        by vertical position: the button whose centre is closest to the username's, within one
+        button height (on IG 410 a username with a display name sits above its button's top). No label is hardcoded: the text is classified through the
         shared classifier, using the locale labels, the same ones as the header.
         """
         try:
@@ -142,15 +142,23 @@ class ListDetectionMixin(BaseAction):
             if target_yc is None:
                 return 'unknown'
 
-            # the row button whose vertical range holds that centre is on the same row
+            # The row button whose centre is closest to that username's, within one button height,
+            # is on the same row ("the centre inside the button's range" missed nearly every row
+            # of an IG 410 list, where a username with a display name sits above its button).
+            from taktik.core.shared.device.ui_dump import index_of_closest_row
+
             for selector in PROFILE_SELECTORS.follow_list_row_buttons:
                 els = self.device.xpath(selector)
                 if not els.exists:
                     continue
-                for el in els.all():
-                    band = _yband(el)
-                    if band and band[1] <= target_yc <= band[2]:
-                        return classify_follow_state(el.text or '', PROFILE_SELECTORS) or 'unknown'
+                buttons = [(el, _yband(el)) for el in els.all()]
+                buttons = [(el, band) for el, band in buttons if band]
+                index = index_of_closest_row(target_yc, [band[0] for _el, band in buttons])
+                if index is None:
+                    continue
+                el, band = buttons[index]
+                if abs(band[0] - target_yc) <= max(band[2] - band[1], 1):
+                    return classify_follow_state(el.text or '', PROFILE_SELECTORS) or 'unknown'
             return 'unknown'
         except Exception as exc:
             self.logger.debug(f"get_row_follow_state(@{username}) error: {exc}")

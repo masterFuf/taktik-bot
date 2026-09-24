@@ -5,6 +5,7 @@ import random
 from typing import Dict, List, Any, Optional
 
 from taktik.core.clone import get_active_package
+from taktik.core.shared.device.ui_dump import index_of_closest_row
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
@@ -20,6 +21,18 @@ from ..list_proof import parse_tab_count
 FOLLOW_LIST_DRAG_X = (0.35, 0.65)
 FOLLOW_LIST_DRAG_FROM = (0.76, 0.80)
 FOLLOW_LIST_DRAG_TO = (0.31, 0.35)
+
+
+def _closest_on_row(button_band, names) -> Optional[tuple]:
+    """The (username, centre, element) of `names` on the same row as a button: the closest centre,
+    no farther than the button's own height (rows are about twice that apart)."""
+    if not names:
+        return None
+    centre, top, bottom = button_band
+    index = index_of_closest_row(centre, [entry[1] for entry in names])
+    if index is None or abs(names[index][1] - centre) > max(bottom - top, 1):
+        return None
+    return names[index]
 
 
 def _pair_subtitles(names_by_y, subtitles) -> Dict[str, str]:
@@ -55,8 +68,8 @@ class UnfollowActionsMixin:
         """Every readable row of the open follow list: `username`, row `button`, and `state`.
 
         A row carries one username and one action button, paired by vertical position: the
-        centre of the username falls inside the vertical range of the button, the same pairing
-        as `get_row_follow_state`. The button text goes through `classify_follow_state` and the
+        username whose centre is closest to the button's, within one button height -- the same
+        pairing as `get_row_follow_state`. The button text goes through `classify_follow_state` and the
         locale labels, so a row reads 'following' in English ("Following") as in French
         ("Suivi(e)"), and 'follow_back' for "Follow back" / "Suivre en retour". With
         `require_username`, a button nobody can name at its height is left out: an unfollow is
@@ -84,7 +97,12 @@ class UnfollowActionsMixin:
                 band = _vertical_band(button)
                 if band is None:
                     continue
-                paired = next((entry for entry in names if band[1] <= entry[1] <= band[2]), None)
+        # Paired by the CLOSEST centre, within one button height: on Instagram 410 a row with a
+        # display name lifts its username so that its centre sits a few pixels ABOVE the button's
+        # top (measured on a Pixel 3, 2026-09-24). "The username's centre inside the button's
+        # range" then failed for nearly every row; a list read skipped them all and an unfollow
+        # could not read the row it had just changed.
+                paired = _closest_on_row(band, names)
                 username = paired[0] if paired else None
                 if username is None and require_username:
                     continue

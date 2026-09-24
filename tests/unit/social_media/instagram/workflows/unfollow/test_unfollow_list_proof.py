@@ -167,9 +167,9 @@ def test_the_followers_sync_leaves_the_following_tab(monkeypatch):
 FOLLOWING_TITLES = ("9 followers", "{n} suivi(e)s", "0 abonnements", "À vérifier")
 
 
-def _following_page(rows, count):
+def _following_page(rows, count, ig410=False):
     titles = tuple(title.format(n=count) for title in FOLLOWING_TITLES)
-    return follow_list_xml(rows, extra=unified_tabs(selected=1, titles=titles))
+    return follow_list_xml(rows, extra=unified_tabs(selected=1, titles=titles), ig410=ig410)
 
 
 def test_a_partial_following_read_marks_no_departure(monkeypatch):
@@ -281,3 +281,17 @@ def test_a_list_read_stops_when_the_session_ends(monkeypatch):
 
     assert graph.followings == [] and stats["stopped_by_session"] is True
     assert stats["complete"] is False
+
+
+def test_an_ig410_list_is_read_whole(monkeypatch):
+    """On Instagram 410 a username with a display name sits above its button's top: the rows were
+    skipped (86 of 232 on a Pixel 3), and a read whose count fell short proved nothing."""
+    graph = Graph()
+    rows = [(f"a{i}", "Suivi(e)", f"Name {i}") for i in range(1, 7)]
+    business, _screen = _business([_following_page(rows, 6, ig410=True)], graph=graph,
+                                  monkeypatch=monkeypatch)
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert graph.followings == [f"a{i}" for i in range(1, 7)]
+    assert stats["complete"] is True
