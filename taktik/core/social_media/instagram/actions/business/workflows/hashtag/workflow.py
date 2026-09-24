@@ -10,6 +10,7 @@ from taktik.core.shared.diagnostics import run_halt
 
 from ..common.likers_base import LikersWorkflowBase
 from ..common.list_sources import resolve_list_source
+from ..common.interaction_config import merge_operator_config
 from .interaction_plan import resolve_interaction_plan
 from ....core.stats import create_workflow_stats
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
@@ -104,13 +105,22 @@ class HashtagBusiness(
 
     def _engage_post_itself(self, effective_config: Dict[str, Any], stats: Dict[str, Any],
                             author: Optional[str]) -> bool:
-        """Like and/or comment the post on screen, through the production atomics."""
+        """Like and/or comment the post on screen, through the production atomics.
+
+        Every gesture here is filed under the post author: the like through `record_as`, the
+        comment through `username`. Without an author there is no ledger row, no deduplication
+        and no cap, so the post is left alone rather than engaged off the record.
+        """
+        if not author:
+            self.logger.warning("Post author unreadable: post not engaged, it could not be recorded")
+            return False
+
         like_pct = int(effective_config.get('like_percentage') or 0)
         comment_pct = int(effective_config.get('comment_percentage') or 0)
         touched = False
 
         if like_pct > 0 and random.randint(1, 100) <= like_pct:
-            if self.like_business.like_current_post():
+            if self.like_business.like_current_post(record_as=author):
                 stats['likes_made'] += 1
                 self.stats_manager.increment('likes')
                 self.logger.info(f"❤️ Post liked (@{author or 'unknown'})")
@@ -282,6 +292,12 @@ class HashtagBusiness(
             stats['posts_selected'] = stats.get('posts_selected', 0) + 1
             stats['posts_engaged'] = stats.get('posts_engaged', 0)
 
+            # Never engage a post from inside a comments sheet nobody opened on purpose.
+            if not self._close_stray_comments_sheet():
+                stop_reason = stop_reasons.navigation_lost()
+                self.logger.warning("A comments sheet stayed open over the post — stopping here")
+                break
+
             # Everything the plan asks of this post: engage it, walk its likers,
             # walk its commenters, each with its own per-post budget.
             engaged = self._engage_one_post(
@@ -348,7 +364,9 @@ class HashtagBusiness(
 
     def interact_with_hashtag_likers(self, hashtag: str, config: Dict[str, Any] = None,
                                      finalize: bool = True) -> Dict[str, Any]:
-        effective_config = {**self.default_config, **(config or {})}
+        # The operator's probabilities must beat the default percentages: both passes below
+        # read the percentage first (see `merge_operator_config`).
+        effective_config = merge_operator_config(self.default_config, config)
 
         # A single read of the post bounds, for both halves of the workflow. Written
         # flat: everything else reads that form.
@@ -376,6 +394,17 @@ class HashtagBusiness(
             if not self.nav_actions.navigate_to_hashtag(hashtag):
                 self.logger.error("Failed to navigate to hashtag")
                 stats['errors'] += 1
+                # The hashtag page was never reached, so nothing was examined: this is not a
+                # hashtag that ran dry. Returning without a motive let the driver see "zero
+                # interactions, no reason", and the session loop filed the run COMPLETED as
+                # "sources exhausted" although it never left the search screen. Same motive as
+                # the target workflow when it cannot reach its profile.
+                stats['stop_reason'] = stop_reasons.navigation_lost()
+                if finalize and self.automation and hasattr(self.automation, 'helpers'):
+                    self.automation.helpers.finalize_session(
+                        status=stop_reasons.terminal_status(stats['stop_reason']),
+                        reason=stats['stop_reason'],
+                    )
                 return stats
 
             time.sleep(1.5)

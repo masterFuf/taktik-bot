@@ -72,6 +72,31 @@ class HashtagPostDetectionMixin:
             self.logger.error(f"Error swiping to reveal comments: {e}")
             return False
     
+    _STRAY_SHEET_BACK_PRESSES = 3
+
+    def _close_stray_comments_sheet(self) -> bool:
+        """Close a comments sheet found open over the post, before anything engages it.
+
+        The posts pass never opens that sheet itself: the comment action opens its own
+        composer, the commenters walk opens and closes its own thread. Found open, it came from
+        somewhere else -- on 2026-09-24 a tap on a reel's collapsed caption opened it (IG 447),
+        the like was refused because the reel's buttons were under it, and the run went on
+        inside it until a comment was published there. The sheet is closed by the back key
+        (`press_back`: the Instagram facade's `press('back')` sends a key name uiautomator2
+        ignores), up to three presses because the first one may only hide the keyboard.
+
+        Returns False when the sheet is still open: the caller stops rather than act on it.
+        """
+        if not self._is_comments_view_open():
+            return True
+        self.logger.warning("Comments sheet open over the post although the run did not open it — closing it")
+        for _ in range(self._STRAY_SHEET_BACK_PRESSES):
+            self.device.press_back()
+            time.sleep(0.8)
+            if not self._is_comments_view_open():
+                return True
+        return False
+
     def _are_like_comment_elements_visible(self) -> bool:
         try:
             like_indicators = self.post_selectors.like_button_indicators
@@ -142,6 +167,17 @@ class HashtagPostDetectionMixin:
         except Exception:
             return None
 
+    def _with_reel_author(self, signature: str) -> str:
+        """`signature` in the shape `_current_post_signature` gives a reel: author appended.
+
+        Left unchanged when the author cannot be read, or is already there (the Lab passes a
+        full signature).
+        """
+        author = self._current_post_author()
+        if not author or signature.endswith(f"_{author}"):
+            return signature
+        return f"{signature}_{author}"
+
     def _signature_of(self, metadata: Optional[Dict[str, Any]]) -> Optional[str]:
         """Signature of a post whose counters were JUST read — no second UI dump."""
         if not metadata:
@@ -167,12 +203,22 @@ class HashtagPostDetectionMixin:
             known_signature: signature of the current post if the caller already read it
                 (saves one UI dump per advance — this runs on every post).
         """
-        before = known_signature if known_signature is not None else self._current_post_signature()
-
         # The gesture depends on the surface: a fling on a reel, whose pager has a
         # threshold, and a controlled curve on a regular post, where overshooting would read the wrong one.
         is_reel = self._is_reel_post()
         ratios = self._NEXT_REEL_RATIOS if is_reel else self._NEXT_POST_RATIOS
+
+        if known_signature is None:
+            before = self._current_post_signature()
+        elif is_reel:
+            # A caller's signature is built from counters alone (`_signature_of`), while the
+            # read after the gesture appends the reel author. Compared as they were, the two
+            # never matched on a reel and every gesture "reached the next post" -- measured on
+            # 2026-09-24: four flicks inside an open comments sheet, each reported as a new
+            # post, all on the same reel.
+            before = self._with_reel_author(known_signature)
+        else:
+            before = known_signature
 
         for attempt, ratio in enumerate(ratios, start=1):
             try:
