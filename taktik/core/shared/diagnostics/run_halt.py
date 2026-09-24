@@ -22,6 +22,11 @@ constat gagne et ne bouge plus : les suivants decriraient la meme panne avec moi
 
 Remis a zero au demarrage de chaque run par `run_bridge_main`, comme les autres compteurs
 partages -- sans quoi un run entrerait avec le verrou du precedent et s'arreterait d'emblee.
+
+**Troisieme constat : l'application de bureau a disparu** (2026-09-24). Le telephone repond, mais
+plus personne ne lit les evenements du pont ni ne peut l'arreter : plantage de l'app, arret force,
+fermeture brutale. Pose par le chien de garde du lanceur (`bridges/common/runtime/owner_watchdog.py`),
+lu aux memes endroits que les deux autres, pour que le run finisse par son chemin normal.
 """
 
 from __future__ import annotations
@@ -36,6 +41,9 @@ DEVICE_DISCONNECTED = "device_disconnected"
 
 #: Android affiche le dialogue de plantage de l'application cible.
 TARGET_APP_CRASHED = "target_app_crashed"
+
+#: L'application de bureau qui a lance le pont n'existe plus : le run n'a plus de proprietaire.
+DESKTOP_GONE = "desktop_gone"
 
 _arret: Optional[Dict[str, Any]] = None
 
@@ -66,5 +74,5 @@ def arret_demande() -> Optional[Dict[str, Any]]:
 
 __all__ = [
     "demander_arret", "arret_demande", "reinitialiser",
-    "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED",
+    "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "DESKTOP_GONE",
 ]

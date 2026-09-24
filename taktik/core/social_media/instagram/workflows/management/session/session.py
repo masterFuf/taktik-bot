@@ -102,10 +102,7 @@ class SessionManager:
         # deux pannes qui, jusqu'ici, laissaient la boucle tourner jusqu'a son plafond.
         arret = run_halt.arret_demande()
         if arret:
-            if arret["code"] == run_halt.DEVICE_DISCONNECTED:
-                reason = stop_reasons.device_disconnected(arret.get("detail"))
-            else:
-                reason = stop_reasons.target_app_crashed(arret.get("detail"))
+            reason = stop_reasons.for_halt(arret)
             log.info(f"🛑 Session ended: {reason}")
             return False, reason
 

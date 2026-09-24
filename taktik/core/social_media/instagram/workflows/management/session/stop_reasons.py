@@ -285,6 +285,7 @@ _FAMILY_BY_CODE = {
     "empty_plan": FAMILY_FAILED,
     "device_disconnected": FAMILY_FAILED,
     "target_app_crashed": FAMILY_FAILED,
+    "desktop_gone": FAMILY_FAILED,
 }
 
 
@@ -430,6 +431,34 @@ def target_app_crashed(signature: Any = None) -> StopReason:
         f"Target app crashed{f' ({text[:80]})' if text else ''}",
         signature=text[:80] or None,
     )
+
+
+def desktop_gone() -> StopReason:
+    """The desktop app that launched the run disappeared while it was running.
+
+    A crash, a forced stop, a window closed without its shutdown: the phone still answers, but
+    nobody reads the bridge's events any more and nobody can stop it. The bridge notices on its
+    own (``bridges/common/runtime/owner_watchdog.py``) and ends the run here rather than acting
+    unsupervised. FAILED, because the run did not go where it was set to go; it is the same
+    situation as the desktop's ``run_lost``, except that the bot was there to write the motive.
+    """
+    return _reason("desktop_gone", FAMILY_FAILED, "Desktop app gone")
+
+
+def for_halt(halt: Dict[str, Any]) -> StopReason:
+    """The motive for a run stopped by the shared halt latch (``shared/diagnostics/run_halt``).
+
+    The latch only carries a code, so that ``shared/`` never has to know this catalogue; each
+    platform translates it. One translation, read by the session limits AND by the stop-signal
+    handler: when the desktop disappears, whichever of the two ends the run must say so, not
+    "manual stop" nor "target app crashed".
+    """
+    code = halt.get("code")
+    if code == "device_disconnected":
+        return device_disconnected(halt.get("detail"))
+    if code == "desktop_gone":
+        return desktop_gone()
+    return target_app_crashed(halt.get("detail"))
 
 
 # -- manual: someone pressed stop ----------------------------------------------
