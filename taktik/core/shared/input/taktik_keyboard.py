@@ -5,8 +5,11 @@ This module owns IME-specific behavior for the ADB keyboard, while raw ADB
 shell execution lives under `taktik.core.shared.device.adb`.
 """
 
+import atexit
 import base64
+import threading
 import time
+from typing import Dict, Optional
 
 from loguru import logger
 
@@ -18,8 +21,97 @@ TAKTIK_KEYBOARD_PKG = "com.alexal1.adbkeyboard"
 TAKTIK_KEYBOARD_IME = "com.alexal1.adbkeyboard/.AdbIME"
 IME_MESSAGE_B64 = "ADB_INPUT_B64"
 IME_CLEAR_TEXT = "ADB_CLEAR_TEXT"
+# The keyboard given back when the phone's own was already the ADB one (Gboard, on the Pixels).
+GBOARD_IME = "com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME"
+# uiautomator2 switches to its OWN input keyboard for send_keys, clear_text, hide_keyboard: an ADB
+# keyboard too, never a keyboard to give back.
+UIAUTOMATOR_IME = "com.github.uiautomator/.AdbKeyboard"
+ADB_IMES = frozenset({TAKTIK_KEYBOARD_IME, UIAUTOMATOR_IME})
 _ACTIVE_CACHE_TTL_SECONDS = 120.0
 _active_ime_cache: dict[str, float] = {}
+
+# The keyboard each phone had before this process first switched it to the ADB one (None: it could
+# not be read). The bot switched and never gave it back: the Pixels ended up with the ADB keyboard
+# as their default, useless to a person (decision 6 of Kevin, 2026-09-23).
+_original_ime: Dict[str, Optional[str]] = {}
+_restore_lock = threading.Lock()
+_atexit_registered = False
+
+
+def _clean_ime(value: Optional[str]) -> Optional[str]:
+    value = (value or "").strip()
+    return value if value and value != "null" else None
+
+
+def _read_default_ime(device_id: str) -> Optional[str]:
+    return _clean_ime(run_adb_shell(device_id, "settings get secure default_input_method"))
+
+
+def remember_original_keyboard(device_id: str, current: Optional[str] = None,
+                               known: bool = False) -> None:
+    """Remember the phone's keyboard the FIRST time this process looks at it, and arrange for it
+    to be given back when the process ends (the end of the bridge, so of the session).
+
+    `current`/`known`: the default keyboard the caller just read, to spare a second adb call. The
+    first look happens in `is_taktik_keyboard_active`, which every typing path runs BEFORE deciding
+    to switch: remembering only in `activate_taktik_keyboard` missed every phone already on the
+    ADB keyboard (the switch is skipped there), so the Pixels were never given anything back.
+    """
+    global _atexit_registered
+    with _restore_lock:
+        if device_id in _original_ime:
+            return
+        if known:
+            _original_ime[device_id] = _clean_ime(current)
+        else:
+            try:
+                _original_ime[device_id] = _read_default_ime(device_id)
+            except Exception as exc:  # the switch goes on; the restore falls back on another keyboard
+                logger.debug(f"Could not read the keyboard of {device_id}: {exc}")
+                _original_ime[device_id] = None
+        if not _atexit_registered:
+            atexit.register(restore_all_keyboards)
+            _atexit_registered = True
+
+
+def _fallback_keyboard(device_id: str) -> Optional[str]:
+    """The first enabled keyboard that is not the ADB one, Gboard first."""
+    enabled = [line.strip() for line in (run_adb_shell(device_id, "ime list -s") or "").splitlines()
+               if line.strip() and line.strip() not in ADB_IMES]
+    if GBOARD_IME in enabled:
+        return GBOARD_IME
+    return enabled[0] if enabled else None
+
+
+def restore_original_keyboard(device_id: str) -> bool:
+    """Give the phone back the keyboard it had before the session. One safety net: when that
+    keyboard was already the ADB one (or unreadable), the first other enabled keyboard, Gboard
+    first. Does nothing for a phone this process never switched. Never raises."""
+    with _restore_lock:
+        if device_id not in _original_ime:
+            return False
+        original = _original_ime.pop(device_id)
+    try:
+        target = original if original and original not in ADB_IMES else _fallback_keyboard(device_id)
+        if not target:
+            logger.warning(f"No keyboard to give back to {device_id}: the ADB keyboard stays")
+            return False
+        result = run_adb_shell(device_id, f"ime set {target}") or ""
+        _active_ime_cache.pop(device_id, None)
+        restored = "selected" in result.lower()
+        if restored:
+            logger.info(f"Keyboard of {device_id} given back: {target}")
+        else:
+            logger.warning(f"Keyboard of {device_id} not given back ({target}): {result}")
+        return restored
+    except Exception as exc:
+        logger.warning(f"Keyboard of {device_id} not given back: {exc}")
+        return False
+
+
+def restore_all_keyboards() -> int:
+    """Give every phone this process switched its keyboard back. Run at the process exit."""
+    return sum(1 for device_id in list(_original_ime) if restore_original_keyboard(device_id))
 
 
 def is_taktik_keyboard_active(device_id: str) -> bool:
@@ -30,6 +122,8 @@ def is_taktik_keyboard_active(device_id: str) -> bool:
 
     try:
         result = run_adb_shell(device_id, "settings get secure default_input_method")
+        # The first look at this phone's keyboard in this process: what the session will give back.
+        remember_original_keyboard(device_id, current=result, known=True)
         active = TAKTIK_KEYBOARD_IME in result
         if active:
             _active_ime_cache[device_id] = time.time()
@@ -40,8 +134,13 @@ def is_taktik_keyboard_active(device_id: str) -> bool:
 
 
 def activate_taktik_keyboard(device_id: str) -> bool:
-    """Activate Taktik Keyboard as the default IME."""
+    """Activate Taktik Keyboard as the default IME (the ONE place the bot switches keyboards).
+
+    The phone's own keyboard is remembered first and given back at the end of the session
+    (`restore_original_keyboard`).
+    """
     try:
+        remember_original_keyboard(device_id)
         run_adb_shell(device_id, f"ime enable {TAKTIK_KEYBOARD_IME}")
         result = run_adb_shell(device_id, f"ime set {TAKTIK_KEYBOARD_IME}")
 
@@ -185,6 +284,11 @@ __all__ = [
     "IME_CLEAR_TEXT",
     "is_taktik_keyboard_active",
     "activate_taktik_keyboard",
+    "remember_original_keyboard",
+    "restore_original_keyboard",
+    "restore_all_keyboards",
+    "GBOARD_IME",
+    "UIAUTOMATOR_IME",
     "type_with_taktik_keyboard",
     "type_text_human",
     "clear_text_with_taktik_keyboard",
