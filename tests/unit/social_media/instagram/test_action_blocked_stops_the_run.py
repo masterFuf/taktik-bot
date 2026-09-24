@@ -1,4 +1,4 @@
-"""The first "Try again later" ends the run, wherever it is seen (secours 2, 2026-09-24).
+"""The first "Try again later" ends the run, wherever it is seen (2026-09-24).
 
 Before: the detector SAW Instagram's rate-limit dialog, closed it, and the run acted again
 right after -- the gesture that turns a temporary limit into a lasting restriction. Only the
@@ -12,6 +12,7 @@ Instagram alert, the contacts request included. The detector used here is the re
 the phone is fake, and its screens mirror the real captures (a dialog over the screen behind).
 """
 
+import collections
 import random
 import types
 
@@ -514,3 +515,185 @@ def test_the_feed_without_the_dialog_likes_and_comments_as_before(_feed_cards):
 
     assert gestures == ["like", "comment"] * 5
     assert run_halt.arret_demande() is None
+
+
+# ───────────────────────── second review: an alert is never accepted, and every loop stops
+
+from taktik.core.social_media.instagram.ui.selectors.shell.blocking_states import (  # noqa: E402
+    PROBLEMATIC_PAGE_SELECTORS,
+)
+
+
+def _recording_detector(screen):
+    detector = ProblematicPageDetector(_Phone(lambda: screen))
+    calls = {"close": [], "click": []}
+    detector._close_problematic_page = lambda page_type, methods: calls["close"].append(page_type) or True
+    detector._click_button_from_selectors = lambda selectors, name: calls["click"].append(selectors) or True
+    return detector, calls
+
+
+def test_an_alert_read_on_its_ids_alone_is_never_accepted():
+    """Unknown language: the ids are all there is. The run stops; nothing is tapped, since the
+    primary button of an alert we cannot read may accept anything."""
+    set_active_locale(None)
+    detector, calls = _recording_detector(_screen(UPDATE_ALERT))
+
+    result = detector.detect_and_handle_problematic_pages()
+
+    assert result["soft_ban"] is True and result["closed"] is False
+    assert calls == {"close": [], "click": []}
+    lock = run_halt.arret_demande()
+    assert lock["evidence"] == "ids_only" and "ids_only" in lock["detail"]
+
+
+def test_the_contacts_request_is_dismissed_by_its_cancel_button_only():
+    """Never by its primary button, and never handed to the Android permission pattern, whose
+    first gesture taps "Allow"."""
+    detector, calls = _recording_detector(_screen(CONTACTS_FR))
+
+    result = detector.detect_and_handle_problematic_pages()
+
+    assert result["page_type"] == "instagram_alert" and result["soft_ban"] is False
+    assert calls["click"] == [PROBLEMATIC_PAGE_SELECTORS.alert_cancel_button_selectors]
+    assert calls["close"] == []
+    assert run_halt.arret_demande() is None
+
+
+def test_the_real_dialog_is_still_closed_by_its_ok_after_the_lock():
+    detector, calls = _recording_detector(_screen(BLOCK_FR))
+
+    detector.detect_and_handle_problematic_pages()
+
+    assert calls["close"] == ["try_again_later_page"]
+    assert run_halt.arret_demande()["evidence"] == "words"
+
+
+def test_the_hashtag_post_is_not_commented_after_a_refused_like():
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+        HashtagBusiness,
+    )
+
+    gestures = []
+    phone = _Phone(lambda: _screen(BLOCK_FR) if gestures else _screen())
+    workflow = object.__new__(HashtagBusiness)
+    workflow.logger = _Logger()
+    workflow.stats_manager = _Stats()
+    workflow.nav_actions = types.SimpleNamespace(problematic_page_detector=ProblematicPageDetector(phone))
+    workflow.like_business = types.SimpleNamespace(like_current_post=lambda: gestures.append("like") or True)
+    workflow.comment_business = types.SimpleNamespace(
+        comment_on_post=lambda **k: gestures.append("comment") or {"commented": True})
+    stats = {"likes_made": 0, "comments_made": 0}
+
+    workflow._engage_post_itself({"like_percentage": 100, "comment_percentage": 100}, stats, "bob")
+
+    assert gestures == ["like"]
+    assert run_halt.arret_demande()["code"] == run_halt.ACTION_BLOCKED
+
+
+def test_the_hashtag_loop_does_not_open_another_post_after_a_block():
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+        HashtagBusiness,
+    )
+
+    workflow = object.__new__(HashtagBusiness)
+    workflow.logger = _Logger()
+
+    def _never(*a, **k):
+        raise AssertionError("no post is opened after a block")
+
+    workflow._find_first_valid_post = _never
+    workflow.session_manager = None
+    workflow.stats_manager = types.SimpleNamespace(display_final_stats=lambda **k: None)
+    finalized = []
+    workflow.automation = types.SimpleNamespace(helpers=types.SimpleNamespace(
+        finalize_session=lambda status, reason: finalized.append((status, reason.code))))
+    plan = types.SimpleNamespace(max_posts=3, is_noop=False, describe=lambda: "test plan")
+    run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page")
+    stats = collections.defaultdict(int)
+
+    workflow._run_interaction_plan("travel", plan, {"min_likes": 0, "max_likes": 10 ** 9},
+                                   stats, account_id=None)
+
+    assert stats["stop_reason"].code == "action_blocked"
+    # Closed as what it is: a run Instagram stopped did not complete.
+    assert finalized and finalized[0][1] == "action_blocked" and finalized[0][0] != "COMPLETED"
+
+
+def test_a_blocked_run_neither_pays_for_nor_loses_the_next_profile(monkeypatch):
+    """The AI hooks wrap the engine and pay before its gate; the profile was then marked
+    processed with nothing done. The gate now sits before them."""
+    from taktik.core.social_media.instagram.actions.core.base_business import profile_processing
+    from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import (
+        ProfileProcessingMixin, ProfileProcessingResult,
+    )
+
+    marked, interactions = [], []
+    monkeypatch.setattr(profile_processing.IPCEmitter, "emit_profile_visit", lambda *a, **k: None)
+    monkeypatch.setattr(profile_processing.InstagramWorkflowStateService, "mark_profile_as_processed",
+                        lambda *a, **k: marked.append(a))
+
+    class _Processor(ProfileProcessingMixin):
+        pass
+
+    processor = _Processor()
+    processor.logger = _Logger()
+    processor.stats_manager = _Stats()
+
+    def _extract(**k):
+        # The block is seen while the profile is read (a popup check on the way).
+        run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page")
+        return {"is_private": False, "followers_count": 10}
+
+    processor.profile_business = types.SimpleNamespace(get_complete_profile_info=_extract)
+    processor.filtering_business = types.SimpleNamespace(
+        apply_comprehensive_filter=lambda *a, **k: {"suitable": True})
+    processor._relationship_skip_reason = lambda *a, **k: None
+    processor._perform_interactions_on_profile = lambda *a, **k: interactions.append(a) or {}
+
+    result = processor._process_profile_on_screen("alice", {}, source_type="FOLLOWER")
+
+    assert interactions == []
+    assert marked == []
+    assert result.status == ProfileProcessingResult.ERROR_INTERACTION
+
+
+def test_no_suggestion_is_visited_after_a_block():
+    from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_visit import (
+        visit_suggestions,
+    )
+
+    reached = []
+    surface = types.SimpleNamespace(reach=lambda: reached.append(1) or True)
+    run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page")
+
+    result = visit_suggestions(surface, max_profiles=3)
+
+    assert result["stop_reason"] == "action_blocked"
+    assert reached == []
+
+
+def test_a_refused_comment_is_neither_recorded_nor_followed_by_a_share_sheet(monkeypatch):
+    from taktik.core.social_media.instagram.actions.business.actions.comment import action as action_module
+    from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+
+    monkeypatch.setattr(action_module, "validate_comment", lambda *a, **k: True)
+    monkeypatch.setattr(action_module.time, "sleep", lambda *a, **k: None)
+    comment = object.__new__(CommentAction)
+    comment.logger = _Logger()
+    comment.default_config = {"comment_delay_range": (0, 0)}
+    comment.session_manager = None
+    recorded, closed = [], []
+    comment._is_comment_composer_open = lambda: True
+    comment._dismiss_share_sheet_if_open = lambda: False
+    comment._type_comment = lambda text: True
+    comment._post_comment = lambda: True
+    comment._stop_if_action_blocked = lambda username, action: True
+    comment._close_comment_popup = lambda: closed.append(1) or True
+    comment._record_action = lambda *a, **k: recorded.append(a)
+    comment._attach_post_url = lambda *a, **k: recorded.append("share sheet")
+
+    stats = comment.comment_on_post(comment_text="Superbe", username="alice")
+
+    assert stats["blocked"] is True and stats["commented"] is False
+    assert recorded == []
+    assert closed == [1]

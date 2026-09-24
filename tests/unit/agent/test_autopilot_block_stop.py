@@ -1,9 +1,11 @@
-"""The Taktik Agent autopilot stops at the first "Try again later" (secours 2, 2026-09-24).
+"""The Taktik Agent autopilot stops at the first "Try again later" (2026-09-24).
 
 Its loops only read `_stop_requested`, the deadline and the quotas: a block seen anywhere, or a
 lost phone, never stopped them. Now `_should_stop` reads the run's lock, and `_block_seen` -- the
 real detector, after each like, comment or follow of the autopilot -- is what sets it.
 """
+
+import types
 
 import pytest
 
@@ -210,3 +212,24 @@ def test_the_feed_loop_stops_between_a_refused_like_and_its_comment(monkeypatch)
 
     assert gestures == ["like"]
     assert run_halt.arret_demande()["code"] == run_halt.ACTION_BLOCKED
+
+
+def test_a_block_seen_during_the_navigation_stops_the_visit():
+    """The navigation looks for problem pages and may set the lock itself: the paid AI call and
+    the follow must not follow it."""
+    agent = _agent()
+    agent._skip_related_profiles = True
+    agent._persona_block = ""
+    asked, followed, back = [], [], []
+    agent._ai = types.SimpleNamespace(decide_profile_follow=lambda **k: asked.append(1) or {})
+    agent._navigate_to_profile = lambda _u: run_halt.demander_arret(
+        run_halt.ACTION_BLOCKED, "try_again_later_page") or True
+    agent._navigate_to_feed = lambda: back.append(1) or True
+    agent._read_follow_state = lambda: "follow"
+    agent._take_screenshot = lambda _n: "/tmp/shot.png"
+    agent._do_follow = lambda _u: followed.append(1)
+
+    agent._handle_profile_visit("alice")
+
+    assert asked == [] and followed == []
+    assert back == [1]
