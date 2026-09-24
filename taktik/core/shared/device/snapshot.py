@@ -17,7 +17,12 @@ What a photo does NOT do, deliberately:
   (`max_age_s`) is for a caller that knows no gesture happened since;
 - turn a failed dump into an empty screen: it raises `SnapshotUnavailable`, where `d.xpath()`
   would have raised too; `wait_for` keeps trying until its timeout;
-- hide an invalid selector: uiautomator2's error goes through, as under `d.xpath()`.
+- stop on an invalid selector: `find`, `first` and `exists` log it and go on to the next one, as
+  the production loops do behind `facade.xpath()` (which logs and returns None); `elements()`, the
+  raw call, lets uiautomator2's error through.
+
+Works with uiautomator2 3.x (`requirements.lock` pins 3.5.0): `XPathSelector(xpath).all(source)`
+is the form common to 3.3 and 3.5+, whose constructor no longer takes a source.
 
 Step 1 only: the layer and its proof (`scripts/check_snapshot_equality.py`); it is wired into no
 workflow. The shared layer imports no platform module.
@@ -30,7 +35,9 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional, Sequence, Tuple, Union
 
-from uiautomator2.xpath import PageSource, XPathSelector
+from loguru import logger
+from lxml.etree import XPathError as LxmlXPathError
+from uiautomator2.xpath import PageSource, XPathError as U2XPathError, XPathSelector
 
 from taktik.core.shared.device.ui_dump import parse_bounds
 
@@ -39,7 +46,8 @@ Rewrite = Optional[Callable[[str], str]]
 
 
 class SnapshotUnavailable(RuntimeError):
-    """The screen could not be read: no dump, or one that does not parse."""
+    """The screen could not be read: no dump, one that does not parse, or one with no node (what
+    uiautomator2 returns after repeated empty hierarchies)."""
 
 
 @dataclass(frozen=True)
@@ -93,9 +101,13 @@ class ScreenSnapshot:
             raise SnapshotUnavailable("empty dump")
         self._source = PageSource(xml_content)
         try:
-            self._source.root  # parse now: a dump that does not parse is not a photo
+            root = self._source.root  # parse now: a dump that does not parse is not a photo
         except Exception as exc:
             raise SnapshotUnavailable(f"unparsable dump: {exc}") from exc
+        if len(root) == 0:
+            # `<hierarchy rotation="0" />`: no screen was read, which is not a screen without
+            # the thing looked for.
+            raise SnapshotUnavailable("empty hierarchy")
         self._taken_at = time.monotonic() if taken_at is None else taken_at
         self._rewrite = rewrite
         self._cache: dict = {}
@@ -110,15 +122,23 @@ class ScreenSnapshot:
         return self._source
 
     def elements(self, selector: str) -> list:
-        """What `d.xpath(selector).all()` would return on this screen (uiautomator2 elements)."""
+        """The elements `d.xpath(selector).all()` finds on this screen, for READING: they carry no
+        device, so they cannot be tapped. An invalid selector raises uiautomator2's error."""
         if selector not in self._cache:
             xpath = self._rewrite(selector) if self._rewrite else selector
-            self._cache[selector] = XPathSelector(xpath, source=self._source).all()
+            self._cache[selector] = XPathSelector(xpath).all(self._source)
         return self._cache[selector]
+
+    def _found_or_skipped(self, selector: str) -> list:
+        try:
+            return self.elements(selector)
+        except (U2XPathError, LxmlXPathError) as exc:
+            logger.warning(f"Invalid selector skipped on the screen photo: {selector!r} ({exc})")
+            return []
 
     def find(self, selectors: Selectors) -> List[SnapshotNode]:
         for selector in _as_list(selectors):
-            found = self.elements(selector)
+            found = self._found_or_skipped(selector)
             if found:
                 return [SnapshotNode.from_element(el) for el in found]
         return []
@@ -128,7 +148,7 @@ class ScreenSnapshot:
         return found[0] if found else None
 
     def exists(self, selectors: Selectors) -> bool:
-        return any(self.elements(selector) for selector in _as_list(selectors))
+        return any(self._found_or_skipped(selector) for selector in _as_list(selectors))
 
 
 def _as_list(selectors: Selectors) -> Iterable[str]:

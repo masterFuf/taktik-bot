@@ -9,9 +9,15 @@ the production path on the same screen, node by node (their path in the tree), b
   proxy's rewrite;
 - the plain `d.xpath()` (TikTok's bridges mount no proxy), against a plain photo.
 
-A selector uiautomator2 rejects must be rejected by the photo too. The number of evaluations the
+A selector uiautomator2 rejects must be rejected by the photo's raw call too (its `find`/`exists`
+then skip it, as the production loops behind `facade.xpath()` do). The number of evaluations the
 proxy's rewrite changes is printed: it proves the check sees that path at all (a first version
 of this proof compared the photo with a raw engine and was blind to it). Exit 1 on any difference.
+
+What it proves, honestly: equality for the uiautomator2 INSTALLED. Under 3.3, `d.xpath()` and the
+photo run the same selector class, so the check mostly proves the proxy rewrite and the tree; from
+3.5, `d.xpath()` goes through `DeviceXPathSelector`, a different path. Run it with the version of
+`requirements.lock`.
 
 Selectors: every string of the selector catalogues (dataclass fields, properties, dict and list
 values, locale tables, all languages) that is an xpath or a uiautomator2 shorthand (`@id`,

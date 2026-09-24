@@ -111,13 +111,21 @@ def test_a_list_of_selectors_answers_with_the_first_that_finds():
     assert not photo.exists(['//*[@text="absent"]'])
 
 
-def test_an_invalid_selector_raises_as_under_d_xpath():
-    """An invalid selector silently finding nothing hid typos that production raises on."""
+def test_the_raw_call_raises_on_an_invalid_selector():
     with pytest.raises(XPathError):
-        ScreenSnapshot(DUMP).find('//*[')
+        ScreenSnapshot(DUMP).elements('//*[')
 
 
-@pytest.mark.parametrize("xml", [None, "", "<hierarchy><node"])
+def test_a_list_goes_on_past_an_invalid_selector_like_the_production_loops():
+    """`facade.xpath()` logs an invalid selector and returns None; the loops go on to the next
+    one. A real list starts with one (`post/detail.py`): raising there dropped the whole list."""
+    photo = ScreenSnapshot(DUMP)
+    assert [node.text for node in photo.find(['//*[', '//android.widget.Button'])] == ["Suivi(e)"]
+    assert photo.exists(["//*[matches(@text, 'x')]", '//android.widget.Button'])
+    assert not photo.exists(['//*['])
+
+
+@pytest.mark.parametrize("xml", [None, "", "<hierarchy><node", '<?xml version="1.0"?><hierarchy rotation="0" />'])
 def test_a_failed_dump_is_not_an_empty_screen(xml):
     """An empty photo answered "absent" to everything: a popup "gone" while the server restarted."""
     with pytest.raises(SnapshotUnavailable):
@@ -150,10 +158,11 @@ def test_a_photo_asked_before_an_invalidation_is_never_kept():
 
 def test_the_age_counts_from_when_the_dump_was_asked():
     def slow_dump():
-        time.sleep(0.05)
+        time.sleep(0.12)
         return DUMP
 
-    assert SnapshotSource(slow_dump).snapshot().age_ms >= 50
+    # Windows' monotonic clock ticks every ~16 ms: the margin covers one tick.
+    assert SnapshotSource(slow_dump).snapshot().age_ms >= 100
 
 
 def test_waiting_takes_new_photos_until_the_screen_answers():
@@ -186,6 +195,22 @@ def test_photos_can_be_taken_from_several_threads():
     for thread in threads:
         thread.join()
     assert errors == []
+
+
+def test_a_facade_on_a_mock_device_still_takes_real_photos():
+    """The facade forwards unknown attributes to its device: a mock answered the photo source
+    itself, and every test built on it would have passed without a dump."""
+    from unittest.mock import MagicMock
+
+    from taktik.core.shared.device.facade import BaseDeviceFacade
+
+    device = MagicMock()
+    device.dump_hierarchy.return_value = DUMP
+    facade = BaseDeviceFacade(device)
+    facade.get_xml_dump = lambda *a, **k: DUMP
+    photo = facade.snapshot()
+    assert isinstance(photo, ScreenSnapshot)
+    assert photo.first('//android.widget.Button').text == "Suivi(e)"
 
 
 def test_the_shared_facade_uses_the_device_rewrite():
