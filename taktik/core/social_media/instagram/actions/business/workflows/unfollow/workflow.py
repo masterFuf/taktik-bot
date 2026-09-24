@@ -90,6 +90,7 @@ class UnfollowBusiness(
             'sort_option_default': self._unfollow_sel.sort_option_default,
             'sort_option_latest': self._unfollow_sel.sort_option_latest,
             'sort_option_earliest': self._unfollow_sel.sort_option_earliest,
+            'sort_entry_label': self._unfollow_sel.sort_entry_label,
         }
 
     # ─── The engine ────────────────────────────────────────────────────────────

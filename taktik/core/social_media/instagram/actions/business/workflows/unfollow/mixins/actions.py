@@ -35,6 +35,30 @@ def row_belongs_to_tab(state: Optional[str], tab: str) -> bool:
     return state is not None and state not in ROW_STATES_NOT_IN_TAB[tab]
 
 
+class LeftOutRows:
+    """The names a list read saw but never counted, and why: what a read that falls short of the
+    tab's count has to explain. On a phone (2026-09-24) a read ended at the suggestions with 1 873
+    of 1 928 followings, and the log could not tell hidden accounts from rows the read refused."""
+
+    def __init__(self):
+        self.refused: Dict[str, str] = {}   # username -> state of its button when refused
+        self.unpaired: set = set()          # names shown without a button paired to them
+
+    def refuse(self, username: str, state: Optional[str]) -> None:
+        self.refused.setdefault(username, state or 'no_row')
+
+    def summary(self, read) -> Dict[str, int]:
+        """Counts of names never read, by the last reason seen for each."""
+        counts: Dict[str, int] = {}
+        for username, state in self.refused.items():
+            if username not in read:
+                counts[state] = counts.get(state, 0) + 1
+        never_paired = len(self.unpaired - set(read) - set(self.refused))
+        if never_paired:
+            counts['no_button'] = never_paired
+        return counts
+
+
 # Where one drag of a follow list starts and ends, as shares of the screen: about 45% of travel,
 # which leaves about three rows of overlap between two reads.
 FOLLOW_LIST_DRAG_X = (0.35, 0.65)
@@ -106,6 +130,8 @@ class UnfollowActionsMixin:
         """
         rows: List[Dict[str, Any]] = []
         self.suggestions_on_screen = False
+        # Names of this screen no button was paired to (see LeftOutRows)
+        self.unpaired_on_screen = set()
         try:
             d = self.device.device
             package = get_active_package()
@@ -141,6 +167,7 @@ class UnfollowActionsMixin:
                     'button': button,
                     'state': classify_follow_state(button.text or '', PROFILE_SELECTORS) or 'unknown',
                 })
+            self.unpaired_on_screen = {entry[0] for entry in names} - {row['username'] for row in rows}
             if with_display_names:
                 names_by_y = sorted((entry[1], entry[0]) for entry in names)
                 subtitles = []
@@ -352,7 +379,30 @@ class UnfollowActionsMixin:
         except Exception as e:
             self.logger.debug(f"Error scrolling: {e}")
             return False
-    
+
+    # How long the list's sort header may take to name the option just tapped
+    sort_confirm_timeout = 3.0
+
+    def _sort_confirmed(self, option_text: str) -> bool:
+        """Does the list's sort header now name `option_text` ("Trié par Date de suivi : plus
+        récent")? Compared with the spaces normalized: Instagram puts a non-breaking space before
+        the colon in French (Pixel 3, IG 410, 2026-09-24)."""
+        def plain(text: str) -> str:
+            return ' '.join((text or '').replace('\u00a0', ' ').split())
+
+        wanted = plain(option_text)
+        if not wanted:
+            return False
+        deadline = time.time() + self.sort_confirm_timeout
+        while True:
+            for selector in self._unfollow_selectors['sort_entry_label']:
+                label = self.device.xpath(selector)
+                if label.exists and wanted in plain(label.get_text()):
+                    return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(0.3)
+
     def _set_following_list_sort(self, sort_order: str = 'default') -> bool:
         """
         Set the sorting order for the following list.
@@ -400,11 +450,18 @@ class UnfollowActionsMixin:
             for selector in self._unfollow_selectors[sort_selector_key]:
                 element = self.device.xpath(selector)
                 if element.exists:
+                    chosen = element.get_text() or ''
                     if not tap_element_human(self.device, element, logger=self.logger):
                         element.click()
-                    self.logger.info(f"✅ Selected sort option: {sort_order}")
-                    time.sleep(0.5)
-                    return True
+                    # The early stop of the sync relies on this order: a tap is not enough, the
+                    # list's header must now name the option.
+                    if self._sort_confirmed(chosen):
+                        self.logger.info(f"✅ Sort confirmed on screen: {sort_order}")
+                        return True
+                    self.logger.warning(f"Sort option '{sort_order}' tapped but not confirmed on screen")
+                    if self.device.xpath(selector).exists:  # the sheet did not close
+                        self.device.press_back()
+                    return False
             
             self.logger.warning(f"Could not find sort option: {sort_order}")
             # Press back to close the modal if we couldn't select an option

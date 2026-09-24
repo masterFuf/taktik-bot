@@ -372,3 +372,31 @@ def test_the_unfollow_never_taps_a_blank_button(monkeypatch):
     states = {row["username"]: row["state"] for row in business._visible_follow_rows()}
 
     assert states == {"a1": "unknown", "a2": "following"}
+
+
+def test_a_read_says_which_names_it_saw_and_did_not_count(monkeypatch):
+    """A read ended at the suggestions with 1 873 of 1 928 followings on a phone: the log could not
+    tell accounts Instagram hides from rows the read refused."""
+    graph = Graph()
+    lonely = ('<node index="0" text="lonely" resource-id="com.instagram.android:id/follow_list_username" '
+              'class="android.widget.TextView" content-desc="" bounds="[200,2300][700,2350]" />')
+    rows = [("a1", "Suivi(e)"), ("fan", "Suivre en retour"), ("a2", "")]
+    titles = tuple(title.format(n=4) for title in FOLLOWING_TITLES)
+    page = follow_list_xml(rows, extra=unified_tabs(selected=1, titles=titles) + lonely)
+    business, _screen = _business([page], graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert graph.followings == ["a1", "a2"]
+    assert stats["left_out"] == {"follow_back": 1, "no_button": 1}
+
+
+def test_a_name_refused_once_and_read_later_is_not_left_out(monkeypatch):
+    graph = Graph()
+    pages = [_following_page([("a1", "Suivi(e)"), ("a2", "Suivre")], 2),
+             _following_page([("a2", "Suivi(e)")], 2)]
+    business, _screen = _business(pages, graph=graph, monkeypatch=monkeypatch)
+
+    stats = business.sync_following_list({"mode": "fast"})
+
+    assert graph.followings == ["a1", "a2"] and stats["left_out"] == {}

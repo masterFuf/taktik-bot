@@ -20,7 +20,7 @@ from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 from ..list_proof import read_is_complete, scrolls_for
-from .actions import row_belongs_to_tab
+from .actions import LeftOutRows, row_belongs_to_tab
 
 
 class SyncFollowingMixin:
@@ -115,6 +115,7 @@ class SyncFollowingMixin:
             username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
 
             seen_on_screen: Set[str] = set()
+            left_out = LeftOutRows()
             scroll_attempts = 0
             # A fixed 60 scrolls read about 270 accounts: the bound follows the tab's count.
             max_scrolls = scrolls_for(expected, 60)
@@ -144,6 +145,7 @@ class SyncFollowingMixin:
                 # Every row but those whose button says we do not follow them. A blank button keeps
                 # its row: deep in a long list Instagram leaves most of them blank (see
                 # ROW_STATES_NOT_IN_TAB); the suggestions under the list are left out by position.
+                left_out.unpaired |= self.unpaired_on_screen
                 row_states = {row['username'].lower(): row['state'] for row in rows}
                 display_names = {row['username'].lower(): row.get('display_name', '') for row in rows}
 
@@ -152,6 +154,7 @@ class SyncFollowingMixin:
                     if username in seen_on_screen:
                         continue
                     if not row_belongs_to_tab(row_states.get(username.lower()), 'following'):
+                        left_out.refuse(username, row_states.get(username.lower()))
                         continue
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
@@ -314,6 +317,10 @@ class SyncFollowingMixin:
                 stats['departures'] = self._record_following_departures(
                     account_id, known_usernames, seen_on_screen, stats)
 
+            # What the read saw and did not count: a read short of the tab's count says why
+            stats['left_out'] = left_out.summary(seen_on_screen)
+            if stats['left_out']:
+                self.logger.info(f"Following names seen but not read: {stats['left_out']}")
             stats['success'] = True
             self.logger.info(
                 f"✅ Following sync complete: {stats['new_count']} new, "
