@@ -207,7 +207,12 @@ def _execute_action(
     try:
         fn = action_registry[action_id]
         _bind_bundle_account(bundle, params)
-        result = fn(bundle, params)
+        # Measured around the production function only: the Lab's own dumps (screen before and
+        # after, artifacts) are not the action's cost.
+        from taktik.core.shared.telemetry.device_io import measure_device_io
+
+        with measure_device_io(action_id, source="lab"):
+            result = fn(bundle, params)
         # Actions may return a bool, or a dict {success, message?, details?} to surface data.
         if isinstance(result, dict):
             success = bool(result.get("success", True))

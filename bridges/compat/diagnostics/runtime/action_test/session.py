@@ -27,9 +27,29 @@ class _SessionContextCache:
         self.value = None
 
 
+def _register_step_telemetry() -> None:
+    """Forward the step telemetry of the actions (taps, scrolls, device io...) as `step_metric`
+    lines, like the workflow bridges do. The session bridge did not, so a Lab session measured
+    nothing (M1)."""
+    try:
+        from taktik.core.shared.telemetry import configure_telemetry_sink
+
+        configure_telemetry_sink(lambda metric: emit({
+            "type": "step_metric",
+            "category": metric.category,
+            "action": metric.action,
+            "target": metric.target,
+            "detail": metric.detail,
+            "ts": metric.ts,
+        }))
+    except Exception as exc:
+        logger.debug(f"Could not register the telemetry sink: {exc}")
+
+
 def run_action_session_bridge() -> None:
     """Keep one device connection alive and execute action commands from stdin."""
     config = _load_config()
+    _register_step_telemetry()
     device_id = config.get("device_id", "")
     platform = config.get("platform", "instagram")
     mode = config.get("mode", "lab")

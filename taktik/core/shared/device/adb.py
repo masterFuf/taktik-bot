@@ -1,6 +1,7 @@
 """Shared ADB shell helpers for device/runtime owners."""
 
 import subprocess
+import time
 from typing import Sequence
 
 from loguru import logger
@@ -46,6 +47,17 @@ def run_adb_shell(device_id: str, command: str) -> str:
     Returns:
         Command output as string, or an empty string on error.
     """
+    # One adb round trip for the device io meter (M1): typing, IME and app checks go this way.
+    from taktik.core.shared.telemetry.device_io import METER
+
+    started_at = time.perf_counter()
+    try:
+        return _run_adb_shell(device_id, command)
+    finally:
+        METER.record_shell((time.perf_counter() - started_at) * 1000.0)
+
+
+def _run_adb_shell(device_id: str, command: str) -> str:
     try:
         from adbutils import adb
 

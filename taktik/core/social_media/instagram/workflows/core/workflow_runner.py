@@ -9,6 +9,7 @@ from ...actions.business.workflows.common.distribution import (
     run_distributed,
 )
 from taktik.core.shared.config import resolve_filter_criteria
+from taktik.core.shared.telemetry.device_io import measure_device_io
 from ..management.session import stop_reasons
 
 
@@ -19,6 +20,11 @@ class WorkflowRunner:
         self.logger = logger.bind(module="workflow-runner")
     
     def run_workflow_step(self, action: Dict[str, Any]) -> bool:
+        """Run one step, and emit what it cost on the phone (dumps, round trips, waits: M1)."""
+        with measure_device_io(f"workflow.{action.get('type') or 'unknown'}", source="workflow"):
+            return self._dispatch_workflow_step(action)
+
+    def _dispatch_workflow_step(self, action: Dict[str, Any]) -> bool:
         action_type = action.get('type')
         
         if not action_type:
