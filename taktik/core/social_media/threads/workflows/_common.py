@@ -127,7 +127,7 @@ def _diagnose_missing_anchor(device, log: LogFn) -> None:
     # Sample visible resource-ids so we know what screen we are stuck on.
     try:
         visible_rids: list[str] = []
-        for elem in device.xpath("//*[@resource-id]").all()[:40]:
+        for elem in device.xpath(tui.ANY_RESOURCE_ID_XPATH).all()[:40]:
             rid = elem.attrib.get("resource-id")
             if rid and rid not in visible_rids:
                 visible_rids.append(rid)

@@ -56,11 +56,11 @@ class PostUrlHandlingMixin:
                         content_desc = element_info.get('contentDescription', '')
                         self.logger.debug(f"Profile image content-desc: '{content_desc}'")
                         if content_desc:
-                            # Try French format first
-                            username_match = re.search(r'Photo de profil de ([a-zA-Z0-9_.]+)', content_desc)
-                            if not username_match:
-                                # Try English format (for Reels)
-                                username_match = re.search(r'Profile picture of ([a-zA-Z0-9_.]+)', content_desc)
+                            username_match = None
+                            for prefix in self.post_selectors.profile_picture_desc_prefixes:
+                                username_match = re.search(re.escape(prefix) + r'([a-zA-Z0-9_.]+)', content_desc)
+                                if username_match:
+                                    break
                             if username_match:
                                 username = username_match.group(1)
                                 self.logger.debug(f"Extracted username from profile image: '{username}'")

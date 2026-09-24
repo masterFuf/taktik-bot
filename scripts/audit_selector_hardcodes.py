@@ -1,15 +1,23 @@
-"""Audit Instagram/TikTok runtime code for inline Android UI selectors.
+"""Audit Instagram/TikTok/Threads runtime code for inline Android UI selectors.
 
 The rule is intentionally conservative: selectors belong in
-``social_media/<platform>/ui/selectors/**`` or ``ui/language.py``. This script
-flags new literal XPath/uiautomator selector signatures in runtime code while
-allowlisting the legacy hotspots that still need dedicated cleanup lots.
+``social_media/<platform>/ui/selectors/**`` or ``ui/language.py`` (``threads/ui``
+for Threads). This script flags new literal XPath/uiautomator selector signatures
+in runtime code while allowlisting the legacy hotspots that still need dedicated
+cleanup lots.
+
+A third rule, ``ui-text-comparison``, looks at what the first two cannot see: a
+label word compared with text READ from the screen (``'unlike' in content_desc``,
+``desc.startswith('Profile ')``, ``re.search(r'Photo de profil de ...', desc)``).
+Found missing on 2026-09-24: the audit stayed green over such words in the Feed,
+post_url, the DM inbox, the TikTok author read and Threads.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -19,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCAN_ROOTS = (
     ROOT / "taktik" / "core" / "social_media" / "instagram",
     ROOT / "taktik" / "core" / "social_media" / "tiktok",
+    ROOT / "taktik" / "core" / "social_media" / "threads",
 )
 
 SELECTOR_SUBSTRINGS = (
@@ -78,7 +87,57 @@ class AllowlistEntry:
         )
 
 
+# Keys under which uiautomator2 / lxml hand back the text of a node.
+UI_TEXT_KEYS = {
+    "content-desc", "contentDescription", "description", "hint", "resource-id",
+    "resourceId", "resourceName", "text",
+}
+# Variable names that hold text read from the screen. `text` alone is left out on purpose:
+# it names comment bodies and log lines as often as a node's text.
+UI_TEXT_NAME = re.compile(
+    r"(^|_)(desc|description|content_desc|label|hint)($|_)|^(node_text|el_text|element_text)$",
+    re.IGNORECASE,
+)
+# A regex pattern that spells words, not only digits and separators.
+WORDY_PATTERN = re.compile(r"[A-Za-zÀ-ÿ]{3,} [A-Za-zÀ-ÿ]")
+HAS_LETTER = re.compile(r"[A-Za-zÀ-ÿ]")
+
+
 KNOWN_SELECTOR_DEBT = (
+    # Count parsers: the language words sit inside the number regexes. Owner: Instagram UI
+    # extraction. Exit: a count parser driven by the locale files, in its own lot.
+    AllowlistEntry(
+        "taktik/core/social_media/instagram/ui/extractors.py",
+        "ui-text-comparison",
+        "'likes'",
+        "Like-count parser gate (FR/EN words inside the count regex); locale-driven parser to come.",
+    ),
+    AllowlistEntry(
+        "taktik/core/social_media/instagram/ui/extractors.py",
+        "ui-text-comparison",
+        "'aime'",
+        "Like-count parser gate (FR/EN words inside the count regex); locale-driven parser to come.",
+    ),
+    AllowlistEntry(
+        "taktik/core/social_media/instagram/ui/extractors.py",
+        "ui-text-comparison",
+        "'commentaire'",
+        "Comment-count parser gate (FR/EN words inside the count regex); locale-driven parser to come.",
+    ),
+    AllowlistEntry(
+        "taktik/core/social_media/instagram/ui/extractors.py",
+        "ui-text-comparison",
+        "'comment'",
+        "Comment-count parser gate (FR/EN words inside the count regex); locale-driven parser to come.",
+    ),
+    # Owner: TikTok video detection. `_extract_french_like_count` is a French parser by name;
+    # exit with the same locale-driven count parser.
+    AllowlistEntry(
+        "taktik/core/social_media/tiktok/actions/atomic/detection/video_detector.py",
+        "ui-text-comparison",
+        "\"J'aime\"",
+        "French like-count parser of the like button content-desc; locale-driven parser to come.",
+    ),
 )
 
 NON_RUNTIME_SIGNATURES = (
@@ -120,6 +179,9 @@ def iter_python_files() -> Iterable[Path]:
             if path.name == "language.py" and "ui" in relative_parts:
                 continue
             if "ui" in relative_parts and "selectors" in relative_parts:
+                continue
+            # Threads keeps its whole catalog in `threads/ui/` (no `selectors/` subpackage).
+            if scan_root.name == "threads" and relative_parts[0] == "ui":
                 continue
             yield path
 
@@ -187,12 +249,70 @@ def selector_string_findings(path: Path, tree: ast.AST) -> list[Finding]:
     return findings
 
 
+def is_screen_text(node: ast.AST) -> bool:
+    """Whether the expression holds text read from a UI node."""
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+        if node.func.attr in ("lower", "upper", "casefold", "strip") and not node.args:
+            return is_screen_text(node.func.value)
+        if node.func.attr == "get" and node.args:
+            return string_value(node.args[0]) in UI_TEXT_KEYS
+    if isinstance(node, ast.Subscript):
+        return string_value(node.slice) in UI_TEXT_KEYS
+    if isinstance(node, ast.Name):
+        return bool(UI_TEXT_NAME.search(node.id))
+    if isinstance(node, ast.Attribute):
+        return bool(UI_TEXT_NAME.search(node.attr))
+    return False
+
+
+def label_word(node: ast.AST) -> str | None:
+    value = string_value(node)
+    return value if value is not None and HAS_LETTER.search(value) else None
+
+
+def ui_text_comparison_findings(path: Path, tree: ast.AST) -> list[Finding]:
+    findings: list[Finding] = []
+
+    def found(node: ast.AST, form: str, word: str) -> None:
+        findings.append(Finding(path=path, line=getattr(node, "lineno", 0),
+                                rule="ui-text-comparison", value=f"{form}: {word!r}"))
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Compare):
+            left = node.left
+            for op, right in zip(node.ops, node.comparators):
+                if isinstance(op, (ast.In, ast.NotIn)):
+                    word = label_word(left)
+                    if word and is_screen_text(right):
+                        found(node, "in", word)
+                elif isinstance(op, (ast.Eq, ast.NotEq)):
+                    for literal_side, other in ((left, right), (right, left)):
+                        word = label_word(literal_side)
+                        if word and is_screen_text(other):
+                            found(node, "eq", word)
+                left = right
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            attr = node.func.attr
+            if attr in ("startswith", "endswith") and node.args and is_screen_text(node.func.value):
+                word = label_word(node.args[0])
+                if word:
+                    found(node, attr, word)
+            elif (isinstance(node.func.value, ast.Name) and node.func.value.id == "re"
+                    and attr in ("search", "match", "fullmatch", "findall")
+                    and len(node.args) >= 2 and is_screen_text(node.args[1])):
+                word = label_word(node.args[0])
+                if word and WORDY_PATTERN.search(word):
+                    found(node, "regex", word)
+    return findings
+
+
 def collect_findings() -> list[Finding]:
     findings: list[Finding] = []
     for path in iter_python_files():
         tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
         findings.extend(selector_string_findings(path, tree))
         findings.extend(call_keyword_findings(path, tree))
+        findings.extend(ui_text_comparison_findings(path, tree))
     return sorted(findings, key=lambda finding: (finding.relative_path, finding.line, finding.rule))
 
 

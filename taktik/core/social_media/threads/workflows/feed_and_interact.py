@@ -71,23 +71,15 @@ class FeedInteractConfig:
 # Typical Threads/Instagram handle: 3-30 chars, only [a-z0-9._], no leading dot.
 _HANDLE_RE = re.compile(r'^[a-z0-9][a-z0-9._]{2,29}$', re.IGNORECASE)
 
-# Content-desc values that look like handles but are UI labels — skip them.
-_EXCLUDED_DESCS = frozenset({
-    "follow", "unfollow", "following", "follow back",
-    "like", "unlike", "reply", "repost", "share",
-    "more options", "dismiss action to hide user.",
-    "profile photo",  # partial — checked with 'endswith' below
-})
-
-
 def _looks_like_handle(text: str) -> bool:
-    """Return True if *text* looks like a Threads/Instagram handle."""
+    """Return True if *text* looks like a Threads/Instagram handle. Content-desc values that
+    look like handles but are UI labels (`tui.NON_HANDLE_DESCS`) are skipped."""
     t = text.strip().rstrip(".").lower()
     if not t or " " in t:
         return False
-    if t in _EXCLUDED_DESCS:
+    if t in tui.NON_HANDLE_DESCS:
         return False
-    if t.endswith("profile photo"):
+    if t.endswith(tui.NON_HANDLE_DESC_SUFFIX):
         return False
     return bool(_HANDLE_RE.match(t))
 

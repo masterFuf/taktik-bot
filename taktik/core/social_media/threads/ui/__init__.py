@@ -139,6 +139,24 @@ REPOST_CONFIRM_TEXTS = (
 )
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Generic probes and label words — were inline in the workflows (2026-09-24)
+# ──────────────────────────────────────────────────────────────────────────────
+ANY_RESOURCE_ID_XPATH = "//*[@resource-id]"  # diagnostic sampling of the visible ids
+BUTTON_XPATH = "//android.widget.Button"
+EDIT_TEXT_CLASS = "android.widget.EditText"  # fallback when the search field is not found
+# A feed like button's content-desc once the post is liked, lowercased before the test.
+LIKED_BUTTON_DESC_FRAGMENTS = ("unlike", "ne plus aimer")
+# Content-desc values that look like handles but are UI labels (feed author scan), lowercased.
+NON_HANDLE_DESCS = frozenset({
+    "follow", "unfollow", "following", "follow back",
+    "like", "unlike", "reply", "repost", "share",
+    "more options", "dismiss action to hide user.",
+    "profile photo",
+})
+NON_HANDLE_DESC_SUFFIX = "profile photo"
+
+
 __all__ = [
     "THREADS_PACKAGE",
     "THREADS_MAIN_ACTIVITY",
@@ -184,4 +202,10 @@ __all__ = [
     "PROFILE_USERNAME_TEXT",
     "NAV_BAR_BACK_BUTTON",
     "REPOST_CONFIRM_TEXTS",
+    "ANY_RESOURCE_ID_XPATH",
+    "BUTTON_XPATH",
+    "EDIT_TEXT_CLASS",
+    "LIKED_BUTTON_DESC_FRAGMENTS",
+    "NON_HANDLE_DESCS",
+    "NON_HANDLE_DESC_SUFFIX",
 ]

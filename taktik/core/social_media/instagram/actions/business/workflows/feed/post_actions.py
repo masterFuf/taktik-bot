@@ -78,7 +78,7 @@ class FeedPostActionsMixin:
                 element = self.device.xpath(selector)
                 if element.exists:
                     content_desc = element.attrib.get('content-desc', '').lower()
-                    if 'unlike' in content_desc or 'ne plus aimer' in content_desc or 'liked' in content_desc:
+                    if any(fragment in content_desc for fragment in self._feed_sel.liked_button_desc_fragments):
                         self.logger.debug("⏭️ Post already liked, skipping")
                         return False
                     like_button = element

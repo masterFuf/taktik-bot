@@ -60,6 +60,12 @@ class FeedSelectors:
     def already_liked_indicators(self) -> List[str]:
         return L("feed.already_liked_indicators")
 
+    # The like button's own content-desc once the post is liked, lowercased before the test
+    # (`FeedPostActionsMixin._like_current_post`). Were inline there.
+    liked_button_desc_fragments: List[str] = field(default_factory=lambda: [
+        "unlike", "ne plus aimer", "liked",
+    ])
+
     # === Comment button in the feed — neutral base + locales overlay ===
     _comment_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',

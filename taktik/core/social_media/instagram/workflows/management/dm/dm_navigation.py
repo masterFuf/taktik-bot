@@ -88,7 +88,8 @@ class DMNavigationMixin:
                     # Vérifier si non lu via content-desc
                     thread_info = thread.info
                     content_desc = thread_info.get('contentDescription', '')
-                    has_unread = 'non lu' in content_desc.lower() or 'unread' in content_desc.lower()
+                    has_unread = any(fragment in content_desc.lower()
+                                     for fragment in self.dm_selectors.unread_thread_desc_fragments)
                     
                     # Extract the thread username
                     username = self._extract_username_from_thread(thread)

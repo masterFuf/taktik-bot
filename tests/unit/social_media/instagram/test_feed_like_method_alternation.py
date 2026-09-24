@@ -11,6 +11,7 @@ import taktik.core.social_media.instagram.actions.business.workflows.feed.post_a
 from taktik.core.social_media.instagram.actions.business.workflows.feed.post_actions import (
     FeedPostActionsMixin,
 )
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FeedSelectors
 
 
 def test_method_choice_is_probabilistic():
@@ -29,6 +30,7 @@ class _El:
 class _FeedSel:
     like_button = ["like_sel"]
     already_liked_indicators = ["already_sel"]
+    liked_button_desc_fragments = FeedSelectors().liked_button_desc_fragments
 
 
 class _Device:

@@ -111,12 +111,12 @@ class VideoDetector(BaseAction):
 
         desc = self._get_element_content_desc(self.video_selectors.creator_profile_image, timeout=1)
         if desc:
-            if desc.endswith(' profile'):
-                return desc[:-len(' profile')].strip()
-            if desc.startswith('Profile '):
-                return desc[len('Profile '):].strip()
-            if desc.startswith('Profil '):
-                return desc[len('Profil '):].strip()
+            for suffix in self.video_selectors.creator_avatar_desc_suffixes:
+                if desc.endswith(suffix):
+                    return desc[:-len(suffix)].strip()
+            for prefix in self.video_selectors.creator_avatar_desc_prefixes:
+                if desc.startswith(prefix):
+                    return desc[len(prefix):].strip()
 
         return None
 
