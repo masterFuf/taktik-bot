@@ -82,6 +82,12 @@ def main():
     from bridges.common.runtime.crash_hooks import install_crash_hooks
     install_crash_hooks(bridge_name)
 
+    # Same floor, other failure: the desktop app dies and the bridge keeps driving the phone with
+    # nobody to read its events or stop it. Started before the bridge is imported so the owner is
+    # watched from the first second; a no-op when the bot runs on its own (no TAKTIK_DESKTOP_PID).
+    from bridges.common.runtime.owner_watchdog import start_owner_watchdog
+    start_owner_watchdog(bridge_name)
+
     # Shift argv so the bridge sees itself as the "script":
     # Before: ["taktik_launcher.exe", "desktop_bridge", ...]
     # After:  ["desktop_bridge", ...]
