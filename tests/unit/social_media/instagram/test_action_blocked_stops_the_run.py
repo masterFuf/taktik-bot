@@ -454,8 +454,9 @@ def _feed(phone, gestures):
     feed._is_reel_post = lambda: False
     feed._get_current_post_author = lambda: "bob"
     feed.has_feed_suggestions_carousel = lambda: False
-    feed._like_current_post = lambda: gestures.append("like") or True
-    feed._comment_current_post = lambda config: gestures.append("comment") or True
+    feed._like_current_post = lambda record_as=None: gestures.append("like") or True
+    feed.comment_business = types.SimpleNamespace(
+        comment_on_post=lambda **k: gestures.append("comment") or {"commented": True})
     return feed
 
 

@@ -333,10 +333,17 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         # subscribed audience. It visits no profile, reads no action button and
                         # follows nobody, so there is no
                         # de decision d'ACQUISITION a gater (contrairement a target/hashtag/likers).
-                        # Like the post directly in the feed
+                        # Every gesture on the post is filed under its author: the like
+                        # through `record_as`, the comment through `username`. Without an
+                        # author there is no ledger row, no deduplication and no cap, so the
+                        # post is left alone rather than engaged off the record (the rule of
+                        # the hashtag posts pass).
                         liked = False
-                        if random.randint(1, 100) <= effective_config.get('like_percentage', 100):
-                            if self._like_current_post():
+                        commented = False
+                        if not post_author:
+                            self.logger.warning("Post author unreadable: post not engaged, it could not be recorded")
+                        elif random.randint(1, 100) <= effective_config.get('like_percentage', 100):
+                            if self._like_current_post(record_as=post_author):
                                 posts_liked += 1
                                 stats['likes_made'] += 1
                                 self.stats_manager.increment('likes')
@@ -347,17 +354,23 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
 
                         # Instagram's "Try again later" right after the like, before the comment
                         # touches the screen: the first refusal ends the run.
-                        blocked = liked and self._stop_if_action_blocked(post_author or 'feed', 'like')
+                        blocked = liked and self._stop_if_action_blocked(post_author, 'like')
 
-                        # Comment the post when configured
-                        commented = False
+                        # Comment the post when configured: the production comment, the one the
+                        # hashtag posts pass uses. It files the comment at the send (session
+                        # counter, ledger row, posted_comments) and closes the sheet it opened.
                         if liked and not blocked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
-                            if self._comment_current_post(effective_config):
+                            result = self.comment_business.comment_on_post(
+                                custom_comments=effective_config.get('custom_comments'),
+                                config=effective_config,
+                                username=post_author,
+                            )
+                            if result and result.get('commented'):
                                 stats['comments_made'] += 1
                                 self.stats_manager.increment('comments')
-                                self.logger.info(f"💬 Comment posted")
+                                self.logger.info(f"💬 Comment posted (@{post_author})")
                                 commented = True
-                            blocked = self._stop_if_action_blocked(post_author or 'feed', 'comment')
+                            blocked = self._stop_if_action_blocked(post_author, 'comment')
 
                         if liked or commented:
                             # An engaged feed post IS the output of this workflow: it visits no
@@ -368,6 +381,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         if liked:
                             feed_action = 'like_comment' if commented else 'like'
                             feed_reason = 'Commenté' if commented else 'Liké'
+                        elif not post_author:
+                            feed_action, feed_reason = 'skip', 'Auteur illisible'
                         else:
                             feed_action, feed_reason = 'skip', 'Non liké (probabilité)'
 
