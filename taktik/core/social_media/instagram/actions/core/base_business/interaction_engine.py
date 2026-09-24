@@ -16,6 +16,7 @@ from taktik.core.shared.behavior.interaction_plan import (
     sample_story_like_count,
     sample_story_like_slots,
 )
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.shared.behavior.dwell import story_dwell
 from ...atomic.story_state import compare_slides, observe_slide
@@ -101,6 +102,14 @@ class InteractionEngineMixin:
             'stories': 0, 'stories_liked': 0,
             'actually_interacted': False
         }
+
+        # The run's lock (a block seen on the previous profile, during the navigation to this
+        # one, a lost phone): not one write here. Every workflow that visits profiles goes
+        # through this door, so this one read covers them all (secours 2).
+        halt = run_halt.arret_demande()
+        if halt:
+            self.logger.warning(f"⛔ Run stop requested ({halt.get('code')}) — no interaction on @{username}")
+            return result
 
         try:
             injected_decision = (profile_data or {}).get('ai_agent_decision')
@@ -292,10 +301,16 @@ class InteractionEngineMixin:
             follow_phase = ('start' if random.random() < 0.35 else 'end') if plan.do_follow else None
 
             # === PHASE START — the profile header is visible on arrival ===
+            # After each phase that wrote, one look for Instagram's "Try again later": the first
+            # refusal ends the run (secours 2, 2026-09-24), never the next action on top of it.
             if story_phase == 'start':
                 self._do_watch_story(username, plan, profile_data, result)
+                if run_halt.arret_demande():  # the story loop looks after each like itself
+                    return result
             if follow_phase == 'start':
-                self._do_follow(username, plan, profile_data, result)
+                tapped = self._do_follow(username, plan, profile_data, result)
+                if tapped and self._stop_if_action_blocked(username, 'follow'):
+                    return result
 
             # === LIKE / COMMENT ===
             should_like = plan.like_target > 0
@@ -359,6 +374,11 @@ class InteractionEngineMixin:
                     if result.get('comments', 0) > 0:
                         emit_step("comment", action="posted", target=username, count=result['comments'])
 
+                # The like loop looks after each like and comment itself (LikeOrchestration):
+                # a refusal there has set the run's lock. No second dump here.
+                if run_halt.arret_demande():
+                    return result
+
             # The like/comment phase taps the post action bar, where the SHARE button sits next to
             # comment — a mis-tap there opens the Direct share sheet, which would block the
             # follow/story phase that follows. Clear any such stray modal before continuing so the
@@ -376,8 +396,12 @@ class InteractionEngineMixin:
                     )
                 if story_phase == 'end':
                     self._do_watch_story(username, plan, profile_data, result)
+                    if run_halt.arret_demande():  # the story loop looks after each like itself
+                        return result
                 if follow_phase == 'end':
-                    self._do_follow(username, plan, profile_data, result)
+                    tapped = self._do_follow(username, plan, profile_data, result)
+                    if tapped and self._stop_if_action_blocked(username, 'follow'):
+                        return result
 
             # Final sweep before leaving: never hand the next profile a screen with a blocking modal
             # still open (a stray share sheet here would poison the next profile's navigation).
@@ -388,6 +412,31 @@ class InteractionEngineMixin:
         except Exception as e:
             self.logger.error(f"Error performing interactions on @{username}: {e}")
             return result
+
+    def _stop_if_action_blocked(self, username: str, action: str) -> bool:
+        """After a write: is Instagram refusing it ("Try again later")? True means stop acting.
+
+        The detector sets the run's lock itself (`run_halt.ACTION_BLOCKED`), so every loop stops
+        at its next `should_continue`; this answer lets the current profile stop at once instead of
+        trying its next action. One dump per call, none when the lock is already set. Never
+        raises: a check that cannot read the screen is not a block.
+        """
+        if run_halt.arret_demande():
+            # Already seen (inside the like loop, by the comment action, during navigation):
+            # no second dump for the same answer.
+            return True
+        detector = getattr(getattr(self, 'nav_actions', None), 'problematic_page_detector', None)
+        if detector is None or not hasattr(detector, 'is_action_blocked'):
+            return False
+        try:
+            blocked = bool(detector.is_action_blocked())
+        except Exception as exc:  # noqa: BLE001
+            self.logger.debug(f"Block check after {action} failed: {exc}")
+            return False
+        if blocked:
+            self.logger.error(f"🛑 Instagram refuses the {action} on @{username} (\"Try again later\") — stopping")
+            emit_step('account_restriction', action='action_blocked', target=username, after=action)
+        return blocked
 
     def _profile_header_actions_visible(
         self,
@@ -440,16 +489,18 @@ class InteractionEngineMixin:
             )
         return reached
 
-    def _do_follow(self, username, plan, profile_data, result) -> None:
+    def _do_follow(self, username, plan, profile_data, result) -> bool:
         """Follow the user if planned and not already following/requested. Needs the profile HEADER
         visible (call only from a phase where the header is on screen). Idempotent within a profile
-        via the result['follows'] guard."""
+        via the result['follows'] guard. True once `follow_user` was called, landed or not (it
+        does not say whether it found the button): a refused follow is exactly the one to look
+        for a block after."""
         if not plan.do_follow or result.get('follows'):
-            return
+            return False
         follow_state = (profile_data or {}).get('follow_button_state', 'unknown')
         if follow_state in ('following', 'requested'):
             self.logger.info(f"⏭️ Already following @{username} (button: {follow_state}) - skipping follow")
-            return
+            return False
         if self.click_actions.follow_user(username):
             result['follows'] = 1
             result['actually_interacted'] = True
@@ -469,6 +520,7 @@ class InteractionEngineMixin:
             self._emit_follow_event(username, profile_data)
             emit_step("follow", action="button", target=username)
             self._handle_follow_suggestions_popup()
+        return True
 
     def _do_watch_story(self, username, plan, profile_data, result) -> None:
         """Watch the profile's unseen story if planned and not already watched this profile. Needs
@@ -640,6 +692,10 @@ class InteractionEngineMixin:
                             self.logger.debug(f"Story slide #{idx + 1} liked")
                     except Exception:
                         pass
+                    # "Try again later" right after this like, before the next tap: the first
+                    # refusal ends the story here (secours 2).
+                    if self._stop_if_action_blocked(username, 'story like'):
+                        break
 
                 has_next = self.nav_actions.navigate_to_next_story()
                 avant = observe_slide(self.device) if has_next else avant
@@ -681,6 +737,7 @@ class InteractionEngineMixin:
                                 self.logger.debug(f"Story last slide (#{idx + 1}) liked (fallback)")
                         except Exception:
                             pass
+                        self._stop_if_action_blocked(username, 'story like')
                     break
 
             # Back to profile — robust close: swipe-down (a back press is unreliable

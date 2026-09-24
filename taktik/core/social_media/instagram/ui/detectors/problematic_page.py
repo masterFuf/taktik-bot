@@ -1,11 +1,38 @@
 """
 Detector and handler for the Instagram pages that interrupt a workflow.
 """
+import html
+import re
 import time
 from typing import Optional, Dict, Any
 from loguru import logger
 from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
+from taktik.core.shared.diagnostics import run_halt
 from ..selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
+from ..selectors.locales import L_all, active_locale, available_locales
+
+_NODE_TAG = re.compile(r'<node\b[^>]*>')
+_ATTRIBUTE = r'\b{}="([^"]*)"'
+
+
+def _alert_dialog_text(xml: str, text_ids) -> Optional[str]:
+    """Headline and subtext of the Instagram alert on screen, lowercased; None without one.
+
+    Read from the dialog's own nodes only: a word of the dialog found in a bio or a caption
+    behind it proves nothing.
+    """
+    parts = []
+    found = False
+    for tag in _NODE_TAG.findall(xml or ''):
+        rid = re.search(_ATTRIBUTE.format('resource-id'), tag)
+        if not rid or not rid.group(1).endswith(tuple(text_ids)):
+            continue
+        found = True
+        for name in ('text', 'content-desc'):
+            value = re.search(_ATTRIBUTE.format(name), tag)
+            if value:
+                parts.append(html.unescape(value.group(1)))
+    return ' '.join(parts).lower() if found else None
 
 
 class ProblematicPageDetector:
@@ -103,6 +130,14 @@ class ProblematicPageDetector:
             # Vérifier chaque type de page problématique
             for page_type, config in self.detection_patterns.items():
                 if self._is_page_detected(ui_content, config['indicators']):
+                    evidence = None
+                    if page_type == 'try_again_later_page':
+                        # Its ids are the chassis of EVERY Instagram alert. Taken alone they
+                        # made the contacts request a "block", and its OK -- the primary button
+                        # -- was tapped: the address book uploaded. Only the dialog's words count.
+                        evidence = self._rate_limit_evidence(ui_content)
+                        if evidence is None:
+                            continue
                     logger.warning(f"🚨 Page problématique détectée: {page_type}")
                     
                     # Track the rate-limiting popup statistics
@@ -112,6 +147,9 @@ class ProblematicPageDetector:
                     # Check whether this is a restriction
                     is_soft_ban = config.get('is_soft_ban', False)
                     if is_soft_ban:
+                        # Closing the dialog used to be all: the run acted again right after.
+                        # The lock is set BEFORE the close, so the run stops at its next check.
+                        run_halt.demander_arret(run_halt.ACTION_BLOCKED, page_type, evidence=evidence)
                         logger.error(f"🛑 SOFT BAN DÉTECTÉ ({page_type}) - La session doit être arrêtée")
                         logger.warning(f"📊 Statistiques rate limiting: {self.get_rate_limit_stats()}")
                     
@@ -561,22 +599,52 @@ class ProblematicPageDetector:
         }
         logger.info("📊 Statistiques de rate limiting réinitialisées")
     
+    def _rate_limit_evidence(self, content: str) -> Optional[str]:
+        """Is this screen Instagram's rate-limit dialog? 'words', 'ids_only', or None.
+
+        The indicators of `try_again_later_page` include the three generic ids of every
+        Instagram alert, enough on their own to reach the threshold: the contacts request, an
+        update prompt, any alert would pass. So once the threshold is met:
+        - the contacts request (its headline, every language) is never a block;
+        - the dialog's headline or subtext carrying one of the block's own words is ('words');
+        - an alert in a language we can read (fr, en) WITHOUT those words is another dialog;
+        - in a language we cannot read, the ids are all there is: a missed block costs the
+          account more than a stopped run, so it counts ('ids_only', kept in the stop detail).
+        """
+        pattern = self.detection_patterns.get('try_again_later_page') or {}
+        indicators = pattern.get('indicators') or []
+        if not indicators or not content or not self._is_page_detected(content, indicators):
+            return None
+        dialog = _alert_dialog_text(content, pattern.get('dialog_text_ids') or [])
+        if dialog is None:
+            # No Instagram alert on screen: the threshold was met by the dialog's words alone.
+            return 'words'
+        contacts = [t.strip().lower() for t in L_all('popup.contacts_access_headline_texts') if t.strip()]
+        if any(fragment in dialog for fragment in contacts):
+            return None
+        if any(word.lower() in dialog for word in pattern.get('dialog_texts') or []):
+            return 'words'
+        if active_locale() in available_locales():
+            return None
+        return 'ids_only'
+
     def is_action_blocked(self) -> bool:
-        """Is Instagram showing its rate-limit dialog right now? Reads only, closes nothing.
+        """Is Instagram showing its rate-limit dialog right now? Closes nothing.
 
         `detect_and_handle_problematic_pages` would CLOSE this one (`close_methods: ok_button`)
         and let the run carry on — which is acting again immediately after being told to stop,
         the surest way to turn a temporary limit into a lasting one. A caller that needs to
         decide whether to keep going has to be able to ask without touching the screen.
+        Seeing it also sets the run's stop lock (`run_halt.ACTION_BLOCKED`), whoever asked.
         """
-        pattern = self.detection_patterns.get('try_again_later_page') or {}
-        indicators = pattern.get('indicators') or []
-        if not indicators:
-            return False
         content = self._get_ui_content(context="action_blocked")
-        if not content:
+        evidence = self._rate_limit_evidence(content) if content else None
+        if evidence is None:
             return False
-        return self._is_page_detected(content, indicators)
+        # Whoever asked, the run stops: every loop that decides to continue reads this lock
+        # (`should_continue`), so one sighting is enough, wherever it happens.
+        run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page", evidence=evidence)
+        return True
 
 
 def create_problematic_page_detector(device, debug_mode: bool = False) -> ProblematicPageDetector:

@@ -99,6 +99,10 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                 stats['errors'] += 1
                 return stats
             
+            # "Try again later" after the send, looked for BEFORE the popup is closed, which
+            # could dismiss it: the detector sets the run's lock (secours 2).
+            self._stop_if_action_blocked(username or '', 'comment')
+
             self.logger.info(f"✅ Comment posted successfully ({len(comment_text)} chars)")
             stats['commented'] = True
             stats['comment_text'] = comment_text

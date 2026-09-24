@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional
 
 from lxml import etree
 
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from ....atomic.interaction.profile_interaction import classify_follow_state
 from ....core.ipc import IPCEmitter
@@ -336,6 +337,14 @@ class FeedSuggestionsMixin:
             # and it is never chained at machine speed.
             time.sleep(random.uniform(min(low, high), max(low, high)))
 
+            # Instagram's "Try again later" after this follow: stop here, never the next follow
+            # on top of it. Looked for BEFORE the verification: the dialog can hide the list,
+            # and a row missing from the dump reads as a follow that landed.
+            check_block = getattr(self, '_stop_if_action_blocked', None)
+            if check_block is not None and check_block(label, 'follow'):
+                result['stop_reason'] = 'action_blocked'
+                break
+
             root = self._suggestions_dump_root()
             if self._follow_verified(root, row):
                 result['follows'] += 1
@@ -363,7 +372,11 @@ class FeedSuggestionsMixin:
           spend the follow budget without ever seeing it.
 
         Fail-open like the rest of the guard: a read error must not kill the run.
+        The run's stop lock (a block seen anywhere, a lost phone) is read first, session or not.
         """
+        if run_halt.arret_demande():
+            self.logger.info("Suggestions follow stopped: run stop requested")
+            return False
         session = getattr(self, 'session_manager', None)
         if not session:
             return True

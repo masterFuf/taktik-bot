@@ -94,7 +94,16 @@ class ProblematicPageSelectors:
                           'Contactez-nous', 'Tell us'],
             'close_methods': ['ok_button', 'back_button'],
             'is_soft_ban': True,
-            'track_stats': True
+            'track_stats': True,
+            # The indicators above hold the three GENERIC ids of every Instagram alert: the
+            # contacts request carries them too. The block is proven by the dialog's own
+            # words, read in its headline and subtext only (not in a bio behind it). Checked
+            # on the 33 real captures of this dialog (2026-09-24): all carry these words.
+            'dialog_text_ids': ['igds_alert_dialog_headline', 'igds_alert_dialog_subtext'],
+            'dialog_texts': ['Réessayer plus tard', 'Try Again Later',
+                             'Nous limitons la fréquence', 'We limit how often',
+                             'certaines actions que vous pouvez effectuer', 'certain things on Instagram',
+                             'protéger notre communauté', 'protect our community'],
         },
         'notifications_popup': {
             'indicators': ['Notifications', 'Get notifications when', 'shares photos, videos or channels', 
