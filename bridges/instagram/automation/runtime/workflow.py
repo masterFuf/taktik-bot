@@ -76,7 +76,8 @@ class InstagramAutomationRunner:
 
             send_status("running", "Running workflow...")
             self.automation.run_workflow()
-            send_instagram_workflow_final_stats(self.automation.stats)
+            # The session's totals, from the action ledger the session row is aggregated from.
+            send_instagram_workflow_final_stats(self.automation.final_stats())
 
             send_status("completed", "Workflow completed successfully")
             return True

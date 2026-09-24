@@ -313,6 +313,11 @@ class InstagramAutomation:
         return self.helpers.update_workflow_session(session_id, status, reason=reason)
 
 
+    def final_stats(self) -> Dict[str, int]:
+        """The session's totals for the end-of-run event, from the action ledger
+        (see `WorkflowHelpers.final_stats`)."""
+        return self.helpers.final_stats()
+
     def display_session_stats(self, profile_username: str = None) -> None:
         self.helpers.display_session_stats(profile_username)
 
