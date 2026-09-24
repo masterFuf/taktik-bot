@@ -9,6 +9,7 @@ from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
     bool_param,
+    float_param,
     int_param,
     list_param,
     merge_invocation_payload,
@@ -99,6 +100,9 @@ def _scraping_config(payload: Mapping[str, Any]) -> ScrapingConfig:
         enrich_profiles=bool_param(payload, "enrich_profiles", "enrichProfiles", default=True),
         max_profiles_to_enrich=int_param(
             payload, "max_profiles_to_enrich", "maxProfilesToEnrich", default=50
+        ),
+        session_duration_minutes=float_param(
+            payload, "session_duration_minutes", "sessionDurationMinutes", default=0.0
         ),
     )
 

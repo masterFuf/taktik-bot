@@ -25,6 +25,9 @@ def build_scraping_config(config: dict[str, Any]):
         max_videos=config.get("maxPosts", 50),
         enrich_profiles=config.get("enrichProfiles", True),
         max_profiles_to_enrich=config.get("maxProfilesToEnrich", 50),
+        # "Durée max. de la session" (page and scheduler node). Absent means no limit, which is
+        # how every run behaved before the app forwarded it.
+        session_duration_minutes=config.get("sessionDurationMinutes") or 0,
     )
 
 

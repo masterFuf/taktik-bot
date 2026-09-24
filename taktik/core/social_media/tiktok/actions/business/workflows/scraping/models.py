@@ -36,6 +36,11 @@ class ScrapingConfig:
     max_videos: int = 50
     enrich_profiles: bool = True
     max_profiles_to_enrich: int = 50
+    #: Session budget in minutes; 0 means none. The page and the scheduler node have offered
+    #: "durée max. de la session" all along, and nothing read it until 2026-09-24: a run went on
+    #: until its profile budget or its source ran out. Checked wherever the run already checks
+    #: `stopped`, so the run ends at the next profile or scroll, never in the middle of one.
+    session_duration_minutes: float = 0.0
 
 
 @dataclass

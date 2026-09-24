@@ -62,16 +62,26 @@ def run_scraping_workflow(config: Dict[str, Any]) -> bool:
         all_profiles = workflow.run()
         duration = int(time.time() - start_time)
 
+        # The reason, not `workflow.stopped`: a spent session budget also answers "stopped", and
+        # a run that went the distance it was given is a completed run, not an interrupted one.
+        reason = workflow.completion_reason or "completed"
         if save_to_db and session_id:
             update_scraping_session(
                 session_id,
                 len(all_profiles),
-                "COMPLETED" if not workflow.stopped else "STOPPED",
+                "STOPPED" if reason == "stopped_by_user" else "COMPLETED",
                 duration,
             )
 
         send_scraping_completed(len(all_profiles))
-        send_status("completed", f"Scraped {len(all_profiles)} profiles")
+        if reason == "max_duration_reached":
+            send_status(
+                "completed",
+                f"Maximum session duration reached ({wf_config.session_duration_minutes:g} minutes): "
+                f"scraped {len(all_profiles)} profiles",
+            )
+        else:
+            send_status("completed", f"Scraped {len(all_profiles)} profiles")
         return True
 
     except ImportError as e:
