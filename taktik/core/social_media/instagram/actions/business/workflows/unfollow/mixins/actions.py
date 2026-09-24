@@ -35,6 +35,30 @@ def row_belongs_to_tab(state: Optional[str], tab: str) -> bool:
     return state is not None and state not in ROW_STATES_NOT_IN_TAB[tab]
 
 
+class LeftOutRows:
+    """The names a list read saw but never counted, and why: what a read that falls short of the
+    tab's count has to explain. On a phone (2026-09-24) a read ended at the suggestions with 1 873
+    of 1 928 followings, and the log could not tell hidden accounts from rows the read refused."""
+
+    def __init__(self):
+        self.refused: Dict[str, str] = {}   # username -> state of its button when refused
+        self.unpaired: set = set()          # names shown without a button paired to them
+
+    def refuse(self, username: str, state: Optional[str]) -> None:
+        self.refused.setdefault(username, state or 'no_row')
+
+    def summary(self, read) -> Dict[str, int]:
+        """Counts of names never read, by the last reason seen for each."""
+        counts: Dict[str, int] = {}
+        for username, state in self.refused.items():
+            if username not in read:
+                counts[state] = counts.get(state, 0) + 1
+        never_paired = len(self.unpaired - set(read) - set(self.refused))
+        if never_paired:
+            counts['no_button'] = never_paired
+        return counts
+
+
 # Where one drag of a follow list starts and ends, as shares of the screen: about 45% of travel,
 # which leaves about three rows of overlap between two reads.
 FOLLOW_LIST_DRAG_X = (0.35, 0.65)
@@ -106,6 +130,8 @@ class UnfollowActionsMixin:
         """
         rows: List[Dict[str, Any]] = []
         self.suggestions_on_screen = False
+        # Names of this screen no button was paired to (see LeftOutRows)
+        self.unpaired_on_screen = set()
         try:
             d = self.device.device
             package = get_active_package()
@@ -141,6 +167,7 @@ class UnfollowActionsMixin:
                     'button': button,
                     'state': classify_follow_state(button.text or '', PROFILE_SELECTORS) or 'unknown',
                 })
+            self.unpaired_on_screen = {entry[0] for entry in names} - {row['username'] for row in rows}
             if with_display_names:
                 names_by_y = sorted((entry[1], entry[0]) for entry in names)
                 subtitles = []
