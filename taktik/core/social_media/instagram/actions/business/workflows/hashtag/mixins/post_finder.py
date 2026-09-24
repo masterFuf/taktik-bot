@@ -272,34 +272,25 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
             # Extract the caption, and the date on reels
             if is_reel:
                 caption_selectors = self.post_selectors.reel_caption_selectors
-                # Read the caption first
+                # Read the caption AS SHOWN, never by touching it. On IG 447 a tap on a reel's
+                # collapsed caption opens the caption-and-comments sheet over the reel (dumps
+                # of 2026-09-24: the like button disappears, the thread composer appears); the
+                # run then refused to like and went on inside that sheet. A collapsed caption
+                # is the same text for the same post, which is all the deduplication hash needs.
                 for selector in caption_selectors:
                     try:
                         element = self.device.xpath(selector)
                         if element.exists:
                             caption = element.info.get('contentDescription', '') or element.get_text() or ''
                             if caption:
-                                # Is the caption collapsed?
-                                if '…' in caption or '...' in caption:
-                                    self.logger.debug(f"📝 Caption rétractée détectée: {caption[:30]}... - clic pour ouvrir")
-                                    try:
-                                        element.click()
-                                        time.sleep(0.8)  # Attendre l'animation
-                                        # Try again to read the full caption
-                                        element = self.device.xpath(selector)
-                                        if element.exists:
-                                            caption = element.info.get('contentDescription', '') or element.get_text() or ''
-                                    except Exception:
-                                        pass
-                                
                                 metadata['caption'] = caption.strip()
                                 metadata['caption_hash'] = InstagramHashtagPostService.generate_caption_hash(caption)
                                 self.logger.debug(f"📝 Post caption: {caption[:80]}...")
                                 break
                     except Exception:
                         continue
-                
-                # Extract the post date, visible once the caption is expanded
+
+                # Extract the post date, when the reel shows it (an expanded caption used to)
                 try:
                     date_selectors = getattr(self.post_selectors, 'reel_date_selectors', [])
                     for selector in date_selectors:

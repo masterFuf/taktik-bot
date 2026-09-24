@@ -282,6 +282,12 @@ class HashtagBusiness(
             stats['posts_selected'] = stats.get('posts_selected', 0) + 1
             stats['posts_engaged'] = stats.get('posts_engaged', 0)
 
+            # Never engage a post from inside a comments sheet nobody opened on purpose.
+            if not self._close_stray_comments_sheet():
+                stop_reason = stop_reasons.navigation_lost()
+                self.logger.warning("A comments sheet stayed open over the post — stopping here")
+                break
+
             # Everything the plan asks of this post: engage it, walk its likers,
             # walk its commenters, each with its own per-post budget.
             engaged = self._engage_one_post(

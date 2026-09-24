@@ -72,6 +72,31 @@ class HashtagPostDetectionMixin:
             self.logger.error(f"Error swiping to reveal comments: {e}")
             return False
     
+    _STRAY_SHEET_BACK_PRESSES = 3
+
+    def _close_stray_comments_sheet(self) -> bool:
+        """Close a comments sheet found open over the post, before anything engages it.
+
+        The posts pass never opens that sheet itself: the comment action opens its own
+        composer, the commenters walk opens and closes its own thread. Found open, it came from
+        somewhere else -- on 2026-09-24 a tap on a reel's collapsed caption opened it (IG 447),
+        the like was refused because the reel's buttons were under it, and the run went on
+        inside it until a comment was published there. The sheet is closed by the back key
+        (`press_back`: the Instagram facade's `press('back')` sends a key name uiautomator2
+        ignores), up to three presses because the first one may only hide the keyboard.
+
+        Returns False when the sheet is still open: the caller stops rather than act on it.
+        """
+        if not self._is_comments_view_open():
+            return True
+        self.logger.warning("Comments sheet open over the post although the run did not open it — closing it")
+        for _ in range(self._STRAY_SHEET_BACK_PRESSES):
+            self.device.press_back()
+            time.sleep(0.8)
+            if not self._is_comments_view_open():
+                return True
+        return False
+
     def _are_like_comment_elements_visible(self) -> bool:
         try:
             like_indicators = self.post_selectors.like_button_indicators

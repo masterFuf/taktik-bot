@@ -97,6 +97,9 @@ class _Host(HashtagBusiness):
     def _human_like_delay(self, *a, **k):
         pass
 
+    def _is_comments_view_open(self):
+        return False  # no stray comments sheet over these posts
+
     def _open_likers_popup(self, is_reel=False):
         self.likers_popup_opened = True
         return False
