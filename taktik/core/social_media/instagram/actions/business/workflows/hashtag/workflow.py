@@ -103,13 +103,22 @@ class HashtagBusiness(
 
     def _engage_post_itself(self, effective_config: Dict[str, Any], stats: Dict[str, Any],
                             author: Optional[str]) -> bool:
-        """Like and/or comment the post on screen, through the production atomics."""
+        """Like and/or comment the post on screen, through the production atomics.
+
+        Every gesture here is filed under the post author: the like through `record_as`, the
+        comment through `username`. Without an author there is no ledger row, no deduplication
+        and no cap, so the post is left alone rather than engaged off the record.
+        """
+        if not author:
+            self.logger.warning("Post author unreadable: post not engaged, it could not be recorded")
+            return False
+
         like_pct = int(effective_config.get('like_percentage') or 0)
         comment_pct = int(effective_config.get('comment_percentage') or 0)
         touched = False
 
         if like_pct > 0 and random.randint(1, 100) <= like_pct:
-            if self.like_business.like_current_post():
+            if self.like_business.like_current_post(record_as=author):
                 stats['likes_made'] += 1
                 self.stats_manager.increment('likes')
                 self.logger.info(f"❤️ Post liked (@{author or 'unknown'})")

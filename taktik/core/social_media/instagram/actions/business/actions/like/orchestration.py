@@ -386,7 +386,15 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 pass
             return stats
 
-    def like_current_post(self) -> bool:
+    def like_current_post(self, record_as: Optional[str] = None) -> bool:
+        """Like the post on screen.
+
+        `record_as` is the post author, given by a caller that keeps no ledger of its own for
+        this like (the hashtag posts pass): the like is then written to the action ledger and
+        the session counter at the moment of the gesture. The profile sequence leaves it None,
+        because it records its likes in one batch at the end of the profile. An already-liked
+        post is no gesture and is never recorded.
+        """
         try:
             if not self.detection_actions.is_on_post_screen():
                 self.logger.warning("Not on a post screen")
@@ -404,10 +412,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             # the button (which would toggle the like back off).
             if should_double_tap_like() and self._double_tap_like_image():
                 self.logger.debug("Post liked via image double-tap")
+                self._record_post_like(record_as)
                 return True
 
             if self.click_actions.like_post():
                 self.logger.debug("Post liked successfully (button)")
+                self._record_post_like(record_as)
                 return True
             else:
                 self.logger.warning("Failed to like")
@@ -416,6 +426,18 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         except Exception as e:
             self.logger.error(f"Error liking current post: {e}")
             return False
+
+    def _record_post_like(self, username: Optional[str]) -> None:
+        """Ledger row and session counter for ONE post like, written at the gesture. Never
+        fails the like: the post is liked on Instagram whatever happens here."""
+        if not username:
+            return
+        if self.session_manager:
+            try:
+                self.session_manager.record_action('like_posts', success=True, source=username)
+            except Exception as exc:
+                self.logger.error(f"Failed to increment like session counter: {exc}")
+        self._record_action(username, 'LIKE', 1)
 
     def _current_post_signature(self) -> str:
         """A cheap identity signature of the on-screen post (likes_comments_isreel) — used

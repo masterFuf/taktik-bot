@@ -112,7 +112,7 @@ class _Hashtag(HashtagBusiness):
                 return True
 
         class _Like:
-            def like_current_post(self):
+            def like_current_post(self, record_as=None):
                 host.likes.append(1)
                 return True
 

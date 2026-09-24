@@ -48,7 +48,9 @@ class _Host(HashtagBusiness):
         host = self
 
         class _Like:
-            def like_current_post(self):
+            def like_current_post(self, record_as=None):
+                # The like is filed under the post author (the ledger row is written there).
+                assert record_as == host._current()['author']
                 host.recorder.likes.append(host._current()['author'])
                 return host._like_ok
 
