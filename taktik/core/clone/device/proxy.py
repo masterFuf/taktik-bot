@@ -208,18 +208,24 @@ class CloneAwareDeviceProxy:
         """Return the underlying (un-proxied) uiautomator2 device."""
         return self._device
 
+    def rewrite_xpath(self, xpath):
+        """The xpath as `xpath()` hands it to uiautomator2: every `@resource-id` equality made
+        package-agnostic. Public so a reader of a dump taken elsewhere (the screen photo) applies
+        the very same rewrite instead of a copy of it."""
+        return _rewrite_str(xpath, self._official, self._clone)
+
     # ── Forwarding / interception ────────────────────────────────────
     def __getattr__(self, name):
         if name == "xpath":
             xpath_fn = getattr(self._device, "xpath")
             official, clone = self._official, self._clone
+            rewrite = self.rewrite_xpath
 
             def patched_xpath(arg=None, *args, **kwargs):
                 if arg is None:
                     sel = xpath_fn(*args, **kwargs)
                 else:
-                    arg = _rewrite_str(arg, official, clone)
-                    sel = xpath_fn(arg, *args, **kwargs)
+                    sel = xpath_fn(rewrite(arg), *args, **kwargs)
                 return _XPathSelectorProxy(sel, official, clone)
 
             return patched_xpath

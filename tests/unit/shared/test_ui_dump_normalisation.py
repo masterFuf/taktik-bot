@@ -76,3 +76,22 @@ def test_unusable_input_is_none_rather_than_a_raise():
     assert parse_ui_dump(None) is None
     assert parse_ui_dump("") is None
     assert parse_ui_dump("<not xml") is None
+
+
+
+def test_a_class_with_a_dollar_or_an_ampersand_gets_uiautomator2s_own_tag():
+    """A copy of the rule turned `$` into `_` (uiautomator2 writes `.`), and a class with `&`
+    made this parser fail where uiautomator2 passes. The rule is now uiautomator2's function."""
+    from uiautomator2.xpath import PageSource
+
+    from taktik.core.shared.device.ui_dump import parse_ui_dump
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
+        '<node class="com.example.Row$Inner" text="a" bounds="[0,0][1,1]"/>'
+        '<node class="com.example.A&amp;B" text="b" bounds="[0,0][1,1]"/>'
+        '</hierarchy>'
+    )
+    ours = [node.tag for node in parse_ui_dump(xml)]
+    theirs = [node.tag for node in PageSource(xml).root]
+    assert ours == theirs == ["com.example.Row.Inner", "com.example.A.B"]
