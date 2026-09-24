@@ -73,11 +73,11 @@ def _attach_callbacks(workflow: Any, notifier: Any, *, target: int) -> None:
         )
     if hasattr(workflow, "set_on_skip_callback"):
         workflow.set_on_skip_callback(
-            lambda username: notify(
+            lambda username, reason="friends": notify(
                 notifier,
                 "unfollow_event",
                 event="skipped",
-                reason="friends",
+                reason=reason,
                 username=username,
             )
         )

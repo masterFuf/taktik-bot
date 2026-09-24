@@ -37,8 +37,12 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
             UnfollowWorkflow,
         )
 
-        manager, _ = tiktok_startup(device_id, fetch_profile=True)
+        manager, detected_username = tiktok_startup(device_id, fetch_profile=True)
         logger.info(f"⏱️ Pause between unfollows: {wf_config.min_delay:g}-{wf_config.max_delay:g} s")
+        # The minimum follow age looks the acting account's follows up; the startup reads its handle.
+        wf_config.bot_username = wf_config.bot_username or detected_username
+        if wf_config.min_follow_age_days:
+            logger.info(f"🕒 Keeping accounts followed less than {wf_config.min_follow_age_days} day(s) ago")
 
         workflow = UnfollowWorkflow(manager.device_manager.device, wf_config)
         set_workflow(workflow)
@@ -46,8 +50,8 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
         def on_unfollow(username, count):
             send_message("unfollow_event", event="unfollowed", username=username, count=count)
 
-        def on_skip(username):
-            send_message("unfollow_event", event="skipped", reason="friends", username=username)
+        def on_skip(username, reason="friends"):
+            send_message("unfollow_event", event="skipped", reason=reason, username=username)
 
         def on_stats(stats_dict):
             stats_dict["target"] = max_unfollows

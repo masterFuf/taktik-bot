@@ -40,6 +40,15 @@ def _as_delay(value: Any, default: float) -> float:
         return default
 
 
+def _as_days(value: Any) -> int:
+    if value is None:
+        return 0
+    try:
+        return max(0, int(float(value)))
+    except (TypeError, ValueError):
+        return 0
+
+
 def unfollow_config_from_payload(payload: Mapping[str, Any]) -> UnfollowConfig:
     """Build the workflow config from a bridge or Agent payload."""
     max_unfollows = _first_present(payload.get("max_unfollows"), payload.get("maxUnfollows"))
@@ -63,6 +72,11 @@ def unfollow_config_from_payload(payload: Mapping[str, Any]) -> UnfollowConfig:
     max_scroll_attempts = _first_present(
         payload.get("max_scroll_attempts"), payload.get("maxScrollAttempts")
     )
+    # The node's "Âge min. (jours)": `min_follow_age` on the wire, like the rest of this payload.
+    min_follow_age = _first_present(
+        payload.get("min_follow_age"), payload.get("minFollowAge"), payload.get("min_follow_age_days")
+    )
+    bot_username = _first_present(payload.get("botUsername"), payload.get("bot_username"))
 
     return UnfollowConfig(
         max_unfollows=int(max_unfollows) if max_unfollows is not None else 20,
@@ -70,6 +84,8 @@ def unfollow_config_from_payload(payload: Mapping[str, Any]) -> UnfollowConfig:
         min_delay=_as_delay(min_delay, 1.0),
         max_delay=_as_delay(max_delay, 3.0),
         max_scroll_attempts=int(max_scroll_attempts) if max_scroll_attempts is not None else 10,
+        min_follow_age_days=_as_days(min_follow_age),
+        bot_username=str(bot_username).strip().lstrip("@") if bot_username is not None else None,
     )
 
 
