@@ -360,6 +360,17 @@ class HashtagBusiness(
             if not self.nav_actions.navigate_to_hashtag(hashtag):
                 self.logger.error("Failed to navigate to hashtag")
                 stats['errors'] += 1
+                # The hashtag page was never reached, so nothing was examined: this is not a
+                # hashtag that ran dry. Returning without a motive let the driver see "zero
+                # interactions, no reason", and the session loop filed the run COMPLETED as
+                # "sources exhausted" although it never left the search screen. Same motive as
+                # the target workflow when it cannot reach its profile.
+                stats['stop_reason'] = stop_reasons.navigation_lost()
+                if finalize and self.automation and hasattr(self.automation, 'helpers'):
+                    self.automation.helpers.finalize_session(
+                        status=stop_reasons.terminal_status(stats['stop_reason']),
+                        reason=stats['stop_reason'],
+                    )
                 return stats
 
             time.sleep(1.5)
