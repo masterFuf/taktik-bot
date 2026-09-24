@@ -91,6 +91,10 @@ class UnfollowSelectors:
         """Every username of the open follow list (language-neutral)."""
         return f'//*[@resource-id="{self.active_follow_list_username_resource_id(app_id)}"]'
 
+    def follow_list_subtitle_selector(self, app_id: str) -> str:
+        """Every display name (the line under the username) of the open follow list."""
+        return f'//*[@resource-id="{self.active_follow_list_subtitle_resource_id(app_id)}"]'
+
     def follow_list_row_button_selector(self, app_id: str) -> str:
         """Every row action button of the open follow list (language-neutral): its text is then
         read through the shared state classifier."""

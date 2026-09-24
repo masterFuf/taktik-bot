@@ -22,6 +22,7 @@ from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 from ..list_proof import read_is_complete, scrolls_for
+from .actions import FOLLOW_LIST_SCROLL_RATIO
 
 # Row states of a real follower: the button offers to follow back, says we follow, or that we
 # asked to. A plain "Follow" row is a suggestion under the list, not a follower.
@@ -123,32 +124,36 @@ class SyncFollowersMixin:
             d = self.device.device
             active_package = get_active_package()
             username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
-            subtitle_resource_id = UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
 
             seen_on_screen: Set[str] = set()
             scroll_attempts = 0
             no_new_count = 0
 
             while scroll_attempts < max_scrolls:
-                username_elements = d(resourceId=username_resource_id)
-                if not username_elements.exists:
-                    self.logger.debug("No username elements found on screen")
+                if self._sync_should_stop():
+                    stats['stopped_by_session'] = True
                     break
+                # One read of the screen outside enriched mode: usernames, display names and the
+                # state of each row's button together. The per-element reads cost three device
+                # calls per row, and a sync of 1 928 followings took an hour (2026-09-24).
+                if mode == 'enriched':
+                    username_elements = d(resourceId=username_resource_id)
+                    if not username_elements.exists:
+                        break
+                    rows = self._visible_follow_rows()
+                    entries = self._live_follow_entries(username_elements)
+                else:
+                    rows = self._visible_follow_rows(with_display_names=True)
+                    if not rows and not d(resourceId=username_resource_id).exists:
+                        break
+                    entries = [(i, row['username'], row['name_element']) for i, row in enumerate(rows)]
                 # The state of each row's button: a suggestion row ("Follow") is not a follower,
                 # and a row whose button cannot be read yet is read again after the next scroll.
-                row_states = {row['username'].lower(): row['state'] for row in self._visible_follow_rows()}
+                row_states = {row['username'].lower(): row['state'] for row in rows}
+                display_names = {row['username'].lower(): row.get('display_name', '') for row in rows}
 
                 new_found = False
-                count = username_elements.count
-                for i in range(count):
-                    try:
-                        el = username_elements[i]
-                        username = (el.get_text() or '').strip().lstrip('@')
-                        if not username or not self._is_valid_username(username):
-                            continue
-                    except Exception:
-                        continue
-
+                for i, username, el in entries:
                     if username in seen_on_screen:
                         continue
                     if row_states.get(username.lower()) not in FOLLOWER_ROW_STATES:
@@ -157,14 +162,10 @@ class SyncFollowersMixin:
                     stats['total_seen'] += 1
                     new_found = True
 
-                    # Read the display name
-                    display_name = ''
-                    try:
-                        subtitle_els = d(resourceId=subtitle_resource_id)
-                        if subtitle_els.exists and i < subtitle_els.count:
-                            display_name = subtitle_els[i].get_text() or ''
-                    except Exception:
-                        pass
+                    # The display name, paired to its row by position (see sync_following)
+                    display_name = display_names.get(username.lower(), '')
+                    if mode == 'enriched' and not display_name:
+                        display_name = self._live_display_name(d, active_package, i)
 
                     # Determine if we follow this person back
                     is_following_back = username.lower() in known_followings
@@ -266,7 +267,7 @@ class SyncFollowersMixin:
                 if mode != 'enriched':
                     if self._scroll_followers_list() is False:
                         scroll_failed = True
-                    time.sleep(1.2)
+                    time.sleep(random.uniform(0.6, 1.1))  # the list settles; the next read is a dump
                     scroll_attempts += 1
                 else:
                     remaining = d(resourceId=username_resource_id)
@@ -350,7 +351,7 @@ class SyncFollowersMixin:
     def _scroll_followers_list(self) -> bool:
         """Scroll the followers list down (humanized controlled scroll). False when it failed."""
         try:
-            return human_scroll_raw(self.device.device, "down", distance_ratio=0.4) is not False
+            return human_scroll_raw(self.device.device, "down", distance_ratio=FOLLOW_LIST_SCROLL_RATIO) is not False
         except Exception as e:
             self.logger.debug(f"Error scrolling followers list: {e}")
             return False
