@@ -348,19 +348,8 @@ class WorkflowRunner:
         config = {key: value for key, value in action.items() if key != 'type'}
         config['filter_criteria'] = resolve_filter_criteria(action)
 
-        # Use the feed business object when available
-        if hasattr(self.automation, 'feed_business'):
-            result = self.automation.feed_business.interact_with_feed(config)
-        else:
-            # Create a temporary instance
-            from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
-            feed_business = FeedBusiness(
-                self.automation.device,
-                self.automation.session_manager,
-                self.automation
-            )
-            result = feed_business.interact_with_feed(config)
-        
+        result = self._get_feed_business().interact_with_feed(config) or {}
+
         # Update the statistics
         self.automation.stats['likes'] += result.get('likes_made', 0)
         self.automation.stats['follows'] += result.get('follows_made', 0)
@@ -369,6 +358,19 @@ class WorkflowRunner:
         
         return result.get('success', False)
     
+    def _get_feed_business(self):
+        """One FeedBusiness per session, like the unfollow one. A step used to build a new one
+        each time, and its stats manager, which counts the posts the session engaged, went with
+        it: the finalisation reads that count from `automation.feed_business`."""
+        if getattr(self.automation, 'feed_business', None) is None:
+            from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
+            self.automation.feed_business = FeedBusiness(
+                self.automation.device,
+                self.automation.session_manager,
+                self.automation,
+            )
+        return self.automation.feed_business
+
     def _get_unfollow_business(self):
         """Get or create UnfollowBusiness instance."""
         from taktik.core.social_media.instagram.actions.business.workflows.unfollow import UnfollowBusiness

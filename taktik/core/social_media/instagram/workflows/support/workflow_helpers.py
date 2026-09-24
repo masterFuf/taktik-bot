@@ -378,6 +378,26 @@ class WorkflowHelpers:
             self.logger.error(f"❌ Error creating session: {e}")
             return None
     
+    def _posts_engaged(self) -> int:
+        """The posts the session engaged, read where the workflows that engage posts count them.
+
+        It was read from `automation.actions.stats_manager`, which does not exist (the actions
+        facade keeps its manager under `stats`): every session was filed with zero posts, and a
+        feed run, which visits no profile, was filed as empty. The feed's manager lives on the
+        runner's `feed_business`, the hashtag's on `hashtag_interaction_manager`; both last the
+        whole session. Never raises.
+        """
+        total = 0
+        for owner in (getattr(self.automation, 'feed_business', None),
+                      getattr(self.automation, 'hashtag_interaction_manager', None)):
+            try:
+                stats = getattr(getattr(owner, 'stats_manager', None), 'stats', None)
+                if isinstance(stats, dict):
+                    total += int(stats.get('posts_engaged', 0) or 0)
+            except (TypeError, ValueError):
+                continue
+        return total
+
     def update_workflow_session(self, session_id: int, status: str = 'COMPLETED', reason: Any = None) -> bool:
         # Every caller of this method ends the session (COMPLETED, INTERRUPTED via the
         # signal handler, ERROR in automation), so finalize with the full snapshot:
@@ -393,13 +413,7 @@ class WorkflowHelpers:
                 # workflow that opens no profile writes nothing to the interactions table and
                 # therefore came out at zero, then hidden
                 # comme session vide.
-                posts_engaged = 0
-                try:
-                    manager = getattr(self.automation.actions, 'stats_manager', None)
-                    if manager is not None:
-                        posts_engaged = int(manager.stats.get('posts_engaged', 0) or 0)
-                except Exception:
-                    posts_engaged = 0
+                posts_engaged = self._posts_engaged()
 
                 success = local_db.finalize_session(
                     session_id, status,
