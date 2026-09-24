@@ -128,3 +128,64 @@ def test_signature_of_avoids_a_second_read():
 
     assert host._signature_of({'likes_count': 76, 'comments_count': 3, 'is_reel': False}) == "76_3_False"
     assert host._signature_of(None) is None
+
+
+# ─────────────────────────────────── a caller's signature on a reel (the 2026-09-24 run)
+#
+# The workflow passes `_signature_of(current)`, built from counters alone; the read after the
+# gesture (`_current_post_signature`) appends the reel author. Compared as they were, the two
+# never matched on a reel, so every gesture was "the next post". On the phone: four flicks
+# inside an open comments sheet, each logged "Next post reached", all on the same reel.
+
+class _ReelHost(_Host):
+    """A reel whose author label can be read."""
+
+    def __init__(self, signatures, author):
+        super().__init__(signatures, is_reel=True)
+        self._author = author
+        self.author_reads = 0
+
+    def _current_post_author(self):
+        self.author_reads += 1
+        return self._author
+
+
+def test_a_stuck_reel_with_unreadable_counters_is_not_a_new_post():
+    host = _ReelHost(["None_None_True_alice"] * 3, author="alice")
+
+    assert host._swipe_to_next_post(known_signature="None_None_True") is False
+    assert len(host.device.scrolls) == len(_Host._NEXT_REEL_RATIOS)
+
+
+def test_a_stuck_reel_with_readable_counters_is_not_a_new_post():
+    host = _ReelHost(["6394_20_True_alice"] * 3, author="alice")
+
+    assert host._swipe_to_next_post(known_signature="6394_20_True") is False
+
+
+def test_a_reel_that_really_changed_is_still_reported():
+    host = _ReelHost(["41_3_True_bob"], author="alice")
+
+    assert host._swipe_to_next_post(known_signature="6394_20_True") is True
+    assert len(host.device.scrolls) == 1
+
+
+def test_a_full_signature_is_not_given_the_author_twice():
+    """The Lab passes `_current_post_signature()` itself, author included."""
+    host = _ReelHost(["12_3_True_alice"] * 3, author="alice")
+
+    assert host._swipe_to_next_post(known_signature="12_3_True_alice") is False
+
+
+def test_a_reel_whose_author_cannot_be_read_keeps_the_callers_signature():
+    host = _ReelHost(["12_3_True"] * 3, author=None)
+
+    assert host._swipe_to_next_post(known_signature="12_3_True") is False
+
+
+def test_a_regular_post_does_not_pay_for_an_author_read():
+    host = _ReelHost(["88_7_False"], author="alice")
+    host._is_reel = False
+
+    assert host._swipe_to_next_post(known_signature="12_3_False") is True
+    assert host.author_reads == 0
