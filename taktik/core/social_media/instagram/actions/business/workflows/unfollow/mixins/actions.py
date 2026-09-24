@@ -264,10 +264,12 @@ class UnfollowActionsMixin:
         """Scroll the follow list down (humanized controlled scroll). False when the gesture
         failed: a read that could not scroll proves nothing about the end of the list.
 
-        Most of a screen per gesture, keeping a row or two of overlap: at 0.4 a scroll moved about
-        3 of the 9 visible rows, and reading 1 928 followings took an hour (measured 2026-09-24)."""
+        Most of a screen per gesture, keeping a row or two of overlap, as a PRECISE drag: the
+        default curve caps its travel at 34% of the screen, which moved about 3 of the 9 visible rows,
+        and reading 1 928 followings took an hour (measured 2026-09-24)."""
         try:
-            return human_scroll_raw(self.device.device, "down", distance_ratio=FOLLOW_LIST_SCROLL_RATIO) is not False
+            return human_scroll_raw(self.device.device, "down", distance_ratio=FOLLOW_LIST_SCROLL_RATIO,
+                                    precise=True) is not False
         except Exception as e:
             self.logger.debug(f"Error scrolling: {e}")
             return False
