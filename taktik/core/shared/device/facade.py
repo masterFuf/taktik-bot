@@ -186,6 +186,38 @@ class BaseDeviceFacade:
             self.logger.error(f"Error getting XML dump: {e}")
             return None
     
+    # === Screen photo (step 1 of the one-photo spec: available, wired into no workflow yet) ===
+
+    def _snapshot_source(self):
+        source = getattr(self, "_snapshot_source_instance", None)
+        if source is None:
+            from taktik.core.shared.device.snapshot import SnapshotSource
+
+            # The device's own selector rewrite, when it has one (Instagram's
+            # `CloneAwareDeviceProxy`): looked up on the class, so a device that answers every
+            # attribute (a mock, uiautomator2's forwarding) is not taken for a rewriter.
+            rewrite = (self._device.rewrite_xpath
+                       if callable(getattr(type(self._device), "rewrite_xpath", None)) else None)
+            source = SnapshotSource(self.get_xml_dump, rewrite=rewrite)
+            self._snapshot_source_instance = source
+        return source
+
+    def snapshot(self, max_age_s: float = 0.0):
+        """One dump, on which every question about this screen (`exists`, `find`, `first`) is
+        answered exactly as `self.xpath(...)` would answer it, instead of one dump per selector.
+        A new photo each call; `max_age_s` reuses the last one only for a caller that knows no
+        gesture happened since (the cache is per facade, and actions build their own).
+        Raises `SnapshotUnavailable` when the screen cannot be read."""
+        return self._snapshot_source().snapshot(max_age_s=max_age_s)
+
+    def invalidate_snapshot(self) -> None:
+        """The screen changed (a gesture): the next `snapshot()` takes a new photo."""
+        self._snapshot_source().invalidate()
+
+    def wait_for_snapshot(self, predicate, timeout: float, poll_ms: int = 300):
+        """New photos at a fixed pace until `predicate(photo)` holds: the photo, or None."""
+        return self._snapshot_source().wait_for(predicate, timeout, poll_ms)
+
     def screenshot(self, filename: str) -> bool:
         try:
             os.makedirs(os.path.dirname(filename) or '.', exist_ok=True)
