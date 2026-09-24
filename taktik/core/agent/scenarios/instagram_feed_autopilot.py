@@ -836,26 +836,45 @@ class TaktikAgentWorkflow:
             if success:
                 self.stats["follows"] += 1
                 logger.info(f"[TaktikAgent] ✅ Followed @{username}")
+                self._record_follow(username)
                 if self.ipc:
                     self.ipc.send("follow", username=username, success=True)
         except Exception as exc:
             logger.error(f"[TaktikAgent] _do_follow({username}) error: {exc}")
 
-    def _like_profile_posts(self, username: str, count: int):
-        """Like up to `count` posts on the currently visible profile grid."""
+    def _record_follow(self, username: str) -> None:
+        """The ledger row of a follow, the interaction engine's `_record_action(username,
+        'FOLLOW', 1)` on a business object carrying the account. The autopilot's follows were
+        counted on its card and nowhere else: no row, so they escaped the daily follow cap and
+        the unfollow never knew the bot had followed them (`not_followed_by_bot`)."""
         try:
-            from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeBusiness
-            like_biz = LikeBusiness(self.device_manager)
-            liked = 0
-            for _ in range(count):
-                if liked >= count or self.stats["likes"] >= self.quotas["max_likes"]:
-                    break
-                if like_biz.like_next_profile_post():
-                    self.stats["likes"] += 1
-                    liked += 1
-                    time.sleep(random.uniform(1.5, 3.0))
+            self._feed_business()._record_action(username, 'FOLLOW', 1)
         except Exception as exc:
-            logger.debug(f"[TaktikAgent] _like_profile_posts({username}, {count}) error: {exc}")
+            logger.error(f"[TaktikAgent] Follow of @{username} not recorded: {exc}")
+
+    def _like_profile_posts(self, username: str, count: int):
+        """Like up to `count` posts of the profile on screen, through the production sequence
+        of the target workflows (`LikeBusiness.like_profile_posts`), which files its likes in
+        one batch at the end of the profile. The autopilot called a `like_next_profile_post`
+        that never existed, from a module that does not export `LikeBusiness`: the exception
+        was swallowed and no extra like was ever given."""
+        count = min(count, self.quotas["max_likes"] - self.stats["likes"])
+        if count <= 0:
+            return
+        try:
+            from taktik.core.social_media.instagram.actions.business.actions.like import LikeBusiness
+            like_biz = LikeBusiness(self.device_manager, automation=self._automation_identity())
+            result = like_biz.like_profile_posts(username, max_likes=count, navigate_to_profile=False)
+            self.stats["likes"] += result.get("posts_liked", 0)
+        except Exception as exc:
+            logger.error(f"[TaktikAgent] _like_profile_posts({username}, {count}) error: {exc}")
+
+    def _automation_identity(self):
+        """The account the gestures are filed under. The agent has no session row, so its rows
+        carry the account only."""
+        from types import SimpleNamespace
+
+        return SimpleNamespace(active_account_id=self._account_id, current_session_id=None)
 
     def _feed_business(self):
         """The Feed's business object, filed under the operator's account.
@@ -864,21 +883,19 @@ class TaktikAgentWorkflow:
         recording: `_like_current_post(record_as=author)` (`LikeBusiness.record_post_like`) and
         `_comment_feed_post` (`CommentAction.comment_on_post(username=author)`). Built without
         an identity, the ledger write refused every row: the autopilot's likes and comments left
-        no trace and escaped the daily caps. The agent has no session row, so its rows carry the
-        account only."""
-        from types import SimpleNamespace
-
+        no trace and escaped the daily caps."""
         from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
 
-        identity = SimpleNamespace(active_account_id=self._account_id, current_session_id=None)
-        return FeedBusiness(self.device_manager, automation=identity)
+        return FeedBusiness(self.device_manager, automation=self._automation_identity())
 
     def _engage_post(self, feed, author: Optional[str], action: str,
                      decision: Dict[str, Any]) -> tuple:
         """Like, then comment when the AI asked for it, the post on screen. (engaged, blocked).
 
         A post whose author cannot be read is not engaged: without an author there is no ledger
-        row, no deduplication and no cap (the Feed's rule)."""
+        row, no deduplication and no cap (the Feed's rule). The comment follows a like that has
+        just landed, as in the Feed: once the like cap was reached the autopilot went on
+        commenting posts it no longer liked."""
         if not author:
             logger.info("[TaktikAgent] Post author unreadable: post not engaged, it could not be recorded")
             return False, False
@@ -893,7 +910,7 @@ class TaktikAgentWorkflow:
                 if self._block_seen("like"):
                     return engaged, True
 
-        if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
+        if engaged and action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
             comment_text = decision.get("comment", "")
             if comment_text:
                 self._post_comment(feed, comment_text, author)
@@ -974,9 +991,10 @@ class TaktikAgentWorkflow:
         if self.stats["posts_seen"] >= self.quotas["max_posts_seen"]:
             logger.info("[TaktikAgent] Max posts seen reached")
             return True
+        # A comment follows a like (`_engage_post`): once the likes are spent, so are the
+        # comments, whatever their own counter says.
         if (self.stats["likes"] >= self.quotas["max_likes"] and
-                self.stats["follows"] >= self.quotas["max_follows"] and
-                self.stats["comments"] >= self.quotas["max_comments"]):
+                self.stats["follows"] >= self.quotas["max_follows"]):
             logger.info("[TaktikAgent] All quotas reached")
             return True
         return False
