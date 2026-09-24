@@ -47,10 +47,13 @@ def count_anchors(a, p):
 
     Separates "the screen is not the list" from "the catalogue is dead on this version" — the two
     readings of an empty result, and the difference between a null probe and a finding.
+    `following_or_friends_button` is the row button the unfollow taps on OUR following list
+    ("Suivis" / "Ami(e)s"): open that list to read it.
     """
     device = _raw(a)
     counts = {}
-    for field in ("follower_any_button", "follower_username", "follower_display_name"):
+    for field in ("follower_any_button", "follower_username", "follower_display_name",
+                  "following_or_friends_button"):
         selectors = getattr(FOLLOWERS_SELECTORS, field, None) or []
         counts[field] = len(first_matching(device, selectors))
 
