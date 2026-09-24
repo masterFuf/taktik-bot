@@ -22,6 +22,14 @@ from loguru import logger
 log = logger.bind(module="database-instagram-workflow-state")
 
 
+def _is_instagram_handle(value) -> bool:
+    """Is `value` an Instagram handle (1 to 30 of a-z, 0-9, '.', '_'), not a displayed name?"""
+    name = str(value or '').strip().lstrip('@')
+    return 0 < len(name) <= 30 and all(
+        char.isascii() and (char.islower() or char.isdigit() or char in '._') for char in name
+    )
+
+
 class InstagramWorkflowStateService:
     """Database facade for Instagram workflow state decisions."""
 
@@ -42,6 +50,38 @@ class InstagramWorkflowStateService:
         from datetime import datetime, timezone
 
         return datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+    @staticmethod
+    def _update_follow_graph(username: str, action_type: str, account_id: int) -> None:
+        """Keep the follow graph in step with what the bot just did (U7, 2026-09-24).
+
+        A FOLLOW opens (or reopens) the following row, owned by the bot; an UNFOLLOW closes it.
+        An unfollow reaches this point only once the screen confirmed it (U3), so the graph no
+        longer counts a tap as an unfollow. Until then the list path never called
+        `mark_unfollowed`: an unfollowed account stayed "followed" in the base. Best effort: the
+        interaction row is written already, and a graph write must not fail the action.
+        """
+        kind = (action_type or '').upper()
+        if kind not in ('FOLLOW', 'UNFOLLOW'):
+            return
+        if not _is_instagram_handle(username):
+            # Some paths record the NAME shown on screen ("Marie Dupont", from the feed
+            # suggestions): such a row can never be found in the following list, and it filled
+            # the oldest candidates of the unfollow with ghosts (review of 2026-09-24).
+            log.debug("Follow graph not updated for {}: {!r} is not an Instagram handle", kind, username)
+            return
+        try:
+            from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
+
+            if kind == 'FOLLOW':
+                InstagramFollowGraphService.upsert_following(
+                    username=username, display_name='', account_id=account_id,
+                    followed_by_bot=True, source='bot_follow',
+                )
+            else:
+                InstagramFollowGraphService.mark_unfollowed(username, account_id)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("Follow graph not updated for {} @{}: {}", kind, username, exc)
 
     @staticmethod
     def record_individual_actions(
@@ -103,6 +143,9 @@ class InstagramWorkflowStateService:
                     action_type,
                     username,
                 )
+
+            if success_count:
+                InstagramWorkflowStateService._update_follow_graph(username, action_type, account_id)
 
             return success_count > 0
         except Exception as exc:

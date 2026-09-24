@@ -23,6 +23,7 @@ from bridges.instagram.runtime.ipc_interaction_events import (
     send_like_event,
     send_story_event,
     send_unfollow_event,
+    send_unfollow_plan,
 )
 from bridges.instagram.runtime.ipc_scraping_events import (
     send_current_post,
@@ -91,6 +92,7 @@ __all__ = [
     "send_instagram_profile_classification",
     "send_instagram_profile_visit",
     "send_unfollow_event",
+    "send_unfollow_plan",
     "send_follow_event",
     "send_like_event",
     "send_story_event",

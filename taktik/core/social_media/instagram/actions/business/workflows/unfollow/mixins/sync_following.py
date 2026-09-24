@@ -19,6 +19,7 @@ from taktik.core.database.instagram_follow_graph import InstagramFollowGraphServ
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
+from ..list_proof import read_is_complete, scrolls_for
 
 
 class SyncFollowingMixin:
@@ -49,6 +50,14 @@ class SyncFollowingMixin:
             'updated_count': 0,
             'total_seen': 0,
             'stopped_early': False,
+            # True only when the read reached the list's exact count, without an early stop
+            # (unfollow/list_proof.py): only then can an account missing from it be taken as
+            # unfollowed elsewhere.
+            'complete': False,
+            'expected': None,
+            'end_reached': False,
+            'departures': 0,
+            'departures_withheld': 0,
             'success': False,
         }
 
@@ -71,9 +80,21 @@ class SyncFollowingMixin:
                 self.logger.error("sync_following_list: failed to open following list")
                 return stats
             time.sleep(1.5)
+            if not self._ensure_following_tab():
+                return stats
+            expected = self._list_tab_count('following')
+            stats['expected'] = expected
 
-            # Sort by most recently followed so the new ones come first
-            self._set_following_list_sort('latest')
+            # Sort by most recently followed so the new ones come first. The early stop on the
+            # first known account is only valid in that order: in the default order a known
+            # account can sit on the first row, and the sync used to stop there (1 row read out of
+            # 1 949 on a French phone, 2026-09-10, where no French sort option was known).
+            sorted_by_latest = self._set_following_list_sort('latest')
+            if not sorted_by_latest:
+                self.logger.warning(
+                    "sync_following_list: 'latest' sort not applied — reading the whole list "
+                    "instead of stopping at the first known account"
+                )
             time.sleep(1.5)
 
             # Read the already-known usernames to find the stop point
@@ -92,14 +113,21 @@ class SyncFollowingMixin:
 
             seen_on_screen: Set[str] = set()
             scroll_attempts = 0
-            max_scrolls = 60  # Sécurité anti-boucle infinie
+            # A fixed 60 scrolls read about 270 accounts: the bound follows the tab's count.
+            max_scrolls = scrolls_for(expected, 60)
             stop_signal = False
+            scroll_failed = False
+            quiet_rounds = 0
+            end_rounds = getattr(self, 'end_of_list_scrolls', 3)
 
             while scroll_attempts < max_scrolls and not stop_signal:
                 # Read the visible items with their UI references
                 username_elements = d(resourceId=username_resource_id)
                 if not username_elements.exists:
                     break
+                # Only rows that say we follow them: the list ends with suggestions ("Follow"), and
+                # a row whose button cannot be read yet is read again after the next scroll.
+                row_states = {row['username'].lower(): row['state'] for row in self._visible_follow_rows()}
 
                 new_found = False
                 count = username_elements.count
@@ -113,6 +141,8 @@ class SyncFollowingMixin:
                         continue
 
                     if username in seen_on_screen:
+                        continue
+                    if row_states.get(username.lower()) != 'following':
                         continue
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
@@ -131,8 +161,9 @@ class SyncFollowingMixin:
 
                     # Si on rencontre un username déjà connu
                     if username in known_usernames:
-                        # En mode fast : on s'arrête dès qu'on retrouve un connu
-                        if mode != 'enriched':
+                        # Fast mode stops at the first known account, but only when the list is
+                        # sorted by follow date: otherwise that account says nothing about the rest
+                        if mode != 'enriched' and sorted_by_latest:
                             try:
                                 print(json.dumps({
                                     "type": "sync_user_discovered",
@@ -231,13 +262,27 @@ class SyncFollowingMixin:
                 if stop_signal:
                     break
 
+                # The end of the list is several reads in a row without a new name (one used to
+                # be enough: a slow page looked like the end), and it counts only if the names
+                # read reach the tab's exact count.
                 if not new_found:
-                    self.logger.info("No new accounts after scroll — end of following list")
-                    break
+                    quiet_rounds += 1
+                    if quiet_rounds >= end_rounds:
+                        stats['end_reached'] = True
+                        stats['complete'] = read_is_complete(len(seen_on_screen), expected, scroll_failed)
+                        self.logger.info(
+                            f"End of the following list: {len(seen_on_screen)} read of "
+                            f"{expected if expected is not None else '?'} "
+                            f"({'complete' if stats['complete'] else 'NOT proven complete'})"
+                        )
+                        break
+                else:
+                    quiet_rounds = 0
 
                 # Scroll only outside enriched mode, which re-scans first
                 if mode != 'enriched':
-                    self._scroll_following_list()
+                    if self._scroll_following_list() is False:
+                        scroll_failed = True
                     time.sleep(1.5)
                     scroll_attempts += 1
                 else:
@@ -255,9 +300,14 @@ class SyncFollowingMixin:
                             except Exception:
                                 continue
                     if not has_unseen:
-                        self._scroll_following_list()
+                        if self._scroll_following_list() is False:
+                            scroll_failed = True
                         time.sleep(1.5)
                         scroll_attempts += 1
+
+            if stats['complete'] and stats['total_seen'] > 0:
+                stats['departures'] = self._record_following_departures(
+                    account_id, known_usernames, seen_on_screen, stats)
 
             stats['success'] = True
             self.logger.info(
@@ -292,6 +342,9 @@ class SyncFollowingMixin:
         """
         config = config or {}
         stats = {
+            'fans_count': 0,
+            # Legacy keys the desktop reads: `non_followers_count` has always been the size of
+            # this category, i.e. the fans; `mutuals_count` was a deduction that no longer exists.
             'non_followers_count': 0,
             'mutuals_count': 0,
             'success': False,
@@ -315,8 +368,13 @@ class SyncFollowingMixin:
             if unified_layout.exists:
                 # Unified view open: tap the followers tab
                 self.logger.debug("Already in unified follow list view, switching to Followers tab")
-                followers_tab = d.xpath(UNFOLLOW_SELECTORS.unified_followers_tab_selector(active_package))
-                if followers_tab.exists:
+                followers_tab = next(
+                    (tab for tab in (d.xpath(selector) for selector
+                                     in UNFOLLOW_SELECTORS.unified_followers_tab_selectors(active_package))
+                     if tab.exists),
+                    None,
+                )
+                if followers_tab is not None:
                     if not tap_element_human(self.device, followers_tab, logger=self.logger):
                         followers_tab.click()
                 else:
@@ -346,10 +404,7 @@ class SyncFollowingMixin:
             follow_back_visible = False
             for wait in range(5):
                 time.sleep(1)
-                if d(
-                    resourceId=UNFOLLOW_SELECTORS.active_follow_list_button_resource_id(active_package),
-                    text=UNFOLLOW_SELECTORS.follow_back_button_text,
-                ).exists:
+                if self._has_follow_back_row():
                     follow_back_visible = True
                     self.logger.debug(f"Non-followers view loaded after {wait + 1}s")
                     break
@@ -359,54 +414,28 @@ class SyncFollowingMixin:
 
             # Extract every non-reciprocal account
             non_follower_usernames = self._extract_all_non_followers()
-            stats['non_followers_count'] = len(non_follower_usernames)
+            stats['non_followers_count'] = len(non_follower_usernames)  # the fans, see above
 
             self.logger.info(f"📋 Found {len(non_follower_usernames)} non-followers")
 
-            # Update the database
+            # These are FANS: they follow us and we do not follow them. That is all the category
+            # says. Until 2026-09-24 this block also wrote each fan as a FOLLOWING marked
+            # "does not follow back" (a following row for an account we do not follow), and marked
+            # every stored following absent from the category as a mutual: absent from the fans says
+            # nothing about whether an account WE follow follows us. Reciprocity now comes from the
+            # full followers sync of the run and the "Follows you" badge read on the profile.
             for username in non_follower_usernames:
-                InstagramFollowGraphService.mark_not_follower_back(username, account_id)
-
-            # Every stored following ABSENT from that list is reciprocal
-            all_followings = InstagramFollowGraphService.get_active_following_usernames(account_id)
-            non_followers_set = set(u.lower() for u in non_follower_usernames)
-
-            all_followings_lower = {u.lower() for u in all_followings}
-
-            for username in all_followings:
-                if username.lower() not in non_followers_set:
-                    InstagramFollowGraphService.mark_follower_back(username, account_id)
-                    stats['mutuals_count'] += 1
-
-            # ── Populate the follower side of the graph ──
-            # 1. Entries from "don't follow back" = confirmed followers
-            fans_count = 0
-            for username in non_follower_usernames:
-                is_following = username.lower() in all_followings_lower
                 InstagramFollowGraphService.upsert_follower(
                     username=username,
                     account_id=account_id,
-                    is_following_back=is_following,
-                    source='non_followers_category',
+                    is_following_back=False,
+                    source='fans_category',
                 )
-                if not is_following:
-                    fans_count += 1
-
-            # 2. Mutuals = our followings confirmed as followers too
-            for username in all_followings:
-                if username.lower() not in non_followers_set:
-                    InstagramFollowGraphService.upsert_follower(
-                        username=username,
-                        account_id=account_id,
-                        is_following_back=True,
-                        source='mutual_detection',
-                    )
-
-            stats['fans_count'] = fans_count
+            stats['fans_count'] = len(non_follower_usernames)
             stats['success'] = True
             self.logger.info(
-                f"✅ Non-follower sync complete: {stats['non_followers_count']} non-followers, "
-                f"{stats['mutuals_count']} mutuals, {fans_count} fans"
+                f"✅ Fans category read: {stats['fans_count']} followers you do not follow back "
+                f"(no reciprocity deduced for your followings)"
             )
 
             # Close the view to come back to a clean state
@@ -476,7 +505,7 @@ class SyncFollowingMixin:
         try:
             d = self.device.device
             pkg = get_active_package()
-            xpaths = UNFOLLOW_SELECTORS.non_followers_category_selectors(pkg)
+            xpaths = UNFOLLOW_SELECTORS.fans_category_selectors(pkg)
             for i, xpath in enumerate(xpaths):
                 el = d.xpath(xpath)
                 if el.exists:
@@ -543,11 +572,7 @@ class SyncFollowingMixin:
             username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
 
             # Confirm the right view through the presence of the follow-back button
-            follow_back_btn = d(
-                resourceId=UNFOLLOW_SELECTORS.active_follow_list_button_resource_id(active_package),
-                text=UNFOLLOW_SELECTORS.follow_back_button_text
-            )
-            if not follow_back_btn.exists:
+            if not self._has_follow_back_row():
                 self.logger.debug("No 'Follow back' buttons found — may not be in non-followers view")
                 return results
 
@@ -568,6 +593,46 @@ class SyncFollowingMixin:
             self.logger.debug(f"Error extracting non-follower usernames: {e}")
 
         return results
+
+    # Departures one read may mark at most: beyond, the read is more likely wrong than the base.
+    max_departure_share = 0.10
+    min_departures_cap = 5
+
+    def _record_following_departures(self, account_id: int, known: Set[str], seen: Set[str],
+                                     stats: Optional[Dict[str, Any]] = None) -> int:
+        """Mark as unfollowed the accounts the base says we follow and a COMPLETE read missed.
+
+        They were unfollowed elsewhere: by hand, from another device, or by Instagram. Until
+        2026-09-24 the sync never saw a departure, and such an account stayed "followed" in the
+        base forever. Called only after a complete read of the list; a partial one proves nothing.
+        A wrong mark is harmless in the safe direction (one candidate fewer), and the next sync
+        that sees the account clears it (`upsert_following`). More departures than a tenth of the
+        known followings (5 at least) in one read are not applied: logged, and left to Kevin.
+        """
+        seen_lower = {name.lower() for name in seen}
+        gone = sorted(name for name in known if name.lower() not in seen_lower)
+        cap = max(self.min_departures_cap, int(len(known) * self.max_departure_share))
+        if len(gone) > cap:
+            self.logger.warning(
+                f"📉 {len(gone)} followings missing from a complete read (cap {cap}): "
+                "not applied, the read is more likely wrong than the base"
+            )
+            if stats is not None:
+                stats['departures_withheld'] = len(gone)
+            return 0
+        for username in gone:
+            InstagramFollowGraphService.mark_unfollowed(username, account_id)
+        if gone:
+            self.logger.info(f"📉 {len(gone)} account(s) no longer followed (unfollowed elsewhere)")
+        return len(gone)
+
+    def _has_follow_back_row(self) -> bool:
+        """Does a row of the open list offer to follow back ("Follow back", "Suivre en retour")?
+
+        Read through the shared state classifier, never a literal label.
+        """
+        return any(row['state'] == 'follow_back'
+                   for row in self._visible_follow_rows(require_username=False))
 
     def _is_valid_username(self, username: str) -> bool:
         """Is this string a valid Instagram username?"""

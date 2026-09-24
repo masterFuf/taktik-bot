@@ -1,154 +1,130 @@
-"""Decision logic for whether to unfollow an account.
+"""The on-screen half of the unfollow decision: what the base cannot know.
 
-Priority order:
-1. Whitelist → always SKIP (never unfollow)
-2. Blacklist → always UNFOLLOW (force)
-3. Bot-follows-only → skip if not followed by bot
-4. Cooldown → skip if followed too recently
-5. Mode-based logic (non-followers / mutual / oldest / all)
-6. Safety checks (verified, business)
+The candidates come from the base (`unfollow/candidates.py`). Before an unfollow, the engine opens
+the candidate's profile from its list row and checks what only the screen shows: the "Follows you"
+badge (the modes that depend on reciprocity), and verified or business accounts. In doubt, no
+unfollow.
+
+Until 2026-09-24 this module held a decision nobody called, which reached each profile through
+the search, took a missing badge as "does not follow back" ("in doubt, unfollow"), and stopped its
+extraction after one scroll.
 """
 
 import time
-from typing import Dict, Any, Optional, List
-
-from taktik.core.database import get_db_service
-from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
+from typing import Any, Dict, Optional
 
 
 class UnfollowDecisionMixin:
-    """Mixin: determine whether an account should be unfollowed."""
-    
-    def _should_unfollow_account(self, username: str, config: Dict[str, Any]) -> tuple:
+    """Mixin: checks run on the candidate's profile, opened from its row of the following list."""
+
+    # Bounded wait for the profile to open after a tap on the row (class attribute for tests).
+    profile_open_timeout = 4.0
+    # Bounded wait for the relationship of the open profile (badge, header button) to load.
+    badge_wait_timeout = 2.0
+
+    def _profile_follows_you(self, username: str) -> Optional[bool]:
+        """Does @username follow us, read on its open profile: True, False, or None (unknown).
+
+        The last check before an unfollow (U6, 2026-09-24): the base chose the candidate, the
+        profile confirms. The badge is read through the localized `unfollow.follows_back_indicators`
+        ("Follows you", "Vous suit"). None whenever the screen is not @username's profile: the
+        ABSENCE of a badge proves something only on the right, loaded profile. The caller treats
+        None as a doubt, and a doubt as no unfollow.
+
+        The header and the name come from the list row's cache and show first; the badge comes
+        with the relationship data, like the header's action button. An absence read before that
+        button was read as "does not follow back", so the unfollow went on (review of
+        2026-09-24): the badge is now awaited, and its absence counts only once the header button
+        says what our relationship is. Neither within the wait: None.
         """
-        Déterminer si on doit unfollow un compte.
-        
-        Priority:
-        1. Whitelist check (always skip)
-        2. Blacklist check (always unfollow)
-        3. Bot-follows-only check
-        4. Cooldown period check
-        5. Mode-based filtering (non-followers/mutual/oldest/all)
-        6. Safety checks (verified, business)
-        
-        Args:
-            username: Nom d'utilisateur
-            config: Configuration
-            
-        Returns:
-            Tuple (should_unfollow: bool, reason: str)
-        """
         try:
-            # ── 1. WHITELIST (highest priority — never unfollow) ──
-            whitelist: List[str] = config.get('whitelist', [])
-            if username.lower() in [w.lower() for w in whitelist]:
-                self.logger.info(f"⬜ @{username} is whitelisted, skipping")
-                return False, "whitelisted"
-            
-            # ── 2. BLACKLIST (force unfollow, skip all other checks) ──
-            blacklist: List[str] = config.get('blacklist', [])
-            if username.lower() in [b.lower() for b in blacklist]:
-                self.logger.info(f"⬛ @{username} is blacklisted, forcing unfollow")
-                return True, "blacklisted"
-            
-            # ── 3. BOT-FOLLOWS-ONLY (skip if not followed by bot) ──
-            if config.get('bot_follows_only', False):
-                if not self._was_followed_by_bot(username):
-                    return False, "not_followed_by_bot"
-            
-            # ── 4. COOLDOWN (skip if followed too recently) ──
-            min_days = config.get('min_days_since_follow', 0)
-            if min_days > 0:
-                days_since_follow = self._get_days_since_follow(username)
-                if days_since_follow is not None and days_since_follow < min_days:
-                    return False, f"recent_follow_{days_since_follow}d"
-            
-            # ── 5. Navigate to profile for on-screen checks ──
-            unfollow_mode = config.get('unfollow_mode', 'non-followers')
-            
-            # For 'all' mode, skip profile visit if no safety checks needed
-            needs_profile_visit = (
-                unfollow_mode in ('non-followers', 'mutual')
-                or config.get('skip_verified', True)
-                or config.get('skip_business', False)
-            )
-            
-            if needs_profile_visit:
-                if not self.nav_actions.navigate_to_profile(username):
-                    return False, "cannot_navigate"
-                time.sleep(1.5)
-            
-            # ── 6. SAFETY CHECKS (verified, business) ──
-            if config.get('skip_verified', True) and needs_profile_visit:
-                if self.detection_actions.is_verified_account():
-                    self._go_back_to_following_list()
-                    return False, "verified_account"
-            
-            if config.get('skip_business', False) and needs_profile_visit:
-                if self.detection_actions.is_business_account():
-                    self._go_back_to_following_list()
-                    return False, "business_account"
-            
-            # ── 7. MODE-BASED FILTERING ──
-            if unfollow_mode == 'non-followers':
-                # Only unfollow if user does NOT follow back
-                if self._does_user_follow_back(username):
-                    self._go_back_to_following_list()
-                    return False, "is_follower"
-            elif unfollow_mode == 'mutual':
-                # Only unfollow mutual followers (users who DO follow back)
-                if not self._does_user_follow_back(username):
-                    self._go_back_to_following_list()
-                    return False, "not_mutual"
-            # 'oldest' and 'all' modes: unfollow regardless of follow-back status
-            
-            return True, "should_unfollow"
-            
-        except Exception as e:
-            self.logger.debug(f"Error checking if should unfollow @{username}: {e}")
-            return False, f"error: {e}"
-    
-    def _does_user_follow_back(self, username: str) -> bool:
-        """Does this user follow us back?"""
-        try:
-            return self._is_element_present(self._unfollow_sel.follows_back_indicators)
-            
-        except Exception as e:
-            self.logger.debug(f"Error checking if @{username} follows back: {e}")
-            return False  # When in doubt, assume they do not follow back
-    
-    def _was_followed_by_bot(self, username: str) -> bool:
-        """Check if this user was originally followed by the bot (exists in interaction_history as FOLLOW)."""
-        try:
-            account_id = self._get_account_id()
-            if not account_id:
-                return False
-            
-            db_service = get_db_service()
-            if not db_service:
-                return False
-            
-            # Query interaction_history for a FOLLOW action targeting this username
-            return InstagramFollowGraphService.has_bot_follow_record(username, account_id)
-            
-        except Exception as e:
-            self.logger.debug(f"Error checking bot follow record for @{username}: {e}")
-            return False  # Safety: if we can't check, skip
-    
-    def _get_days_since_follow(self, username: str) -> Optional[int]:
-        """Days elapsed since the follow, read from the database."""
-        try:
-            account_id = self._get_account_id()
-            if not account_id:
+            if not self._on_profile_of(username):
                 return None
-            
-            # Look it up in the interaction history
-            db_service = get_db_service()
-            if db_service:
-                return InstagramFollowGraphService.get_days_since_follow(username, account_id)
-            
-            return None
-            
+            deadline = time.time() + self.badge_wait_timeout
+            while True:
+                if self._is_element_present(self._unfollow_sel.follows_back_indicators):
+                    return True
+                if self._relationship_loaded():
+                    # Loaded with the same data as the badge: look once more, then conclude.
+                    return bool(self._is_element_present(self._unfollow_sel.follows_back_indicators))
+                if time.time() >= deadline:
+                    return None
+                time.sleep(0.3)
         except Exception as e:
-            self.logger.debug(f"Error getting days since follow for @{username}: {e}")
+            self.logger.debug(f"Could not read the follows-you badge of @{username}: {e}")
             return None
+
+    def _relationship_loaded(self) -> bool:
+        """Does the profile header's action button say what our relationship is (loaded)?"""
+        try:
+            return self.click_actions.get_follow_button_state() != 'unknown'
+        except Exception:
+            return False
+
+    def _on_profile_of(self, username: str) -> bool:
+        """Is the screen the profile of @username (not another one, not the list)?"""
+        if not self.detection_actions.is_on_profile_screen():
+            return False
+        shown = (self.detection_actions.get_username_from_profile() or '').strip().lstrip('@')
+        return shown.lower() == username.strip().lstrip('@').lower()
+
+    def _wait_profile_of(self, username: str) -> bool:
+        """Wait (bounded) for @username's profile after the tap on its row."""
+        deadline = time.time() + self.profile_open_timeout
+        while True:
+            try:
+                if self._on_profile_of(username):
+                    return True
+            except Exception:
+                pass
+            if time.time() >= deadline:
+                return False
+            time.sleep(0.5)
+
+    def _profile_refusal(self, row: Dict[str, Any], mode: str, forced: bool,
+                         config: Dict[str, Any]) -> Optional[str]:
+        """Open the row's profile, run the checks the base cannot, come back to the list.
+
+        Returns None when the unfollow may go on, else the reason for NOT unfollowing:
+        'profile_unreadable' (the profile did not open, or is someone else's), 'follows_back'
+        (non-followers mode, badge shown), 'not_mutual' (mutual mode, badge absent), 'verified',
+        'business'. A blacklisted account is forced: no check. With neither reciprocity to confirm
+        nor account kind to check, the profile is not opened at all.
+        """
+        if forced:
+            return None
+        needs_badge = mode in ('non-followers', 'mutual')
+        skip_verified = bool(config.get('skip_verified', True))
+        skip_business = bool(config.get('skip_business', False))
+        if not (needs_badge or skip_verified or skip_business):
+            return None
+
+        username = row['username']
+        name_element = row.get('name_element')
+        if name_element is None:
+            return 'profile_unreadable'
+        try:
+            from taktik.core.shared.behavior.tap import tap_element_human
+
+            if not tap_element_human(self.device, name_element, logger=self.logger):
+                name_element.click()
+            if not self._wait_profile_of(username):
+                return 'profile_unreadable'
+            if needs_badge:
+                follows = self._profile_follows_you(username)
+                if follows is None:
+                    return 'profile_unreadable'
+                if mode == 'non-followers' and follows:
+                    return 'follows_back'
+                if mode == 'mutual' and not follows:
+                    return 'not_mutual'
+            if skip_verified and self.detection_actions.is_verified_account():
+                return 'verified'
+            if skip_business and self.detection_actions.is_business_account():
+                return 'business'
+            return None
+        except Exception as e:
+            self.logger.debug(f"Profile check of @{username} failed: {e}")
+            return 'profile_unreadable'
+        finally:
+            self._go_back_to_following_list()

@@ -155,12 +155,32 @@ class SocialGraphRepository(BaseRepository):
 
         try:
             existing = self.query_one(
-                "SELECT 1 FROM social_graph_sync "
+                "SELECT unfollowed_at, source FROM social_graph_sync "
                 "WHERE platform = ? AND account_id = ? AND username = ? COLLATE NOCASE AND direction = 'following'",
                 (self.platform, account_id, username),
             )
+            bot_follow = source == "bot_follow"
+            reopening = existing is not None and existing[0] is not None
+            # A row reopened by a sync keeps its "refollow" mark until the bot itself follows the
+            # account: the next syncs would otherwise overwrite it, and the old bot follow would
+            # count again for a follow the bot did not make (see `list_active_followings`).
+            keep_mark = existing is not None and existing[1] == "refollow" and not bot_follow
             self._upsert_social_graph(account_id, username, "following",
-                                      display_name=display_name, followed_by_bot=followed_by_bot, source=source)
+                                      display_name=display_name, followed_by_bot=followed_by_bot,
+                                      source=None if keep_mark else source)
+            if reopening:
+                # Seen in the following list again, or followed again: followed NOW, a new
+                # following episode that starts today. An earlier unfollow is history (the upsert's
+                # COALESCE would keep `unfollowed_at`, and the account stayed "unfollowed" forever).
+                # Not followed by the bot this time unless the bot just did it: marked "refollow",
+                # so only a bot FOLLOW of this new episode makes it the bot's again.
+                self.execute(
+                    "UPDATE social_graph_sync SET unfollowed_at = NULL, first_seen_at = datetime('now'), "
+                    "source = ? "
+                    "WHERE platform = ? AND account_id = ? AND username = ? COLLATE NOCASE "
+                    "AND direction = 'following' AND unfollowed_at IS NOT NULL",
+                    ("bot_follow" if bot_follow else "refollow", self.platform, account_id, username),
+                )
             return "updated" if existing else "new"
         except Exception as exc:
             logger.debug(f"Error in upsert_following for @{username}: {exc}")
@@ -180,6 +200,93 @@ class SocialGraphRepository(BaseRepository):
         except Exception as exc:
             logger.debug(f"Error in get_active_following_usernames: {exc}")
             return set()
+
+    def list_active_followings(self, account_id: int) -> list:
+        """The active followings with who followed them and when: the unfollow candidates' source.
+
+        One row per account followed (`unfollowed_at` empty): `username`, `first_seen_at` (when the
+        current following episode was first seen) and `last_bot_follow_at` (the bot's last
+        successful FOLLOW of that profile, from `interactions`, empty for a follow made by hand).
+        Read live from `interactions` rather than from the `followed_by_bot` flag, which is only as
+        fresh as the last sync that wrote it.
+
+        A bot FOLLOW counts only for the CURRENT episode: it must be later than the account's last
+        successful UNFOLLOW by the same account (same clock), and, on a row a sync reopened
+        (`source = 'refollow'`, a re-follow the bot did not make), later than the reopening.
+        Without that, an account the bot followed in August and unfollowed, then followed again by
+        hand in September, passed for the bot's, 50 days old (review of 2026-09-24). The reopening
+        is stamped in UTC and interactions in local time: 14 hours of slack cover every offset.
+        """
+        if not account_id:
+            return []
+        try:
+            return self.query_orm_first(
+                """WITH follows AS (
+                       SELECT lower(p.username) AS uname, MAX(i.interaction_time) AS at
+                         FROM interactions i
+                         JOIN social_profiles p ON p.legacy_profile_id = i.profile_id
+                        WHERE i.platform = ? AND p.platform = ? AND i.account_id = ?
+                          AND i.interaction_type = 'FOLLOW' AND i.success = 1
+                        GROUP BY lower(p.username)
+                   ), unfollows AS (
+                       SELECT lower(p.username) AS uname, MAX(i.interaction_time) AS at
+                         FROM interactions i
+                         JOIN social_profiles p ON p.legacy_profile_id = i.profile_id
+                        WHERE i.platform = ? AND p.platform = ? AND i.account_id = ?
+                          AND i.interaction_type = 'UNFOLLOW' AND i.success = 1
+                        GROUP BY lower(p.username)
+                   )
+                   SELECT s.username AS username,
+                          s.first_seen_at AS first_seen_at,
+                          CASE
+                            WHEN f.at IS NULL THEN NULL
+                            WHEN u.at IS NOT NULL AND julianday(f.at) <= julianday(u.at) THEN NULL
+                            WHEN s.source = 'refollow'
+                             AND julianday(f.at) < julianday(s.first_seen_at) - 14.0 / 24.0 THEN NULL
+                            ELSE f.at
+                          END AS last_bot_follow_at
+                     FROM social_graph_sync s
+                     LEFT JOIN follows f ON f.uname = lower(s.username)
+                     LEFT JOIN unfollows u ON u.uname = lower(s.username)
+                    WHERE s.platform = ? AND s.account_id = ?
+                      AND s.direction = 'following' AND s.unfollowed_at IS NULL""",
+                (self.platform, self.platform, account_id,
+                 self.platform, self.platform, account_id,
+                 self.platform, account_id),
+            )
+        except Exception as exc:
+            logger.debug(f"Error in list_active_followings: {exc}")
+            return []
+
+    def set_followings_reciprocity(self, account_id: int, follower_usernames) -> int:
+        """After a COMPLETE read of the followers list: every active following is reciprocal
+        (1) when it was seen among the followers, else not (0). Returns the rows written.
+
+        Nothing wrote `is_reciprocal` on the following rows since the fans category stopped
+        deducing it (U6), and the page's mutual / non-follower counts froze (review of
+        2026-09-24). Call it only with a proven-complete read: absence means "no" only then.
+        """
+        if not account_id:
+            return 0
+        followers = {str(name).lower() for name in (follower_usernames or ())}
+        try:
+            rows = self.query(
+                "SELECT username FROM social_graph_sync "
+                "WHERE platform = ? AND account_id = ? AND direction = 'following' AND unfollowed_at IS NULL",
+                (self.platform, account_id),
+            )
+            updates = [(1 if row[0].lower() in followers else 0, self.platform, account_id, row[0])
+                       for row in rows]
+            if not updates:
+                return 0
+            return self.execute_many(
+                "UPDATE social_graph_sync SET is_reciprocal = ? "
+                "WHERE platform = ? AND account_id = ? AND username = ? AND direction = 'following'",
+                updates,
+            )
+        except Exception as exc:
+            logger.debug(f"Error in set_followings_reciprocity: {exc}")
+            return 0
 
     def set_following_follower_back(
         self,

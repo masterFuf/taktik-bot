@@ -193,6 +193,24 @@ def daily_budget(count: Any, limit: Any) -> StopReason:
     )
 
 
+def unfollows_cap(count: Any, limit: Any) -> StopReason:
+    """The session made the unfollows it was asked for (the page's "Maximum d'unfollows")."""
+    return _reason(
+        "unfollows_cap", FAMILY_OK,
+        f"Unfollows limit reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
+def daily_unfollow_budget(count: Any, limit: Any) -> StopReason:
+    """The day's unfollow budget from the warmup policy is spent (a budget of its own)."""
+    return _reason(
+        "daily_unfollow_budget", FAMILY_OK,
+        f"Daily unfollow budget reached ({count}/{limit})",
+        count=count, limit=limit,
+    )
+
+
 def session_action_cap(count: Any, limit: Any) -> StopReason:
     return _reason(
         "session_action_cap", FAMILY_OK,
@@ -280,6 +298,8 @@ _FAMILY_BY_CODE = {
     "navigation_lost": FAMILY_FAILED,
     "stuck_at_top": FAMILY_FAILED,
     "action_blocked": FAMILY_FAILED,
+    "unfollow_unconfirmed": FAMILY_FAILED,
+    "no_account": FAMILY_FAILED,
     "list_unavailable": FAMILY_FAILED,
     "followers_list_unavailable": FAMILY_FAILED,
     "empty_plan": FAMILY_FAILED,
@@ -336,6 +356,32 @@ def action_blocked() -> StopReason:
     this dialog, and the difference decides whether the next gesture makes things worse.
     """
     return _reason("action_blocked", FAMILY_FAILED, "action_blocked")
+
+
+def unfollow_unconfirmed(count: Any) -> StopReason:
+    """Several unfollows in a row the screen did not confirm: a silent refusal, or an unreadable
+    row. Tapping on would repeat the refused action, the pattern that ends in a block."""
+    return _reason(
+        "unfollow_unconfirmed", FAMILY_FAILED,
+        f"{count} unfollows in a row not confirmed by the screen",
+        count=count,
+    )
+
+
+def no_unfollow_candidates(unfollowed: Any, kept: Any) -> StopReason:
+    """The unfollow has nobody (left) to unfollow: every account it follows is kept by a rule
+    (whitelist, bot follows only, delay, mode) or was handled already. An expected end: a run
+    that finds nothing to clean is not a failure, and must not relaunch its syncs for nothing."""
+    return _reason(
+        "no_unfollow_candidates", FAMILY_OK,
+        f"No account left to unfollow ({unfollowed} unfollowed, {kept} kept by the rules)",
+        unfollowed=unfollowed, kept=kept,
+    )
+
+
+def no_account() -> StopReason:
+    """The bot could not tell which account is logged in: nothing can be decided for it."""
+    return _reason("no_account", FAMILY_FAILED, "no_account")
 
 
 def stuck_at_top(scans: Any) -> StopReason:

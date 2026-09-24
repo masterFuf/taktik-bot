@@ -87,12 +87,17 @@ def _build_action_config(
             "type": "unfollow",
             "max_unfollows": unfollow_config.get("maxUnfollows", max_profiles),
             "unfollow_mode": unfollow_config.get("unfollowMode", "non-followers"),
-            "min_delay": 2,
-            "max_delay": 5,
+            # Pause between two unfollows, in seconds: the page's and the scheduler's setting,
+            # 2 to 5 s when absent (Kevin, 2026-09-23: fast by default, prudence comes from the
+            # volume caps, 25-60 s between unfollows looks MORE suspect).
+            "min_delay": float(unfollow_config.get("minDelay", 2) or 2),
+            "max_delay": float(unfollow_config.get("maxDelay", 5) or 5),
             "skip_verified": unfollow_config.get("skipVerified", True),
             "skip_business": unfollow_config.get("skipBusiness", False),
             "min_days_since_follow": unfollow_config.get("minDaysSinceFollow", 3),
-            "bot_follows_only": unfollow_config.get("botFollowsOnly", False),
+            # On by default (Kevin, 2026-09-23): manual follows are protected unless the user
+            # unticks it, the same default as the engine's.
+            "bot_follows_only": unfollow_config.get("botFollowsOnly", True),
             "whitelist": unfollow_config.get("whitelist", []),
             "blacklist": unfollow_config.get("blacklist", []),
         }
@@ -504,6 +509,8 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
             "max_actions_per_day": int(warmup.get("maxActionsPerDay", 0) or 0),
             "max_follows_per_day": int(warmup.get("maxFollowsPerDay", 0) or 0),
             "max_comments_per_day": int(warmup.get("maxCommentsPerDay", 0) or 0),
+            # A budget of its own: unfollows do not spend the like/follow/comment budget.
+            "max_unfollows_per_day": int(warmup.get("maxUnfollowsPerDay", 0) or 0),
             "min_action_gap_seconds": float(warmup.get("minActionGapSeconds", 0) or 0),
             "max_actions_per_session": int(warmup.get("maxActionsPerSession", 0) or 0),
         }

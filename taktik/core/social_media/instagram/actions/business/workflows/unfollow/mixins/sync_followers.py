@@ -21,6 +21,11 @@ from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
+from ..list_proof import read_is_complete, scrolls_for
+
+# Row states of a real follower: the button offers to follow back, says we follow, or that we
+# asked to. A plain "Follow" row is a suggestion under the list, not a follower.
+FOLLOWER_ROW_STATES = frozenset({'following', 'follow_back', 'requested'})
 
 
 class SyncFollowersMixin:
@@ -47,12 +52,17 @@ class SyncFollowersMixin:
         """
         config = config or {}
         mode = config.get('mode', 'fast')
-        max_scrolls = config.get('max_scrolls', 100)
 
         stats = {
             'new_count': 0,
             'updated_count': 0,
             'total_seen': 0,
+            # True only when the read reached the list's exact count (unfollow/list_proof.py): the
+            # unfollow trusts the ABSENCE of an account from this list only then (candidates.py).
+            'complete': False,
+            'expected': None,
+            'end_reached': False,
+            'usernames': set(),
             'success': False,
         }
 
@@ -75,6 +85,14 @@ class SyncFollowersMixin:
                 self.logger.error("sync_followers_list: failed to open followers list")
                 return stats
             time.sleep(3)
+            if not self._ensure_followers_tab():
+                return stats
+            expected = self._list_tab_count('followers')
+            stats['expected'] = expected
+            # 100 scrolls read about 450 accounts: a bigger list could never end (review of
+            # 2026-09-24). The bound follows the count when the tab gives it.
+            max_scrolls = config.get('max_scrolls') or scrolls_for(expected, 100)
+            scroll_failed = False
 
             # Wait for the list items to be actually loaded
             d = self.device.device
@@ -116,6 +134,9 @@ class SyncFollowersMixin:
                 if not username_elements.exists:
                     self.logger.debug("No username elements found on screen")
                     break
+                # The state of each row's button: a suggestion row ("Follow") is not a follower,
+                # and a row whose button cannot be read yet is read again after the next scroll.
+                row_states = {row['username'].lower(): row['state'] for row in self._visible_follow_rows()}
 
                 new_found = False
                 count = username_elements.count
@@ -129,6 +150,8 @@ class SyncFollowersMixin:
                         continue
 
                     if username in seen_on_screen:
+                        continue
+                    if row_states.get(username.lower()) not in FOLLOWER_ROW_STATES:
                         continue
                     seen_on_screen.add(username)
                     stats['total_seen'] += 1
@@ -228,14 +251,21 @@ class SyncFollowersMixin:
                     no_new_count += 1
                     max_no_new = 3 if mode != 'enriched' else 5
                     if no_new_count >= max_no_new:
-                        self.logger.info(f"No new followers after {max_no_new} consecutive scrolls — end of list")
+                        stats['end_reached'] = True
+                        stats['complete'] = read_is_complete(len(seen_on_screen), expected, scroll_failed)
+                        self.logger.info(
+                            f"No new followers after {max_no_new} consecutive scrolls: "
+                            f"{len(seen_on_screen)} read of {expected if expected is not None else '?'} "
+                            f"({'complete' if stats['complete'] else 'NOT proven complete'})"
+                        )
                         break
                 else:
                     no_new_count = 0
 
                 # Scroll only outside enriched mode, or when nothing unseen is left
                 if mode != 'enriched':
-                    self._scroll_followers_list()
+                    if self._scroll_followers_list() is False:
+                        scroll_failed = True
                     time.sleep(1.2)
                     scroll_attempts += 1
                 else:
@@ -251,10 +281,15 @@ class SyncFollowersMixin:
                             except Exception:
                                 continue
                     if not has_unseen:
-                        self._scroll_followers_list()
+                        if self._scroll_followers_list() is False:
+                            scroll_failed = True
                         time.sleep(1.2)
                         scroll_attempts += 1
 
+            stats['usernames'] = set(seen_on_screen)
+            if stats['complete']:
+                stats['reciprocity_written'] = InstagramFollowGraphService.set_followings_reciprocity(
+                    account_id, seen_on_screen)
             stats['success'] = True
             self.logger.info(
                 f"✅ Followers sync complete: {stats['new_count']} new, "
@@ -312,12 +347,13 @@ class SyncFollowersMixin:
 
         return results
 
-    def _scroll_followers_list(self):
-        """Scroll the followers list down (humanized controlled scroll, was fixed-centre swipe)."""
+    def _scroll_followers_list(self) -> bool:
+        """Scroll the followers list down (humanized controlled scroll). False when it failed."""
         try:
-            human_scroll_raw(self.device.device, "down", distance_ratio=0.4)
+            return human_scroll_raw(self.device.device, "down", distance_ratio=0.4) is not False
         except Exception as e:
             self.logger.debug(f"Error scrolling followers list: {e}")
+            return False
 
     def _emit_sync_progress(self, list_type: str, stats: Dict[str, Any]):
         """Emit IPC progress message for the frontend."""

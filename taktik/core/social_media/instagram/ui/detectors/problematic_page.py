@@ -578,26 +578,6 @@ class ProblematicPageDetector:
             return False
         return self._is_page_detected(content, indicators)
 
-    def should_stop_session(self) -> bool:
-        """
-        Should the session stop, given how many rate limits were seen?
-        
-        Safety rule: stop past a few rate limits in one session, to avoid a
-        permanent restriction.
-        
-        Returns:
-                bool: True when the session must stop
-        """
-        threshold = 3
-        detected = self.rate_limit_stats['detected_count']
-        
-        if detected >= threshold:
-            logger.error(f"🛑 SEUIL DE SÉCURITÉ ATTEINT: {detected} rate limits détectés (seuil: {threshold})")
-            logger.error("⚠️ Arrêt de la session pour éviter un bannissement permanent")
-            return True
-        
-        return False
-
 
 def create_problematic_page_detector(device, debug_mode: bool = False) -> ProblematicPageDetector:
     """

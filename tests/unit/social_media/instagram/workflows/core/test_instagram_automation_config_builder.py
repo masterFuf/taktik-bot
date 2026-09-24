@@ -224,6 +224,7 @@ def test_warmup_policy_is_passed_through_to_session_settings():
                 "maxActionsPerDay": 50,
                 "maxFollowsPerDay": 10,
                 "maxCommentsPerDay": 5,
+                "maxUnfollowsPerDay": 10,
                 "minActionGapSeconds": 45,
                 "maxActionsPerSession": 25,
             },
@@ -234,6 +235,7 @@ def test_warmup_policy_is_passed_through_to_session_settings():
         "max_actions_per_day": 50,
         "max_follows_per_day": 10,
         "max_comments_per_day": 5,
+        "max_unfollows_per_day": 10,
         "min_action_gap_seconds": 45.0,
         "max_actions_per_session": 25,
     }
