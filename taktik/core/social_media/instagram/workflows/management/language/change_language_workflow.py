@@ -138,7 +138,12 @@ class ChangeLanguageWorkflow:
         # 1) Own profile
         self._notify('open_profile', 'running', 'Opening profile')
         if not self._click_first_match(self.auth_selectors.profile_tab_button, 'Profile tab'):
-            return self._fail(result, 'Profile tab not found', 'profile_tab_not_found', 'open_profile')
+            # Started on a screen without the tab bar (a reel, a search, the 410 notifications):
+            # back to the feed, as the search tab does, then once more.
+            from ....actions.atomic.navigation import NavigationActions
+            NavigationActions(self.device).navigate_to_home()
+            if not self._click_first_match(self.auth_selectors.profile_tab_button, 'Profile tab'):
+                return self._fail(result, 'Profile tab not found', 'profile_tab_not_found', 'open_profile')
         time.sleep(2)
         self._notify('open_profile', 'done')
 
