@@ -1,43 +1,104 @@
-"""Agent runtime handler for the TikTok For You workflow."""
+"""The one launcher of a TikTok For You run, and its Agent handler.
+
+`run_tiktok_for_you` is what the desktop bridge calls and what the handler registered as
+`tiktok.automation.for_you` (the CLI) calls. What differs between the two is injected:
+- `tiktok_startup() -> TikTokStartup`: clean restart, language, account; it supplies the device
+  the run uses. Without it the injected `device` is used as is.
+- `tiktok_ai_hooks(ai_config, language)`: installs the AI hooks the run asks for.
+- `workflow_hook(workflow)`: wires the live events; defaults to the injected `notifier`.
+- `on_finished(stats)`: reports the end of the run.
+No injected callable receives the whole payload, so the app's config contract test can still see
+every key the bot reads.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
     attach_video_callbacks,
-    bool_param,
-    float_param,
-    int_param,
-    list_param,
     merge_invocation_payload,
-    optional_int_param,
-    probability_param,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.for_you.models import ForYouConfig
-from taktik.core.social_media.tiktok.actions.business.workflows.for_you.workflow import ForYouWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows.for_you.payload import (
+    for_you_config_from_payload,
+)
 
 
 TIKTOK_FOR_YOU_WORKFLOW_ID = "tiktok.automation.for_you"
 ForYouWorkflowFactory = Callable[..., Any]
+StartupProvider = Callable[[], Any]
+AIHooks = Callable[[Mapping[str, Any], str], None]
+WorkflowHook = Callable[[Any], None]
+FinishedHook = Callable[[Any], None]
+
+
+def _default_workflow_factory() -> ForYouWorkflowFactory:
+    # Resolved at call time, so the module's class is the one a run gets.
+    from taktik.core.social_media.tiktok.actions.business.workflows.for_you import workflow
+
+    return workflow.ForYouWorkflow
+
+
+def run_tiktok_for_you(
+    payload: Mapping[str, Any],
+    *,
+    device=None,
+    notifier=None,
+    workflow_factory: Optional[ForYouWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
+    tiktok_ai_hooks: Optional[AIHooks] = None,
+    workflow_hook: Optional[WorkflowHook] = None,
+    on_finished: Optional[FinishedHook] = None,
+) -> dict[str, Any]:
+    """Start, hook, configure and run one For You session from a payload."""
+    from taktik.core.social_media.tiktok.workflows.core.ai_hooks import (
+        ai_config_from_payload,
+        app_language_from_payload,
+    )
+
+    run_device = device
+    if tiktok_startup is not None:
+        run_device = tiktok_startup().device
+
+    if tiktok_ai_hooks is not None:
+        tiktok_ai_hooks(ai_config_from_payload(payload), app_language_from_payload(payload))
+
+    config = for_you_config_from_payload(payload)
+    factory = workflow_factory or _default_workflow_factory()
+    workflow = factory(run_device, config)
+
+    if workflow_hook is not None:
+        workflow_hook(workflow)
+    else:
+        attach_video_callbacks(workflow, notifier)
+
+    stats = workflow.run()
+    if on_finished is not None:
+        on_finished(stats)
+    return {"success": True, "stats": stats.to_dict()}
 
 
 def build_tiktok_for_you_handler(
     *,
-    device,
+    device=None,
     notifier=None,
-    workflow_factory: ForYouWorkflowFactory = ForYouWorkflow,
+    workflow_factory: Optional[ForYouWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
+    tiktok_ai_hooks: Optional[AIHooks] = None,
 ) -> WorkflowHandler:
     """Build an injectable For You handler for the Agent runtime."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        merged = merge_invocation_payload(invocation, payload)
-        workflow = workflow_factory(device, _for_you_config(merged))
-        attach_video_callbacks(workflow, notifier)
-        stats = workflow.run()
-        return {"success": True, "stats": stats.to_dict()}
+        return run_tiktok_for_you(
+            merge_invocation_payload(invocation, payload),
+            device=device,
+            notifier=notifier,
+            workflow_factory=workflow_factory,
+            tiktok_startup=tiktok_startup,
+            tiktok_ai_hooks=tiktok_ai_hooks,
+        )
 
     return handler
 
@@ -45,9 +106,11 @@ def build_tiktok_for_you_handler(
 def register_tiktok_for_you_handlers(
     registry: WorkflowRegistry,
     *,
-    device,
+    device=None,
     notifier=None,
-    workflow_factory: ForYouWorkflowFactory = ForYouWorkflow,
+    workflow_factory: Optional[ForYouWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
+    tiktok_ai_hooks: Optional[AIHooks] = None,
 ) -> WorkflowRegistry:
     """Register TikTok For You handlers into an injected Agent registry."""
     registry.register(
@@ -56,48 +119,8 @@ def register_tiktok_for_you_handlers(
             device=device,
             notifier=notifier,
             workflow_factory=workflow_factory,
+            tiktok_startup=tiktok_startup,
+            tiktok_ai_hooks=tiktok_ai_hooks,
         ),
     )
     return registry
-
-
-def _for_you_config(payload: Mapping[str, Any]) -> ForYouConfig:
-    return ForYouConfig(
-        max_videos=int_param(payload, "max_videos", "maxVideos", default=50),
-        min_watch_time=float_param(payload, "min_watch_time", "minWatchTime", default=2.0),
-        max_watch_time=float_param(payload, "max_watch_time", "maxWatchTime", default=8.0),
-        like_probability=probability_param(payload, "like_probability", "likeProbability", default=0.3),
-        follow_probability=probability_param(
-            payload, "follow_probability", "followProbability", default=0.1
-        ),
-        favorite_probability=probability_param(
-            payload, "favorite_probability", "favoriteProbability", default=0.05
-        ),
-        required_hashtags=list_param(payload, "required_hashtags", "requiredHashtags"),
-        excluded_hashtags=list_param(payload, "excluded_hashtags", "excludedHashtags"),
-        min_likes=optional_int_param(payload, "min_likes", "minLikes"),
-        max_likes=optional_int_param(payload, "max_likes", "maxLikes"),
-        max_likes_per_session=int_param(
-            payload, "max_likes_per_session", "maxLikesPerSession", default=50
-        ),
-        max_follows_per_session=int_param(
-            payload, "max_follows_per_session", "maxFollowsPerSession", default=20
-        ),
-        pause_after_actions=int_param(payload, "pause_after_actions", "pauseAfterActions", default=10),
-        pause_duration_min=float_param(
-            payload, "pause_duration_min", "pauseDurationMin", default=30.0
-        ),
-        pause_duration_max=float_param(
-            payload, "pause_duration_max", "pauseDurationMax", default=60.0
-        ),
-        skip_already_liked=bool_param(
-            payload, "skip_already_liked", "skipAlreadyLiked", default=True
-        ),
-        skip_already_followed=bool_param(
-            payload, "skip_already_followed", "skipAlreadyFollowed", default=True
-        ),
-        skip_ads=bool_param(payload, "skip_ads", "skipAds", default=True),
-        follow_back_suggestions=bool_param(
-            payload, "follow_back_suggestions", "followBackSuggestions", default=False
-        ),
-    )

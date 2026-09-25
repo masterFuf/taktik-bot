@@ -37,6 +37,9 @@ def create_tiktok_ai_service(
 def install_profile_ai_hooks(config: dict, *, log: LogCallback = lambda level, msg: None) -> None:
     """Install the profile-relevance and classification hooks for a profile-visiting run.
 
+    The install is `install_profile_ai_hooks_for_run` (core), shared with the CLI; this wrapper
+    adds the stdout emitters and the bridge IPC for `ai_spend`.
+
     Lives here rather than beside one runner because two workflows visit profiles the same way —
     followers and target-profiles — and a second copy is how one of them ends up without the AI
     verdict, or persisting under the wrong platform.
@@ -44,17 +47,24 @@ def install_profile_ai_hooks(config: dict, *, log: LogCallback = lambda level, m
     Does nothing when the run has no AI enabled, and never raises: a broken AI setup must cost
     the verdicts, not the run.
     """
-    ai_config = config.get("ai") or {}
+    from taktik.core.social_media.tiktok.workflows.core.ai_hooks import (
+        ai_config_from_payload,
+        app_language_from_payload,
+    )
+
+    install_run_ai_hooks(ai_config_from_payload(config), app_language_from_payload(config), log=log)
+
+
+def install_run_ai_hooks(ai_config: dict, language: str, *, log: LogCallback = lambda level, msg: None) -> None:
+    """The bridge's AI hooks for a run's `ai` block: verdicts and classifications go to stdout."""
     if not ai_config.get("enabled"):
         return
 
     try:
-        from bridges.tiktok.runtime.ipc import send_profile_classification, send_relevance
-        from taktik.core.social_media.tiktok.workflows.core.ai_hooks import install_tiktok_ai_hooks
-
-        ai_enabled, ai_service = create_tiktok_ai_service(ai_config=ai_config, ipc=None, log=log)
-        if not ai_enabled:
-            return
+        from bridges.tiktok.runtime.ipc import _ipc, send_profile_classification, send_relevance
+        from taktik.core.social_media.tiktok.workflows.core.ai_hooks import (
+            install_profile_ai_hooks_for_run,
+        )
 
         def _emit(username: str, payload: dict) -> None:
             send_relevance(
@@ -74,11 +84,10 @@ def install_profile_ai_hooks(config: dict, *, log: LogCallback = lambda level, m
                 result=f"[{classification.get('niche_category', '?')}] {classification.get('niche', '?')}",
             )
 
-        app_language = config.get("language") or config.get("appLanguage") or "en"
-        install_tiktok_ai_hooks(ai_service, ai_config, log=log, emit_relevance=_emit,
-                                emit_classification=_persist, language=app_language)
+        install_profile_ai_hooks_for_run(ai_config, language, ai_ipc=_ipc, log=log,
+                                         emit_relevance=_emit, emit_classification=_persist)
     except Exception as exc:
         log("warning", f"Could not install TikTok AI hooks: {exc}")
 
 
-__all__ = ["create_tiktok_ai_service", "install_profile_ai_hooks"]
+__all__ = ["create_tiktok_ai_service", "install_profile_ai_hooks", "install_run_ai_hooks"]

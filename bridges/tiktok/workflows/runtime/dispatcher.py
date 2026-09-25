@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Dict
 
 from bridges.tiktok.runtime.ipc import _ipc, logger, send_error
@@ -12,21 +11,41 @@ class UnknownWorkflowError(RuntimeError):
     """Raised after emitting the historical unknown-workflow JSON error."""
 
 
-def load_dispatcher_config(argv: list[str]) -> Dict[str, Any] | None:
-    """Load the TikTok dispatcher config from CLI arguments."""
-    if len(argv) < 2:
-        send_error("No config file provided")
-        logger.error("No config file provided")
-        return None
+class TikTokDispatcherBridge:
+    """One `tiktok_bridge` process: network reset, the configured workflow, then force-stop."""
 
-    config_path = argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        send_error(f"Failed to load config: {e}")
-        logger.error(f"Failed to load config from {config_path}: {e}")
-        return None
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+
+    def run(self) -> int:
+        workflow_type = self.config.get("workflowType", "for_you")
+        device_id = self.config.get("deviceId", "unknown")
+        logger.info(f"🎵 TikTok Bridge starting - workflow: {workflow_type}, device: {device_id}")
+
+        # A requested-but-failed IP rotation stops the run: acting from the previous account's IP
+        # is exactly what the option exists to prevent.
+        if not reset_network_if_enabled(self.config, device_id):
+            return 1
+
+        try:
+            success, workflow_type = dispatch_tiktok_workflow(self.config)
+            if success:
+                logger.success(f"✅ TikTok {workflow_type} workflow completed successfully")
+                return 0
+            logger.error(f"❌ TikTok {workflow_type} workflow failed")
+            return 1
+        except ImportError as e:
+            send_error(f"Failed to import workflow module: {e}")
+            logger.error(f"Import error: {e}")
+            return 1
+        except UnknownWorkflowError:
+            return 1
+        except Exception as e:
+            send_error(f"Workflow error: {e}")
+            logger.exception(f"Unexpected error in {workflow_type} workflow: {e}")
+            return 1
+        finally:
+            force_stop_tiktok(device_id)
 
 
 def reset_network_if_enabled(config: Dict[str, Any], device_id: str) -> bool:
@@ -139,9 +158,9 @@ def force_stop_tiktok(device_id: str) -> None:
 
 
 __all__ = [
+    "TikTokDispatcherBridge",
     "dispatch_tiktok_workflow",
     "force_stop_tiktok",
-    "load_dispatcher_config",
     "reset_network_if_enabled",
     "UnknownWorkflowError",
 ]

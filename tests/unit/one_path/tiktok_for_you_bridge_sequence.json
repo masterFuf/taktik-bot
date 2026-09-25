@@ -1,0 +1,593 @@
+{
+  "ai": {
+    "ai_installs": [
+      {
+        "ai_config": {
+          "enabled": true,
+          "openrouterApiKey": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "profileAnalysis": true
+        },
+        "language": "fr"
+      }
+    ],
+    "ai_services": [
+      {
+        "api_key": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "has_ipc": true
+      }
+    ],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run",
+      "force_stop tiktok"
+    ],
+    "config": {
+      "comment_probability": 0.2,
+      "comment_texts": [
+        "Nice one",
+        "#love it"
+      ],
+      "excluded_hashtags": [
+        "ads"
+      ],
+      "favorite_probability": 0.05,
+      "follow_back_suggestions": false,
+      "follow_probability": 0.1,
+      "like_probability": 0.01,
+      "max_comments_per_session": 4,
+      "max_follows_per_session": 15,
+      "max_likes": 5000,
+      "max_likes_per_session": 40,
+      "max_rejections_per_session": 7,
+      "max_reposts_per_session": 2,
+      "max_videos": 5,
+      "max_watch_time": 8,
+      "min_likes": null,
+      "min_watch_time": 2,
+      "pause_after_actions": 10,
+      "pause_duration_max": 60,
+      "pause_duration_min": 30,
+      "repost_probability": 0.1,
+      "required_hashtags": [],
+      "skip_ads": true,
+      "skip_already_followed": true,
+      "skip_already_liked": true,
+      "training_keywords": [
+        "running",
+        "trail"
+      ],
+      "training_reject_off_niche": false
+    },
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok For You workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "ai_relevance",
+        {
+          "comment": false,
+          "follow": false,
+          "like": false,
+          "reason": "fits",
+          "relevant": true,
+          "score": 8,
+          "username": "creator"
+        }
+      ],
+      [
+        "ai_profile_done",
+        {
+          "classification": {
+            "niche": "running",
+            "niche_category": "sport"
+          },
+          "persist_only": true,
+          "platform": "tiktok",
+          "result": "[sport] running",
+          "target_username": "creator",
+          "username": "creator",
+          "workflow_type": "automation"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Starting For You workflow",
+          "status": "running"
+        }
+      ],
+      [
+        "video_info",
+        {
+          "video": {
+            "author": "creator",
+            "description": "#one",
+            "is_ad": false,
+            "is_followed": false,
+            "is_liked": false,
+            "like_count": "42"
+          }
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "creator"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "follow",
+          "target": "creator"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 0,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 8
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 1,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "For You workflow completed: 1 videos, 1 likes, 1 follows",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "no_permission": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run",
+      "force_stop tiktok"
+    ],
+    "config": {
+      "comment_probability": 0.2,
+      "comment_texts": [
+        "Nice one",
+        "#love it"
+      ],
+      "excluded_hashtags": [
+        "ads"
+      ],
+      "favorite_probability": 0.05,
+      "follow_back_suggestions": false,
+      "follow_probability": 0.1,
+      "like_probability": 0.01,
+      "max_comments_per_session": 4,
+      "max_follows_per_session": 15,
+      "max_likes": 5000,
+      "max_likes_per_session": 40,
+      "max_rejections_per_session": 7,
+      "max_reposts_per_session": 2,
+      "max_videos": 5,
+      "max_watch_time": 8,
+      "min_likes": null,
+      "min_watch_time": 2,
+      "pause_after_actions": 10,
+      "pause_duration_max": 60,
+      "pause_duration_min": 30,
+      "repost_probability": 0.1,
+      "required_hashtags": [],
+      "skip_ads": true,
+      "skip_already_followed": true,
+      "skip_already_liked": true,
+      "training_keywords": [
+        "running",
+        "trail"
+      ],
+      "training_reject_off_niche": false
+    },
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok For You workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Starting For You workflow",
+          "status": "running"
+        }
+      ],
+      [
+        "video_info",
+        {
+          "video": {
+            "author": "creator",
+            "description": "#one",
+            "is_ad": false,
+            "is_followed": false,
+            "is_liked": false,
+            "like_count": "42"
+          }
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "creator"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "follow",
+          "target": "creator"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 0,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 8
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 1,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "For You workflow completed: 1 videos, 1 likes, 1 follows",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "plain": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run",
+      "force_stop tiktok"
+    ],
+    "config": {
+      "comment_probability": 0.2,
+      "comment_texts": [
+        "Nice one",
+        "#love it"
+      ],
+      "excluded_hashtags": [
+        "ads"
+      ],
+      "favorite_probability": 0.05,
+      "follow_back_suggestions": false,
+      "follow_probability": 0.1,
+      "like_probability": 0.01,
+      "max_comments_per_session": 4,
+      "max_follows_per_session": 15,
+      "max_likes": 5000,
+      "max_likes_per_session": 40,
+      "max_rejections_per_session": 7,
+      "max_reposts_per_session": 2,
+      "max_videos": 5,
+      "max_watch_time": 8,
+      "min_likes": null,
+      "min_watch_time": 2,
+      "pause_after_actions": 10,
+      "pause_duration_max": 60,
+      "pause_duration_min": 30,
+      "repost_probability": 0.1,
+      "required_hashtags": [],
+      "skip_ads": true,
+      "skip_already_followed": true,
+      "skip_already_liked": true,
+      "training_keywords": [
+        "running",
+        "trail"
+      ],
+      "training_reject_off_niche": false
+    },
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok For You workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Starting For You workflow",
+          "status": "running"
+        }
+      ],
+      [
+        "video_info",
+        {
+          "video": {
+            "author": "creator",
+            "description": "#one",
+            "is_ad": false,
+            "is_followed": false,
+            "is_liked": false,
+            "like_count": "42"
+          }
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "creator"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "follow",
+          "target": "creator"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 0,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 8
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 1,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "For You workflow completed: 1 videos, 1 likes, 1 follows",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  }
+}
