@@ -64,3 +64,16 @@ def test_a_feed_that_no_longer_moves_stops_the_run(monkeypatch):
         calls += 1
     assert not wf._running
     assert calls == 9
+
+
+def test_a_live_preview_the_swipe_does_not_leave_ends_the_run(monkeypatch):
+    """A LIVE has no author: the guard used to ignore it, and the run skipped it forever."""
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    wf = _workflow()
+    live = {"author": None, "like_count": None, "description": None, "is_live": True}
+    wf._handle_stuck_video(live)
+    for _ in range(20):
+        if not wf._running:
+            break
+        wf._handle_stuck_video(dict(live))
+    assert not wf._running

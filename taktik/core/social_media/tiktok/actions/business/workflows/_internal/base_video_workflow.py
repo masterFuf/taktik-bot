@@ -274,7 +274,9 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         the third time a blocking popup is looked for first. Three such recoveries in a row stop
         the run: a feed that no longer moves would otherwise be swiped forever.
         """
-        current_author = video_info.get('author', '')
+        # A LIVE preview has no author; a swipe that does not leave it must still be caught, or the
+        # run skips it forever without ever counting a video.
+        current_author = video_info.get('author', '') or ('LIVE' if video_info.get('is_live') else '')
         signature = "_".join(str(video_info.get(key, '')) for key in ('author', 'like_count', 'description'))
 
         if signature == self._last_video_signature and current_author:
