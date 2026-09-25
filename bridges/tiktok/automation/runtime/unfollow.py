@@ -33,16 +33,22 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
 
     try:
+        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.models import (
+            NOT_CONFIRMED,
+        )
         from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow import (
             UnfollowWorkflow,
         )
 
         manager, detected_username = tiktok_startup(device_id, fetch_profile=True)
         logger.info(f"⏱️ Pause between unfollows: {wf_config.min_delay:g}-{wf_config.max_delay:g} s")
-        # The minimum follow age looks the acting account's follows up; the startup reads its handle.
+        # The acting account dates its follows and files its unfollows; the startup reads its handle.
         wf_config.bot_username = wf_config.bot_username or detected_username
         if wf_config.min_follow_age_days:
-            logger.info(f"🕒 Keeping accounts followed less than {wf_config.min_follow_age_days} day(s) ago")
+            logger.info(
+                f"🕒 Keeping accounts followed less than {wf_config.min_follow_age_days} day(s) ago, "
+                "and accounts whose follow date is unknown"
+            )
 
         workflow = UnfollowWorkflow(manager.device_manager.device, wf_config)
         set_workflow(workflow)
@@ -53,19 +59,29 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
         def on_skip(username, reason="friends"):
             send_message("unfollow_event", event="skipped", reason=reason, username=username)
 
+        def on_unconfirmed(username, state):
+            # A tap the row did not confirm: not an unfollow, and said so.
+            send_message("unfollow_event", event=NOT_CONFIRMED, reason=NOT_CONFIRMED,
+                         state=state, username=username)
+
         def on_stats(stats_dict):
             stats_dict["target"] = max_unfollows
             send_message("unfollow_stats", stats=stats_dict)
 
         workflow.set_on_unfollow_callback(on_unfollow)
         workflow.set_on_skip_callback(on_skip)
+        workflow.set_on_unconfirmed_callback(on_unconfirmed)
         workflow.set_on_stats_callback(on_stats)
 
         send_status("running", f"Unfollowing users (0/{max_unfollows})")
         stats = workflow.run()
 
-        send_message("unfollow_stats", stats={"unfollowed": stats.unfollowed, "target": max_unfollows})
-        logger.success(f"✅ Unfollow workflow completed: {stats.unfollowed} users unfollowed")
+        send_message("unfollow_stats", stats={**stats.to_dict(), "target": max_unfollows})
+        logger.success(
+            f"✅ Unfollow workflow completed: {stats.unfollowed} users unfollowed (confirmed), "
+            f"{stats.unconfirmed} tap(s) not confirmed, kept: {stats.refusals or 'none'}"
+            + (f", stopped: {stats.stop_reason}" if stats.stop_reason else "")
+        )
         send_status("completed", f"Unfollowed {stats.unfollowed} users")
 
         return True

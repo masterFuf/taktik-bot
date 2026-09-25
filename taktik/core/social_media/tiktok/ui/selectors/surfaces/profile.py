@@ -123,6 +123,11 @@ class ProfileSelectors:
         return L("profile.friends_button_labels")
 
     @property
+    def follow_button_labels(self) -> List[str]:
+        """Labels a follow-state button carries when we do NOT follow them (follow, follow back)."""
+        return L("profile.follow_button_labels")
+
+    @property
     def following_button_labels(self) -> List[str]:
         """Labels a follow-state button carries when WE follow them, mutual excluded.
 

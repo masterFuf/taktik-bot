@@ -10,6 +10,7 @@ import time
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.runtime.action_test.action_bundle import bundle_device_id
 from taktik.core.clone import get_active_package
 from taktik.core.shared.device.manager import DeviceManager
 
@@ -21,7 +22,9 @@ def launch(a, p):
     Reuses the already-connected device facade so DeviceManager does not reconnect.
     """
     pkg = get_active_package()
-    dm = DeviceManager()
+    # The session's serial, not none: the clone launcher lookup runs `adb -s <serial>`, and the
+    # TikTok twin of this action, built without it, relaunched its app on another phone.
+    dm = DeviceManager(bundle_device_id(a))
     dm.device = a.device  # facade proxies app_start/shell/app_current to the raw device
     # Force-stop then start: a CLEAN cold start always lands on the feed. A plain resume
     # would reopen the app wherever it was left (e.g. a fullscreen story viewer), so the

@@ -725,6 +725,14 @@ STRINGS: Dict[str, List[str]] = {
         "Ami(e)s",
         "Amis",
     ],
+    # Raw LABEL of a row button that offers to follow: what a row of our following list shows
+    # once the unfollow went through. Measured on 46.6.3 (capture of 2026-08-30): the tapped
+    # row's « Suivis » became « Suivre » in place, the row stayed. Compared EXACTLY (see
+    # `is_follow_button`).
+    "profile.follow_button_labels": [
+        "Suivre",
+        "Suivre en retour",
+    ],
     "profile.privacy_blocked_message": [],
     "profile.private_indicator": [
         # Mesure le 2026-09-02 : @allocingles passe en prive, ouvert depuis l'autre telephone.

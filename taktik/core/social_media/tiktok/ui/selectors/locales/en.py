@@ -653,6 +653,12 @@ STRINGS: Dict[str, List[str]] = {
     "profile.friends_button_labels": [
         "Friends",
     ],
+    # Raw LABEL of a row button that offers to follow (the unfollow went through). Mirror of the
+    # French entry; compared EXACTLY, since "Follow" is a prefix of "Following".
+    "profile.follow_button_labels": [
+        "Follow",
+        "Follow back",
+    ],
     "profile.privacy_blocked_message": [
         "//*[contains(@text, \"Cannot send message\")]",
     ],

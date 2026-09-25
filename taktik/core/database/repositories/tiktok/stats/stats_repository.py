@@ -40,7 +40,7 @@ class TikTokStatsRepositoryMixin:
         self.get_or_create_daily_stats(account_id, date)
 
         valid_stats = [
-            'total_likes', 'total_follows', 'total_favorites', 'total_comments',
+            'total_likes', 'total_follows', 'total_unfollows', 'total_favorites', 'total_comments',
             'total_shares', 'total_profile_visits', 'total_posts_watched',
             'total_sessions', 'completed_sessions', 'failed_sessions', 'total_duration_seconds'
         ]
@@ -61,6 +61,9 @@ class TikTokStatsRepositoryMixin:
         column_map = {
             'LIKE': 'total_likes',
             'FOLLOW': 'total_follows',
+            # The column existed in `daily_stats_unified` for both platforms; TikTok had no
+            # unfollow to count until the unfollow started recording them (2026-09-24).
+            'UNFOLLOW': 'total_unfollows',
             'FAVORITE': 'total_favorites',
             'COMMENT': 'total_comments',
             'SHARE': 'total_shares',

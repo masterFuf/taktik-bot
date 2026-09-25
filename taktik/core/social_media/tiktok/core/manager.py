@@ -103,7 +103,10 @@ class TikTokManager(SocialMediaBase):
         self.stop()
         time.sleep(1.5)
 
-        if not self.device_manager.connect():
+        # Reuse the connection the caller already holds. `connect()` without a serial takes the
+        # FIRST phone of `adb devices`, so a manager built around an already-connected device (the
+        # Lab's `app.launch`) force-stopped TikTok on its own phone and relaunched it on another.
+        if self.device_manager.device is None and not self.device_manager.connect():
             return False
 
         try:
