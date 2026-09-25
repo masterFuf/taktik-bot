@@ -56,6 +56,7 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         # Stuck-video tracking
         self._last_video_signature: Optional[str] = None
         self._same_video_count = 0
+        self._stuck_recoveries = 0
 
     # ------------------------------------------------------------------
     # Callback setters
@@ -266,14 +267,15 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
     # ------------------------------------------------------------------
 
     def _handle_stuck_video(self, video_info: Dict[str, Any]) -> bool:
-        """Detect if we're stuck on the same video.
+        """Detect a swipe that left the same video on screen.
 
-        Returns True if stuck was detected and recovery attempted
-        (caller should ``continue`` the loop).
+        Returns True when the video is the one just processed (caller should ``continue`` the
+        loop): it is neither watched nor counted again, the feed is swiped once more, and from
+        the third time a blocking popup is looked for first. Three such recoveries in a row stop
+        the run: a feed that no longer moves would otherwise be swiped forever.
         """
         current_author = video_info.get('author', '')
-        current_likes = video_info.get('like_count', '')
-        signature = f"{current_author}_{current_likes}"
+        signature = "_".join(str(video_info.get(key, '')) for key in ('author', 'like_count', 'description'))
 
         if signature == self._last_video_signature and current_author:
             self._same_video_count += 1
@@ -290,9 +292,17 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
                 self.device.press("back")
                 time.sleep(0.5)
                 self._same_video_count = 0
-                return True  # caller should continue
+                self._stuck_recoveries += 1
+                self.stats.errors += 1
+                if self._stuck_recoveries >= 3:
+                    self.logger.error("🚨 The feed no longer moves: stopping")
+                    self.stop()
+            else:
+                self.scroll.scroll_to_next_video()
+            return True
         else:
             self._same_video_count = 0
+            self._stuck_recoveries = 0
             self._last_video_signature = signature
 
         return False
