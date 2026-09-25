@@ -78,16 +78,18 @@ class SearchWorkflow(BaseVideoWorkflow):
                 # What reading this turn's screen costs on the phone, by what it was (M1).
                 decision = DeviceIoMeasure("tiktok.feed.decision", source="search")
 
-                # Check and close any popups first
-                self._handle_popups()
-                
+                # One photo answers this turn's questions; a popup closed is a gesture: read again.
+                screen = self.detection.read_screen()
+                if self._handle_popups(screen):
+                    screen = self.detection.read_screen()
+
                 # Check limits
                 if self._check_limits_reached():
                     self.logger.info("📊 Session limits reached")
                     break
                 
                 # Get video info
-                video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads)
+                video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads, screen=screen)
                 decision.finish(kind=self._screen_kind(video_info))
                 
                 # Detect stuck state

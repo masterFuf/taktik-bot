@@ -75,7 +75,7 @@ def _answers(**overrides):
 def test_identical_states_differ_nowhere():
     states = {("a.xml", "43.1.4"): _answers(), ("a.xml", "46.9.3"): _answers()}
     outcome = replay.compare(states, copy.deepcopy(states))
-    assert (outcome["compared"], outcome["differences"]) == (18, 0)
+    assert (outcome["compared"], outcome["differences"]) == (2 * (len(replay.PROBES) - 1), 0)
 
 
 def test_an_answer_or_a_gesture_that_changes_is_a_difference():

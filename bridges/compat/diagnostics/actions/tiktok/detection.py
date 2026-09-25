@@ -5,6 +5,18 @@ from loguru import logger
 from bridges.compat.diagnostics.actions.tiktok import action
 
 
+@action("tt.detection.read_screen")
+def read_screen(a, p):
+    """One photo of the screen and what it shows: the recognition each For You and search turn
+    starts with."""
+    screen = a.detection.read_screen()
+    age_ms = screen.photo_age_ms
+    details = {"kind": screen.kind, **screen.signals(),
+               "photoAgeMs": None if age_ms is None else round(age_ms)}
+    logger.info(f"Screen read on one photo: {details}")
+    return {"success": screen.recognised, "message": screen.kind, "details": details}
+
+
 @action("tt.detection.is_for_you")
 def is_for_you(a, p):
     result = a.detection.is_on_for_you_page()

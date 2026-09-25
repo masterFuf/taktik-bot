@@ -571,7 +571,18 @@ def _detect_screen(bundle) -> str:
         ("tiktok.feed.for_you", "is_on_for_you_page"),
     ]
 
-    if detection is not None:
+    # TikTok reads both of its screens on one photo, as the feed loop does, instead of one wait per
+    # selector. Looked up on the class: a detection object that forwards attributes is not one.
+    if detection is not None and callable(getattr(type(detection), "read_screen", None)):
+        try:
+            screen = detection.read_screen()
+            if screen.inbox:
+                return "tiktok.inbox"
+            if screen.for_you:
+                return "tiktok.feed.for_you"
+        except Exception as exc:
+            logger.debug(f"Screen reading failed: {exc}")
+    elif detection is not None:
         for screen, method_name in checks:
             method = getattr(detection, method_name, None)
             if not callable(method):

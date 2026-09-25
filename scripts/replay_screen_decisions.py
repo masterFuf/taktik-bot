@@ -5,9 +5,11 @@ For each TikTok capture, under each version the overrides know (the baseline and
 on a fake phone: its `xpath` is uiautomator2's own `XPathEntry` (the code `d.xpath()` runs), its
 dump is the capture, its clock jumps when the code sleeps. The reads: the popup scan, the comment
 sheet, the suggestion page, `get_video_info` as the feed loops call it and in full, the For You and
-inbox checks, `is_user_followed`, the Lab's screen name. Their answers, and the gestures they would
-make, are compared between a base revision (`git archive`) and the working tree. Exit 1 on any
-difference. The dumps each state asks for are printed, with the fake cost of `--dump-ms` per dump.
+inbox checks, `is_user_followed`, the Lab's screen name, and the top of a feed turn as the loop
+reads it (`feed_turn`: on one photo where the code has `read_screen`). Their answers, and the
+gestures they would make, are compared between a base revision (`git archive`) and the working
+tree. Exit 1 on any difference. The dumps of a feed turn are printed, by kind of screen, with the
+fake cost of `--dump-ms` per dump.
 
     python scripts/replay_screen_decisions.py --corpus DIR [--corpus DIR ...] [--base HEAD]
     python scripts/replay_screen_decisions.py --list FILE [--save-list FILE] [--report FILE]
@@ -34,7 +36,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TIKTOK_PACKAGES = ("com.zhiliaoapp.musically", "com.ss.android.ugc.trill", "com.ss.android.ugc.aweme",
                    "com.taktik.tt")
 PROBES = ("popups", "comments", "suggestion", "video_info_feed", "video_info_full", "for_you",
-          "inbox", "followed", "lab_screen", "read_screen")
+          "inbox", "followed", "lab_screen", "feed_turn", "read_screen")
 
 
 # ── Child: runs inside one state of the code (PYTHONPATH), never imports the other ─────────────
@@ -140,6 +142,19 @@ def _child_decisions(files, version, language, dump_ms):
     detection = DetectionActions(phone)
     handler = PopupHandler(None, detection)
     bundle = SimpleNamespace(detection=detection, device=detection.device)
+
+    def feed_turn():
+        """The top of a For You turn as the loop reads it: on one photo where the code reads
+        the turn so (`read_screen`), else each read on its own."""
+        if not callable(getattr(type(detection), "read_screen", None)):
+            return {"popups": handler._fast_detect(), "comments": detection.has_comments_section_open(),
+                    "suggestion": detection.has_suggestion_page(),
+                    "video_info": detection.get_video_info(light_if_ad=True)}
+        screen = detection.read_screen()
+        return {"popups": handler.detect(screen), "comments": detection.has_comments_section_open(screen),
+                "suggestion": detection.has_suggestion_page(screen),
+                "video_info": detection.get_video_info(light_if_ad=True, screen=screen)}
+
     probes = {
         "popups": handler._fast_detect,
         "comments": detection.has_comments_section_open,
@@ -150,6 +165,7 @@ def _child_decisions(files, version, language, dump_ms):
         "inbox": detection.is_on_inbox_page,
         "followed": detection.is_user_followed,
         "lab_screen": lambda: _detect_screen(bundle),
+        "feed_turn": feed_turn,
     }
     if hasattr(detection, "read_screen"):
         probes["read_screen"] = lambda: getattr(detection.read_screen(), "kind", None)
@@ -258,6 +274,29 @@ def _decide(root: Path, workdir: Path, label: str, groups: dict, dump_ms: float,
 FEED_TURN = ("popups", "comments", "suggestion", "video_info_feed")
 
 
+def _turn_dumps(answers: dict) -> int:
+    """The dumps of the top of a feed turn as the loop reads it (`feed_turn`), else the sum of
+    its reads taken one by one."""
+    if "feed_turn" in answers:
+        return answers["feed_turn"]["dumps"]
+    return sum(answers[p]["dumps"] for p in FEED_TURN if p in answers)
+
+
+def screen_kind(answers: dict) -> str:
+    """What the base's reads say the capture is, to break the dumps down."""
+    def said(probe):
+        return (answers.get(probe) or {}).get("answer")
+
+    info = said("video_info_feed")
+    info = info if isinstance(info, dict) else {}
+    for kind, present in (("comments", said("comments") is True), ("suggestion", said("suggestion") is True),
+                          ("inbox", said("inbox") is True), ("live", info.get("is_live")),
+                          ("ad", info.get("is_ad")), ("video", info.get("author"))):
+        if present:
+            return kind
+    return "unknown"
+
+
 def compare(before: dict, after: dict) -> dict:
     """Answers and gestures of each read, base against now, per (capture, version).
 
@@ -266,6 +305,7 @@ def compare(before: dict, after: dict) -> dict:
     compared = differences = 0
     examples, only_one_side = [], set()
     dumps_before, dumps_after = [], []
+    by_kind: dict = {}
     for key in sorted(before):
         old, new = before[key], after.get(key)
         if new is None:
@@ -284,11 +324,14 @@ def compare(before: dict, after: dict) -> dict:
                 differences += 1
                 if len(examples) < 20:
                     examples.append((Path(key[0]).name, key[1], probe, old[probe], new[probe]))
-        dumps_before.append(sum(old[p]["dumps"] for p in FEED_TURN if p in old))
-        dumps_after.append(sum(new[p]["dumps"] for p in FEED_TURN if p in new))
+        dumps_before.append(_turn_dumps(old))
+        dumps_after.append(_turn_dumps(new))
+        pair = by_kind.setdefault(screen_kind(old), ([], []))
+        pair[0].append(dumps_before[-1])
+        pair[1].append(dumps_after[-1])
     return {"compared": compared, "differences": differences, "examples": examples,
             "only_one_side": sorted(only_one_side), "dumps_before": dumps_before or [0],
-            "dumps_after": dumps_after or [0]}
+            "dumps_after": dumps_after or [0], "by_kind": by_kind}
 
 
 def main(argv=None) -> int:
@@ -331,9 +374,12 @@ def main(argv=None) -> int:
     print(f"Decisions compared: {outcome['compared']}, differences: {outcome['differences']}.")
     if outcome["only_one_side"]:
         print(f"Reads present in one state only (not compared): {outcome['only_one_side']}")
-    print(f"Dumps of a feed turn (popups, comments, suggestion, video info) at {args.dump_ms:.0f} ms each: "
-          f"base median {statistics.median(dumps_before):.0f} (max {max(dumps_before)}), "
-          f"now median {statistics.median(dumps_after):.0f} (max {max(dumps_after)}).")
+    print(f"Dumps of a feed turn as the loop reads it (popups, comments, suggestion, video info) at "
+          f"{args.dump_ms:.0f} ms each: base median {statistics.median(dumps_before):.0f} "
+          f"(max {max(dumps_before)}), now median {statistics.median(dumps_after):.0f} (max {max(dumps_after)}).")
+    for kind, (old_dumps, new_dumps) in sorted(outcome["by_kind"].items()):
+        print(f"  {kind:10} {len(old_dumps):4} decisions: base median {statistics.median(old_dumps):.0f} "
+              f"(max {max(old_dumps)}), now median {statistics.median(new_dumps):.0f} (max {max(new_dumps)})")
     for name, version, probe, old, new in outcome["examples"]:
         print(f"  DIFF {name} {version} {probe}: {json.dumps(old['answer'], ensure_ascii=False)[:160]} "
               f"{old['gestures']} -> {json.dumps(new['answer'], ensure_ascii=False)[:160]} {new['gestures']}")

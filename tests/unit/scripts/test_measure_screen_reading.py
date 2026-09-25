@@ -202,10 +202,11 @@ def test_the_feed_reads_touch_nothing_where_production_would_tap(fast_clock, eng
     assert script.screen_kind(results) == "video"
     assert results["feed.video_info"]["author"] == "demo_author"
     steps = [record["step"] for record in records]
-    assert steps == ["feed.popups", "feed.comments", "feed.suggestion", "feed.video_info", "lab.screen",
-                     script.DECISION_STEP]
+    # The turn is read as the loop reads it: one photo, then every read on it.
+    assert steps == ["feed.screen", "feed.popups", "feed.comments", "feed.suggestion", "feed.video_info",
+                     "lab.screen", script.DECISION_STEP]
     decision = records[-1]
-    assert decision["dumps"] == sum(r["dumps"] for r in records if r["step"].startswith("feed.")) > 0
+    assert decision["dumps"] == sum(r["dumps"] for r in records if r["step"].startswith("feed.")) == 1
 
 
 def test_the_summary_reads_a_bridge_run_and_its_log(tmp_path):

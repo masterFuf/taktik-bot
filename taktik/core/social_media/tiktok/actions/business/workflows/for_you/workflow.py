@@ -76,16 +76,18 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 # What reading this turn's screen costs on the phone, by what it was (M1).
                 decision = DeviceIoMeasure("tiktok.feed.decision", source="for_you")
 
-                # Check and close any popups first
-                self._handle_popups()
-                
+                # One photo answers this turn's questions; a popup closed is a gesture: read again.
+                screen = self.detection.read_screen()
+                if self._handle_popups(screen):
+                    screen = self.detection.read_screen()
+
                 # Check for comments section accidentally opened
-                if self._handle_comments_section():
+                if self._handle_comments_section(screen):
                     decision.finish(kind="comments")
                     continue
                 
                 # Check for suggestion page (Follow back / Not interested)
-                if self._handle_suggestion_page():
+                if self._handle_suggestion_page(screen):
                     decision.finish(kind="suggestion")
                     continue
                 
@@ -95,7 +97,7 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                     break
                 
                 # Get video info immediately for real-time display
-                video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads)
+                video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads, screen=screen)
                 decision.finish(kind=self._screen_kind(video_info))
                 
                 # Detect stuck state

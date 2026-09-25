@@ -24,13 +24,16 @@ class FeedInterruptionsMixin:
     # Subclass may override (ForYouConfig sets it, SearchConfig defaults False)
     _follow_back_suggestions: bool = False
 
-    def _handle_suggestion_page(self) -> bool:
+    def _handle_suggestion_page(self, screen=None) -> bool:
         """Check for and handle suggestion page (Follow back / Not interested).
-        
+
+        Args:
+            screen: the photo this turn was read on; after a gesture, new photos.
+
         Returns:
             True if a suggestion page was handled, False otherwise.
         """
-        if not self.detection.has_suggestion_page():
+        if not self.detection.has_suggestion_page(screen):
             return False
 
         self.logger.info("💡 Suggestion page detected")
@@ -86,16 +89,19 @@ class FeedInterruptionsMixin:
 
         return True
 
-    def _handle_comments_section(self) -> bool:
+    def _handle_comments_section(self, screen=None) -> bool:
         """Check for and close comments section if accidentally opened.
         
         This can happen when scrolling and accidentally clicking on the
         comment input area.
-        
+
+        Args:
+            screen: the photo this turn was read on.
+
         Returns:
             True if comments section was detected and closed, False otherwise.
         """
-        if not self.detection.has_comments_section_open():
+        if not self.detection.has_comments_section_open(screen):
             return False
 
         self.logger.info("💬 Comments section detected, closing...")

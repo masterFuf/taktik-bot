@@ -60,9 +60,9 @@ def _wire(wf, video_infos, monkeypatch, module):
     wf._on_video_callback = None
     wf._on_stats_callback = None
     wf.scroll = SimpleNamespace(scroll_to_next_video=lambda: True)
-    wf.detection = SimpleNamespace(get_video_info=_screens(*video_infos))
+    wf.detection = SimpleNamespace(read_screen=lambda **_: "photo", get_video_info=_screens(*video_infos))
     wf._wait_if_paused = lambda: True
-    wf._handle_popups = lambda: False
+    wf._handle_popups = lambda _screen=None: False
     wf._handle_stuck_video = lambda _info: False
     wf._behavior_reading_scale = lambda _key: 1.0
     wf._check_pause_needed = lambda: None
@@ -76,8 +76,8 @@ def _for_you(monkeypatch, video_infos, *, sheets=()):
     _wire(wf, video_infos, monkeypatch, for_you_module)
     sheet_queue = list(sheets)
     wf._ensure_on_for_you = lambda: True
-    wf._handle_comments_section = lambda: bool(sheet_queue) and sheet_queue.pop(0) == "comments"
-    wf._handle_suggestion_page = lambda: False
+    wf._handle_comments_section = lambda _screen: bool(sheet_queue) and sheet_queue.pop(0) == "comments"
+    wf._handle_suggestion_page = lambda _screen: False
     wf._train_on_video = lambda _info: False
 
     def _process(_info):

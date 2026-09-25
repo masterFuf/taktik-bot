@@ -27,8 +27,10 @@ is the form common to 3.3 and 3.5+, whose constructor no longer takes a source.
 Every selector asked of a photo is told to the observers of its source (`SnapshotSource.observe`,
 `facade.observe_snapshots`): the Lab traces see a photo's questions as they saw `d.xpath()`'s.
 
-Step 1 only: the layer and its proof (`scripts/check_snapshot_equality.py`); it is wired into no
-workflow. The shared layer imports no platform module.
+The layer and its proof (`scripts/check_snapshot_equality.py`) are step 1. Step 2 wires it into
+TikTok: its waiting probes take one photo per turn (`tiktok/actions/core/base_action.py`), and a
+feed decision is read on one photo (`read_screen`, `tiktok/actions/atomic/detection/`). The
+shared layer imports no platform module.
 """
 
 from __future__ import annotations
@@ -105,6 +107,7 @@ class ScreenSnapshot:
                  rewrite: Rewrite = None, observer: Optional[Observer] = None):
         if not xml_content:
             raise SnapshotUnavailable("empty dump")
+        self._xml = xml_content
         self._source = PageSource(xml_content)
         try:
             root = self._source.root  # parse now: a dump that does not parse is not a photo
@@ -127,6 +130,11 @@ class ScreenSnapshot:
     @property
     def source(self) -> PageSource:
         return self._source
+
+    @property
+    def xml(self) -> str:
+        """The dump as the phone returned it, for whoever keeps screens (the screen ring)."""
+        return self._xml
 
     def elements(self, selector: str) -> list:
         """The elements `d.xpath(selector).all()` finds on this screen, for READING: they carry no

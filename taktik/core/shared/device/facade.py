@@ -190,7 +190,7 @@ class BaseDeviceFacade:
             self.logger.error(f"Error getting XML dump: {e}")
             return None
     
-    # === Screen photo (step 1 of the one-photo spec: available, wired into no workflow yet) ===
+    # === Screen photo (one-photo spec: step 1 the layer, step 2 TikTok's reads) ===
 
     def _snapshot_source(self):
         # Read from the instance itself: `getattr` would go through the facade's forwarding to the

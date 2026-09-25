@@ -6,7 +6,8 @@ Measure (read-only), on the screen the phone shows:
 
 Connects through `DeviceManager` (the device io meter, M1, counts every dump), then runs `--repeat`
 times what production reads at the top of a feed turn (popups, comment sheet, suggestion page,
-video info) and what the Lab runs to name the screen, and appends one JSON line per step. Nothing
+video info; where the code has `read_screen`, the one photo first, then each read on it, as the
+loop does) and what the Lab runs to name the screen, and appends one JSON line per step. Nothing
 touches the screen: once connected, the device refuses every server call that is not a read and
 every adb command that moves the screen or starts an app (`ReadOnlyGuard`); a refused call makes
 the run exit with code 2. The caption is read as displayed (`full_description=False`): production
@@ -139,12 +140,29 @@ class ReadOnlyGuard:
 
 def feed_reads(detection, popup_handler) -> List[Tuple[str, Callable[[], Any]]]:
     """What the For You loop reads at the top of a turn, without its gestures: the popup scan
-    (closing one is a gesture), the comment sheet, the suggestion page, the video info."""
+    (closing one is a gesture), the comment sheet, the suggestion page, the video info. Where the
+    code reads the turn on one photo (`read_screen`), as the loop does: the photo first, then
+    every read on it."""
+    if not callable(getattr(type(detection), "read_screen", None)):
+        return [
+            ("feed.popups", popup_handler._fast_detect),
+            ("feed.comments", detection.has_comments_section_open),
+            ("feed.suggestion", detection.has_suggestion_page),
+            ("feed.video_info", lambda: detection.get_video_info(light_if_ad=True, full_description=False)),
+        ]
+    turn: Dict[str, Any] = {}
+
+    def read_screen():
+        turn["screen"] = detection.read_screen()
+        return turn["screen"].kind
+
     return [
-        ("feed.popups", popup_handler._fast_detect),
-        ("feed.comments", detection.has_comments_section_open),
-        ("feed.suggestion", detection.has_suggestion_page),
-        ("feed.video_info", lambda: detection.get_video_info(light_if_ad=True, full_description=False)),
+        ("feed.screen", read_screen),
+        ("feed.popups", lambda: popup_handler.detect(turn["screen"])),
+        ("feed.comments", lambda: detection.has_comments_section_open(turn["screen"])),
+        ("feed.suggestion", lambda: detection.has_suggestion_page(turn["screen"])),
+        ("feed.video_info", lambda: detection.get_video_info(light_if_ad=True, full_description=False,
+                                                             screen=turn["screen"])),
     ]
 
 

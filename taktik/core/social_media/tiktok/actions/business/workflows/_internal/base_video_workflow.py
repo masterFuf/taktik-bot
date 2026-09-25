@@ -255,9 +255,9 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
             return True
         return False
 
-    def _handle_popups(self) -> bool:
+    def _handle_popups(self, screen=None) -> bool:
         """Override to also track popup stats."""
-        closed = super()._handle_popups()
+        closed = super()._handle_popups(screen)
         if closed:
             self.stats.popups_closed += 1
         return closed
