@@ -175,6 +175,21 @@ def test_both_gestures_come_out_over_a_run():
     assert any(modes), "jamais de flick"
     assert not all(modes), "jamais de drag — la variation ne sort pas"
 
+
+@pytest.mark.parametrize("method,direction", [("swipe_up", "down"), ("swipe_down", "up")])
+def test_a_feed_drag_passes_half_the_screen(method, direction):
+    """Le fil ne tourne la page qu'au-delà de la moitié de l'écran : un drag pris dans la bande
+    des listes (0,28-0,34) revenait en place (0 sur 10 en 46.9.3). Les listes gardent leur bande."""
+    calls = []
+    facade = _tiktok_facade()
+    facade.human_scroll = lambda d, **kw: calls.append((d, kw))
+    for _ in range(50):
+        getattr(facade, method)(scale=0.8, coast=False, pager=True)
+    assert all(d == direction and 0.56 <= kw["distance_ratio"] <= 0.85 for d, kw in calls)
+    calls.clear()
+    getattr(facade, method)(scale=0.8, coast=False)
+    assert calls[0][1]["distance_ratio"] <= 0.34
+
 # --- lire le style, ou le faire avancer ------------------------------------------------------
 
 

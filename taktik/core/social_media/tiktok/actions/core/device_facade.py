@@ -52,6 +52,16 @@ class DeviceFacade(BaseDeviceFacade):
         except Exception:
             return 0.31
 
+    @staticmethod
+    def _pager_drag_ratio(distance_scale: float) -> float:
+        """Travel of a DRAG on the video feed. The pager only turns the page when the finger
+        passes about half the screen; the list band (0.28-0.34) snapped back every time
+        (0 advance in 10 on TikTok 46.9.3, against 20 in 20 for the flick)."""
+        try:
+            return round(min(max(random.uniform(0.58, 0.72) * float(distance_scale), 0.56), 0.85), 3)
+        except Exception:
+            return 0.62
+
     #: The session's motor style, injected by the workflow that owns this facade. None means no
     #: session memory -- every scale stays 1.0 and the gestures behave exactly as they did.
     behavior_state = None
@@ -99,7 +109,7 @@ class DeviceFacade(BaseDeviceFacade):
         except Exception:
             return 1.0, 1.0
 
-    def swipe_up(self, scale: float = 0.8, coast: bool = False):
+    def swipe_up(self, scale: float = 0.8, coast: bool = False, pager: bool = False):
         """Advance the feed / scroll a list DOWN — humanized. TikTok 'swipe up' (finger moves up)
         reveals the NEXT content = page 'down'.
 
@@ -109,23 +119,30 @@ class DeviceFacade(BaseDeviceFacade):
         controlled scroll for LISTS (followers/search/scraping/DM), where a fling would overshoot.
 
         Both carry the session's motor style: the per-call variation was already there, what was
-        missing is that successive gestures had nothing in common."""
-        # The coast path's beat was already spent by `choose_scroll_mode`, which is what picked
-        # `coast` in the first place; the list path has no such call, so it spends its own.
-        d, v = (self._motor("tiktok_feed_advance") if coast
+        missing is that successive gestures had nothing in common.
+
+        `pager=True` is the feed's drag: past half the screen, or the pager snaps back."""
+        # The feed's beat was already spent by `choose_scroll_mode`, which picked flick or drag;
+        # the list path has no such call, so it spends its own.
+        d, v = (self._motor("tiktok_feed_advance") if (coast or pager)
                 else self._plan_gesture("tiktok_list_scroll_down", "controlled_swipe"))
-        if coast:
+        if pager and not coast:
+            self.human_scroll("down", distance_ratio=self._pager_drag_ratio(d), velocity_scale=v)
+        elif coast:
             self.human_scroll("down", coast=True, distance_scale=d, velocity_scale=v)
         else:
             self.human_scroll("down", distance_ratio=self._list_scroll_ratio(scale),
                               distance_scale=d, velocity_scale=v)
 
-    def swipe_down(self, scale: float = 0.8, coast: bool = False):
+    def swipe_down(self, scale: float = 0.8, coast: bool = False, pager: bool = False):
         """Go back / scroll a list UP — humanized. Finger moves down = reveal PREVIOUS = page 'up'.
-        `coast=True` flings (video feed, snaps to previous); `coast=False` is a controlled list scroll."""
-        d, v = (self._motor("tiktok_feed_back") if coast
+        `coast=True` flings (video feed, snaps to previous); `coast=False` is a controlled list scroll;
+        `pager=True` is the feed's drag, past half the screen."""
+        d, v = (self._motor("tiktok_feed_back") if (coast or pager)
                 else self._plan_gesture("tiktok_list_scroll_up", "controlled_swipe"))
-        if coast:
+        if pager and not coast:
+            self.human_scroll("up", distance_ratio=self._pager_drag_ratio(d), velocity_scale=v)
+        elif coast:
             self.human_scroll("up", coast=True, distance_scale=d, velocity_scale=v)
         else:
             self.human_scroll("up", distance_ratio=self._list_scroll_ratio(scale),
