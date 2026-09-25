@@ -173,7 +173,7 @@ STRINGS: Dict[str, List[str]] = {
     # (inbox, page nouveaux followers, onglet Utilisateurs). La rangee se designe par le pseudo
     # (`txt_desc`, id lisible) puis son ancetre cliquable.
     "followers.follower_following_button": [
-        "//*[contains(@resource-id, \":id/txt_desc\")]/ancestor::*[@clickable=\"true\"][1]//android.widget.Button[@text=\"Suivis\" or @text=\"Ami(e)s\"]",
+        "//*[contains(@resource-id, \":id/txt_desc\")]/ancestor::*[@clickable=\"true\"][1]//android.widget.Button[@text=\"Suivis\" or @text=\"Ami(e)s\" or @text=\"Amis\"]",
     ],
     # Measured on device (2026-08-29): this entry was EMPTY, so only the English list applied --
     # and it matches "Followers" by EQUALITY, while French TikTok writes the SINGULAR when the
@@ -222,9 +222,10 @@ STRINGS: Dict[str, List[str]] = {
     # rangees d'une liste d'abonnes pour des comptes qu'on suit aussi (« Suivis » ou « Ami(e)s ») et la
     # liste derriere la feuille de desabonnement. Aucun sur un profil : le « Suivis » d'un profil suivi
     # est un TextView. Les rangees n'ont pas d'espace finale ; `normalize-space` couvre l'en-tete qui
-    # en a une.
+    # en a une. Le mutuel s'ecrit « Ami(e)s » en 43.1.4 et 46.6.3, « Amis » en 46.9.3 (Pixel 6a) : les deux.
     "followers.following_or_friends_button": [
-        "//android.widget.Button[normalize-space(@text)=\"Suivis\" or normalize-space(@text)=\"Ami(e)s\"]",
+        "//android.widget.Button[normalize-space(@text)=\"Suivis\" or normalize-space(@text)=\"Ami(e)s\""
+        " or normalize-space(@text)=\"Amis\"]",
     ],
     "followers.following_tab": [
         "//*[@clickable=\"true\"][starts-with(@content-desc, \"Suivis\")]",

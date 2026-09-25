@@ -101,3 +101,16 @@ def test_the_lab_counts_the_row_buttons_the_unfollow_taps():
     bundle = types.SimpleNamespace(device=_Device(FOLLOWING_LIST))
     result = ACTION_REGISTRY["tt.followers.count_anchors"](bundle, {})
     assert result["details"]["following_or_friends_button"] == 3
+
+
+def test_the_mutual_row_of_46_9_is_found_and_read_as_friends():
+    """TikTok 46.9.3 writes the mutual button « Amis » (43.1.4 and 46.6.3: « Ami(e)s »); the tab
+    title « Amis 6 » stays a TextView."""
+    screen = _screen(
+        _node("android.widget.LinearLayout", clickable="true",
+              children=_node("android.widget.TextView", "Amis 6"))
+        + _row("alpha_one", "Suivis") + _row("epsilon_five", "Amis")
+    )
+    labels = [el.attrib.get("text") for el in _found(screen)]
+    assert labels == ["Suivis", "Amis"]
+    assert [is_friends_button(label) for label in labels] == [False, True]
