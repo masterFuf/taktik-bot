@@ -508,11 +508,18 @@ STRINGS: Dict[str, List[str]] = {
     "popup.promo_close_button": [
         "//*[@clickable=\"true\"][*[@content-desc=\"Fermer\"]][../*[.//*[@text=\"Inviter\"]]]",
     ],
-    # Page de suggestion plein ecran jamais capturee en francais. Le « Pas intéressé(e) » des
-    # captures est le sondage sous une video du fil et la feuille de partage : pas cet ecran.
-    "popup.suggestion_close": [],
-    "popup.suggestion_follow_back": [],
-    "popup.suggestion_not_interested": [],
+    # Page plein ecran « Personnes que tu pourrais connaître » du fil (43.1.4), lue une fois la page
+    # detectee. Cadree par sa consigne : « Fermer », « Suivre en retour » et « Pas intéressé(e) »
+    # existent aussi dans les listes d'abonnes, le sondage sous une video et la feuille de partage.
+    "popup.suggestion_close": [
+        "//*[@content-desc=\"Fermer\"][@clickable=\"true\"][//*[@text=\"Balaie vers le haut pour ignorer\"]]",
+    ],
+    "popup.suggestion_follow_back": [
+        "//*[@text=\"Suivre en retour\"][@clickable=\"true\"][//*[@text=\"Balaie vers le haut pour ignorer\"]]",
+    ],
+    "popup.suggestion_not_interested": [
+        "//*[@text=\"Pas intéressé(e)\"][@clickable=\"true\"][//*[@text=\"Balaie vers le haut pour ignorer\"]]",
+    ],
     # Les LIBELLES du bouton d'autorisation d'un dialogue systeme. Les identifiants, eux,
     # ne dependent pas de la langue et vivent dans `_system_allow_button_base`.
     "popup.system_allow_button": [

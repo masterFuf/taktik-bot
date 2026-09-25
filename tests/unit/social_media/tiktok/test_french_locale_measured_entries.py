@@ -200,3 +200,26 @@ def test_the_catalogue_field_carries_the_french_entry(key, singleton, prop):
     assert entries
     field = getattr(getattr(catalogue, singleton), prop)
     assert all(entry in field for entry in entries)
+
+
+SKIP_HINT = _n("TextView", "Balaie vers le haut pour ignorer")
+SUGGESTION_PAGE = _screen(_n("FrameLayout", children=(
+    _n("ImageView", desc="Fermer", clickable=True)
+    + _n("TextView", "demo_suggested")
+    + _n("TextView", "Personnes que tu pourrais connaître")
+    + _n("Button", "Pas intéressé(e)", clickable=True)
+    + _n("Button", "Suivre en retour", clickable=True)
+    + SKIP_HINT)))
+FOLLOWERS_TO_FOLLOW_BACK = _screen(
+    _n("ImageView", desc="Fermer", clickable=True)
+    + _n("Button", "Suivre en retour", clickable=True))
+FEED_SURVEY = _screen(_n("Button", "Pas intéressé(e)", clickable=True))
+
+
+@pytest.mark.parametrize("key", [
+    "popup.suggestion_close", "popup.suggestion_follow_back", "popup.suggestion_not_interested",
+])
+def test_the_suggestion_page_buttons_answer_on_that_page_only(key):
+    assert len(_found(key, SUGGESTION_PAGE)) == 1
+    for screen in (FOLLOWERS_TO_FOLLOW_BACK, FEED_SURVEY, FOLLOWERS_LIST):
+        assert _found(key, screen) == []
