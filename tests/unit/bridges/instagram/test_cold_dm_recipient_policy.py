@@ -1,0 +1,172 @@
+"""Cold DM: « Ignorer les comptes privés » and « Ignorer les comptes certifiés » now decide.
+
+Both settings reached `cold_dm_bridge` and were read by nobody. A private profile was ALWAYS
+skipped, including on a scheduler node whose form said « do not skip », and the certified badge
+was never looked at. These tests hold the decision (core, no device) and the bridge adapter that
+reads the screen and the payload.
+"""
+
+import json
+from types import SimpleNamespace
+
+import pytest
+
+from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
+    SKIP_PRIVATE,
+    SKIP_PRIVATE_NO_MESSAGE,
+    SKIP_VERIFIED,
+    ColdDmRecipientPolicy,
+    cold_dm_skip_reason,
+)
+
+
+# ------------------------------------------------------------------------------------ decision
+
+def _reason(policy, private=False, verified=False, message=True):
+    return cold_dm_skip_reason(policy, is_private=private, is_verified=verified,
+                               has_message_button=message)
+
+
+def test_defaults_are_the_behaviour_the_bridge_always_had():
+    policy = ColdDmRecipientPolicy()
+    assert _reason(policy, private=True) == SKIP_PRIVATE
+    assert _reason(policy, verified=True) is None
+
+
+def test_a_private_profile_is_tried_when_the_operator_allows_it_and_instagram_offers_it():
+    assert _reason(ColdDmRecipientPolicy(skip_private=False), private=True) is None
+
+
+def test_a_private_profile_without_message_button_is_a_skip_not_a_failure():
+    policy = ColdDmRecipientPolicy(skip_private=False)
+    assert _reason(policy, private=True, message=False) == SKIP_PRIVATE_NO_MESSAGE
+
+
+def test_certified_accounts_are_skipped_when_asked():
+    assert _reason(ColdDmRecipientPolicy(skip_verified=True), verified=True) == SKIP_VERIFIED
+
+
+def test_a_public_profile_without_message_button_stays_a_failure_for_the_caller():
+    assert _reason(ColdDmRecipientPolicy(), message=False) is None
+
+
+# ------------------------------------------------------------------------- bridge: the screen
+
+class _Node:
+    def __init__(self, exists):
+        self.exists = exists
+        self.clicks = 0
+
+    def click(self):
+        self.clicks += 1
+
+
+class _Device:
+    """Answers `device(text=/description=/resourceId=/textContains=)` from a fixed screen."""
+
+    def __init__(self, *, private=False, message=True):
+        self.private = private
+        self.message = message
+        self.message_node = _Node(True)
+
+    def __call__(self, **kwargs):
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
+        if kwargs.get("resourceId") == PROFILE_SELECTORS.private_empty_state_resource_id:
+            return _Node(self.private)
+        if "textContains" in kwargs:
+            return _Node(False)
+        if self.message and (kwargs.get("text") in PROFILE_SELECTORS.message_button_text_labels):
+            return self.message_node
+        return _Node(False)
+
+
+def _runtime(*, private=False, message=True, verified=False):
+    from bridges.instagram.engagement.runtime.cold_dm.navigation import ColdDMNavigationMixin
+
+    reads = []
+
+    class _Runtime(ColdDMNavigationMixin):
+        def __init__(self):
+            self.device = _Device(private=private, message=message)
+
+        def _cold_dm_detection(self):
+            return SimpleNamespace(is_verified_account=lambda: reads.append("badge") or verified)
+
+    return _Runtime(), reads
+
+
+def test_the_bridge_skips_a_private_profile_by_default(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    runtime, _ = _runtime(private=True)
+    assert runtime.open_dm_from_profile(ColdDmRecipientPolicy()) == SKIP_PRIVATE
+    assert runtime.device.message_node.clicks == 0
+
+
+def test_the_bridge_opens_the_dm_of_a_private_profile_when_allowed(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    runtime, _ = _runtime(private=True)
+    assert runtime.open_dm_from_profile(ColdDmRecipientPolicy(skip_private=False)) is True
+    assert runtime.device.message_node.clicks == 1
+
+
+def test_the_bridge_reads_the_badge_only_when_asked(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    runtime, reads = _runtime(verified=True)
+    assert runtime.open_dm_from_profile(ColdDmRecipientPolicy()) is True
+    assert reads == []
+
+    runtime, reads = _runtime(verified=True)
+    assert runtime.open_dm_from_profile(ColdDmRecipientPolicy(skip_verified=True)) == SKIP_VERIFIED
+    assert reads == ["badge"] and runtime.device.message_node.clicks == 0
+
+
+# ------------------------------------------------------------------------ bridge: the payload
+
+@pytest.mark.parametrize("payload, expected", [
+    ({}, ColdDmRecipientPolicy(skip_private=True, skip_verified=False)),
+    ({"skipPrivateAccounts": False}, ColdDmRecipientPolicy(skip_private=False)),
+    ({"skipVerifiedAccounts": True}, ColdDmRecipientPolicy(skip_verified=True)),
+])
+def test_the_page_settings_reach_the_workflow(tmp_path, monkeypatch, payload, expected):
+    from bridges.instagram.engagement.runtime.cold_dm import commands
+
+    seen = {}
+
+    class _Workflow:
+        def __init__(self, *a, **k):
+            pass
+
+        def connect(self):
+            return True
+
+        def run(self, *args, recipient_policy=None, **kwargs):
+            seen["policy"] = recipient_policy
+            return {"success": True}
+
+    monkeypatch.setattr(commands, "ColdDMWorkflow", _Workflow)
+    monkeypatch.setattr(commands, "enforce_pre_session_ip_rotation", lambda *a, **k: True)
+    config = {"deviceId": "dev", "recipients": ["a"], "messages": ["hi"], **payload}
+    path = tmp_path / "cold_dm.json"
+    path.write_text(json.dumps(config), encoding="utf-8")
+
+    commands.run_cold_dm_cli([str(path)])
+
+    assert seen["policy"] == expected
+
+
+# --------------------------------------------------------------------------------------- Lab
+
+def test_the_lab_check_runs_the_bridge_evaluation_without_tapping():
+    from bridges.compat.diagnostics.actions.instagram.dm import cold_dm_check_profile
+
+    device = _Device(private=True)
+    bundle = SimpleNamespace(device=SimpleNamespace(device=device),
+                             detection=SimpleNamespace(is_verified_account=lambda: False))
+
+    skipped = cold_dm_check_profile(bundle, {})
+    tried = cold_dm_check_profile(bundle, {"skipPrivate": "false"})
+
+    assert skipped["details"]["skip_reason"] == SKIP_PRIVATE
+    assert tried["details"]["skip_reason"] is None
+    assert device.message_node.clicks == 0

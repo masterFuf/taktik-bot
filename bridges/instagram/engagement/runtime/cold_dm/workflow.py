@@ -17,6 +17,11 @@ from bridges.instagram.engagement.runtime.cold_dm.sender import ColdDMSenderMixi
 from bridges.instagram.engagement.runtime.cold_dm.timing import wait_before_next_cold_dm
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
+    PRIVATE_SKIP_REASONS,
+    SKIP_VERIFIED,
+    ColdDmRecipientPolicy,
+)
 
 
 class ColdDMWorkflow(
@@ -35,6 +40,7 @@ class ColdDMWorkflow(
         self.dms_success = 0
         self.dms_failed = 0
         self.private_profiles = 0
+        self.verified_profiles = 0
 
     def run(
         self,
@@ -47,8 +53,10 @@ class ColdDMWorkflow(
         session_id: str = None,
         ai_prompt: str = "",
         openrouter_api_key: str = "",
+        recipient_policy: ColdDmRecipientPolicy | None = None,
     ) -> dict:
         """Run the cold DM workflow."""
+        recipient_policy = recipient_policy or ColdDmRecipientPolicy()
         use_ai = bool(ai_prompt and openrouter_api_key)
         logger.info(
             f"Starting Cold DM workflow: {len(recipients)} recipients, "
@@ -65,6 +73,7 @@ class ColdDMWorkflow(
             return build_all_recipients_processed_result()
 
         self.restart_instagram()
+        self._detect_app_language()
 
         for i, recipient in enumerate(filtered_recipients[:max_dms]):
             if self.dms_sent >= max_dms:
@@ -92,10 +101,15 @@ class ColdDMWorkflow(
                     self.go_home()
                     continue
 
-                open_result = self.open_dm_from_profile()
-                if open_result == "private":
-                    logger.warning(f"Skipping {recipient} - private profile")
+                open_result = self.open_dm_from_profile(recipient_policy)
+                if open_result in PRIVATE_SKIP_REASONS:
+                    logger.warning(f"Skipping {recipient} - private profile ({open_result})")
                     self.private_profiles += 1
+                    self.go_home()
+                    continue
+                if open_result == SKIP_VERIFIED:
+                    logger.warning(f"Skipping {recipient} - verified account")
+                    self.verified_profiles += 1
                     self.go_home()
                     continue
                 if not open_result:
@@ -142,6 +156,20 @@ class ColdDMWorkflow(
                 self.go_home()
 
         return build_cold_dm_summary(self)
+
+    def _detect_app_language(self) -> None:
+        """Pick the selector language once, on the app's first screen (best effort).
+
+        The profile reads of this flow are localized (private notice, Message label, certified
+        badge); without a detected language every locale is tried at once.
+        """
+        try:
+            from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+
+            lang = detect_and_optimize(self.device)
+            logger.info(f"App language detected: {lang}")
+        except Exception as exc:
+            logger.warning(f"Language detection failed (non-fatal): {exc}")
 
 
 __all__ = ["ColdDMWorkflow"]
