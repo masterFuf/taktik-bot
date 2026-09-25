@@ -15,6 +15,7 @@ import random
 from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
 
 from taktik.core.shared.telemetry.sink import emit_step
+from taktik.core.shared.telemetry.device_io import DeviceIoMeasure
 
 from .._internal import BaseVideoWorkflow, VideoWorkflowStats
 from .models import SearchConfig
@@ -74,16 +75,22 @@ class SearchWorkflow(BaseVideoWorkflow):
                 if not self._wait_if_paused():
                     break
                 
-                # Check and close any popups first
-                self._handle_popups()
-                
+                # What reading this turn's screen costs on the phone, by what it was (M1).
+                decision = DeviceIoMeasure("tiktok.feed.decision", source="search")
+
+                # One photo answers this turn's questions; a popup closed is a gesture: read again.
+                screen = self.detection.read_screen()
+                if self._handle_popups(screen):
+                    screen = self.detection.read_screen()
+
                 # Check limits
                 if self._check_limits_reached():
                     self.logger.info("📊 Session limits reached")
                     break
                 
                 # Get video info
-                video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads)
+                video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads, screen=screen)
+                decision.finish(kind=self._screen_kind(video_info))
                 
                 # Detect stuck state
                 if self._handle_stuck_video(video_info):

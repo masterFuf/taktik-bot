@@ -11,6 +11,8 @@ tab that is not the same statement, and it fails in two silent ways measured on 
 Both would have been interacted with and recorded under the name we were asked for.
 """
 
+from types import SimpleNamespace
+
 from taktik.core.social_media.tiktok.actions.atomic.navigation.search_actions import SearchActions
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
@@ -57,6 +59,17 @@ class _Screen:
         if selector in self._indicators or selector in self._usernames:
             return _Element(text=self._handle, exists=self._is_profile)
         return _Element()
+
+    def snapshot(self):
+        """One photo of this screen: each selector answers as it does through `xpath()`."""
+        screen = self
+
+        class _Photo:
+            def elements(self, selector):
+                element = screen.xpath(selector)
+                return [SimpleNamespace(text=element.get_text(), attrib={})] if element.exists else []
+
+        return _Photo()
 
 
 def _actions(*, is_profile=True, handle=None) -> SearchActions:

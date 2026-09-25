@@ -79,6 +79,12 @@ class _FakeDevice:
         name = m.group(1) if m else ''
         return _FakeXPath(name in self._followable)
 
+    def snapshot(self):
+        """One photo of this screen: each selector answers as it does through `xpath()`."""
+        device = self
+        return types.SimpleNamespace(
+            elements=lambda selector: [object()] if device.xpath(selector).exists else [])
+
 
 def _make_actions(device):
     dm = DMActions.__new__(DMActions)

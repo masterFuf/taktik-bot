@@ -255,12 +255,25 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
             return True
         return False
 
-    def _handle_popups(self) -> bool:
+    def _handle_popups(self, screen=None) -> bool:
         """Override to also track popup stats."""
-        closed = super()._handle_popups()
+        closed = super()._handle_popups(screen)
         if closed:
             self.stats.popups_closed += 1
         return closed
+
+    # ------------------------------------------------------------------
+    # What the loop turn read
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _screen_kind(video_info: Dict[str, Any]) -> str:
+        """What the video info says the screen was, for the cost of reading it (`device_io`)."""
+        if video_info.get('is_live'):
+            return 'live'
+        if video_info.get('is_ad'):
+            return 'ad'
+        return 'video' if video_info.get('author') else 'unknown'
 
     # ------------------------------------------------------------------
     # Stuck-video detection

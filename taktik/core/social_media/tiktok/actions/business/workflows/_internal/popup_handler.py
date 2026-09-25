@@ -7,49 +7,25 @@ across ForYouWorkflow, SearchWorkflow, and FollowersWorkflow.
 import time
 from loguru import logger
 
-from taktik.core.shared.device.ui_dump import parse_bounds, parse_ui_dump
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
-SYSTEM_UI_PACKAGE = 'com.android.systemui'
+# The popup families and the unlabelled dialog belong to the detection layer, which also reads
+# them on a screen photo (`read_screen`); `unlabelled_overlay_region` stays importable from here.
+from ....atomic.detection.screen_reading import popup_families, unlabelled_overlay_region
+
 # The OCR behind an unlabelled dialog costs a screenshot and a Tesseract pass: at most one try in
 # this window, however often the chain runs.
 UNLABELLED_OVERLAY_RETRY_SECONDS = 30.0
 
 
-def unlabelled_overlay_region(tree):
-    """The frame of an app dialog that exposes no readable node, or None.
-
-    The "update the app" prompt of TikTok 43.1.4 is drawn without a single text or content-desc:
-    no selector can see it, Back does not close it, and every tap of the run lands on the dim
-    layer behind it. Its signature is structural: the app's nodes are there, none carries a
-    label, and the largest frame inside the screen has a dialog's shape: at least a fifth of the
-    screen, centred, clear of the top and bottom edges. A loading screen (a logo on an empty page)
-    does not qualify.
-    """
-    app_nodes = [node for node in tree.iter()
-                 if node.get('package') and node.get('package') != SYSTEM_UI_PACKAGE]
-    if not app_nodes:
-        return None
-    if any((node.get('text') or '').strip() or (node.get('content-desc') or '').strip()
-           for node in app_nodes):
-        return None
-    boxes = [parse_bounds(node.get('bounds') or '') for node in app_nodes]
-    boxes = [box for box in boxes if box and box[2] > box[0] and box[3] > box[1]]
-    if not boxes:
-        return None
-    def area(box):
-        return (box[2] - box[0]) * (box[3] - box[1])
-
-    screen = max(boxes, key=area)
-    inner = [box for box in boxes if box != screen]
-    if not inner:
-        return None
-    frame = max(inner, key=area)
-    width, height = screen[2] - screen[0], screen[3] - screen[1]
-    centred = abs((frame[0] - screen[0]) - (screen[2] - frame[2])) <= 0.05 * width
-    clear_of_edges = frame[1] - screen[1] > 0.05 * height and screen[3] - frame[3] > 0.05 * height
-    if area(frame) < 0.2 * area(screen) or not centred or not clear_of_edges:
-        return None
-    return frame
+def _note_screen(xml) -> None:
+    """The most frequent read of a TikTok run is what keeps the screen ring alive, at no cost to
+    the phone."""
+    try:
+        from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
+        _noter_ecran(xml, platform='tiktok')
+    except Exception:  # noqa: BLE001
+        pass
 
 
 class PopupHandler:
@@ -96,13 +72,7 @@ class PopupHandler:
             self.logger.debug(f"_fast_detect: dump failed ({exc}) — falling back")
             return {'_fallback'}
 
-        # Ce dump etait lu puis jete. C'est le passage le plus frequent d'un run TikTok, donc
-        # celui qui rend l'anneau des ecrans vivant -- et il ne coute rien de plus a l'appareil.
-        try:
-            from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
-            _noter_ecran(xml, platform='tiktok')
-        except Exception:  # noqa: BLE001
-            pass
+        _note_screen(xml)
 
         def hit(selectors):
             for xp in (selectors if isinstance(selectors, list) else [selectors]):
@@ -113,55 +83,43 @@ class PopupHandler:
                     continue
             return False
 
-        from .....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-        from .....ui.selectors.shell.popups import POPUP_SELECTORS
-        from .....ui.selectors.surfaces.inbox import INBOX_SELECTORS
-
-        found = set()
-        if hit(POPUP_SELECTORS.system_deny_button):
-            found.add('system_deny')
-        if hit(POPUP_SELECTORS.system_input_method_popup):
-            found.add('system_input')
-        if hit(POPUP_SELECTORS.system_dialog):
-            found.add('system_dialog')
-        if hit(POPUP_SELECTORS.notification_banner):
-            found.add('notification_banner')
-        if hit(INBOX_SELECTORS.inbox_title) or hit(NAVIGATION_SELECTORS.inbox_tab_selected):
-            found.add('inbox_page')
-        if hit(POPUP_SELECTORS.link_email_popup):
-            found.add('link_email')
-        if hit(POPUP_SELECTORS.gdpr_popup):
-            found.add('gdpr')
-        if hit(POPUP_SELECTORS.follow_friends_popup):
-            found.add('follow_friends')
-        if hit(POPUP_SELECTORS.collections_popup):
-            found.add('collections')
-        if hit(POPUP_SELECTORS.close_button) or hit(POPUP_SELECTORS.dismiss_button):
-            found.add('generic_popup')
-        if hit(POPUP_SELECTORS.video_options_sheet):
-            found.add('video_options_sheet')
+        found = popup_families(hit)
         if not found:
             self._overlay_region = unlabelled_overlay_region(tree)
             if self._overlay_region is not None:
                 found.add('unlabelled_overlay')
         return found
 
+    def detect(self, screen=None):
+        """What needs handling: the popup families found, `'unlabelled_overlay'`, or
+        `{'_fallback'}` when the screen could not be read. On `screen` (a `read_screen()`), read
+        from its photo; without, from one dump of its own (`_fast_detect`)."""
+        if screen is None:
+            return self._fast_detect()
+        if screen.photo is None:
+            return {'_fallback'}
+        _note_screen(screen.photo.xml)
+        self._overlay_region = screen.overlay_region
+        return set(screen.popups)
+
     # ------------------------------------------------------------------
     # Main entry point
     # ------------------------------------------------------------------
 
-    def close_all(self) -> bool:
-        """Run through the full popup chain. Returns True if any popup was closed.
+    def close_all(self, screen=None) -> bool:
+        """Run through the full popup chain. Returns True if any popup was closed: a gesture, so
+        the caller reads the screen again.
 
         Fast path: a single dump_hierarchy() + lxml XPath scan is used to
         determine in ~0.5 s whether *anything* needs handling.  When the
         screen is clean this avoids the ~15 s of sequential per-selector
-        polling that the original implementation would burn.
+        polling that the original implementation would burn. Handed `screen`
+        (the photo this turn was read on), it takes no dump at all.
 
         Falls back transparently to sequential polling when the hierarchy
         dump fails or does not parse.
         """
-        detected = self._fast_detect()
+        detected = self.detect(screen)
 
         # ── Fallback: dump failed or unparseable ──────────────────────
         if '_fallback' in detected:
