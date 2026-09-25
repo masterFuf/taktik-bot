@@ -30,6 +30,7 @@ from ..repositories import (
     TikTokRepository
 )
 from ..repositories.instagram.hashtag import ProcessedHashtagPostRepository
+from ..repositories.instagram.profile.profile_repository import MARK_UNREACHABLE_SQL
 from ..repositories.instagram.scraping import ScrapingSessionRepository
 from ..repositories.instagram.social_graph import ProfileFollowingRepository
 from ..repositories._base.base_repository import BaseRepository
@@ -771,14 +772,7 @@ class LocalDatabaseService:
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                """UPDATE social_profiles
-                      SET unreachable_at = datetime('now'),
-                          unreachable_count = COALESCE(unreachable_count, 0) + 1,
-                          updated_at = datetime('now')
-                    WHERE platform = ? AND username = ?""",
-                (platform, username)
-            )
+            cursor.execute(MARK_UNREACHABLE_SQL, (platform, username))
             conn.commit()
             return cursor.rowcount > 0
         except Exception as e:

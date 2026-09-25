@@ -7,6 +7,15 @@ from ..._base.base_repository import BaseRepository
 from ..profile_ai_read_model import profile_ai_read_model
 
 
+# The mark of a profile nobody can open, params (platform, username). `updated_at` moves with
+# it, or the mark never leaves this machine (the sync delta is keyed on that column).
+MARK_UNREACHABLE_SQL = """UPDATE social_profiles
+      SET unreachable_at = datetime('now'),
+          unreachable_count = COALESCE(unreachable_count, 0) + 1,
+          updated_at = datetime('now')
+    WHERE platform = ? AND username = ?"""
+
+
 class ProfileRepository(BaseRepository):
     """Repository for Instagram profiles"""
     
