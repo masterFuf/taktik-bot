@@ -1,4 +1,5 @@
 """Unit tests for schema.py and migrations.py."""
+import re
 import sqlite3
 import pytest
 
@@ -46,8 +47,7 @@ class TestValidateSqlIdentifier:
 # ─── create_schema ─────────────────────────────────────────────────────────────
 
 EXPECTED_TABLES = {
-    # Instagram
-    "instagram_accounts",
+    # Instagram (instagram_accounts folded into accounts, Vague B: no longer created)
     "instagram_profiles",
     "filtered_profiles",
     # sessions folded into sessions_unified (Vague B Phase C): dropped
@@ -59,8 +59,7 @@ EXPECTED_TABLES = {
     # scraped_comments removed (Vague F1): dead table dropped, see smart_comment_replies
     "social_posts",
     "profile_ai_enrichments",
-    # TikTok
-    "tiktok_accounts",
+    # TikTok (tiktok_accounts folded into accounts, Vague B: no longer created)
     "tiktok_profiles",
     # tiktok_sessions folded into sessions_unified (Vague B Phase C): dropped
     # tiktok_filtered_profiles folded into the unified filtered_profiles (Vague B)
@@ -93,11 +92,44 @@ class TestCreateSchema:
         tables = self._get_tables(fresh_conn)
         assert EXPECTED_TABLES <= tables
 
-    def test_instagram_accounts_columns(self, fresh_conn):
+    def test_folded_account_tables_are_not_created(self, fresh_conn):
+        """The bot used to create instagram_accounts / tiktok_accounts at every opening, only
+        for the accounts migration to drop them again a few statements later."""
+        statements = []
+        fresh_conn.set_trace_callback(statements.append)
         create_schema(fresh_conn)
-        info = fresh_conn.execute("PRAGMA table_info(instagram_accounts)").fetchall()
-        cols = {r["name"] for r in info}
-        assert {"account_id", "username", "is_bot", "created_at"} <= cols
+        run_migrations(fresh_conn)
+        fresh_conn.set_trace_callback(None)
+        script = "\n".join(statements)
+        created_tables = set(re.findall(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"?(\w+)', script, re.I))
+        indexed_tables = set(re.findall(r'CREATE\s+(?:UNIQUE\s+)?INDEX\s+\S+(?:\s+\S+)*?\s+ON\s+"?(\w+)', script, re.I))
+        for legacy in ("instagram_accounts", "tiktok_accounts"):
+            assert legacy not in created_tables | indexed_tables, legacy
+        tables = self._get_tables(fresh_conn)
+        assert "accounts" in tables
+        assert not {"instagram_accounts", "tiktok_accounts"} & tables
+
+    def test_reopening_a_migrated_base_creates_nothing_to_drop(self, fresh_conn):
+        """Second opening of the same base: no table is created then dropped."""
+        create_schema(fresh_conn)
+        run_migrations(fresh_conn)
+        statements = []
+        fresh_conn.set_trace_callback(statements.append)
+        create_schema(fresh_conn)
+        run_migrations(fresh_conn)
+        fresh_conn.set_trace_callback(None)
+        existing = self._get_tables(fresh_conn)
+        created = {
+            s.split("EXISTS", 1)[-1].split("(", 1)[0].strip().strip('"')
+            for s in statements
+            if s.lstrip().upper().startswith("CREATE TABLE IF NOT EXISTS")
+        }
+        dropped = {
+            s.rsplit(" ", 1)[-1].strip().strip('"')
+            for s in statements
+            if s.lstrip().upper().startswith("DROP TABLE IF EXISTS")
+        }
+        assert not (created & dropped) - existing
 
     # test_sessions_foreign_key removed (Vague B Phase C): the legacy `sessions` table
     # is dropped; the unified `sessions_unified` is polymorphic and carries no account FK.
@@ -108,11 +140,12 @@ class TestCreateSchema:
             "SELECT name FROM sqlite_master WHERE type='index'"
         ).fetchall()
         index_names = {r["name"] for r in rows}
-        assert "idx_accounts_username" in index_names
+        assert "idx_filtered_username" in index_names
         # idx_profiles_username / idx_tiktok_profiles_username removed (Vague B fix):
         # instagram_profiles/tiktok_profiles are compat views and "views may not be
         # indexed"; profile lookups are served by idx_social_profiles_username.
-        assert "idx_tiktok_accounts_username" in index_names
+        # idx_accounts_username / idx_tiktok_accounts_username went with their folded tables.
+        assert not {"idx_accounts_username", "idx_tiktok_accounts_username"} & index_names
 
 
 # ─── run_migrations ────────────────────────────────────────────────────────────
