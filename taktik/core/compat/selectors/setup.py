@@ -267,10 +267,10 @@ def _patch_singleton(
         # in an override used to raise AttributeError and abort the WHOLE apply — every
         # override after it, other domains included, silently never landed. A property
         # cannot be patched this way; say so and keep going.
+        # Remembered only once the field took the override: a refused field would otherwise be
+        # restored on every later apply, and that restore raises the same error.
+        original = list(current) if isinstance(current, list) else current
         try:
-            if isinstance(current, (list, str)):
-                _ORIGINALS.setdefault(id(singleton), {}).setdefault(
-                    field_name, list(current) if isinstance(current, list) else current)
             if isinstance(current, list):
                 setattr(singleton, field_name, xpaths)
             elif isinstance(current, str):
@@ -289,6 +289,7 @@ def _patch_singleton(
             )
             continue
 
+        _ORIGINALS.setdefault(id(singleton), {}).setdefault(field_name, original)
         patched += 1
         logger.debug(f"[Compat] Patched {action_key} ({len(xpaths)} xpath(s))")
 

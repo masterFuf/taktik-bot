@@ -44,3 +44,15 @@ def test_applying_twice_is_the_same_as_once():
     once = _snapshot()
     apply_version_overrides("instagram", "447.0.0.55.81")
     assert _snapshot() == once
+
+
+def test_a_refused_field_does_not_break_the_next_apply():
+    """A read-only property in an override is skipped; it must not be \"restored\" later."""
+    from taktik.core.compat.selectors.setup import _patch_singleton
+
+    baseline = _snapshot()
+    assert _patch_singleton("detection", DETECTION_SELECTORS,
+                            {"detection.business_account_indicators": ["//refused"]}) == 0
+    assert apply_version_overrides("instagram", "447.0.0.55.81") > 0
+    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+    assert _snapshot() == baseline
