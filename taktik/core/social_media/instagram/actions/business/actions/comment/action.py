@@ -8,7 +8,7 @@ from loguru import logger
 from ....core.base_business import BaseBusinessAction
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
-from .templates import DEFAULT_TEMPLATES, get_random_comment, validate_comment, get_templates, add_custom_template
+from .validation import validate_comment
 
 
 from .thread_context import ThreadContextMixin
@@ -30,23 +30,19 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             # Set False to keep comments strictly gesture-minimal.
             'capture_post_url': True,
         }
-        
-        # Mutable copy so add_custom_template works at runtime
-        self.comment_templates = {k: list(v) for k, v in DEFAULT_TEMPLATES.items()}
+
     
-    def comment_on_post(self, comment_text: str = None, template_category: str = 'generic',
+    def comment_on_post(self, comment_text: str = None,
                        custom_comments: List[str] = None, config: dict = None, username: str = None,
-                       ai_metadata: Optional[Dict[str, Any]] = None,
-                       template_fallback: bool = True) -> dict:
+                       ai_metadata: Optional[Dict[str, Any]] = None) -> dict:
         """Post a comment. `ai_metadata` carries what only the AI hook knows (model, cost,
         reasoning, post caption/description, language) so the stored record of the comment
         is complete; it stays None for template/custom comments.
 
-        `template_fallback=False`: with no text and no custom comment, post nothing rather than
-        a built-in template (skipped result, the screen untouched). The Feed asks for it: the
-        same few fixed comments on post after post are a trace of automation (Kevin,
-        2026-09-25). The AI hook forwards it, so a failed generation does not fall back on a
-        template either."""
+        With no text and no custom comment, post nothing (skipped result, the screen
+        untouched): the bot has no built-in template any more, the same few fixed comments on
+        post after post being a trace of automation (Kevin, 2026-09-24). A failed AI generation
+        falls back on the custom comments, never on a template."""
         config = {**self.default_config, **(config or {})}
 
         stats = {
@@ -61,14 +57,11 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                 if custom_comments and len(custom_comments) > 0:
                     comment_text = random.choice(custom_comments)
                     self.logger.debug(f"Using custom comment from user list")
-                elif not template_fallback:
+                else:
                     self.logger.info("No comment text (no AI comment, no custom comment): not commenting")
                     stats['skipped'] = True
                     stats['skip_reason'] = 'no_comment_text'
                     return stats
-                else:
-                    comment_text = get_random_comment(self.comment_templates, template_category)
-                    self.logger.debug(f"Using template comment from category: {template_category}")
             
             if not validate_comment(comment_text, config, self.logger):
                 self.logger.warning(f"Invalid comment text ({len(comment_text)} chars)")
@@ -696,16 +689,5 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             self.post_selectors.comment_unlike_labels,
         )
 
-    # ─── Backward-compatible template management methods ─────────────────
-    
-    def _get_random_comment(self, category: str = 'generic') -> str:
-        return get_random_comment(self.comment_templates, category)
-    
     def _validate_comment(self, comment_text: str, config: dict) -> bool:
         return validate_comment(comment_text, config, self.logger)
-    
-    def get_comment_templates(self, category: str = None) -> object:
-        return get_templates(self.comment_templates, category)
-    
-    def add_custom_template(self, comment: str, category: str = 'generic') -> bool:
-        return add_custom_template(self.comment_templates, comment, category, self.logger)

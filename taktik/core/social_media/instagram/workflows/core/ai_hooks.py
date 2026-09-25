@@ -227,20 +227,17 @@ def install_instagram_ai_hooks(
             def ai_comment_on_post(
                 self_comment,
                 comment_text=None,
-                template_category="generic",
                 custom_comments=None,
                 config=None,
                 username=None,
                 **passthrough,
             ):
-                # Every other argument of the action goes through (`template_fallback`, which
-                # the Feed passes): a wrapper that takes only these six raises TypeError on
-                # them, as the like wrapper did on `record_as`.
+                # Every other argument of the action goes through: a wrapper that takes only
+                # its own raises TypeError on the others, as the like wrapper did on `record_as`.
                 if comment_text:
                     return original_comment_on_post(
                         self_comment,
                         comment_text=comment_text,
-                        template_category=template_category,
                         custom_comments=custom_comments,
                         config=config,
                         username=username,
@@ -509,7 +506,6 @@ def install_instagram_ai_hooks(
                         return original_comment_on_post(
                             self_comment,
                             comment_text=ai_comment,
-                            template_category=template_category,
                             custom_comments=None,
                             config=config,
                             username=username,
@@ -548,14 +544,13 @@ def install_instagram_ai_hooks(
                             },
                         )
 
-                    log("warning", "AI comment generation failed, falling back to default")
+                    log("warning", "AI comment generation failed, falling back to the custom comments")
                 except Exception as exc:
                     log("warning", f"AI comment hook error: {exc}")
 
                 return original_comment_on_post(
                     self_comment,
                     comment_text=comment_text,
-                    template_category=template_category,
                     custom_comments=custom_comments,
                     config=config,
                     username=username,

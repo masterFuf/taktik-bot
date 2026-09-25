@@ -324,7 +324,6 @@ class InteractionEngineMixin:
                     config={'randomize_order': True},
                     should_comment=should_comment,
                     custom_comments=config.get('custom_comments', []),
-                    comment_template_category=config.get('comment_template_category', 'generic'),
                     max_comments=plan.max_comments,
                     navigate_to_profile=False,
                     profile_data=profile_data,

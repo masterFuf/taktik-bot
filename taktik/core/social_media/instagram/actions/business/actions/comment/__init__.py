@@ -5,7 +5,7 @@ All existing imports like `from .comment import CommentBusiness` continue to wor
 
 Internal structure:
 - action.py    — Comment posting logic (comment_on_post, click/type/post/close)
-- templates.py — Comment templates data and management functions
+- validation.py — Comment text validation (the bot has no built-in template)
 """
 
 from .action import CommentAction as CommentBusiness

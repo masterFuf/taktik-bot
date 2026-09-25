@@ -56,7 +56,6 @@ def _comment_action(close=None):
     act.logger = _log()
     act.default_config = {'comment_delay_range': (0, 0), 'max_comment_length': 150,
                           'min_comment_length': 1, 'capture_post_url': False}
-    act.comment_templates = {'generic': ['Superbe travail']}
     act.session_manager = _Session()
     act.rows = []
     act._record_action = lambda u, k, c=1, **kw: act.rows.append((u, k, kw.get('content')))

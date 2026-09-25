@@ -402,7 +402,7 @@ def test_a_refused_like_is_seen_before_the_comment():
     orch = _orchestration(phone)
     phone._screen = lambda: _screen(BLOCK_FR) if orch.gestures else _screen()
 
-    liked, commented = orch._run_engagement_sequence(["like", "comment"], "alice", [], "generic", {})
+    liked, commented = orch._run_engagement_sequence(["like", "comment"], "alice", [], {})
 
     assert orch.gestures == ["like"]
     assert commented is False
@@ -413,7 +413,7 @@ def test_a_refused_like_that_reads_as_failed_is_still_seen():
     phone = _Phone(lambda: _screen(BLOCK_FR))
     orch = _orchestration(phone, liked=False)
 
-    orch._run_engagement_sequence(["like", "comment"], "alice", [], "generic", {})
+    orch._run_engagement_sequence(["like", "comment"], "alice", [], {})
 
     assert run_halt.arret_demande()["code"] == run_halt.ACTION_BLOCKED
 
@@ -422,7 +422,7 @@ def test_the_sequence_without_the_dialog_looks_once_per_gesture():
     phone = _Phone()
     orch = _orchestration(phone)
 
-    liked, commented = orch._run_engagement_sequence(["like", "comment"], "alice", [], "generic", {})
+    liked, commented = orch._run_engagement_sequence(["like", "comment"], "alice", [], {})
 
     assert (liked, commented) == (True, True)
     assert phone.dumps == 2

@@ -124,18 +124,57 @@ def back_to_inbox(a, p):
     return {"success": True, "message": "back to inbox"}
 
 
+def _flag(p, name, default):
+    value = p.get(name, default)
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "oui")
+    return bool(value)
+
+
+def _cold_dm_runtime(a):
+    """The production cold DM workflow (`ColdDMWorkflow`) bound to the warm Lab device: the class
+    itself, so a step changed in the bridge reaches the Lab on its own. No second connection, no
+    app restart; the profile reads use the Lab's detection."""
+    from bridges.common.input.keyboard import KeyboardService
+    from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
+
+    class _LabColdDMWorkflow(ColdDMWorkflow):
+        def __init__(self, bundle):
+            facade = bundle.device
+            # The prod mixins drive a raw (proxied) u2 device; the Lab facade exposes it as `.device`.
+            self.device = getattr(facade, "device", facade)
+            self.device_id = getattr(facade, "device_id", None) or "lab"
+            self._keyboard = KeyboardService(self.device_id)
+            self._detection = bundle.detection
+
+        def _cold_dm_detection(self):
+            return self._detection
+
+    return _LabColdDMWorkflow(a)
+
+
 @action("dm.send_cold_dm")
 def send_cold_dm(a, p):
-    """Cold DM (canonical ``send_dm``): navigate to ``username``'s profile, open Message, type +
-    send ``text``. Params: username (required), text (required). (Cold DM is a separate prod path
-    from the inbox auto-reply runtime above.)"""
-    username = (p.get("username") or "").strip()
+    """Cold DM to ONE recipient through the production steps of the cold DM bridge
+    (`ColdDMWorkflow.reach_and_send`): search, profile, the recipient policy (skipPrivate default
+    true, skipVerified default false, as the page sends them), conversation, send. Params: username
+    and text (required). Not written to the base: the Lab has no session."""
+    from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
+        ColdDmRecipientPolicy,
+    )
+
+    username = (p.get("username") or "").strip().lstrip("@")
     text = (p.get("text") or "").strip()
     if not username or not text:
         return {"success": False, "message": "username and text params are required"}
-    from taktik.core.social_media.instagram.actions.business.workflows.messaging.workflow import send_dm
-    ok = send_dm(a.device, username, text, navigate_to_profile=True)
-    return {"success": bool(ok), "message": f"cold DM to @{username} sent={ok}"}
+    policy = ColdDmRecipientPolicy(skip_private=_flag(p, "skipPrivate", True),
+                                   skip_verified=_flag(p, "skipVerified", False))
+    reached = _cold_dm_runtime(a).reach_and_send(username, lambda: text, policy)
+    outcome = reached["outcome"]
+    sent = outcome == "sent" and bool(reached.get("send_result"))
+    return {"success": sent,
+            "message": f"cold DM to @{username}: {outcome}" + ("" if outcome != "sent" else f" ({reached.get('send_result')})"),
+            "details": {"outcome": outcome, "send_result": reached.get("send_result")}}
 
 
 @action("dm.cold_dm_check_profile")
@@ -144,29 +183,13 @@ def cold_dm_check_profile(a, p):
     cold DM bridge (``ColdDMNavigationMixin.evaluate_cold_dm_profile``: private notice, Message
     button, certified badge, then ``cold_dm_skip_reason``). Params: skipPrivate (default true),
     skipVerified (default false), as the page sends them. Be on a PROFILE screen."""
-    from bridges.instagram.engagement.runtime.cold_dm.navigation import ColdDMNavigationMixin
     from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
         ColdDmRecipientPolicy,
     )
 
-    def _flag(name, default):
-        value = p.get(name, default)
-        if isinstance(value, str):
-            return value.strip().lower() in ("1", "true", "yes", "oui")
-        return bool(value)
-
-    class _LabColdDM(ColdDMNavigationMixin):
-        def __init__(self, bundle):
-            # The prod mixin drives a raw (proxied) u2 device; the Lab facade exposes it as `.device`.
-            self.device = getattr(bundle.device, "device", bundle.device)
-            self._detection = bundle.detection
-
-        def _cold_dm_detection(self):
-            return self._detection
-
-    policy = ColdDmRecipientPolicy(skip_private=_flag("skipPrivate", True),
-                                   skip_verified=_flag("skipVerified", False))
-    verdict = _LabColdDM(a).evaluate_cold_dm_profile(policy)
+    policy = ColdDmRecipientPolicy(skip_private=_flag(p, "skipPrivate", True),
+                                   skip_verified=_flag(p, "skipVerified", False))
+    verdict = _cold_dm_runtime(a).evaluate_cold_dm_profile(policy)
     verdict.pop("message_button", None)
     reason = verdict["skip_reason"]
     return {"success": True,

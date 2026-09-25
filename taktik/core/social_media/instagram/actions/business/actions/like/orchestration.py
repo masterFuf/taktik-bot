@@ -62,7 +62,6 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                           profile_data: dict = None,
                           should_comment: bool = False,
                           custom_comments: list = None,
-                          comment_template_category: str = 'generic',
                           max_comments: int = 1,
                           should_like: bool = True,
                           on_like: Optional[Callable[[], None]] = None,
@@ -117,7 +116,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             sequential_stats = self.like_posts_with_sequential_scroll(
                 username, max_likes, config, profile_data=profile_info,
                 should_comment=should_comment, custom_comments=custom_comments,
-                comment_template_category=comment_template_category, max_comments=max_comments,
+                max_comments=max_comments,
                 should_like=should_like, on_like=on_like, on_comment=on_comment
             )
             posts_liked = sequential_stats['posts_liked']
@@ -171,7 +170,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
     def like_posts_with_sequential_scroll(self, username: str, max_likes: int = 3, config: dict = None, profile_data: dict = None,
                                          should_comment: bool = False, custom_comments: list = None,
-                                         comment_template_category: str = 'generic', max_comments: int = 1,
+                                         max_comments: int = 1,
                                          should_like: bool = True,
                                          on_like: Optional[Callable[[], None]] = None,
                                          on_comment: Optional[Callable[[], None]] = None) -> dict:
@@ -327,7 +326,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         sequence = plan_engagement_sequence(do_like_this, do_comment_this)
                         self.logger.debug(f"Post #{posts_seen}: engagement pattern {sequence}")
                         liked_ok, commented_ok = self._run_engagement_sequence(
-                            sequence, username, custom_comments, comment_template_category, config
+                            sequence, username, custom_comments, config
                         )
                         if liked_ok:
                             posts_liked += 1
@@ -463,8 +462,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         except Exception:
             return ""
 
-    def _run_engagement_sequence(self, sequence, username, custom_comments,
-                                 comment_template_category, config) -> tuple:
+    def _run_engagement_sequence(self, sequence, username, custom_comments, config) -> tuple:
         """Execute the ordered engagement steps (read / like / comment) for one post.
 
         A failed like aborts the rest. CRUCIALLY: reading a description can scroll the
@@ -497,8 +495,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         self.logger.warning("Failed to like — aborting this post's sequence")
                         break
                 else:  # comment
-                    if self._comment_current_post(username, custom_comments,
-                                                  comment_template_category, config):
+                    if self._comment_current_post(username, custom_comments, config):
                         commented = True
                     if self._stop_if_action_blocked(username, 'comment'):
                         break
@@ -513,14 +510,13 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         except Exception as e:
             self.logger.debug(f"read description skipped: {e}")
 
-    def _comment_current_post(self, username, custom_comments, comment_template_category, config) -> bool:
+    def _comment_current_post(self, username, custom_comments, config) -> bool:
         """Post a comment on the current post. Returns True if a comment was posted."""
         try:
             from ..comment import CommentBusiness
             comment_business = CommentBusiness(self.device, self.session_manager, self.automation)
             comment_result = comment_business.comment_on_post(
                 custom_comments=custom_comments,
-                template_category=comment_template_category,
                 config=config,
                 username=username,
             )
