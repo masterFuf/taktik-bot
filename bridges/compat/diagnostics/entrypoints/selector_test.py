@@ -1,11 +1,11 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
-Selector Test Bridge — Live-tests XPath selectors against a real device screen.
+Selector Test Bridge — tests the selectors production runs, on the screen of a real device.
 
-Connects to a device via uiautomator2, then tests each selector from the
-VersionedSelectorRegistry by calling device.xpath(expr).exists on the live UI.
-
-This validates that selectors still match real UI elements on any Instagram version.
+Connects first, then takes production's steps on that phone (`runtime/selector_test/production.py`):
+version overrides of the installed app (every version <= it), language detected on the screen,
+catalogues read back with their properties. Each xpath is evaluated as `d.xpath()` evaluates it,
+on one dump of the screen (`runtime/selector_test/runner.py`).
 
 Config JSON (passed as argv[1] temp file):
   {
@@ -15,12 +15,12 @@ Config JSON (passed as argv[1] temp file):
     "domains": ["navigation", "feed"]  // optional filter, empty = all
   }
 
-Output: IPC messages with per-selector pass/fail results.
+Output: IPC messages with per-selector pass/fail results. `test_results` also carries
+`baseline_version`, `overrides_applied`, `language`, `skipped_not_xpath` and `skipped_empty`.
 """
 
 import sys
 import os
-import time
 
 # Bootstrap: ensure bot root is in sys.path
 bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -47,46 +47,52 @@ def main():
     request = load_selector_test_request(ipc, sys.argv)
     device_id = request.device_id
     app_name = request.app_name
-    version = request.version
     domain_filter = request.domain_filter
 
-    logger.info(f"[SelectorTest] device={device_id} app={app_name} version={version} domains={domain_filter}")
-    ipc.send("status", status="initializing", message="Loading selector registry...")
+    logger.info(f"[SelectorTest] device={device_id} app={app_name} version={request.version} domains={domain_filter}")
 
-    # Initialize registry
-    try:
-        from taktik.core.compat.selectors import create_registry
-
-        registry = create_registry()
-    except Exception as e:
-        ipc.send("error", error=f"Failed to create registry: {e}", error_code="REGISTRY_INIT_ERROR")
-        sys.exit(1)
-
-    # Get all selectors for this app/version
-    all_selectors = registry.get_all(app_name, version)
-    if not all_selectors:
-        ipc.send("error", error=f"No selectors found for {app_name}", error_code="NO_SELECTORS")
-        sys.exit(1)
-
-    all_selectors = filter_selectors_by_domain(all_selectors, domain_filter)
-
-    total = sum(len(entry.xpaths) for entry in all_selectors.values())
     ipc.send("status", status="connecting", message=f"Connecting to {device_id}...")
-
-    # Connect to device
     conn = ConnectionService(device_id)
     if not conn.connect():
         ipc.send("error", error=f"Failed to connect to {device_id}", error_code="CONNECTION_ERROR")
         sys.exit(1)
 
-    device = conn.device
-    ipc.send("status", status="testing", message=f"Testing {len(all_selectors)} selectors ({total} XPaths)...")
+    try:
+        _run(ipc, conn, request, app_name, device_id, domain_filter)
+    finally:
+        conn.disconnect()
 
-    results = run_selector_tests(device, all_selectors, ipc)
 
-    # Disconnect
-    conn.disconnect()
+def _run(ipc, conn, request, app_name, device_id, domain_filter):
+    ipc.send("status", status="initializing", message="Resolving the selectors of the installed version...")
+    try:
+        from bridges.compat.diagnostics.runtime.selector_test.production import prepare_selector_test
 
+        plan = prepare_selector_test(app_name, request.version, device_id, conn.device)
+    except Exception as e:
+        ipc.send("error", error=f"Failed to load selectors: {e}", error_code="REGISTRY_INIT_ERROR")
+        sys.exit(1)
+
+    selectors = plan.selectors
+    version = selectors.version
+    all_selectors = selectors.entries
+    if not all_selectors:
+        ipc.send("error", error=f"No selectors found for {app_name}", error_code="NO_SELECTORS")
+        sys.exit(1)
+
+    all_selectors = filter_selectors_by_domain(all_selectors, domain_filter)
+    total = sum(len(entry.xpaths) for entry in all_selectors.values())
+
+    ipc.send(
+        "status",
+        status="testing",
+        message=(
+            f"Testing {len(all_selectors)} selectors ({total} XPaths), "
+            f"v{version or selectors.baseline_version}, language {selectors.language}..."
+        ),
+    )
+
+    results = run_selector_tests(plan.device, all_selectors, ipc, xml=plan.xml, rewrite=plan.rewrite)
     passed, failed, domain_summary = summarize_selector_results(results)
 
     ipc.send(
@@ -100,11 +106,15 @@ def main():
         failed=failed,
         domain_summary=domain_summary,
         results=results,
+        baseline_version=selectors.baseline_version,
+        overrides_applied=selectors.overrides_applied,
+        language=selectors.language,
+        skipped_not_xpath=selectors.skipped_not_xpath,
+        skipped_empty=selectors.skipped_empty,
     )
 
     logger.info(f"[SelectorTest] Done: {passed}/{len(results)} actions have at least one matching XPath")
 
-    # Also send a final status
     status = "all_passed" if failed == 0 else "some_failed"
     ipc.send("status", status=status, message=f"{passed}/{len(results)} selectors matched on {app_name} v{version}")
 

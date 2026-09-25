@@ -5,7 +5,7 @@ Version-aware selector routing for compatibility tooling.
 import yaml
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from loguru import logger
 
 
@@ -93,42 +93,31 @@ class VersionedSelectorRegistry:
             logger.error(f"[Compat] Failed to load overrides for {app}: {e}")
             self._overrides[app] = {}
 
+    def _overrides_for(self, app: str, version: str) -> Dict[str, List[str]]:
+        """The overrides the patcher applies for *version*: every version <= it, compared
+        numerically, the later one winning per key."""
+        from .setup import _resolve_overrides_for_version
+
+        return _resolve_overrides_for_version({"versions": self._overrides.get(app, {})}, version)
+
     def get(self, app: str, version: str, action: str) -> SelectorEntry:
         if app not in self._apps:
             raise SelectorNotFound(app, version, action)
 
-        app_data = self._apps[app]
-        current_version = app_data["current_version"]
-        current_selectors = app_data["selectors"]
+        overrides = self._overrides_for(app, version)
+        if action in overrides:
+            return SelectorEntry(xpaths=overrides[action], source="yaml")
 
-        if app in self._overrides and version in self._overrides[app]:
-            version_overrides = self._overrides[app][version]
-            if action in version_overrides:
-                return SelectorEntry(xpaths=version_overrides[action], source="yaml")
-
-        if version == current_version:
-            if action in current_selectors:
-                return SelectorEntry(xpaths=current_selectors[action], source="python")
-            raise SelectorNotFound(app, version, action)
-
-        if app in self._overrides:
-            closest = self._find_closest_version(self._overrides[app], version)
-            if closest and action in self._overrides[app][closest]:
-                return SelectorEntry(
-                    xpaths=self._overrides[app][closest][action],
-                    source="yaml",
-                )
-
+        current_selectors = self._apps[app]["selectors"]
         if action in current_selectors:
-            logger.warning(
-                f"[Compat] No override for {app}/{version}/{action}, "
-                f"falling back to current v{current_version} selectors"
-            )
             return SelectorEntry(xpaths=current_selectors[action], source="python")
 
         raise SelectorNotFound(app, version, action)
 
     def get_all(self, app: str, version: str) -> Dict[str, SelectorEntry]:
+        """The map with the overrides of *version* on top. A static view: an override of a
+        `_x_base` field shows under its own key, not in the property that reads it; the live
+        catalogues, once patched, are the view production runs."""
         if app not in self._apps:
             return {}
 
@@ -138,9 +127,8 @@ class VersionedSelectorRegistry:
         for action, xpaths in current_selectors.items():
             result[action] = SelectorEntry(xpaths=xpaths, source="python")
 
-        if app in self._overrides and version in self._overrides[app]:
-            for action, xpaths in self._overrides[app][version].items():
-                result[action] = SelectorEntry(xpaths=xpaths, source="yaml")
+        for action, xpaths in self._overrides_for(app, version).items():
+            result[action] = SelectorEntry(xpaths=xpaths, source="yaml")
 
         return result
 
@@ -159,18 +147,10 @@ class VersionedSelectorRegistry:
         return self._apps[app]["current_version"]
 
     def get_override_versions(self, app: str) -> List[str]:
+        """Override versions in numeric order; keys that are not a version come last."""
         if app not in self._overrides:
             return []
-        return sorted(self._overrides[app].keys())
-
-    def _find_closest_version(
-        self, versions: Dict[str, Any], target: str
-    ) -> Optional[str]:
-        candidates = sorted(versions.keys(), reverse=True)
-        for version in candidates:
-            if version <= target:
-                return version
-        return None
+        return sorted(self._overrides[app].keys(), key=_version_order)
 
     def to_dict(self, app: str, version: str) -> Dict[str, Any]:
         all_selectors = self.get_all(app, version)
@@ -189,27 +169,56 @@ class VersionedSelectorRegistry:
         }
 
 
-def build_selector_map_from_dataclass(instance: Any) -> Dict[str, List[str]]:
-    """Extract a flat selector map from an existing dataclass selector instance."""
+def _version_order(version: Any) -> Tuple[int, Tuple[int, ...], str]:
+    try:
+        return (0, tuple(int(part) for part in str(version).split(".")), "")
+    except ValueError:
+        return (1, (), str(version))
+
+
+def _public_selector_names(instance: Any, include_properties: bool) -> List[str]:
+    """Public fields, then public properties when asked: a property (`_x_base + L(...)`) is
+    what the workflows read, and `vars()` does not list it."""
+    names = [name for name in getattr(instance, "__dict__", {}) if not name.startswith("_")]
+    if not include_properties:
+        return names
+    seen = set(names)
+    for klass in type(instance).__mro__:
+        for name, attr in vars(klass).items():
+            if isinstance(attr, property) and not name.startswith("_") and name not in seen:
+                seen.add(name)
+                names.append(name)
+    return names
+
+
+def build_selector_map_from_dataclass(
+    instance: Any, include_properties: bool = False
+) -> Dict[str, List[str]]:
+    """Flat selector map of one catalogue, as it reads NOW (overrides already applied, active
+    locale). Without the properties by default: the xpath -> selectorId index would lose, as
+    ambiguous, every xpath a property repeats from a public field."""
     result = {}
-    for field_name in vars(instance):
-        if field_name.startswith("_"):
+    for name in _public_selector_names(instance, include_properties):
+        try:
+            value = getattr(instance, name)
+        except Exception as exc:
+            logger.debug(f"[Compat] {type(instance).__name__}.{name} unreadable: {exc}")
             continue
-        value = getattr(instance, field_name)
-        if isinstance(value, list) and all(isinstance(v, str) for v in value):
-            result[field_name] = value
+        if isinstance(value, (list, tuple)) and all(isinstance(v, str) for v in value):
+            result[name] = list(value)
         elif isinstance(value, str):
-            result[field_name] = [value]
+            result[name] = [value]
     return result
 
 
 def build_full_selector_map(
     selector_instances: Dict[str, Any],
+    include_properties: bool = False,
 ) -> Dict[str, List[str]]:
     """Build a namespaced selector map from multiple dataclass instances."""
     result = {}
     for domain, instance in selector_instances.items():
-        domain_map = build_selector_map_from_dataclass(instance)
+        domain_map = build_selector_map_from_dataclass(instance, include_properties)
         for action, xpaths in domain_map.items():
             result[f"{domain}.{action}"] = xpaths
     return result

@@ -1,9 +1,17 @@
-"""Live selector execution helpers for compat selector diagnostics."""
+"""Live selector execution helpers for compat selector diagnostics.
+
+Each selector is evaluated the way `d.xpath(selector).exists` evaluates it: uiautomator2's own
+`XPathSelector` on the tree `parse_ui_dump` also builds (tags = widget classes), shorthands
+(`@id`, `%text%`, `^regex`) and `re:` included, after the device's rewrite when it has one
+(`CloneAwareDeviceProxy.rewrite_xpath` on Instagram). `ScreenSnapshot` is that path.
+"""
 
 import time
+from typing import Callable, Optional
 
-from lxml import etree
 from loguru import logger
+
+from taktik.core.shared.device.snapshot import ScreenSnapshot, SnapshotUnavailable
 
 
 def filter_selectors_by_domain(all_selectors: dict, domain_filter: list) -> dict:
@@ -19,11 +27,29 @@ def filter_selectors_by_domain(all_selectors: dict, domain_filter: list) -> dict
     return filtered
 
 
-def run_selector_tests(device, all_selectors: dict, ipc) -> list[dict]:
-    """Test every XPath from the selector registry against the live device."""
+def take_screen(device) -> tuple[Optional[str], Optional[str]]:
+    """The dump `d.xpath()` would take: (xml, None), or (None, error)."""
+    try:
+        return device.dump_hierarchy(), None
+    except Exception as exc:
+        return None, str(exc)
+
+
+def run_selector_tests(
+    device,
+    all_selectors: dict,
+    ipc,
+    *,
+    xml: Optional[str] = None,
+    rewrite: Optional[Callable[[str], str]] = None,
+) -> list[dict]:
+    """Test every selector on one dump of the screen (`xml`, taken here when absent).
+
+    `device` is what production calls `xpath()` on; it answers only when no dump could be read.
+    """
     results = []
-    xml_tree, snapshot_error = _build_snapshot_tree(device)
-    mode = "xml_snapshot" if xml_tree is not None else "live_device"
+    snapshot, snapshot_error = _build_snapshot(device, xml, rewrite)
+    mode = "xml_snapshot" if snapshot is not None else "live_device"
 
     if snapshot_error:
         logger.warning(f"Selector snapshot unavailable, falling back to live XPath calls: {snapshot_error}")
@@ -38,19 +64,9 @@ def run_selector_tests(device, all_selectors: dict, ipc) -> list[dict]:
         action_has_match = False
 
         for xpath in entry.xpaths:
-            found = False
-            error_msg = None
-            elapsed_ms = 0.0
-            execution_mode = mode
-
             started_at = time.perf_counter()
-            if xml_tree is not None:
-                try:
-                    found = bool(xml_tree.xpath(xpath))
-                except Exception as exc:
-                    logger.warning(f"Local XPath error for {action}, falling back to live device: {exc}")
-                    execution_mode = "live_device_fallback"
-                    found, error_msg = _run_live_xpath(device, xpath, action)
+            if snapshot is not None:
+                found, error_msg = _run_snapshot_xpath(snapshot, xpath, action)
             else:
                 found, error_msg = _run_live_xpath(device, xpath, action)
             elapsed_ms = round((time.perf_counter() - started_at) * 1000, 2)
@@ -64,7 +80,7 @@ def run_selector_tests(device, all_selectors: dict, ipc) -> list[dict]:
                     "found": found,
                     "error": error_msg,
                     "elapsed_ms": elapsed_ms,
-                    "mode": execution_mode,
+                    "mode": mode,
                 }
             )
 
@@ -85,15 +101,27 @@ def run_selector_tests(device, all_selectors: dict, ipc) -> list[dict]:
     return results
 
 
-def _build_snapshot_tree(device):
+def _build_snapshot(device, xml: Optional[str], rewrite) -> tuple[Optional[ScreenSnapshot], Optional[str]]:
+    if xml is None:
+        xml, error = take_screen(device)
+        if xml is None:
+            return None, error
     try:
-        xml = device.dump_hierarchy(compressed=False)
-        return etree.fromstring(xml.encode("utf-8")), None
-    except Exception as exc:
+        return ScreenSnapshot(xml, rewrite=rewrite), None
+    except SnapshotUnavailable as exc:
         return None, str(exc)
 
 
-def _run_live_xpath(device, xpath: str, action: str) -> tuple[bool, str | None]:
+def _run_snapshot_xpath(snapshot: ScreenSnapshot, xpath: str, action: str) -> tuple[bool, Optional[str]]:
+    # An xpath uiautomator2 rejects on the photo is rejected by `d.xpath()` too: no live retry.
+    try:
+        return bool(snapshot.elements(xpath)), None
+    except Exception as exc:
+        logger.warning(f"XPath error for {action}: {exc}")
+        return False, str(exc)
+
+
+def _run_live_xpath(device, xpath: str, action: str) -> tuple[bool, Optional[str]]:
     try:
         return bool(device.xpath(xpath).exists), None
     except Exception as exc:
@@ -120,4 +148,4 @@ def summarize_selector_results(results: list[dict]) -> tuple[int, int, dict]:
     return passed, failed, domain_summary
 
 
-__all__ = ["filter_selectors_by_domain", "run_selector_tests", "summarize_selector_results"]
+__all__ = ["filter_selectors_by_domain", "run_selector_tests", "summarize_selector_results", "take_screen"]

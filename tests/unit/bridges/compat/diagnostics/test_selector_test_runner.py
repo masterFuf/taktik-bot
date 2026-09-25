@@ -81,6 +81,78 @@ def test_selector_tests_evaluate_xpaths_on_one_xml_snapshot():
     assert {item["mode"] for item in xpaths} == {"xml_snapshot"}
 
 
+def _run_one(selectors, xml, rewrite=None, device=None):
+    device = device or _SnapshotDevice(xml)
+    results = run_selector_tests(
+        device, {"screen.probe": _SelectorEntry(list(selectors))}, _IPC(), xml=xml, rewrite=rewrite
+    )
+    return [item["found"] for item in results[0]["xpaths"]], results[0]["xpaths"]
+
+
+# AOSP dump: the widget type is an attribute, as the phone sends it.
+_AOSP_DUMP = """<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<hierarchy rotation="0">
+  <node class="android.widget.FrameLayout" resource-id="com.example.app:id/root" text="" content-desc="">
+    <node class="android.widget.TextView" resource-id="com.example.app:id/title" text="Sample title" content-desc="" />
+    <node class="android.view.View" resource-id="story_row" text="" content-desc="Sample row" />
+  </node>
+</hierarchy>"""
+
+
+def test_class_tag_selectors_match_as_under_d_xpath():
+    found, _ = _run_one(
+        [
+            '//android.widget.TextView[@text="Sample title"]',
+            '//node[@class="android.widget.TextView"]',
+        ],
+        _AOSP_DUMP,
+    )
+
+    assert found == [True, False]
+
+
+def test_uiautomator2_shorthands_are_evaluated_like_d_xpath():
+    found, _ = _run_one(
+        ["@com.example.app:id/title", "%ample tit%", "^Sample.*$", "@com.example.app:id/missing"],
+        _AOSP_DUMP,
+    )
+
+    assert found == [True, True, True, False]
+
+
+def test_instagram_rewrite_finds_a_bare_compose_id():
+    from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+
+    selector = '//*[@resource-id="com.instagram.android:id/story_row"]'
+    proxy = CloneAwareDeviceProxy(_SnapshotDevice(_AOSP_DUMP), "com.instagram.android")
+
+    plain, _ = _run_one([selector], _AOSP_DUMP)
+    rewritten, details = _run_one([selector], _AOSP_DUMP, rewrite=proxy.rewrite_xpath)
+
+    assert plain == [False]
+    assert rewritten == [True]
+    assert details[0]["xpath"] == selector
+
+
+def test_an_invalid_xpath_is_reported_without_a_live_retry():
+    device = _SnapshotDevice(_AOSP_DUMP)
+
+    found, details = _run_one(['//*[@text="Sample title"'], _AOSP_DUMP, device=device)
+
+    assert found == [False]
+    assert details[0]["error"]
+    assert details[0]["mode"] == "xml_snapshot"
+    assert device.live_xpath_calls == 0
+
+
+def test_a_given_dump_is_not_taken_again():
+    device = _SnapshotDevice(_AOSP_DUMP)
+
+    _run_one(['//android.widget.TextView'], _AOSP_DUMP, device=device)
+
+    assert device.dump_calls == 0
+
+
 def test_selector_tests_fall_back_to_live_xpath_when_snapshot_unavailable():
     device = _LiveFallbackDevice()
 
