@@ -2,7 +2,7 @@
 dump, read by OCR, and dismissed on its "not now" word only.
 
 Screens and OCR results are invented; the shape follows the 43.1.4 capture (app nodes with no
-text or content-desc, one frame smaller than the screen).
+text or content-desc, a centred dialog frame).
 """
 
 import pytest
@@ -135,3 +135,12 @@ def test_a_normal_screen_never_reaches_the_ocr():
     click = _Click()
     assert not PopupHandler(click, _Detection(FEED)).close_all()
     assert click.regions == []
+
+
+LOADING_LOGO = _screen(_node("[0,0][1080,2220]"), _node("[0,0][1080,2220]"), _node("[498,1192][582,1276]"))
+BOTTOM_SHEET = _screen(_node("[0,0][1080,2220]"), _node("[0,1200][1080,2220]"))
+
+
+@pytest.mark.parametrize("xml", [LOADING_LOGO, BOTTOM_SHEET])
+def test_a_small_logo_or_an_edge_sheet_is_not_a_dialog(xml):
+    assert unlabelled_overlay_region(parse_ui_dump(xml)) is None

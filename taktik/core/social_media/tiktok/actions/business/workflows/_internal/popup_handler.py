@@ -21,8 +21,9 @@ def unlabelled_overlay_region(tree):
     The "update the app" prompt of TikTok 43.1.4 is drawn without a single text or content-desc:
     no selector can see it, Back does not close it, and every tap of the run lands on the dim
     layer behind it. Its signature is structural: the app's nodes are there, none carries a
-    label, and one of them is smaller than the screen (the dialog's frame). A loading screen
-    that fills the screen does not qualify.
+    label, and the largest frame inside the screen has a dialog's shape: at least a fifth of the
+    screen, centred, clear of the top and bottom edges. A loading screen (a logo on an empty page)
+    does not qualify.
     """
     app_nodes = [node for node in tree.iter()
                  if node.get('package') and node.get('package') != SYSTEM_UI_PACKAGE]
@@ -35,15 +36,24 @@ def unlabelled_overlay_region(tree):
     boxes = [box for box in boxes if box and box[2] > box[0] and box[3] > box[1]]
     if not boxes:
         return None
-    screen = max(boxes, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]))
+    def area(box):
+        return (box[2] - box[0]) * (box[3] - box[1])
+
+    screen = max(boxes, key=area)
     inner = [box for box in boxes if box != screen]
     if not inner:
         return None
-    return min(inner, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]))
+    frame = max(inner, key=area)
+    width, height = screen[2] - screen[0], screen[3] - screen[1]
+    centred = abs((frame[0] - screen[0]) - (screen[2] - frame[2])) <= 0.05 * width
+    clear_of_edges = frame[1] - screen[1] > 0.05 * height and screen[3] - frame[3] > 0.05 * height
+    if area(frame) < 0.2 * area(screen) or not centred or not clear_of_edges:
+        return None
+    return frame
 
 
 class PopupHandler:
-    """Stateless helper that closes TikTok popups using click + detection actions.
+    """Helper that closes TikTok popups using click + detection actions.
 
     Usage::
 
