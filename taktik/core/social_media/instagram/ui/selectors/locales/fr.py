@@ -434,7 +434,7 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.home_tab_descriptions": [],
     "navigation.posts_tab_options": [],
     "navigation.profile_tab": [
-        "//*[contains(@content-desc, \"Profil\") and contains(@class, \"ImageView\") and not(@package=\"com.android.systemui\")]",
+        "//*[contains(@content-desc, \"Profil\") and contains(name(), \"ImageView\") and not(@package=\"com.android.systemui\")]",
         "//*[contains(@content-desc, \"Profil\") and not(@package=\"com.android.systemui\")]",
         "//*[contains(@resource-id, \"tab_bar_icon\") and contains(@content-desc, \"Profil\")]",
     ],

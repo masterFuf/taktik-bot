@@ -4,8 +4,8 @@
 - the people discovery screen opened by its "See all" CTA, the list where the
   bulk follow and the qualified visit both happen.
 
-No device access here: the functions take an lxml root (from ``dump_hierarchy``) and
-return plain dicts, so they are testable from a captured dump. Resource-ids are matched
+No device access here: the functions take a `parse_ui_dump` root and return plain
+dicts, so they are testable from a captured dump. Resource-ids are matched
 by SUBSTRING because some rows are rendered with a bare id and others fully qualified —
 the same strategy as the notifications surface.
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from taktik.core.shared.device.ui_dump import parse_bounds
+from taktik.core.shared.device.ui_dump import iter_widgets, parse_bounds
 
 
 def _has_id(node, bare_id: str) -> bool:
@@ -96,7 +96,7 @@ def _compose_cards(root, selectors) -> List[Dict[str, Any]]:
         return []
 
     cards: List[Dict[str, Any]] = []
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if marker not in (node.get("resource-id") or ""):
             continue
         box = parse_bounds(node.get("bounds") or "")
@@ -126,7 +126,7 @@ def _compose_header_and_cta(root, selectors):
         return None, None
 
     headers, buttons = [], []
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         label = _labelled(node)
         if not label:
             continue
@@ -165,12 +165,12 @@ def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
     if root is None:
         return result
 
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if _has_id(node, selectors.carousel_container_id):
             result["present"] = True
             break
 
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if _has_id(node, selectors.carousel_title_id):
             result["title"] = _label_of(node)
         elif _has_id(node, selectors.carousel_cta_id):
@@ -223,7 +223,7 @@ def is_discover_people_screen(root, selectors) -> bool:
         return False
     has_row = False
     has_button = False
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if _has_id(node, selectors.row_container_id):
             has_row = True
         elif _has_id(node, selectors.row_follow_button_id):
@@ -237,7 +237,7 @@ def read_screen_title(root) -> str:
     """Action-bar title, for observability (logs and reports)."""
     if root is None:
         return ""
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if _has_id(node, "action_bar_title"):
             return _label_of(node)
     return ""
@@ -248,7 +248,7 @@ def parse_section_headers(root, selectors) -> List[Dict[str, Any]]:
     headers: List[Dict[str, Any]] = []
     if root is None:
         return headers
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if not _has_id(node, selectors.section_header_id):
             continue
         top = _top_of(node)
@@ -294,7 +294,7 @@ def parse_suggestion_rows(root, selectors, profile_selectors,
                 break
         return label
 
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if not _has_id(node, selectors.row_container_id):
             continue
         if any(_has_id(node, connect_id) for connect_id in selectors.connect_row_ids):

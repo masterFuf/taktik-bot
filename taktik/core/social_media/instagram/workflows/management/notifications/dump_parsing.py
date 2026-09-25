@@ -2,13 +2,15 @@
 
 Resource-ids come in both a bare and a fully-qualified form, so they are matched
 by SUBSTRING of the bare id — the only strategy that resolves both. These helpers
-take an lxml root (from ``dump_hierarchy``) and return plain dicts, so they are
-unit-testable from a captured dump string.
+take a `parse_ui_dump` root and return plain dicts, so they are unit-testable from a
+captured dump string.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+
+from taktik.core.shared.device.ui_dump import iter_widgets
 
 from .classifier import classify_row, clean_label, extract_time, row_has_action
 from .classifier import _TRUNCATION_RE
@@ -18,7 +20,7 @@ from ......shared.text import normalize_ui_label
 
 def _iter_rows(root, bare_id: str):
     """Yield nodes whose resource-id contains ``bare_id`` (bare or qualified)."""
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if bare_id in (node.get("resource-id") or ""):
             yield node
 
@@ -90,7 +92,7 @@ def _vcenter(node) -> Optional[float]:
 def _collect_buttons(root, bare_id: str) -> List[Tuple[Tuple[int, int], float]]:
     """``[(center_xy, vertical_center)]`` for every node matching ``bare_id``."""
     out: List[Tuple[Tuple[int, int], float]] = []
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if bare_id not in (node.get("resource-id") or ""):
             continue
         box = parse_bounds(node.get("bounds", ""))
@@ -125,7 +127,7 @@ def _find_row_control(
     if not wanted:
         return None
     controls: List[Tuple[Tuple[int, int], float]] = []
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         for attr in attrs:
             val = normalize_ui_label(node.get(attr))
             if val and val in wanted:
@@ -177,7 +179,7 @@ def parse_section_headers(root, header_bare_id: str) -> List[str]:
     …) so the narration speaks the user's own labels.
     """
     headers: List[str] = []
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if header_bare_id in (node.get("resource-id") or ""):
             text = (node.get("text") or "").strip()
             if text and text not in headers:
@@ -256,7 +258,7 @@ def parse_request_rows(
     ignore_ys = [y for _, y in ignores]
 
     rows: List[Dict[str, Any]] = []
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         if username_bare_id not in (node.get("resource-id") or ""):
             continue
         username = node_text_deep(node)   # text may live on a child TextView

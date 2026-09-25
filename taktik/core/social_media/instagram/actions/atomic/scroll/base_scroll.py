@@ -4,10 +4,10 @@ import time
 import random
 from typing import Callable, Dict, Any, List, Optional, Tuple
 from loguru import logger
-from lxml import etree
 
 from ...core.base_action import BaseAction
 from taktik.core.shared.behavior.gesture_primitives import GestureMixin
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from .post_reading import _BOUNDS_RE
 
@@ -47,7 +47,9 @@ class BaseScrollMixin(GestureMixin, BaseAction):
 
             try:
                 xml = self.device._device.dump_hierarchy()
-                root = etree.fromstring(xml.encode("utf-8"))
+                root = parse_ui_dump(xml)
+                if root is None:
+                    raise ValueError("unparseable hierarchy dump")
             except Exception as exc:
                 self.logger.debug(f"post action geometry dump failed: {exc}")
                 result = {"available": False, "post_visible": False, "bounds": [], "roles": {}}
@@ -85,7 +87,7 @@ class BaseScrollMixin(GestureMixin, BaseAction):
                         if parent is None:
                             break
                         if (parent.get("clickable") == "true"
-                                or (parent.get("class") or "").endswith("Button")):
+                                or str(parent.tag).endswith("Button")):
                             add(role, self._node_bounds(parent))
                             break
                         parent = parent.getparent()
@@ -96,7 +98,7 @@ class BaseScrollMixin(GestureMixin, BaseAction):
         for row in row_nodes:
             for node in row.iterdescendants():
                 if (node.get("clickable") == "true"
-                        or (node.get("class") or "").endswith("Button")):
+                        or str(node.tag).endswith("Button")):
                     add("button", self._node_bounds(node))
 
         result = {

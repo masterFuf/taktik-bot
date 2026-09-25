@@ -4,20 +4,10 @@ Centralises the popup-detection-and-close chain that was duplicated
 across ForYouWorkflow, SearchWorkflow, and FollowersWorkflow.
 """
 
-import re as _re
 import time
 from loguru import logger
 
-
-# XPath rewriter: converts Android class-name steps to lxml node[@class=…] form.
-# e.g. //android.widget.Button[@text="x"] → //node[@class="android.widget.Button"][@text="x"]
-_CLASS_STEP_RE = _re.compile(
-    r'(/{1,2})([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)+)'
-)
-
-
-def _to_lxml(xp: str) -> str:
-    return _CLASS_STEP_RE.sub(r'\1node[@class="\2"]', xp)
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 
 class PopupHandler:
@@ -46,7 +36,7 @@ class PopupHandler:
     # ------------------------------------------------------------------
 
     def _fast_detect(self):
-        """Dump hierarchy once and check all popup indicators via lxml.
+        """Dump hierarchy once and check all popup indicators on the `parse_ui_dump` tree.
 
         Returns a set of strings indicating what's present on screen.
         Returns ``{'_fallback'}`` when the fast path is unavailable so that
@@ -54,13 +44,10 @@ class PopupHandler:
         Returns an empty set when nothing popup-related is found (fast exit).
         """
         try:
-            from lxml import etree
-        except ImportError:
-            return {'_fallback'}
-
-        try:
             xml = self.detection.device.dump_hierarchy(compressed=False)
-            tree = etree.fromstring(xml.encode('utf-8'))
+            tree = parse_ui_dump(xml)
+            if tree is None:
+                raise ValueError("unparseable hierarchy dump")
         except Exception as exc:
             self.logger.debug(f"_fast_detect: dump failed ({exc}) — falling back")
             return {'_fallback'}
@@ -76,7 +63,7 @@ class PopupHandler:
         def hit(selectors):
             for xp in (selectors if isinstance(selectors, list) else [selectors]):
                 try:
-                    if tree.xpath(_to_lxml(xp)):
+                    if tree.xpath(xp):
                         return True
                 except Exception:
                     continue
@@ -123,12 +110,12 @@ class PopupHandler:
         screen is clean this avoids the ~15 s of sequential per-selector
         polling that the original implementation would burn.
 
-        Falls back transparently to sequential polling when lxml is
-        unavailable or when the hierarchy dump fails.
+        Falls back transparently to sequential polling when the hierarchy
+        dump fails or does not parse.
         """
         detected = self._fast_detect()
 
-        # ── Fallback: lxml unavailable or dump failed ─────────────────
+        # ── Fallback: dump failed or unparseable ──────────────────────
         if '_fallback' in detected:
             return self._close_all_slow()
 

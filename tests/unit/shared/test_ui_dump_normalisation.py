@@ -95,3 +95,32 @@ def test_a_class_with_a_dollar_or_an_ampersand_gets_uiautomator2s_own_tag():
     ours = [node.tag for node in parse_ui_dump(xml)]
     theirs = [node.tag for node in PageSource(xml).root]
     assert ours == theirs == ["com.example.Row.Inner", "com.example.A.B"]
+
+
+def test_bytes_parse_like_text():
+    """Some callers get bytes from the dump: they must see the same tree."""
+    from_text = parse_ui_dump(RAW_DUMP)
+    from_bytes = parse_ui_dump(RAW_DUMP.encode("utf-8"))
+    assert [n.tag for n in from_bytes.iter()] == [n.tag for n in from_text.iter()]
+
+
+def test_iter_widgets_visits_the_nodes_iter_node_visited_on_the_raw_tree():
+    """The readers' `iter("node")` became `iter_widgets`: same widgets, same order, root excluded."""
+    from lxml import etree
+
+    from taktik.core.shared.device.ui_dump import iter_widgets
+
+    raw = etree.fromstring(RAW_DUMP.encode("utf-8"))
+    root = parse_ui_dump(RAW_DUMP)
+
+    def signature(node):
+        return (node.get("index"), node.get("text"), node.get("resource-id"))
+
+    assert [signature(n) for n in iter_widgets(root)] == [signature(n) for n in raw.iter("node")]
+    assert all(n.tag != "hierarchy" for n in iter_widgets(root))
+
+    compose = root.xpath('//*[contains(@resource-id, "profile_user_info_compose_view")]')[0]
+    raw_compose = raw.xpath('//*[contains(@resource-id, "profile_user_info_compose_view")]')[0]
+    assert [signature(n) for n in iter_widgets(compose)] == [
+        signature(n) for n in raw_compose.iter("node")
+    ]

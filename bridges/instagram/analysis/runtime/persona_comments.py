@@ -180,14 +180,14 @@ class PersonaCommentsMixin:
                 return texts
 
         try:
-            from lxml import etree
-
+            from taktik.core.shared.device.ui_dump import parse_ui_dump
             from taktik.core.social_media.instagram.workflows.common.comments_thread import (
                 read_comment_texts,
             )
 
-            raw = self.device.dump_hierarchy()
-            root = etree.fromstring(raw.encode("utf-8") if isinstance(raw, str) else raw)
+            root = parse_ui_dump(self.device.dump_hierarchy())
+            if root is None:
+                return []
             connectors = list(POST_COMMENTS_SELECTORS.comment_said_connectors)
             return [text for _author, text in read_comment_texts(root, connectors)]
         except Exception:

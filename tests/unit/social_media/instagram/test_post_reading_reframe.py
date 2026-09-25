@@ -5,7 +5,7 @@ the generic like/comment button selectors and the AI screenshot all act on a mis
 screen (possibly the NEXT post). The reading pause must reframe after the dwell.
 """
 
-from lxml import etree
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as pr
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
@@ -47,13 +47,13 @@ def _root_with_caption_below_fold():
     # fold = 0.86 * 2000 = 1720; caption bottom 1900 > fold -> needs a reveal scroll.
     xml = (f'<hierarchy><node class="{FS.caption_layout_class}" text="long caption" '
            f'bounds="[0,1500][1080,1900]" /></hierarchy>')
-    return etree.fromstring(xml.encode("utf-8"))
+    return parse_ui_dump(xml)
 
 
 def _root_without_overflow():
     xml = (f'<hierarchy><node class="{FS.caption_layout_class}" text="short" '
            f'bounds="[0,1500][1080,1700]" /></hierarchy>')
-    return etree.fromstring(xml.encode("utf-8"))
+    return parse_ui_dump(xml)
 
 
 def _root_with_carousel(index="1/3"):
@@ -67,7 +67,7 @@ def _root_with_carousel(index="1/3"):
         f'<node resource-id="com.instagram.android:id/{FS.like_button_id}" '
         f'bounds="[80,1520][180,1620]" /></hierarchy>'
     )
-    return etree.fromstring(xml.encode("utf-8"))
+    return parse_ui_dump(xml)
 
 
 def _root_with_partial_next_carousel():
@@ -85,7 +85,7 @@ def _root_with_partial_next_carousel():
         f'<node resource-id="com.instagram.android:id/{FS.tab_bar_id}" '
         f'bounds="[0,1900][1080,2000]" /></hierarchy>'
     )
-    return etree.fromstring(xml.encode("utf-8"))
+    return parse_ui_dump(xml)
 
 
 def test_reveal_returns_total_scrolled_px(monkeypatch):

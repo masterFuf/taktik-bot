@@ -17,7 +17,7 @@ What is locked here:
 
 import pytest
 
-from lxml import etree
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import (
     FEED_SUGGESTIONS_SELECTORS,
@@ -106,7 +106,7 @@ DISCOVER_DUMP = f"""<?xml version='1.0' encoding='UTF-8'?>
 
 
 def _root(xml):
-    return etree.fromstring(xml.encode("utf-8"))
+    return parse_ui_dump(xml)
 
 
 # --- feed carousel -----------------------------------------------------------
@@ -263,7 +263,7 @@ COMPOSE_OTHER_SECTION = """
 
 def test_the_compose_carousel_is_found_without_a_single_resource_id():
     carousel = parse_feed_suggestions_carousel(
-        etree.fromstring(COMPOSE_CAROUSEL.encode()), FEED_SUGGESTIONS_SELECTORS
+        parse_ui_dump(COMPOSE_CAROUSEL), FEED_SUGGESTIONS_SELECTORS
     )
     assert carousel["present"] is True
     assert carousel["title"] == "Suggestions pour vous"
@@ -272,7 +272,7 @@ def test_the_compose_carousel_is_found_without_a_single_resource_id():
 
 def test_a_see_all_heading_another_section_is_not_the_carousel():
     carousel = parse_feed_suggestions_carousel(
-        etree.fromstring(COMPOSE_OTHER_SECTION.encode()), FEED_SUGGESTIONS_SELECTORS
+        parse_ui_dump(COMPOSE_OTHER_SECTION), FEED_SUGGESTIONS_SELECTORS
     )
     assert carousel["present"] is False
     assert carousel["cta_bounds"] is None
@@ -282,7 +282,7 @@ def test_a_cta_left_of_its_header_is_not_paired():
     # Guards the geometry rather than the labels: the CTA sits at the right end of the row.
     mirrored = COMPOSE_CAROUSEL.replace('bounds="[790,1604][963,1655]"', 'bounds="[10,1604][40,1655]"')
     carousel = parse_feed_suggestions_carousel(
-        etree.fromstring(mirrored.encode()), FEED_SUGGESTIONS_SELECTORS
+        parse_ui_dump(mirrored), FEED_SUGGESTIONS_SELECTORS
     )
     assert carousel["cta_bounds"] is None
 
@@ -316,7 +316,7 @@ COMPOSE_CARDS = """
 
 def test_the_compose_cards_are_read_from_their_follow_control():
     carousel = parse_feed_suggestions_carousel(
-        etree.fromstring(COMPOSE_CARDS.encode()), FEED_SUGGESTIONS_SELECTORS
+        parse_ui_dump(COMPOSE_CARDS), FEED_SUGGESTIONS_SELECTORS
     )
     assert carousel["cards"] == [
         {"name": "LV", "state_label": "Suivre", "follow_bounds": (69, 2099, 643, 2183)},
@@ -330,7 +330,7 @@ def test_the_account_name_is_the_difference_between_desc_and_text():
     english = COMPOSE_CARDS.replace('text="Suivre" content-desc="Suivre Rae Lyn Lee"',
                                     'text="Follow" content-desc="Follow Rae Lyn Lee"')
     carousel = parse_feed_suggestions_carousel(
-        etree.fromstring(english.encode()), FEED_SUGGESTIONS_SELECTORS
+        parse_ui_dump(english), FEED_SUGGESTIONS_SELECTORS
     )
     assert carousel["cards"][1]["name"] == "Rae Lyn Lee"
     assert carousel["cards"][1]["state_label"] == "Follow"
@@ -340,7 +340,7 @@ def test_a_control_whose_description_does_not_start_with_its_label_yields_no_nam
     # Better an empty name than a wrong one: the caller records who it followed.
     odd = COMPOSE_CARDS.replace('content-desc="Suivre LV"', 'content-desc="Abonnement a LV"')
     carousel = parse_feed_suggestions_carousel(
-        etree.fromstring(odd.encode()), FEED_SUGGESTIONS_SELECTORS
+        parse_ui_dump(odd), FEED_SUGGESTIONS_SELECTORS
     )
     assert carousel["cards"][0]["name"] == ""
     assert carousel["cards"][0]["follow_bounds"] == (69, 2099, 643, 2183)

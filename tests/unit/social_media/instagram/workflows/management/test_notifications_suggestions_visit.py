@@ -251,7 +251,7 @@ def test_no_state_other_than_follow_is_ever_opened(state):
 # existed further down.
 # ---------------------------------------------------------------------------
 
-from lxml import etree
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
@@ -261,10 +261,10 @@ def _screen_xml(marker, with_header=False):
     """One notifications screen; ``marker`` makes it differ from the previous one."""
     header = ('<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
               ' text="Suggestions" bounds="[44,1498][306,1551]"/>') if with_header else ""
-    return etree.fromstring(
-        ("<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
-         f'<node class="android.widget.TextView" text="notification {marker}"'
-         f' bounds="[253,300][893,460]"/>' + header + "</hierarchy>").encode("utf-8")
+    return parse_ui_dump(
+        "<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
+        f'<node class="android.widget.TextView" text="notification {marker}"'
+        f' bounds="[253,300][893,460]"/>' + header + "</hierarchy>"
     )
 
 
@@ -341,13 +341,13 @@ def _people_section_xml(marker, header):
     navigation failure would send someone looking for a bug where
     il n'y en a pas.
     """
-    return etree.fromstring(
-        ("<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
-         f'<node class="android.widget.TextView" text="notification {marker}"'
-         f' bounds="[253,300][893,460]"/>'
-         f'<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
-         f' text="{header}" bounds="[44,949][737,1002]"/>'
-         "</hierarchy>").encode("utf-8")
+    return parse_ui_dump(
+        "<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
+        f'<node class="android.widget.TextView" text="notification {marker}"'
+        f' bounds="[253,300][893,460]"/>'
+        f'<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
+        f' text="{header}" bounds="[44,949][737,1002]"/>'
+        "</hierarchy>"
     )
 
 

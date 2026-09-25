@@ -1,8 +1,8 @@
 """Reading the comments thread of a post from a UI dump.
 
 The counterpart of `notifications/dump_parsing.py`, for the comments surface. Pure functions
-over an ElementTree root: no device, no side effect, so the pairing rules below are testable
-against captured dumps.
+over a `parse_ui_dump` root (tag = widget class): no device, no side effect, so the pairing
+rules below are testable against captured dumps.
 
 A comment row has no resource-id of its own, so rows are identified by GEOMETRY, exactly like
 the notifications feed pairs a control to its row: a control belongs to the comment whose
@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Bounds geometry belongs to the shared owner; re-exported here so the existing
 # callers of this module keep working.
-from taktik.core.shared.device.ui_dump import center, parse_bounds  # noqa: F401
+from taktik.core.shared.device.ui_dump import center, iter_widgets, parse_bounds  # noqa: F401
 
 
 def _matches_any(value: str, tokens: List[str]) -> bool:
@@ -87,7 +87,7 @@ def _username_nodes(root) -> List[Tuple[str, Tuple[int, int, int, int]]]:
     """
     compose: List[Tuple[str, Tuple[int, int, int, int]]] = []
     legacy: List[Tuple[str, Tuple[int, int, int, int]]] = []
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         handle = _handle_shape(node)
         if not handle:
             continue
@@ -97,7 +97,7 @@ def _username_nodes(root) -> List[Tuple[str, Tuple[int, int, int, int]]]:
         desc = _normalise(node.get("content-desc"))
         if not desc:
             legacy.append((handle, box))
-        elif desc == handle and (node.get("class") or "").endswith("TextView"):
+        elif desc == handle and node.tag.endswith("TextView"):
             compose.append((handle, box))
     return compose or legacy
 
@@ -138,7 +138,7 @@ def find_comment_like_target(
     if username_center_y is None:
         return None
 
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         desc = node.get("content-desc") or ""
         if not desc:
             continue
@@ -178,7 +178,7 @@ def read_comment_texts(root, connectors: Optional[List[str]] = None) -> List[Tup
 
     stems = [c.strip().lower() for c in (connectors or []) if c and c.strip()]
     out: List[Tuple[str, str]] = []
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         text = (node.get("text") or "").strip()
         if not text or " " not in text:
             continue
@@ -238,7 +238,7 @@ def find_comment_reply_target(
     next_top = next((top for _, c, top in anchors if c > own_center), None)
 
     best: Optional[Tuple[int, Tuple[int, int, int, int]]] = None
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         label = (node.get("text") or "").strip().lower() or (node.get("content-desc") or "").strip().lower()
         if label not in wanted:
             continue

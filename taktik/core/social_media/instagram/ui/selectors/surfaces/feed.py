@@ -233,6 +233,7 @@ class FeedScrollSelectors:
 
     # --- Légende (v410 : IgTextLayoutView resource-id vide, extenseur = Button enfant content-desc exact) ---
     caption_layout_class: str = "com.instagram.ui.widget.textview.IgTextLayoutView"
+    caption_expand_class: str = "android.widget.Button"        # class of the expand button
     caption_expand_descs: tuple = ("plus", "more")             # EXACT content-desc of the expand button
     caption_expand_suffixes: tuple = (" plus", " more")        # end of a truncated text
     caption_collapse_suffixes: tuple = (" moins", " less")     # end of an EXPANDED text (collapse control)

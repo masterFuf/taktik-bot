@@ -654,8 +654,8 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
         return find_comment_reply_target(root, username, list(self.post_selectors.reply_button_labels))
 
     def _dump_comments_root(self):
-        """The current hierarchy parsed to an XML root, or None."""
-        from lxml import etree
+        """The current hierarchy as `parse_ui_dump` gives it, or None."""
+        from taktik.core.shared.device.ui_dump import parse_ui_dump
 
         try:
             xml = self.device.dump_hierarchy()
@@ -664,11 +664,10 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             return None
         if not xml:
             return None
-        try:
-            return etree.fromstring(xml.encode('utf-8') if isinstance(xml, str) else xml)
-        except Exception as exc:
-            self.logger.debug(f"XML parse failed: {exc}")
-            return None
+        root = parse_ui_dump(xml)
+        if root is None:
+            self.logger.debug("XML parse failed")
+        return root
 
     def _find_comment_like_control(self, username: str) -> Optional[Dict[str, Any]]:
         """The like control of ``username``'s comment row, with its liked state."""

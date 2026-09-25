@@ -12,7 +12,7 @@ Canonical owner of two things a dump reader needs, both PURE and testable from a
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Sequence, Tuple
+from typing import Iterator, List, Optional, Sequence, Tuple, Union
 
 from lxml import etree
 
@@ -62,7 +62,7 @@ def _safe_tag(value: str) -> str:
     return safe_xmlstr(value)
 
 
-def parse_ui_dump(xml_content: Optional[str]):
+def parse_ui_dump(xml_content: Optional[Union[str, bytes]]):
     """The dump as a tree whose TAGS are widget classes — None when there is nothing to parse.
 
     THE BUG THIS REMOVES. The device returns AOSP XML, where every element is `<node>` and the
@@ -90,7 +90,8 @@ def parse_ui_dump(xml_content: Optional[str]):
     if not xml_content:
         return None
     try:
-        root = etree.fromstring(xml_content.encode("utf-8"))
+        data = xml_content.encode("utf-8") if isinstance(xml_content, str) else xml_content
+        root = etree.fromstring(data)
         for node in root.xpath("//node"):
             node.tag = _safe_tag(node.attrib.pop("class", "")) or "node"
     except Exception:
@@ -98,4 +99,18 @@ def parse_ui_dump(xml_content: Optional[str]):
     return root
 
 
-__all__ = ["parse_bounds", "vertical_center", "center", "index_of_closest_row", "parse_ui_dump"]
+def iter_widgets(element) -> Iterator:
+    """Every widget at or under ``element`` of a `parse_ui_dump` tree, in document order.
+
+    What `iter("node")` gave on the raw dump. Here the tag is the class, so a widget is any
+    element but the `<hierarchy>` root.
+    """
+    for node in element.iter():
+        if isinstance(node.tag, str) and node.tag != "hierarchy":
+            yield node
+
+
+__all__ = [
+    "parse_bounds", "vertical_center", "center", "index_of_closest_row", "parse_ui_dump",
+    "iter_widgets",
+]

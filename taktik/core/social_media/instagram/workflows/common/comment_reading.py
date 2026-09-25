@@ -19,12 +19,12 @@ core so the in-thread reply keeps using it once that bridge is gone.
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Set
 
 from loguru import logger
 
 from taktik.core.shared.device.adb import run_adb_shell_process
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 # A comment body carries no attribute saying "this is a body", so each field is located by
@@ -80,17 +80,16 @@ def parse_litho_comments(dumpsys_output: str) -> List[Dict[str, Any]]:
 def extract_visible_comment_usernames(xml: str) -> Set[str]:
     """Lower-cased usernames currently on screen, from a hierarchy dump."""
     visible: Set[str] = set()
-    if not xml:
-        return visible
-    try:
-        root = ET.fromstring(xml)
-    except Exception:
+    root = parse_ui_dump(xml)
+    if root is None:
         return visible
 
-    recycler = _find_comments_recycler(root) or root
+    recycler = _find_comments_recycler(root)
+    if recycler is None or len(recycler) == 0:
+        recycler = root
     for elem in recycler.iter():
         text = (elem.get("text") or "").strip()
-        if _looks_like_username_button(elem.get("class") or "", text):
+        if _looks_like_username_button(str(elem.tag), text):
             visible.add(text.lower())
         # The avatar next to a comment spells the owner out ("Go to <user>'s profile"), which
         # still identifies the row when its username button is clipped.

@@ -5,8 +5,7 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-from lxml import etree
-
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_COMPOSER_SELECTORS,
     PUBLISH_CREATION_ENTRY_SELECTORS,
@@ -17,7 +16,6 @@ from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PublishEditorSelectors,
     PublishMediaPickerSelectors,
 )
-from taktik.core.social_media.tiktok.ui.xpath import to_lxml
 
 
 LogFn = Callable[[str, str], None]
@@ -65,10 +63,12 @@ def is_post_screen(
         if selectors.has_post_screen_marker(xml):
             return True
 
-        tree = etree.fromstring(xml.encode("utf-8"))
+        tree = parse_ui_dump(xml)
+        if tree is None:
+            return False
         for xpath in selectors.post_screen_indicators:
             try:
-                if tree.xpath(to_lxml(xpath)):
+                if tree.xpath(xpath):
                     return True
             except Exception:
                 pass

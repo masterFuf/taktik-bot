@@ -5,13 +5,12 @@ from __future__ import annotations
 import re
 from typing import Callable, Optional
 
-from lxml import etree
-
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_PROGRESS_SELECTORS,
     PublishProgressSelectors,
 )
-from taktik.core.social_media.tiktok.ui.xpath import parse_bounds, to_lxml
+from taktik.core.social_media.tiktok.ui.xpath import parse_bounds
 
 
 LogFn = Callable[[str, str], None]
@@ -46,11 +45,13 @@ def get_publish_progress_percent(
     """Read TikTok's top-left upload progress badge while publish is running."""
     try:
         xml = device.dump_hierarchy(compressed=False)
-        tree = etree.fromstring(xml.encode("utf-8"))
+        tree = parse_ui_dump(xml)
+        if tree is None:
+            return None
 
         for xpath in selectors.publish_progress_indicator:
             try:
-                nodes = tree.xpath(to_lxml(xpath))
+                nodes = tree.xpath(xpath)
             except Exception:
                 continue
             for node in nodes:

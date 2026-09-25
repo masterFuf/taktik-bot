@@ -21,10 +21,10 @@ import re
 import time
 import random
 from typing import Optional
-from lxml import etree
 
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.text import text_lost_emoji
 
 # uiautomator bounds string: "[left,top][right,bottom]" — shared with the feed engine.
@@ -52,11 +52,13 @@ class PostReadingMixin:
     and `_long_drag`."""
 
     def _dump_root(self):
-        """One hierarchy dump → parsed lxml root (or None). Used by the reading actions; called
+        """One hierarchy dump → `parse_ui_dump` root (or None). Used by the reading actions; called
         during a multi-second reading pause, so its freeze overlaps the dwell (invisible)."""
         try:
             xml = self.device._device.dump_hierarchy()
-            root = etree.fromstring(xml.encode("utf-8"))
+            root = parse_ui_dump(xml)
+            if root is None:
+                raise ValueError("unparseable hierarchy dump")
             remember_geometry = getattr(self, "_remember_post_action_geometry", None)
             if callable(remember_geometry):
                 remember_geometry(root)
@@ -77,13 +79,13 @@ class PostReadingMixin:
             return False
         best = None  # (visible_height, (l, t, r, b))
         for node in root.iter():
-            if node.get("class", "") != FS.caption_layout_class:
+            if node.tag != FS.caption_layout_class:
                 continue
             target = None
             for child in node.iter():
                 if child is node:
                     continue
-                if (child.get("class") == "android.widget.Button"
+                if (child.tag == FS.caption_expand_class
                         and child.get("clickable") == "true"
                         and (child.get("content-desc") or "").strip() in FS.caption_expand_descs):
                     target = child
@@ -139,7 +141,7 @@ class PostReadingMixin:
                 break
             below = None    # tallest caption whose bottom runs past the fold
             for node in root.iter():
-                if node.get("class", "") != FS.caption_layout_class:
+                if node.tag != FS.caption_layout_class:
                     continue
                 m = _BOUNDS_RE.search(node.get("bounds", ""))
                 if not m:
@@ -349,7 +351,7 @@ class PostReadingMixin:
             return ""
         best_text, best_h = "", -1
         for node in root.iter():
-            if node.get("class", "") != FS.caption_layout_class:
+            if node.tag != FS.caption_layout_class:
                 continue
             t = node.get("text") or ""
             if not t:
@@ -406,7 +408,7 @@ class PostReadingMixin:
                 headers.append((bounds, node.get("content-desc") or ""))
             elif short == FS.buttons_row_id and bounds:
                 buttons.append(bounds)
-            elif node.get("class", "") == FS.caption_layout_class and bounds:
+            elif node.tag == FS.caption_layout_class and bounds:
                 text = node.get("text") or ""
                 if text:
                     captions.append((bounds, text))

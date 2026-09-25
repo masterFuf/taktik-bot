@@ -12,7 +12,7 @@ geometry is what the parsing depends on.
 
 import pytest
 
-from lxml import etree
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
     classify_follow_state,
@@ -57,7 +57,7 @@ def _screen(rows_xml, header="Suggestions", header_y=1383):
 
 
 def _root(xml):
-    return etree.fromstring(xml.encode("utf-8"))
+    return parse_ui_dump(xml)
 
 
 def _parse(xml, height=2400):

@@ -11,7 +11,7 @@ Drives the "Notifications" surface as an engagement flow:
 
 Every UI signature comes from the centralized ``NOTIFICATION_SELECTORS`` catalog
 (language-neutral resource-ids + FR/EN locale overlay); no selector literal lives
-here. Rows are matched in a raw XML dump by SUBSTRING of the bare resource-id.
+here. Rows are matched in the dump by SUBSTRING of the bare resource-id.
 Text classification is delegated to ``classifier``; XML extraction to
 ``dump_parsing``; per-row geometry to ``row_layout``.
 
@@ -27,8 +27,8 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
-from lxml import etree
 
+from taktik.core.shared.device.ui_dump import iter_widgets, parse_ui_dump
 from taktik.core.shared.input.taktik_keyboard import type_text_human
 from taktik.core.shared.vision import locate_text_on_screen
 
@@ -221,7 +221,7 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             return False
 
     def _dump_root(self):
-        """Full (uncompressed) hierarchy dump parsed to an lxml root, or None."""
+        """Full (uncompressed) hierarchy dump as `parse_ui_dump` gives it, or None."""
         xml = None
         try:
             xml = self.device.dump_hierarchy(compressed=False)
@@ -234,11 +234,10 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             self.logger.error(f"dump_hierarchy failed: {exc}")
         if not xml:
             return None
-        try:
-            return etree.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
-        except Exception as exc:
-            self.logger.error(f"XML parse failed: {exc}")
-            return None
+        root = parse_ui_dump(xml)
+        if root is None:
+            self.logger.error("XML parse failed")
+        return root
 
     def _tap_point(self, point: Optional[tuple], name: str) -> bool:
         if not point:
@@ -318,7 +317,7 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         if root is not None:
             frags = [f.lower() for f in self.selectors.follow_requests_header_text]
             row_id = self.selectors.notification_row_resource_id
-            for node in root.iter("node"):
+            for node in iter_widgets(root):
                 if row_id not in (node.get("resource-id") or ""):
                     continue
                 if not any(f in concat_text(node).lower() for f in frags):
@@ -644,11 +643,11 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         root = self._dump_root()
         if root is not None:
             uid = self.selectors.follow_request_username_resource_id
-            unodes = [n for n in root.iter("node") if uid in (n.get("resource-id") or "")]
+            unodes = [n for n in iter_widgets(root) if uid in (n.get("resource-id") or "")]
             self_text = sum(1 for n in unodes if (n.get("text") or "").strip())
             deep_text = sum(1 for n in unodes if node_text_deep(n))
             deep_bounds = sum(1 for n in unodes if node_bounds_deep(n))
-            acc = sum(1 for n in root.iter("node")
+            acc = sum(1 for n in iter_widgets(root)
                       if self.selectors.follow_request_accept_resource_id in (n.get("resource-id") or ""))
             self.logger.info(
                 f"requests parse: {len(requests)} collected | dump now: {len(unodes)} username "

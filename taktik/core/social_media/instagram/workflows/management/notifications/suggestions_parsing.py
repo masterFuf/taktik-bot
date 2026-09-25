@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from taktik.core.shared.device.ui_dump import center, parse_bounds, vertical_center
+from taktik.core.shared.device.ui_dump import center, iter_widgets, parse_bounds, vertical_center
 
 # Vertical step between two rows, as a FRACTION of the screen height (never pixels:
 # another device does not have the same step). A row's band is half of it; beyond
@@ -36,7 +36,7 @@ _ROW_PITCH_RATIO = 198 / 2400
 
 def iter_text_nodes(root):
     """Nodes carrying visible text, with their parsed bounds."""
-    for node in root.iter("node"):
+    for node in iter_widgets(root):
         text = (node.get("text") or "").strip()
         if not text:
             continue
@@ -92,7 +92,7 @@ def _row_from_cell(cell, profile_selectors, classify_state,
     if not texts:
         return None
 
-    button_nodes = [n for n in cell.iter("node") if _has_id(n, button_resource_id)]
+    button_nodes = [n for n in iter_widgets(cell) if _has_id(n, button_resource_id)]
     button_texts = [(text, bounds)
                     for node in button_nodes
                     for _n, text, bounds in iter_text_nodes(node)]
@@ -205,7 +205,7 @@ def parse_notification_suggestions(
 
     if row_resource_id:
         cells = []
-        for node in root.iter("node"):
+        for node in iter_widgets(root):
             if not _has_id(node, row_resource_id):
                 continue
             bounds = parse_bounds(node.get("bounds") or "")

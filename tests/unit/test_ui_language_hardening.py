@@ -11,10 +11,10 @@ actually render.
 """
 
 import re
-import xml.etree.ElementTree as ET
 
 import pytest
 
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.text import normalize_ui_label
 from taktik.core.social_media.instagram.ui.selectors import locales as ig_locales
 from taktik.core.social_media.instagram.ui.selectors.locales import fr as ig_fr, en as ig_en
@@ -174,7 +174,7 @@ def test_the_unliked_state_is_never_read_as_a_like_button():
 # ----------------------------------------------------------------- notifications row like
 
 def _row_with(content_desc):
-    return ET.fromstring(
+    return parse_ui_dump(
         '<hierarchy><node resource-id="com.instagram.android:id/row" '
         'bounds="[0,100][1080,300]" text="alice a commente">'
         f'<node content-desc="{content_desc}" bounds="[900,150][1000,250]"/>'

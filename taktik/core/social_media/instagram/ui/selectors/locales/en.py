@@ -461,7 +461,7 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.ImageView[@content-desc=\"Grid view\"]",
     ],
     "navigation.profile_tab": [
-        "//*[contains(@content-desc, \"Profile\") and contains(@class, \"ImageView\") and not(@package=\"com.android.systemui\")]",
+        "//*[contains(@content-desc, \"Profile\") and contains(name(), \"ImageView\") and not(@package=\"com.android.systemui\")]",
         "//*[contains(@content-desc, \"Profile\") and not(@package=\"com.android.systemui\")]",
     ],
     "navigation.recent_tab_selectors": [

@@ -5,8 +5,7 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-from lxml import etree
-
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_COMPOSER_SELECTORS,
     PublishComposerSelectors,
@@ -29,7 +28,9 @@ def tap_hashtag_suggestion_from_dump(
     """Tap the best visible TikTok hashtag suggestion from the XML dump."""
     try:
         xml = device.dump_hierarchy(compressed=False)
-        tree = etree.fromstring(xml.encode("utf-8"))
+        tree = parse_ui_dump(xml)
+        if tree is None:
+            raise ValueError("unparseable hierarchy dump")
         expected = f"#{str(expected_tag or '').lstrip('#').strip()}".lower()
         candidates = []
 

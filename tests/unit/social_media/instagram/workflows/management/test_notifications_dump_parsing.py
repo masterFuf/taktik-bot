@@ -5,7 +5,7 @@ carry a BARE resource-id while follow-request rows are fully-qualified — a bar
 substring must match both.
 """
 
-from lxml import etree
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
     find_inline_follow_back_target,
@@ -62,7 +62,7 @@ REQUESTS_XML_FLAT = """<hierarchy>
 
 
 def _root(xml: str):
-    return etree.fromstring(xml.encode("utf-8"))
+    return parse_ui_dump(xml)
 
 
 def test_parse_feed_rows_matches_bare_resource_id():

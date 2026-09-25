@@ -17,8 +17,8 @@ import re
 import time
 import random
 from typing import Callable, Optional, Dict, Any, List
-from lxml import etree
 
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from .post_reading import PostReadingMixin, _BOUNDS_RE
 
@@ -87,7 +87,9 @@ class FeedScrollMixin(PostReadingMixin):
                 _noter_ecran(xml, platform='instagram', note='feed_scroll')
             except Exception:  # noqa: BLE001
                 pass
-            root = etree.fromstring(xml.encode("utf-8"))
+            root = parse_ui_dump(xml)
+            if root is None:
+                raise ValueError("unparseable hierarchy dump")
             remember_geometry = getattr(self, "_remember_post_action_geometry", None)
             if callable(remember_geometry):
                 remember_geometry(root)

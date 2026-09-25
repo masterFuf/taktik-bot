@@ -27,7 +27,7 @@ class PublishMediaPickerSelectors:
         '(//android.widget.GridView[contains(@resource-id, ":id/i8o")]//android.widget.ImageView)[1]',
         '(//android.widget.ImageView[contains(@resource-id, ":id/nm8")])[1]',
         '(//android.widget.GridView[contains(@resource-id, ":id/ir_")]//android.widget.ImageView)[1]',
-        '//*[contains(@resource-id, ":id/ir_")]//*[@class="android.widget.ImageView"][1]',
+        '//*[contains(@resource-id, ":id/ir_")]//android.widget.ImageView[1]',
     ])
     _gallery_picker_xml_markers: List[str] = field(default_factory=lambda: [
         ":id/i8o",

@@ -25,7 +25,7 @@ class PublishComposerSelectors:
         '//*[contains(@text, "Auto-typing keyboard")]',
     ])
     _hashtag_suggestion_nodes: List[str] = field(default_factory=lambda: [
-        '//*[@class="android.widget.TextView" and starts-with(@text, "#")]',
+        '//android.widget.TextView[starts-with(@text, "#")]',
     ])
     _hashtag_suggestion_rows: List[str] = field(default_factory=lambda: [
         '(//android.view.ViewGroup[@clickable="true"][.//android.widget.TextView[starts-with(@text,"#")]])[1]',

@@ -344,30 +344,17 @@ class TikTokSignupWorkflow:
           4. OTP_ENTRY     – OTP verification code input screen
           5. PHONE_EMAIL   – phone/email input field
 
-        XPath translation:
-          uiautomator2's dump_hierarchy returns XML where every element has
-          the tag <node> with a "class" attribute — NOT tag names like
-          <android.widget.EditText>.  Selectors written in the uiautomator2
-          convention (e.g. //android.widget.EditText[@hint="x"]) must be
-          rewritten for lxml as //node[@class="android.widget.EditText"][@hint="x"].
-          _to_lxml() does this automatically so all existing selectors work.
+        The selectors run on `parse_ui_dump`'s tree, the one `d.xpath()` sees.
         """
-        import re as _re
-        from lxml import etree  # local import; lxml ships with uiautomator2
+        from lxml import etree
 
-        # Matches a dotted Java class name used as an XPath element step,
-        # preceded by one or two slashes.
-        # e.g. //android.widget.EditText  →  //node[@class="android.widget.EditText"]
-        _CLASS_STEP_RE = _re.compile(
-            r'(/{1,2})([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)+)'
-        )
-
-        def _to_lxml(xp: str) -> str:
-            return _CLASS_STEP_RE.sub(r'\1node[@class="\2"]', xp)
+        from taktik.core.shared.device.ui_dump import parse_ui_dump
 
         try:
             xml = self.device.dump_hierarchy(compressed=False)
-            tree = etree.fromstring(xml.encode('utf-8'))
+            tree = parse_ui_dump(xml)
+            if tree is None:
+                raise ValueError("unparseable hierarchy dump")
         except Exception as exc:
             self.logger.warning(f"_detect_screen: hierarchy dump failed ({exc}), falling back to slow path")
             return self._detect_screen_slow()
@@ -375,7 +362,7 @@ class TikTokSignupWorkflow:
         def matches(selectors: list) -> bool:
             for xp in selectors:
                 try:
-                    if tree.xpath(_to_lxml(xp)):
+                    if tree.xpath(xp):
                         return True
                 except etree.XPathEvalError:
                     continue

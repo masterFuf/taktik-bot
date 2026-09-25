@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from lxml import etree
-
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_MEDIA_PICKER_SELECTORS,
     PublishMediaPickerSelectors,
@@ -24,7 +23,9 @@ def tap_upload_button_from_dump(
     """Tap the visible TikTok gallery button by reading XML bounds."""
     try:
         xml = device.dump_hierarchy(compressed=False)
-        tree = etree.fromstring(xml.encode("utf-8"))
+        tree = parse_ui_dump(xml)
+        if tree is None:
+            raise ValueError("unparseable hierarchy dump")
         candidates = []
 
         for rid, xpath in selectors.upload_dump_selectors:

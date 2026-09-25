@@ -6,7 +6,7 @@ two of them already carrying likes, one with none — because inventing a hierar
 test the invention.
 """
 
-from lxml import etree
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.workflows.common.comments_thread import (
     center,
@@ -67,7 +67,7 @@ REAL_THREAD = """
 
 
 def _root(xml=REAL_THREAD):
-    return etree.fromstring(xml.strip().encode("utf-8"))
+    return parse_ui_dump(xml.strip())
 
 
 # ── Bounds helpers ──────────────────────────────────────────────────────────
@@ -246,7 +246,7 @@ COMPOSE_THREAD = """
 
 
 def _compose_root():
-    return etree.fromstring(COMPOSE_THREAD.encode())
+    return parse_ui_dump(COMPOSE_THREAD)
 
 
 def test_compose_usernames_are_found_despite_the_repeated_content_desc():
@@ -294,7 +294,7 @@ def test_an_already_liked_comment_is_never_tapped_again():
         "45 J’aime. Appuyez deux fois pour ne plus aimer un commentaire et maintenez appuye",
     )
     target = find_comment_like_target(
-        etree.fromstring(liked.encode()), "taktik_r2d2", FR_LIKE, FR_UNLIKE
+        parse_ui_dump(liked), "taktik_r2d2", FR_LIKE, FR_UNLIKE
     )
     assert target is not None
     assert target["already_liked"] is True
@@ -326,5 +326,5 @@ def test_row_labels_are_not_read_as_comment_bodies():
 
 def test_the_legacy_layout_yields_no_compose_bodies():
     # Older builds keep the id-based path; this reader must not invent rows there.
-    assert read_comment_texts(etree.fromstring(REAL_THREAD.encode()), ["said"]) == []
+    assert read_comment_texts(parse_ui_dump(REAL_THREAD), ["said"]) == []
 

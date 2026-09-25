@@ -4,7 +4,7 @@ Feeds the reading dwell and the AI smart-comment hook (the caption text is sent 
 model alongside the vision description, since the screenshot crop stops at the button row).
 """
 
-from lxml import etree
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import PostReadingMixin
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
@@ -15,7 +15,7 @@ class _Host(PostReadingMixin):
 
 
 def _root(nodes: str):
-    return etree.fromstring(f"<hierarchy>{nodes}</hierarchy>".encode("utf-8"))
+    return parse_ui_dump(f"<hierarchy>{nodes}</hierarchy>")
 
 
 def _caption(text: str, top: int, bottom: int) -> str:

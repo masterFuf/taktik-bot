@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from lxml import etree
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.actions.atomic.scroll.base_scroll import BaseScrollMixin
 
@@ -74,7 +74,7 @@ def test_existing_hierarchy_root_is_reused_then_invalidated():
     xml = """<hierarchy><node resource-id="com.instagram.android:id/row_feed_button_share"
       clickable="true" bounds="[300,1760][420,1870]" /></hierarchy>"""
     host = _host(xml)
-    root = etree.fromstring(xml.encode("utf-8"))
+    root = parse_ui_dump(xml)
 
     host._remember_post_action_geometry(root)
     bounds = host._gesture_start_exclusion_bounds()
