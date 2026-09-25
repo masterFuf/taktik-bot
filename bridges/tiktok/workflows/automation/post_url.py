@@ -21,11 +21,15 @@ from bridges.tiktok.runtime.ipc import (
 )
 from bridges.tiktok.runtime.startup import tiktok_startup
 from bridges.tiktok.workflows.automation.runtime.ai import install_profile_ai_hooks
-from bridges.tiktok.workflows.automation.runtime.followers_planning import (
-    build_followers_config,
-)
-from bridges.tiktok.workflows.automation.runtime.followers_stats import create_total_stats
 from bridges.tiktok.workflows.automation.runtime.workflow_callbacks import wire_single_pass_callbacks
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler import (
+    new_session_totals,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.payload import (
+    followers_config_for_target,
+    followers_settings_from_payload,
+    session_limits_from_payload,
+)
 
 
 def _bridge_log(level: str, message: str) -> None:
@@ -50,7 +54,7 @@ def read_profile_budget(config: Dict[str, Any], max_commenters: int) -> int:
     """How many commenters to VISIT, in whichever key carries the budget.
 
     The page sends it twice, as `maxProfiles` and as `maxVideos` (the name the live panel reads,
-    and the name `calculate_target_distribution` falls back to for the followers road). This
+    and the name `profile_budget_from_payload` falls back to for the followers road). This
     runner read `maxProfiles` and `maxFollowers` only, so a payload carrying the budget as
     `maxVideos` alone ran with the commenter count instead. Same order as the followers road:
     the specific name first, the shared one after, the commenter budget last.
@@ -97,13 +101,15 @@ def run_post_url_workflow(config: Dict[str, Any]) -> bool:
         max_commenters = int(config.get("maxCommenters") or 20)
         max_profiles = read_profile_budget(config, max_commenters)
 
-        workflow_config = build_followers_config(
-            PostUrlConfig,
-            config,
-            "",  # no source account: the video IS the source
-            max_profiles,
-            config.get("maxLikesPerSession", 50),
-            config.get("maxFollowsPerSession", 20),
+        # The interaction settings are read like every profile-visiting run's.
+        max_likes, max_follows = session_limits_from_payload(config)
+        workflow_config = followers_config_for_target(
+            followers_settings_from_payload(config),
+            search_query="",  # no source account: the video IS the source
+            max_followers=max_profiles,
+            max_likes_per_session=max_likes,
+            max_follows_per_session=max_follows,
+            config_class=PostUrlConfig,
         )
         workflow_config.post_url = post_url
         workflow_config.max_commenters = max_commenters
@@ -116,7 +122,7 @@ def run_post_url_workflow(config: Dict[str, Any]) -> bool:
 
         send_message("workflow_start", target=post_url, targets=[], current_target_index=0)
 
-        total_stats = create_total_stats()
+        total_stats = new_session_totals()
         # No `total_targets`: this run DISCOVERS its commenters as it reads them, so `max_profiles`
         # is a ceiling, not a count. Announcing it would read as "3 of 20" on a video that has
         # three commenters -- the shape of the budget that once arrived as a follower cap.

@@ -110,30 +110,33 @@ class TestADeclaredFilterStillFilters:
 class TestNoOtherConfigKeyCollides:
     """The guard, and the only part of this file that can catch the NEXT one.
 
-    Both incidents were one name meaning two things. This reads the names the bridge actually
-    takes off a TikTok config, and the names the evaluator actually reads, and asserts the two
-    sets do not touch -- so a config key added tomorrow under a criterion's name fails here
-    instead of silently emptying a run.
+    Both incidents were one name meaning two things. This reads the names the bot actually
+    takes off a TikTok Followers or Target Profiles config (the one reading the bridge and the CLI
+    share), and the names the evaluator actually reads, and asserts the two sets do not touch --
+    so a config key added tomorrow under a criterion's name fails here instead of silently
+    emptying a run.
     """
 
     ROOT = Path(__file__).resolve().parents[4]
-    PLANNING = ROOT / 'bridges' / 'tiktok' / 'workflows' / 'automation' / 'runtime' / 'followers_planning.py'
+    WORKFLOWS = ROOT / 'taktik' / 'core' / 'social_media' / 'tiktok' / 'actions' / 'business' / 'workflows'
+    READERS = (WORKFLOWS / 'followers' / 'payload.py', WORKFLOWS / 'target_profiles' / 'payload.py')
     EVALUATOR = ROOT / 'taktik' / 'core' / 'shared' / 'filtering' / 'profile_filters.py'
 
     def _config_keys(self):
-        """Every `config.get("x")` the followers planner reads off a flat payload."""
+        """Every `payload.get("x")` the followers readings take off a flat payload."""
         keys = set()
-        for node in ast.walk(ast.parse(self.PLANNING.read_text(encoding='utf-8'))):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if getattr(func, 'attr', None) != 'get' or not node.args:
-                continue
-            if getattr(getattr(func, 'value', None), 'id', None) != 'config':
-                continue
-            argument = node.args[0]
-            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
-                keys.add(argument.value)
+        for reader in self.READERS:
+            for node in ast.walk(ast.parse(reader.read_text(encoding='utf-8'))):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                if getattr(func, 'attr', None) != 'get' or not node.args:
+                    continue
+                if getattr(getattr(func, 'value', None), 'id', None) != 'payload':
+                    continue
+                argument = node.args[0]
+                if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                    keys.add(argument.value)
         return keys
 
     def _evaluator_criteria(self):

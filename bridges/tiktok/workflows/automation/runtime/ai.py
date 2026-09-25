@@ -40,9 +40,8 @@ def install_profile_ai_hooks(config: dict, *, log: LogCallback = lambda level, m
     The install is `install_profile_ai_hooks_for_run` (core), shared with the CLI; this wrapper
     adds the stdout emitters and the bridge IPC for `ai_spend`.
 
-    Lives here rather than beside one runner because two workflows visit profiles the same way —
-    followers and target-profiles — and a second copy is how one of them ends up without the AI
-    verdict, or persisting under the wrong platform.
+    For a runner that still reads its payload in the bridge (Post URL); Followers and Target
+    Profiles hand `install_run_ai_hooks` to their core launcher, which reads the `ai` block.
 
     Does nothing when the run has no AI enabled, and never raises: a broken AI setup must cost
     the verdicts, not the run.
