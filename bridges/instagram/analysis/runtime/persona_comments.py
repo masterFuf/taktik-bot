@@ -165,6 +165,8 @@ class PersonaCommentsMixin:
         author above it. Falling back only when the id path is EMPTY leaves every older build
         and every clone on the path they already use.
         """
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
+
         try:
             nodes = self.device.xpath(POST_COMMENTS_SELECTORS.comment_text_nodes_selector).all()
         except Exception:

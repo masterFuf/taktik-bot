@@ -69,3 +69,23 @@ def test_empty_when_no_owner_or_no_match():
     assert owner_lines_from_comment_descs([("x hi there", "x")], "") == []
     assert owner_lines_from_comment_descs([], "me") == []
     assert owner_lines_from_comment_descs([("x hello", "x")], "me") == []
+
+
+def test_visible_comment_texts_reads_the_comment_bodies():
+    """The method named a catalogue it never imported: the NameError was swallowed and it always
+    returned an empty list, on the id path and the dump path alike."""
+    from types import SimpleNamespace
+
+    from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
+
+    class _Node:
+        def __init__(self, text):
+            self._text = text
+
+        def get_text(self):
+            return self._text
+
+    reader = PersonaCommentsMixin()
+    reader.device = SimpleNamespace(
+        xpath=lambda _selector: SimpleNamespace(all=lambda: [_Node("first body"), _Node("second body")]))
+    assert reader._visible_comment_texts() == ["first body", "second body"]
