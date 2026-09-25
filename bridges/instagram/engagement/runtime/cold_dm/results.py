@@ -36,6 +36,7 @@ def build_cold_dm_summary(workflow) -> dict:
         "dms_success": workflow.dms_success,
         "dms_failed": workflow.dms_failed,
         "private_profiles": workflow.private_profiles,
+        "verified_profiles": getattr(workflow, "verified_profiles", 0),
     }
 
 

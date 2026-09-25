@@ -207,6 +207,23 @@ def get_enriched(a, p):
             "details": public_data}
 
 
+@action("profile.get_account_flags")
+def get_account_flags(a, p):
+    """Read the three account flags the profile filter acts on: private, certified, professional.
+
+    Same production read as the automation (`get_profile_flags_batch`, one XML dump, called by
+    `get_complete_profile_info` before the filter). Certified = the owner's badge, never a badge
+    in the similar-accounts carousel; professional = the category line under the name, the
+    Contact button of the header row, or our own professional dashboard. Be on a PROFILE screen
+    with the header visible."""
+    flags = a.detection.get_profile_flags_batch() or {}
+    shown = {key: bool(flags.get(key)) for key in ("is_private", "is_verified", "is_business")}
+    return {"success": True,
+            "message": (f"private={shown['is_private']} | verified={shown['is_verified']} | "
+                        f"business={shown['is_business']}"),
+            "details": shown}
+
+
 @action("profile.expand_bio_more")
 def expand_bio_more(a, p):
     """Expand a TRUNCATED bio through the production OCR path. Screenshot and

@@ -8,6 +8,7 @@ import sys
 from bridges.common.device.network import enforce_pre_session_ip_rotation
 from bridges.instagram.runtime.ipc import _ipc, logger
 from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
+from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import ColdDmRecipientPolicy
 
 
 def run_cold_dm_cli(args: list[str]) -> None:
@@ -52,6 +53,13 @@ def run_cold_dm_cli(args: list[str]) -> None:
         ai_prompt = config.get("aiPrompt", "")
         openrouter_api_key = config.get("openrouterApiKey", "")
 
+        # The page's and the scheduler node's « Ignorer les comptes privés / certifiés ». Absent
+        # -> the behaviour this bridge always had: private profiles skipped, certified ones not.
+        recipient_policy = ColdDmRecipientPolicy(
+            skip_private=config.get("skipPrivateAccounts", True) is not False,
+            skip_verified=bool(config.get("skipVerifiedAccounts", False)),
+        )
+
         message_mode = config.get("messageMode", "manual")
         if message_mode == "ai" and not openrouter_api_key:
             logger.warning("AI mode requested but no OpenRouter API key provided, falling back to manual messages")
@@ -68,6 +76,7 @@ def run_cold_dm_cli(args: list[str]) -> None:
             session_id,
             ai_prompt,
             openrouter_api_key,
+            recipient_policy=recipient_policy,
         )
 
         print(json.dumps({

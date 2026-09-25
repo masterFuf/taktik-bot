@@ -278,6 +278,10 @@ def _build_action_config(
         # private profiles. Absent -> PrivateStreakPolicy defaults, standalone unchanged.
         "allow_private": bool(filters.get("allowPrivate", False)),
         "max_consecutive_private_profiles": filters.get("maxConsecutivePrivateProfiles"),
+        # « Autoriser les comptes certifiés / pro ». Absent -> allowed, as before these two
+        # were read: a page or a plan that does not send them refuses nobody new.
+        "allow_verified": filters.get("allowVerified", True) is not False,
+        "allow_business": filters.get("allowBusiness", True) is not False,
     }
     # Both shapes, on purpose. `resolve_filter_criteria` reads either one, so a single
     # one would do for our own readers — but the action also travels to the CLI and to

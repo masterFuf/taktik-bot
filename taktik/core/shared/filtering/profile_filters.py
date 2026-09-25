@@ -12,6 +12,13 @@ its own dialect inside the evaluator:
     username, followers_count, following_count, posts_count, biography, full_name,
     is_private, is_verified, is_business, visible_posts_count, visible_stories_count
 
+Three account kinds can be refused outright, each by its own criterion: `allow_private` (default
+False: a private account is refused), `allow_verified` and `allow_business` (default True: both are
+let through). The two defaults differ on purpose -- a config that says nothing keeps the behaviour
+it always had, and nothing ever refused a certified or a professional account before the operator
+could ask for it. The flags themselves are the caller's reading of the screen; a platform that
+cannot read one leaves it absent, and an absent flag never refuses anyone.
+
 Two things about the scoring are easy to misread, and both are deliberate:
 
 - the four stages combine by MINIMUM, not by sum, so penalties do not accumulate;
@@ -108,6 +115,26 @@ def _apply_basic_filters(
             })
             return result
 
+    # Same short-circuit as the private check. The reasons are the ones the advanced stage
+    # already writes for a penalty, so one account kind keeps one name in `filtered_profiles`.
+    if profile_info.get('is_verified', False) and not criteria.get('allow_verified', True):
+        result.update({
+            'suitable': False,
+            'reasons': ['Verified account'],
+            'category': 'verified',
+            'score': 0
+        })
+        return result
+
+    if profile_info.get('is_business', False) and not criteria.get('allow_business', True):
+        result.update({
+            'suitable': False,
+            'reasons': ['Business account'],
+            'category': 'business',
+            'score': 0
+        })
+        return result
+
     followers = profile_info.get('followers_count', 0)
     if followers is None:
         followers = 0
@@ -147,6 +174,8 @@ def _apply_basic_filters(
 
     result['filter_details']['basic_filters'] = {
         'private_check': 'passed',
+        'verified_check': 'passed',
+        'business_check': 'passed',
         'followers_range': 'passed',
         'posts_minimum': 'passed',
         'bot_detection': 'passed'

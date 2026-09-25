@@ -300,9 +300,19 @@ class DetectionSelectors:
         return self._private_account_indicators_base + L("detection.private_account_indicators")
 
     # === Verified account detection (Meta Verified / Blue badge) ===
+    # The badge of the PROFILE OWNER, never one elsewhere on the screen. The profile header
+    # holds the "similar accounts" carousel (`similar_accounts_container` sits inside
+    # `profile_header_container`, 149 of the 206 profile dumps of the Lab corpus), whose cards
+    # are other people's accounts: a bare `verified_badge` anywhere, or a "Verified" read on any
+    # content-desc, called the visited profile certified because a SUGGESTION was.
+    # `contains(@resource-id, ...)` rather than an equality: `batch_xpath_check` evaluates the
+    # raw dump, which the clone proxy does not rewrite, so an exact
+    # `com.instagram.android:id/...` would never match a clone.
+    # The localized half (the title's content-desc "<username> Vérifié", the form Instagram
+    # gives its titles in the story viewer and the share sheet) lives in the overlay.
     _verified_account_indicators_base: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/verified_badge"]',
-        '//*[@resource-id="com.instagram.android:id/action_bar_title_verified_badge"]'
+        '//*[contains(@resource-id, "verified_badge")'
+        ' and not(ancestor::*[contains(@resource-id, "similar_accounts")])]',
     ])
 
     @property
@@ -310,6 +320,17 @@ class DetectionSelectors:
         return self._verified_account_indicators_base + L("detection.verified_account_indicators")
 
     # === Business account detection ===
+    # STRUCTURE of the profile header only, never the words of a bio. Only a professional
+    # account (business or creator) can show a category line under its name; a professional
+    # account that hides it is still caught by its "Contact" button or, on our own profile,
+    # by the professional dashboard entry -- both in the overlay because they are read by
+    # label. Measured on the Lab corpus (IG 410, profile dumps of 2026-06 to 2026-09): category
+    # line on 5 visited professional accounts (French UI) and 1 own one (English UI),
+    # "Contacts" without a category on 1 visited brand and 1 own account, dashboard alone on 2
+    # own accounts; none of the signals on the 3 personal accounts (1 French, 2 English). The
+    # English "Contact" label is assumed, not yet seen in a dump. A
+    # professional account showing none of the three is NOT detected, and stays allowed:
+    # refusing on doubt would refuse everyone.
     _business_account_indicators_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "profile_header_business_category")]',
     ])
