@@ -100,6 +100,7 @@ STRINGS: Dict[str, List[str]] = {
     "conversation.back_button": [
         "//*[@clickable=\"true\"][@content-desc=\"Retour\" or @content-desc=\"Back\"]",
     ],
+    # Sans lecteur : `close_sticker_suggestion` renvoie a `close_interstitial`, rempli ci-dessous.
     "conversation.close_sticker_suggestion": [],
     # Measured on device (43.1.4, 2026-08-29): opening a conversation raised a MODAL
     # "Statut de lecture" sheet that replaced the whole hierarchy, so the open was reported as
@@ -442,7 +443,11 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.search_button": [
         "//*[contains(@content-desc, \"Rechercher\")][@clickable=\"true\"]",
     ],
-    "navigation.shop_tab": [],
+    # L'onglet du fil, situe par sa voisine « Pour toi » : les resultats de recherche ont aussi un
+    # onglet « Boutique ».
+    "navigation.shop_tab": [
+        "//*[@clickable=\"true\"][*[@content-desc=\"Boutique\"]][../*/*[@content-desc=\"Pour toi\"]]",
+    ],
     # --- popup ---
     "popup.age_verification_popup": [
         "//*[contains(@text, \"âge\")]",
@@ -462,7 +467,12 @@ STRINGS: Dict[str, List[str]] = {
     "popup.collections_not_now": [],
     "popup.collections_popup": [],
     "popup.comment_input_area": [],
-    "popup.comments_close_button": [],
+    # « Fermer » nu repond aussi sur les listes d'abonnes, la recherche et l'inbox ; le composeur de
+    # commentaires le cantonne a la feuille.
+    "popup.comments_close_button": [
+        "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]"
+        "[ancestor::*[.//android.widget.EditText[contains(@hint, \"Ajouter un commentaire\")]]]",
+    ],
     # `J'ai compris` was missing, and it is the button of an interstitial TikTok raises INSIDE
     # a conversation ("Recommandations de stickers personnalisées"). It covers the composer, so
     # the message field reads as absent and a reply cannot be typed — measured on device, mid-DM.
@@ -480,7 +490,11 @@ STRINGS: Dict[str, List[str]] = {
     "popup.follow_friends_popup": [
         "//*[contains(@text, \"Suivez vos amis\")]",
     ],
-    "popup.inbox_page_indicator": [],
+    # Le titre, pas les rubriques : « Nouveaux followers » est aussi le titre de sa propre page. Le
+    # libelle de la barre du bas et celui du lanceur n'ont pas l'id.
+    "popup.inbox_page_indicator": [
+        "//*[contains(@resource-id, \":id/title\")][@text=\"Messages\"]",
+    ],
     "popup.link_email_not_now": [
         "//*[@text=\"Pas maintenant\"][@clickable=\"true\"]",
     ],
@@ -490,7 +504,12 @@ STRINGS: Dict[str, List[str]] = {
     "popup.notification_popup": [
         "//*[contains(@text, \"Autoriser\")]",
     ],
-    "popup.promo_close_button": [],
+    # Le cliquable qui porte la croix, voisin de la banniere « Inviter » de l'inbox.
+    "popup.promo_close_button": [
+        "//*[@clickable=\"true\"][*[@content-desc=\"Fermer\"]][../*[.//*[@text=\"Inviter\"]]]",
+    ],
+    # Page de suggestion plein ecran jamais capturee en francais. Le « Pas intéressé(e) » des
+    # captures est le sondage sous une video du fil et la feuille de partage : pas cet ecran.
     "popup.suggestion_close": [],
     "popup.suggestion_follow_back": [],
     "popup.suggestion_not_interested": [],
@@ -755,7 +774,12 @@ STRINGS: Dict[str, List[str]] = {
     "profile.profile_menu_button": [
         "//*[contains(@content-desc, \"Menu du profil\")]",
     ],
-    "profile.profile_page_indicator": [],
+    # Le libelle de compteur, precede de sa valeur : l'onglet « Suivis » du fil n'a pas de voisin,
+    # celui des listes s'ecrit « Suivis 39 ». Repond aussi sur un profil defile dont le pseudo est
+    # sorti de l'ecran.
+    "profile.profile_page_indicator": [
+        "//android.widget.TextView[@text=\"Suivis\"][preceding-sibling::android.widget.TextView]",
+    ],
     "profile.profile_photo": [
         "//*[contains(@content-desc, \"Photo de profil\")]",
     ],
@@ -767,6 +791,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
     ],
     "profile.unable_to_send_message": [],
+    # Vide a dessein : le profil verifie capture (46.6.3) ne porte ce mot dans aucun attribut, la
+    # base structurelle le lit. « Badge vérifié » n'existe que sur l'onglet Utilisateurs de la
+    # recherche, un autre ecran.
     "profile.verified_badge": [],
     "profile.videos_tab": [
         "//*[contains(@content-desc, \"Vidéos\")]",
@@ -879,14 +906,24 @@ STRINGS: Dict[str, List[str]] = {
     "search.search_submit_button": [
         "//android.widget.Button[@text=\"Rechercher\"]",
     ],
-    "search.shop_tab": [],
+    # L'onglet des resultats, situe par sa voisine « Top » : le fil a aussi un onglet « Boutique ».
+    "search.shop_tab": [
+        "//*[@clickable=\"true\"][@content-desc=\"Boutique\"][../*[@content-desc=\"Top\"]]",
+    ],
     "search.sounds_tab": [
         "//android.widget.TextView[@text=\"Sons\"]",
     ],
-    "search.user_result_follow_button": [],
+    # Le bouton de la rangee qui porte le pseudo (`tv_username`, id lisible) : les listes d'abonnes
+    # et l'inbox ont aussi des « Suivre ». Vu en 46.6.3 seulement.
+    "search.user_result_follow_button": [
+        "//*[contains(@resource-id, \":id/tv_username\")]/ancestor::*[.//android.widget.Button][1]"
+        "//android.widget.Button[@text=\"Suivre\"]",
+    ],
     "search.videos_tab": [
         "//android.widget.TextView[@text=\"Vidéos\"]",
     ],
+    # Jamais vu sur les resultats. Le « Tout voir » des captures appartient a la page Activite et a
+    # la page Nouveaux followers ; « Voir plus » deplie l'historique de recherche.
     "search.view_all_button": [],
     # --- settings (chemin vers la langue de l'application) ---
     #
@@ -1110,7 +1147,10 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@resource-id=\"com.ss.android.ugc.aweme:id/f57\"][contains(@content-desc, \"Attribuer un\")]",
         "//*[contains(@content-desc, \"Attribuer un\")]",
     ],
-    "video_engagement.share_button": [],
+    # « Partager une vidéo. <N> partages » ; la base en porte une copie.
+    "video_engagement.share_button": [
+        "//android.widget.Button[starts-with(@content-desc, \"Partager une vidéo\")]",
+    ],
     # --- video_media ---
     "video_media.sound_button": [
         "//android.widget.Button[contains(@content-desc, \"Son :\")]",
@@ -1201,5 +1241,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Retirer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
         "//*[contains(@content-desc, \"Supprimer\") and (contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\"))]",
     ],
-    "video_state.video_page_indicator": [],
+    # Le bouton de partage, masque quand la feuille de commentaires est ouverte ; la base en porte
+    # une copie.
+    "video_state.video_page_indicator": [
+        "//*[starts-with(@content-desc, \"Partager une vidéo\")]",
+    ],
 }
