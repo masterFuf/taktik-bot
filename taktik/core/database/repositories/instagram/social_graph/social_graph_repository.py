@@ -14,7 +14,7 @@ have answered a TikTok handle with an Instagram namesake's follow history.
 from __future__ import annotations
 
 from copy import copy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Set
 
 from loguru import logger
@@ -131,7 +131,10 @@ class SocialGraphRepository(BaseRepository):
             if not row or not row["first_seen_at"]:
                 return None
             first_seen = datetime.fromisoformat(str(row["first_seen_at"]))
-            return max(0, (datetime.now() - first_seen).days)
+            # `first_seen_at` is SQLite's datetime('now'), in UTC: compare it with UTC, or the
+            # age runs one or two hours ahead in France and a row is released that much early.
+            now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+            return max(0, (now_utc - first_seen).days)
         except Exception as exc:
             logger.debug(f"Error getting the first sighting of @{username}: {exc}")
             return None

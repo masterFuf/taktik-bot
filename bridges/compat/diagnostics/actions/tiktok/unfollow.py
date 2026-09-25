@@ -41,6 +41,10 @@ def _workflow(a, p, *, max_unfollows=1):
         max_delay=0,
         min_follow_age_days=int(float(p.get("min_follow_age_days") or 0)),
         bot_username=(str(p.get("account") or "").strip().lstrip("@") or None),
+        # One tap per Lab action: an unconfirmed tap may still have unfollowed, and the
+        # production default (3 in a row) would move on to the next rows of an action that
+        # promises ONE account.
+        max_unconfirmed_in_a_row=1,
     )
     return UnfollowWorkflow(_raw(a), config)
 

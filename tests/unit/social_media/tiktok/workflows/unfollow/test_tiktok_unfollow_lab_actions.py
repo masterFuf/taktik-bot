@@ -82,6 +82,16 @@ def test_unfollow_one_reports_a_tap_the_row_did_not_confirm(lab, screen, base_db
     assert base_db.recorded == []
 
 
+def test_unfollow_one_taps_a_single_row_even_when_the_row_does_not_confirm(lab, screen, base_db):
+    # An unconfirmed tap may still have unfollowed: the action promises ONE account, so it must
+    # not move on to the next rows as the production run does (3 unconfirmed in a row).
+    rows = [screen.Row(name, name.lower(), on_tap=screen.STAY) for name in ("Alpha", "Beta", "Gamma")]
+
+    ACTION_REGISTRY["tt.unfollow.unfollow_one"](_bundle(screen.FollowingList(rows)), {"account": "moncompte"})
+
+    assert [row.taps for row in rows] == [1, 0, 0]
+
+
 def test_unfollow_one_refuses_without_the_account(lab, screen):
     rows = [screen.Row("Alpha", "alpha_one")]
 
