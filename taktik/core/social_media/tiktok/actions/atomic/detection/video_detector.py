@@ -336,7 +336,9 @@ class VideoDetector(BaseAction):
             include_comment_count: Also fetch comment count (slower).
             full_description: Expand truncated descriptions and parse hashtags.
         """
-        if full_description:
+        # First, so an ad's caption is never tapped open: that tap would be a click on the ad.
+        is_ad = self.is_ad_video()
+        if full_description and not is_ad:
             desc_parsed = self.get_video_description_parsed()
         else:
             raw = self.get_video_description()
@@ -352,7 +354,7 @@ class VideoDetector(BaseAction):
             'like_count': self.get_video_like_count(),
             'is_liked': self.is_video_liked(),
             'is_favorited': self.is_video_favorited(),
-            'is_ad': self.is_ad_video(),
+            'is_ad': is_ad,
         }
         if include_comment_count:
             info['comment_count'] = self.get_video_comment_count()
