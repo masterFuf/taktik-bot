@@ -309,27 +309,42 @@ class SharedBaseAction:
         except SnapshotUnavailable:
             return None
 
+    @staticmethod
+    def _each_found(photo, selectors):
+        """(selector, elements) for each selector that finds elements on `photo`, in order; a
+        selector the engine rejects is skipped, as its `d.xpath()` probe's error was. Nothing
+        without a photo."""
+        if photo is None:
+            return
+        for selector in selectors:
+            try:
+                elements = photo.elements(selector)
+            except Exception:
+                continue
+            if elements:
+                yield selector, elements
+
+    # The funnel below (step 5 of the one-photo spec) asks all its selectors of one photo per call,
+    # or per turn when it waits, where `d.xpath()` took one dump per selector.
+
     def _wait_for_element(self, selectors: Union[List[str], str], timeout: float = 10.0,
                          check_interval: float = 0.5, silent: bool = False) -> bool:
-        """Wait for element to appear."""
+        """Wait for element to appear: each turn asks every selector of one photo."""
         if isinstance(selectors, str):
             selectors = [selectors]
-        
+
         start_time = time.time()
         if not silent:
             self.logger.debug(f"⏳ Waiting for element with {len(selectors)} selectors")
-        
+
         while time.time() - start_time < timeout:
-            for selector in selectors:
-                try:
-                    if self.device.xpath(selector).exists:
-                        if not silent:
-                            self.logger.debug(f"✅ Element appeared: {selector[:50]}...")
-                        self._method_stats['waits'] += 1
-                        return True
-                except Exception:
-                    continue
-            
+            photo = self._turn_photo() if selectors else None
+            for selector, _elements in self._each_found(photo, selectors):
+                if not silent:
+                    self.logger.debug(f"✅ Element appeared: {selector[:50]}...")
+                self._method_stats['waits'] += 1
+                return True
+
             time.sleep(check_interval)
         
         if not silent:
@@ -349,51 +364,40 @@ class SharedBaseAction:
         return False
     
     def _is_element_present(self, selectors: Union[List[str], str]) -> bool:
-        """Check if element exists (instant check, no waiting)."""
+        """Check if element exists (instant check, no waiting), on one photo."""
         if isinstance(selectors, str):
             selectors = [selectors]
-        
-        for selector in selectors:
-            try:
-                if self.device.xpath(selector).exists:
-                    return True
-            except Exception:
-                continue
-        
+
+        photo = self._turn_photo() if selectors else None
+        for _found in self._each_found(photo, selectors):
+            return True
+
         return False
-    
+
     def _get_text_from_element(self, selectors: Union[List[str], str]) -> Optional[str]:
-        """Get text from first matching element."""
+        """Text of the first element of the first selector whose first element has text, on one
+        photo (a selector whose first element has none gives way to the next)."""
         if isinstance(selectors, str):
             selectors = [selectors]
-        
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    text = element.get_text()
-                    if text:
-                        return text.strip()
-            except Exception as e:
-                self.logger.debug(f"Error getting text: {e}")
-                continue
-        
+
+        photo = self._turn_photo() if selectors else None
+        for _selector, elements in self._each_found(photo, selectors):
+            text = elements[0].text
+            if text:
+                return text.strip()
+
         return None
-    
+
     def _get_element_attribute(self, selectors: Union[List[str], str],
                              attribute: str) -> Optional[str]:
-        """Get attribute value from first matching element."""
+        """Get attribute value from first matching element, on one photo."""
         if isinstance(selectors, str):
             selectors = [selectors]
-        
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    return element.attrib.get(attribute)
-            except Exception:
-                continue
-        
+
+        photo = self._turn_photo() if selectors else None
+        for _selector, elements in self._each_found(photo, selectors):
+            return elements[0].attrib.get(attribute)
+
         return None
     
     # =========================================================================

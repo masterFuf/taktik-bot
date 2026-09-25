@@ -156,6 +156,19 @@ def test_the_instagram_child_reads_a_follow_list_as_production_mounts_it(tmp_pat
         ["alice_demo", "following"], ["bob_demo", "follow_back"]]
 
 
+def test_the_instagram_child_asks_the_funnel_every_selector_list(tmp_path):
+    """The shared funnel is asked every selector list of the catalogues its callers read, one
+    call per list, on the same screen."""
+    answers = _child(tmp_path, FOLLOW_LIST, "410.0.0.53.71", platform="instagram")
+    field = "DETECTION_SELECTORS.follow_list_username_selectors"
+    assert answers["funnel_present"]["answer"][field] is True
+    assert answers["funnel_text"]["answer"][field] == "alice_demo"
+    assert answers["funnel_wait"]["answer"][field] is True
+    calls = answers["funnel_present"]["calls"]
+    assert calls == len(answers["funnel_present"]["answer"]) > 100
+    assert answers["funnel_present"]["dumps"] <= calls
+
+
 def test_the_reads_made_once_per_row_are_counted_per_row():
     def answers(dumps):
         return {"list_rows": {"answer": [["a", [0, 0, 1, 1]]], "gestures": [], "dumps": 1},

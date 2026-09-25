@@ -16,8 +16,10 @@ printed by kind of screen, with the fake cost of `--dump-ms` per dump.
 
 Instagram (`--platform instagram`): the follow list readers (rows, usernames, the state of each
 row's button, the tap on a row, the list checks), the unfollow's reads (its rows, tabs,
-confirmation wait, row re-read) and the profile checks it makes. The dumps of each read are
-printed by kind of screen, per call for the reads made once per row.
+confirmation wait, row re-read), the profile checks it makes, and the shared funnel
+(`_is_element_present`, `_get_text_from_element`, `_wait_for_element`) asked every selector list of
+the catalogues its callers read. The dumps of each read are printed by kind of screen, and per
+call for the reads made many times on one screen.
 
     python scripts/replay_screen_decisions.py --corpus DIR [--corpus DIR ...] [--base HEAD]
     python scripts/replay_screen_decisions.py --platform instagram --list FILE [--save-list FILE]
@@ -49,9 +51,15 @@ PROBES = ("popups", "comments", "suggestion", "video_info_feed", "video_info_ful
 INSTAGRAM_PROBES = ("list_rows", "list_usernames", "row_states", "click_row", "list_open", "list_end",
                     "in_suggestions", "limited", "loading", "unfollow_rows", "tabs", "confirm_wait",
                     "row_unfollowed", "follow_back_row", "profile_screen", "profile_username",
-                    "follow_button", "profile_check")
-# Reads made once per row of a list: their dumps are also printed per call.
-PER_ROW = ("row_states",)
+                    "follow_button", "profile_check", "funnel_present", "funnel_text", "funnel_wait")
+# Reads made many times on one screen (once per row, once per selector list): their dumps are
+# also printed per call.
+PER_CALL = ("row_states", "funnel_present", "funnel_text", "funnel_wait")
+# The catalogues the shared funnel's Instagram callers read (`_is_element_present`,
+# `_get_text_from_element`, `_wait_for_element`): every selector list of them is asked.
+FUNNEL_CATALOGUES = ("DETECTION_SELECTORS", "PROFILE_SELECTORS", "BUTTON_SELECTORS", "POST_SELECTORS",
+                     "STORY_SELECTORS", "UNFOLLOW_SELECTORS", "POPUP_SELECTORS", "FEED_SELECTORS",
+                     "NAVIGATION_SELECTORS")
 PLATFORMS = {
     "tiktok": {"packages": TIKTOK_PACKAGES, "probes": PROBES},
     "instagram": {"packages": ("com.instagram.",), "probes": INSTAGRAM_PROBES},
@@ -111,7 +119,22 @@ def _fake_phone(dump_ms: float, package: str):
     time.monotonic = lambda: now[0]
     time.sleep = lambda seconds: now.__setitem__(0, now[0] + max(float(seconds), 0.0))
 
-    from uiautomator2.xpath import XPathEntry
+    from uiautomator2.xpath import PageSource, XPathEntry
+
+    # uiautomator2 parses every dump again, and the old code dumps once per selector: the parse of
+    # a dump is kept for the next identical one, in both states. Queries only read the tree, so
+    # the answers do not depend on it; the run time does (hours to minutes on the funnel probes).
+    parse = PageSource.root.func
+    parsed = {}
+
+    def root(source):
+        tree = parsed.get(source._xml_content)
+        if tree is None:
+            parsed.clear()
+            tree = parsed[source._xml_content] = parse(source)
+        return tree
+
+    PageSource.root = property(root)
 
     class Phone:
         wait_timeout = 1.0
@@ -208,7 +231,7 @@ def _child_decisions(files, version, language, dump_ms):
 
 def _run_probes(files, phone, probes, before_each=None):
     """Every probe on every capture: its answer, its gestures, its dumps, and how many calls it
-    made when it reads once per row (`calls`, set by the probe in `counted`)."""
+    made when it reads many times on one screen (`calls`, set by the probe in `counted`)."""
     out = {}
     for path in files:
         phone.xml = Path(path).read_text(encoding="utf-8", errors="replace")
@@ -219,7 +242,7 @@ def _run_probes(files, phone, probes, before_each=None):
             dumps_before, gestures_before = phone.dumps, len(phone.gestures)
             counted = {}
             try:
-                answer = _plain(probe(counted) if name in PER_ROW else probe())
+                answer = _plain(probe(counted) if name in PER_CALL else probe())
             except Exception as exc:
                 answer = f"error: {type(exc).__name__}"
             answers[name] = {"answer": answer, "gestures": phone.gestures[gestures_before:],
@@ -228,6 +251,28 @@ def _run_probes(files, phone, probes, before_each=None):
                 answers[name]["calls"] = counted["calls"]
         out[path] = answers
     return out
+
+
+def _funnel_selector_lists():
+    """Every selector list of `FUNNEL_CATALOGUES` as the version and the language set it:
+    (catalogue.field, selectors), a lone selector as a list of one."""
+    import taktik.core.social_media.instagram.ui.selectors as catalogues
+
+    lists = []
+    for catalogue_name in FUNNEL_CATALOGUES:
+        catalogue = getattr(catalogues, catalogue_name)
+        for field in sorted(dir(catalogue)):
+            if field.startswith("_"):
+                continue
+            try:
+                value = getattr(catalogue, field)
+            except Exception:
+                continue
+            if isinstance(value, str) and value:
+                lists.append((f"{catalogue_name}.{field}", [value]))
+            elif isinstance(value, (list, tuple)) and value and all(isinstance(s, str) for s in value):
+                lists.append((f"{catalogue_name}.{field}", list(value)))
+    return lists
 
 
 def _child_instagram_decisions(files, version, language, dump_ms):
@@ -308,6 +353,20 @@ def _child_instagram_decisions(files, version, language, dump_ms):
         "profile_check": profile_check,
     }
 
+    lists = _funnel_selector_lists()
+
+    def funnel(read):
+        def probe(counted):
+            counted["calls"] = len(lists)
+            return {name: read(selectors) for name, selectors in lists}
+        return probe
+
+    probes["funnel_present"] = funnel(detection._is_element_present)
+    probes["funnel_text"] = funnel(detection._get_text_from_element)
+    # One turn: the pause alone outlasts the timeout.
+    probes["funnel_wait"] = funnel(lambda selectors: detection._wait_for_element(
+        selectors, timeout=0.4, check_interval=0.5, silent=True))
+
     def before_each():
         # Each capture is a new screen: no signal of the previous one, no stop lock.
         for component in (detection, unfollow.detection_actions):
@@ -374,7 +433,8 @@ def _versions(platform: str = "tiktok") -> list:
 
 def _dumps(args) -> list:
     if args.list:
-        return [line.strip() for line in Path(args.list).read_text(encoding="utf-8").splitlines() if line.strip()]
+        listed = [line.strip() for line in Path(args.list).read_text(encoding="utf-8").splitlines() if line.strip()]
+        return listed[:: max(1, args.every)]
     packages = PLATFORMS[args.platform]["packages"]
     corpora = args.corpus or [os.environ.get("TAKTIK_DEBUG_UI") or str(ROOT / "debug_ui")]
     found = []
@@ -444,12 +504,24 @@ def screen_kind(answers: dict) -> str:
     return "unknown"
 
 
+def _differing(old: dict, new: dict) -> tuple:
+    """The two sides of a difference; dict answers (one entry per call) narrowed to the keys that
+    differ, so a long answer shows where it changed."""
+    old_answer, new_answer = old["answer"], new["answer"]
+    if isinstance(old_answer, dict) and isinstance(new_answer, dict):
+        keys = [k for k in sorted(set(old_answer) | set(new_answer)) if old_answer.get(k) != new_answer.get(k)]
+        old = {**old, "answer": {k: old_answer.get(k) for k in keys}}
+        new = {**new, "answer": {k: new_answer.get(k) for k in keys}}
+    return old, new
+
+
 def compare(before: dict, after: dict, probes=PROBES) -> dict:
     """Answers and gestures of each read, base against now, per (capture, version).
 
     A read present in one state only is listed, not compared; a capture missing from `after`
     counts as a difference for each of its reads. `per_probe[probe][kind]` keeps the dumps of each
-    read, base and now, by kind of screen, and the calls of the reads made once per row."""
+    read, base and now, by kind of screen, and the calls of the reads made many times on one
+    screen. An example whose answers are both dicts keeps only the keys that differ."""
     compared = differences = 0
     examples, only_one_side = [], set()
     dumps_before, dumps_after = [], []
@@ -473,7 +545,7 @@ def compare(before: dict, after: dict, probes=PROBES) -> dict:
             if (old[probe]["answer"], old[probe]["gestures"]) != (new[probe]["answer"], new[probe]["gestures"]):
                 differences += 1
                 if len(examples) < 20:
-                    examples.append((Path(key[0]).name, key[1], probe, old[probe], new[probe]))
+                    examples.append((Path(key[0]).name, key[1], probe, *_differing(old[probe], new[probe])))
             cell = per_probe.setdefault(probe, {}).setdefault(kind, {"before": [], "after": [], "calls": 0,
                                                                      "sum_before": 0, "sum_after": 0})
             cell["before"].append(old[probe]["dumps"])
@@ -505,9 +577,9 @@ def _print_tiktok(outcome: dict, dump_ms: float) -> None:
 
 def _print_per_probe(outcome: dict, probes) -> None:
     """Dumps of each read by kind of screen, base -> now: median (max), and per call for the
-    reads made once per row."""
+    reads made many times on one screen."""
     print("Dumps per read, by kind of screen, base -> now: median (max)"
-          + "; per row for " + ", ".join(PER_ROW))
+          + "; per call for " + ", ".join(PER_CALL))
     for probe in probes:
         cells = outcome["per_probe"].get(probe) or {}
         parts = []
@@ -515,8 +587,8 @@ def _print_per_probe(outcome: dict, probes) -> None:
             text = (f"{kind} {len(cell['before'])}: {statistics.median(cell['before']):.0f} ({max(cell['before'])})"
                     f" -> {statistics.median(cell['after']):.0f} ({max(cell['after'])})")
             if cell["calls"]:
-                text += (f", per row {cell['sum_before'] / cell['calls']:.1f} -> "
-                         f"{cell['sum_after'] / cell['calls']:.1f} ({cell['calls']} rows)")
+                text += (f", per call {cell['sum_before'] / cell['calls']:.2f} -> "
+                         f"{cell['sum_after'] / cell['calls']:.2f} ({cell['calls']} calls)")
             parts.append(text)
         print(f"  {probe:17} " + " | ".join(parts))
 
