@@ -9,6 +9,7 @@ import re
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
 
 from ...core.base_action import BaseAction
@@ -195,7 +196,6 @@ class VideoDetector(BaseAction):
         try:
             import base64
             import io
-            from lxml import etree
         except ImportError:
             return None
 
@@ -203,7 +203,10 @@ class VideoDetector(BaseAction):
             xml = self.device.dump_hierarchy(compressed=False)
             if not xml:
                 return None
-            tree = etree.fromstring(xml.encode('utf-8'))
+            # The tree `d.xpath()` sees: the follow button entries are written by tag.
+            tree = parse_ui_dump(xml)
+            if tree is None:
+                return None
 
             bounds = None
             for selector in self.video_selectors.creator_profile_image_resource_id_selectors:

@@ -20,7 +20,7 @@ class VideoCreatorSelectors:
     creator_profile_image_resource_id_selectors: List[str] = field(
         default_factory=lambda: [
             *resource_ids("yx4"),
-            '//node[contains(@resource-id, ":id/user_avatar")]',
+            '//*[contains(@resource-id, ":id/user_avatar")]',
         ]
     )
 
