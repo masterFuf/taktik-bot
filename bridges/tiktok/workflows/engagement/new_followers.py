@@ -421,13 +421,12 @@ def _welcome_decided(config, manager, bot_username, handles: List[str], policy) 
 def _open_database() -> sqlite3.Connection:
     """Open the local database, or raise. A missing file is a refusal, not an empty answer."""
     from taktik.core.database.local.paths import get_default_database_path
+    from taktik.core.database.local.versions.opening import open_connection
 
     db_path = get_default_database_path()
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"local database not found at {db_path}")
-    connection = sqlite3.connect(db_path)
-    connection.row_factory = sqlite3.Row
-    return connection
+    return open_connection(db_path)
 
 
 def sent_dm_already_recorded(account_id: int, handle: str) -> bool:

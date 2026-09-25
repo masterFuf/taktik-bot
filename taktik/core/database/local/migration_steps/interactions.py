@@ -103,9 +103,7 @@ def run_interactions_unification_migrations(cursor: sqlite3.Cursor) -> None:
     # Generate a sync_id for rows the legacy table left NULL (legacy column has no
     # default; these rows are PC-local and never cross-device synced via legacy).
     try:
-        cursor.execute(
-            "UPDATE interactions SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL"
-        )
+        fill_missing_interaction_sync_ids(cursor)
         cursor.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_interactions_sync_id ON interactions(sync_id)"
         )
@@ -115,3 +113,10 @@ def run_interactions_unification_migrations(cursor: sqlite3.Cursor) -> None:
     # Phase C: writes now go straight to `interactions`; drop the legacy tables.
     cursor.execute("DROP TABLE IF EXISTS interaction_history")
     cursor.execute("DROP TABLE IF EXISTS tiktok_interaction_history")
+
+
+def fill_missing_interaction_sync_ids(cursor: sqlite3.Cursor) -> None:
+    """A sync_id for rows left without one. Also run at every opening of a numbered base."""
+    cursor.execute(
+        "UPDATE interactions SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL"
+    )
