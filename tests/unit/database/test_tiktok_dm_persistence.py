@@ -18,7 +18,7 @@ from taktik.core.database.local.schemas.messaging import (
 
 
 ACCOUNT_ID = 11
-PARTNER = "allocingles"
+PARTNER = "partner_one"
 
 
 @pytest.fixture
@@ -39,13 +39,14 @@ def database(tmp_path, monkeypatch):
 
 @pytest.fixture
 def persistence(monkeypatch):
-    from bridges.tiktok.workflows.engagement.runtime import dm_persistence
+    import taktik.core.database as database
+    from taktik.core.database import tiktok_dm
 
     # The profile link is a separate concern with its own database service; the direction rule
     # under test does not depend on it.
-    monkeypatch.setattr(dm_persistence, "configure_db_service", lambda: None)
-    monkeypatch.setattr(dm_persistence, "_partner_profile_id", lambda handle: None)
-    return dm_persistence
+    monkeypatch.setattr(database, "configure_db_service", lambda: None)
+    monkeypatch.setattr(tiktok_dm, "_partner_profile_id", lambda handle: None)
+    return tiktok_dm
 
 
 def _stored(path):
@@ -154,9 +155,9 @@ def test_a_display_name_is_kept_as_partner_but_never_linked_as_a_handle(database
 
 def test_our_message_stays_ours_when_the_header_changes_case(database, persistence):
     """The thread key is lowercased on write AND on lookup; the direction rule rides on that."""
-    persistence.record_sent(ACCOUNT_ID, "AlloCinGles", "Bien recu")
+    persistence.record_sent(ACCOUNT_ID, "Partner_One", "Bien recu")
     persistence.record_conversations(
-        ACCOUNT_ID, [{"name": "allocingles", "messages": [{"text": "Bien recu"}]}]
+        ACCOUNT_ID, [{"name": "partner_one", "messages": [{"text": "Bien recu"}]}]
     )
     assert _stored(database) == [("sent", "Bien recu")]
 
@@ -186,8 +187,8 @@ def test_the_logged_in_handle_is_normalised_before_it_becomes_an_account(persist
     monkeypatch.setattr(tiktok_account_identity, "get_db_service", lambda: FakeService())
     monkeypatch.setattr(tiktok_account_identity, "configure_db_service", lambda: None)
 
-    assert persistence.resolve_account_id("@AlloCinGles") == 42
-    assert seen == [("allocingles", True)]
+    assert persistence.resolve_account_id("@Partner_One") == 42
+    assert seen == [("partner_one", True)]
 
     # An unreadable profile is not an account: persistence is skipped rather than attributed
     # to a made-up row.

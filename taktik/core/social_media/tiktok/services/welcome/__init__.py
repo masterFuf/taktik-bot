@@ -2,8 +2,8 @@
 
 The three pieces are deliberately separate. `decision` is pure policy, `duplicate_guard` is the
 only thing allowed to say whether someone may be written to, and `runner` walks a list without
-ever acting on it. Acting (follow back, send) stays with the workflows and the bridge that own
-the device.
+ever acting on it. Acting (follow back, send) stays with the new-followers flow that owns the
+device (`actions/business/workflows/dm/welcome_pass.py`).
 """
 
 from taktik.core.social_media.tiktok.services.welcome.decision import (

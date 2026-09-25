@@ -1,25 +1,42 @@
-"""Agent runtime handlers for TikTok DM workflows."""
+"""The one launcher of a TikTok DM read and of a DM send, and their Agent handlers.
+
+`run_tiktok_dm_read` and `run_tiktok_dm_send` are what the desktop bridges call and what the
+handlers registered as `tiktok.automation.dm_read` and `.dm_send` (the CLI) call: start, drive
+`DMWorkflow`, then record what was read or sent under the account read on the phone
+(`taktik/core/database/tiktok_dm.py`). What differs between hosts is injected:
+- `tiktok_startup() -> TikTokStartup`: clean restart, language, account; supplies the device and
+  the account the conversations are recorded under.
+- `notifier`: where the live events and statuses go (the bridge's stdout IPC; the log otherwise).
+- `workflow_hook(workflow)`: registers the workflow for a stop signal.
+No injected callable receives the whole payload, so the app's config contract test can still see
+every key the bot reads.
+
+The cold-DM outreach handler lives here too; it is not on this path yet.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Optional
+
+from loguru import logger
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
-    bool_param,
-    float_param,
     int_param,
     list_param,
     merge_invocation_payload,
     notify,
     value_param,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import DMConfig
 from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach import (
     TikTokDMOutreachWorkflow,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import DMWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.payload import (
+    dm_messages_from_payload,
+    dm_read_config_from_payload,
+    dm_send_config_from_payload,
+)
 
 
 TIKTOK_DM_READ_WORKFLOW_ID = "tiktok.automation.dm_read"
@@ -28,43 +45,139 @@ TIKTOK_DM_OUTREACH_WORKFLOW_ID = "tiktok.standalone.tiktok_dm_outreach"
 TIKTOK_DM_WORKFLOW_IDS = (TIKTOK_DM_READ_WORKFLOW_ID, TIKTOK_DM_SEND_WORKFLOW_ID)
 DMWorkflowFactory = Callable[..., Any]
 DMOutreachWorkflowFactory = Callable[..., Any]
+StartupProvider = Callable[[], Any]
+WorkflowHook = Callable[[Any], None]
+
+
+def _default_workflow_factory() -> DMWorkflowFactory:
+    # Resolved at call time, so the module's class is the one a run gets.
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm import workflow
+
+    return workflow.DMWorkflow
+
+
+def _emit(notifier: Any, method: str, *args: Any, **kwargs: Any) -> None:
+    target = getattr(notifier, method, None)
+    if callable(target):
+        target(*args, **kwargs)
+
+
+def _start(device, tiktok_startup: Optional[StartupProvider]) -> tuple[Any, Optional[str]]:
+    """The device and the account read on the phone; without a startup, the given device and no
+    account, so nothing is recorded."""
+    if tiktok_startup is None:
+        return device, None
+    started = tiktok_startup()
+    return started.device, started.bot_username
+
+
+def _hook(workflow: Any, workflow_hook: Optional[WorkflowHook], notifier: Any) -> None:
+    if workflow_hook is not None:
+        workflow_hook(workflow)
+    _attach_callbacks(workflow, notifier)
+
+
+def run_tiktok_dm_read(
+    payload: Any,
+    *,
+    device=None,
+    notifier=None,
+    workflow_factory: Optional[DMWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
+    workflow_hook: Optional[WorkflowHook] = None,
+) -> dict[str, Any]:
+    """Start, read the inbox, record the conversations read."""
+    from taktik.core.database.tiktok_dm import record_conversations, resolve_account_id
+    from taktik.core.social_media.tiktok.workflows.runtime.notifier import LoggingWorkflowNotifier
+
+    notifier = notifier if notifier is not None else LoggingWorkflowNotifier()
+    run_device, bot_username = _start(device, tiktok_startup)
+
+    config = dm_read_config_from_payload(payload)
+    logger.info("📥 Creating DM workflow...")
+    _emit(notifier, "status", "running", "Reading DM conversations")
+    workflow = (workflow_factory or _default_workflow_factory())(run_device, config)
+    _hook(workflow, workflow_hook, notifier)
+
+    logger.info("▶️ Reading conversations...")
+    conversations = [_conversation_payload(conversation) for conversation in workflow.read_conversations()]
+
+    # Persistence is best-effort and comes AFTER the read: a database problem must not cost
+    # the conversations that were just read off the screen.
+    record_conversations(resolve_account_id(bot_username), conversations)
+
+    stats = workflow.get_stats().to_dict()
+    notify(notifier, "dm_stats", stats=stats)
+    logger.success(f"✅ DM reading completed: {len(conversations)} conversations")
+    _emit(notifier, "status", "completed", f"Read {len(conversations)} conversations")
+    return {"success": True, "conversations": conversations, "stats": stats}
+
+
+def run_tiktok_dm_send(
+    payload: Any,
+    *,
+    device=None,
+    notifier=None,
+    workflow_factory: Optional[DMWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
+    workflow_hook: Optional[WorkflowHook] = None,
+) -> dict[str, Any]:
+    """Start, send each message to its conversation, record the ones that left.
+
+    Without a message, refused before the phone is touched.
+    """
+    from taktik.core.database.tiktok_dm import record_sent_results, resolve_account_id
+    from taktik.core.social_media.tiktok.workflows.runtime.notifier import LoggingWorkflowNotifier
+
+    messages = dm_messages_from_payload(payload)
+    if not messages:
+        raise ValueError("TikTok DM send requires at least one message")
+
+    notifier = notifier if notifier is not None else LoggingWorkflowNotifier()
+    run_device, bot_username = _start(device, tiktok_startup)
+
+    workflow = (workflow_factory or _default_workflow_factory())(run_device, dm_send_config_from_payload(payload))
+    _hook(workflow, workflow_hook, notifier)
+
+    logger.info(f"▶️ Sending {len(messages)} messages...")
+    _emit(notifier, "status", "running", f"Sending {len(messages)} messages")
+    results = workflow.send_bulk_messages(messages)
+    sent_count = sum(1 for result in results if result.get("success"))
+
+    # What we sent is the CERTAIN half of the direction question: the reader cannot see who wrote
+    # a bubble, so a later read recognises our own messages only from these rows.
+    record_sent_results(resolve_account_id(bot_username), messages, results)
+
+    stats = workflow.get_stats().to_dict()
+    notify(notifier, "dm_stats", stats=stats)
+    logger.success(f"✅ DM sending completed: {sent_count}/{len(messages)} sent")
+    _emit(notifier, "status", "completed", f"Sent {sent_count}/{len(messages)} messages")
+    return {"success": True, "results": results, "sent_count": sent_count, "stats": stats}
 
 
 def build_tiktok_dm_handler(
     *,
-    device,
+    device=None,
     notifier=None,
-    workflow_factory: DMWorkflowFactory = DMWorkflow,
+    workflow_factory: Optional[DMWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
 ) -> WorkflowHandler:
-    """Build an injectable DM handler without owning bridge startup."""
+    """Build the DM read/send handler; the id names the direction."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        merged = merge_invocation_payload(invocation, payload)
-
         if invocation.workflow_id == TIKTOK_DM_READ_WORKFLOW_ID:
-            workflow = workflow_factory(device, _dm_config(invocation.workflow_id, merged))
-            _attach_callbacks(workflow, notifier)
-            conversations = workflow.read_conversations()
-            return {
-                "success": True,
-                "conversations": [_conversation_payload(conv) for conv in conversations],
-                "stats": workflow.get_stats().to_dict(),
-            }
-
-        if invocation.workflow_id == TIKTOK_DM_SEND_WORKFLOW_ID:
-            messages = _messages_payload(merged)
-            workflow = workflow_factory(device, _dm_config(invocation.workflow_id, merged))
-            _attach_callbacks(workflow, notifier)
-            results = workflow.send_bulk_messages(messages)
-            sent_count = sum(1 for result in results if result.get("success"))
-            return {
-                "success": True,
-                "results": results,
-                "sent_count": sent_count,
-                "stats": workflow.get_stats().to_dict(),
-            }
-
-        raise ValueError(f"Unsupported TikTok DM workflow id: {invocation.workflow_id}")
+            run = run_tiktok_dm_read
+        elif invocation.workflow_id == TIKTOK_DM_SEND_WORKFLOW_ID:
+            run = run_tiktok_dm_send
+        else:
+            raise ValueError(f"Unsupported TikTok DM workflow id: {invocation.workflow_id}")
+        return run(
+            merge_invocation_payload(invocation, payload),
+            device=device,
+            notifier=notifier,
+            workflow_factory=workflow_factory,
+            tiktok_startup=tiktok_startup,
+        )
 
     return handler
 
@@ -72,15 +185,17 @@ def build_tiktok_dm_handler(
 def register_tiktok_dm_handlers(
     registry: WorkflowRegistry,
     *,
-    device,
+    device=None,
     notifier=None,
-    workflow_factory: DMWorkflowFactory = DMWorkflow,
+    workflow_factory: Optional[DMWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
 ) -> WorkflowRegistry:
-    """Register TikTok DM handlers into an injected Agent registry."""
+    """Register the TikTok DM read and send handlers into an injected Agent registry."""
     handler = build_tiktok_dm_handler(
         device=device,
         notifier=notifier,
         workflow_factory=workflow_factory,
+        tiktok_startup=tiktok_startup,
     )
     for workflow_id in TIKTOK_DM_WORKFLOW_IDS:
         registry.register(workflow_id, handler)
@@ -136,61 +251,6 @@ def register_tiktok_dm_outreach_handlers(
     return registry
 
 
-def _dm_config(workflow_id: str, payload: Mapping[str, Any]) -> DMConfig:
-    if workflow_id == TIKTOK_DM_READ_WORKFLOW_ID:
-        return DMConfig(
-            max_conversations=int_param(payload, "max_conversations", "maxConversations", default=20),
-            skip_notifications=bool_param(
-                payload, "skip_notifications", "skipNotifications", default=True
-            ),
-            skip_groups=bool_param(payload, "skip_groups", "skipGroups", default=False),
-            only_unread=bool_param(payload, "only_unread", "onlyUnread", default=False),
-            delay_between_conversations=float_param(
-                payload, "delay_between_conversations", "delayBetweenConversations", default=1.0
-            ),
-            mark_as_read=bool_param(payload, "mark_as_read", "markAsRead", default=True),
-            close_sticker_suggestions=bool_param(
-                payload, "close_sticker_suggestions", "closeStickerSuggestions", default=True
-            ),
-        )
-
-    if workflow_id == TIKTOK_DM_SEND_WORKFLOW_ID:
-        return DMConfig(
-            delay_between_conversations=float_param(
-                payload, "delay_between_conversations", "delayBetweenMessages", default=1.0
-            ),
-            delay_after_send=float_param(payload, "delay_after_send", "delayAfterSend", default=0.5),
-            close_sticker_suggestions=bool_param(
-                payload, "close_sticker_suggestions", "closeStickerSuggestions", default=True
-            ),
-        )
-
-    raise ValueError(f"Unsupported TikTok DM workflow id: {workflow_id}")
-
-
-def _messages_payload(payload: Mapping[str, Any]) -> list[dict[str, str]]:
-    raw_messages = value_param(payload, "messages", default=[])
-    if raw_messages:
-        if not isinstance(raw_messages, list):
-            raise ValueError("TikTok DM send requires messages to be a list")
-        messages = [
-            {
-                "conversation": str(item.get("conversation", "")).strip(),
-                "message": str(item.get("message", "")).strip(),
-            }
-            for item in raw_messages
-            if isinstance(item, Mapping)
-        ]
-    else:
-        conversation = str(value_param(payload, "conversation", "username", default="")).strip()
-        message = str(value_param(payload, "message", default="")).strip()
-        messages = [{"conversation": conversation, "message": message}] if conversation or message else []
-
-    if not messages:
-        raise ValueError("TikTok DM send requires at least one message")
-    return messages
-
-
 def _outreach_params(payload: Mapping[str, Any], *, default_session_id: str) -> dict[str, Any]:
     recipients = list_param(payload, "recipients", "targetUsernames", "target_usernames")
     messages = _outreach_messages(payload)
@@ -220,6 +280,7 @@ def _outreach_messages(payload: Mapping[str, Any]) -> list[str]:
 
 
 def _attach_callbacks(workflow: Any, notifier: Any) -> None:
+    """Forward the DM callbacks of the workflow to the notifier, as stdout events on the desktop."""
     if notifier is None:
         return
 
@@ -252,3 +313,17 @@ def _conversation_payload(conversation: Any) -> dict[str, Any]:
     if callable(to_dict):
         return to_dict()
     return dict(conversation)
+
+
+__all__ = [
+    "TIKTOK_DM_OUTREACH_WORKFLOW_ID",
+    "TIKTOK_DM_READ_WORKFLOW_ID",
+    "TIKTOK_DM_SEND_WORKFLOW_ID",
+    "TIKTOK_DM_WORKFLOW_IDS",
+    "build_tiktok_dm_handler",
+    "build_tiktok_dm_outreach_handler",
+    "register_tiktok_dm_handlers",
+    "register_tiktok_dm_outreach_handlers",
+    "run_tiktok_dm_read",
+    "run_tiktok_dm_send",
+]

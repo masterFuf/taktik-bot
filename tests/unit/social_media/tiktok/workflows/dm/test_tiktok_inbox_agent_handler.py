@@ -148,7 +148,8 @@ def test_new_followers_follow_back_mode_uses_the_selected_usernames():
 def test_follow_back_without_usernames_never_reaches_the_device():
     with pytest.raises(ValueError):
         _run(TIKTOK_NEW_FOLLOWERS_WORKFLOW_ID, {"mode": "follow_back", "usernames": []})
-    assert FakeDMWorkflow.instances[0].calls == []
+    # Refused before the workflow is even built, so before any startup would restart TikTok.
+    assert FakeDMWorkflow.instances == []
 
 
 def test_unreplied_counts_only_the_unanswered_conversations():
@@ -193,7 +194,7 @@ def test_message_requests_execute_keeps_only_well_formed_decisions():
 def test_message_requests_execute_without_a_usable_decision_is_refused():
     with pytest.raises(ValueError):
         _run(TIKTOK_DM_REQUESTS_WORKFLOW_ID, {"mode": "execute", "decisions": [{"action": "accept"}]})
-    assert FakeDMWorkflow.instances[0].calls == []
+    assert FakeDMWorkflow.instances == []
 
 
 def test_activity_read_is_read_only_and_returns_its_notifications():

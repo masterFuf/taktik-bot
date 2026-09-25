@@ -75,4 +75,44 @@ def install_run_ai_hooks(ai_config: dict, language: str, *, log: LogCallback = l
         log("warning", f"Could not install TikTok AI hooks: {exc}")
 
 
-__all__ = ["create_tiktok_ai_service", "install_run_ai_hooks"]
+def build_welcome_qualifier(ai_config: dict, language: str, *, log: LogCallback = lambda level, msg: None):
+    """The new-followers welcome pass's AI verdict, verdicts and classifications on stdout.
+
+    Handed to the core launcher, which calls it once per pass. None when no AI service can be
+    built: no verdict, so no decision.
+
+    Not `install_run_ai_hooks`: it patches `VideoInteractionMixin._interact_with_profile_posts`,
+    which only the Followers and Target-profiles workflows enter; DMWorkflow does not inherit that
+    mixin, so the hook would install cleanly, log "installed" and never fire once. The qualifier is
+    the same function that hook runs, called directly.
+    """
+    from bridges.tiktok.runtime.ipc import send_profile_classification, send_relevance
+    from taktik.core.social_media.tiktok.workflows.core.ai_hooks import build_tiktok_profile_qualifier
+
+    ai_enabled, ai_service = create_tiktok_ai_service(ai_config=ai_config, ipc=None, log=log)
+    if not ai_enabled or ai_service is None:
+        return None
+
+    return build_tiktok_profile_qualifier(
+        ai_service,
+        ai_config,
+        log=log,
+        emit_relevance=lambda username, payload: send_relevance(
+            username,
+            relevant=payload.get("relevant"),
+            score=payload.get("score"),
+            reason=payload.get("reason"),
+            follow=payload.get("follow"),
+            comment=payload.get("comment"),
+            like=payload.get("like"),
+        ),
+        emit_classification=lambda username, classification: send_profile_classification(
+            username,
+            classification,
+            result=f"[{classification.get('niche_category', '?')}] {classification.get('niche', '?')}",
+        ),
+        language=language,
+    )
+
+
+__all__ = ["build_welcome_qualifier", "create_tiktok_ai_service", "install_run_ai_hooks"]

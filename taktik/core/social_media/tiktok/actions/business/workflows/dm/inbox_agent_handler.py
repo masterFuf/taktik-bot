@@ -1,32 +1,48 @@
-"""Agent runtime handlers for the TikTok inbox workflows (new followers, unreplied, requests,
-activity).
+"""The one launcher of the TikTok inbox flows, and their Agent handlers.
 
-These four workflows existed only as bridge runners: reachable from Electron, unreachable by their
-canonical id from the CLI or from an Agent plan. The runners themselves cannot be called here --
-they own bridge concerns (startup, `set_workflow`, stdout status events) and return a bare boolean,
-throwing away the very data an Agent step needs. What they actually do is drive `DMWorkflow`, so
-that is what this module reuses: the same class, the same methods, the same config keys the front
-already sends (`mode`, `maxItems`, `usernames`, `decisions`, `onlyUnreplied`,
-`delayBetweenActions`), with the read results returned instead of only emitted.
+`run_tiktok_inbox` is what the four desktop bridges call and what the handlers registered as
+`tiktok.automation.new_followers`, `.dm_unreplied`, `.dm_requests` and `.dm_activity` (the CLI)
+call. Each flow drives `DMWorkflow`: new followers (list, or follow back the given names; after a
+list, the AI welcome pass when the payload asks for it), unreplied conversations, message requests
+(list, or accept/decline) and activity. What differs between hosts is injected:
+- `tiktok_startup() -> TikTokStartup`: clean restart, language, account; supplies the device, the
+  account the welcome pass records under, and the manager its DM reuses.
+- `notifier`: where the live events and statuses go (the bridge's stdout IPC; the log otherwise).
+- `workflow_hook(workflow)`: registers each workflow for a stop signal.
+- `tiktok_welcome_qualifier(ai_config, language)`: the welcome pass's AI verdicts.
+- `send_welcome_dms`: whether this host sends the welcome DM the pass decided on (the desktop
+  does; the CLI does not, pending a product decision).
+No injected callable receives the whole payload, so the app's config contract test can still see
+every key the bot reads.
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Optional
+
+from loguru import logger
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
-    bool_param,
-    float_param,
-    int_param,
-    list_param,
     merge_invocation_payload,
     notify,
-    value_param,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import DMConfig
-from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import DMWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_payload import (
+    ACTIVITY,
+    EXECUTE,
+    FOLLOW_BACK,
+    NEW_FOLLOWERS,
+    REQUESTS,
+    UNREPLIED,
+    device_id_from_payload,
+    follow_back_usernames_from_payload,
+    inbox_config_from_payload,
+    inbox_mode_from_payload,
+    max_items_from_payload,
+    only_unreplied_from_payload,
+    request_decisions_from_payload,
+)
 
 
 TIKTOK_NEW_FOLLOWERS_WORKFLOW_ID = "tiktok.automation.new_followers"
@@ -39,34 +55,201 @@ TIKTOK_INBOX_WORKFLOW_IDS = (
     TIKTOK_DM_REQUESTS_WORKFLOW_ID,
     TIKTOK_DM_ACTIVITY_WORKFLOW_ID,
 )
+#: Workflow id -> the flow (the bridge's `workflowType`).
+INBOX_FLOW_BY_WORKFLOW_ID = {
+    TIKTOK_NEW_FOLLOWERS_WORKFLOW_ID: NEW_FOLLOWERS,
+    TIKTOK_DM_UNREPLIED_WORKFLOW_ID: UNREPLIED,
+    TIKTOK_DM_REQUESTS_WORKFLOW_ID: REQUESTS,
+    TIKTOK_DM_ACTIVITY_WORKFLOW_ID: ACTIVITY,
+}
 DMWorkflowFactory = Callable[..., Any]
+StartupProvider = Callable[[], Any]
+WorkflowHook = Callable[[Any], None]
+
+
+def _default_workflow_factory() -> DMWorkflowFactory:
+    # Resolved at call time, so the module's class is the one a run gets.
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm import workflow
+
+    return workflow.DMWorkflow
+
+
+def _emit(notifier: Any, method: str, *args: Any, **kwargs: Any) -> None:
+    target = getattr(notifier, method, None)
+    if callable(target):
+        target(*args, **kwargs)
+
+
+def _start(device, tiktok_startup: Optional[StartupProvider]):
+    from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+
+    if tiktok_startup is not None:
+        return tiktok_startup()
+    return TikTokStartup(device=device, bot_username=None)
+
+
+def run_tiktok_inbox(
+    payload: Any,
+    *,
+    flow: str,
+    device=None,
+    notifier=None,
+    workflow_factory: Optional[DMWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
+    workflow_hook: Optional[WorkflowHook] = None,
+    tiktok_welcome_qualifier=None,
+    outreach_notifier=None,
+    send_welcome_dms: bool = False,
+) -> dict[str, Any]:
+    """Start, then run one inbox flow from a payload. A request with nothing to act on is refused
+    before the phone is touched."""
+    from taktik.core.social_media.tiktok.workflows.runtime.notifier import LoggingWorkflowNotifier
+
+    if flow not in INBOX_FLOW_BY_WORKFLOW_ID.values():
+        raise ValueError(f"Unsupported TikTok inbox flow: {flow}")
+    notifier = notifier if notifier is not None else LoggingWorkflowNotifier()
+    mode = inbox_mode_from_payload(payload)
+
+    usernames = decisions = None
+    if flow == NEW_FOLLOWERS and mode == FOLLOW_BACK:
+        usernames = follow_back_usernames_from_payload(payload)
+        if not usernames:
+            raise ValueError("TikTok follow-back requires at least one username")
+    if flow == REQUESTS and mode == EXECUTE:
+        decisions = request_decisions_from_payload(payload)
+        if not decisions:
+            raise ValueError("TikTok message requests require at least one accept/decline decision")
+
+    started = _start(device, tiktok_startup)
+    workflow = (workflow_factory or _default_workflow_factory())(started.device, inbox_config_from_payload(flow, payload))
+    if workflow_hook is not None:
+        workflow_hook(workflow)
+    _attach_callbacks(workflow, notifier)
+
+    if flow == NEW_FOLLOWERS and usernames is not None:
+        return _follow_back(workflow, usernames, notifier)
+    if flow == NEW_FOLLOWERS:
+        return _read_new_followers(
+            workflow, payload, started, notifier,
+            workflow_hook=workflow_hook, qualifier_factory=tiktok_welcome_qualifier,
+            outreach_notifier=outreach_notifier, send_welcome_dms=send_welcome_dms,
+        )
+    if flow == UNREPLIED:
+        return _read_unreplied(workflow, payload, notifier)
+    if flow == REQUESTS and decisions is not None:
+        return _process_requests(workflow, decisions, notifier)
+    if flow == REQUESTS:
+        return _read_requests(workflow, payload, notifier)
+    return _read_activity(workflow, payload, notifier)
+
+
+def _follow_back(workflow, usernames: list[str], notifier) -> dict[str, Any]:
+    logger.info(f"➕ Follow-back de {len(usernames)} follower(s)")
+    _emit(notifier, "status", "running", f"Following back {len(usernames)} follower(s)")
+    results = workflow.follow_back_users(usernames)
+    done = sum(1 for result in results if result.get("success"))
+    logger.success(f"✅ Follow-back terminé : {done}/{len(usernames)}")
+    _emit(notifier, "status", "completed", f"Followed back {done}/{len(usernames)}")
+    return {"success": True, "mode": FOLLOW_BACK, "results": results, "followed_count": done}
+
+
+def _read_new_followers(workflow, payload, started, notifier, *, workflow_hook, qualifier_factory,
+                        outreach_notifier, send_welcome_dms) -> dict[str, Any]:
+    from taktik.core.social_media.tiktok.services.welcome import parse_welcome_policy
+    from taktik.core.social_media.tiktok.workflows.core.ai_hooks import (
+        ai_config_from_payload,
+        app_language_from_payload,
+    )
+
+    max_items = max_items_from_payload(NEW_FOLLOWERS, payload)
+    logger.info(f"👥 Scrape des nouveaux followers (max {max_items})")
+    _emit(notifier, "status", "running", "Reading new followers")
+    followers = workflow.read_new_followers(max_items=max_items)
+    logger.success(f"✅ {len(followers)} nouveaux followers listés")
+
+    result: dict[str, Any] = {"success": True, "mode": "scrape", "followers": followers, "count": len(followers)}
+    # The AI pass runs only when the payload asked for it, by name. Reading the list is what
+    # this mode promises; anything beyond that has to be requested.
+    ai_config = ai_config_from_payload(payload)
+    policy = parse_welcome_policy(ai_config)
+    if policy.enabled and followers:
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm.welcome_pass import run_welcome_pass
+
+        result["welcome"] = run_welcome_pass(
+            followers, policy, workflow=workflow, started=started, device_id=device_id_from_payload(payload),
+            ai_config=ai_config, language=app_language_from_payload(payload), notifier=notifier,
+            qualifier_factory=qualifier_factory, outreach_notifier=outreach_notifier,
+            workflow_hook=workflow_hook, send_welcome_dms=send_welcome_dms,
+        )
+
+    _emit(notifier, "status", "completed", f"Listed {len(followers)} new followers")
+    return result
+
+
+def _read_unreplied(workflow, payload, notifier) -> dict[str, Any]:
+    conversations = workflow.read_unreplied_conversations(
+        max_items=max_items_from_payload(UNREPLIED, payload),
+        only_unreplied=only_unreplied_from_payload(payload),
+    )
+    unreplied = sum(1 for conversation in conversations if conversation.get("unreplied"))
+    logger.success(f"✅ {len(conversations)} conversation(s), {unreplied} non-répondue(s)")
+    _emit(notifier, "status", "completed", f"{unreplied} unreplied / {len(conversations)} conversations")
+    return {"success": True, "conversations": conversations, "count": len(conversations),
+            "unreplied_count": unreplied}
+
+
+def _process_requests(workflow, decisions: list[dict[str, str]], notifier) -> dict[str, Any]:
+    logger.info(f"📥 Traitement de {len(decisions)} demande(s)")
+    _emit(notifier, "status", "running", f"Processing {len(decisions)} request(s)")
+    results = workflow.process_message_requests(decisions)
+    done = sum(1 for result in results if result.get("success"))
+    logger.success(f"✅ Demandes traitées : {done}/{len(decisions)}")
+    _emit(notifier, "status", "completed", f"Processed {done}/{len(decisions)} requests")
+    return {"success": True, "mode": EXECUTE, "results": results, "processed_count": done}
+
+
+def _read_requests(workflow, payload, notifier) -> dict[str, Any]:
+    max_items = max_items_from_payload(REQUESTS, payload)
+    logger.info(f"📥 Scrape des demandes de messages (max {max_items})")
+    _emit(notifier, "status", "running", "Reading message requests")
+    requests = workflow.read_message_requests(max_items=max_items)
+    logger.success(f"✅ {len(requests)} demande(s) listée(s)")
+    _emit(notifier, "status", "completed", f"Listed {len(requests)} message requests")
+    return {"success": True, "mode": "scrape", "requests": requests, "count": len(requests)}
+
+
+def _read_activity(workflow, payload, notifier) -> dict[str, Any]:
+    notifications = workflow.read_notifications(max_items=max_items_from_payload(ACTIVITY, payload))
+    logger.success(f"✅ {len(notifications)} notification(s) lue(s)")
+    _emit(notifier, "status", "completed", f"Read {len(notifications)} notifications")
+    return {"success": True, "notifications": notifications, "count": len(notifications)}
 
 
 def build_tiktok_inbox_handler(
     *,
-    device,
+    device=None,
     notifier=None,
-    workflow_factory: DMWorkflowFactory = DMWorkflow,
+    workflow_factory: Optional[DMWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
+    tiktok_welcome_qualifier=None,
+    send_welcome_dms: bool = False,
 ) -> WorkflowHandler:
-    """Build an injectable inbox handler covering the four inbox workflow ids."""
+    """Build the handler of the four inbox ids; the id names the flow."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        workflow_id = invocation.workflow_id
-        if workflow_id not in TIKTOK_INBOX_WORKFLOW_IDS:
-            raise ValueError(f"Unsupported TikTok inbox workflow id: {workflow_id}")
-
-        merged = merge_invocation_payload(invocation, payload)
-        workflow = workflow_factory(device, _inbox_config(workflow_id, merged))
-        _attach_callbacks(workflow, notifier)
-        mode = str(value_param(merged, "mode", default="scrape")).strip() or "scrape"
-
-        if workflow_id == TIKTOK_NEW_FOLLOWERS_WORKFLOW_ID:
-            return _run_new_followers(workflow, merged, mode)
-        if workflow_id == TIKTOK_DM_UNREPLIED_WORKFLOW_ID:
-            return _run_unreplied(workflow, merged)
-        if workflow_id == TIKTOK_DM_REQUESTS_WORKFLOW_ID:
-            return _run_message_requests(workflow, merged, mode)
-        return _run_activity(workflow, merged)
+        flow = INBOX_FLOW_BY_WORKFLOW_ID.get(invocation.workflow_id)
+        if flow is None:
+            raise ValueError(f"Unsupported TikTok inbox workflow id: {invocation.workflow_id}")
+        return run_tiktok_inbox(
+            merge_invocation_payload(invocation, payload),
+            flow=flow,
+            device=device,
+            notifier=notifier,
+            workflow_factory=workflow_factory,
+            tiktok_startup=tiktok_startup,
+            tiktok_welcome_qualifier=tiktok_welcome_qualifier,
+            send_welcome_dms=send_welcome_dms,
+        )
 
     return handler
 
@@ -74,118 +257,30 @@ def build_tiktok_inbox_handler(
 def register_tiktok_inbox_handlers(
     registry: WorkflowRegistry,
     *,
-    device,
+    device=None,
     notifier=None,
-    workflow_factory: DMWorkflowFactory = DMWorkflow,
+    workflow_factory: Optional[DMWorkflowFactory] = None,
+    tiktok_startup: Optional[StartupProvider] = None,
+    tiktok_welcome_qualifier=None,
+    send_welcome_dms: bool = False,
 ) -> WorkflowRegistry:
     """Register the four TikTok inbox handlers into an injected Agent registry."""
     handler = build_tiktok_inbox_handler(
         device=device,
         notifier=notifier,
         workflow_factory=workflow_factory,
+        tiktok_startup=tiktok_startup,
+        tiktok_welcome_qualifier=tiktok_welcome_qualifier,
+        send_welcome_dms=send_welcome_dms,
     )
     for workflow_id in TIKTOK_INBOX_WORKFLOW_IDS:
         registry.register(workflow_id, handler)
     return registry
 
 
-def _run_new_followers(workflow: Any, payload: Mapping[str, Any], mode: str) -> dict[str, Any]:
-    if mode == "follow_back":
-        # `follow_back` matches the row by CONTAINMENT on the displayed name, which carries no
-        # "@". The front scrapes its names off that same screen, but a plan or a CLI operator
-        # writes "@name" -- and the containment would then never match, reporting a clean
-        # failure for every recipient. Normalise here, at the free-form boundary.
-        usernames = [name.lstrip("@") for name in list_param(payload, "usernames", "targetUsernames")]
-        if not usernames:
-            raise ValueError("TikTok follow-back requires at least one username")
-        results = workflow.follow_back_users(usernames)
-        return {
-            "success": True,
-            "mode": mode,
-            "results": results,
-            "followed_count": sum(1 for result in results if result.get("success")),
-        }
-
-    followers = workflow.read_new_followers(max_items=int_param(payload, "max_items", "maxItems", default=50))
-    return {"success": True, "mode": "scrape", "followers": followers, "count": len(followers)}
-
-
-def _run_unreplied(workflow: Any, payload: Mapping[str, Any]) -> dict[str, Any]:
-    conversations = workflow.read_unreplied_conversations(
-        max_items=int_param(payload, "max_items", "maxItems", default=30),
-        only_unreplied=bool_param(payload, "only_unreplied", "onlyUnreplied", default=True),
-    )
-    return {
-        "success": True,
-        "conversations": conversations,
-        "count": len(conversations),
-        "unreplied_count": sum(1 for conv in conversations if conv.get("unreplied")),
-    }
-
-
-def _run_message_requests(workflow: Any, payload: Mapping[str, Any], mode: str) -> dict[str, Any]:
-    if mode == "execute":
-        decisions = _decisions_payload(payload)
-        results = workflow.process_message_requests(decisions)
-        return {
-            "success": True,
-            "mode": mode,
-            "results": results,
-            "processed_count": sum(1 for result in results if result.get("success")),
-        }
-
-    requests = workflow.read_message_requests(max_items=int_param(payload, "max_items", "maxItems", default=30))
-    return {"success": True, "mode": "scrape", "requests": requests, "count": len(requests)}
-
-
-def _run_activity(workflow: Any, payload: Mapping[str, Any]) -> dict[str, Any]:
-    notifications = workflow.read_notifications(
-        max_items=int_param(payload, "max_items", "maxItems", default=20)
-    )
-    return {"success": True, "notifications": notifications, "count": len(notifications)}
-
-
-def _inbox_config(workflow_id: str, payload: Mapping[str, Any]) -> DMConfig:
-    """Build the config each bridge runner builds for its own workflow.
-
-    Only the two acting workflows carry a delay; the read-only ones run on plain defaults, exactly
-    as `unreplied.py` and `activity.py` do.
-    """
-    if workflow_id in {TIKTOK_NEW_FOLLOWERS_WORKFLOW_ID, TIKTOK_DM_REQUESTS_WORKFLOW_ID}:
-        return DMConfig(
-            delay_between_conversations=float_param(
-                payload, "delay_between_actions", "delayBetweenActions", default=1.0
-            )
-        )
-    return DMConfig()
-
-
-def _decisions_payload(payload: Mapping[str, Any]) -> list[dict[str, str]]:
-    raw_decisions = value_param(payload, "decisions", default=[])
-    if not isinstance(raw_decisions, (list, tuple)):
-        raise ValueError("TikTok message requests require decisions to be a list")
-
-    decisions: list[dict[str, str]] = []
-    for item in raw_decisions:
-        if not isinstance(item, Mapping):
-            continue
-        username = str(item.get("username", "")).strip().lstrip("@")
-        action = str(item.get("action", "")).strip().lower()
-        if not username or action not in {"accept", "decline"}:
-            continue
-        decision = {"username": username, "action": action}
-        message = str(item.get("message", "")).strip()
-        if message:
-            decision["message"] = message
-        decisions.append(decision)
-
-    if not decisions:
-        raise ValueError("TikTok message requests require at least one accept/decline decision")
-    return decisions
-
-
 def _attach_callbacks(workflow: Any, notifier: Any) -> None:
-    """Forward the same six callbacks the bridge wires to stdout, to an injected notifier."""
+    """Forward the six inbox callbacks of the workflow to the notifier, as stdout events on the
+    desktop."""
     if notifier is None:
         return
 
@@ -206,3 +301,16 @@ def _attach_callbacks(workflow: Any, notifier: Any) -> None:
                 notifier, event_type, **{argument: item}
             )
         )
+
+
+__all__ = [
+    "INBOX_FLOW_BY_WORKFLOW_ID",
+    "TIKTOK_DM_ACTIVITY_WORKFLOW_ID",
+    "TIKTOK_DM_REQUESTS_WORKFLOW_ID",
+    "TIKTOK_DM_UNREPLIED_WORKFLOW_ID",
+    "TIKTOK_INBOX_WORKFLOW_IDS",
+    "TIKTOK_NEW_FOLLOWERS_WORKFLOW_ID",
+    "build_tiktok_inbox_handler",
+    "register_tiktok_inbox_handlers",
+    "run_tiktok_inbox",
+]

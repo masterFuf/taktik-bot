@@ -54,6 +54,25 @@ class Rig:
         self.db_writes: list[dict] = []
         #: What the CLI's handler returned, run by run.
         self.cli_results: list = []
+        #: The DM inbox as the phone shows it: conversations (ConversationData fields), the sends
+        #: that fail, the follow-backs that fail, and the three other inbox lists.
+        self.dm_conversations: list[dict] = []
+        self.dm_send_failures: set[str] = set()
+        self.follow_back_failures: set[str] = set()
+        self.unreplied_rows: list[dict] = []
+        self.message_requests: list[dict] = []
+        self.inbox_notifications: list[dict] = []
+        #: The AI's engagement verdict per handle; absent: the classification carries none.
+        self.verdicts: dict[str, dict] = {}
+        #: What the database already knows: our own texts per partner, who already had a DM,
+        #: whose thread holds a message of ours, and whether the duplicate guard can be asked.
+        self.known_sent: dict[str, list[str]] = {}
+        self.already_dmed: set[str] = set()
+        self.threads_with_us: set[str] = set()
+        self.guard_broken = False
+        #: Welcome DMs that fail (privacy-blocked), and the outreach workflows built.
+        self.welcome_send_failures: set[str] = set()
+        self.outreaches: list = []
         self._install()
 
     # ------------------------------------------------------------------ fakes
@@ -319,9 +338,16 @@ class Rig:
 
         from taktik.core.app.ai import factory
 
+        def classify_profile_niche(*, username, **kwargs):
+            rig.calls.append(f"ai_classify {username}")
+            classification = {"niche_category": "sport", "niche": "running"}
+            if username in rig.verdicts:
+                classification["engagement"] = dict(rig.verdicts[username])
+            return {"classification": classification}
+
         def fake_build_ai_service(*, api_key, ipc=None, **kwargs):
             rig.ai_services.append({"api_key": api_key, "has_ipc": ipc is not None})
-            return SimpleNamespace(name="fake-ai")
+            return SimpleNamespace(name="fake-ai", classify_profile_niche=classify_profile_niche)
 
         mp.setattr(factory, "build_ai_service", fake_build_ai_service)
 
@@ -337,8 +363,19 @@ class Rig:
 
         mp.setattr(ai_hooks, "install_tiktok_ai_hooks", fake_install)
 
+        class FakeScreenshot:
+            def save(self, *_args, **_kwargs):
+                return None
+
+        def fake_screenshot(device, *args, **kwargs):
+            rig.calls.append("screenshot")
+            return FakeScreenshot()
+
+        mp.setattr(ai_hooks, "shared_screenshot_pil", fake_screenshot)
+
         self._install_sync_fakes()
         self._install_inbox_fakes()
+        self._install_dm_fakes()
 
     def _install_sync_fakes(self) -> None:
         rig = self
@@ -471,6 +508,332 @@ class Rig:
 
         mp.setattr(NotificationService, "record_notifications", staticmethod(record_notifications))
 
+    def _install_dm_fakes(self) -> None:
+        rig = self
+        mp = self.monkeypatch
+
+        from taktik.core.social_media.tiktok.actions.business.workflows import dm as dm_package
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm import (
+            agent_handler as dm_handler,
+            inbox_agent_handler as inbox_handler,
+            outreach as outreach_module,
+            workflow as dm_workflow,
+        )
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import (
+            ConversationData,
+            DMStats,
+        )
+
+        class ScriptedDMStats(DMStats):
+            """A fixed elapsed time, so a snapshot of `to_dict()` holds still."""
+
+            def to_dict(self):
+                return {**super().to_dict(), "elapsed_seconds": 0, "elapsed_formatted": "0m 0s"}
+
+        class FakeDMWorkflow:
+            """The DM workflow of every inbox flow: records its config and what it is asked, fires
+            the callbacks the real one fires, answers from what `rig` says the phone shows."""
+
+            def __init__(self, device, config=None):
+                rig.calls.append("dm_workflow_built")
+                self.device = device
+                self.config = config
+                self.stats = ScriptedDMStats()
+                self.callbacks = {}
+                rig.workflows.append(self)
+
+            def _fire(self, name, *args):
+                callback = self.callbacks.get(name)
+                if callback is not None:
+                    callback(*args)
+
+            def set_on_conversation_callback(self, cb):
+                self.callbacks["conversation"] = cb
+
+            def set_on_message_sent_callback(self, cb):
+                self.callbacks["message_sent"] = cb
+
+            def set_on_stats_callback(self, cb):
+                self.callbacks["stats"] = cb
+
+            def set_on_progress_callback(self, cb):
+                self.callbacks["progress"] = cb
+
+            def set_on_new_follower_callback(self, cb):
+                self.callbacks["new_follower"] = cb
+
+            def set_on_follow_back_result_callback(self, cb):
+                self.callbacks["follow_back_result"] = cb
+
+            def set_on_unreplied_callback(self, cb):
+                self.callbacks["unreplied"] = cb
+
+            def set_on_message_request_callback(self, cb):
+                self.callbacks["message_request"] = cb
+
+            def set_on_request_result_callback(self, cb):
+                self.callbacks["request_result"] = cb
+
+            def set_on_notification_callback(self, cb):
+                self.callbacks["notification"] = cb
+
+            def stop(self):
+                rig.calls.append("dm_workflow_stop")
+
+            def get_stats(self):
+                return self.stats
+
+            def read_conversations(self):
+                target = self.config.max_conversations
+                rig.calls.append(f"read_conversations {target}")
+                read = []
+                for row in rig.dm_conversations[:target]:
+                    self._fire("progress", len(read) + 1, target, row["name"])
+                    conversation = ConversationData(**row)
+                    self.stats.conversations_read += 1
+                    self.stats.messages_read += len(conversation.messages)
+                    read.append(conversation)
+                    self._fire("conversation", conversation.to_dict())
+                    self._fire("stats", self.stats.to_dict())
+                return read
+
+            def send_bulk_messages(self, messages):
+                results = []
+                for index, item in enumerate(messages):
+                    conversation = item.get("conversation", "")
+                    message = item.get("message", "")
+                    if not conversation or not message:
+                        results.append({"conversation": conversation, "success": False,
+                                        "error": "Missing conversation or message"})
+                        continue
+                    self._fire("progress", index + 1, len(messages), conversation)
+                    rig.calls.append(f"send_message {conversation} {message!r}")
+                    sent = conversation not in rig.dm_send_failures
+                    if sent:
+                        self.stats.messages_sent += 1
+                        self._fire("stats", self.stats.to_dict())
+                        self._fire("message_sent", {"conversation": conversation, "message": message,
+                                                    "success": True})
+                    results.append({"conversation": conversation, "success": sent,
+                                    "error": None if sent else "Failed to send"})
+                return results
+
+            def read_new_followers(self, max_items=50):
+                rig.calls.append(f"read_new_followers {max_items}")
+                followers = [dict(row) for row in rig.new_follower_rows][:max_items]
+                for follower in followers:
+                    self._fire("new_follower", follower)
+                return followers
+
+            def follow_back_users(self, usernames):
+                rig.calls.append(f"follow_back {list(usernames)}")
+                results = []
+                for name in usernames:
+                    result = {"username": name, "success": name not in rig.follow_back_failures}
+                    results.append(result)
+                    self._fire("follow_back_result", result)
+                return results
+
+            def read_unreplied_conversations(self, max_items=30, only_unreplied=True):
+                rig.calls.append(f"read_unreplied {max_items} only_unreplied={only_unreplied}")
+                rows = [dict(row) for row in rig.unreplied_rows
+                        if row.get("unreplied") or not only_unreplied][:max_items]
+                for row in rows:
+                    self._fire("unreplied", row)
+                return rows
+
+            def read_message_requests(self, max_items=30):
+                rig.calls.append(f"read_message_requests {max_items}")
+                rows = [dict(row) for row in rig.message_requests][:max_items]
+                for row in rows:
+                    self._fire("message_request", row)
+                return rows
+
+            def process_message_requests(self, decisions):
+                rig.calls.append(f"process_requests {json.dumps(decisions, sort_keys=True)}")
+                results = []
+                for decision in decisions:
+                    result = {"username": decision.get("username", ""),
+                              "action": decision.get("action", "accept"), "success": True,
+                              "replied": bool((decision.get("message") or "").strip())}
+                    results.append(result)
+                    self._fire("request_result", result)
+                return results
+
+            def read_notifications(self, max_items=20):
+                rig.calls.append(f"read_inbox_notifications {max_items}")
+                rows = [dict(row) for row in rig.inbox_notifications][:max_items]
+                for row in rows:
+                    self._fire("notification", row)
+                return rows
+
+        for module in (dm_workflow, dm_package):
+            mp.setattr(module, "DMWorkflow", FakeDMWorkflow)
+        # A registrar may bind its default factory when it is defined.
+        for fn in (dm_handler.register_tiktok_dm_handlers, dm_handler.build_tiktok_dm_handler,
+                   inbox_handler.register_tiktok_inbox_handlers, inbox_handler.build_tiktok_inbox_handler):
+            if "workflow_factory" in (fn.__kwdefaults__ or {}):
+                mp.setitem(fn.__kwdefaults__, "workflow_factory", FakeDMWorkflow)
+
+        class FakeOutreach:
+            """The production DM path of the welcome pass: consults the duplicate checker it is
+            given, reports through its notifier and records through its recorder, as the real one."""
+
+            def __init__(self, device_id, *, notifier=None, duplicate_checker=None, sent_dm_recorder=None,
+                         manager_factory=None, **_kwargs):
+                rig.calls.append(f"outreach_built {device_id}")
+                self.device_id = device_id
+                self.notifier = notifier
+                self.duplicate_checker = duplicate_checker
+                self.sent_dm_recorder = sent_dm_recorder
+                self.manager_factory = manager_factory
+                rig.outreaches.append(self)
+
+            def connect(self):
+                manager = self.manager_factory(device_id=self.device_id) if self.manager_factory else None
+                session = getattr(manager, "device_manager", None)
+                rig.calls.append("outreach_connect" if session is not None else "outreach_connect (no session)")
+                return session is not None
+
+            def run(self, recipients, messages, delay_min=30, delay_max=60, max_dms=50, account_id=1,
+                    session_id=None, message_provider=None):
+                rig.calls.append(f"outreach_run {list(recipients)} {list(messages)} max={max_dms} "
+                                 f"delays={delay_min}-{delay_max} account={account_id} session={session_id}")
+                success = failed = 0
+                for recipient in list(recipients)[:max_dms]:
+                    if self.duplicate_checker and self.duplicate_checker(account_id, recipient, "tiktok"):
+                        rig.calls.append(f"welcome_skip {recipient}")
+                        continue
+                    rig.calls.append(f"welcome_dm {recipient}")
+                    if recipient in rig.welcome_send_failures:
+                        failed += 1
+                        outreach_module._notify(self.notifier, "dm_result", username=recipient, success=False,
+                                                error="Privacy settings blocked")
+                        self.sent_dm_recorder(account_id, recipient, "", False, "Privacy blocked", session_id,
+                                              "tiktok")
+                        continue
+                    success += 1
+                    outreach_module._notify(self.notifier, "dm_result", username=recipient, success=True,
+                                            error=None)
+                    self.sent_dm_recorder(account_id, recipient, messages[0], True, None, session_id, "tiktok")
+                outreach_module._notify(self.notifier, "stats", stats={"sent": success, "success": success,
+                                                                      "failed": failed})
+                return {"success": True, "dms_sent": success, "dms_success": success, "dms_failed": failed}
+
+        mp.setattr(outreach_module, "TikTokDMOutreachWorkflow", FakeOutreach)
+
+    def install_dm_database(self) -> None:
+        """The DM tables, at the seams every DM writer and the welcome guard go through."""
+        rig = self
+        mp = self.monkeypatch
+
+        import sqlite3
+
+        import taktik.core.database as database_package
+        from taktik.core.database.messaging import DmConversationService, SentDMService
+        from taktik.core.database.repositories.messaging import (
+            DmMessageRepository,
+            DmThreadRepository,
+            SentDMRepository,
+        )
+
+        def known_sent_texts(platform, account_id, partner_username, limit=50):
+            return list(rig.known_sent.get(partner_username.lower(), []))
+
+        def record_conversation(**kwargs):
+            rig.db_writes.append({"dm_conversation": kwargs})
+            return "thread-1"
+
+        def record_sent_message(**kwargs):
+            rig.db_writes.append({"dm_sent_message": kwargs})
+            return "thread-1"
+
+        def record_sent_dm(account_id, recipient, message, success, error_message=None, session_id=None,
+                           platform="instagram"):
+            rig.db_writes.append({"sent_dm": {"account_id": account_id, "recipient": recipient,
+                                              "message": message, "success": success,
+                                              "error_message": error_message, "session_id": session_id,
+                                              "platform": platform}})
+
+        mp.setattr(DmConversationService, "known_sent_texts", staticmethod(known_sent_texts))
+        mp.setattr(DmConversationService, "record_conversation", staticmethod(record_conversation))
+        mp.setattr(DmConversationService, "record_sent_message", staticmethod(record_sent_message))
+        mp.setattr(SentDMService, "record", staticmethod(record_sent_dm))
+
+        def get_or_create_profile(data):
+            rig.db_writes.append({"profile": data.get("username")})
+            return 7, False
+
+        fake_service = SimpleNamespace(get_or_create_profile=get_or_create_profile)
+        modules = [database_package]
+        try:
+            from bridges.tiktok.workflows.engagement.runtime import dm_persistence
+
+            modules.append(dm_persistence)
+        except ImportError:
+            pass
+        for module in modules:
+            mp.setattr(module, "get_db_service", lambda: fake_service)
+            mp.setattr(module, "configure_db_service", lambda *a, **k: None)
+
+        # The guard opens the database file itself: an empty one, whose repositories answer from
+        # what `rig` says the database knows.
+        database_file = self.tmp_path / "taktik.db"
+        sqlite3.connect(database_file).close()
+        mp.setenv("TAKTIK_DB_PATH", str(database_file))
+
+        def check_already_sent(_self, account_id, recipient, platform="instagram"):
+            if rig.guard_broken:
+                raise sqlite3.OperationalError("no such table: sent_dms")
+            return recipient.lower() in rig.already_dmed
+
+        def find_sync_id_for_inbox(_self, platform, account_id, handle):
+            return f"thread-{handle}" if handle.lower() in rig.threads_with_us else None
+
+        mp.setattr(SentDMRepository, "check_already_sent", check_already_sent)
+        mp.setattr(DmThreadRepository, "ensure_table", lambda _self: None)
+        mp.setattr(DmThreadRepository, "find_sync_id_for_inbox", find_sync_id_for_inbox)
+        mp.setattr(DmMessageRepository, "has_sent_message", lambda _self, platform, sync_id: True)
+
+    def show_dm_inbox(self) -> None:
+        """Two conversations: one with a handle, whose last bubble is ours but was not read as ours,
+        and one with a display name."""
+        self.dm_conversations = [
+            {"name": "fan_one", "messages": [
+                {"text": "salut", "type": "text", "is_sent": False},
+                {"text": "Merci pour le suivi", "type": "text", "is_sent": False},
+            ], "last_message": "Merci pour le suivi", "unread_count": 1},
+            {"name": "Fan Two", "messages": [{"text": "coucou", "type": "text", "is_sent": False,
+                                              "timestamp": "Hier"}], "unread_count": 0},
+        ]
+        self.known_sent = {"fan_one": ["Merci pour le suivi"]}
+
+    def show_inbox_lists(self) -> None:
+        """What the unreplied, requests and activity readers find."""
+        self.unreplied_rows = [
+            {"username": "fan_one", "preview": "salut", "unreplied": True},
+            {"username": "Fan Two", "preview": "ok merci", "unreplied": False},
+        ]
+        self.message_requests = [
+            {"username": "stranger_a", "preview": "hello", "timestamp": "2 j"},
+            {"username": "Stranger B", "preview": "tu fais des collabs ?", "timestamp": "1 sem."},
+        ]
+        self.inbox_notifications = [
+            {"title": "Activity", "preview": "fan_one a aimé ta vidéo", "category": "activity"},
+            {"title": "System notifications", "preview": "Nouvelle fonctionnalité", "category": "system"},
+        ]
+
+    def show_welcome_verdicts(self) -> None:
+        """Three new followers (as `show_notifications`) and what the AI says of the two it sees."""
+        self.show_notifications()
+        self.profile_handles = {"fan_one": "fan_one", "Fan Two": "fan_two"}
+        self.verdicts = {
+            "fan_one": {"relevant": True, "score": 0.9, "reason": "fits", "follow": True, "comment": False,
+                        "like": True},
+            "fan_two": {"relevant": True, "score": 0.8, "reason": "close niche", "follow": True,
+                        "comment": False, "like": False},
+        }
+
     # --------------------------------------------------------------- the paths
 
     def run_bridge(self, payload: dict) -> int:
@@ -525,7 +888,7 @@ class Rig:
     def forget_run(self) -> None:
         """Clear what a run recorded, before the same payload goes down the other path."""
         for recorded in (self.calls, self.events, self.workflows, self.ai_installs, self.ai_services,
-                         self.db_writes, self.cli_results):
+                         self.db_writes, self.cli_results, self.outreaches):
             recorded.clear()
 
     @property
@@ -567,6 +930,83 @@ def sync_payload():
 @pytest.fixture
 def notifications_payload():
     return _notifications_payload
+
+
+@pytest.fixture
+def dm_read_payload():
+    return _dm_read_payload
+
+
+@pytest.fixture
+def dm_send_payload():
+    return _dm_send_payload
+
+
+@pytest.fixture
+def inbox_payload():
+    return _inbox_payload
+
+
+@pytest.fixture
+def welcome_ai():
+    """A fresh copy of `WELCOME_AI` per call."""
+    return lambda: json.loads(json.dumps(WELCOME_AI))
+
+
+def _dm_read_payload(**overrides) -> dict:
+    """What TikTokDM.tsx sends to read the inbox, key for key, with its defaults."""
+    payload = {
+        "deviceId": DEVICE_ID, "workflowType": "dm_read", "maxConversations": 10, "skipNotifications": True,
+        "skipGroups": False, "onlyUnread": False, "delayBetweenConversations": 1.0,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _dm_send_payload(**overrides) -> dict:
+    """What TikTokDM.tsx sends to answer: one reply typed by hand, one AI reply as the model wrote
+    it (trailing newline included), with the page's delays."""
+    payload = {
+        "deviceId": DEVICE_ID, "workflowType": "dm_send",
+        "messages": [
+            {"conversation": "fan_one", "message": "Merci beaucoup !"},
+            {"conversation": "Fan Two", "message": "Avec plaisir, à bientôt\n"},
+        ],
+        "delayBetweenMessages": 1.0, "delayAfterSend": 0.5,
+    }
+    payload.update(overrides)
+    return payload
+
+
+#: The `ai` block of a welcome pass: AI on, a key, the new-followers block with a text to send.
+WELCOME_AI = {
+    "enabled": True, "openrouterApiKey": "test-openrouter-key", "accountNiche": "sport",
+    "newFollowers": {"enabled": True, "followBack": True, "welcomeDm": True, "minScore": 0.6,
+                     "messages": ["Bienvenue !"], "maxDms": 5, "delayMin": 30, "delayMax": 70},
+}
+
+
+def _inbox_payload(workflow_type: str, mode: str = "scrape", **overrides) -> dict:
+    """What the four inbox pages send (TikTokNewFollowers, TikTokUnreplied, TikTokRequests,
+    TikTokActivity), key for key, with their defaults."""
+    payload = {"deviceId": DEVICE_ID, "workflowType": workflow_type}
+    if workflow_type == "new_followers" and mode == "follow_back":
+        payload.update({"mode": "follow_back", "usernames": ["fan_one", "Fan Two"]})
+    elif workflow_type == "new_followers":
+        payload.update({"mode": "scrape", "maxItems": 30})
+    elif workflow_type == "dm_unreplied":
+        payload.update({"maxItems": 30, "onlyUnreplied": True})
+    elif workflow_type == "dm_requests" and mode == "execute":
+        payload.update({"mode": "execute", "decisions": [
+            {"username": "stranger_a", "action": "accept", "message": "Oui, écris-moi"},
+            {"username": "Stranger B", "action": "decline"},
+        ]})
+    elif workflow_type == "dm_requests":
+        payload.update({"mode": "scrape", "maxItems": 30})
+    elif workflow_type == "dm_activity":
+        payload.update({"maxItems": 20})
+    payload.update(overrides)
+    return payload
 
 
 def _post_url_payload(**overrides) -> dict:

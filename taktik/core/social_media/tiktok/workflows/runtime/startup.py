@@ -25,6 +25,9 @@ class TikTokStartup:
 
     device: Any
     bot_username: Optional[str]
+    #: The `TikTokManager` the session was started on, for a workflow that restarts TikTok
+    #: itself (the welcome DM's outreach); None when the host does not hand it over.
+    manager: Any = None
 
 
 def _emit(notifier: Any, method: str, *args: Any, **kwargs: Any) -> None:

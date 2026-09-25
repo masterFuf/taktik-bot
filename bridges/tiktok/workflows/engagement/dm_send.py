@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
-"""TikTok DM sending workflow bridge runner."""
+"""TikTok DM sending bridge runner.
+
+The run is `run_tiktok_dm_send` (core), the launcher the Agent handler `tiktok.automation.dm_send`
+(and so the CLI) calls too: start, send each message, record the ones that left under the account
+read on the phone. This bridge only checks the device and the messages and injects what is
+specific to the desktop: the startup that prints on stdout, its IPC for the live events, the stop
+signal.
+"""
 
 from typing import Any, Dict
 
-from bridges.tiktok.runtime.ipc import logger, send_dm_stats, send_error, send_status, set_workflow
-from bridges.tiktok.runtime.startup import tiktok_startup
-from bridges.tiktok.workflows.engagement.runtime.dm_callbacks import wire_dm_send_callbacks
-from bridges.tiktok.workflows.engagement.runtime.dm_persistence import (
-    record_sent_results,
-    resolve_account_id,
-)
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error, send_status, set_workflow
+from bridges.tiktok.runtime.startup import tiktok_startup_provider
 
 
 def run_dm_send_workflow(config: Dict[str, Any]):
     """Run the TikTok DM sending workflow."""
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.payload import (
+        dm_messages_from_payload,
+    )
+
     device_id = config.get("deviceId")
-    messages = config.get("messages", [])
+    messages = dm_messages_from_payload(config)
 
     if not device_id:
         send_error("No device ID provided")
@@ -29,38 +35,16 @@ def run_dm_send_workflow(config: Dict[str, Any]):
     send_status("starting", f"Sending {len(messages)} messages")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import (
-            DMConfig,
-            DMWorkflow,
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler import (
+            run_tiktok_dm_send,
         )
 
-        manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
-
-        workflow_config = DMConfig(
-            delay_between_conversations=config.get("delayBetweenMessages", 1.0),
-            delay_after_send=config.get("delayAfterSend", 0.5),
+        run_tiktok_dm_send(
+            config,
+            notifier=_ipc,
+            tiktok_startup=tiktok_startup_provider(device_id),
+            workflow_hook=set_workflow,
         )
-
-        workflow = DMWorkflow(manager.device_manager.device, workflow_config)
-        set_workflow(workflow)
-        wire_dm_send_callbacks(workflow)
-
-        logger.info(f"▶️ Sending {len(messages)} messages...")
-        send_status("running", f"Sending {len(messages)} messages")
-
-        results = workflow.send_bulk_messages(messages)
-        sent_count = sum(1 for result in results if result["success"])
-
-        # What we sent is the CERTAIN half of the direction question: the reader cannot see who
-        # wrote a bubble, so a later read recognises our own messages only from these rows.
-        record_sent_results(resolve_account_id(bot_username), messages, results)
-
-        stats = workflow.get_stats()
-        send_dm_stats(stats.to_dict())
-
-        logger.success(f"✅ DM sending completed: {sent_count}/{len(messages)} sent")
-        send_status("completed", f"Sent {sent_count}/{len(messages)} messages")
-
         return True
 
     except ImportError as e:

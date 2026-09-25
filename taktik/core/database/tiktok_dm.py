@@ -1,8 +1,12 @@
-"""DM persistence wiring for the TikTok DM bridges.
+"""TikTok DM persistence: the conversations a read brings back, the messages we send, and the
+anti-duplicate probes of the welcome DM.
 
-Best-effort: persisting conversations must NEVER break the read/send flow.
-Source of truth = Bot (records into dm_threads / dm_messages via DmConversationService).
-Security (AGENTS): never log DM content -- only usernames / counts.
+Best-effort: persisting conversations must NEVER break the read or the send. Source of truth = Bot
+(`dm_threads` / `dm_messages` through `DmConversationService`, `sent_dms` through `SentDMService`).
+Security (AGENTS): never logs DM content, only usernames and counts.
+
+Written by the DM read and send (`tiktok/.../workflows/dm/agent_handler.py`) and by the welcome
+pass of the new-followers flow (`dm/welcome_pass.py`), from the desktop bridge and the CLI alike.
 
 TikTok read nothing into those tables. The schema was written cross-platform from the start
 (`platform` column, an `unread_count` comment that names TikTok), and the service is fully
@@ -24,11 +28,13 @@ already accepts for its content hash, and without effect on the answered/unanswe
 
 from __future__ import annotations
 
+import os
 import re
+import sqlite3
 from typing import Any, Dict, List, Optional
 
-from bridges.tiktok.runtime.ipc import logger
-from taktik.core.database import configure_db_service, get_db_service
+from loguru import logger
+
 from taktik.core.database.messaging import DmConversationService
 
 _PLATFORM = "tiktok"
@@ -46,17 +52,17 @@ def _looks_like_handle(value: str) -> bool:
 def resolve_account_id(bot_username: Optional[str]) -> Optional[int]:
     """Map the logged-in TikTok handle to an account id, creating it if needed.
 
-    `tiktok_startup` already reads our own profile at launch and returns that handle; the DM
-    runners simply discarded it. No extra navigation, no second profile visit.
+    The session start already reads our own profile and hands that handle over: no extra
+    navigation, no second profile visit.
     """
     username = (bot_username or "").strip().lower().lstrip("@")
     if not _looks_like_handle(username):
         logger.warning("[DM] Logged-in TikTok account unreadable; DM persistence skipped")
         return None
     # Through the TIKTOK repository. `get_db_service().get_or_create_account(...)` was what this
-    # called, and it resolves against Instagram: measured 2026-08-30, five TikTok DMs had been
-    # filed under 6590, the INSTAGRAM id of @marvin.ndiaye.extraits, while that account's TikTok
-    # interactions sit under 4982. Nothing errored; the rows simply belonged to nobody.
+    # called, and it resolves against Instagram: TikTok DMs ended up filed under the INSTAGRAM id
+    # of the same handle, while that account's TikTok interactions sat under another id. Nothing
+    # errored; the rows simply belonged to nobody.
     from taktik.core.database.tiktok_account_identity import resolve_tiktok_account_id
 
     account_id = resolve_tiktok_account_id(username, logger=logger)
@@ -67,7 +73,19 @@ def resolve_account_id(bot_username: Optional[str]) -> Optional[int]:
     return account_id
 
 
+def _configure_database() -> None:
+    # Imported at call time, like the service itself: the database package owns the singleton.
+    from taktik.core.database import configure_db_service
+
+    try:
+        configure_db_service()
+    except Exception:
+        pass
+
+
 def _partner_profile_id(handle: str) -> Optional[int]:
+    from taktik.core.database import get_db_service
+
     try:
         profile_id, _ = get_db_service().get_or_create_profile({"username": handle})
         return profile_id
@@ -79,11 +97,11 @@ def _partner_profile_id(handle: str) -> Optional[int]:
 def _messages_payload(conversation: Dict[str, Any], known_sent: List[str]) -> List[Dict[str, Any]]:
     """Turn read messages into rows.
 
-    The reader now reports direction itself, from the bubble's alignment -- measured on both
-    phones of a two-way conversation, on 43.1.4 and 46.6.3, where the same two messages landed
-    on opposite sides. What we recorded at send time stays as a SAFETY NET underneath: a bubble
-    whose bounds could not be read comes back `is_sent: False`, and a message we know we sent
-    must not then be filed as theirs.
+    The reader reports direction itself, from the bubble's alignment -- measured on both phones of
+    a two-way conversation, on 43.1.4 and 46.6.3, where the same two messages landed on opposite
+    sides. What we recorded at send time stays as a SAFETY NET underneath: a bubble whose bounds
+    could not be read comes back `is_sent: False`, and a message we know we sent must not then be
+    filed as theirs.
     """
     ours = {text.strip() for text in known_sent if text and text.strip()}
     payload: List[Dict[str, Any]] = []
@@ -95,25 +113,20 @@ def _messages_payload(conversation: Dict[str, Any], known_sent: List[str]) -> Li
                 "direction": "sent" if is_ours else "received",
                 "text": text,
                 "msg_type": message.get("type", "text"),
-                # TikTok shows a date separator ("Aujourd'hui 13:12") rather than a per-bubble
-                # label, so most messages carry none. Absent stays absent: sent_at keeps its
-                # sortable insertion default and nothing is invented for display.
+                # TikTok shows a date separator rather than a per-bubble label, so most messages
+                # carry none. Absent stays absent: sent_at keeps its sortable insertion default and
+                # nothing is invented for display.
                 "displayed_at": message.get("timestamp"),
             }
         )
     return payload
 
 
-def record_conversations(
-    account_id: Optional[int], conversations: List[Dict[str, Any]]
-) -> None:
-    """Persist the read conversations + their messages. Best-effort."""
+def record_conversations(account_id: Optional[int], conversations: List[Dict[str, Any]]) -> None:
+    """Persist the read conversations and their messages. Best-effort."""
     if not account_id or not conversations:
         return
-    try:
-        configure_db_service()
-    except Exception:
-        pass
+    _configure_database()
 
     saved = 0
     for conversation in conversations:
@@ -158,10 +171,7 @@ def record_sent(account_id: Optional[int], partner_username: str, message: str) 
     if not account_id or not partner_username or not message:
         return
     try:
-        try:
-            configure_db_service()
-        except Exception:
-            pass
+        _configure_database()
         link_handle = partner_username.lower() if _looks_like_handle(partner_username) else None
         DmConversationService.record_sent_message(
             platform=_PLATFORM,
@@ -198,9 +208,105 @@ def record_sent_results(
             record_sent(account_id, conversation, text)
 
 
+# ---------------------------------------------------------------------------
+# Anti-duplicate probes of the welcome DM
+# ---------------------------------------------------------------------------
+# These go to the repositories rather than to `SentDMService` / `DmConversationService`, and
+# they RAISE instead of returning False. Both services catch Exception and answer False, which
+# reads as "never contacted" whether nobody was written to or the query blew up -- that swallow
+# is how Instagram's cold DM ran for months with no duplicate protection at all. `WelcomeDmGuard`
+# turns a raise into UNKNOWN and refuses the send; a False here would be a blind outreach.
+
+
+def _open_database() -> sqlite3.Connection:
+    """Open the local database, or raise. A missing file is a refusal, not an empty answer."""
+    from taktik.core.database.local.paths import get_default_database_path
+
+    db_path = get_default_database_path()
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"local database not found at {db_path}")
+    connection = sqlite3.connect(db_path)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def sent_dm_already_recorded(account_id: int, handle: str) -> bool:
+    """Has this account already written to @handle on TikTok? Raises when it cannot answer.
+
+    `sent_dms` is SHARED with the cold DM workflow on purpose: someone we already wrote to is
+    not a stranger to greet, whichever flow wrote first.
+    """
+    from taktik.core.database.repositories.messaging import SentDMRepository
+
+    connection = _open_database()
+    try:
+        return SentDMRepository(connection).check_already_sent(account_id, handle, _PLATFORM)
+    finally:
+        connection.close()
+
+
+def thread_carries_our_message(account_id: int, handle: str) -> bool:
+    """Does a thread with @handle already hold a message WE sent? Raises when it cannot answer.
+
+    `sent_dms` alone misses a conversation started from the inbox -- a manual answer, an
+    auto-reply, the DM read workflow -- and none of those write that marker.
+    """
+    from taktik.core.database.repositories.messaging import (
+        DmMessageRepository,
+        DmThreadRepository,
+    )
+
+    connection = _open_database()
+    try:
+        threads = DmThreadRepository(connection)
+        # `find_sync_id_for_inbox` does not create the tables itself; on a standalone database
+        # the desktop has never opened, the lookup would raise and refuse every recipient.
+        threads.ensure_table()
+        sync_id = threads.find_sync_id_for_inbox(_PLATFORM, account_id, handle)
+        if not sync_id:
+            return False
+        return DmMessageRepository(connection).has_sent_message(_PLATFORM, sync_id)
+    finally:
+        connection.close()
+
+
+def record_welcome_dm(
+    account_id: int,
+    recipient: str,
+    message: str,
+    success: bool,
+    error_message: Optional[str] = None,
+    session_id: Optional[str] = None,
+    platform: str = _PLATFORM,
+) -> None:
+    """Record a SENT welcome DM: the shared duplicate marker and the conversation itself.
+
+    Only successes. `check_already_sent` matches a row whatever its `success` value, so writing
+    a failed attempt would lock that recipient out of every later one -- the opposite of what a
+    failure means. The cost is stated rather than hidden: a privacy-blocked account is visited
+    again on the next run, which spends a profile visit and sends nothing.
+    """
+    if not success:
+        logger.info(f"✉️ Welcome DM non abouti pour @{recipient} ({error_message or 'send failed'})")
+        return
+
+    from taktik.core.database.messaging import SentDMService
+
+    try:
+        SentDMService.record(account_id, recipient, message, True, None, session_id, platform=platform)
+    except Exception as exc:
+        logger.warning(f"[WELCOME] Marqueur sent_dms non écrit pour @{recipient}: {exc}")
+    # The certain half of the direction question: the TikTok reader cannot see who wrote a
+    # bubble, so a later inbox read recognises our own message only from this row.
+    record_sent(account_id, recipient, message)
+
+
 __all__ = [
     "record_conversations",
     "record_sent",
     "record_sent_results",
+    "record_welcome_dm",
     "resolve_account_id",
+    "sent_dm_already_recorded",
+    "thread_carries_our_message",
 ]

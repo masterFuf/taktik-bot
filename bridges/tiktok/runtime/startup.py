@@ -22,4 +22,17 @@ def tiktok_startup(device_id: str, fetch_profile: bool = True):
     return manager, bot_username
 
 
-__all__ = ["tiktok_startup"]
+def tiktok_startup_provider(device_id: str):
+    """The startup a core launcher takes (`tiktok_startup`): this sequence, events on stdout, the
+    manager handed over with the device and the account."""
+
+    def start():
+        from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+
+        manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
+        return TikTokStartup(device=manager.device_manager.device, bot_username=bot_username, manager=manager)
+
+    return start
+
+
+__all__ = ["tiktok_startup", "tiktok_startup_provider"]

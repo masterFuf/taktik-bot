@@ -89,7 +89,7 @@ def _calls(relative: str) -> set:
 
 @pytest.mark.parametrize("module", [
     "taktik/core/database/tiktok_notifications.py",
-    "bridges/tiktok/workflows/engagement/runtime/dm_persistence.py",
+    "taktik/core/database/tiktok_dm.py",
 ])
 def test_no_tiktok_writer_resolves_its_account_through_instagram(module):
     """La garde qui compte. Les deux modules appelaient la façade neutre-en-apparence ; aucun ne
