@@ -59,6 +59,8 @@ BRIDGE_MODULES = {
     "action_test_bridge":       "bridges.compat.diagnostics.entrypoints.action_test",
     "action_session_bridge":    "bridges.compat.diagnostics.entrypoints.action_session",
     "tiktok_action_test_bridge":"bridges.compat.diagnostics.entrypoints.tiktok_action_test",
+    # Database
+    "schema_bridge":            "bridges.database.schema",
 }
 
 
