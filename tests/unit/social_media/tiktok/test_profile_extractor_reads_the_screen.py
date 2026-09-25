@@ -84,7 +84,7 @@ class _FakeDevice:
         return _Collection([])
 
 
-def _screen_with(username="marvin", display="Marvin N.", bio="chat, cuisine et velo",
+def _screen_with(username="alex", display="Alex N.", bio="chat, cuisine et velo",
                  stats=(("1 363", "Abonnements"), ("5 215", "Abonnés"), ("39,7 K", "J’aime"))):
     """A French profile screen, on the catalogue's own selectors.
 
@@ -107,8 +107,8 @@ def test_the_reader_actually_reads_a_profile():
     data = extract_profile_from_screen(device)
 
     assert data is not None
-    assert data["username"] == "marvin"
-    assert data["display_name"] == "Marvin N."
+    assert data["username"] == "alex"
+    assert data["display_name"] == "Alex N."
     assert data["bio"] == "chat, cuisine et velo"
 
 

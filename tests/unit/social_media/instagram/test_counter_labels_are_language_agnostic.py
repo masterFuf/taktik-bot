@@ -77,7 +77,7 @@ def test_reads_the_author_whatever_the_language(label, expected):
     # IG 442 appends the counters to the very same label, so the author is followed by a comma
     # instead of the closing dot the rule used to require -- and no author came back at all.
     # Verbatim from a 442 device.
-    ("Reel de arproductionstudio, 96 J’aime, 9 commentaires, 9 août", "arproductionstudio"),
+    ("Reel de studiodemo, 96 J’aime, 9 commentaires, 9 août", "studiodemo"),
     ("Reel by taktik_r2d2, 12 likes, 3 comments", "taktik_r2d2"),
     # A dot inside the username still survives the comma rule.
     ("Reel de marie.dupont, 4 J’aime", "marie.dupont"),
@@ -167,7 +167,7 @@ class _DeviceServingMediaLabel:
 @pytest.mark.parametrize("label,likes,comments", [
     # Verbatim from a 442 device. Both counts live in ONE string, which is what makes the read
     # atomic -- and the apostrophe is typographic, which is what used to break the likes half.
-    ("Reel de arproductionstudio, 96 J’aime, 9 commentaires, 9 août", 96, 9),
+    ("Reel de studiodemo, 96 J’aime, 9 commentaires, 9 août", 96, 9),
     ("Reel by taktik_r2d2, 12 likes, 3 comments", 12, 3),
     ("Reel de marie, 4,5 K J'aime, 18 commentaires", 4500, 18),
 ])
@@ -179,7 +179,7 @@ def test_both_counts_are_read_from_the_same_media_label(label, likes, comments):
 def test_a_label_carrying_only_one_count_is_not_reported_as_a_pair():
     # Half a pair is worse than none: the caller would take the missing half from another post.
     stats = InstagramUIExtractors(
-        _DeviceServingMediaLabel("Reel de arproductionstudio, 96 J’aime")
+        _DeviceServingMediaLabel("Reel de studiodemo, 96 J’aime")
     ).extract_post_stats_atomic()
     assert stats is None
 

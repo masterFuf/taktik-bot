@@ -15,7 +15,7 @@ def _safe_url(u: str) -> bool:
 
 
 def test_valid_usernames_pass():
-    for u in ['natgeo', 'marvin.ndiaye.extraits', 'a_b.c1', 'X' * 30]:
+    for u in ['natgeo', 'compte.demo.extraits', 'a_b.c1', 'X' * 30]:
         assert _valid_username(u), u
 
 

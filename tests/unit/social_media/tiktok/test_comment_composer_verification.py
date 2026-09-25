@@ -18,8 +18,8 @@ Les deux sens étaient cassés, et en sens opposés :
 - à l'**envoi**, le même écart se lit « le composeur s'est vidé », donc un commentaire resté dans
   le champ aurait été enregistré comme publié.
 
-C'est la même cicatrice que `Neydi..`, `Allocin(gl)és` ou `lena...situations` dans les captures :
-des emoji devenus des points.
+C'est la même cicatrice que les noms d'affichage des captures : des emoji devenus des
+points (`Lea ..`).
 """
 
 import pytest

@@ -787,7 +787,7 @@ def test_already_known_profiles_stay_out_of_the_rejection_buckets(monkeypatch):
 
 # --- what a run says when it stops -------------------------------------------
 #
-# Reproduced from institut.rentable, 2026-08-20..27. Eighteen runs filed COMPLETED /
+# Reproduced from a real account, 2026-08-20..27. Eighteen runs filed COMPLETED /
 # `completed`; exactly ONE had reached the budget the operator set. The other seventeen
 # stopped on an exhausted source or an exhausted scroll allowance and said the same word.
 # `completed` is the fallback of a loop that broke without setting a motive, so every silent

@@ -78,7 +78,7 @@ def test_the_identity_is_unique_per_platform_and_the_url_is_not():
 
     # Deux liens différents pour la MÊME identité : c'est le cas TikTok, et il doit passer.
     conn.execute("INSERT INTO social_posts (platform, post_key, post_url, author_username) "
-                 "VALUES ('tiktok', 'tiktok:keo:0612:abc', 'https://vm.tiktok.com/AAA/', 'keo')")
+                 "VALUES ('tiktok', 'tiktok:demo:0612:abc', 'https://vm.tiktok.com/AAA/', 'demo')")
     conn.execute("UPDATE social_posts SET post_url = 'https://vm.tiktok.com/BBB/' "
                  "WHERE platform = 'tiktok'")
     assert conn.execute("SELECT COUNT(*) FROM social_posts WHERE platform='tiktok'").fetchone()[0] == 1
@@ -173,11 +173,11 @@ def test_a_tiktok_post_keeps_one_row_across_four_different_links(repo):
     séparée, la vidéo serait stockée quatre fois et aucune relecture ne retrouverait la ligne."""
     from taktik.core.database.tiktok_post_identity import tiktok_post_key
 
-    key = tiktok_post_key("Kéo", "· 06-12", "Le secret de ma réussite en bio")
+    key = tiktok_post_key("Démo", "· 06-12", "Le secret de ma réussite en bio")
     for short in ("ZN8FUVpSM", "ZN8FUWHSs", "ZN8FUcEWh", "ZN8FUtvAr"):
         repo.record(
             post_url=f"https://vm.tiktok.com/{short}/",
-            author_username="keo2edit",
+            author_username="demo_creator",
             likes_count=10,
             platform="tiktok",
             post_key=key,

@@ -18,7 +18,7 @@ from taktik.core.database.local.schemas.messaging import (
 
 
 ACCOUNT_ID = 11
-PARTNER = "allocingles"
+PARTNER = "papillones"
 
 
 @pytest.fixture
@@ -154,9 +154,9 @@ def test_a_display_name_is_kept_as_partner_but_never_linked_as_a_handle(database
 
 def test_our_message_stays_ours_when_the_header_changes_case(database, persistence):
     """The thread key is lowercased on write AND on lookup; the direction rule rides on that."""
-    persistence.record_sent(ACCOUNT_ID, "AlloCinGles", "Bien recu")
+    persistence.record_sent(ACCOUNT_ID, "PapilLones", "Bien recu")
     persistence.record_conversations(
-        ACCOUNT_ID, [{"name": "allocingles", "messages": [{"text": "Bien recu"}]}]
+        ACCOUNT_ID, [{"name": "papillones", "messages": [{"text": "Bien recu"}]}]
     )
     assert _stored(database) == [("sent", "Bien recu")]
 
@@ -186,8 +186,8 @@ def test_the_logged_in_handle_is_normalised_before_it_becomes_an_account(persist
     monkeypatch.setattr(tiktok_account_identity, "get_db_service", lambda: FakeService())
     monkeypatch.setattr(tiktok_account_identity, "configure_db_service", lambda: None)
 
-    assert persistence.resolve_account_id("@AlloCinGles") == 42
-    assert seen == [("allocingles", True)]
+    assert persistence.resolve_account_id("@PapilLones") == 42
+    assert seen == [("papillones", True)]
 
     # An unreadable profile is not an account: persistence is skipped rather than attributed
     # to a made-up row.

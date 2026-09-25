@@ -188,7 +188,7 @@ def fold_for_match(text: Optional[str]) -> str:
     header reads `Allocin(gl)és` where the handle is `allocingles`, so a guard comparing them
     literally refuses to send a message to exactly the right person.
 
-    NOT for handles that must stay distinct from one another: this folds `keo.2` and `keo2`
+    NOT for handles that must stay distinct from one another: this folds `demo.2` and `demo2`
     together. Use it to recognise, never to key.
     """
     folded = unicodedata.normalize("NFKD", (text or "").casefold())

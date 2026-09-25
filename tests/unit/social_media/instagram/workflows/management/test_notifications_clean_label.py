@@ -8,8 +8,8 @@ from taktik.core.social_media.instagram.workflows.management.notifications.class
 
 
 def test_new_follower_drops_trailing_action():
-    assert clean_label("fufettecendree57 a commencé à vous suivre. 3 j Suivre en retour") \
-        == "fufettecendree57 a commencé à vous suivre"
+    assert clean_label("follower_demo57 a commencé à vous suivre. 3 j Suivre en retour") \
+        == "follower_demo57 a commencé à vous suivre"
     assert clean_label("picture_life_forever a commencé à vous suivre. 1 sem Envoyer un message") \
         == "picture_life_forever a commencé à vous suivre"
 
@@ -22,18 +22,18 @@ def test_mention_drops_buttons_and_truncation():
 
 
 def test_comment_drops_buttons():
-    assert clean_label("fufettecendree57 a commenté : « .. » 3 j Bouton J'aime Répondre") \
-        == "fufettecendree57 a commenté : « .. »"
+    assert clean_label("follower_demo57 a commenté : « .. » 3 j Bouton J'aime Répondre") \
+        == "follower_demo57 a commenté : « .. »"
 
 
 def test_like_drops_only_time():
-    assert clean_label("fufettecendree57 a aimé votre photo. 3 j") \
-        == "fufettecendree57 a aimé votre photo"
+    assert clean_label("follower_demo57 a aimé votre photo. 3 j") \
+        == "follower_demo57 a aimé votre photo"
 
 
 def test_english_follow_back_and_more():
-    assert clean_label("fufettecendree57 started following you. 3d Follow back") \
-        == "fufettecendree57 started following you"
+    assert clean_label("follower_demo57 started following you. 3d Follow back") \
+        == "follower_demo57 started following you"
     assert clean_label("linstitut_elegance liked your comment: Félicitations pour cette belle… more 2d") \
         == "linstitut_elegance liked your comment: Félicitations pour cette belle"
 

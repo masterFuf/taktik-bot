@@ -27,30 +27,30 @@ CAPTION = "Le secret de ma réussite en bio"
 
 
 def test_the_same_post_read_twice_keys_the_same():
-    assert tiktok_post_key("Kéo", "· 06-12", CAPTION) == tiktok_post_key("Kéo", "· 06-12", CAPTION)
+    assert tiktok_post_key("Démo", "· 06-12", CAPTION) == tiktok_post_key("Démo", "· 06-12", CAPTION)
 
 
 @pytest.mark.parametrize("author,label,caption", [
-    ("  Kéo  ", "·  06-12 ", CAPTION + "  "),     # espaces de rendu
-    ("@Kéo", "06-12", CAPTION),                   # arobase et ponctuation de date
-    ("KÉO", "· 06-12", CAPTION.upper()),          # casse
-    ("Keo", "· 06-12", "Le secret de ma reussite en bio"),  # accents repliés
+    ("  Démo  ", "·  06-12 ", CAPTION + "  "),     # espaces de rendu
+    ("@Démo", "06-12", CAPTION),                   # arobase et ponctuation de date
+    ("DÉMO", "· 06-12", CAPTION.upper()),          # casse
+    ("Demo", "· 06-12", "Le secret de ma reussite en bio"),  # accents repliés
 ])
 def test_the_folds_that_a_second_read_needs(author, label, caption):
-    assert tiktok_post_key(author, label, caption) == tiktok_post_key("Kéo", "· 06-12", CAPTION)
+    assert tiktok_post_key(author, label, caption) == tiktok_post_key("Démo", "· 06-12", CAPTION)
 
 
 def test_an_emoji_eaten_by_the_dump_keys_like_the_emoji_itself():
     """Le piège central : AOSP remplace chaque emoji par deux points. La même légende lue avant et
     après ce massacre doit tomber sur la même clé, sinon le post est stocké deux fois."""
-    intact = tiktok_post_key("Kéo", "· 06-12", "Trop fort 🔥")
-    mangled = tiktok_post_key("Kéo", "· 06-12", "Trop fort ..")
+    intact = tiktok_post_key("Démo", "· 06-12", "Trop fort 🔥")
+    mangled = tiktok_post_key("Démo", "· 06-12", "Trop fort ..")
 
     assert intact == mangled
 
 
 def test_a_post_without_a_caption_still_has_a_key_when_the_date_is_there():
-    key = tiktok_post_key("Kéo", "· 06-12", "")
+    key = tiktok_post_key("Démo", "· 06-12", "")
 
     assert key and key.endswith("nocaption")
 
@@ -67,21 +67,21 @@ def test_without_a_date_AND_without_a_caption_there_is_no_key():
 
 
 def test_another_date_is_another_post():
-    assert tiktok_post_key("Kéo", "· 06-12", CAPTION) != tiktok_post_key("Kéo", "· 06-13", CAPTION)
+    assert tiktok_post_key("Démo", "· 06-12", CAPTION) != tiktok_post_key("Démo", "· 06-13", CAPTION)
 
 
 def test_another_caption_is_another_post():
-    assert tiktok_post_key("Kéo", "· 06-12", CAPTION) != tiktok_post_key("Kéo", "· 06-12", "Autre chose")
+    assert tiktok_post_key("Démo", "· 06-12", CAPTION) != tiktok_post_key("Démo", "· 06-12", "Autre chose")
 
 
 def test_another_author_is_another_post():
-    assert tiktok_post_key("Kéo", "· 06-12", CAPTION) != tiktok_post_key("Marvin", "· 06-12", CAPTION)
+    assert tiktok_post_key("Démo", "· 06-12", CAPTION) != tiktok_post_key("Autre", "· 06-12", CAPTION)
 
 
 def test_the_author_is_folded_as_hard_as_the_caption():
     """Le compromis assumé, mesuré sur la FYP le 2026-08-30.
 
-    La première version gardait la ponctuation de l'auteur, pour que `keo.2` et `keo2` restent
+    La première version gardait la ponctuation de l'auteur, pour que `demo.2` et `demo2` restent
     deux comptes. L'écran a tranché autrement : la FYP rend un **nom d'affichage**, pas un pseudo
     — le Lab a renvoyé `charli d'amelio`, espace et apostrophe courbe comprises — et un nom
     d'affichage porte très souvent un emoji, que le dump réduit à deux points. Garder la
@@ -91,7 +91,7 @@ def test_the_author_is_folded_as_hard_as_the_caption():
     seul. Il reste la date et la légende, et il faudrait que les deux publient la même légende le
     même jour pour entrer en collision. On échange un risque quotidien contre un risque rarissime.
     """
-    assert tiktok_post_key("keo.2", "· 06-12", CAPTION) == tiktok_post_key("keo2", "· 06-12", CAPTION)
+    assert tiktok_post_key("demo.2", "· 06-12", CAPTION) == tiktok_post_key("demo2", "· 06-12", CAPTION)
 
 
 def test_an_emoji_in_the_display_name_keys_the_same_eaten_or_not():
@@ -120,7 +120,7 @@ def test_without_an_author_there_is_no_key(author):
 def test_the_key_names_its_platform():
     """Elle cohabite avec des clés Instagram dans la même colonne, et une clé qui ne dit pas d'où
     elle vient est une clé qu'on relit mal."""
-    assert tiktok_post_key("Kéo", "· 06-12", CAPTION).startswith("tiktok:")
+    assert tiktok_post_key("Démo", "· 06-12", CAPTION).startswith("tiktok:")
 
 # --- les dates relatives ---------------------------------------------------------------------
 
@@ -133,17 +133,17 @@ def test_a_relative_date_does_not_make_the_key_move():
     `ilya1j` demain et `ilya2j` après-demain : une ligne de plus par jour, et « a-t-on déjà engagé
     ce post ? » répondant non pour toujours. C'est exactement ce que la clé existe pour empêcher.
     """
-    assert tiktok_post_key("Kéo", "· Il y a 20 h", CAPTION) == tiktok_post_key("Kéo", "· Il y a 1 j", CAPTION)
-    assert tiktok_post_key("Kéo", "3d", CAPTION) == tiktok_post_key("Kéo", "· Il y a 1 j", CAPTION)
+    assert tiktok_post_key("Démo", "· Il y a 20 h", CAPTION) == tiktok_post_key("Démo", "· Il y a 1 j", CAPTION)
+    assert tiktok_post_key("Démo", "3d", CAPTION) == tiktok_post_key("Démo", "· Il y a 1 j", CAPTION)
 
 
 def test_an_absolute_date_still_separates_two_posts():
     """Une date absolue est un fait sur le post : elle reste dans la clé et continue de trier."""
-    assert tiktok_post_key("Kéo", "· 06-12", CAPTION) != tiktok_post_key("Kéo", "· 06-13", CAPTION)
+    assert tiktok_post_key("Démo", "· 06-12", CAPTION) != tiktok_post_key("Démo", "· 06-13", CAPTION)
 
 
 def test_a_recent_post_and_an_old_one_are_never_confondus():
-    assert tiktok_post_key("Kéo", "· Il y a 1 j", CAPTION) != tiktok_post_key("Kéo", "· 06-12", CAPTION)
+    assert tiktok_post_key("Démo", "· Il y a 1 j", CAPTION) != tiktok_post_key("Démo", "· 06-12", CAPTION)
 
 
 def test_the_collision_this_accepts_is_written_down():
@@ -151,5 +151,5 @@ def test_the_collision_this_accepts_is_written_down():
     clé. C'est le moins grave des deux échecs — une ligne dupliquée fait réengager le même post
     tous les jours, une collision en fait sauter un — et rien à l'écran ne les sépare de toute
     façon : le compte de test qui a révélé ça avait publié trois fois la même légende."""
-    assert tiktok_post_key("Kéo", "· Il y a 20 h", CAPTION) == tiktok_post_key("Kéo", "· Il y a 2 j", CAPTION)
+    assert tiktok_post_key("Démo", "· Il y a 20 h", CAPTION) == tiktok_post_key("Démo", "· Il y a 2 j", CAPTION)
 

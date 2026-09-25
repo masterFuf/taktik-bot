@@ -13,7 +13,7 @@ disait la vérité avant même qu'on regarde l'écran : 783 profils TikTok, **68
    la liste de sélecteurs devenait vide et la réponse était « non » pour tout le monde.
 
 Les fixtures reproduisent la hiérarchie réelle, en tenant compte du renommage de balises que fait
-uiautomator2 (`<node class="X">` devient `<X>`), et gardent le PIÈGE mesuré : @marvin porte la
+uiautomator2 (`<node class="X">` devient `<X>`), et gardent le PIÈGE mesuré : un compte porte la
 même icône `ss1` que le badge vérifié, pour le marqueur « Compte non recommandé », sous un autre
 parent. Une ancre qui ne sait pas la refuser n'est pas un indicateur.
 """
@@ -95,7 +95,7 @@ def _french_phone():
 @pytest.mark.parametrize("bio", [
     "Paris",                                    # 5 caractères : perdue par l'ancienne règle
     "Coach sportif",                            # 13
-    "J'enseigne comment construire un business rentable",   # 50, mesurée
+    "J'explique comment ouvrir un atelier de réparation",   # 50
 ])
 def test_a_short_bio_is_not_lost(bio):
     """La règle de longueur jetait tout ce qui faisait moins de 40 caractères, sans rien dire.
@@ -115,8 +115,8 @@ def test_an_account_without_a_bio_reads_as_empty():
 def test_the_edit_button_of_our_own_profile_is_not_a_bio():
     """« Le premier bouton après le handle » ramenait « Edit » sur notre propre profil — un
     libellé d'action enregistré comme biographie."""
-    screen = _Screen(_profile("@keo2edit", own=True, bio="SVJ, Huracan Perf, Urus Novitec"))
-    assert screen.first_text(PROFILE_SELECTORS.bio_text) == "SVJ, Huracan Perf, Urus Novitec"
+    screen = _Screen(_profile("@demo_creator", own=True, bio="Voitures, montagne et café"))
+    assert screen.first_text(PROFILE_SELECTORS.bio_text) == "Voitures, montagne et café"
 
 
 def test_what_separates_the_bio_from_a_button_is_that_it_can_be_copied():
@@ -141,10 +141,10 @@ def test_an_ordinary_account_is_not_called_verified():
 
 
 def test_the_not_recommended_icon_is_refused():
-    """Le piège mesuré : @marvin.ndiaye.extraits porte la MÊME icône `ss1`, pour le marqueur
+    """Le piège mesuré : un compte porte la MÊME icône `ss1`, pour le marqueur
     « Compte non recommandé », sous un autre parent. S'ancrer sur l'id d'icône aurait déclaré
     ce compte vérifié."""
-    screen = _Screen(_profile("@marvin.ndiaye.extraits", not_recommended=True))
+    screen = _Screen(_profile("@compte.demo.extraits", not_recommended=True))
     assert not screen.matches(PROFILE_SELECTORS.verified_badge)
 
 
