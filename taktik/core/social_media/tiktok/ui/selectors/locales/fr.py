@@ -1208,9 +1208,12 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Feuille du bas\"]",
     ],
     # --- video_state ---
+    # 46.9.3 : « Publicité » accentue, sur un Button. Le son « Musique promotionnelle » signe aussi
+    # les series promues qui n'affichent pas ce libelle.
     "video_state.ad_label": [
         "//android.widget.TextView[@text=\"Sponsorise\"]",
         "//android.widget.TextView[@text=\"Publicite\"]",
+        "//*[@text=\"Publicité\" or starts-with(@content-desc, \"Son : Musique promotionnelle\")]",
     ],
     "video_state.like_button_unliked": [
         "//*[@resource-id=\"com.zhiliaoapp.musically:id/f57\"][contains(@content-desc, \"Attribuer un\")]",
