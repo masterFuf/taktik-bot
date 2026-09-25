@@ -5,10 +5,24 @@ from typing import Optional, Dict, Any, List
 from loguru import logger
 
 from ...core.base_action import BaseAction
+from ....ui.labels import is_ui_label
 from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.shared.text import handle_from_screen_text
 from taktik.core.shared.vision import locate_text_on_screen
 
 _BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
+
+
+def _handle_from_node(text: Optional[str]) -> Optional[str]:
+    """The Instagram handle a username node shows, or None for any other text.
+
+    The username selectors end with broad fallbacks (any text holding "@"), which can land on a
+    bio line or a button: such a text is refused here, never cleaned into a pseudo.
+    """
+    handle = handle_from_screen_text(text, "instagram")
+    if handle is None or is_ui_label(handle):
+        return None
+    return handle
 
 
 def _bio_text_looks_truncated(text: str, expander_words=None) -> bool:
@@ -79,20 +93,20 @@ class ProfileExtractionMixin(BaseAction):
             for selector in self.selectors.username:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    username = element.get_text().strip()
+                    username = _handle_from_node(element.get_text())
                     if username:
-                        username = username.replace('@', '')
                         self.logger.debug(f"Username found: {username}")
                         return username
-            
+
             # Try content-desc fallback
             username_element = self.device.xpath(self.selectors.username_content_desc)
             if username_element.exists:
-                username = username_element.get_attribute('content-desc', '').strip()
-                if username and '@' in username:
-                    username = username.split('@')[-1].split(' ')[0]
-                    self.logger.debug(f"Username extracted from content-desc: {username}")
-                    return username
+                description = username_element.get_attribute('content-desc', '').strip()
+                if '@' in description:
+                    username = _handle_from_node(description.split('@')[-1].split(' ')[0])
+                    if username:
+                        self.logger.debug(f"Username extracted from content-desc: {username}")
+                        return username
             
             self.logger.warning("Cannot find username from profile")
             return None
@@ -164,9 +178,9 @@ class ProfileExtractionMixin(BaseAction):
                 try:
                     elements = tree.xpath(selector)
                     if elements:
-                        text = elements[0].get('text', '').strip()
-                        if text:
-                            results['username'] = text.replace('@', '')
+                        handle = _handle_from_node(elements[0].get('text', ''))
+                        if handle:
+                            results['username'] = handle
                             break
                 except Exception:
                     continue
@@ -313,9 +327,9 @@ class ProfileExtractionMixin(BaseAction):
                 try:
                     elements = tree.xpath(selector)
                     if elements:
-                        text = elements[0].get('text', '').strip()
-                        if text:
-                            results['username'] = text.replace('@', '')
+                        handle = _handle_from_node(elements[0].get('text', ''))
+                        if handle:
+                            results['username'] = handle
                             break
                 except Exception:
                     continue

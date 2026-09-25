@@ -98,10 +98,11 @@ class ProfileExtraction(BaseBusinessAction):
             # Get visible posts count (skip is_post_grid_visible - redundant)
             visible_posts = self.detection_actions.count_visible_posts()
             
-            # Fallback to individual call if batch didn't get username (critical field)
+            # Without the action bar, the handle the caller stands on beats the broad on-screen
+            # fallback, which can land on a handle mentioned in the bio.
             extracted_username = profile_text.get('username')
             if not extracted_username:
-                extracted_username = self.detection_actions.get_username_from_profile()
+                extracted_username = username or self.detection_actions.get_username_from_profile()
             
             profile_info = {
                 'username': extracted_username,

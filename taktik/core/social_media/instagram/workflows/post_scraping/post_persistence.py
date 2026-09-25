@@ -97,9 +97,11 @@ class PostPersistenceMixin:
     def _save_to_database(self):
         """Save scraped data to the database."""
         console.print("\n[cyan]💾 Saving to database...[/cyan]")
-        
-        try:
-            for profile in self.enriched_profiles:
+
+        # One profile per attempt: a pseudo the repository refuses must not drop the others.
+        saved = 0
+        for profile in self.enriched_profiles:
+            try:
                 self.db.save_profile({
                     'username': profile.username,
                     'biography': profile.bio or '',
@@ -112,11 +114,11 @@ class PostPersistenceMixin:
                     'business_category': profile.category or None,
                     'website': profile.website or None,
                 })
-            console.print(f"[green]✅ Saved {len(self.enriched_profiles)} profiles[/green]")
-            
-        except Exception as e:
-            self.logger.error(f"Error saving to database: {e}")
-            console.print(f"[red]❌ Database error: {e}[/red]")
+                saved += 1
+            except Exception as e:
+                self.logger.error(f"Error saving @{profile.username} to database: {e}")
+                console.print(f"[red]❌ Database error: {e}[/red]")
+        console.print(f"[green]✅ Saved {saved} profiles[/green]")
 
     def _print_summary(self, duration: float):
         """Print a summary of the scraping results."""

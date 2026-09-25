@@ -68,13 +68,13 @@ def open_read_only(db_path):
     return sqlite3.connect(Path(db_path).resolve().as_uri() + "?mode=ro", uri=True)
 
 
-def backup_path_for(db_path, now=None):
+def backup_path_for(db_path, now=None, label=BACKUP_LABEL):
     path = Path(db_path)
     stamp = (now or datetime.now()).strftime('%Y%m%d-%H%M%S')
-    return path.with_name(f"{path.stem}.backup-{stamp}-{BACKUP_LABEL}{path.suffix}")
+    return path.with_name(f"{path.stem}.backup-{stamp}-{label}{path.suffix}")
 
 
-def backup_database(db_path):
+def backup_database(db_path, label=BACKUP_LABEL):
     """Copy the base next to itself; returns the copy's path. Raises if the copy cannot be trusted."""
     source = Path(db_path)
     wal = source.with_name(source.name + '-wal')
@@ -87,7 +87,7 @@ def backup_database(db_path):
             f"{needed / 1e9:.2f} Go necessaires."
         )
 
-    target = backup_path_for(db_path)
+    target = backup_path_for(db_path, label=label)
     if target.exists():
         raise RuntimeError(f"La sauvegarde existe deja : {target}")
     src = open_read_only(db_path)

@@ -8,6 +8,8 @@ Used by both ScrapingWorkflow (enrichment) and ProfileDataMixin (followers).
 
 from typing import Dict, Any, Optional
 
+from taktik.core.shared.text import handle_from_screen_text
+
 from ....core.utils import parse_count, first_matching, first_text
 from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from .....ui.labels import classify_profile_stat_label
@@ -43,10 +45,10 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
         # extractor cannot parse — so every read below took an `if rid:` false branch and this
         # function returned its defaults, on both app versions, since ~March 2026. It is the same
         # idiom `profile_actions.get_profile_info` already uses correctly on the same screen.
-        # --- Username ---
-        username = first_text(raw_device, PROFILE_SELECTORS.username)
-        if username:
-            data['username'] = username.replace('@', '').strip()
+        # --- Username --- (a nickname read in its place keeps the known handle)
+        handle = handle_from_screen_text(first_text(raw_device, PROFILE_SELECTORS.username), 'tiktok')
+        if handle:
+            data['username'] = handle
 
         # --- Display name ---
         data['display_name'] = first_text(raw_device, PROFILE_SELECTORS.display_name)

@@ -4,12 +4,18 @@ from typing import Any, Dict, Optional, Tuple
 
 from loguru import logger
 
+from ..._base.handle_guard import require_handle
+
 
 class TikTokProfileRepositoryMixin:
     """SQL owner for `tiktok_profiles` and scraped-profile links."""
 
     def get_or_create_profile(self, username: str, **kwargs) -> Tuple[int, bool]:
-        """Get or create a TikTok profile"""
+        """Get or create a TikTok profile.
+
+        Raises InvalidHandleError when `username` cannot be a TikTok handle.
+        """
+        require_handle(username, "tiktok")
         row = self.query_one(
             "SELECT legacy_profile_id AS profile_id FROM social_profiles WHERE platform = 'tiktok' AND username = ?",
             (username,)

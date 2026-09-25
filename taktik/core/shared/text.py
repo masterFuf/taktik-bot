@@ -194,3 +194,35 @@ def fold_for_match(text: Optional[str]) -> str:
     folded = unicodedata.normalize("NFKD", (text or "").casefold())
     folded = "".join(char for char in folded if not unicodedata.combining(char))
     return _NON_ALNUM.sub("", folded)
+
+
+_HANDLE = re.compile(r"[A-Za-z0-9._]+")
+
+#: Length bounds each platform puts on a handle; another platform gets the widest.
+_HANDLE_LENGTHS = {"instagram": (1, 30), "tiktok": (2, 24)}
+
+
+def is_platform_handle(value: Optional[str], platform: str = "instagram") -> bool:
+    """Whether `value`, exactly as given, can be a handle on `platform`.
+
+    Letters, digits, "." and "_" within the platform's bounds: no space, no control character, no
+    accent, no emoji. Nothing is cleaned first, unlike `ActionUtils.is_valid_username`, which
+    squeezes "Send message" into "sendmessage" and accepts it.
+    """
+    if not isinstance(value, str) or not _HANDLE.fullmatch(value):
+        return False
+    low, high = _HANDLE_LENGTHS.get(platform, (1, 30))
+    return low <= len(value) <= high
+
+
+def handle_from_screen_text(text: Optional[str], platform: str = "instagram") -> Optional[str]:
+    """The handle a username node shows, or None when the node shows anything else.
+
+    Removes only what a screen puts around a handle: surrounding spaces, the "@" prefix and
+    invisible format characters (direction marks, joiners). A sentence, a display name or a button
+    label is refused, never cleaned into a handle.
+    """
+    value = "".join(char for char in (text or "") if unicodedata.category(char) != "Cf").strip()
+    if value.startswith("@"):
+        value = value[1:]
+    return value if is_platform_handle(value, platform) else None

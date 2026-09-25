@@ -4,6 +4,7 @@ Profile Repository - Manages instagram_profiles table
 
 from typing import Dict, List, Optional, Tuple, Any
 from ..._base.base_repository import BaseRepository
+from ..._base.handle_guard import require_handle
 from ..profile_ai_read_model import profile_ai_read_model
 
 
@@ -23,7 +24,9 @@ class ProfileRepository(BaseRepository):
         """
         Get or create a profile (upsert).
         Returns: (profile_id, created)
+        Raises InvalidHandleError when `username` cannot be an Instagram handle.
         """
+        require_handle(username, "instagram")
         row = self.query_one(
             "SELECT legacy_profile_id AS profile_id FROM social_profiles WHERE platform = 'instagram' AND username = ?",
             (username,)

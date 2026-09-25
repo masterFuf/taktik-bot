@@ -60,9 +60,24 @@ def _authors(conn):
             for row in conn.execute("SELECT id, post_author FROM processed_hashtag_posts")}
 
 
+def _phantom(conn, username, display_name=""):
+    """A profile stored under a line, as the writers did before they refused anything but a handle."""
+    conn.execute(
+        "INSERT INTO social_profiles (platform, legacy_profile_id, username, display_name) "
+        "SELECT 'instagram', COALESCE(MAX(legacy_profile_id), 0) + 1, ?, ? FROM social_profiles "
+        "WHERE platform = 'instagram'",
+        (username, display_name),
+    )
+    conn.commit()
+    return conn.execute(
+        "SELECT legacy_profile_id FROM social_profiles WHERE platform = 'instagram' AND username = ?",
+        (username,),
+    ).fetchone()[0]
+
+
 def test_the_plan_writes_nothing(conn):
     row_id = _hashtag_post(conn, COLLAB)
-    ProfileRepository(conn).get_or_create(COLLAB)
+    _phantom(conn, COLLAB)
 
     plan = CollabAuthorRepository(conn).plan()
 
@@ -148,7 +163,7 @@ def test_a_like_filed_under_the_line_moves_to_the_first_author(conn):
     _with_target_username(conn)
     profiles = ProfileRepository(conn)
     author_id, _ = profiles.get_or_create("lina.photo")
-    phantom_id, _ = profiles.get_or_create(COLLAB)
+    phantom_id = _phantom(conn, COLLAB)
     conn.execute("UPDATE social_profiles SET updated_at = '2026-01-01 00:00:00' WHERE username = ?", (COLLAB,))
     interactions = InteractionRepository(conn)
     own_like = interactions.record(account_id=1, profile_id=phantom_id, interaction_type="LIKE")
@@ -184,7 +199,7 @@ def test_a_like_filed_under_the_line_moves_to_the_first_author(conn):
 
 
 def test_without_the_first_author_in_base_the_phantom_is_only_marked(conn):
-    phantom_id, _ = ProfileRepository(conn).get_or_create(COLLAB)
+    phantom_id = _phantom(conn, COLLAB)
     like = InteractionRepository(conn).record(account_id=1, profile_id=phantom_id, interaction_type="LIKE")
 
     done = CollabAuthorRepository(conn).apply()
@@ -198,7 +213,7 @@ def test_without_the_first_author_in_base_the_phantom_is_only_marked(conn):
 def test_the_phantom_gets_the_mark_of_a_profile_the_bot_could_not_open(db):
     """Same statement as LocalDatabaseService.mark_profile_unreachable, not a second spelling."""
     conn = db._get_connection()
-    ProfileRepository(conn).get_or_create(COLLAB)
+    _phantom(conn, COLLAB)
     ProfileRepository(conn).get_or_create("gone.account")
 
     CollabAuthorRepository(conn).apply()
@@ -213,7 +228,7 @@ def test_a_second_run_changes_nothing(conn):
     _hashtag_post(conn, COLLAB)
     profiles = ProfileRepository(conn)
     profiles.get_or_create("lina.photo")
-    phantom_id, _ = profiles.get_or_create(COLLAB)
+    phantom_id = _phantom(conn, COLLAB)
     InteractionRepository(conn).record(account_id=1, profile_id=phantom_id, interaction_type="LIKE")
     repo = CollabAuthorRepository(conn)
     repo.apply()
@@ -225,7 +240,7 @@ def test_a_second_run_changes_nothing(conn):
 
 def test_other_text_with_a_space_is_left_alone(conn):
     profiles = ProfileRepository(conn)
-    profiles.get_or_create("Send message", full_name="Marie et Paul - Atelier")
+    _phantom(conn, "Send message", display_name="Marie et Paul - Atelier")
     profiles.get_or_create("lina.photo", full_name="Lina et Marc")
     row_id = _hashtag_post(conn, "lina.photo")
 
@@ -255,7 +270,7 @@ def test_notification_actors_are_counted_not_written(conn):
 
 def test_a_failure_midway_leaves_the_base_as_it_was(conn, monkeypatch):
     row_id = _hashtag_post(conn, COLLAB)
-    ProfileRepository(conn).get_or_create(COLLAB)
+    _phantom(conn, COLLAB)
     repo = CollabAuthorRepository(conn)
 
     def boom(_fixes):

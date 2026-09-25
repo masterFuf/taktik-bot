@@ -8,6 +8,8 @@ from typing import Optional, Dict, Any, List, Callable, Set
 from loguru import logger
 import time
 
+from taktik.core.shared.text import handle_from_screen_text
+
 from ....atomic.navigation.navigation_actions import NavigationActions
 from ....atomic.navigation.search_actions import SearchActions
 from ....atomic.scroll.scroll_actions import ScrollActions
@@ -220,11 +222,13 @@ class ScrapingWorkflow:
                 # `contains(@resource-id, …)`, which the id extractor cannot parse — and unlike
                 # the profile extractor, this loop had NO `if rid:` guard, so it was asking the
                 # device for `resourceId=''` on every iteration and scrolling a list it could not
-                # read. The display name is the fallback: some rows show only that.
+                # read. The display name is the fallback: some rows show only that, and a display
+                # name is no handle — such a row is kept only if opening it reads the handle.
                 username_elements = first_matching(raw_device, self._followers_sel.follower_username)
                 display_name_elements = first_matching(
                     raw_device, self._followers_sel.follower_display_name)
-                if not username_elements:
+                rows_show_handles = bool(username_elements)
+                if not rows_show_handles:
                     username_elements = display_name_elements
 
                 found_new = False
@@ -236,34 +240,47 @@ class ScrapingWorkflow:
                         elem = username_elements[i]
                         username_text = elem.text
                         if username_text and username_text not in scraped_usernames:
-                            username = username_text.replace('@', '').strip()
-                            if username:
-                                scraped_usernames.add(username_text)
-                                found_new = True
+                            scraped_usernames.add(username_text)
+                            found_new = True
+                            can_enrich = (self.config.enrich_profiles
+                                          and len(profiles) < self.config.max_profiles_to_enrich)
 
+                            if rows_show_handles:
+                                username = handle_from_screen_text(username_text, 'tiktok')
                                 display_name = ''
                                 if i < len(display_name_elements):
                                     try:
                                         display_name = display_name_elements[i].text or ''
                                     except Exception:
                                         pass
+                            else:
+                                username, display_name = None, username_text
 
-                                profile = empty_profile(username, display_name)
+                            if not username and not can_enrich:
+                                logger.debug(f"Row skipped, no handle on it: {username_text!r}")
+                                continue
 
-                                if self.config.enrich_profiles and len(profiles) < self.config.max_profiles_to_enrich:
-                                    self._enrich_in_place(profile, elem, raw_device, username)
+                            profile = empty_profile(username or '', display_name)
 
-                                profiles.append(profile)
-                                self.stats.profiles_scraped += 1
-                                self._emit_progress(len(profiles), max_profiles, username)
-                                self._emit_profile(profile)
-                                self._emit_save_profile(profile)
+                            if can_enrich:
+                                self._enrich_in_place(profile, elem, raw_device, username or '')
+                                username = handle_from_screen_text(profile.get('username'), 'tiktok')
 
-                                enriched_tag = " [enriched]" if profile.get('is_enriched') else ""
-                                logger.info(f"Scraped [{len(profiles)}/{max_profiles}]: @{username} ({display_name}){enriched_tag}")
+                            if not username:
+                                logger.debug(f"Row skipped, its profile showed no handle: {username_text!r}")
+                                continue
 
-                                if len(profiles) >= max_profiles:
-                                    break
+                            profiles.append(profile)
+                            self.stats.profiles_scraped += 1
+                            self._emit_progress(len(profiles), max_profiles, username)
+                            self._emit_profile(profile)
+                            self._emit_save_profile(profile)
+
+                            enriched_tag = " [enriched]" if profile.get('is_enriched') else ""
+                            logger.info(f"Scraped [{len(profiles)}/{max_profiles}]: @{username} ({display_name}){enriched_tag}")
+
+                            if len(profiles) >= max_profiles:
+                                break
                     except Exception as e:
                         logger.warning(f"Error extracting username: {e}")
                         continue
