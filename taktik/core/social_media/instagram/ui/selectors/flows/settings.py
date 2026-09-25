@@ -30,6 +30,8 @@ from ..locales import L
 APP_LANGUAGE_NATIVE_NAMES: Dict[str, str] = {
     "en": "English",
     "en-GB": "English (UK)",
+    # A bare "fr" is France, as "en" is the default English; TikTok accepts it too.
+    "fr": "Français (France)",
     "fr-FR": "Français (France)",
     "fr-CA": "Français (Canada)",
 }
