@@ -520,6 +520,14 @@ STRINGS: Dict[str, List[str]] = {
     "popup.suggestion_not_interested": [
         "//*[@text=\"Pas intéressé(e)\"][@clickable=\"true\"][//*[@text=\"Balaie vers le haut pour ignorer\"]]",
     ],
+    # « Mets ton application à jour » / « Pas maintenant » (43.1.4) : dialogue sans aucun noeud
+    # lisible, lu a l'OCR, mot par mot.
+    "popup.update_prompt_dismiss_words": [
+        "maintenant",
+    ],
+    "popup.update_prompt_title_words": [
+        "application",
+    ],
     # Les LIBELLES du bouton d'autorisation d'un dialogue systeme. Les identifiants, eux,
     # ne dependent pas de la langue et vivent dans `_system_allow_button_base`.
     "popup.system_allow_button": [

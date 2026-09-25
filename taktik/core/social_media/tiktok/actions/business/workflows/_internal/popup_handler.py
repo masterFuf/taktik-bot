@@ -7,7 +7,39 @@ across ForYouWorkflow, SearchWorkflow, and FollowersWorkflow.
 import time
 from loguru import logger
 
-from taktik.core.shared.device.ui_dump import parse_ui_dump
+from taktik.core.shared.device.ui_dump import parse_bounds, parse_ui_dump
+
+SYSTEM_UI_PACKAGE = 'com.android.systemui'
+# The OCR behind an unlabelled dialog costs a screenshot and a Tesseract pass: at most one try in
+# this window, however often the chain runs.
+UNLABELLED_OVERLAY_RETRY_SECONDS = 30.0
+
+
+def unlabelled_overlay_region(tree):
+    """The frame of an app dialog that exposes no readable node, or None.
+
+    The "update the app" prompt of TikTok 43.1.4 is drawn without a single text or content-desc:
+    no selector can see it, Back does not close it, and every tap of the run lands on the dim
+    layer behind it. Its signature is structural: the app's nodes are there, none carries a
+    label, and one of them is smaller than the screen (the dialog's frame). A loading screen
+    that fills the screen does not qualify.
+    """
+    app_nodes = [node for node in tree.iter()
+                 if node.get('package') and node.get('package') != SYSTEM_UI_PACKAGE]
+    if not app_nodes:
+        return None
+    if any((node.get('text') or '').strip() or (node.get('content-desc') or '').strip()
+           for node in app_nodes):
+        return None
+    boxes = [parse_bounds(node.get('bounds') or '') for node in app_nodes]
+    boxes = [box for box in boxes if box and box[2] > box[0] and box[3] > box[1]]
+    if not boxes:
+        return None
+    screen = max(boxes, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]))
+    inner = [box for box in boxes if box != screen]
+    if not inner:
+        return None
+    return min(inner, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]))
 
 
 class PopupHandler:
@@ -30,6 +62,8 @@ class PopupHandler:
         self.detection = detection
         self.owned_surfaces = frozenset(owned_surfaces)
         self.logger = logger.bind(module="tiktok-popup-handler")
+        self._overlay_region = None
+        self._last_overlay_try = 0.0
 
     # ------------------------------------------------------------------
     # Fast single-dump scanner
@@ -96,6 +130,10 @@ class PopupHandler:
             found.add('generic_popup')
         if hit(POPUP_SELECTORS.video_options_sheet):
             found.add('video_options_sheet')
+        if not found:
+            self._overlay_region = unlabelled_overlay_region(tree)
+            if self._overlay_region is not None:
+                found.add('unlabelled_overlay')
         return found
 
     # ------------------------------------------------------------------
@@ -124,6 +162,17 @@ class PopupHandler:
             return False
 
         # ── Handle in priority order ──────────────────────────────────
+
+        if 'unlabelled_overlay' in detected:
+            now = time.time()
+            if now - self._last_overlay_try < UNLABELLED_OVERLAY_RETRY_SECONDS:
+                return False
+            self._last_overlay_try = now
+            if self.click.dismiss_update_prompt(self._overlay_region):
+                self.logger.info("✅ Update prompt dismissed (read by OCR)")
+                time.sleep(0.8)
+                return True
+            return False
 
         # Android system popups: permission dialogs
         if 'system_deny' in detected or 'system_input' in detected or 'system_dialog' in detected:

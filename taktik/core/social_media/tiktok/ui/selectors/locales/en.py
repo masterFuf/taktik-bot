@@ -437,6 +437,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@resource-id, \":id/bjl\")][@text=\"Not interested\"]",
         "//android.widget.Button[@text=\"Not interested\"]",
     ],
+    # Le dialogue de mise a jour n'a pas ete capture en anglais.
+    "popup.update_prompt_dismiss_words": [],
+    "popup.update_prompt_title_words": [],
     # Les LIBELLES du bouton d'autorisation d'un dialogue systeme. Les identifiants, eux,
     # ne dependent pas de la langue et vivent dans `_system_allow_button_base`.
     "popup.system_allow_button": [

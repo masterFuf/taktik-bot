@@ -246,6 +246,33 @@ class PopupActions(BaseAction):
             self.logger.warning(f"Failed to close comments section: {e}")
             return False
     
+    def dismiss_update_prompt(self, region=None) -> bool:
+        """Tap "not now" on the "update the app" prompt, a dialog with no readable node.
+
+        Read off a screenshot, within `region` (the dialog's frame) when given. The button word is
+        tapped only when the title word is read too, so a stray "maintenant" elsewhere is never
+        touched. Never taps the update button.
+        """
+        from taktik.core.shared.vision.screen_text import locate_text_on_screen
+
+        titles = [w.lower() for w in self.popup_selectors.update_prompt_title_words]
+        dismiss = [w.lower() for w in self.popup_selectors.update_prompt_dismiss_words]
+        if not titles or not dismiss:
+            return False
+        matches = locate_text_on_screen(self.device, titles + dismiss, region=region)
+
+        def word(match):
+            return match.text.strip(" .,;:!?…'\"()").lower()
+
+        if not any(word(m) in titles for m in matches):
+            return False
+        buttons = [m for m in matches if word(m) in dismiss]
+        if not buttons:
+            return False
+        # The button sits under the text; the lowest hit is the button's word.
+        button = max(buttons, key=lambda m: m.top)
+        return bool(self.device.human_tap(button.bbox))
+
     # === System Popup Actions ===
     
     def close_system_popup(self) -> bool:

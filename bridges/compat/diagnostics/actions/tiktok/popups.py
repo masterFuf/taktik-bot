@@ -42,6 +42,21 @@ def close_system_popup(a, p):
     return a.popup.close_system_popup()
 
 
+@action("tt.popups.dismiss_update_prompt")
+def dismiss_update_prompt(a, p):
+    """The "update the app" prompt draws no readable node: found by its shape, read by OCR."""
+    from taktik.core.shared.device.ui_dump import parse_ui_dump
+    from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import (
+        unlabelled_overlay_region,
+    )
+
+    tree = parse_ui_dump(a.device.dump_hierarchy())
+    region = unlabelled_overlay_region(tree) if tree is not None else None
+    if region is None:
+        return {"success": False, "message": "no unlabelled dialog on screen"}
+    return a.popup.dismiss_update_prompt(region)
+
+
 @action("tt.popups.has_collections")
 def has_collections(a, p):
     result = a.popup_detector.has_collections_popup()

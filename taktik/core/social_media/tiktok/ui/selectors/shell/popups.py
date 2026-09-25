@@ -224,6 +224,17 @@ class PopupSelectors:
     def system_deny_button(self) -> List[str]:
         return self._system_deny_button_base + L("popup.system_deny_button")
 
+    @property
+    def update_prompt_title_words(self) -> List[str]:
+        """OCR words of the "update the app" prompt's title, a dialog drawn without any readable
+        node. Single words: the OCR matches words, not phrases."""
+        return L("popup.update_prompt_title_words")
+
+    @property
+    def update_prompt_dismiss_words(self) -> List[str]:
+        """OCR word of that prompt's "not now" button, the one tapped."""
+        return L("popup.update_prompt_dismiss_words")
+
     # Le pendant du precedent, qui manquait. Mesure du 2026-09-03 : sur les Pixel du parc
     # (Android 12 et 16) le paquet installe est `com.google.android.permissioncontroller` — celui
     # que le catalogue Instagram cherchait, `com.android.packageinstaller`, n'existe sur aucun.
