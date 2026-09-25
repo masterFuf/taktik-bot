@@ -40,8 +40,11 @@ class TabNavigationMixin(BaseAction):
         # Early-return as soon as we're home avoids backing out of the app.
         self.logger.debug("Fallback: using back button (incremental, stop at home)")
         for _ in range(3):
-            self._press_back(1)
+            self._back_one_screen()
             if self._is_home_screen():
+                return True
+            # A Back that brings the tab bar back (a search, a profile) leaves home one tap away.
+            if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
                 return True
         return self._is_home_screen()
     
