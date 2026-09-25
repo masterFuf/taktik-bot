@@ -17,11 +17,18 @@ meta:
   app: tiktok
   package: com.zhiliaoapp.musically
   baseline_version: "43.1.4"
-  last_updated: "2026-03-05"
+  last_updated: "2026-09-25"
 
 versions:
   # Add version-specific overrides here as new app versions are discovered.
   # Only include selectors that CHANGED — unchanged selectors inherit from Python.
+  "46.6.3":
+    # Search results page: the pager under the tab strip now has a readable id, the same on
+    # 46.6.3, 46.9.3 and 47.0.3 (19 results pages out of 19, 0 other screens). Baseline entry
+    # carried along.
+    search.results_page:
+      - '//*[contains(@resource-id, ":id/viewpager_search")]'
+      - '//*[contains(@resource-id, ":id/zpl")]'
   "46.9.3":
     # LIVE preview in the For You feed (Pixel 6a, 2 captures): readable ids, no author.
     video_state.live_preview:
