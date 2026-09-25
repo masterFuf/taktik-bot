@@ -129,9 +129,14 @@ class Rig:
             FakeProfileActions,
         )
 
-        from taktik.core.social_media.tiktok.actions.business.workflows.for_you import ForYouStats
+        from taktik.core.social_media.tiktok.actions.business.workflows._internal.models import (
+            VideoWorkflowStats,
+        )
 
-        class FakeForYouWorkflow:
+        class FakeVideoWorkflow:
+            """For You and Search alike: records its config, fires each callback once, returns
+            one video watched, liked and followed."""
+
             def __init__(self, device, config):
                 rig.calls.append("workflow_built")
                 self.device = device
@@ -161,20 +166,40 @@ class Rig:
                                   ("stats", {"videos_watched": 1, "videos_liked": 1}), ("pause", 8)):
                     if name in self.callbacks:
                         self.callbacks[name](arg)
-                return ForYouStats(videos_watched=1, videos_liked=1, users_followed=1)
+                return VideoWorkflowStats(videos_watched=1, videos_liked=1, users_followed=1)
 
         from taktik.core.social_media.tiktok.actions.business.workflows.for_you import (
-            agent_handler,
-            workflow,
+            agent_handler as for_you_handler,
+            workflow as for_you_workflow,
+        )
+        from taktik.core.social_media.tiktok.actions.business.workflows.search import (
+            agent_handler as search_handler,
+            workflow as search_workflow,
         )
 
-        mp.setattr(workflow, "ForYouWorkflow", FakeForYouWorkflow)
-        # The registrar may bind its default factory when it is defined: patch that too, so the
+        mp.setattr(for_you_workflow, "ForYouWorkflow", FakeVideoWorkflow)
+        mp.setattr(search_workflow, "SearchWorkflow", FakeVideoWorkflow)
+        # A registrar may bind its default factory when it is defined: patch that too, so the
         # rig never builds a real workflow whatever the handler does.
-        for fn in (agent_handler.register_tiktok_for_you_handlers,
-                   agent_handler.build_tiktok_for_you_handler):
+        for fn in (for_you_handler.register_tiktok_for_you_handlers,
+                   for_you_handler.build_tiktok_for_you_handler,
+                   search_handler.register_tiktok_search_handlers,
+                   search_handler.build_tiktok_search_handler):
             if "workflow_factory" in (fn.__kwdefaults__ or {}):
-                mp.setitem(fn.__kwdefaults__, "workflow_factory", FakeForYouWorkflow)
+                mp.setitem(fn.__kwdefaults__, "workflow_factory", FakeVideoWorkflow)
+
+        def fake_return_home(device, *args, **kwargs):
+            rig.calls.append("return_home")
+            return True
+
+        from taktik.core.social_media.tiktok.services.navigation import reset
+
+        mp.setattr(reset, "return_to_tiktok_home", fake_return_home)
+        # Bound by name at import in the old Search bridge.
+        from bridges.tiktok.workflows.automation.runtime import search_callbacks
+
+        if hasattr(search_callbacks, "return_device_to_tiktok_home"):
+            mp.setattr(search_callbacks, "return_device_to_tiktok_home", fake_return_home)
 
         from taktik.core.app.ai import factory
 
@@ -210,8 +235,8 @@ class Rig:
             dispatcher.main()
         return exit_info.value.code
 
-    def run_cli(self, payload: dict, env: dict | None = None):
-        """The standalone path: `taktik workflows run tiktok.automation.for_you`."""
+    def run_cli(self, payload: dict, env: dict | None = None, workflow_id: str = "tiktok.automation.for_you"):
+        """The standalone path: `taktik workflows run <workflow_id>`."""
         from click.testing import CliRunner
 
         from taktik.cli.commands import workflow_cmds
@@ -220,9 +245,13 @@ class Rig:
         self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (manager, DEVICE_ID))
         return CliRunner().invoke(
             workflow_cmds.workflows,
-            ["run", "tiktok.automation.for_you", "--device", DEVICE_ID, "--json", json.dumps(payload)],
+            ["run", workflow_id, "--device", DEVICE_ID, "--json", json.dumps(payload)],
             env=env,
         )
+
+    @property
+    def built_configs(self) -> list:
+        return [workflow.config for workflow in self.workflows]
 
     @property
     def built_config(self):
