@@ -220,6 +220,12 @@ class BaseDeviceFacade:
         Raises `SnapshotUnavailable` when the screen cannot be read."""
         return self._snapshot_source().snapshot(max_age_s=max_age_s)
 
+    def snapshot_of(self, xml_content: Optional[str]):
+        """A photo of a dump the caller already holds (one read with a shorter timeout, or handed
+        in by its caller), answered as `snapshot()` answers: the device's rewrite, the observers.
+        Raises `SnapshotUnavailable` when the dump is empty or does not parse."""
+        return self._snapshot_source().photo_of(xml_content)
+
     def invalidate_snapshot(self) -> None:
         """The screen changed (a gesture): the next `snapshot()` takes a new photo."""
         self._snapshot_source().invalidate()

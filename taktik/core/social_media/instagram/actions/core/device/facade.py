@@ -5,7 +5,7 @@ import re
 from loguru import logger
 
 from taktik.core.shared.device.facade import BaseDeviceFacade, Direction
-from taktik.core.shared.device.ui_dump import parse_ui_dump
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.clone import get_active_package
 
 
@@ -14,7 +14,7 @@ class DeviceFacade(BaseDeviceFacade):
     
     Inherits common functionality from BaseDeviceFacade.
     Adds Instagram-specific features: press() with key mapping,
-    click() by xpath, batch_xpath_check on one dump.
+    click() by xpath, batch_xpath_check on one screen photo.
     """
     
     @property
@@ -81,53 +81,47 @@ class DeviceFacade(BaseDeviceFacade):
             return False
     
     # =========================================================================
-    # Instagram-specific: batch XML operations with lxml
+    # Instagram-specific: several selectors asked of one screen photo
     # =========================================================================
-    
+
     def xpath_exists_in_xml(self, xml_content: str, xpath: str) -> bool:
-        """Check if xpath exists in pre-fetched XML content (fast, no ADB call)."""
+        """Does `xpath` find anything on a dump already held? Answered on a photo of that dump,
+        as `self.xpath(xpath).exists` answers on the screen: the device's rewrite (bare and
+        clone ids) and uiautomator2's shorthands included. No device call."""
         try:
-            tree = parse_ui_dump(xml_content)
-            result = tree.xpath(xpath) if tree is not None else []
-            return len(result) > 0
+            return bool(self.snapshot_of(xml_content).elements(xpath))
         except Exception:
             return False
-    
+
     def batch_xpath_check(self, selectors_dict: Dict[str, List[str]]) -> Dict[str, bool]:
-        """
-        Check multiple xpath selectors in a single XML dump.
-        Much faster than individual checks (1 ADB call vs N calls).
-        
+        """Named selector lists asked of ONE photo of the screen (one dump for all of them).
+
+        A name is True when one of its selectors finds anything, exactly as
+        `self.xpath(selector).exists` would on that screen: through the device's rewrite (every
+        Instagram bridge mounts `CloneAwareDeviceProxy`, which makes an id equality match a
+        clone's prefix and the bare ids of the Compose screens) and uiautomator2's own
+        evaluation. A selector the engine rejects is skipped; an unreadable screen answers False
+        for every name.
+
         Args:
             selectors_dict: Dict mapping names to list of xpath selectors
                            e.g. {'is_private': ['//*[@text="Private"]', ...], ...}
-        
+
         Returns:
             Dict mapping names to boolean results
         """
         results = {name: False for name in selectors_dict}
-        
-        xml_content = self.get_xml_dump()
-        if not xml_content:
-            return results
-        
         try:
-            # The tree `d.xpath()` sees: a selector written by tag matches here too.
-            tree = parse_ui_dump(xml_content)
-            if tree is None:
-                return results
-            
-            for name, selectors in selectors_dict.items():
-                for selector in selectors:
-                    try:
-                        if tree.xpath(selector):
-                            results[name] = True
-                            break
-                    except Exception:
-                        continue
-            
+            photo = self.snapshot()
+        except SnapshotUnavailable:
             return results
-            
-        except Exception as e:
-            self.logger.error(f"Error in batch xpath check: {e}")
-            return results
+
+        for name, selectors in selectors_dict.items():
+            for selector in selectors:
+                try:
+                    if photo.elements(selector):
+                        results[name] = True
+                        break
+                except Exception:
+                    continue
+        return results
