@@ -9,7 +9,11 @@ import time
 from typing import Dict, List, Any, Optional
 
 from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
-from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text, username_from_media_label
+from taktik.core.social_media.instagram.ui.extractors import (
+    parse_number_from_text,
+    username_from_author_header,
+    username_from_media_label,
+)
 from .post_detection import HashtagPostDetectionMixin
 
 
@@ -237,9 +241,11 @@ class HashtagPostFinderMixin(HashtagPostDetectionMixin):
                             # Fallback: essayer content-desc
                             info = element.info
                             text = info.get('contentDescription', '') or info.get('text', '')
-                        if text:
-                            # Clean the username
-                            metadata['author'] = text.strip().lstrip('@').lower()
+                        # A collaboration post names several accounts on this line: keep the
+                        # first handle, never the whole line (`username_from_author_header`).
+                        author = username_from_author_header(text)
+                        if author:
+                            metadata['author'] = author
                             self.logger.debug(f"📝 Post author: @{metadata['author']}")
                             break
                 except Exception as e:

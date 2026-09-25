@@ -7,6 +7,7 @@ from typing import Dict, List, Any, Optional
 # double-tap the image. The choice lives in shared behaviour so the feed and the
 # profile-posts (like workflow) paths alternate identically.
 from taktik.core.shared.behavior.like_method import should_double_tap_like as _should_double_tap_like
+from taktik.core.social_media.instagram.ui.extractors import username_from_author_header
 
 
 class FeedPostActionsMixin:
@@ -37,9 +38,11 @@ class FeedPostActionsMixin:
             for selector in self._feed_selectors['post_author_username']:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    username = element.get_text()
+                    # A collaboration post names several accounts here ("a et b"): the first
+                    # handle, never the line, which the cleaner used to glue into "aetb".
+                    username = username_from_author_header(element.get_text())
                     if username:
-                        return self._clean_username(username)
+                        return username
             
             # Fallback: essayer via content-desc de l'avatar
             for selector in self._feed_selectors['post_author_avatar']:
