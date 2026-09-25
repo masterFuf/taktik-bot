@@ -31,6 +31,9 @@ class _FakeWorkflow:
     def set_on_skip_callback(self, cb):
         pass
 
+    def set_on_unconfirmed_callback(self, cb):
+        pass
+
     def set_on_stats_callback(self, cb):
         pass
 

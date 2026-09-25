@@ -81,6 +81,17 @@ def _attach_callbacks(workflow: Any, notifier: Any, *, target: int) -> None:
                 username=username,
             )
         )
+    if hasattr(workflow, "set_on_unconfirmed_callback"):
+        workflow.set_on_unconfirmed_callback(
+            lambda username, state: notify(
+                notifier,
+                "unfollow_event",
+                event="not_confirmed",
+                reason="not_confirmed",
+                state=state,
+                username=username,
+            )
+        )
     if hasattr(workflow, "set_on_stats_callback"):
         workflow.set_on_stats_callback(
             lambda stats: notify(notifier, "unfollow_stats", stats={**stats, "target": target})
