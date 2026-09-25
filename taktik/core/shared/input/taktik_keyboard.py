@@ -133,11 +133,53 @@ def is_taktik_keyboard_active(device_id: str) -> bool:
         return False
 
 
+#: How long a switch may take before the text is sent anyway. Measured on a Pixel 4a: 0.37 s.
+_BIND_TIMEOUT_SECONDS = 3.0
+_BIND_POLL_SECONDS = 0.1
+
+
+def _taktik_keyboard_bound(device_id: str) -> Optional[bool]:
+    """Is the ADB keyboard the input method Android has bound, with a live connection?
+
+    None when `dumpsys input_method` does not say (another Android version, an adb error): the
+    caller then cannot wait on it and goes on as before.
+    """
+    out = run_adb_shell(device_id, "dumpsys input_method") or ""
+    marker = f"mCurId={TAKTIK_KEYBOARD_IME} "
+    if "mCurId=" not in out:
+        return None
+    for line in out.splitlines():
+        if marker in line:
+            return "mHaveConnection=true" in line and "mBoundToMethod=true" in line
+    return False
+
+
+def _wait_until_bound(device_id: str) -> None:
+    """Wait until Android has bound the ADB keyboard to the focused field.
+
+    `ime set` answers as soon as the setting is written, before the keyboard service runs: a text
+    broadcast sent in that gap reaches no receiver and is lost, with nothing to say so. Since the
+    phone's keyboard is given back at the end of every session (L12), every session switches again
+    before its first text, and lost that text: a hashtag search on a Pixel 4a stayed empty, the
+    workflow typing into the void, then ending as navigation_lost.
+    """
+    deadline = time.time() + _BIND_TIMEOUT_SECONDS
+    while True:
+        bound = _taktik_keyboard_bound(device_id)
+        if bound is None or bound:
+            return
+        if time.time() >= deadline:
+            logger.warning(f"Taktik Keyboard not bound after {_BIND_TIMEOUT_SECONDS:g} s on {device_id}")
+            return
+        time.sleep(_BIND_POLL_SECONDS)
+
+
 def activate_taktik_keyboard(device_id: str) -> bool:
     """Activate Taktik Keyboard as the default IME (the ONE place the bot switches keyboards).
 
     The phone's own keyboard is remembered first and given back at the end of the session
-    (`restore_original_keyboard`).
+    (`restore_original_keyboard`). Returns once Android has bound the keyboard, so the first
+    text sent after a switch is not lost (`_wait_until_bound`).
     """
     try:
         remember_original_keyboard(device_id)
@@ -145,6 +187,7 @@ def activate_taktik_keyboard(device_id: str) -> bool:
         result = run_adb_shell(device_id, f"ime set {TAKTIK_KEYBOARD_IME}")
 
         if "selected" in result.lower():
+            _wait_until_bound(device_id)
             logger.debug("Taktik Keyboard activated")
             return True
 
