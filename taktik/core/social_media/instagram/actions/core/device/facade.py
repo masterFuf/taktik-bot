@@ -2,10 +2,10 @@ from typing import Any, Dict, Optional, List, Union, Tuple
 from enum import Enum
 import time
 import re
-from lxml import etree
 from loguru import logger
 
 from taktik.core.shared.device.facade import BaseDeviceFacade, Direction
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.clone import get_active_package
 
 
@@ -14,7 +14,7 @@ class DeviceFacade(BaseDeviceFacade):
     
     Inherits common functionality from BaseDeviceFacade.
     Adds Instagram-specific features: press() with key mapping,
-    click() by xpath, batch_xpath_check with lxml.
+    click() by xpath, batch_xpath_check on one dump.
     """
     
     @property
@@ -87,8 +87,8 @@ class DeviceFacade(BaseDeviceFacade):
     def xpath_exists_in_xml(self, xml_content: str, xpath: str) -> bool:
         """Check if xpath exists in pre-fetched XML content (fast, no ADB call)."""
         try:
-            tree = etree.fromstring(xml_content.encode('utf-8'))
-            result = tree.xpath(xpath)
+            tree = parse_ui_dump(xml_content)
+            result = tree.xpath(xpath) if tree is not None else []
             return len(result) > 0
         except Exception:
             return False
@@ -112,7 +112,10 @@ class DeviceFacade(BaseDeviceFacade):
             return results
         
         try:
-            tree = etree.fromstring(xml_content.encode('utf-8'))
+            # The tree `d.xpath()` sees: a selector written by tag matches here too.
+            tree = parse_ui_dump(xml_content)
+            if tree is None:
+                return results
             
             for name, selectors in selectors_dict.items():
                 for selector in selectors:
