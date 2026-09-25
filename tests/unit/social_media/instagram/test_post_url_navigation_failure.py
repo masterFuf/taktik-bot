@@ -150,9 +150,9 @@ def test_the_session_is_filed_as_a_failure_not_as_sources_exhausted():
 
 
 def test_an_unreachable_post_hands_over_to_the_next_one():
-    """Kevin (2026-09-25): a link that cannot be reached is logged and the run goes on to the
-    next link; each link opens by its own deep link, whatever screen the previous one left.
-    It used to end the run here. The run over several links: `test_post_url_several_links.py`."""
+    """A link that cannot be reached is logged and the run goes on to the next link; each link
+    opens by its own deep link, whatever screen the previous one left. The run over several
+    links: `test_post_url_several_links.py`."""
     workflow = _PostUrl(reachable=(OTHER_URL,))
     automation = _automation(workflow, urls=(URL, OTHER_URL))
 

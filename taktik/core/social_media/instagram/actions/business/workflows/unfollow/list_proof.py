@@ -1,6 +1,6 @@
 """When a read of a follow list proves something: the count it must reach, and how long to scroll.
 
-Review of 2026-09-24. A list read was "complete" after a few scrolls that brought no new name:
+A list read was "complete" after a few scrolls that brought no new name:
 a slow page, a scroll that failed in silence, or a list Instagram throttles looked exactly like the
 end. The non-followers mode then took every account the read had not reached for a non-follower,
 and the following sync marked every account it had not reached as unfollowed elsewhere. And with
@@ -11,12 +11,9 @@ suivi(e)s", "673 followers", "48 following"): the names seen must reach it, give
 accounts Instagram never lists (deactivated ones). Without that count, or after a failed scroll,
 the read proves nothing. Pure functions: the screen is read by the mixins.
 
-Decision of 2026-09-24 (Kevin), after a phone read of 653 followers of 673 shown: every name seen
-was read, the read ended on the suggestions header, and the 20 missing were accounts Instagram
-counts and never lists. The tolerance (13 there) called that read unproven, so the non-followers
-mode found no candidate on that account, ever. A second rule now proves such a read: nothing seen
-was left out AND the suggestions header ended the list, with a gap to the tab's count of 5 % at
-most. Outside it, the count rule stands alone. The rule that proved a read is named in the log.
+A second rule proves a read that falls short of the count because Instagram counts accounts it
+never lists: nothing seen was left out AND the suggestions header ended the list, with a gap to
+the tab's count of 5 % at most. The rule that proved a read is named in the log.
 """
 
 from typing import Iterable, Mapping, Optional

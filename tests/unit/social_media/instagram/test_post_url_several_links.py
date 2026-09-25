@@ -1,6 +1,6 @@
 """A post URL run over several links: each link fails on its own, and says why.
 
-Kevin's rule: a link that cannot be worked is logged with its motive and the run goes on to the
+A link that cannot be worked is logged with its motive and the run goes on to the
 next one, until the links run out. The run ends as `navigation_lost` only when NO link could be
 reached.
 

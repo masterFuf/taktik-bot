@@ -30,12 +30,9 @@ def _no_production_database(monkeypatch):
     La lecture d'abord : le garde anti-tic lit `posted_comments` en best-effort, donc sans ceci
     chaque test ouvre la vraie base pour y lire douze lignes.
 
-    L'écriture ensuite, et c'est celle qui a mordu : `_try_comment_video` enregistre ce qu'il
-    publie, et la première version de cette fixture ne neutralisait que la lecture. Six lignes
-    « Excellent ! » et « Le texte de l'opérateur » se sont retrouvées dans la base de Kevin,
-    sous @keo2edit, à l'heure exacte des trois passages de la suite — supprimées depuis. Un test
-    qui écrit dans la base de production ne salit pas seulement les données : il aurait aussi
-    nourri le garde anti-tic avec des phrases que personne n'a jamais publiées.
+    L'écriture ensuite : `_try_comment_video` enregistre ce qu'il publie. Un test qui écrit dans
+    la base de production salit les données et nourrit le garde anti-tic avec des phrases que
+    personne n'a publiées.
     """
     monkeypatch.setattr(
         "taktik.core.database.instagram_posted_comments.InstagramPostedComments.recent_texts",

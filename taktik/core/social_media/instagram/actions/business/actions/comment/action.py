@@ -40,9 +40,7 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
         is complete; it stays None for template/custom comments.
 
         With no text and no custom comment, post nothing (skipped result, the screen
-        untouched): the bot has no built-in template any more, the same few fixed comments on
-        post after post being a trace of automation (Kevin, 2026-09-24). A failed AI generation
-        falls back on the custom comments, never on a template."""
+        untouched): the bot has no built-in template."""
         config = {**self.default_config, **(config or {})}
 
         stats = {

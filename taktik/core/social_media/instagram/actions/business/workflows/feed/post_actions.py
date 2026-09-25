@@ -132,8 +132,7 @@ class FeedPostActionsMixin:
         files the comment at the send (session counter, ledger row, posted_comments), looks for
         "Try again later" and closes the sheet it opened. The text is `comment_text` when the
         caller has one (the Taktik Agent autopilot's AI), else the AI comment hook's, else one of
-        the operator's custom comments. With no AI and no custom comment, no comment: the bot
-        has no built-in template any more (Kevin, 2026-09-24/25)."""
+        the operator's custom comments. With neither, no comment."""
         return self.comment_business.comment_on_post(
             comment_text=comment_text,
             custom_comments=(config or {}).get('custom_comments'),

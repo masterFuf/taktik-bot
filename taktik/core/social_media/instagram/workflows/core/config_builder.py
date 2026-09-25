@@ -87,16 +87,14 @@ def _build_action_config(
             "type": "unfollow",
             "max_unfollows": unfollow_config.get("maxUnfollows", max_profiles),
             "unfollow_mode": unfollow_config.get("unfollowMode", "non-followers"),
-            # Pause between two unfollows, in seconds: the page's and the scheduler's setting,
-            # 2 to 5 s when absent (Kevin, 2026-09-23: fast by default, prudence comes from the
-            # volume caps, 25-60 s between unfollows looks MORE suspect).
+            # Pause between two unfollows, in seconds, 2 to 5 s when absent: prudence comes from
+            # the volume caps, and a long pause between unfollows looks more suspect.
             "min_delay": float(unfollow_config.get("minDelay", 2) or 2),
             "max_delay": float(unfollow_config.get("maxDelay", 5) or 5),
             "skip_verified": unfollow_config.get("skipVerified", True),
             "skip_business": unfollow_config.get("skipBusiness", False),
             "min_days_since_follow": unfollow_config.get("minDaysSinceFollow", 3),
-            # On by default (Kevin, 2026-09-23): manual follows are protected unless the user
-            # unticks it, the same default as the engine's.
+            # On by default, as in the engine: manual follows are protected.
             "bot_follows_only": unfollow_config.get("botFollowsOnly", True),
             "whitelist": unfollow_config.get("whitelist", []),
             "blacklist": unfollow_config.get("blacklist", []),

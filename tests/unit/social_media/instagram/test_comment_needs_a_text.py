@@ -1,10 +1,6 @@
 """A comment is an AI comment or one of the operator's, or nothing: the bot has no template.
 
-Kevin (2026-09-24/25): without AI and without custom comments, no workflow posts a comment. The
-bot used to take one of its built-in templates ("🔥", "Great post!"...), and the same few fixed
-comments on post after post are a trace of automation. The Feed stopped first; the hashtag, post
-URL and profile workflows followed, and the templates are gone. The operator's custom comments
-stay usable without any AI key.
+The operator's custom comments stay usable without any AI key.
 """
 
 import types

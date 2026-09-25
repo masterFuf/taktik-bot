@@ -2,7 +2,7 @@
 
 `tt.unfollow.preview_rows` reads the decision the run would take for each visible row;
 `tt.unfollow.unfollow_one` runs one pass of the production `process_rows` (decision, tap, proof by
-the row, record). Rule of Kevin: every screen capability is testable on its own from the Lab, on
+the row, record). Every screen capability is testable on its own from the Lab, on
 the same function as production. Same fake list as the workflow tests (conftest.py).
 """
 

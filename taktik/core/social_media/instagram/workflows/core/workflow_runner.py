@@ -253,8 +253,8 @@ class WorkflowRunner:
                 outcome['reached'] = True
             failure = result.get('link_failure')
             if failure:
-                # A failure of THIS link (not reached, list closed): logged and counted, and the
-                # run goes on to the next link (Kevin, 2026-09-25). It used to end the run.
+                # A failure of this link (not reached, list closed): logged and counted, and the
+                # run goes on to the next link.
                 failed_now[url] = failure
                 self.logger.warning(f"🔗 Link not worked ({_motive_code(failure)}), next link: {url}")
                 return interacted, False

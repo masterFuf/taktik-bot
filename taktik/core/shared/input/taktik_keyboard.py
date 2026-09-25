@@ -31,8 +31,7 @@ _ACTIVE_CACHE_TTL_SECONDS = 120.0
 _active_ime_cache: dict[str, float] = {}
 
 # The keyboard each phone had before this process first switched it to the ADB one (None: it could
-# not be read). The bot switched and never gave it back: the Pixels ended up with the ADB keyboard
-# as their default, useless to a person (decision 6 of Kevin, 2026-09-23).
+# not be read), given back at the end so the phone is not left on the ADB keyboard.
 _original_ime: Dict[str, Optional[str]] = {}
 _restore_lock = threading.Lock()
 _atexit_registered = False

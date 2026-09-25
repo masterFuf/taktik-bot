@@ -633,7 +633,7 @@ class SyncFollowingMixin:
         base forever. Called only after a complete read of the list; a partial one proves nothing.
         A wrong mark is harmless in the safe direction (one candidate fewer), and the next sync
         that sees the account clears it (`upsert_following`). More departures than a tenth of the
-        known followings (5 at least) in one read are not applied: logged, and left to Kevin.
+        known followings (5 at least) in one read are not applied, only logged.
         """
         seen_lower = {name.lower() for name in seen}
         gone = sorted(name for name in known if name.lower() not in seen_lower)

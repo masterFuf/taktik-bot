@@ -1,7 +1,7 @@
 """Unfollow capabilities for the Cartography Lab, one production function each.
 
 Each action calls exactly what the unfollow engine (`UnfollowBusiness`) runs in production, so
-Kevin can test every step on its own: the syncs, the sort, the fans category, the rows the list
+every step can be tested on its own: the syncs, the sort, the fans category, the rows the list
 shows, the decision on data (no screen), and the block detector. The destructive ones (the whole
 step, one account) live in `engagement.py`. Params `account` (the Lab binds the component to it),
 and for the decision the same fields as the page.

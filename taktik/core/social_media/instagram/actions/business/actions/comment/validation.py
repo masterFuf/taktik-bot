@@ -1,8 +1,4 @@
-"""Comment text validation (length bounds from the action config).
-
-The bot has no built-in comment template any more (Kevin, 2026-09-24): a comment is the AI's
-or one of the operator's custom comments, or nothing.
-"""
+"""Comment text validation (length bounds from the action config)."""
 
 from loguru import logger
 

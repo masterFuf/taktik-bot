@@ -1,15 +1,10 @@
 """L'unfollow TikTok garde les comptes suivis depuis moins que l'« Âge min. (jours) » du nœud, et
 ceux dont la date de follow est inconnue.
 
-Le nœud `tiktok-unfollow` du planificateur propose « Âge min. (jours) » (`minFollowAge`, 3 par
-défaut). Le runner ne le transmettait pas et le bot n'en faisait rien, jusqu'au 2026-09-24.
-
 L'âge : le dernier FOLLOW du bot, sinon la première fois qu'une synchro de la liste d'abonnements
 a vu le compte (`TikTokFollowGraphService.get_follow_age_days`, comme l'unfollow Instagram date un
-follow). Décision de Kevin du 2026-09-24 : **dans le doute, on protège**, comme Instagram. Un
-compte que rien ne date (pas de pseudo sur la ligne, compte actif inconnu, ni FOLLOW ni synchro)
-est GARDÉ, motif `follow_date_unknown`, compté dans les stats. La première version faisait
-l'inverse : un follow fait à la main la veille pouvait partir.
+follow). Dans le doute, on protège : un compte que rien ne date (pas de pseudo sur la ligne,
+compte actif inconnu, ni FOLLOW ni synchro) est gardé, motif `follow_date_unknown`.
 """
 
 from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.payload import (
