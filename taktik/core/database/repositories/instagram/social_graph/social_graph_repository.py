@@ -110,6 +110,32 @@ class SocialGraphRepository(BaseRepository):
             logger.debug(f"Error getting days since follow for @{username}: {exc}")
             return None
 
+    def get_days_since_first_seen_following(self, username: str, account_id: int) -> Optional[int]:
+        """Full days since a following sync first saw this account in the CURRENT following, or None.
+
+        The other half of a follow date, the half `get_days_since_follow` cannot give: an account
+        followed by hand has no FOLLOW interaction, but a sync of the following list saw it on a
+        known day, and it was followed on that day or before. The Instagram unfollow dates a follow
+        the same way (`candidates._follow_date`: the bot's follow, else the first sighting). None
+        when no sync has seen it, or when its row is closed (unfollowed).
+        """
+        if not account_id or not username:
+            return None
+        try:
+            row = self.query_one_orm_first(
+                "SELECT first_seen_at FROM social_graph_sync "
+                "WHERE platform = ? AND account_id = ? AND username = ? COLLATE NOCASE "
+                "AND direction = 'following' AND unfollowed_at IS NULL",
+                (self.platform, account_id, username),
+            )
+            if not row or not row["first_seen_at"]:
+                return None
+            first_seen = datetime.fromisoformat(str(row["first_seen_at"]))
+            return max(0, (datetime.now() - first_seen).days)
+        except Exception as exc:
+            logger.debug(f"Error getting the first sighting of @{username}: {exc}")
+            return None
+
     def _upsert_social_graph(
         self,
         account_id: int,

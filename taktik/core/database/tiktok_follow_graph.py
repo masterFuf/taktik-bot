@@ -53,6 +53,54 @@ class TikTokFollowGraphService:
             return None
 
     @classmethod
+    def get_follow_age_days(cls, username: str, account_id: int) -> Optional[int]:
+        """Full days since the account was followed, or None when nothing dates it.
+
+        Dated like the Instagram unfollow dates a follow: the bot's own last FOLLOW, else the
+        first time a following sync saw the account (a follow made by hand, or before the base).
+        With both, the YOUNGER wins: a sync reopens the row of an account followed again after an
+        unfollow, and the bot's FOLLOW before that unfollow does not date the new follow. In doubt,
+        the account is younger, so it is kept longer. None means UNKNOWN, never "old": the
+        unfollow keeps such an account when a minimum age is set.
+        """
+        if not account_id or not username:
+            return None
+        known = [cls.get_days_since_follow(username, account_id)]
+        try:
+            known.append(cls._repository().get_days_since_first_seen_following(
+                username=username, account_id=account_id
+            ))
+        except Exception as exc:
+            log.debug(f"Error getting the first sighting of @{username}: {exc}")
+        known = [days for days in known if days is not None]
+        return min(known) if known else None
+
+    @classmethod
+    def record_unfollow(cls, username: str, account_id: int, session_id: Optional[int] = None) -> bool:
+        """File one unfollow the screen CONFIRMED: the interaction, the day's total, the graph.
+
+        An `UNFOLLOW` interaction (which also counts in the day's `total_unfollows`), and the
+        following row closed (`unfollowed_at`), so the next sync and the next age lookup know.
+        Returns whether the interaction was written. Never raises: losing the record must not
+        lose the run, and the caller says so in its log.
+        """
+        if not account_id or not username:
+            return False
+        try:
+            written = bool(get_local_database().record_tiktok_interaction(
+                account_id=account_id,
+                target_username=username,
+                interaction_type="UNFOLLOW",
+                success=True,
+                session_id=session_id,
+            ))
+        except Exception as exc:
+            log.debug(f"Error recording the unfollow of @{username}: {exc}")
+            written = False
+        cls.mark_unfollowed(username, account_id)
+        return written
+
+    @classmethod
     def upsert_following(
         cls,
         username: str,

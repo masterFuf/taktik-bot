@@ -63,3 +63,32 @@ def is_following_button(text: str) -> bool:
     if not normalized:
         return False
     return _matches(normalized, PROFILE_SELECTORS.following_button_labels)
+
+
+def is_follow_button(text: str) -> bool:
+    """True when a follow-state button OFFERS to follow ("Suivre" / "Follow", "... en retour").
+
+    Compared by EQUALITY, not containment like its two siblings: "Follow" is a prefix of
+    "Following", so a containment test would read "we follow them" as "we do not". This is the
+    label that proves an unfollow went through, so a loose match here would count taps as
+    unfollows, the defect it exists to close.
+    """
+    normalized = normalize_ui_label(text)
+    if not normalized:
+        return False
+    return any(normalized == normalize_ui_label(label)
+               for label in (PROFILE_SELECTORS.follow_button_labels or []) if label and label.strip())
+
+
+def classify_follow_button(text: str) -> Optional[str]:
+    """What a row's follow-state button says: ``'friends' | 'following' | 'follow' | None``.
+
+    Mutual first (a mutual follow is also a follow), then "we follow", then "we do not".
+    """
+    if is_friends_button(text):
+        return "friends"
+    if is_following_button(text):
+        return "following"
+    if is_follow_button(text):
+        return "follow"
+    return None

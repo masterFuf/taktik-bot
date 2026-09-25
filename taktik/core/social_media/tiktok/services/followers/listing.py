@@ -63,6 +63,36 @@ def find_username_for_bounds(username_elements: List[Any], row_bounds: Dict[str,
     return None
 
 
+def row_follow_state(
+    device: Any,
+    row_bounds: Dict[str, int],
+    selectors=FOLLOWERS_SELECTORS,
+) -> str:
+    """What the follow button of ONE row says now: 'follow', 'following', 'friends' or 'unknown'.
+
+    The row is the one whose button overlaps ``row_bounds`` vertically, the pairing
+    `find_follower_rows` already uses between a button and its handle. The label is read through
+    the locale catalogue (`classify_follow_button`), so it holds in any language the catalogue
+    knows. 'unknown' means the row was not found or its label is not a known state: never a
+    success.
+
+    This is the read that proves an unfollow on OUR following list: TikTok swaps the tapped
+    row's « Suivis » for « Suivre » in place, and the row stays (46.6.3, capture of 2026-08-30).
+    """
+    from taktik.core.social_media.tiktok.ui.labels import classify_follow_button
+
+    if not row_bounds:
+        return "unknown"
+    try:
+        buttons = _first_xpath_all(device, selectors.follower_any_button)
+    except Exception:
+        return "unknown"
+    for button in buttons:
+        if vertical_bounds_overlap(get_element_bounds(button), row_bounds):
+            return classify_follow_button(get_element_text(button)) or "unknown"
+    return "unknown"
+
+
 def vertical_bounds_overlap(first: Dict[str, int], second: Dict[str, int]) -> bool:
     """Return True when two Android bounds overlap vertically."""
     return first.get("top", 0) < second.get("bottom", 0) and first.get("bottom", 0) > second.get("top", 0)
@@ -109,8 +139,20 @@ def follower_username_tap_point(
 
 
 def get_element_bounds(element: Any) -> Dict[str, int]:
+    """An element's bounds as ``{left, top, right, bottom}``.
+
+    From ``info['bounds']`` (an xpath match), else from a ``(left, top, right, bottom)`` tuple on
+    ``.bounds``, the other shape the same element exposes.
+    """
     info = getattr(element, "info", {}) or {}
-    return info.get("bounds", {}) or {}
+    bounds = info.get("bounds") if isinstance(info, dict) else None
+    if bounds:
+        return bounds
+    raw = getattr(element, "bounds", None)
+    if isinstance(raw, (tuple, list)) and len(raw) == 4:
+        left, top, right, bottom = raw
+        return {"left": left, "top": top, "right": right, "bottom": bottom}
+    return {}
 
 
 def get_element_text(element: Any) -> str:
