@@ -9,7 +9,8 @@ most thorough field lookup and the workflow that had the humanised tap; none had
 This module is their union, and the only place that knows how to talk to a DM composer:
 
 - **finding the field** tries every signature the four used, richest first;
-- **focusing it** uses the sampled human tap, with a centre click as fallback;
+- **focusing it** uses the sampled human tap, with a centre click as fallback, once the Taktik
+  keyboard is the phone's keyboard (a switch after the tap can cost the field its focus);
 - **typing** goes through the Taktik keyboard, then `set_text`, then `send_keys`, and counts
   only when the composer then reads exactly the message;
 - **sending** tries the xpath catalogue, then the resource-ids, then the content-descriptions.
@@ -25,7 +26,11 @@ from typing import Any, Optional
 from loguru import logger as _default_logger
 
 from taktik.core.shared.behavior.tap import tap_element_human
-from taktik.core.shared.input.taktik_keyboard import field_holds_text, type_text_checked
+from taktik.core.shared.input.taktik_keyboard import (
+    ensure_taktik_keyboard,
+    field_holds_text,
+    type_text_checked,
+)
 from ....ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -135,6 +140,8 @@ def type_message(
     if element is None:
         return False
 
+    # Before the tap: a keyboard switched after it can cost the field its focus.
+    ensure_taktik_keyboard(device_id)
     focus_message_input(device, element, logger=log)
     time.sleep(0.3)
 

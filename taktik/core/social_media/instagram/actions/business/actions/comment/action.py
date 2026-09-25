@@ -300,7 +300,9 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             if not found or comment_field is None:
                 self.logger.error("Comment field not found (all selectors failed)")
                 return False
-            
+
+            # Before the tap: a keyboard switched after it can cost the field its focus.
+            self._ensure_taktik_keyboard()
             comment_field.click()
             time.sleep(0.5)
             
@@ -575,6 +577,8 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                 result['message'] = f'No comment from @{handle} found in the thread'
                 return result
 
+            # The Reply tap focuses the composer: the keyboard is switched before it.
+            self._ensure_taktik_keyboard()
             if not self.device.human_tap(bounds):
                 result['message'] = f'Could not tap Reply on @{handle}'
                 return result

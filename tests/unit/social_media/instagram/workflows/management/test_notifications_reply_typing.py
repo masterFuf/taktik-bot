@@ -22,6 +22,7 @@ def test_the_reply_is_checked_after_the_mention(monkeypatch):
     workflow.device = object()
     workflow.device_id = "PHONE-1"
     workflow.logger = type("L", (), {"warning": lambda *a, **k: None, "error": lambda *a, **k: None})()
+    monkeypatch.setattr(nw, "ensure_taktik_keyboard", lambda _device_id: True)
     monkeypatch.setattr(nw, "tap_element_human", lambda *a, **k: True)
     monkeypatch.setattr(nw.time, "sleep", lambda _s: None)
     monkeypatch.setattr(nw, "read_focused_text", lambda device: "@ana ")

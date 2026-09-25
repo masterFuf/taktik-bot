@@ -188,6 +188,8 @@ class StoryInteractionMixin(BaseAction):
 
     def open_story_reply_composer(self) -> bool:
         """Focus the story reply text field (message composer) for typing a reply."""
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
         return self._find_and_click(STORY_SELECTORS.story_message_composer, timeout=3)
 
     def open_story_share_sheet(self) -> bool:

@@ -7,7 +7,11 @@ import time
 
 from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.runtime.ipc import logger
-from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import type_message
+from taktik.core.shared.input.taktik_keyboard import ensure_taktik_keyboard
+from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
+    resolve_device_id,
+    type_message,
+)
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -35,6 +39,9 @@ class ColdDMSenderMixin:
             logger.error("Message input not found")
             return False
 
+        device_id = resolve_device_id(self.device, self._keyboard.device_id)
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        ensure_taktik_keyboard(device_id)
         msg_input.click()
         time.sleep(0.5)
 
@@ -42,7 +49,7 @@ class ColdDMSenderMixin:
         time.sleep(typing_time)
 
         # The shared composer: typed without typos as before, sent only once it reads the message.
-        if not type_message(self.device, self._keyboard.device_id, message,
+        if not type_message(self.device, device_id, message,
                             element=msg_input, typos=False, logger=logger):
             logger.error("The composer does not hold the message: not sent")
             return False

@@ -10,6 +10,12 @@ import pytest
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 
 
+@pytest.fixture(autouse=True)
+def _keyboard_already_there(monkeypatch):
+    """The keyboard switch before the tap talks to adb; these tests are about the field."""
+    monkeypatch.setattr(dm_composer, "ensure_taktik_keyboard", lambda _device_id: True)
+
+
 class _Element:
     def __init__(self, name):
         self.name = name

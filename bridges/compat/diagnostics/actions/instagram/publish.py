@@ -154,7 +154,9 @@ def publish_dismiss_modal_ok(a, p):
 
 @action("publish.tap_caption")
 def publish_tap_caption(a, p):
-    """Tap the caption field to focus it."""
+    """Tap the caption field to focus it, the Taktik keyboard switched first as
+    `InstagramPostWorkflow._fill_caption` does."""
+    a.kb._ensure_taktik_keyboard()
     ok = a.click._find_and_click(CC.composer_xpaths(), timeout=4)
     return _result(ok, "champ caption ouvert", "caption introuvable", selector="caption_input_text_view")
 

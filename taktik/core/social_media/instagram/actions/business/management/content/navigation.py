@@ -50,6 +50,8 @@ def navigate_to_hashtag(business_action, hashtag: str) -> bool:
             return False
         
         search_term = f"#{hashtag}"
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        business_action._ensure_taktik_keyboard()
         if not business_action._find_and_click(business_action.detection_selectors.hashtag_search_bar_selectors, timeout=5):
             return False
         

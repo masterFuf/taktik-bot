@@ -11,7 +11,9 @@ class ContentInputMixin(BaseAction):
 
     def type_in_search_bar(self, search_term: str) -> bool:
         self.logger.debug(f"🔍 Typing in search bar: '{search_term}'")
-        
+
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
         if not self._find_and_click(self.detection_selectors.search_bar_selectors, timeout=5):
             self.logger.error("Cannot find search bar")
             return False
@@ -34,7 +36,9 @@ class ContentInputMixin(BaseAction):
     
     def send_message(self, message_text: str) -> bool:
         self.logger.debug(f"💌 Sending message ({len(message_text)} chars)")
-        
+
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
         if not self._find_and_click(self.text_selectors.message_field_selectors, timeout=5):
             self.logger.error("Cannot find field message")
             return False

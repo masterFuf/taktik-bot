@@ -169,7 +169,9 @@ class SearchNavigationMixin(BaseAction):
         # Step 2: Click on search bar to activate it
         # On the explore page, we need to click on the search bar at the top
         search_bar_selectors = NAVIGATION_SELECTORS.explore_search_bar
-        
+
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
         if not self._find_and_click(search_bar_selectors, timeout=5):
             self.logger.error("Cannot find/click search bar")
             return False
@@ -224,7 +226,9 @@ class SearchNavigationMixin(BaseAction):
             if not self.navigate_to_search():
                 self.logger.error("Cannot navigate to search screen")
                 return False
-            
+
+            # Before the tap: a keyboard switched after it can cost the field its focus.
+            self._ensure_taktik_keyboard()
             search_bar_clicked = self._find_and_click(
                 self.detection_selectors.hashtag_search_bar_selectors, timeout=2
             )

@@ -76,6 +76,7 @@ def _action(field=None, xml=THREAD, comments_open=True, tap_ok=True,
     act.session_manager = None
     act._is_comments_view_open = lambda: comments_open
     act._human_like_delay = lambda _kind: None
+    act._ensure_taktik_keyboard = lambda: True
     act._close_comment_popup = lambda: True
     act._type_comment = lambda _text, mention="": typed_ok
     act._post_comment = lambda: sent_ok

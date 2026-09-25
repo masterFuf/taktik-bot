@@ -30,6 +30,7 @@ from loguru import logger
 
 from taktik.core.shared.device.ui_dump import iter_widgets, parse_ui_dump
 from taktik.core.shared.input.taktik_keyboard import (
+    ensure_taktik_keyboard,
     field_holds_text,
     read_focused_text,
     type_text_checked,
@@ -924,6 +925,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         then set_text, each counted only when the composer then reads exactly the reply, after
         the "@name " Instagram prefills on a reply (`type_text_checked`). Uses the shared CORE
         keyboard so the workflow never imports the bridge layer (DIP)."""
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        ensure_taktik_keyboard(self.device_id)
         try:
             if not tap_element_human(self.device, field):
                 field.click()  # focus the composer before the IME broadcast
@@ -995,6 +998,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         self._optimize_locale()  # composer / send labels are locale-dependent
 
         self._notify("reply", "running", username or "comment", username=username)
+        # The Reply tap focuses the composer: the keyboard is switched before it.
+        ensure_taktik_keyboard(self.device_id)
         if not self._open_reply_thread(username):
             result["message"] = (f"No reply affordance for: {username}" if username
                                  else "No reply affordance on screen")
