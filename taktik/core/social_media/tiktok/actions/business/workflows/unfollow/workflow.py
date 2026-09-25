@@ -5,7 +5,8 @@ human-like delays.
 
 Each row goes through the same three steps, which the Cartography Lab runs too
 (`tt.unfollow.preview_rows`, `tt.unfollow.unfollow_one`):
-1. the decision (`row_refusal`): mutual follows, the minimum follow age, an unknown follow date;
+1. the decision (`row_refusal`): mutual follows, a row without a handle, the minimum follow age,
+   an unknown follow date;
 2. the tap, then the proof (`unfollow_row`): the row must offer to follow again, read through the
    catalogue and the language layer; a confirmation sheet is tapped only if one shows up;
 3. the record: a confirmed unfollow is written to the base, an unconfirmed tap is not counted.
@@ -33,6 +34,7 @@ from .models import (
     SKIP_FOLLOW_DATE_UNKNOWN,
     SKIP_FOLLOWED_TOO_RECENTLY,
     SKIP_FRIENDS,
+    SKIP_HANDLE_UNKNOWN,
     STOP_UNFOLLOW_UNCONFIRMED,
     UnfollowConfig,
     UnfollowStats,
@@ -185,14 +187,16 @@ class UnfollowWorkflow:
         # hardcoded English, so on a French phone the option silently did nothing.
         if is_friends_button(button_text) and not self.config.include_friends:
             return SKIP_FRIENDS
-        return self._follow_age_refusal(username)
+        # With no handle the account can be neither dated nor recorded: never unfollowed, age or not.
+        handle = normalize_username(username)
+        if not handle:
+            return SKIP_HANDLE_UNKNOWN
+        return self._follow_age_refusal(handle)
 
     def unfollow_row(self, elem: Any, username: Optional[str]) -> bool:
         """Tap one row's button and PROVE the unfollow. True only when the row confirmed it.
 
-        Until 2026-09-24 every tap was counted, and the run waited 2 s for a confirmation sheet
-        after each one, a sheet the following list does not show (the row turns "Suivre" in
-        place). Now the row is read again until it offers to follow (bounded wait), the sheet is
+        The row is read again until it offers to follow (bounded wait), a confirmation sheet is
         tapped only if it appears, and only a confirmed unfollow is counted and written.
         """
         bounds = get_element_bounds(elem)
@@ -271,6 +275,8 @@ class UnfollowWorkflow:
     def _skip(self, username: Optional[str], reason: str) -> None:
         if reason == SKIP_FRIENDS:
             self.stats.skipped_friends += 1
+        elif reason == SKIP_HANDLE_UNKNOWN:
+            self.stats.skipped_handle_unknown += 1
         elif reason == SKIP_FOLLOWED_TOO_RECENTLY:
             self.stats.skipped_recent_follows += 1
         elif reason == SKIP_FOLLOW_DATE_UNKNOWN:
@@ -278,23 +284,19 @@ class UnfollowWorkflow:
         self.stats.refusals[reason] = self.stats.refusals.get(reason, 0) + 1
         if self._on_skip:
             self._on_skip(username, reason)
-        logger.info(f"⏭️ Kept @{username or 'unknown'}: {reason}")
+        handle = f"@{username}" if username else "(row without a handle)"
+        logger.info(f"⏭️ Kept {handle}: {reason}")
         self._emit_stats()
 
-    def _follow_age_refusal(self, username: Optional[str]) -> Optional[str]:
+    def _follow_age_refusal(self, handle: str) -> Optional[str]:
         """The minimum follow age: `followed_too_recently`, `follow_date_unknown`, or None.
 
-        In doubt, protect, as the Instagram unfollow does: a row whose follow nothing dates (no
-        handle on the row, no acting account, no FOLLOW by the bot and no sighting by a sync) is
-        KEPT. Until 2026-09-24 only a known recent follow held an account back, so a follow made
-        by hand the day before could go.
+        In doubt, protect, as the Instagram unfollow does: an account whose follow nothing dates
+        (no acting account, no FOLLOW by the bot and no sighting by a sync) is KEPT.
         """
         min_days = self.config.min_follow_age_days
         if min_days <= 0:
             return None
-        handle = normalize_username(username)
-        if not handle:
-            return SKIP_FOLLOW_DATE_UNKNOWN
         account_id = self._acting_account_id()
         if not account_id:
             return SKIP_FOLLOW_DATE_UNKNOWN

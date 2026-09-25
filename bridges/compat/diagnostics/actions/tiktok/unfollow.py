@@ -4,7 +4,7 @@ Both actions build the production `UnfollowWorkflow` on the session's device and
 steps, so what the Lab shows is what a run does:
 - `tt.unfollow.preview_rows` (read-only): for each visible row of OUR following list, the handle
   paired to it, its button's state, and the decision the run would take (`row_refusal`: friends,
-  followed too recently, follow date unknown, or unfollow). Nothing is tapped.
+  handle unknown, followed too recently, follow date unknown, or unfollow). Nothing is tapped.
 - `tt.unfollow.unfollow_one` (DESTRUCTIVE): one pass of `process_rows` limited to one unfollow:
   the decision, the tap, the proof by the row (it must offer to follow again), the confirmation
   sheet only if it shows, and the record in the base. Test account only.

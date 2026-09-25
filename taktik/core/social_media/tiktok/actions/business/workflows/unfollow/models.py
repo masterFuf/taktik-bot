@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 
 #: Why a row was left alone, as the events and the stats name it. The page shows each one.
 SKIP_FRIENDS = "friends"
+#: The list hides the handle on this row: it could be neither dated, nor checked, nor recorded.
+SKIP_HANDLE_UNKNOWN = "handle_unknown"
 SKIP_FOLLOWED_TOO_RECENTLY = "followed_too_recently"
 SKIP_FOLLOW_DATE_UNKNOWN = "follow_date_unknown"
 
@@ -22,13 +24,12 @@ class UnfollowConfig:
     min_delay: float = 1.0
     max_delay: float = 3.0
     max_scroll_attempts: int = 10
-    #: Keep an account followed less than this many days ago; 0 = no age rule. The scheduler node
-    #: has offered "Âge min. (jours)" all along and nothing read it until 2026-09-24. The age is
-    #: the bot's own last FOLLOW, else the first sighting by a following sync
-    #: (`TikTokFollowGraphService.get_follow_age_days`). An account that NOTHING dates (no handle
-    #: on its row, no acting account, no FOLLOW and no sync) is KEPT, motive
-    #: `follow_date_unknown`: in doubt, protect, as the Instagram unfollow does. With the rule on,
-    #: a follow made by hand and never seen by a sync is therefore never unfollowed.
+    #: Keep an account followed less than this many days ago; 0 = no age rule. The age is the
+    #: bot's own last FOLLOW, else the first sighting by a following sync
+    #: (`TikTokFollowGraphService.get_follow_age_days`). An account that NOTHING dates (no acting
+    #: account, no FOLLOW and no sync) is KEPT, motive `follow_date_unknown`: in doubt, protect,
+    #: as the Instagram unfollow does. A row without a handle is kept whatever this is
+    #: (`handle_unknown`).
     min_follow_age_days: int = 0
     #: The acting account: dates its follows and files its unfollows. Without it neither can be done.
     bot_username: Optional[str] = None
@@ -45,6 +46,7 @@ class UnfollowStats:
     """Stats for the Unfollow workflow."""
     unfollowed: int = 0
     skipped_friends: int = 0
+    skipped_handle_unknown: int = 0
     skipped_recent_follows: int = 0
     skipped_follow_date_unknown: int = 0
     #: Taps after which the row still did not offer to follow: NOT counted as unfollows.
@@ -66,6 +68,7 @@ class UnfollowStats:
             "unfollowed": self.unfollowed,
             "skipped": self.skipped,
             "skipped_friends": self.skipped_friends,
+            "skipped_handle_unknown": self.skipped_handle_unknown,
             "skipped_recent_follows": self.skipped_recent_follows,
             "skipped_follow_date_unknown": self.skipped_follow_date_unknown,
             "unconfirmed": self.unconfirmed,
