@@ -43,7 +43,7 @@ def _shell(device_id: str, command: str, timeout: int = 15) -> str:
     result as ONE command line, without re-quoting: `["sh", "-c", "ping -c 3 1.1.1.1"]` reaches
     the phone as `sh -c ping -c 3 1.1.1.1`, where `sh -c ping` runs ping with no argument at all
     and the rest becomes $0, $1… Every command sent through this helper was returning ping's usage
-    text or nothing — measured on 18171JEC217045 the 2026-09-06, which is why `read_public_ip`
+    text or nothing — measured on a Pixel 4a, which is why `read_public_ip`
     answered None on the whole fleet and `wait_for_internet` never saw a reply. `shlex.quote`
     hands the device shell a single quoted word, quotes inside the command included.
     """

@@ -9,7 +9,7 @@ on one dump of the screen (`runtime/selector_test/runner.py`).
 
 Config JSON (passed as argv[1] temp file):
   {
-    "device_id": "CE7S00081E2148",
+    "device_id": "emulator-5554",
     "app": "instagram",
     "version": "417.0.0.54.77",
     "domains": ["navigation", "feed"]  // optional filter, empty = all

@@ -10,13 +10,13 @@ Usage
 Examples
 --------
     # USB device (find serial with: adb devices)
-    python scripts/record_human_session.py -d R3CN50BXLPN
+    python scripts/record_human_session.py -d emulator-5554
 
     # Emulator
     python scripts/record_human_session.py -d emulator-5554
 
     # Custom output file and faster polling
-    python scripts/record_human_session.py -d R3CN50BXLPN -o my_session.jsonl --interval 0.3
+    python scripts/record_human_session.py -d emulator-5554 -o my_session.jsonl --interval 0.3
 
 Output
 ------

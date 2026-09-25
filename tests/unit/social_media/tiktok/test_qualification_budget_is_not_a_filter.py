@@ -42,7 +42,7 @@ QUALIFICATION_PAYLOAD = {
 # The payload the Followers page sends for "visit 20 followers of @adaluz_cabezas1" -- the run
 # that visited four profiles and interacted with none.
 FOLLOWERS_PAYLOAD = {
-    'deviceId': '25171JEGR13922', 'workflowType': 'followers',
+    'deviceId': 'test-device', 'workflowType': 'followers',
     'targets': ['adaluz_cabezas1'], 'maxFollowers': 20,
     'maxLikesPerSession': 50, 'maxFollowsPerSession': 20, 'postsPerProfile': 2,
     'likeProbability': 30, 'followProbability': 10,

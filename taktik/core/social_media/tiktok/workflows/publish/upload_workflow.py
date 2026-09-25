@@ -105,7 +105,7 @@ class TikTokUploadWorkflow:
     Parameters
     ----------
     device      : uiautomator2 device object
-    device_id   : ADB serial (e.g. "C57S00000032140")
+    device_id   : ADB serial (e.g. "emulator-5554")
     """
 
     def __init__(self, device, device_id: str, notifier=None, step_hook=None):

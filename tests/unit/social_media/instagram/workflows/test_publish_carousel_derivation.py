@@ -20,7 +20,7 @@ def _bridge(config):
 
 def test_several_media_on_a_post_becomes_a_carousel():
     bridge = _bridge({
-        "deviceId": "9CHAY1PNRW",
+        "deviceId": "test-device",
         "postType": "post",
         "mediaPaths": ["a.png", "b.png", "c.png"],
     })
