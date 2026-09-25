@@ -82,7 +82,8 @@ def test_register_tiktok_for_you_handler_executes_workflow_with_normalized_confi
                             "minWatchTime": 2.5,
                             "maxWatchTime": 7.5,
                             "likeProbability": 30,
-                            "followProbability": 0.2,
+                            # A fraction is the Agent-plan vocabulary: camelCase is percent.
+                            "follow_probability": 0.2,
                             "favoriteProbability": 5,
                             "requiredHashtags": ["#one", "two"],
                             "excludedHashtags": "spam, #ads",

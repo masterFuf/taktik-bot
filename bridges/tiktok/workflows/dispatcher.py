@@ -9,53 +9,13 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.tiktok.runtime.ipc import logger, send_error
-from bridges.tiktok.workflows.runtime.dispatcher import (
-    UnknownWorkflowError,
-    dispatch_tiktok_workflow,
-    force_stop_tiktok,
-    load_dispatcher_config,
-    reset_network_if_enabled,
-)
+from bridges.common.runtime.entrypoint import run_bridge_main
+from bridges.tiktok.workflows.runtime.dispatcher import TikTokDispatcherBridge
 
 
 def main():
     """Main entry point - dispatch to the configured TikTok workflow bridge."""
-    config = load_dispatcher_config(sys.argv)
-    if config is None:
-        sys.exit(1)
-
-    workflow_type = config.get("workflowType", "for_you")
-    device_id = config.get("deviceId", "unknown")
-    logger.info(f"🎵 TikTok Bridge starting - workflow: {workflow_type}, device: {device_id}")
-
-    # A requested-but-failed IP rotation stops the run: acting from the previous account's IP is
-    # exactly what the option exists to prevent.
-    if not reset_network_if_enabled(config, device_id):
-        sys.exit(1)
-
-    try:
-        success, workflow_type = dispatch_tiktok_workflow(config)
-
-        if success:
-            logger.success(f"✅ TikTok {workflow_type} workflow completed successfully")
-            sys.exit(0)
-
-        logger.error(f"❌ TikTok {workflow_type} workflow failed")
-        sys.exit(1)
-
-    except ImportError as e:
-        send_error(f"Failed to import workflow module: {e}")
-        logger.error(f"Import error: {e}")
-        sys.exit(1)
-    except UnknownWorkflowError:
-        sys.exit(1)
-    except Exception as e:
-        send_error(f"Workflow error: {e}")
-        logger.exception(f"Unexpected error in {workflow_type} workflow: {e}")
-        sys.exit(1)
-    finally:
-        force_stop_tiktok(device_id)
+    run_bridge_main(TikTokDispatcherBridge, usage="tiktok_bridge <config_path>")
 
 
 if __name__ == "__main__":

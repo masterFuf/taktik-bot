@@ -20,7 +20,7 @@ Standalone-safe: the verdict is emitted through an injected `emit_relevance` cal
 
 import os
 import tempfile
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
 
@@ -409,10 +409,57 @@ def install_tiktok_ai_hooks(
             log("warning", f"Failed to install the TikTok Smart Comments hook: {exc}")
 
 
+def ai_config_from_payload(payload: Mapping[str, Any]) -> dict:
+    """The run's `ai` block."""
+    return payload.get("ai") or {}
+
+
+def app_language_from_payload(payload: Mapping[str, Any]) -> str:
+    """The app language the operator-facing AI texts are written in."""
+    return payload.get("language") or payload.get("appLanguage") or "en"
+
+
+def install_profile_ai_hooks_for_run(
+    ai_config: Mapping[str, Any],
+    language: str,
+    *,
+    ai_ipc: Any = None,
+    log: LogCallback = lambda level, msg: None,
+    emit_relevance: Optional[EmitRelevance] = None,
+    emit_classification: Optional[EmitClassification] = None,
+) -> None:
+    """Install the AI hooks a run asks for; the desktop and the CLI both come here.
+
+    Does nothing when `ai_config` is off, and never raises: a broken AI setup costs the verdicts,
+    not the run. `ai_ipc` receives the provider's `ai_spend` events.
+    """
+    if not ai_config.get("enabled"):
+        return
+    try:
+        from taktik.core.app.ai.factory import create_ai_service
+
+        ai_enabled, ai_service = create_ai_service(
+            ai_config=ai_config,
+            ipc=ai_ipc,
+            log=log,
+            ready_message="TikTok AI mode enabled - Profile relevance verdict",
+        )
+        if not ai_enabled:
+            return
+
+        install_tiktok_ai_hooks(ai_service, ai_config, log=log, emit_relevance=emit_relevance,
+                                emit_classification=emit_classification, language=language)
+    except Exception as exc:
+        log("warning", f"Could not install TikTok AI hooks: {exc}")
+
+
 __all__ = [
     "ProfileQualifier",
+    "ai_config_from_payload",
+    "app_language_from_payload",
     "build_tiktok_profile_qualifier",
     "generate_tiktok_comment",
+    "install_profile_ai_hooks_for_run",
     "install_tiktok_ai_hooks",
     "qualify_tiktok_profile",
 ]

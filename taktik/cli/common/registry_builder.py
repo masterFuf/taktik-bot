@@ -95,6 +95,8 @@ def build_registry(
     startup_provider: Callable[..., Any] | None = None,
 ) -> RegistryBuild:
     """Register every available handler, returning the registry and any registrar failures."""
+    from taktik.cli.common.tiktok_host import cli_tiktok_ai_hooks, cli_tiktok_startup
+
     registry = WorkflowRegistry()
     failures: list[tuple[str, str]] = []
 
@@ -105,6 +107,9 @@ def build_registry(
         "notifier": notifier,
         "ai_notifier": notifier,
         "startup_provider": startup_provider,
+        # TikTok handlers that take these start and hook a run the way the bridges do.
+        "tiktok_startup": cli_tiktok_startup(device, device_id) if device is not None else None,
+        "tiktok_ai_hooks": cli_tiktok_ai_hooks,
     }
 
     for label, module_path, func_name in REGISTRARS:
