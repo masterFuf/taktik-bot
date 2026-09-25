@@ -100,14 +100,9 @@ versions:
     # v417 changed: resource-id → layout_comment_thread_edittext_multiline
     #               hint → "Join the conversation…"
     #               class → AutoCompleteTextView (not EditText)
+    # A str field: only one entry is ever applied.
     post.comment_field_selector:
       - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext_multiline"]'
-      - '//*[@resource-id="com.instagram.android:id/layout_comment_thread_edittext"]'
-      - '//*[contains(@resource-id, "comment_thread_edittext")]'
-      - '//*[contains(@hint, "Join the conversation")]'
-      - '//*[contains(@hint, "Rejoindre la conversation")]'
-      - '//*[contains(@hint, "Add a comment")]'
-      - '//*[contains(@hint, "Ajouter un commentaire")]'
 
     # Patch the *_base field, NEVER the property: `comment_field_selectors` is
     # `_comment_field_selectors_base + L(...)`, so the property is read-only and an override

@@ -40,6 +40,23 @@ def test_override_files_are_present_and_readable():
     assert keys, f"no override key found under {OVERRIDES_DIR}"
 
 
+def _override_entries(app, version, key):
+    data = yaml.safe_load((OVERRIDES_DIR / f"{app}.yaml").read_text(encoding="utf-8")) or {}
+    return (data.get("versions") or {})[version][key]
+
+
+@pytest.mark.parametrize("app,version,key", list(_override_keys()))
+def test_a_str_target_carries_a_single_entry(app, version, key):
+    """A str field takes the first entry only: the others would sit there doing nothing."""
+    domain_name, _, field_name = key.partition(".")
+    singleton = DOMAINS[app].get(domain_name)
+    if singleton is None or not isinstance(getattr(singleton, field_name, None), str):
+        return
+    entries = _override_entries(app, version, key)
+    assert not isinstance(entries, list) or len(entries) == 1, (
+        f"{app} v{version}: '{key}' is a str field; {len(entries)} entries, only the first applies")
+
+
 @pytest.mark.parametrize("app,version,key", list(_override_keys()))
 def test_override_targets_a_writable_field(app, version, key):
     domain_name, _, field_name = key.partition(".")
