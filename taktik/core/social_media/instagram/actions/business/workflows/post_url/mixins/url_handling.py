@@ -4,7 +4,7 @@ import re
 import time
 from typing import Dict, Any, Optional
 
-from taktik.core.social_media.instagram.ui.extractors import username_from_media_label
+from taktik.core.social_media.instagram.ui.extractors import username_from_author_header, username_from_media_label
 
 
 class PostUrlHandlingMixin:
@@ -78,23 +78,21 @@ class PostUrlHandlingMixin:
                         element_info = element.info
                         content_desc = element_info.get('contentDescription', '')
                         self.logger.debug(f"Header content-desc: '{content_desc}'")
-                        if content_desc:
-                            username_match = re.match(r'^([a-zA-Z0-9_.]+)', content_desc)
-                            if username_match:
-                                username = username_match.group(1)
-                                self.logger.debug(f"Extracted potential username: '{username}'")
-                                if self._is_valid_username(username):
-                                    self.logger.debug(f"Username found from header: @{username}")
-                                    return username
+                        # First handle of the line: a collaboration post names several accounts.
+                        username = username_from_author_header(content_desc)
+                        if username:
+                            self.logger.debug(f"Username found from header: @{username}")
+                            return username
                 except Exception as e:
                     self.logger.debug(f"Error with header selector {selector}: {e}")
                     continue
             
             for selector in self.post_selectors.username_extraction_selectors:
                 try:
-                    text = self._get_text_from_element(selector)
-                    if text and self._is_valid_username(text.lstrip('@')):
-                        username = text.strip().lstrip('@')
+                    # The validator cleans before judging, so "a et b" passed as "aetb" and the
+                    # whole line was returned: the first handle only.
+                    username = username_from_author_header(self._get_text_from_element(selector))
+                    if username:
                         self.logger.debug(f"Username found from text: @{username}")
                         return username
                 except Exception as e:

@@ -36,6 +36,13 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
     # considered exhausted. Mirrors the human crawl's session policy (feed-scroll #25).
     _TAIL_FILLER_RUNS = 2
 
+    # What a likers walk counts and the run adds up (`_engage_post_likers`).
+    _LIKERS_WALK_COUNTS = (
+        'users_found', 'users_interacted', 'profiles_filtered', 'skipped',
+        'already_processed', 'already_filtered', 'likes_made', 'follows_made',
+        'comments_made', 'stories_watched', 'stories_liked', 'errors',
+    )
+
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "feed", init_business_modules=True)
         
@@ -124,7 +131,13 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
         is why this class now extends `LikersWorkflowBase`: the feed had no way to reach it,
         and a second implementation of "walk a likers sheet" is exactly the duplication this
         project keeps paying for.
+
+        The loop runs on a count of its own, added to the run's afterwards: its budget is per
+        post (`max_likers_per_post`), and on the run's count, which already held the author
+        visits and the likers of the previous posts, it was spent before the first liker of
+        the next post.
         """
+        post_stats = create_workflow_stats('feed')
         try:
             if not self._open_likers_popup(is_reel=self._is_reel_post()):
                 self.logger.debug("No likers sheet on this post")
@@ -133,7 +146,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             budget = int(config.get('max_likers_per_post', 5) or 5)
             self.logger.info(f"👥 Walking the post likers (up to {budget})")
             self._interact_with_likers_list(
-                stats=stats,
+                stats=post_stats,
                 effective_config={**config, 'source': 'feed'},
                 max_interactions=budget,
                 source_type='FEED',
@@ -142,6 +155,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
         except Exception as exc:
             self.logger.debug(f"Likers engagement failed: {exc}")
         finally:
+            for key in self._LIKERS_WALK_COUNTS:
+                stats[key] = stats.get(key, 0) + post_stats.get(key, 0)
             try:
                 self.nav_actions.navigate_to_home()
             except Exception as exc:
@@ -359,21 +374,19 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         # touches the screen: the first refusal ends the run.
                         blocked = liked and self._stop_if_action_blocked(post_author, 'like')
 
-                        # Comment the post when configured: the production comment, the one the
-                        # hashtag posts pass uses. It files the comment at the send (session
-                        # counter, ledger row, posted_comments) and closes the sheet it opened.
+                        # Comment the post when configured: the production comment, filed at the
+                        # send (`_comment_feed_post`). Without an AI comment or a custom comment
+                        # there is no comment at all, never a built-in template.
                         if liked and not blocked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
-                            result = self.comment_business.comment_on_post(
-                                custom_comments=effective_config.get('custom_comments'),
-                                config=effective_config,
-                                username=post_author,
-                            )
-                            if result and result.get('commented'):
+                            result = self._comment_feed_post(post_author, effective_config)
+                            if result.get('commented'):
                                 stats['comments_made'] += 1
                                 self.stats_manager.increment('comments')
                                 self.logger.info(f"💬 Comment posted (@{post_author})")
                                 commented = True
-                            blocked = self._stop_if_action_blocked(post_author, 'comment')
+                            # Nothing was sent when the comment was skipped: no screen to read.
+                            if not result.get('skipped'):
+                                blocked = self._stop_if_action_blocked(post_author, 'comment')
 
                         if liked or commented:
                             # An engaged feed post IS the output of this workflow: it visits no
@@ -468,9 +481,16 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                     else:
                         filler_streak = 0
 
-                stats['users_interacted'] = posts_liked
+                # Two counts, never one for the other: the posts liked in the feed, and the
+                # profiles interacted with (the authors visited, the likers walked). The first
+                # used to be written over the second at the end of the loop, and a run that
+                # visited authors reported its likes as its profiles.
+                stats['posts_liked'] = posts_liked
                 stats['success'] = True
-                self.logger.info(f"✅ Feed workflow completed: {posts_liked} posts liked")
+                self.logger.info(
+                    f"✅ Feed workflow completed: {posts_liked} posts liked, "
+                    f"{stats.get('users_interacted', 0)} profile(s) interacted with"
+                )
                 return stats
             
             stats['success'] = True

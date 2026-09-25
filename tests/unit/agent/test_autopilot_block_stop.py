@@ -49,6 +49,7 @@ class _Phone:
 def _agent(phone=None):
     agent = object.__new__(TaktikAgentWorkflow)
     agent._stop_requested = False
+    agent._account_id = None
     agent.device = phone
     agent.stats = {
         "posts_seen": 0, "likes": 0, "follows": 0, "comments": 0,
@@ -179,13 +180,13 @@ def test_the_feed_loop_stops_between_a_refused_like_and_its_comment(monkeypatch)
         def _get_current_post_author(self):
             return "bob"
 
-        def _like_current_post(self):
+        def _like_current_post(self, record_as=None):
             gestures.append("like")
             return True
 
-        def _comment_current_post(self, _config):
+        def _comment_feed_post(self, _author, _config, comment_text=None):
             gestures.append("comment")
-            return True
+            return {"commented": True}
 
     monkeypatch.setattr(feed_package, "FeedBusiness", _Feed)
     monkeypatch.setattr(autopilot.random, "randint", lambda *_a: 1)

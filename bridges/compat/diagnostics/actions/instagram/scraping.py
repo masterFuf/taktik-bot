@@ -41,6 +41,20 @@ def open_post_url(a, p):
     return {"success": bool(ok), "message": f"post url open={ok}"}
 
 
+@action("post_url.read_post_author")
+def read_post_author(a, p):
+    """Read the author of the open post the way the post URL workflow does
+    (`PostUrlBusiness._extract_author_username`: media label, profile picture, header, text). On a
+    post in collaboration the header names several accounts ("a et b", "a and 2 others"): the
+    read must return the first handle, never the line. No gesture."""
+    from taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow import PostUrlBusiness
+
+    author = PostUrlBusiness(a.device)._extract_author_username()
+    if not author:
+        return {"success": False, "message": "post author unreadable", "details": {"author": None}}
+    return {"success": True, "message": f"@{author}", "details": {"author": author}}
+
+
 # === List reads / stop signals ===============================================
 
 @action("scraping.list_visible_profiles")

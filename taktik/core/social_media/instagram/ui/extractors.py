@@ -675,6 +675,30 @@ def username_from_media_label(label: Optional[str]) -> Optional[str]:
     return username or None
 
 
+def username_from_author_header(text: Optional[str]) -> Optional[str]:
+    """The account behind a post, from the author line of its header; None if it names none.
+
+    A post in COLLABORATION names several accounts on that line, in the app's language:
+    "abelstudios.au et mark.kobakian", "studioalldaylong and ab.buxton", "meta   and 2 others",
+    "lequartiergenial et 3 autres personnes" (Lab dumps, 2026-06 to 2026-09). The line
+    was taken whole: a like was filed under "@abelstudios.au et mark.kobakian", a profile that
+    does not exist; the Feed's cleaner even glued it into one plausible handle.
+
+    A handle has no space, so the first word of the line is the first author whatever the
+    language and its conjunction: no "et" / "and" to know, hence none written here. The word
+    must be a handle as it stands (not one a cleaner made up by removing characters) and not an
+    interface label.
+    """
+    if not text or not text.strip():
+        return None
+    first = text.strip().split()[0].lstrip('@').lower()
+    if first != ActionUtils.clean_username(first):
+        return None
+    if not ActionUtils.is_valid_username(first, min_length=1, max_length=30) or is_ui_label(first):
+        return None
+    return first
+
+
 def post_signature(likes: Optional[int], comments: Optional[int], is_reel: bool) -> str:
     """Cheap identity of the post on screen: like count + comment count + reel flag.
 

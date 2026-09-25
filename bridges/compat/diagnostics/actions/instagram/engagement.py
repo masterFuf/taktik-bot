@@ -40,6 +40,27 @@ def like_feed_post(a, p):
             "details": {"author": author}}
 
 
+@action("engagement.comment_feed_post")
+def comment_feed_post(a, p):
+    """Comment the home-feed post on screen the way the Feed workflow does: read its author
+    (``FeedBusiness._get_current_post_author``), then comment through the Feed's own comment
+    (``FeedBusiness._comment_feed_post``), filed under that author. Param: text (optional, the
+    operator's custom comment). Without a text there is no comment, never a template: the Lab
+    has no AI hook, so an empty text shows the Feed's rule. An unreadable author means no
+    comment, as in the workflow."""
+    author = a.feed._get_current_post_author()
+    if not author:
+        return {"success": False, "message": "post author unreadable: the feed does not engage this post"}
+    text = (p.get("text") or "").strip()
+    result = a.feed._comment_feed_post(author, {"custom_comments": [text] if text else []})
+    if result.get("skipped"):
+        return {"success": False, "message": f"@{author}: no comment ({result.get('skip_reason')})",
+                "details": result}
+    ok = bool(result.get("commented"))
+    return {"success": ok, "message": f"@{author}: commented" if ok else f"@{author}: comment failed",
+            "details": {**result, "author": author}}
+
+
 @action("engagement.comment_on_post")
 def comment_on_post(a, p):
     """Comment on the CURRENTLY OPEN post via the orchestrated flow (open composer + type

@@ -4,6 +4,9 @@ Same defect as the hashtag workflow (fixed on 2026-09-24): when the deep link to
 failed, the post URL workflow returned without a motive, the runner saw zero interactions,
 and the session loop concluded "sources exhausted" -- filed COMPLETED. The operator read a
 clean run that never opened the post.
+
+Over several links, one unreachable link no longer ends the run: only a run where no link
+could be reached ends on `navigation_lost` (see `test_post_url_several_links.py`).
 """
 
 import pytest
@@ -146,16 +149,17 @@ def test_the_session_is_filed_as_a_failure_not_as_sources_exhausted():
     assert getattr(reason, 'code', None) == 'navigation_lost'
 
 
-def test_an_unreachable_post_ends_the_run_instead_of_trying_the_next_one():
-    """A lost navigation is a session motive (`ends_the_session`), as for the hashtag: the app
-    is on a screen nobody identified, so the next post would start from there."""
+def test_an_unreachable_post_hands_over_to_the_next_one():
+    """Kevin (2026-09-25): a link that cannot be reached is logged and the run goes on to the
+    next link; each link opens by its own deep link, whatever screen the previous one left.
+    It used to end the run here. The run over several links: `test_post_url_several_links.py`."""
     workflow = _PostUrl(reachable=(OTHER_URL,))
     automation = _automation(workflow, urls=(URL, OTHER_URL))
 
-    automation.run_workflow()
+    automation.workflow_runner.run_workflow_step(automation.config['actions'][0])
 
-    assert workflow.nav_actions.calls == [URL]
-    assert workflow.lists_walked == []
+    assert workflow.nav_actions.calls == [URL, OTHER_URL]
+    assert workflow.lists_walked == [OTHER_URL]
 
 
 def test_a_reached_post_still_walks_its_likers():

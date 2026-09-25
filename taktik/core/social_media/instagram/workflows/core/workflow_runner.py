@@ -13,6 +13,11 @@ from taktik.core.shared.telemetry.device_io import measure_device_io
 from ..management.session import stop_reasons
 
 
+def _motive_code(motive: Any) -> str:
+    """The code of a stop motive, for a log line."""
+    return getattr(motive, 'code', None) or str(motive)
+
+
 class WorkflowRunner:
     
     def __init__(self, automation):
@@ -219,6 +224,12 @@ class WorkflowRunner:
 
         total_interacted = 0
         last_stop_reason = ''
+        # Links that failed in this pass, with their motive (the summary and the panel), and
+        # what this pass learned of every link it tried (the end of the run). Per pass, not per
+        # session: a link worked in an earlier pass says nothing of a phone that can no longer
+        # open any, and would end that pass as `sources_exhausted` instead of `navigation_lost`.
+        failed_now: Dict[str, Any] = {}
+        links: Dict[str, Dict[str, bool]] = {}
 
         def run_one_post(url: str, quota: int):
             nonlocal total_interacted, last_stop_reason
@@ -237,13 +248,36 @@ class WorkflowRunner:
             self.automation.stats['interactions'] += result.get('users_interacted', 0)
             interacted = result.get('users_interacted', 0)
             total_interacted += interacted
+            outcome = links.setdefault(url, {'reached': False, 'worked': False})
+            if result.get('post_reached'):
+                outcome['reached'] = True
+            failure = result.get('link_failure')
+            if failure:
+                # A failure of THIS link (not reached, list closed): logged and counted, and the
+                # run goes on to the next link (Kevin, 2026-09-25). It used to end the run.
+                failed_now[url] = failure
+                self.logger.warning(f"🔗 Link not worked ({_motive_code(failure)}), next link: {url}")
+                return interacted, False
+            outcome['worked'] = True
+            failed_now.pop(url, None)
             stop_reason = result.get('stop_reason') or ''
             if stop_reason:
                 last_stop_reason = stop_reason
             return interacted, stop_reasons.ends_the_session(stop_reason)
 
         run_distributed(post_urls, budget, distribution, run_one_post,
-                        on_progress=ipc_source_progress('post_url'))
+                        on_progress=ipc_source_progress('post_url', failure_of=failed_now.get))
+
+        if failed_now:
+            detail = ", ".join(f"{url} ({_motive_code(motive)})" for url, motive in failed_now.items())
+            self.logger.warning(
+                f"🔗 {len(failed_now)}/{len(post_urls)} post link(s) not worked: {detail}")
+
+        # A run ends on its links' failures only when no link could be worked at all: none
+        # reached is `navigation_lost`, reached but none of their lists opened is
+        # `list_unavailable`. Otherwise it ends as it would have without the failed links.
+        if not last_stop_reason:
+            last_stop_reason = self._post_links_end(links)
 
         if last_stop_reason and not getattr(self.automation, 'session_finalized', False):
             self.automation.helpers.finalize_session(
@@ -251,6 +285,15 @@ class WorkflowRunner:
 
         # Return True only if we actually interacted with users
         return total_interacted > 0
+
+    @staticmethod
+    def _post_links_end(links: Dict[str, Dict[str, bool]]):
+        """The motive of a run none of whose links could be worked, or '' otherwise."""
+        if not links or any(outcome['worked'] for outcome in links.values()):
+            return ''
+        if any(outcome['reached'] for outcome in links.values()):
+            return stop_reasons.list_unavailable()
+        return stop_reasons.navigation_lost()
     
     def _run_unfollow_workflow(self, action: Dict[str, Any]) -> bool:
         """Run one unfollow batch through the one engine, with the whole page setting.

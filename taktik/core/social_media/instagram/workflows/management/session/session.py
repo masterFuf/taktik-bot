@@ -58,7 +58,9 @@ class SessionManager:
             # what a run actually did. Both feed the same daily like budget (see
             # StatsRepository._INTERACTION_COLUMN_MAP) — same surface, same risk family.
             'comment_likes': 0,
-            'stories_watched': 0
+            # No story counter: nothing read it (no cap, story views being passive; no display;
+            # the end-of-run figures come from the ledger's STORY_WATCH rows) and no workflow
+            # fed it. Removed on 2026-09-25 rather than wired as a second count of those rows.
         }
         self.source_counters = {}
         
@@ -377,8 +379,6 @@ class SessionManager:
             self.counters['comments'] += 1
         elif action_type == 'like_comment' and success:
             self.counters['comment_likes'] += 1
-        elif action_type == 'watch_stories' and success:
-            self.counters['stories_watched'] += 1
 
         if source and source in self.source_counters:
             self.source_counters[source]['interactions'] += 1
@@ -389,10 +389,6 @@ class SessionManager:
                     self.source_counters[source]['likes'] += 1
                 elif action_type == 'comment_posts':
                     self.source_counters[source]['comments'] += 1
-                elif action_type == 'watch_stories':
-                    self.source_counters[source]['stories_watched'] = (
-                        self.source_counters[source].get('stories_watched', 0) + 1
-                    )
 
     def get_delay_between_actions(self) -> float:
         """Return the delay (seconds) between high-level workflow actions.

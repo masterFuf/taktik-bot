@@ -392,9 +392,7 @@ class TaktikAgentWorkflow:
 
     def _run_feed_loop(self):
         """Browse the feed, stopping on posts and making AI decisions."""
-        from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
-
-        feed = FeedBusiness(self.device_manager)
+        feed = self._feed_business()
         session_deadline = self._session_start + self.quotas["session_duration_min"] * 60
 
         logger.info(
@@ -429,9 +427,10 @@ class TaktikAgentWorkflow:
                 time.sleep(random.uniform(0.8, 1.5))
                 continue
 
-            # Get post author
-            author = feed._get_current_post_author() or "unknown"
-            logger.debug(f"[TaktikAgent] Post #{self.stats['posts_stopped']} by @{author} — taking screenshot")
+            # Get post author. None when unreadable: the post is then not engaged (see
+            # `_engage_post`), and the AI is told "unknown".
+            author = feed._get_current_post_author()
+            logger.debug(f"[TaktikAgent] Post #{self.stats['posts_stopped']} by @{author or 'unknown'} — taking screenshot")
 
             # Take a screenshot of the current post
             screenshot_path = self._take_screenshot(f"feed_{self.stats['posts_stopped']}")
@@ -447,13 +446,13 @@ class TaktikAgentWorkflow:
             decision = self._ai.decide_feed_action(
                 screenshot_path=screenshot_path,
                 persona_block=self._persona_block,
-                author_username=author,
+                author_username=author or "unknown",
             )
             self.stats["session_cost_usd"] += decision.get("cost_usd", 0.0)
 
             action = decision.get("action", "skip")
             logger.info(
-                f"[TaktikAgent] @{author} → {action.upper()} "
+                f"[TaktikAgent] @{author or 'unknown'} → {action.upper()} "
                 f"(visit_profile={decision.get('visit_profile')}) | {decision.get('reason', '')}"
             )
 
@@ -466,26 +465,14 @@ class TaktikAgentWorkflow:
                     self._consecutive_skips = 0
 
             elif action in ("like", "like_comment", "like_save"):
-                if self.stats["likes"] < self.quotas["max_likes"]:
-                    if feed._like_current_post():
-                        self.stats["likes"] += 1
-                        self._consecutive_skips = 0
-                        # After the pause that follows a like (the dialog comes from the server
-                        # and can take a moment), before the comment touches the screen.
-                        time.sleep(random.uniform(*DELAY_AFTER_LIKE))
-                        if self._block_seen("like"):
-                            break
-
-                    if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
-                        comment_text = decision.get("comment", "")
-                        if comment_text:
-                            self._post_comment(feed, comment_text, author)
-                            self._consecutive_skips = 0
-                            if self._block_seen("comment"):
-                                break
+                engaged, blocked = self._engage_post(feed, author, action, decision)
+                if engaged:
+                    self._consecutive_skips = 0
+                if blocked:
+                    break
 
             # Profile visit
-            if decision.get("visit_profile") and author != "unknown":
+            if decision.get("visit_profile") and author:
                 if self.stats["profile_visits"] < self.quotas["max_profile_visits"]:
                     self._consecutive_skips = 0
                     self._handle_profile_visit(author)
@@ -565,12 +552,11 @@ class TaktikAgentWorkflow:
 
         try:
             from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-            from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
             from taktik.core.social_media.instagram.workflows.common.post_navigation import open_first_post_of_profile
             from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS
 
             nav = NavigationActions(self.device_manager)
-            feed = FeedBusiness(self.device_manager)
+            feed = self._feed_business()
 
             if not nav.navigate_to_hashtag(hashtag):
                 logger.warning(f"[TaktikAgent] Could not navigate to #{hashtag}")
@@ -635,9 +621,9 @@ class TaktikAgentWorkflow:
                 self.stats["posts_seen"] += 1
                 self.stats["posts_stopped"] += 1
 
-                author = feed._get_current_post_author() or "unknown"
+                author = feed._get_current_post_author()
                 logger.debug(
-                    f"[TaktikAgent] #{hashtag} post {i + 1}/{HASHTAG_POSTS_PER_BURST} by @{author}"
+                    f"[TaktikAgent] #{hashtag} post {i + 1}/{HASHTAG_POSTS_PER_BURST} by @{author or 'unknown'}"
                 )
 
                 screenshot_path = self._take_screenshot(f"hashtag_{hashtag}_{i}")
@@ -649,31 +635,21 @@ class TaktikAgentWorkflow:
                 decision = self._ai.decide_feed_action(
                     screenshot_path=screenshot_path,
                     persona_block=self._persona_block,
-                    author_username=author,
+                    author_username=author or "unknown",
                 )
                 self.stats["session_cost_usd"] += decision.get("cost_usd", 0.0)
 
                 action = decision.get("action", "skip")
                 logger.info(
-                    f"[TaktikAgent] #{hashtag} @{author} → {action.upper()} | {decision.get('reason', '')}"
+                    f"[TaktikAgent] #{hashtag} @{author or 'unknown'} → {action.upper()} | {decision.get('reason', '')}"
                 )
 
                 if action in ("like", "like_comment", "like_save"):
-                    if self.stats["likes"] < self.quotas["max_likes"]:
-                        if feed._like_current_post():
-                            self.stats["likes"] += 1
-                            time.sleep(random.uniform(*DELAY_AFTER_LIKE))
-                            if self._block_seen("like"):
-                                return
+                    _engaged, blocked = self._engage_post(feed, author, action, decision)
+                    if blocked:
+                        return
 
-                        if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
-                            comment_text = decision.get("comment", "")
-                            if comment_text:
-                                self._post_comment(feed, comment_text, author)
-                                if self._block_seen("comment"):
-                                    return
-
-                if decision.get("visit_profile") and author != "unknown":
+                if decision.get("visit_profile") and author:
                     if self.stats["profile_visits"] < self.quotas["max_profile_visits"]:
                         self._handle_profile_visit(author)
                         # _handle_profile_visit navigates back to feed — exit burst
@@ -881,10 +857,62 @@ class TaktikAgentWorkflow:
         except Exception as exc:
             logger.debug(f"[TaktikAgent] _like_profile_posts({username}, {count}) error: {exc}")
 
+    def _feed_business(self):
+        """The Feed's business object, filed under the operator's account.
+
+        The autopilot likes and comments through the Feed's own gestures, and so through its
+        recording: `_like_current_post(record_as=author)` (`LikeBusiness.record_post_like`) and
+        `_comment_feed_post` (`CommentAction.comment_on_post(username=author)`). Built without
+        an identity, the ledger write refused every row: the autopilot's likes and comments left
+        no trace and escaped the daily caps. The agent has no session row, so its rows carry the
+        account only."""
+        from types import SimpleNamespace
+
+        from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
+
+        identity = SimpleNamespace(active_account_id=self._account_id, current_session_id=None)
+        return FeedBusiness(self.device_manager, automation=identity)
+
+    def _engage_post(self, feed, author: Optional[str], action: str,
+                     decision: Dict[str, Any]) -> tuple:
+        """Like, then comment when the AI asked for it, the post on screen. (engaged, blocked).
+
+        A post whose author cannot be read is not engaged: without an author there is no ledger
+        row, no deduplication and no cap (the Feed's rule)."""
+        if not author:
+            logger.info("[TaktikAgent] Post author unreadable: post not engaged, it could not be recorded")
+            return False, False
+        engaged = False
+        if self.stats["likes"] < self.quotas["max_likes"]:
+            if feed._like_current_post(record_as=author):
+                self.stats["likes"] += 1
+                engaged = True
+                # After the pause that follows a like (the dialog comes from the server and can
+                # take a moment), before the comment touches the screen.
+                time.sleep(random.uniform(*DELAY_AFTER_LIKE))
+                if self._block_seen("like"):
+                    return engaged, True
+
+        if action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
+            comment_text = decision.get("comment", "")
+            if comment_text:
+                self._post_comment(feed, comment_text, author)
+                engaged = True
+                if self._block_seen("comment"):
+                    return engaged, True
+        return engaged, False
+
     def _post_comment(self, feed, comment_text: str, author: str):
-        """Type and post a comment on the current feed post."""
+        """Post the AI's comment on the current post, filed under its author.
+
+        The Feed's comment (`FeedBusiness._comment_feed_post`, i.e.
+        `CommentAction.comment_on_post(username=author)`): the comment is filed at the send,
+        "Try again later" is looked for, and the sheet is closed by the production closer. The
+        autopilot used `_comment_current_post`, which recorded nothing and closed the sheet with
+        the facade's back key, ignored by uiautomator2."""
         try:
-            if feed._comment_current_post({"custom_comments": [comment_text]}):
+            result = feed._comment_feed_post(author, {}, comment_text=comment_text)
+            if result.get("commented"):
                 self.stats["comments"] += 1
                 logger.info(f"[TaktikAgent] 💬 Commented on @{author}'s post")
                 time.sleep(random.uniform(*DELAY_AFTER_COMMENT))

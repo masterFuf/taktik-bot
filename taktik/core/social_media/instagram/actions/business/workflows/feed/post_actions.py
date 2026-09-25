@@ -1,13 +1,13 @@
 """Feed post actions: like, comment, detect, scroll, extract metadata."""
 
 import time
-import random
 from typing import Dict, List, Any, Optional
 
 # A human doesn't always like the same way: some likes tap the like button, others
 # double-tap the image. The choice lives in shared behaviour so the feed and the
 # profile-posts (like workflow) paths alternate identically.
 from taktik.core.shared.behavior.like_method import should_double_tap_like as _should_double_tap_like
+from taktik.core.social_media.instagram.ui.extractors import username_from_author_header
 
 
 class FeedPostActionsMixin:
@@ -38,9 +38,11 @@ class FeedPostActionsMixin:
             for selector in self._feed_selectors['post_author_username']:
                 element = self.device.xpath(selector)
                 if element.exists:
-                    username = element.get_text()
+                    # A collaboration post names several accounts here ("a et b"): the first
+                    # handle, never the line, which the cleaner used to glue into "aetb".
+                    username = username_from_author_header(element.get_text())
                     if username:
-                        return self._clean_username(username)
+                        return username
             
             # Fallback: essayer via content-desc de l'avatar
             for selector in self._feed_selectors['post_author_avatar']:
@@ -122,6 +124,25 @@ class FeedPostActionsMixin:
         if author:
             self.like_business.record_post_like(author)
     
+    def _comment_feed_post(self, author: str, config: Dict[str, Any],
+                           comment_text: Optional[str] = None) -> Dict[str, Any]:
+        """Comment the feed post on screen, filed under its author.
+
+        The production comment (`CommentAction.comment_on_post`, the hashtag posts pass's): it
+        files the comment at the send (session counter, ledger row, posted_comments), looks for
+        "Try again later" and closes the sheet it opened. The text is `comment_text` when the
+        caller has one (the Taktik Agent autopilot's AI), else the AI comment hook's, else one of
+        the operator's custom comments. Never a built-in template (`template_fallback=False`):
+        with no AI and no custom comment, the Feed does not comment (Kevin, 2026-09-25), the
+        same few fixed comments on post after post being a trace of automation."""
+        return self.comment_business.comment_on_post(
+            comment_text=comment_text,
+            custom_comments=(config or {}).get('custom_comments'),
+            config=config,
+            username=author,
+            template_fallback=False,
+        ) or {}
+
     def _extract_post_metadata(self) -> Optional[Dict[str, Any]]:
         """Metadata of the currently visible post (likes, comments)."""
         try:
@@ -138,87 +159,6 @@ class FeedPostActionsMixin:
         except Exception as e:
             self.logger.debug(f"Error extracting post metadata: {e}")
             return None
-    
-    def _comment_current_post(self, config: Dict[str, Any]) -> bool:
-        """Comment the post currently visible in the feed.
-
-        No longer used by the Feed workflow, which comments through
-        `CommentAction.comment_on_post` (the hashtag posts pass's comment): that one files the
-        comment at the send and closes the sheet it opened, where this one records nothing
-        and closes with the facade's back key, which uiautomator2 ignores. Still called by the
-        Taktik Agent feed autopilot (`agent/scenarios/instagram_feed_autopilot.py`)."""
-        try:
-            # Take the custom comments, or fall back on the defaults
-            custom_comments = config.get('custom_comments', [])
-            if not custom_comments:
-                custom_comments = ['👏', '🔥', '💯', '❤️', '👍', '😍', '✨', '🙌']
-            
-            comment_text = random.choice(custom_comments)
-            
-            comment_button_selectors = self._feed_sel.comment_button
-            
-            # Tap the comment button
-            for selector in comment_button_selectors:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    if not self._human_tap_element(element):
-                        element.click()
-                    self._human_like_delay('click')
-                    break
-            else:
-                self.logger.debug("Comment button not found")
-                return False
-            
-            time.sleep(1)
-            
-            comment_input_selectors = self._feed_sel.comment_input
-            
-            for selector in comment_input_selectors:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    if not self._human_tap_element(element):
-                        element.click()
-                    time.sleep(0.5)
-                    # Use Taktik Keyboard for reliable text input
-                    if not self._type_with_taktik_keyboard(comment_text):
-                        self.logger.warning("Taktik Keyboard failed, falling back to set_text")
-                        element.set_text(comment_text)
-                    self._human_like_delay('typing')
-                    break
-            else:
-                self.logger.debug("Comment input not found")
-                self.device.press('back')
-                return False
-            
-            send_button_selectors = self._feed_sel.comment_send_button
-            
-            for selector in send_button_selectors:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    if not self._human_tap_element(element):
-                        element.click()
-                    self._human_like_delay('click')
-                    time.sleep(1)
-                    # "Try again later" after the send, looked for BEFORE the back that could
-                    # close it: the detector sets the run's lock.
-                    check_block = getattr(self, '_stop_if_action_blocked', None)
-                    if check_block is not None:
-                        check_block('feed', 'comment')
-                    # Back to the feed
-                    self.device.press('back')
-                    return True
-            
-            self.logger.debug("Send button not found")
-            self.device.press('back')
-            return False
-            
-        except Exception as e:
-            self.logger.debug(f"Error commenting post: {e}")
-            try:
-                self.device.press('back')
-            except Exception:
-                pass
-            return False
     
     def _scroll_to_next_post(self):
         """Scroll to the next post and align so the post header is near the top of the screen."""
