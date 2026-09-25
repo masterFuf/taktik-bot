@@ -20,7 +20,7 @@ from taktik.core.shared.input.taktik_keyboard import (
     activate_taktik_keyboard,
     clear_text_with_taktik_keyboard,
     is_taktik_keyboard_active,
-    type_with_taktik_keyboard,
+    type_text_checked,
 )
 
 from ...core.base_action import BaseAction
@@ -465,8 +465,9 @@ class CommentActions(BaseAction):
         if not is_taktik_keyboard_active(serial):
             activate_taktik_keyboard(serial)
             time.sleep(0.8)
-        if not type_with_taktik_keyboard(serial, text):
-            self.logger.warning("Typing the comment failed")
+        # Read back and retyped once if the field does not hold exactly the comment.
+        if not type_text_checked(self.device, serial, text, typos=False):
+            self.logger.warning("The comment field does not hold the comment: not sent")
             return False
         time.sleep(0.8)
         return self._composer_holds(text)

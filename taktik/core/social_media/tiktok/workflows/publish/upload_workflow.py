@@ -61,6 +61,7 @@ from taktik.core.social_media.tiktok.services.publish.screen_detector import (
 )
 from taktik.core.social_media.tiktok.services.publish.text_input import (
     clear_caption_text,
+    type_caption_checked,
     type_caption_text,
 )
 from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import tap_caption_focus_fallback
@@ -336,8 +337,9 @@ class TikTokUploadWorkflow:
             _ipc.log("debug", "[caption] clear text skipped or failed")
 
         caption = (caption or "").strip()
-        if caption and not type_caption_text(
-            self.device_id, caption, delay_mean=85, delay_deviation=25, log=_ipc.log
+        # The field must hold exactly the caption before hashtags go after it.
+        if caption and not type_caption_checked(
+            self.device, self.device_id, caption, delay_mean=85, delay_deviation=25, log=_ipc.log
         ):
             return False
 

@@ -72,6 +72,34 @@ def type_caption_text(
     return type_ascii_text_with_adb(device_id, text, run=run, log=log)
 
 
+def type_caption_checked(
+    device,
+    device_id: str,
+    text: str,
+    *,
+    delay_mean: int = 80,
+    delay_deviation: int = 30,
+    run: RunFn = subprocess.run,
+    log: LogFn | None = None,
+) -> bool:
+    """Make the focused caption field hold exactly `text`: Taktik Keyboard, read back and
+    retyped once (`type_text_checked`), then the ASCII-only ADB fallback, read back too."""
+    if not text:
+        return True
+
+    from taktik.core.shared.input.taktik_keyboard import field_holds_text, type_text_checked
+
+    if type_text_checked(device, device_id, text, typos=False,
+                         delay_mean=delay_mean, delay_deviation=delay_deviation):
+        _log(log, "debug", "[caption] text inserted with Taktik Keyboard")
+        return True
+    clear_caption_text(device_id, log=log)
+    if type_ascii_text_with_adb(device_id, text, run=run, log=log) and field_holds_text(device, text):
+        return True
+    _log(log, "error", "[caption] the caption field does not hold the caption")
+    return False
+
+
 def type_ascii_text_with_adb(
     device_id: str,
     text: str,

@@ -10,7 +10,6 @@ Platform-specific base actions inherit from this and add their own logic
 
 import time
 import random
-import base64
 from typing import Optional, Dict, Any, List, Union
 from loguru import logger
 
@@ -19,11 +18,11 @@ from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.shared.actions.utils import ActionUtils
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.shared.input.taktik_keyboard import (
-    TAKTIK_KEYBOARD_IME,
-    IME_MESSAGE_B64,
     IME_CLEAR_TEXT,
     is_taktik_keyboard_active,
     activate_taktik_keyboard,
+    type_text_checked,
+    type_with_taktik_keyboard,
 )
 
 
@@ -445,50 +444,27 @@ class SharedBaseAction:
             return False
     
     def _type_with_taktik_keyboard(self, text: str, delay_mean: int = 80, delay_deviation: int = 30) -> bool:
-        """
-        Type text using Taktik Keyboard (ADB Keyboard) via broadcast.
-        This is more reliable than uiautomator2's send_keys for special characters.
-        
-        Args:
-            text: Text to type
-            delay_mean: Mean delay between characters in ms (default 80)
-            delay_deviation: Delay deviation in ms (default 30)
-            
-        Returns:
-            True if successful, False otherwise
+        """Type `text` through Taktik Keyboard (the shared owner of the broadcast and its wait).
+
+        Appends to the focused field and checks nothing: a text that will be sent, posted or
+        searched goes through `_type_text_checked`.
         """
         if not text:
             return True
-        
         try:
-            device_serial = self._get_device_serial()
-            
-            # Check if Taktik Keyboard is active, activate if not
-            if not self._is_taktik_keyboard_active():
-                self.logger.debug("Taktik Keyboard not active, activating...")
-                if not self._activate_taktik_keyboard():
-                    self.logger.warning("⚠️ Could not activate Taktik Keyboard, falling back to send_keys")
-                    return False
-            
-            # Encode text as base64
-            text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
-            
-            # Send broadcast with text
-            broadcast_cmd = f'am broadcast -a {IME_MESSAGE_B64} --es msg {text_b64} --ei delay_mean {delay_mean} --ei delay_deviation {delay_deviation}'
-            result = run_adb_shell(device_serial, broadcast_cmd)
-            
-            if result and 'error' not in result.lower():
-                # Wait for typing to complete
-                typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-                self.logger.debug(f"⌨️ Taktik Keyboard typing {len(text)} chars ({typing_time:.1f}s)")
-                time.sleep(typing_time + 0.5)  # Add small buffer
-                return True
-            else:
-                self.logger.warning(f"⚠️ Taktik Keyboard broadcast failed: {result}")
-                return False
-                
+            return type_with_taktik_keyboard(self._get_device_serial(), text, delay_mean, delay_deviation)
         except Exception as e:
             self.logger.error(f"❌ Error using Taktik Keyboard: {e}")
+            return False
+
+    def _type_text_checked(self, text: str, *, prefix: str = "", typos: bool = False) -> bool:
+        """Make the focused field hold exactly `prefix + text`, read back and retyped once if it
+        does not (`type_text_checked`). False: the field holds something else, do not send."""
+        try:
+            return type_text_checked(self.device, self._get_device_serial(), text,
+                                     prefix=prefix, typos=typos)
+        except Exception as e:
+            self.logger.error(f"❌ Error typing a checked text: {e}")
             return False
     
     def _clear_text_with_taktik_keyboard(self) -> bool:

@@ -7,6 +7,7 @@ import time
 
 from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import type_message
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -40,19 +41,12 @@ class ColdDMSenderMixin:
         typing_time = min(len(message) * random.uniform(0.03, 0.05) + random.uniform(0.5, 1.5), 5.0)
         time.sleep(typing_time)
 
-        if self._keyboard.type_text(message):
-            logger.info("Text set via Taktik Keyboard")
-        else:
-            logger.warning("Taktik Keyboard failed, trying fallback methods...")
-            try:
-                msg_input.set_text(message)
-            except Exception as e:
-                logger.warning(f"set_text failed: {e}, trying send_keys...")
-                try:
-                    msg_input.send_keys(message)
-                except Exception as e2:
-                    logger.error(f"send_keys also failed: {e2}")
-                    return False
+        # The shared composer: typed without typos as before, sent only once it reads the message.
+        if not type_message(self.device, self._keyboard.device_id, message,
+                            element=msg_input, typos=False, logger=logger):
+            logger.error("The composer does not hold the message: not sent")
+            return False
+        logger.info("Text set via Taktik Keyboard")
 
         time.sleep(0.5)
 

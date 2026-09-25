@@ -54,10 +54,10 @@ def navigate_to_hashtag(business_action, hashtag: str) -> bool:
             return False
         
         business_action._human_like_delay('click')
-        # Use Taktik Keyboard for reliable text input
-        if not business_action._type_with_taktik_keyboard(search_term):
-            business_action.logger.warning("Taktik Keyboard failed, falling back to send_keys")
-            business_action.device.send_keys(search_term)
+        # The field must then hold exactly the query (read back, retyped once if not).
+        if not business_action._type_text_checked(search_term):
+            business_action.logger.error("The search field does not hold the hashtag query")
+            return False
         business_action._human_like_delay('typing')
         
         hashtag_result_selectors = CONTENT_CREATION_SELECTORS.hashtag_result_selectors(

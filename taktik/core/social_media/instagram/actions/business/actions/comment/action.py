@@ -7,6 +7,7 @@ from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
+from taktik.core.shared.input.taktik_keyboard import field_holds_text
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from .validation import validate_comment
 
@@ -270,7 +271,9 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             self.logger.debug(f"Share-sheet dismiss check failed: {e}")
             return False
     
-    def _type_comment(self, comment_text: str) -> bool:
+    def _type_comment(self, comment_text: str, mention: str = "") -> bool:
+        """Type the comment; True only once the field holds exactly it, after `mention` (the
+        "@name " of a threaded reply) when one is given."""
         try:
             comment_field = None
             found = False
@@ -301,10 +304,13 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             comment_field.click()
             time.sleep(0.5)
             
-            # Use Taktik Keyboard for reliable text input
-            if not self._type_with_taktik_keyboard(comment_text):
-                self.logger.warning("Taktik Keyboard failed, falling back to set_text")
-                comment_field.set_text(comment_text)
+            # Read back and retyped once if the field does not hold exactly the comment.
+            if not self._type_text_checked(comment_text, prefix=mention):
+                self.logger.warning("The comment field does not hold the comment, falling back to set_text")
+                comment_field.set_text(mention + comment_text)
+                if not field_holds_text(self.device, mention + comment_text):
+                    self.logger.error("The comment field does not hold the requested comment: not sent")
+                    return False
             self.logger.debug(f"Comment text typed ({len(comment_text)} chars)")
             
             return True
@@ -575,7 +581,7 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             self._human_like_delay('click')
             time.sleep(1.0)
 
-            if not self._type_comment(text):
+            if not self._type_comment(text, mention=f'@{handle} '):
                 result['message'] = 'Could not type the reply'
                 return result
 

@@ -197,6 +197,18 @@ def activate_taktik_keyboard(device_id: str) -> bool:
         return False
 
 
+def typing_seconds(text: str, delay_mean: int = 80, delay_deviation: int = 30) -> float:
+    """How long the keyboard may still be typing `text` once its broadcast has returned.
+
+    The keyboard (AdbIME 3.0.2) commits the first character inside the broadcast, then each
+    next one after a gap drawn in [mean - deviation, mean + deviation] ms, one UTF-16 unit at a
+    time. Waiting less lets the next command overtake the text: a backspace erases a letter that
+    is already right, and a new broadcast replaces the text the keyboard is still walking.
+    """
+    units = len(text.encode("utf-16-le")) // 2
+    return max(0, units - 1) * (max(0, delay_mean) + max(0, delay_deviation)) / 1000
+
+
 def type_with_taktik_keyboard(
     device_id: str,
     text: str,
@@ -204,7 +216,8 @@ def type_with_taktik_keyboard(
     delay_deviation: int = 30,
 ) -> bool:
     """
-    Type text using Taktik Keyboard via ADB broadcast.
+    Type text using Taktik Keyboard via ADB broadcast. Returns once the keyboard has
+    finished typing, worst case included (`typing_seconds`).
 
     Args:
         device_id: ADB device serial/ID.
@@ -235,7 +248,7 @@ def type_with_taktik_keyboard(
         ack_duration = time.time() - started_at
 
         if result and "error" not in result.lower():
-            typing_time = (delay_mean * len(text) + delay_deviation) / 1000
+            typing_time = typing_seconds(text, delay_mean, delay_deviation)
             settle_buffer = 0.15 if len(text) <= 24 else 0.3
             logger.debug(
                 f"Taktik Keyboard typing {len(text)} chars "
@@ -318,6 +331,110 @@ def type_text_human(
     return ok
 
 
+#: Pause after emptying a field, before typing into it again.
+_CLEAR_SETTLE_SECONDS = 0.4
+#: Extra wait for a field that reads as the start of the expected text (still arriving).
+_LATE_TEXT_SECONDS = 0.6
+
+
+def read_focused_text(device) -> Optional[str]:
+    """Text of the field that has the input focus, or None when none can be read.
+
+    Read over uiautomator2's JSON-RPC (`device(focused=True).info`), not an XML dump: a dump
+    turns every emoji into dots, so a correct text would never compare equal. An empty field
+    may read as its hint; that never equals a text we typed.
+    """
+    for selector in ({"focused": True, "className": "android.widget.EditText"}, {"focused": True}):
+        try:
+            info = device(**selector).info
+        except Exception:
+            continue
+        if isinstance(info, dict):
+            return info.get("text") or ""
+    return None
+
+
+def _same_text(read: Optional[str], expected: str) -> bool:
+    """Same characters in the same order; only the spacing may differ (a composer may wrap a
+    long text with a line break, or trim it). A lost or extra letter is a difference."""
+    if read is None:
+        return False
+    return " ".join(read.split()) == " ".join(expected.split())
+
+
+def _first_difference(read: str, expected: str) -> int:
+    for index, (a, b) in enumerate(zip(read, expected)):
+        if a != b:
+            return index
+    return min(len(read), len(expected))
+
+
+def field_holds_text(device, expected: str) -> bool:
+    """Does the focused field hold exactly `expected` (outer whitespace aside)?
+
+    A read that is only the beginning of `expected` gets one more look: the keyboard may
+    still be committing its last characters.
+    """
+    read = read_focused_text(device)
+    if _same_text(read, expected):
+        return True
+    if read is not None and read.strip() and expected.strip().startswith(read.strip()):
+        time.sleep(_LATE_TEXT_SECONDS)
+        read = read_focused_text(device)
+    return _same_text(read, expected)
+
+
+def type_text_checked(
+    device,
+    device_id: str,
+    text: str,
+    *,
+    prefix: str = "",
+    typos: bool = True,
+    rng=None,
+    delay_mean: int = 80,
+    delay_deviation: int = 30,
+) -> bool:
+    """Type `text` into the focused field and make sure the field then holds exactly
+    `prefix + text`, the only state from which a caller may send, post or search.
+
+    `prefix`: what the field legitimately holds before the text (the "@name " Instagram
+    prefills on a reply); the caller empties the field otherwise. After the human typing
+    (`type_text_human`) the field is read back (`read_focused_text`). On any difference it is
+    emptied and `prefix + text` typed again in one exact burst, then read once more. False
+    when it still differs or cannot be read: the caller must not send.
+
+    A backspace correcting a typo can be lost, and nothing else reads the field before a send.
+    """
+    if not text:
+        return True
+    expected = f"{prefix}{text}"
+    typed = type_text_human(
+        device_id, text, typos=typos, rng=rng,
+        delay_mean=delay_mean, delay_deviation=delay_deviation,
+    )
+    if typed and field_holds_text(device, expected):
+        emit_step("keystroke", action="verify", length=len(expected), retyped=False, success=True)
+        return True
+
+    read = read_focused_text(device)
+    if read is None:
+        logger.warning("Typed field cannot be read back: retyping it exactly")
+    else:
+        logger.warning(
+            f"Typed field holds {len(read)} chars, expected {len(expected)} "
+            f"(first difference at {_first_difference(read, expected)}): retyping it exactly"
+        )
+    clear_text_with_taktik_keyboard(device_id)
+    time.sleep(_CLEAR_SETTLE_SECONDS)
+    retyped = type_with_taktik_keyboard(device_id, expected, delay_mean, delay_deviation)
+    ok = retyped and field_holds_text(device, expected)
+    emit_step("keystroke", action="verify", length=len(expected), retyped=True, success=ok)
+    if not ok:
+        logger.error("The field still does not hold the requested text: nothing must be sent")
+    return ok
+
+
 __all__ = [
     "run_adb_shell",
     "TAKTIK_KEYBOARD_PKG",
@@ -332,6 +449,10 @@ __all__ = [
     "GBOARD_IME",
     "UIAUTOMATOR_IME",
     "type_with_taktik_keyboard",
+    "typing_seconds",
     "type_text_human",
+    "type_text_checked",
+    "read_focused_text",
+    "field_holds_text",
     "clear_text_with_taktik_keyboard",
 ]

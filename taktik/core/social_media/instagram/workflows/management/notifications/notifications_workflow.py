@@ -29,7 +29,11 @@ from typing import Any, Callable, Dict, List, Optional
 from loguru import logger
 
 from taktik.core.shared.device.ui_dump import iter_widgets, parse_ui_dump
-from taktik.core.shared.input.taktik_keyboard import type_text_human
+from taktik.core.shared.input.taktik_keyboard import (
+    field_holds_text,
+    read_focused_text,
+    type_text_checked,
+)
 from taktik.core.shared.vision import locate_text_on_screen
 
 from ....ui.language import detect_and_optimize
@@ -916,39 +920,33 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         return self._element_exists(self.comment_selectors.comment_composer_indicators)
 
     def _type_into(self, field, text: str) -> bool:
-        """Type ``text`` into the open composer ``field``, mirroring the proven
-        Taktik-Keyboard -> set_text fallback, each verified by the field's text
-        growing. Uses the shared CORE keyboard (humanized cadence) so the workflow
-        never imports the bridge layer (DIP)."""
-        try:
-            before = field.get_text() or ""
-        except Exception:
-            before = ""
+        """Type ``text`` into the open composer ``field``: Taktik Keyboard (humanized cadence),
+        then set_text, each counted only when the composer then reads exactly the reply, after
+        the "@name " Instagram prefills on a reply (`type_text_checked`). Uses the shared CORE
+        keyboard so the workflow never imports the bridge layer (DIP)."""
         try:
             if not tap_element_human(self.device, field):
                 field.click()  # focus the composer before the IME broadcast
             time.sleep(0.3)
         except Exception:
             pass
+        mention = _reply_mention(read_focused_text(self.device) or "")
         # 1) Taktik Keyboard (humanized typing) into the focused composer.
         try:
-            if type_text_human(self.device_id, text):
-                time.sleep(0.5)
-                after = field.get_text() or ""
-                if len(after) > len(before):
-                    return True
-                self.logger.warning("Taktik Keyboard ack OK but composer text not inserted")
+            if type_text_checked(self.device, self.device_id, text, prefix=mention):
+                return True
+            self.logger.warning("Taktik Keyboard did not leave the exact reply in the composer")
         except Exception as exc:
             self.logger.warning(f"Taktik Keyboard typing failed: {exc}")
-        # 2) set_text rescue (reliable when the IME broadcast acks but text is absent).
+        # 2) set_text rescue, which replaces the field.
         try:
-            field.set_text(before + text)
+            field.set_text(mention + text)
             time.sleep(0.5)
-            after = field.get_text() or ""
-            if len(after) > len(before):
+            if field_holds_text(self.device, mention + text):
                 return True
         except Exception as exc:
             self.logger.warning(f"set_text fallback failed: {exc}")
+        self.logger.error("The composer does not hold the requested reply: not sent")
         return False
 
     def open_mention(self, username: str = "") -> Dict[str, Any]:
@@ -1054,6 +1052,12 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         result["message"] = (f"Replied to {username}" if sent else "Reply may not have been sent")
         self._notify("reply", "done" if sent else "failed", result["message"], username=username)
         return result
+
+
+def _reply_mention(composer_text: str) -> str:
+    """The "@name " a reply composer opens with, or "" (an empty composer reads its hint)."""
+    first = composer_text.strip().split(" ", 1)[0]
+    return f"{first} " if first.startswith("@") and len(first) > 1 else ""
 
 
 __all__ = ["NotificationsEngagementWorkflow"]

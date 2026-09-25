@@ -77,7 +77,7 @@ def _action(field=None, xml=THREAD, comments_open=True, tap_ok=True,
     act._is_comments_view_open = lambda: comments_open
     act._human_like_delay = lambda _kind: None
     act._close_comment_popup = lambda: True
-    act._type_comment = lambda _text: typed_ok
+    act._type_comment = lambda _text, mention="": typed_ok
     act._post_comment = lambda: sent_ok
     act._get_account_id = lambda: 1
     act._get_session_id = lambda: 2
@@ -112,6 +112,17 @@ def test_a_reply_taps_the_rows_own_reply_button(_no_db):
 
     assert result["success"] is True
     assert act.device.taps == [(98, 255, 170, 302)]  # commenter42's Reply, not a neighbour's
+
+
+def test_the_reply_is_typed_and_checked_after_its_mention(_no_db):
+    """The field must read "@commenter42 Merci !" before the send, not just "Merci !"."""
+    act = _action()
+    mentions = []
+    act._type_comment = lambda _text, mention="": mentions.append(mention) or True
+
+    act.reply_to_comment_in_thread("commenter42", "Merci !")
+
+    assert mentions == ["@commenter42 "]
 
 
 def test_a_reply_is_stored_as_a_reply_and_keeps_who_it_answers(_no_db):
