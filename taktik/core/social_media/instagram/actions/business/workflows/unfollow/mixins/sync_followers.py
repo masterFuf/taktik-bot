@@ -20,7 +20,7 @@ from taktik.core.database.instagram_follow_graph import InstagramFollowGraphServ
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
-from ..list_proof import read_is_complete, scrolls_for
+from ..list_proof import describe_proof, proof_of_read, scrolls_for
 from .actions import LeftOutRows, row_belongs_to_tab
 
 
@@ -56,6 +56,8 @@ class SyncFollowersMixin:
             # True only when the read reached the list's exact count (unfollow/list_proof.py): the
             # unfollow trusts the ABSENCE of an account from this list only then (candidates.py).
             'complete': False,
+            # The rule that proved it (list_proof.PROOF_BY_*), None when none did
+            'proof': None,
             'expected': None,
             'end_reached': False,
             'usernames': set(),
@@ -253,12 +255,15 @@ class SyncFollowersMixin:
                 max_no_new = 3 if mode != 'enriched' else 5
                 if self.suggestions_on_screen or no_new_count >= max_no_new:
                     stats['end_reached'] = True
-                    stats['complete'] = read_is_complete(len(seen_on_screen), expected, scroll_failed)
+                    stats['proof'] = proof_of_read(
+                        len(seen_on_screen), expected, scroll_failed,
+                        suggestions_reached=self.suggestions_on_screen,
+                        left_out=left_out.summary(seen_on_screen))
+                    stats['complete'] = stats['proof'] is not None
                     self.logger.info(
                         f"End of the followers list"
                         f"{' (suggestions under it)' if self.suggestions_on_screen else f' ({max_no_new} reads without a new name)'}: "
-                        f"{len(seen_on_screen)} read of {expected if expected is not None else '?'} "
-                        f"({'complete' if stats['complete'] else 'NOT proven complete'})"
+                        f"{describe_proof(stats['proof'], len(seen_on_screen), expected)}"
                     )
                     break
                 if no_new_count:

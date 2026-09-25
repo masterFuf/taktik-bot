@@ -127,7 +127,7 @@ class UnfollowBusiness(
                 following_sync = self.sync_following_list(cfg)
                 stats['following_sync'] = {k: following_sync.get(k) for k in
                                            ('new_count', 'updated_count', 'total_seen', 'expected',
-                                            'complete', 'departures', 'departures_withheld')}
+                                            'complete', 'proof', 'departures', 'departures_withheld')}
                 if mode in ('non-followers', 'mutual'):
                     followers_sync = self.sync_followers_list({'mode': 'fast'})
                     self._followers = FollowersSnapshot(
@@ -136,7 +136,8 @@ class UnfollowBusiness(
                     )
                     stats['followers_sync'] = {'total_seen': followers_sync.get('total_seen'),
                                                'expected': followers_sync.get('expected'),
-                                               'complete': self._followers.complete}
+                                               'complete': self._followers.complete,
+                                               'proof': followers_sync.get('proof')}
                 self._synced = True
             followers = self._followers
 

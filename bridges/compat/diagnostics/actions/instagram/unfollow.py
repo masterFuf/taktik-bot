@@ -58,7 +58,8 @@ def sync_followers(a, p):
     and mutual modes trust. Says whether the end of the list was reached. Reads only on screen."""
     stats = a.unfollow.sync_followers_list({"mode": "fast"})
     return {"success": bool(stats.get("success")),
-            "message": f"{stats.get('total_seen', 0)} seen, complete={stats.get('complete')}",
+            "message": (f"{stats.get('total_seen', 0)} seen, complete={stats.get('complete')}"
+                        f" (proof: {stats.get('proof') or 'none'})"),
             "details": _sync_summary(stats)}
 
 
