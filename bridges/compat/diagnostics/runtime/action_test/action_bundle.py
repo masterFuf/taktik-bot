@@ -6,6 +6,11 @@ from loguru import logger
 class ActionBundle:
     """Holds diagnostic action instances grouped by family."""
 
+    #: Serial of the phone this bundle drives, set by the session or the single-shot runner.
+    #: An action that builds its own manager (`app.launch`) must pass it on: a manager without a
+    #: serial falls back to the first phone of `adb devices`.
+    device_id = None
+
     #: Components whose work is recorded against an account. Anything the bundle builds
     #: that is not in here writes nothing, so it needs no identity.
     _IDENTITY_BEARING = ("comment", "like", "story", "feed", "unfollow", "popup")
@@ -37,6 +42,29 @@ class ActionBundle:
         return bound
 
 
+def attach_device_id(bundle, device_id) -> None:
+    """Record on the bundle which phone it drives. Never raises (a test bundle may be a stub)."""
+    try:
+        bundle.device_id = device_id or None
+    except (AttributeError, TypeError):
+        pass
+
+
+def bundle_device_id(bundle):
+    """The serial of the phone a bundle drives: the one recorded, else the connected device's own.
+
+    None when neither is known. The caller must then refuse to act rather than let a manager pick
+    a phone by itself.
+    """
+    recorded = getattr(bundle, "device_id", None)
+    if recorded:
+        return recorded
+    device = getattr(bundle, "device", None)
+    raw = getattr(device, "_device", None) or device
+    serial = getattr(raw, "serial", None)
+    return serial if isinstance(serial, str) and serial else None
+
+
 def resolve_lab_account_id(params):
     """Account id from the ``account`` parameter, or None.
 
@@ -57,4 +85,4 @@ def resolve_lab_account_id(params):
         return None
 
 
-__all__ = ["ActionBundle", "resolve_lab_account_id"]
+__all__ = ["ActionBundle", "attach_device_id", "bundle_device_id", "resolve_lab_account_id"]

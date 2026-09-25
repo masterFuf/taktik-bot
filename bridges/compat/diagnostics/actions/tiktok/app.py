@@ -10,16 +10,25 @@ import time
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action
+from bridges.compat.diagnostics.runtime.action_test.action_bundle import bundle_device_id
 from taktik.core.social_media.tiktok.core.manager import TikTokManager, TIKTOK_PACKAGES
 
 
 @action("app.launch")
 def launch(a, p):
-    """Foreground TikTok and confirm it reached the front.
+    """Foreground TikTok on the session's phone and confirm it reached the front.
 
-    Reuses the already-connected device facade so the manager does not reconnect.
+    The manager gets the session's serial AND its already-connected device. Built without the
+    serial, it relaunched TikTok on the first phone of `adb devices` (measured on 2026-09-23: the
+    session drove the 6a, TikTok was stopped and restarted on the 4a), and its adb fallbacks
+    (installed package, stop) asked no phone in particular either.
     """
-    mgr = TikTokManager()
+    device_id = bundle_device_id(a)
+    if not device_id:
+        logger.error("app.launch: the session's phone is unknown, TikTok not launched")
+        return {"success": False, "message": "app.launch: unknown phone serial, nothing launched"}
+
+    mgr = TikTokManager(device_id)
     mgr.device_manager.device = a.device  # reuse connected device, skip reconnect
     # Clean restart (force-stop + launch) so a cold start always lands on the home feed,
     # never resuming a trapped sub-screen — keeps the auto-test self-healing.

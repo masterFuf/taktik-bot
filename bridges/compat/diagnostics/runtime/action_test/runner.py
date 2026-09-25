@@ -24,6 +24,8 @@ from bridges.compat.diagnostics.runtime.action_test.artifacts import (
     resolve_session_invariant_context,
     write_action_report,
 )
+from bridges.compat.diagnostics.runtime.action_test.action_bundle import attach_device_id
+from bridges.compat.diagnostics.runtime.action_test.language import LabLanguage
 from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
 
 
@@ -90,11 +92,14 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
     try:
         device_facade = create_device_facade(raw_device)
         bundle = build_action_bundle(device_facade)
+        attach_device_id(bundle, device_id)
     except Exception as exc:
         emit({"type": "result", "success": False, "message": f"Action init failed: {exc}\n{traceback.format_exc()}"})
         sys.exit(1)
 
-    language_optimization = _detect_and_optimize_selectors(platform, device_facade, override=language_override)
+    # Detected only with the app on screen, and again after the action if it brought the app up.
+    language = LabLanguage(platform, device_facade, _detect_and_optimize_selectors, override=language_override)
+    language_optimization = language.refresh()
     tracer = _install_selector_tracer(device_facade, app=platform)
     _execute_action(
         action_registry,
@@ -108,6 +113,7 @@ def run_action_test_bridge(action_registry: dict, create_device_facade, build_ac
         capture_artifacts=capture_artifacts,
         perf_fast=perf_fast,
         language_optimization=language_optimization,
+        refresh_language=language.refresh,
     )
 
 
@@ -159,6 +165,7 @@ def _execute_action(
     exit_on_error: bool = True,
     session_context_cache=None,  # session-owned _SessionContextCache holder (.value)
     scenario: dict | None = None,  # scenario tag {runId,id,label,stepIndex,stepLabel,total}
+    refresh_language=None,  # () -> language payload, called once the action ran (LabLanguage.refresh)
 ) -> None:
     # perf_fast keeps the artifact context + report.json (for phase timings) but
     # skips the XML/PNG capture. It is a pure-timing diagnostic mode: the report is
@@ -224,6 +231,10 @@ def _execute_action(
             action_details = None
         timing_ms = _elapsed_ms(started_at)
         phase_timings["actionMs"] = timing_ms
+        if refresh_language is not None:
+            # An action can bring the app to the front (`app.launch`): the language it could not
+            # read before is readable now, and this very result reports it.
+            language_optimization = _time_phase(phase_timings, "languageMs", refresh_language)
         screen_probe_start = len(tracer.traces)
         screen_after = _time_phase(phase_timings, "screenAfterMs", lambda: _detect_screen(bundle))
         current_app_after = _time_phase(phase_timings, "currentAppAfterMs", lambda: _get_current_app(bundle))

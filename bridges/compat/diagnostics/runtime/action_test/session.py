@@ -6,6 +6,8 @@ import traceback
 
 from loguru import logger
 
+from bridges.compat.diagnostics.runtime.action_test.action_bundle import attach_device_id
+from bridges.compat.diagnostics.runtime.action_test.language import LabLanguage
 from bridges.compat.diagnostics.runtime.action_test.runner import (
     _detect_and_optimize_selectors,
     _execute_action,
@@ -94,7 +96,11 @@ def run_action_session_bridge() -> None:
 
         device_facade = create_device_facade(device_manager.device)
         bundle = build_action_bundle(device_facade)
-        language_optimization = _detect_and_optimize_selectors(platform, device_facade, override=language_override)
+        attach_device_id(bundle, device_id)
+        # The session usually opens with the app closed: the language is detected once the app is
+        # on screen (after `app.launch`, or before the first action that finds it there).
+        language = LabLanguage(platform, device_facade, _detect_and_optimize_selectors, override=language_override)
+        language_optimization = language.refresh()
         tracer = _install_selector_tracer(device_facade, app=platform)
         session_context_cache = _SessionContextCache()
     except Exception as exc:
@@ -153,7 +159,7 @@ def run_action_session_bridge() -> None:
                     "selector_traces": [],
                     "ui_action_trace": None,
                     "artifacts": None,
-                    "language_optimization": language_optimization,
+                    "language_optimization": language.payload,
                     "transition": None,
                 }
             )
@@ -161,6 +167,7 @@ def run_action_session_bridge() -> None:
 
         tracer.reset()
         _begin_action_run()
+        language_optimization = language.refresh()
         _execute_action(
             action_registry,
             action_id,
@@ -177,6 +184,7 @@ def run_action_session_bridge() -> None:
             exit_on_error=False,
             session_context_cache=session_context_cache,
             scenario=scenario,
+            refresh_language=language.refresh,
         )
 
 
