@@ -26,12 +26,11 @@ def test_record_action_is_local_and_does_not_require_api(monkeypatch):
     assert manager.source_counters["target_a"]["likes"] == 1
 
 
-def test_record_action_counts_story_watch_as_story_not_like():
+def test_there_is_no_session_story_counter():
+    """`watch_stories` was counted here and fed by no workflow; nothing read it either: story
+    views are passive and capped by nothing, and the end-of-run figures come from the ledger's
+    STORY_WATCH rows. Removed rather than wired as a second count of those rows (2026-09-25)."""
     manager = SessionManager({"session_settings": {}})
-    manager.source_counters["target_a"] = {"interactions": 0}
 
-    manager.record_action("watch_stories", success=True, source="target_a")
-
-    assert manager.counters["likes"] == 0
-    assert manager.counters["stories_watched"] == 1
-    assert manager.source_counters["target_a"]["stories_watched"] == 1
+    assert "stories_watched" not in manager.counters
+    assert "stories_watched" not in manager.get_session_stats()
