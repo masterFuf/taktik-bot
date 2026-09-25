@@ -58,16 +58,21 @@ class PostUrlBusiness(
         self.logger.info(f"Max interactions target: {max_interactions}")
         
         stats = create_workflow_stats('post_url', source=post_url)
-        
+        # The stats manager lives as long as this object, which serves every link of a run: its
+        # counts are the run's. What this post did is the difference from here (`_final_stats`).
+        baseline = None
+
         try:
             self.logger.info(f"Starting Post URL workflow (direct navigation): {post_url}")
             self.logger.info(f"Max interactions: {max_interactions}")
-            
+
             if not self._validate_instagram_url(post_url):
                 self.logger.error("Invalid Instagram URL")
                 stats['errors'] += 1
-                return stats
-            
+                return self._link_failed(stats, stop_reasons.navigation_lost(), finalize)
+
+            baseline = dict(self.stats_manager.to_dict())
+
             # 1. Navigate to the post by deeplink
             if not self.nav_actions.navigate_to_post_via_deep_link(post_url):
                 self.logger.error("Failed to navigate to post")
@@ -75,18 +80,10 @@ class PostUrlBusiness(
                 # The post was never reached, so nobody was examined: this is not a post that
                 # ran dry. Returning without a motive let the driver see "zero interactions, no
                 # reason", and the session loop filed the run COMPLETED as "sources exhausted".
-                # Same motive and same end as the hashtag workflow when its page is never
-                # reached.
-                stats['stop_reason'] = stop_reasons.navigation_lost()
-                if finalize and self.automation and hasattr(self.automation, 'helpers'):
-                    self.automation.helpers.finalize_session(
-                        status=stop_reasons.terminal_status(stats['stop_reason']),
-                        reason=stats['stop_reason'],
-                    )
-                return stats
-            
+                return self._link_failed(stats, stop_reasons.navigation_lost(), finalize)
+
             time.sleep(2)
-            
+
             # Extract the post metadata
             is_reel = self._is_reel_post()
             post_metadata = {
@@ -94,12 +91,15 @@ class PostUrlBusiness(
                 'likes_count': self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel),
                 'is_reel': is_reel
             }
-            
+
             if not post_metadata.get('author_username'):
+                # No author, no post: the screen the link opened cannot be told to be that post,
+                # and nothing done on it could be filed. Same end as a link that did not open.
                 self.logger.error("Failed to extract author username")
                 stats['errors'] += 1
-                return stats
-            
+                return self._link_failed(stats, stop_reasons.navigation_lost(), finalize)
+
+            stats['post_reached'] = True
             self.logger.info(f"Post from @{post_metadata['author_username']} - {post_metadata['likes_count']} likes")
             
             # Validate the bounds
@@ -140,17 +140,21 @@ class PostUrlBusiness(
             # Then the profile-discovery family, unless the run only asked for in-thread work.
             if not effective_config.get('walk_profiles', True):
                 stats['success'] = True
-                return self._final_stats(stats)
+                return self._final_stats(stats, baseline)
 
+            # A list that does not open is a failure of THIS post, not a post whose list ran
+            # dry: it used to return without a motive, and a run with that one link ended
+            # COMPLETED as "sources exhausted". `list_unavailable` is the catalogue's motive for
+            # a list the run cannot reach.
             if source_mode == 'commenters':
                 if not self._open_comments_view():
                     self.logger.error("Failed to open the comments thread")
                     stats['errors'] += 1
-                    return stats
+                    return self._link_failed(stats, stop_reasons.list_unavailable(), finalize, baseline)
             elif not self._open_likers_popup(is_reel):
                 self.logger.error("Failed to open likers popup")
                 stats['errors'] += 1
-                return stats
+                return self._link_failed(stats, stop_reasons.list_unavailable(), finalize, baseline)
             
             # Start the interaction phase
             if self.session_manager:
@@ -185,29 +189,65 @@ class PostUrlBusiness(
             self.logger.error(f"General error in Post URL workflow: {e}")
             stats['errors'] += 1
             self.stats_manager.add_error(f"General error: {e}")
-        return self._final_stats(stats)
+        return self._final_stats(stats, baseline)
 
-    def _final_stats(self, stats: Dict[str, Any]) -> Dict[str, Any]:
-        """The run's result, from the stats manager (the source of truth for gestures)."""
+    def _link_failed(self, stats: Dict[str, Any], motive, finalize: bool,
+                     baseline: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """End THIS post on `motive`: the link was not reached, or its list did not open.
+
+        The motive is the post's, carried twice: `stop_reason` for a caller that runs one post
+        and finalises (`finalize=True`), `link_failure` for the multi-link driver, which moves
+        on to the next link instead of ending the session (`WorkflowRunner._run_post_url_workflow`).
+        `baseline` is given once the post was reached: what it did before failing (in-thread
+        likes and replies) is still reported.
+        """
+        stats['stop_reason'] = motive
+        stats['link_failure'] = motive
+        if finalize and self.automation and hasattr(self.automation, 'helpers'):
+            self.automation.helpers.finalize_session(
+                status=stop_reasons.terminal_status(motive),
+                reason=motive,
+            )
+        if baseline is None:
+            return stats
+        return self._final_stats(stats, baseline)
+
+    def _final_stats(self, stats: Dict[str, Any],
+                     baseline: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """This post's result, from the stats manager (the source of truth for gestures).
+
+        The manager counts the whole run, since one PostUrlBusiness serves every link: the
+        post's figures are its counts minus `baseline`, taken when the post started. Reported
+        whole, the second link announced the first one's profiles as its own, and the driver
+        took them off the budget of the links still waiting.
+        """
         real_stats = self.stats_manager.to_dict()
+        base = baseline or {}
+
+        def done(key: str) -> int:
+            return max(int(real_stats.get(key, 0) or 0) - int(base.get(key, 0) or 0), 0)
+
         comment_likes = stats.get('comment_likes', 0)
         replies = stats.get('comment_replies', 0)
         return {
             'post_url': stats.get('post_url', ''),
             'users_found': stats.get('users_found', 0),
-            'users_interacted': real_stats.get('profiles_visited', 0),
-            'likes_made': real_stats.get('likes', 0),
-            'follows_made': real_stats.get('follows', 0),
-            'comments_made': real_stats.get('comments', 0),
-            'stories_watched': real_stats.get('stories_watched', 0),
+            'users_interacted': done('profiles_visited'),
+            'likes_made': done('likes'),
+            'follows_made': done('follows'),
+            'comments_made': done('comments'),
+            'stories_watched': done('stories_watched'),
             'comment_likes': comment_likes,
             'comment_replies': replies,
             'skipped': stats.get('skipped', 0),
-            'errors': real_stats.get('errors', 0),
+            'errors': done('errors'),
             # An in-thread-only run visits nobody, so profiles alone cannot define success.
-            'success': (real_stats.get('profiles_visited', 0) + comment_likes + replies) > 0,
+            'success': (done('profiles_visited') + comment_likes + replies) > 0,
             # Session-level stop, surfaced for the multi-URL driver (see finalize above).
             'stop_reason': stats.get('stop_reason', ''),
+            # Did the link open on its post, and if this post failed, why (`_link_failed`).
+            'post_reached': bool(stats.get('post_reached')),
+            'link_failure': stats.get('link_failure', ''),
         }
 
     def _resolve_reply_writer(self):
