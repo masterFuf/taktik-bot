@@ -103,7 +103,7 @@ class DeviceManager:
             if applied:
                 logger.debug(f"[Compat] Selector overrides applied for {device_id}: {applied}")
         except Exception as exc:
-            logger.debug(f"[Compat] Selector overrides skipped for {device_id}: {exc}")
+            logger.warning(f"[Compat] Selector overrides not applied for {device_id}, baseline selectors kept: {exc}")
 
     def _verify_and_repair_atx(self, max_retries: int = 2) -> bool:
         """Verify ATX agent is working, attempt repair if not.

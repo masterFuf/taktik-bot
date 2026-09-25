@@ -325,7 +325,7 @@ def apply_overrides_for_device(device_id: str) -> Dict[str, int]:
                     applied[platform] = apply_version_overrides(platform, version)
                     break
         except Exception as exc:
-            logger.debug(f"[Compat] Could not apply {platform} overrides for {device_id}: {exc}")
+            logger.warning(f"[Compat] Could not apply {platform} overrides for {device_id}, baseline kept: {exc}")
     return applied
 
 
