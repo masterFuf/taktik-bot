@@ -99,6 +99,14 @@ class SearchSelectors:
     def search_button(self) -> List[str]:
         return self._search_button_base + L("search.search_button")
 
+    # === Results page ===
+    #: The pager under the Top / Users / Videos tab strip. The search field page has none, and no
+    #: other screen has this one: on the 43.1.4 dumps, 2 results pages out of 2, 0 of the other
+    #: 223 screens. 46.6.3 renamed it `viewpager_search` (overrides).
+    results_page: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/zpl")]',
+    ])
+
     # === Filtres de recherche (tabs on results page) ===
     top_tab: List[str] = field(default_factory=lambda: [
         '//android.widget.TextView[@text="Top"]',
