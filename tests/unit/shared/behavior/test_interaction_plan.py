@@ -2,18 +2,23 @@
 
 import random
 
+import pytest
+
 from taktik.core.shared.behavior.interaction_plan import (
     InteractionPlan,
     RelevanceGating,
     apply_relevance_gating,
+    like_target_law,
     proportional_like_cap,
     sample_like_target,
+    tilt_like_law,
     sample_story_like_slot,
     sample_story_like_count,
     sample_story_like_slots,
     build_interaction_plan,
     interaction_plan_from_payload,
 )
+from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
 
 def _plan(**over):
@@ -87,7 +92,9 @@ def test_sample_like_target_proportional_stays_near_cap():
     small = {sample_like_target(1, 8, posts_count=10, rng=rng) for _ in range(200)}
     big = {sample_like_target(1, 8, posts_count=500, rng=rng) for _ in range(200)}
     assert small <= {1, 2}                               # 10 posts -> ~2, never the full max
-    assert big <= {7, 8}                                 # 500 posts -> ~8
+    # 500 posts -> ~8: up to two under the cap (the old cap-1/cap coin put every profile of a
+    # run on the same two counts), never above it.
+    assert big <= {6, 7, 8}
     assert max(big) > max(small)                         # bigger profile gets more likes
 
 
@@ -334,3 +341,118 @@ def test_injected_plan_cannot_bypass_operator_capability_mask():
     assert plan.do_comment is False
     assert plan.do_watch_story is True
     assert plan.do_story_like is False
+
+
+# ─── like count: spread and session lean, same means (H4) ─────────────────────
+
+
+def _law_mean(law):
+    return sum(count * p for count, p in law)
+
+
+def _law_sd(law):
+    mean = _law_mean(law)
+    return sum(p * (count - mean) ** 2 for count, p in law) ** 0.5
+
+
+def _old_mean_and_sd(lo, hi, posts_count):
+    """The historical draw: uniform [lo, hi], or uniform [max(lo, cap - 1), cap]."""
+    hi = max(0, hi)
+    lo = min(max(0, lo), hi)
+    if not posts_count:
+        low, high = lo, hi
+    else:
+        cap = proportional_like_cap(posts_count, lo, hi)
+        low, high = max(lo, cap - 1), cap
+    n = high - low + 1
+    return (low + high) / 2, ((n * n - 1) / 12) ** 0.5
+
+
+@pytest.mark.parametrize("lo, hi", [(1, 3), (1, 8), (2, 6), (0, 2), (3, 3), (1, 1)])
+@pytest.mark.parametrize("posts_count", [None, 5, 10, 14, 60, 200, 500, 5000])
+def test_like_law_keeps_the_historical_mean_and_never_narrows(lo, hi, posts_count):
+    law = like_target_law(lo, hi, posts_count=posts_count)
+    old_mean, old_sd = _old_mean_and_sd(lo, hi, posts_count)
+    assert abs(sum(p for _, p in law) - 1.0) < 1e-12
+    assert abs(_law_mean(law) - old_mean) < 1e-9
+    assert _law_sd(law) >= old_sd - 1e-9
+    assert all(lo <= count <= hi for count, _ in law)
+    if posts_count:
+        assert max(count for count, _ in law) <= proportional_like_cap(posts_count, lo, hi)
+
+
+def test_like_law_spreads_when_the_floor_leaves_room():
+    law = like_target_law(1, 3, posts_count=200)       # cap 3: counts 1, 2, 3
+    assert [count for count, _ in law] == [1, 2, 3]
+    assert _law_sd(law) > 1.25 * 0.5                    # the old coin between 2 and 3
+
+
+@pytest.mark.parametrize("appetite", [0.2, 0.5, 0.85])
+def test_opposite_leans_average_back_to_the_law(appetite):
+    for posts_count in (None, 200, 500):
+        law = like_target_law(1, 8, posts_count=posts_count)
+        up, down = tilt_like_law(law, appetite), tilt_like_law(law, -appetite)
+        assert [c for c, _ in up] == [c for c, _ in law]            # same support: caps hold
+        assert all(p > 0 for _, p in up + down)
+        assert abs(sum(p for _, p in up) - 1.0) < 1e-12
+        for (count, p), (_, pu), (_, pd) in zip(law, up, down):
+            assert abs((pu + pd) / 2 - p) < 1e-12
+        assert _law_mean(up) > _law_mean(law) > _law_mean(down)
+
+
+def test_a_non_number_appetite_is_ignored():
+    from unittest.mock import MagicMock
+
+    law = like_target_law(1, 3)
+    assert tilt_like_law(law, MagicMock()) == law
+    assert tilt_like_law(law, True) == law
+    assert tilt_like_law(law, float("nan")) == law
+
+
+@pytest.mark.parametrize("posts_count", [None, 200, 500])
+def test_sessions_differ_but_the_long_run_mean_and_the_caps_hold(posts_count):
+    lo, hi, per_session, sessions = 1, 8, 30, 3000
+    old_mean, old_sd = _old_mean_and_sd(lo, hi, posts_count)
+    all_values, session_means = [], []
+    for s in range(sessions):
+        appetite = BehaviorSessionState(seed=90_000 + s).like_appetite
+        rng = random.Random(s)
+        values = [sample_like_target(lo, hi, posts_count=posts_count, rng=rng, appetite=appetite)
+                  for _ in range(per_session)]
+        all_values.extend(values)
+        session_means.append(sum(values) / per_session)
+    mean = sum(all_values) / len(all_values)
+    assert abs(mean - old_mean) < 0.03 * old_mean
+    assert max(all_values) <= (proportional_like_cap(posts_count, lo, hi) if posts_count else hi)
+    assert min(all_values) >= lo
+    spread = (sum((m - mean) ** 2 for m in session_means) / sessions) ** 0.5
+    assert spread > 1.5 * old_sd / per_session ** 0.5       # the old draw: sampling noise only
+
+
+def test_session_like_appetite_is_seeded_bounded_and_neutral_in_strict_mode():
+    first, again = BehaviorSessionState(seed=7), BehaviorSessionState(seed=7)
+    assert first.like_appetite == again.like_appetite
+    values = [BehaviorSessionState(seed=s).like_appetite for s in range(2000)]
+    assert all(-0.85 < v < 0.85 for v in values)
+    assert abs(sum(values) / len(values)) < 0.03
+    assert len(set(values)) > 500
+    assert BehaviorSessionState(seed=7, strict_regression=True).like_appetite == 0.0
+
+
+def test_reading_the_appetite_does_not_shift_the_seeded_gestures():
+    plain, read = BehaviorSessionState(seed=31), BehaviorSessionState(seed=31)
+    _ = read.like_appetite
+    for _ in range(20):
+        a = plain.choose_scroll_mode(context="feed")
+        b = read.choose_scroll_mode(context="feed")
+        assert a == b
+
+
+def test_plan_passes_the_session_appetite_to_the_like_target():
+    cfg = {'min_likes_per_profile': 1, 'max_likes_per_profile': 8, 'max_stories_per_profile': 3}
+    eager = [build_interaction_plan(cfg, ['like'], posts_count=500, rng=random.Random(i),
+                                    appetite=0.85).like_target for i in range(400)]
+    shy = [build_interaction_plan(cfg, ['like'], posts_count=500, rng=random.Random(i),
+                                  appetite=-0.85).like_target for i in range(400)]
+    assert sum(eager) > sum(shy)
+    assert max(eager) <= 8 and min(shy) >= 6

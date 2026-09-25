@@ -14,6 +14,7 @@ import random
 from typing import Any, Deque, Dict, Optional, Sequence
 
 from taktik.core.shared.behavior.grid_entry import row_weights
+from taktik.core.shared.behavior.sampling import sample_within
 from taktik.core.shared.telemetry import emit_step
 
 
@@ -122,6 +123,7 @@ class BehaviorSessionState:
         self._rng = random.Random(0 if self.strict_regression and seed is None else seed)
         self._motor_signature = self._sample_motor_signature()
         self._energy = self._sample_energy()
+        self._like_appetite: Optional[float] = None
         self._style: Optional[str] = None
         self._burst_remaining = 0
         self._gesture_index = 0
@@ -160,6 +162,7 @@ class BehaviorSessionState:
         if strict_changed or (clean and seed_changed):
             self._motor_signature = self._sample_motor_signature()
             self._energy = self._sample_energy()
+            self._like_appetite = None
         if strict_changed:
             # Preserve the recorded history, but make the next decisions obey the newly selected
             # execution mode immediately. Leaving strict mode starts a fresh natural burst.
@@ -317,6 +320,23 @@ class BehaviorSessionState:
                 **values,
             )
         return values
+
+    @property
+    def like_appetite(self) -> float:
+        """How much more or less than usual this session likes, in (-0.85, 0.85); 0 is neutral.
+
+        Drawn once per session from a symmetric law, so sessions differ from one another while
+        the long-run average number of likes stays the configured one (see
+        `interaction_plan.sample_like_target`). It has its own RNG stream, so reading it never
+        shifts a seeded gesture decision. Strict regression runs stay neutral.
+        """
+        if self.strict_regression:
+            return 0.0
+        if self._like_appetite is None:
+            stream = random.Random(f"{self.seed}:like_appetite" if self.seed is not None else None)
+            self._like_appetite = round(0.85 * (2.0 * stream.betavariate(2.0, 2.0) - 1.0), 3)
+            emit_step("behavior", action="like_appetite", appetite=self._like_appetite)
+        return self._like_appetite
 
     def reading_scale(self, *, context: str) -> float:
         """Return and emit the current correlated dwell multiplier."""
@@ -542,10 +562,11 @@ class BehaviorSessionState:
             return
         target = _STYLE_ENERGY_TARGET[self._style or "steady"]
         attraction = 0.16 if style_changed else 0.08
-        noise = self._rng.uniform(-0.018, 0.018)
-        self._energy = min(
-            0.82,
-            max(0.20, self._energy + attraction * (target - self._energy) + noise),
+        drifted = self._energy + attraction * (target - self._energy)
+        # The step's noise is drawn again if it would leave 0.20-0.82 (the attraction keeps the
+        # signal far from both in practice); it never sticks to a limit.
+        self._energy = sample_within(
+            lambda: drifted + self._rng.uniform(-0.018, 0.018), 0.20, 0.82, rng=self._rng,
         )
 
     def _record_framing(

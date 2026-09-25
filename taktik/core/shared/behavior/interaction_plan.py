@@ -53,26 +53,71 @@ def proportional_like_cap(posts_count: int, min_likes: int, max_likes: int) -> i
     return max(lo, min(hi, scaled))
 
 
-def sample_like_target(min_likes: int, max_likes: int, *, posts_count=None, rng=None) -> int:
-    """Sample how many posts to like this profile.
+# Share of the proportional like targets that fall two below the profile's cap. The two-value
+# law it replaces (cap-1 or cap, one chance in two) put every profile of a run on the same two
+# counts; the third value keeps the mean exactly where it was (cap - 0.5).
+_LIKE_TAIL = 0.08
 
-    When `posts_count` is known the target is PROPORTIONAL to the profile size
-    (`proportional_like_cap`) with a -1 jitter for variety; when it's unknown we fall back
-    to the legacy uniform [min, max] draw (back-compat). `max_likes` is always the hard
-    ceiling (an explicit max=0 means "no likes"); `min_likes` is the floor."""
-    r = rng or random
-    # max is the hard ceiling: an explicit max=0 means "no likes" (must not be
-    # overridden by a default min=1); min is clamped DOWN to it if misconfigured.
+
+def like_target_law(min_likes: int, max_likes: int, *, posts_count=None) -> list:
+    """The per-profile like-target law, as [(count, probability), ...], before any session tilt.
+
+    Unknown post count: uniform over [min, max] (the legacy draw). Known post count: centred half
+    a like under the proportional cap, over up to three counts -- cap (0.58), cap-1 (0.34) and
+    cap-2 (0.08) -- or the old cap-1/cap coin when the floor leaves no room. The mean is the one
+    of the historical draw in every case; only the spread grows.
+    """
     hi = max(0, int(max_likes))
     lo = min(max(0, int(min_likes)), hi)
     if hi == 0:
-        return 0
+        return [(0, 1.0)]
     if not posts_count or posts_count <= 0:
-        return r.randint(lo, hi)
+        share = 1.0 / (hi - lo + 1)
+        return [(count, share) for count in range(lo, hi + 1)]
     cap = proportional_like_cap(posts_count, lo, hi)
-    # Keep a little variety around the proportional target without drifting below the floor.
-    low = max(lo, cap - 1)
-    return r.randint(low, cap)
+    if cap - 2 >= lo:
+        return [(cap - 2, _LIKE_TAIL), (cap - 1, 0.5 - 2 * _LIKE_TAIL), (cap, 0.5 + _LIKE_TAIL)]
+    if cap - 1 >= lo:
+        return [(cap - 1, 0.5), (cap, 0.5)]
+    return [(cap, 1.0)]
+
+
+def tilt_like_law(law: list, appetite: float) -> list:
+    """Lean `law` toward more (appetite > 0) or fewer (< 0) likes, for one session.
+
+    The tilt is linear and sums to zero, so the average over sessions whose appetite is drawn
+    from a symmetric law is `law` itself: sessions differ, the long-run mean does not move, and
+    no count ever leaves the law's support (the caps stay hard caps).
+    """
+    if isinstance(appetite, bool) or not isinstance(appetite, (int, float)):
+        return law
+    if not appetite or len(law) < 2 or not math.isfinite(appetite):
+        return law
+    a = max(-0.95, min(0.95, float(appetite)))
+    mean = sum(count * p for count, p in law)
+    spread = max(abs(count - mean) for count, _ in law) or 1.0
+    return [(count, p * (1.0 + a * (count - mean) / spread)) for count, p in law]
+
+
+def sample_like_target(min_likes: int, max_likes: int, *, posts_count=None, rng=None,
+                       appetite: float = 0.0) -> int:
+    """Sample how many posts to like this profile.
+
+    When `posts_count` is known the target is PROPORTIONAL to the profile size
+    (`proportional_like_cap`), spread over up to three counts just under it; when it's unknown
+    we fall back to the legacy uniform [min, max] law (back-compat). `appetite` is the
+    session's lean (`BehaviorSessionState.like_appetite`, 0 = neutral). `max_likes` is always
+    the hard ceiling (an explicit max=0 means "no likes"); `min_likes` is the floor."""
+    r = rng or random
+    law = tilt_like_law(like_target_law(min_likes, max_likes, posts_count=posts_count), appetite)
+    if len(law) == 1:
+        return law[0][0]
+    draw = r.random() * sum(p for _, p in law)
+    for count, p in law:
+        draw -= p
+        if draw < 0.0:
+            return count
+    return law[-1][0]
 
 
 def sample_story_like_slot(max_slides: int, *, rng=None) -> int:
@@ -117,15 +162,16 @@ def sample_story_like_slots(slides_available: int, count: int, *, rng=None) -> l
     return sorted(r.sample(range(n), k))
 
 
-def build_interaction_plan(config: dict, interactions_to_do, *, posts_count=None, rng=None) -> InteractionPlan:
+def build_interaction_plan(config: dict, interactions_to_do, *, posts_count=None, rng=None,
+                           appetite: float = 0.0) -> InteractionPlan:
     """Resolve a per-profile `InteractionPlan` from the action config + the rolled
     `interactions_to_do` list (['like','follow','comment','story','story_like']).
 
     `interactions_to_do` carries the probability rolls (which intents fire for this profile);
     this function turns the "yes" intents into concrete quantities (a like target sampled
-    PROPORTIONALLY to `posts_count` when known, the single story-like slot). Quantities come
-    from `min/max_likes_per_profile` and `max_stories_per_profile`; the gesture execution
-    stays in the engine."""
+    PROPORTIONALLY to `posts_count` when known, leaning with the session's `appetite`, the
+    single story-like slot). Quantities come from `min/max_likes_per_profile` and
+    `max_stories_per_profile`; the gesture execution stays in the engine."""
     intents = set(interactions_to_do or [])
     do_like = 'like' in intents
     do_watch = ('story' in intents) or ('story_like' in intents)
@@ -136,7 +182,9 @@ def build_interaction_plan(config: dict, interactions_to_do, *, posts_count=None
     max_slides = config.get('max_stories_per_profile', 3)
     max_story_likes = int(config.get('max_story_likes_per_profile', 3))
 
-    like_target = sample_like_target(min_likes, max_likes, posts_count=posts_count, rng=rng) if do_like else 0
+    like_target = sample_like_target(
+        min_likes, max_likes, posts_count=posts_count, rng=rng, appetite=appetite,
+    ) if do_like else 0
     # Kept for back-compat (single-slot fallback when the slide count can't be read at open).
     story_slot = sample_story_like_slot(max_slides, rng=rng) if (do_watch and do_story_like) else -1
 
@@ -432,6 +480,8 @@ __all__ = [
     "RelevanceGating",
     "apply_relevance_gating",
     "proportional_like_cap",
+    "like_target_law",
+    "tilt_like_law",
     "sample_like_target",
     "sample_story_like_slot",
     "sample_story_like_count",

@@ -156,8 +156,12 @@ class InteractionEngineMixin:
                     config,
                 )
             else:
-                # Strictly compatible off/enrich path: probabilities still own selection.
-                plan = build_interaction_plan(config, interactions_to_do, posts_count=posts_count)
+                # Strictly compatible off/enrich path: probabilities still own selection. The
+                # session's like appetite makes runs differ without moving the long-run average.
+                appetite = getattr(getattr(self, 'behavior_state', None), 'like_appetite', 0.0)
+                plan = build_interaction_plan(
+                    config, interactions_to_do, posts_count=posts_count, appetite=appetite,
+                )
             # === SPENT BUDGETS ===
             # A spent budget removes ITS OWN intent instead of ending the session: the run keeps
             # liking and watching stories on what it still has. Covers both the per-session
