@@ -10,7 +10,7 @@ def kb_enter(a, p):
 
 @action("keyboard.press_back")
 def kb_back(a, p):
-    a.device.press("back")
+    a.device.press_back()
     return True
 
 

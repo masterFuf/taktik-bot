@@ -35,7 +35,8 @@ def open_profile(a, p):
 def nav_back(a, p):
     count = int(p.get("count", 1))
     for _ in range(count):
-        a.device.press("back")
+        # The Instagram facade's press("back") sends a key name uiautomator2 ignores.
+        a.device.press_back()
         time.sleep(0.6)
     return True
 

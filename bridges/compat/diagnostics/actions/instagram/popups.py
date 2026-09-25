@@ -53,7 +53,7 @@ def close_follow_suggestions(a, p):
 
 @action("popups.press_back")
 def press_back(a, p):
-    a.device.press("back")
+    a.device.press_back()
     time.sleep(0.8)
     return True
 
