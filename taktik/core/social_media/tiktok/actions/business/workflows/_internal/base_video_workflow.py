@@ -240,10 +240,13 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
             self.logger.warning(f"⛔ Arret : {arret['code']} — {arret.get('detail') or ''}")
             return True
 
-        if self.stats.videos_liked >= self.config.max_likes_per_session:
+        # A cap of 0 turns its gesture off, it is not a budget already spent: "0 like" is a pure
+        # watch-time run (Kevin, 2026-09-24), which used to end before its first video.
+        if self.config.max_likes_per_session and self.stats.videos_liked >= self.config.max_likes_per_session:
             self.logger.info("📊 Max likes per session reached")
             return True
-        if self.stats.users_followed >= self.config.max_follows_per_session:
+        if (self.config.max_follows_per_session
+                and self.stats.users_followed >= self.config.max_follows_per_session):
             self.logger.info("📊 Max follows per session reached")
             return True
         return False

@@ -519,9 +519,10 @@ class FollowersWorkflow(
         if arret:
             return arret['code']
 
-        if self.stats.likes >= self.config.max_likes_per_session:
+        # A cap of 0 turns its gesture off (the gesture checks its own cap), it never ends the run.
+        if self.config.max_likes_per_session and self.stats.likes >= self.config.max_likes_per_session:
             return 'max_likes_reached'
-        if self.stats.follows >= self.config.max_follows_per_session:
+        if self.config.max_follows_per_session and self.stats.follows >= self.config.max_follows_per_session:
             return 'max_follows_reached'
         return ''
     
