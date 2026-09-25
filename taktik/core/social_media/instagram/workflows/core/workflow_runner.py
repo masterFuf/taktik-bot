@@ -225,9 +225,11 @@ class WorkflowRunner:
         total_interacted = 0
         last_stop_reason = ''
         # Links that failed in this pass, with their motive (the summary and the panel), and
-        # what the session knows of every link (the end of the run).
+        # what this pass learned of every link it tried (the end of the run). Per pass, not per
+        # session: a link worked in an earlier pass says nothing of a phone that can no longer
+        # open any, and would end that pass as `sources_exhausted` instead of `navigation_lost`.
         failed_now: Dict[str, Any] = {}
-        links = self._post_links()
+        links: Dict[str, Dict[str, bool]] = {}
 
         def run_one_post(url: str, quota: int):
             nonlocal total_interacted, last_stop_reason
@@ -283,16 +285,6 @@ class WorkflowRunner:
 
         # Return True only if we actually interacted with users
         return total_interacted > 0
-
-    def _post_links(self) -> Dict[str, Dict[str, bool]]:
-        """What the session knows of each post link: reached (opened on its post) and worked
-        (its list walked). Kept across the passes of one session, reset for the next one."""
-        session = getattr(self.automation, 'current_session_id', None)
-        state = getattr(self, '_post_links_state', None)
-        if state is None or state[0] != session:
-            state = (session, {})
-            self._post_links_state = state
-        return state[1]
 
     @staticmethod
     def _post_links_end(links: Dict[str, Dict[str, bool]]):

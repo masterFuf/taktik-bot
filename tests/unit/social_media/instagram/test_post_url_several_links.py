@@ -288,6 +288,21 @@ def test_the_run_ends_as_navigation_lost_only_when_no_link_was_reached():
     assert (status, getattr(reason, 'code', None)) == ('INTERRUPTED', 'navigation_lost')
 
 
+
+def test_a_pass_where_no_link_opens_ends_as_navigation_lost_after_a_worked_pass():
+    """The end is decided on the links of THIS pass: a link worked in the first pass must not
+    turn a second pass on a phone that opens nothing into `sources_exhausted`."""
+    workflow = _PostUrl(reachable=(URL_A, URL_B))
+    automation = _automation(workflow, (URL_A, URL_B))
+    _run_step(automation, (URL_A, URL_B))
+    assert automation.helpers.finalized == []
+
+    workflow.nav_actions.reachable = set()
+    _run_step(automation, (URL_A, URL_B))
+
+    status, reason = automation.helpers.finalized[0]
+    assert (status, getattr(reason, 'code', None)) == ('INTERRUPTED', 'navigation_lost')
+
 def test_reached_links_whose_lists_never_open_end_as_list_unavailable():
     workflow = _PostUrl(reachable=(URL_A, URL_B), listless=(URL_A, URL_B))
     automation = _automation(workflow, (URL_A, URL_B))
