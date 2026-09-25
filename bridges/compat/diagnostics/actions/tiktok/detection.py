@@ -26,6 +26,13 @@ def is_ad(a, p):
     return result
 
 
+@action("tt.detection.is_live_preview")
+def is_live_preview(a, p):
+    result = a.video_detector.is_live_preview()
+    logger.info(f"Is a LIVE preview: {result}")
+    return result
+
+
 @action("tt.detection.is_liked")
 def is_liked(a, p):
     result = a.video_detector.is_video_liked()
