@@ -11,46 +11,47 @@ from taktik.core.clone import get_active_package
 
 class DeviceFacade(BaseDeviceFacade):
     """Instagram-specific device facade.
-    
+
     Inherits common functionality from BaseDeviceFacade.
-    Adds Instagram-specific features: press() with key mapping,
+    Adds Instagram-specific features: press() that returns the device's answer,
     click() by xpath, batch_xpath_check on one dump.
     """
-    
+
     @property
     def app_id(self):
         return get_active_package()
     _facade_name = 'InstagramDeviceFacade'
-    
+
+    # The key names the uiautomator2 server's `pressKey` knows. It answers False, without an
+    # error, to any other string ("KEYCODE_BACK", "ctrl+a"), so such a key is never sent.
+    SERVER_KEY_NAMES = frozenset({
+        "home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter",
+        "delete", "del", "recent", "volume_up", "volume_down", "volume_mute", "camera", "power",
+    })
+
     def __init__(self, device):
         super().__init__(device, module_name="instagram-device-facade")
-    
+
     # =========================================================================
-    # Instagram-specific: press() with key mapping
+    # Key press
     # =========================================================================
-    
-    def press(self, key: str) -> bool:
+
+    def press(self, key: Union[str, int]) -> bool:
+        """Press a key the way the shared `press_back()` does: a key name the server knows, or
+        an Android key code (int). Returns what the server answers; False for a key it cannot
+        press, which is then not sent."""
         try:
-            key_mapping = {
-                'profile': 'KEYCODE_APP_SWITCH',
-                'activity': 'KEYCODE_NOTIFICATIONS',
-                'reels': 'KEYCODE_MEDIA_PLAY_PAUSE',
-                'search': 'KEYCODE_SEARCH',
-                'home': 'KEYCODE_HOME',
-                'back': 'KEYCODE_BACK',
-                'menu': 'KEYCODE_MENU',
-                'recent': 'KEYCODE_APP_SWITCH',
-            }
-            
-            keycode = key_mapping.get(key.lower(), key)
-            
-            if not keycode.startswith('KEYCODE_'):
-                keycode = f'KEYCODE_{keycode.upper()}'
-                
-            self._device.press(keycode)
+            if isinstance(key, int) and not isinstance(key, bool):
+                sent = key
+            else:
+                sent = str(key).strip().lower()
+                if sent not in self.SERVER_KEY_NAMES:
+                    self.logger.warning(f"Key {key!r} is not one the device can press; not sent")
+                    return False
+            result = self._device.press(sent)
             time.sleep(0.5)
-            return True
-            
+            return bool(result)
+
         except Exception as e:
             self.logger.error(f"Error pressing key {key}: {e}")
             return False

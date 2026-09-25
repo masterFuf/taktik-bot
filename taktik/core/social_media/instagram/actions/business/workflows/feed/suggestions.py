@@ -535,7 +535,6 @@ class FeedSuggestionsMixin:
         """Come back to the feed after the suggestions pass.
 
         Taps the action-bar ARROW, not the hardware back key: the discovery screen
-        d'onglets, et il n'a repondu ni a notre `press('back')` ni aux backs
         exposes no navigation bar, so the incremental backs of `navigate_to_home()`
         had nothing to hold on to and the run ended stuck on the list. The arrow is a
         real element: targeted by resource-id, so language-neutral, and tapped on its

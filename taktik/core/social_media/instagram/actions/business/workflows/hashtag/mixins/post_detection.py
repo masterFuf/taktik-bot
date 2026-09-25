@@ -81,9 +81,8 @@ class HashtagPostDetectionMixin:
         composer, the commenters walk opens and closes its own thread. Found open, it came from
         somewhere else -- on 2026-09-24 a tap on a reel's collapsed caption opened it (IG 447),
         the like was refused because the reel's buttons were under it, and the run went on
-        inside it until a comment was published there. The sheet is closed by the back key
-        (`press_back`: the Instagram facade's `press('back')` sends a key name uiautomator2
-        ignores), up to three presses because the first one may only hide the keyboard.
+        inside it until a comment was published there. The sheet is closed by the back key,
+        up to three presses because the first one may only hide the keyboard.
 
         Returns False when the sheet is still open: the caller stops rather than act on it.
         """

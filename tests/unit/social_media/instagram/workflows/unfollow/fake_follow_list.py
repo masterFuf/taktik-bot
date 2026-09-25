@@ -189,8 +189,7 @@ class FakeScreen:
         self.click(x, y)
 
     # The key names the uiautomator2 server knows. It takes a name or an int code, and ignores
-    # anything else WITHOUT an error: "KEYCODE_BACK", which the Instagram facade's press('back')
-    # sends, presses nothing (12 back presses out of 12 on the 4 phones of C2, 2026-09-23).
+    # anything else WITHOUT an error: "KEYCODE_BACK" presses nothing.
     KEY_NAMES = {"home", "back", "left", "right", "up", "down", "center", "menu", "search", "enter",
                  "delete", "del", "recent", "volume_up", "volume_down", "volume_mute", "camera", "power"}
 

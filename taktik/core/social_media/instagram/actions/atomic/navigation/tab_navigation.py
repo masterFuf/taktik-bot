@@ -123,9 +123,7 @@ class TabNavigationMixin(BaseAction):
         return False
 
     def _back_one_screen(self) -> None:
-        """One real Back. `_press_back` goes through the Instagram facade's `press('back')`, which
-        sends uiautomator2 a key name it ignores without an error (12 Backs out of 12 without effect
-        on 4 phones, 2026-09-23); the shared facade's `press_back()` sends the name it knows."""
+        """One real Back, through the shared facade's `press_back()`."""
         self.device.press_back()
         self._human_like_delay('navigation')
 
