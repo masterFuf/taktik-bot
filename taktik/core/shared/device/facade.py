@@ -228,6 +228,11 @@ class BaseDeviceFacade:
         """New photos at a fixed pace until `predicate(photo)` holds: the photo, or None."""
         return self._snapshot_source().wait_for(predicate, timeout, poll_ms)
 
+    def observe_snapshots(self, observer) -> None:
+        """`observer(selector, found, elapsed_ms)` for every selector asked of this facade's photos
+        from now on (the Lab traces)."""
+        self._snapshot_source().observe(observer)
+
     def screenshot(self, filename: str) -> bool:
         try:
             os.makedirs(os.path.dirname(filename) or '.', exist_ok=True)

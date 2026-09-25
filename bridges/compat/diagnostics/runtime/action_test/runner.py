@@ -125,6 +125,10 @@ def _install_selector_tracer(device_facade, app: str | None = None):
         return TracedSelector(original_xpath(expr, *args, **kwargs), expr, tracer)
 
     device_facade._device.xpath = traced_xpath
+    # A screen photo answers without `xpath()`: its questions reach the same traces.
+    observe_snapshots = getattr(type(device_facade), "observe_snapshots", None)
+    if callable(observe_snapshots):
+        device_facade.observe_snapshots(tracer.record)
     return tracer
 
 
