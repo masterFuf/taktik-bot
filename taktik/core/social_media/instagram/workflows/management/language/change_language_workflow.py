@@ -3,7 +3,12 @@
 Drives the UI from the home/profile state to the target app language:
 
     Profile tab -> "Options" -> settings list -> "Language and translations"
-    -> "Set language" -> app language picker -> pick the target by NATIVE name.
+    -> "Set language" -> app language picker -> pick the target by NATIVE name
+    -> restart Instagram.
+
+The restart is the clean start a run makes (force-stop, then launch the active package): until
+the app starts again, screens drawn before the switch, the feed header among them, keep the old
+language.
 
 Reaching the settings screen reuses the proven logout navigation selectors
 (``AUTH_SELECTORS.profile_tab_button`` / ``profile_options_button``); the
@@ -26,11 +31,18 @@ from loguru import logger
 from ....ui.selectors.shell.auth import AUTH_SELECTORS
 from ....ui.selectors.flows.settings import SETTINGS_SELECTORS, APP_LANGUAGE_NATIVE_NAMES
 from ....ui.language import detect_and_optimize
+from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.device.app_inspection import is_app_running
+from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.shared.device.wait import find_element
 
 
 StepNotifier = Callable[..., None]
+
+#: How long the relaunched app gets to reach the foreground: polls, and seconds between two.
+_FOREGROUND_POLLS = 16
+_FOREGROUND_POLL_INTERVAL = 0.6
 
 
 class ChangeLanguageWorkflow:
@@ -108,7 +120,7 @@ class ChangeLanguageWorkflow:
 
         Returns:
             ``{'success': bool, 'message': str, 'error_type': Optional[str],
-               'language': str, 'native_name': Optional[str]}``
+               'language': str, 'native_name': Optional[str], 'app_restarted': bool}``
         """
         result: Dict[str, Any] = {
             'success': False,
@@ -116,6 +128,7 @@ class ChangeLanguageWorkflow:
             'error_type': None,
             'language': language,
             'native_name': None,
+            'app_restarted': False,
         }
 
         native_name = APP_LANGUAGE_NATIVE_NAMES.get(language)
@@ -191,9 +204,31 @@ class ChangeLanguageWorkflow:
         self.logger.success(result['message'])
         self._notify('select_language', 'done', result['message'],
                      language=language, native_name=native_name)
+
+        # 6) Restart, so that no screen keeps the old language. The language is set either way.
+        result['app_restarted'] = self._restart_instagram()
+        if not result['app_restarted']:
+            result['message'] += "; Instagram could not be restarted"
         self._notify('done', 'done', result['message'],
                      language=language, native_name=native_name)
         return result
+
+    def _restart_instagram(self) -> bool:
+        """Force-stop and relaunch the active Instagram package, as a run's clean start does."""
+        self._notify('restart_app', 'running', 'Restarting Instagram')
+        package = get_active_package()
+        manager = DeviceManager(self.device_id)
+        manager.device = self.device
+        if manager.launch_app(package, stop_first=True):
+            for _ in range(_FOREGROUND_POLLS):
+                time.sleep(_FOREGROUND_POLL_INTERVAL)
+                if is_app_running(self.device, package, "instagram"):
+                    self.logger.info(f"{package} restarted in the new language")
+                    self._notify('restart_app', 'done')
+                    return True
+        self.logger.warning(f"Language changed, but {package} did not come back to the foreground")
+        self._notify('restart_app', 'failed', f"{package} did not come back to the foreground")
+        return False
 
     def _fail(self, result: Dict[str, Any], message: str, error_type: str, step: str) -> Dict[str, Any]:
         result['message'] = message

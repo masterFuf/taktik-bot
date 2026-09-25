@@ -22,8 +22,9 @@ MediaStore behaviour differs significantly across Android versions:
   - For images on SDK ≥ 29, the `content insert` bind values must use `:i:` (integer)
     not `:l:` (long) — `:l:` fails silently on some OEM kernels (Nokia / Realme).
 
-Pushed files are named the way the stock camera names its shots (`IMG_…`, `VID_…`): a name that
-carries the tool's brand in the camera folder is a signal. Since such a name no longer tells our
+Pushed files are named the way the stock camera names its shots (`IMG_…`, `VID_…`), on every phone
+and for every platform (no vendor scheme such as `PXL_`): a name that carries the tool's brand in
+the camera folder is a signal. Since such a name no longer tells our
 files from the user's, cleanup deletes only the exact paths recorded in `pushed_media_registry`.
 
 References:
@@ -56,8 +57,9 @@ NORMALIZED_REMOTE_DIR = '/storage/emulated/0/DCIM/Camera'
 CAMERA_IMAGE_PREFIX = 'IMG'
 CAMERA_VIDEO_PREFIX = 'VID'
 
-# Name of the files pushed before camera-style naming. Still swept, so phones lose them.
-LEGACY_FILE_PREFIX = 'TAKTIK'
+# Prefixes of the files pushed before camera-style naming (YouTube used `YT`). Still swept, so
+# phones lose them.
+LEGACY_FILE_PREFIXES = ('TAKTIK', 'YT')
 
 # How long to wait after scan (in seconds) for MediaStore to index the file
 SCAN_WAIT_VIDEO = 5.0
@@ -153,6 +155,20 @@ def camera_file_name(local_path: str, stamp: str, taken: Iterable[str] = ()) -> 
     return name
 
 
+def _list_folder(device_id: str, remote_dir: str) -> Optional[list[str]]:
+    """The names in `remote_dir`, or None when the device did not list it.
+
+    Without the shell v2 protocol (Android < 7) `adb shell` exits 0 whatever the command did and
+    its errors come on stdout, so an `ls:` error line is a failure too, not a file name.
+    """
+    code, out, err = _adb_shell(device_id, 'ls', '-1', remote_dir)
+    names = [line.strip() for line in out.splitlines() if line.strip()]
+    errors = [line.strip() for line in err.splitlines()]
+    if code != 0 or any(line.startswith('ls:') for line in names + errors):
+        return None
+    return names
+
+
 def _device_clock_stamp(device_id: str) -> str:
     """`yyyyMMdd_HHmmss` on the device's clock and time zone, which its camera uses."""
     _, out, _ = _adb_shell(device_id, 'date', '+%Y%m%d_%H%M%S')
@@ -189,12 +205,12 @@ def push_media(
     # mkdir -p the remote dir (no-op if exists)
     _adb_shell(device_id, 'mkdir', '-p', remote_dir)
 
-    code, listing, _ = _adb_shell(device_id, 'ls', '-1', remote_dir)
-    if code != 0:
+    names = _list_folder(device_id, remote_dir)
+    if names is None:
         logger.error(f'[media_store] cannot list {remote_dir}; not pushing without knowing what it would overwrite')
         return None
 
-    filename = camera_file_name(local_path, _device_clock_stamp(device_id), listing.splitlines())
+    filename = camera_file_name(local_path, _device_clock_stamp(device_id), names)
     remote_path = f'{remote_dir.rstrip("/")}/{filename}'
 
     if not _adb_push(device_id, local_path, remote_path):
@@ -205,21 +221,23 @@ def push_media(
     return remote_path
 
 
-def parse_pushed_timestamp(filename: str, file_prefix: str = LEGACY_FILE_PREFIX) -> Optional[float]:
-    """Epoch seconds encoded in a legacy `TAKTIK_` name, or None if the name is not one.
+def parse_pushed_timestamp(filename: str, prefixes: Iterable[str] = LEGACY_FILE_PREFIXES) -> Optional[float]:
+    """Epoch seconds encoded in a legacy `TAKTIK_` / `YT_` name, or None if the name is not one.
 
     Those names carry their own timestamp (`TAKTIK_20260726_011540.png`), so age is read from the
     name rather than from the device clock or the file mtime — both of which drift, and the mtime
     is deliberately rewritten by `trigger_media_scan` to sort the file to the top of Recents.
     """
     stem = os.path.splitext(filename)[0]
-    prefix = f'{file_prefix}_'
-    if not stem.startswith(prefix):
-        return None
-    try:
-        return time.mktime(time.strptime(stem[len(prefix):], '%Y%m%d_%H%M%S'))
-    except (ValueError, OverflowError):
-        return None
+    for file_prefix in prefixes:
+        prefix = f'{file_prefix}_'
+        if not stem.startswith(prefix):
+            continue
+        try:
+            return time.mktime(time.strptime(stem[len(prefix):], '%Y%m%d_%H%M%S'))
+        except (ValueError, OverflowError):
+            return None
+    return None
 
 
 def _delete_remote_media(device_id: str, remote_path: str) -> bool:
@@ -267,14 +285,8 @@ def _purge_registered(device_id: str, cutoff: float) -> int:
 
 
 def _purge_legacy_prefixed(device_id: str, remote_dir: str, cutoff: float) -> int:
-    code, out, _ = _adb_shell(device_id, 'ls', '-1', remote_dir)
-    if code != 0 or not out:
-        return 0
-
     removed = 0
-    for name in (line.strip() for line in out.splitlines()):
-        if not name:
-            continue
+    for name in _list_folder(device_id, remote_dir) or ():
         pushed_at = parse_pushed_timestamp(name)
         if pushed_at is None or pushed_at > cutoff:
             continue
@@ -302,7 +314,8 @@ def purge_pushed_media(
     What is ours comes from `pushed_media_registry`, the exact paths `push_media` wrote — never
     from a name, since the user's own shots are named the same way. A registered path is deleted
     only while it still holds a file of the size we pushed. Files from before the registry carry
-    the legacy `TAKTIK_` prefix and a parsable timestamp; those are still swept in `remote_dir`.
+    a legacy `TAKTIK_` or `YT_` prefix and a parsable timestamp; those are still swept in
+    `remote_dir`.
     """
     def _log(level: str, msg: str):
         if log is not None:

@@ -8,7 +8,7 @@ So the scan's job is small and exact: put one row per new follower into `notific
 HANDLE. Everything else was already built for Instagram and is platform-generic.
 
 The cost is the handle. TikTok's new-followers page renders display names and nothing else --
-`Allocin(gl)és` where the handle is `allocingles` -- so each one has to be opened and read, about
+`Cin(é)Club` where the handle is `cineclub_demo` -- so each one has to be opened and read, about
 thirteen seconds apiece. That is why there is a budget, and why what the budget leaves out is
 reported rather than dropped quietly: a scan that resolved four of twenty and said "4 followers"
 would look exactly like an account that gained four.

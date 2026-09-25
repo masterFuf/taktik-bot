@@ -3,8 +3,9 @@ ceux dont la date de follow est inconnue.
 
 L'âge : le dernier FOLLOW du bot, sinon la première fois qu'une synchro de la liste d'abonnements
 a vu le compte (`TikTokFollowGraphService.get_follow_age_days`, comme l'unfollow Instagram date un
-follow). Dans le doute, on protège : un compte que rien ne date (pas de pseudo sur la ligne,
-compte actif inconnu, ni FOLLOW ni synchro) est gardé, motif `follow_date_unknown`.
+follow). Dans le doute, on protège : un compte que rien ne date (compte actif inconnu, ni FOLLOW
+ni synchro) est gardé, motif `follow_date_unknown`. Une ligne sans pseudo est gardée avec ou sans
+âge minimum (`test_tiktok_unfollow_row_without_handle.py`).
 """
 
 from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.payload import (
@@ -37,17 +38,6 @@ def test_an_account_without_a_known_follow_date_is_kept(screen, make_workflow, b
     assert stats.skipped_follow_date_unknown == 1
     assert stats.to_dict()["refusals"] == {"follow_date_unknown": 1}
     assert stats.unfollowed == 0
-
-
-def test_a_row_without_a_handle_is_kept_when_an_age_is_required(screen, make_workflow, base_db):
-    """The following list hides the handle on about half its rows: those cannot be dated."""
-    rows = [screen.Row("Keo", None)]
-    workflow = make_workflow(rows, min_follow_age_days=3)
-
-    stats = workflow.run()
-
-    assert rows[0].taps == 0
-    assert stats.refusals == {"follow_date_unknown": 1}
 
 
 def test_without_the_acting_account_every_account_is_kept(screen, make_workflow, base_db):

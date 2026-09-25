@@ -12,7 +12,7 @@ valid number belonging to a different account. Nothing errors. Everything writte
 never joins to anything TikTok, and the reader sees an account that did nothing.
 
 Measured on 2026-08-30: five TikTok DMs were filed under 6590, the INSTAGRAM id of
-@marvin.ndiaye.extraits, while that account's TikTok interactions sit under 4982. The follower
+@demo.extraits, while that account's TikTok interactions sit under 4982. The follower
 attribution -- "did we engage this person before they followed us?" -- joins notifications to
 interactions on `account_id`, so it could only ever have answered no.
 """

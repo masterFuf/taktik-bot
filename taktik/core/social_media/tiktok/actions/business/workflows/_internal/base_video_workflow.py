@@ -212,7 +212,7 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
 
         KNOWN LIMIT, measured 2026-08-30: what the video screen offers is a DISPLAY NAME, not a
         handle. `get_video_author` reads the `title` node or the avatar's description, and both
-        say `Kéo` where the handle is `keo2edit` — the handle is not rendered anywhere on that
+        say `Démo` where the handle is `demo_creator` — the handle is not rendered anywhere on that
         screen. So a comment published from the feed is recorded under a display name.
 
         That is accepted rather than hidden, because of what reads the column: the anti-tic guard

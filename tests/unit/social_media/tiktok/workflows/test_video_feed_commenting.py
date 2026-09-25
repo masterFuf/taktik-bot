@@ -66,7 +66,7 @@ class _Feed(BaseVideoWorkflow):
         return True
 
 
-def _video(author="keo2edit"):
+def _video(author="demo_creator"):
     return {"author": author, "is_liked": False, "is_favorited": False}
 
 
@@ -134,9 +134,9 @@ def test_on_a_feed_the_addressee_is_the_video_author():
 
 def test_the_followers_road_keeps_addressing_the_profile_it_walks():
     walker = VideoInteractionMixin()
-    walker._current_profile_username = "keo2edit"
+    walker._current_profile_username = "demo_creator"
 
-    assert walker._comment_target_username() == "keo2edit"
+    assert walker._comment_target_username() == "demo_creator"
 
 
 # --- une seule implémentation --------------------------------------------------------------------

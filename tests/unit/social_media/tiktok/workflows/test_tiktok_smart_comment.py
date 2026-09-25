@@ -100,7 +100,7 @@ PERSONA = {"niche": "Business en ligne pour créateurs", "language": "fr"}
 def test_a_comment_is_generated_from_the_caption_on_screen():
     ai = _FakeAI()
     comment = generate_tiktok_comment(
-        ai, _Screen("Le secret de ma réussite en bio"), "keo2edit", account_persona=PERSONA
+        ai, _Screen("Le secret de ma réussite en bio"), "demo_creator", account_persona=PERSONA
     )
 
     assert comment["comment"] == "Super montage, la transition à 0:12 est propre"
@@ -122,7 +122,7 @@ def test_the_anti_tic_guard_reads_tiktok_history_not_instagram():
         lambda account_id=None, limit=12, platform="instagram": seen.setdefault("platform", platform) or []
     )
     try:
-        generate_tiktok_comment(_FakeAI(), _Screen("une légende"), "keo2edit", account_persona=PERSONA)
+        generate_tiktok_comment(_FakeAI(), _Screen("une légende"), "demo_creator", account_persona=PERSONA)
     finally:
         module.InstagramPostedComments.recent_texts = original
 
@@ -136,7 +136,7 @@ def test_nothing_to_react_to_means_no_comment():
     """Ni légende ni capture : il n'y a rien à commenter, et l'appel IA n'est pas payé."""
     ai = _FakeAI()
 
-    assert generate_tiktok_comment(ai, _Screen(None, capture=False), "keo2edit") is None
+    assert generate_tiktok_comment(ai, _Screen(None, capture=False), "demo_creator") is None
     assert ai.calls == []
 
 
@@ -169,7 +169,7 @@ def test_an_apology_is_not_a_comment():
     voix haute qu'une machine ecrit."""
     ai = _FakeAI(comment="I can't see the image, but here is what I would say")
 
-    assert generate_tiktok_comment(ai, _Screen("une légende"), "keo2edit", account_persona=PERSONA) is None
+    assert generate_tiktok_comment(ai, _Screen("une légende"), "demo_creator", account_persona=PERSONA) is None
 
 
 def test_a_paragraph_is_not_a_comment_either():
@@ -177,14 +177,14 @@ def test_a_paragraph_is_not_a_comment_either():
     un paragraphe sur ce qu'il dirait."""
     ai = _FakeAI(comment="Voici " + "un commentaire tres long " * 12)
 
-    assert generate_tiktok_comment(ai, _Screen("une légende"), "keo2edit", account_persona=PERSONA) is None
+    assert generate_tiktok_comment(ai, _Screen("une légende"), "demo_creator", account_persona=PERSONA) is None
 
 
 def test_decision_mode_can_decline_a_video():
     ai = _FakeAI(should_comment=False, reasoning="vidéo promotionnelle")
 
     assert generate_tiktok_comment(
-        ai, _Screen("une légende"), "keo2edit", account_persona=PERSONA, decision_mode=True
+        ai, _Screen("une légende"), "demo_creator", account_persona=PERSONA, decision_mode=True
     ) is None
 
 
@@ -193,7 +193,7 @@ def test_a_provider_error_stays_silent_instead_of_raising_into_the_run():
         def generate_smart_comment(self, **kwargs):
             raise RuntimeError("provider 502")
 
-    assert generate_tiktok_comment(_BoomAI(), _Screen("une légende"), "keo2edit") is None
+    assert generate_tiktok_comment(_BoomAI(), _Screen("une légende"), "demo_creator") is None
 
 
 # --- la couture du workflow ----------------------------------------------------------------------
@@ -210,7 +210,7 @@ class _Workflow:
         self.__class__ = type("_W", (VideoInteractionMixin,), {})
         self.config = type("C", (), {"comment_texts": list(texts)})()
         self.device = object()
-        self._current_profile_username = "keo2edit"
+        self._current_profile_username = "demo_creator"
         self.posted = []
         self.logger = type("L", (), {"info": lambda *a: None, "debug": lambda *a: None,
                                      "warning": lambda *a: None})()

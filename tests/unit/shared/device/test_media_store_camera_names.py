@@ -9,6 +9,8 @@ is NOT touched as much as what is.
 """
 import json
 import os
+import pathlib
+import re
 import time
 
 import pytest
@@ -155,6 +157,37 @@ def test_a_folder_that_cannot_be_listed_is_not_pushed_into(phone, media, monkeyp
     assert push_media("dev", media("post.jpg")) is None
     assert fake.files == {}
     assert pushed_media_registry.load("dev") == []
+
+
+@pytest.mark.parametrize("out,err", [
+    ("ls: /sdcard/DCIM/Camera: Permission denied", ""),
+    ("", "ls: /sdcard/DCIM/Camera: Permission denied"),
+])
+def test_a_listing_error_without_an_exit_code_is_not_pushed_into(phone, media, monkeypatch, out, err):
+    """Without the shell v2 protocol `adb shell` exits 0 even when `ls` failed."""
+    fake = phone()
+
+    def shell(device_id, *args, timeout=15):
+        if args and args[0] == "ls":
+            return 0, out, err
+        return fake.shell(device_id, *args, timeout=timeout)
+
+    monkeypatch.setattr(media_store, "_adb_shell", shell)
+    assert push_media("dev", media("post.jpg")) is None
+    assert fake.files == {}
+    assert pushed_media_registry.load("dev") == []
+
+
+def test_only_media_store_pushes_a_file_to_the_phone():
+    """Every publish goes through `push_media`, so every pushed medium gets a camera name."""
+    repo = pathlib.Path(media_store.__file__).resolve().parents[4]
+    pushers = sorted(
+        str(path.relative_to(repo))
+        for root in (repo / "taktik", repo / "bridges")
+        for path in root.rglob("*.py")
+        if re.search(r"['\"]push['\"]|\.push\(", path.read_text(encoding="utf-8", errors="ignore"))
+    )
+    assert pushers == [str(pathlib.Path("taktik/core/shared/device/media_store.py"))]
 
 
 # --- registry ---------------------------------------------------------------------------------

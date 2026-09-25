@@ -9,8 +9,8 @@ Comme `accounts.legacy_account_id` est numéroté par plateforme, l'identifiant 
 parfaitement valide qui appartient à un autre compte. Rien ne casse. Simplement, tout ce qui est
 écrit dessous ne se joint plus à rien côté TikTok, et le lecteur voit un compte qui n'a rien fait.
 
-Constaté dans les données : cinq DM TikTok classés sous **6590**, l'identifiant Instagram de
-@marvin.ndiaye.extraits, alors que les interactions TikTok de ce compte sont sous **4982**.
+Constaté dans les données : cinq DM TikTok classés sous **6590**, l'identifiant Instagram du
+même compte, alors que les interactions TikTok de ce compte sont sous **4982**.
 L'attribution des nouveaux abonnés joint les notifications aux interactions sur `account_id` —
 elle ne pouvait donc répondre que « jamais engagé », pour tout le monde et pour toujours.
 """
@@ -30,9 +30,9 @@ _CORE = pathlib.Path(__file__).resolve().parents[3]
 
 
 @pytest.mark.parametrize("handle", [
-    "allocingles",
-    "keo.2",
-    "marvin.ndiaye.extraits",
+    "papillones",
+    "demo.2",
+    "compte.demo.extraits",
     "youssoufdiallo3300",
     "a_b.c",
 ])
@@ -41,9 +41,9 @@ def test_a_real_handle_is_accepted(handle):
 
 
 @pytest.mark.parametrize("shown", [
-    "Allocin(gl)és",      # le nom d'affichage réel de @allocingles
+    "Papill(on)és",       # nom d'affichage dont le repli donne @papillones
     "Enzo Resell",        # espace
-    "MarvinFan",          # majuscules : c'est ce qui l'a fait passer quand on minusculait avant
+    "DemoFan",            # majuscules : c'est ce qui l'a fait passer quand on minusculait avant
     "..........",         # pseudo tout-emoji mangé par le dump
     "",
     None,
@@ -51,7 +51,7 @@ def test_a_real_handle_is_accepted(handle):
 def test_a_display_name_is_refused(shown):
     """Le test porte sur la valeur BRUTE. Les pseudos TikTok sont en minuscules par construction,
     donc une majuscule prouve qu'on tient un nom d'affichage — et minusculer d'abord laissait
-    passer `MarvinFan`, exactement le genre de ligne qui ne se joint à rien."""
+    passer `DemoFan`, exactement le genre de ligne qui ne se joint à rien."""
     assert looks_like_tiktok_handle(shown) is False
 
 

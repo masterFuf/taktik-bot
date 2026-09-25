@@ -4,7 +4,7 @@ Exposes the app-language change as a Lab-testable action so the Lab can
 physically switch the Instagram app language on the device — instead of only
 overriding the selector-overlay locale. Reuses the PRODUCTION
 ``ChangeLanguageWorkflow`` (no Lab-only fork), driven on the warm, already
-connected Lab device facade.
+connected Lab device facade, restart of Instagram at the end included.
 
 After a successful switch, the Lab session's selector overlay (localized once at
 session start) is stale for the new language: restart the session ("Redemarrer
@@ -12,11 +12,12 @@ session" / change device / change the forced language) to re-localize.
 """
 
 from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.runtime.action_test.action_bundle import bundle_device_id
 
 
 @action("settings.change_language")
 def change_language(a, p):
-    """Physically switch the IG app language to ``p['language']``.
+    """Physically switch the IG app language to ``p['language']``, then restart Instagram.
 
     Accepts the same codes as the workflow's ``APP_LANGUAGE_NATIVE_NAMES``
     (``en`` / ``en-GB`` / ``fr-FR`` / ``fr-CA``). Returns the standard action
@@ -30,7 +31,8 @@ def change_language(a, p):
     if not language:
         return {"success": False, "message": "language param is required (e.g. en, fr-FR)"}
 
-    device_id = getattr(a.device, "device_id", None) or "lab"
+    # The session's serial: the restart resolves a clone's launcher with `adb -s <serial>`.
+    device_id = bundle_device_id(a) or "lab"
     result = ChangeLanguageWorkflow(a.device, device_id).execute(language=language)
     return {
         "success": result["success"],
@@ -39,5 +41,6 @@ def change_language(a, p):
             "language": language,
             "native_name": result.get("native_name"),
             "error_type": result.get("error_type"),
+            "app_restarted": result.get("app_restarted"),
         },
     }

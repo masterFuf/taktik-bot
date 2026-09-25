@@ -94,13 +94,3 @@ def test_the_handle_is_paired_on_4314_rows_too(screen, make_workflow, base_db):
     workflow.run()
 
     assert base_db.recorded == [("alpha_one", 7)]
-
-
-def test_a_confirmed_unfollow_of_a_row_without_a_handle_is_counted_but_not_filed(screen, make_workflow, base_db):
-    workflow = make_workflow([screen.Row("Keo", None)], max_unfollows=1)
-
-    stats = workflow.run()
-
-    assert stats.unfollowed == 1
-    assert stats.recorded == 0
-    assert base_db.recorded == []
