@@ -5,9 +5,6 @@ from __future__ import annotations
 from typing import Dict
 
 from bridges.tiktok.runtime.ipc import logger, send_action, send_pause, send_stats, send_video_info
-from taktik.core.social_media.tiktok.services.navigation.reset import (
-    return_to_tiktok_home as return_device_to_tiktok_home,
-)
 
 
 def setup_search_workflow_callbacks(workflow, aggregate_stats: Dict[str, int], sent_pics: set):
@@ -69,9 +66,4 @@ def setup_search_workflow_callbacks(workflow, aggregate_stats: Dict[str, int], s
     workflow.set_on_pause_callback(on_pause)
 
 
-def return_to_tiktok_home(manager) -> None:
-    """Best-effort reset to the TikTok home feed before the next query."""
-    return_device_to_tiktok_home(manager.device_manager.device, logger=logger)
-
-
-__all__ = ["setup_search_workflow_callbacks", "return_to_tiktok_home"]
+__all__ = ["setup_search_workflow_callbacks"]

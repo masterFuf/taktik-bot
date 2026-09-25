@@ -1,0 +1,744 @@
+{
+  "budget_exhausted": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run",
+      "return_home",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.2,
+        "comment_texts": [],
+        "excluded_hashtags": [
+          "ads"
+        ],
+        "favorite_probability": 0.05,
+        "follow_probability": 0.1,
+        "like_probability": 0.01,
+        "max_comments_per_session": 4,
+        "max_follows_per_session": 1,
+        "max_likes": 5000,
+        "max_likes_per_session": 1,
+        "max_reposts_per_session": 2,
+        "max_videos": 2,
+        "max_watch_time": 8,
+        "min_likes": null,
+        "min_watch_time": 2,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "repost_probability": 0.1,
+        "required_hashtags": [],
+        "search_query": "run",
+        "skip_ads": true,
+        "skip_already_followed": true,
+        "skip_already_liked": true
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Search workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "search_workflow_start",
+        {
+          "current_target": "run",
+          "current_target_index": 0,
+          "targets": [
+            "run",
+            "trail",
+            "gym"
+          ],
+          "workflow_type": "hashtag"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Searching for: #run",
+          "status": "running"
+        }
+      ],
+      [
+        "video_info",
+        {
+          "video": {
+            "author": "creator",
+            "description": "#one",
+            "is_ad": false,
+            "is_followed": false,
+            "is_liked": false,
+            "like_count": "42"
+          }
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "creator"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "follow",
+          "target": "creator"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 0,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 8
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 1,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Search workflow completed: 1 videos, 1 likes, 1 follows",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "hashtag_two": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run",
+      "return_home",
+      "workflow_built",
+      "workflow_run",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.2,
+        "comment_texts": [],
+        "excluded_hashtags": [
+          "ads"
+        ],
+        "favorite_probability": 0.05,
+        "follow_probability": 0.1,
+        "like_probability": 0.01,
+        "max_comments_per_session": 4,
+        "max_follows_per_session": 15,
+        "max_likes": 5000,
+        "max_likes_per_session": 40,
+        "max_reposts_per_session": 2,
+        "max_videos": 3,
+        "max_watch_time": 8,
+        "min_likes": null,
+        "min_watch_time": 2,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "repost_probability": 0.1,
+        "required_hashtags": [],
+        "search_query": "run",
+        "skip_ads": true,
+        "skip_already_followed": true,
+        "skip_already_liked": true
+      },
+      {
+        "comment_probability": 0.2,
+        "comment_texts": [],
+        "excluded_hashtags": [
+          "ads"
+        ],
+        "favorite_probability": 0.05,
+        "follow_probability": 0.1,
+        "like_probability": 0.01,
+        "max_comments_per_session": 4,
+        "max_follows_per_session": 14,
+        "max_likes": 5000,
+        "max_likes_per_session": 39,
+        "max_reposts_per_session": 2,
+        "max_videos": 2,
+        "max_watch_time": 8,
+        "min_likes": null,
+        "min_watch_time": 2,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "repost_probability": 0.1,
+        "required_hashtags": [],
+        "search_query": "trail",
+        "skip_ads": true,
+        "skip_already_followed": true,
+        "skip_already_liked": true
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Search workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "search_workflow_start",
+        {
+          "current_target": "run",
+          "current_target_index": 0,
+          "targets": [
+            "run",
+            "trail"
+          ],
+          "workflow_type": "hashtag"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Searching for: #run",
+          "status": "running"
+        }
+      ],
+      [
+        "video_info",
+        {
+          "video": {
+            "author": "creator",
+            "description": "#one",
+            "is_ad": false,
+            "is_followed": false,
+            "is_liked": false,
+            "like_count": "42"
+          }
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "creator"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "follow",
+          "target": "creator"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 0,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 8
+        }
+      ],
+      [
+        "search_target_switch",
+        {
+          "current_target": "trail",
+          "target_index": 1,
+          "total_targets": 2,
+          "workflow_type": "hashtag"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Searching for: #trail",
+          "status": "running"
+        }
+      ],
+      [
+        "video_info",
+        {
+          "video": {
+            "author": "creator",
+            "description": "#one",
+            "is_ad": false,
+            "is_followed": false,
+            "is_liked": false,
+            "like_count": "42"
+          }
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "creator"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "follow",
+          "target": "creator"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 1,
+            "videos_favorited": 0,
+            "videos_liked": 2,
+            "videos_skipped": 0,
+            "videos_watched": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 8
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 2,
+            "videos_favorited": 0,
+            "videos_liked": 2,
+            "videos_skipped": 0,
+            "videos_watched": 2
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Search workflow completed: 2 videos, 2 likes, 2 follows",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "no_device": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No device ID provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "no_query": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No search query provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "search_ai": {
+    "ai_installs": [
+      {
+        "ai_config": {
+          "enabled": true,
+          "openrouterApiKey": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "profileAnalysis": true
+        },
+        "language": "fr"
+      }
+    ],
+    "ai_services": [
+      {
+        "api_key": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "has_ipc": true
+      }
+    ],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.2,
+        "comment_texts": [],
+        "excluded_hashtags": [
+          "ads"
+        ],
+        "favorite_probability": 0.05,
+        "follow_probability": 0.1,
+        "like_probability": 0.01,
+        "max_comments_per_session": 4,
+        "max_follows_per_session": 15,
+        "max_likes": 5000,
+        "max_likes_per_session": 40,
+        "max_reposts_per_session": 2,
+        "max_videos": 5,
+        "max_watch_time": 8,
+        "min_likes": null,
+        "min_watch_time": 2,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "repost_probability": 0.1,
+        "required_hashtags": [],
+        "search_query": "street food",
+        "skip_ads": true,
+        "skip_already_followed": true,
+        "skip_already_liked": true
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Search workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "ai_relevance",
+        {
+          "comment": false,
+          "follow": false,
+          "like": false,
+          "reason": "fits",
+          "relevant": true,
+          "score": 8,
+          "username": "creator"
+        }
+      ],
+      [
+        "ai_profile_done",
+        {
+          "classification": {
+            "niche": "running",
+            "niche_category": "sport"
+          },
+          "persist_only": true,
+          "platform": "tiktok",
+          "result": "[sport] running",
+          "target_username": "creator",
+          "username": "creator",
+          "workflow_type": "automation"
+        }
+      ],
+      [
+        "search_workflow_start",
+        {
+          "current_target": "street food",
+          "current_target_index": 0,
+          "targets": [
+            "street food"
+          ],
+          "workflow_type": "search"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Searching for: street food",
+          "status": "running"
+        }
+      ],
+      [
+        "video_info",
+        {
+          "video": {
+            "author": "creator",
+            "description": "#one",
+            "is_ad": false,
+            "is_followed": false,
+            "is_liked": false,
+            "like_count": "42"
+          }
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "creator"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "follow",
+          "target": "creator"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 0,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 8
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "errors": 0,
+            "users_followed": 1,
+            "videos_favorited": 0,
+            "videos_liked": 1,
+            "videos_skipped": 0,
+            "videos_watched": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Search workflow completed: 1 videos, 1 likes, 1 follows",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  }
+}

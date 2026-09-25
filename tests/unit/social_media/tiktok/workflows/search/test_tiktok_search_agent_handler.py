@@ -87,7 +87,8 @@ def test_register_tiktok_search_handler_executes_single_query_workflow():
                             "minWatchTime": 2.5,
                             "maxWatchTime": 7.5,
                             "likeProbability": 30,
-                            "followProbability": 0.2,
+                            # A fraction is the Agent-plan vocabulary: camelCase is percent.
+                            "follow_probability": 0.2,
                             "favoriteProbability": 5,
                             "minLikes": "10",
                             "maxLikes": 500,

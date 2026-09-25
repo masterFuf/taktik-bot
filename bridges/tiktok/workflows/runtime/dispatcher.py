@@ -74,7 +74,9 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
         return run_search_workflow(config), workflow_type
 
-    if workflow_type == "target" or workflow_type == "followers":
+    # "target" is the search everywhere else (the scheduler node, the CLI id); the bridge alias
+    # that sent it to the followers workflow is gone.
+    if workflow_type == "followers":
         from bridges.tiktok.workflows.automation.followers import run_followers_workflow
 
         return run_followers_workflow(config), workflow_type
