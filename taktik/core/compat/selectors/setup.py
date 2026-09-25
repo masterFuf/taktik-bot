@@ -204,6 +204,22 @@ def _resolve_overrides_for_version(
     return merged
 
 
+# Value of every field an override replaced, as it was before the first override touched it,
+# keyed by catalogue. The catalogues are process-globals: a process that meets a second phone
+# (the CLI loop, a clone after the official app) must start again from the baseline.
+_ORIGINALS: Dict[int, Dict[str, Any]] = {}
+
+
+def _restore_baseline(domains: Dict[str, Any]) -> int:
+    """Put back every field a previous override replaced. Returns how many were restored."""
+    restored = 0
+    for singleton in domains.values():
+        for field_name, value in _ORIGINALS.get(id(singleton), {}).items():
+            setattr(singleton, field_name, list(value) if isinstance(value, list) else value)
+            restored += 1
+    return restored
+
+
 def _patch_singleton(
     domain_name: str,
     singleton: Any,
@@ -232,6 +248,9 @@ def _patch_singleton(
         # override after it, other domains included, silently never landed. A property
         # cannot be patched this way; say so and keep going.
         try:
+            if isinstance(current, (list, str)):
+                _ORIGINALS.setdefault(id(singleton), {}).setdefault(
+                    field_name, list(current) if isinstance(current, list) else current)
             if isinstance(current, list):
                 setattr(singleton, field_name, xpaths)
             elif isinstance(current, str):
@@ -295,7 +314,8 @@ def apply_version_overrides(
     detected_version: str,
     overrides_dir: Optional[str] = None,
 ) -> int:
-    """Patch selector singletons in place for the detected app version."""
+    """Patch selector singletons in place for the detected app version, starting again from the
+    baseline: what an earlier call replaced is restored first."""
     domain_map = {
         "instagram": INSTAGRAM_SELECTOR_DOMAINS,
         "tiktok": TIKTOK_SELECTOR_DOMAINS,
@@ -304,6 +324,10 @@ def apply_version_overrides(
     if app not in domain_map:
         logger.error(f"[Compat] Unknown app: {app}")
         return 0
+
+    restored = _restore_baseline(domain_map[app])
+    if restored:
+        logger.info(f"[Compat] {app}: {restored} field(s) back to the baseline before applying v{detected_version}")
 
     baseline = {
         "instagram": INSTAGRAM_TARGET_VERSION,
