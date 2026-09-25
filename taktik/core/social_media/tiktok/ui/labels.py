@@ -16,6 +16,7 @@ from typing import Iterable, Optional
 
 from ....shared.text import normalize_ui_label
 from .selectors.surfaces.profile import PROFILE_SELECTORS
+from .selectors.surfaces.video.media import VIDEO_MEDIA_SELECTORS
 
 
 def _matches(text: str, labels: Iterable[str]) -> bool:
@@ -92,3 +93,29 @@ def classify_follow_button(text: str) -> Optional[str]:
     if is_follow_button(text):
         return "follow"
     return None
+
+
+def _more_suffix_start(text: str) -> Optional[int]:
+    """Where the ellipsis and "more" word TikTok appends to a cut caption begin, or None.
+
+    The space between the two varies ("… plus", "…plus"), and so does the ellipsis ("…", "...").
+    """
+    tail = (text or "").rstrip()
+    for label in VIDEO_MEDIA_SELECTORS.description_more_labels or []:
+        if label and tail.endswith(label):
+            head = tail[: -len(label)].rstrip()
+            for ellipsis in ("…", "..."):
+                if head.endswith(ellipsis):
+                    return len(head) - len(ellipsis)
+    return None
+
+
+def is_truncated_description(text: str) -> bool:
+    """True when TikTok cut the caption and offers to show the rest."""
+    return _more_suffix_start(text) is not None
+
+
+def strip_more_suffix(text: str) -> str:
+    """The caption without the ellipsis and "more" word of a cut caption."""
+    start = _more_suffix_start(text)
+    return (text or "") if start is None else text[:start]

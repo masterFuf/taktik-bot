@@ -1159,6 +1159,10 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[starts-with(@content-desc, \"Partager une vidéo\")]",
     ],
     # --- video_media ---
+    # Legende tronquee : « … plus » ou « …plus » selon la video.
+    "video_media.description_more_labels": [
+        "plus",
+    ],
     "video_media.sound_button": [
         "//android.widget.Button[contains(@content-desc, \"Son :\")]",
     ],

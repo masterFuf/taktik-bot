@@ -30,6 +30,11 @@ class VideoMediaSelectors:
 
     video_description: List[str] = field(default_factory=lambda: [*resource_ids("desc")])
 
+    @property
+    def description_more_labels(self) -> List[str]:
+        """The word after the ellipsis that ends a truncated caption ("…more", "…plus")."""
+        return L("video_media.description_more_labels")
+
     video_container: List[str] = field(default_factory=lambda: [
         *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Video"]'),
         *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Vid\u00e9o"]'),

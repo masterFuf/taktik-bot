@@ -13,6 +13,7 @@ from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
 
 from ...core.base_action import BaseAction
+from ....ui.labels import is_truncated_description, strip_more_suffix
 from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
@@ -22,7 +23,7 @@ def _parse_description(raw: str) -> Dict[str, Any]:
     hashtags: List[str] = re.findall(r'#\w+', raw)
     # Remove hashtags and trailing truncation markers
     clean = re.sub(r'#\w+', '', raw)
-    clean = re.sub(r'[…\.]{1,3}more\s*$', '', clean, flags=re.IGNORECASE).strip()
+    clean = strip_more_suffix(clean).strip()
     return {
         'description_text': clean if clean else None,
         'hashtags': hashtags,
@@ -135,8 +136,7 @@ class VideoDetector(BaseAction):
         if not raw:
             return None
 
-        # Check if truncated
-        if 'more' in raw and ('…' in raw or raw.rstrip().endswith('...more')):
+        if is_truncated_description(raw):
             try:
                 for sel in self.video_selectors.video_description:
                     elem = self.device.xpath(sel)

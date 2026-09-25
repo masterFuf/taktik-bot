@@ -1055,6 +1055,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Share video\")]",
     ],
     # --- video_media ---
+    "video_media.description_more_labels": [
+        "more",
+    ],
     "video_media.sound_button": [
         "//android.widget.Button[contains(@content-desc, \"Sound:\")]",
     ],
