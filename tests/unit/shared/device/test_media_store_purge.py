@@ -7,6 +7,9 @@ own photos.
 
 The risky failure here is not "it forgot a file", it is "it deleted a holiday picture", so the
 selection rule is what gets pinned.
+
+These tests cover the files pushed before camera-style naming, recognised by their `TAKTIK_`
+prefix. The registry that covers today's pushes is tested in `test_media_store_camera_names.py`.
 """
 import time
 
@@ -14,6 +17,12 @@ import pytest
 
 from taktik.core.shared.device import media_store
 from taktik.core.shared.device.media_store import parse_pushed_timestamp, purge_pushed_media
+
+
+@pytest.fixture(autouse=True)
+def _empty_registry(tmp_path, monkeypatch):
+    """Never read the pushed-media registry of the machine running the tests."""
+    monkeypatch.setenv("TAKTIK_DATA_DIR", str(tmp_path / "data"))
 
 
 def _name(hours_ago: float, prefix="TAKTIK", ext=".png"):

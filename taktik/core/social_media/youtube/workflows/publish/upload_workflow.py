@@ -140,7 +140,6 @@ class YouTubeUploadWorkflow:
             remote_path = push_and_scan(
                 device_id=self.device_id,
                 local_path=local_path,
-                file_prefix="YT",
                 log=_log,
                 wait=True,
             )

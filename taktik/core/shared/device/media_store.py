@@ -22,6 +22,10 @@ MediaStore behaviour differs significantly across Android versions:
   - For images on SDK ≥ 29, the `content insert` bind values must use `:i:` (integer)
     not `:l:` (long) — `:l:` fails silently on some OEM kernels (Nokia / Realme).
 
+Pushed files are named the way the stock camera names its shots (`IMG_…`, `VID_…`): a name that
+carries the tool's brand in the camera folder is a signal. Since such a name no longer tells our
+files from the user's, cleanup deletes only the exact paths recorded in `pushed_media_registry`.
+
 References:
   - https://developer.android.com/reference/android/provider/MediaStore
   - https://stackoverflow.com/questions/5739140/mediastore-uri-to-load-image
@@ -32,9 +36,11 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional
 
 from loguru import logger
+
+from . import pushed_media_registry
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +52,12 @@ VIDEO_EXTS = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp')
 DEFAULT_REMOTE_DIR = '/sdcard/DCIM/Camera'
 NORMALIZED_REMOTE_DIR = '/storage/emulated/0/DCIM/Camera'
 
-DEFAULT_FILE_PREFIX = 'TAKTIK'
+# Stock camera naming: `IMG_yyyyMMdd_HHmmss` / `VID_yyyyMMdd_HHmmss`.
+CAMERA_IMAGE_PREFIX = 'IMG'
+CAMERA_VIDEO_PREFIX = 'VID'
+
+# Name of the files pushed before camera-style naming. Still swept, so phones lose them.
+LEGACY_FILE_PREFIX = 'TAKTIK'
 
 # How long to wait after scan (in seconds) for MediaStore to index the file
 SCAN_WAIT_VIDEO = 5.0
@@ -122,46 +133,82 @@ def guess_mime_type(path: str) -> str:
     return 'image/jpeg'
 
 
+def camera_file_name(local_path: str, stamp: str, taken: Iterable[str] = ()) -> str:
+    """The name the stock camera would give this medium, free among the names in `taken`.
+
+    `IMG_<stamp>.jpg` for a picture, `VID_<stamp>.mp4` for a video (`stamp` = `yyyyMMdd_HHmmss`),
+    then `_1`, `_2`… when that second is already used, as the AOSP camera does. Compared without
+    case: the shared storage ignores it.
+    """
+    ext = os.path.splitext(local_path)[1].lower() or '.mp4'
+    if ext == '.jpeg':
+        ext = '.jpg'
+    prefix = CAMERA_VIDEO_PREFIX if ext in VIDEO_EXTS else CAMERA_IMAGE_PREFIX
+    used = {name.strip().lower() for name in taken}
+    base = f'{prefix}_{stamp}'
+    name, count = f'{base}{ext}', 0
+    while name.lower() in used:
+        count += 1
+        name = f'{base}_{count}{ext}'
+    return name
+
+
+def _device_clock_stamp(device_id: str) -> str:
+    """`yyyyMMdd_HHmmss` on the device's clock and time zone, which its camera uses."""
+    _, out, _ = _adb_shell(device_id, 'date', '+%Y%m%d_%H%M%S')
+    stamp = out.strip()
+    if len(stamp) == 15 and stamp[8] == '_' and (stamp[:8] + stamp[9:]).isdigit():
+        return stamp
+    return time.strftime('%Y%m%d_%H%M%S')
+
+
 def push_media(
     device_id: str,
     local_path: str,
     remote_dir: str = DEFAULT_REMOTE_DIR,
-    file_prefix: str = DEFAULT_FILE_PREFIX,
 ) -> Optional[str]:
-    """Push a local media file to the device with a unique timestamped filename.
+    """Push a local media file to the device under a camera-style name, and record it.
+
+    The name is picked free of every name already in the folder: `adb push` overwrites, and the
+    file it would overwrite could be the user's. The exact path goes to `pushed_media_registry`,
+    the only list `purge_pushed_media` deletes from.
 
     Parameters
     ----------
     device_id   : ADB serial of the target device
     local_path  : Local file path
     remote_dir  : Directory on device (default: /sdcard/DCIM/Camera)
-    file_prefix : Filename prefix used to make the file recognisable (default: TAKTIK)
 
     Returns the remote path on success, None on failure.
     """
     if not os.path.isfile(local_path):
         logger.error(f'[media_store] file not found: {local_path}')
         return None
-
-    ext = os.path.splitext(local_path)[1] or '.mp4'
-    ts = time.strftime('%Y%m%d_%H%M%S')
-    filename = f'{file_prefix}_{ts}{ext}'
-    remote_path = f'{remote_dir.rstrip("/")}/{filename}'
+    size = os.path.getsize(local_path)
 
     # mkdir -p the remote dir (no-op if exists)
     _adb_shell(device_id, 'mkdir', '-p', remote_dir)
 
+    code, listing, _ = _adb_shell(device_id, 'ls', '-1', remote_dir)
+    if code != 0:
+        logger.error(f'[media_store] cannot list {remote_dir}; not pushing without knowing what it would overwrite')
+        return None
+
+    filename = camera_file_name(local_path, _device_clock_stamp(device_id), listing.splitlines())
+    remote_path = f'{remote_dir.rstrip("/")}/{filename}'
+
     if not _adb_push(device_id, local_path, remote_path):
         return None
 
+    pushed_media_registry.record(device_id, remote_path, size)
     logger.info(f'[media_store] pushed {os.path.basename(local_path)} → {remote_path}')
     return remote_path
 
 
-def parse_pushed_timestamp(filename: str, file_prefix: str = DEFAULT_FILE_PREFIX) -> Optional[float]:
-    """Epoch seconds encoded in a name written by `push_media`, or None if it is not ours.
+def parse_pushed_timestamp(filename: str, file_prefix: str = LEGACY_FILE_PREFIX) -> Optional[float]:
+    """Epoch seconds encoded in a legacy `TAKTIK_` name, or None if the name is not one.
 
-    The name carries its own timestamp (`TAKTIK_20260726_011540.png`), so age is read from the
+    Those names carry their own timestamp (`TAKTIK_20260726_011540.png`), so age is read from the
     name rather than from the device clock or the file mtime — both of which drift, and the mtime
     is deliberately rewritten by `trigger_media_scan` to sort the file to the top of Recents.
     """
@@ -175,10 +222,72 @@ def parse_pushed_timestamp(filename: str, file_prefix: str = DEFAULT_FILE_PREFIX
         return None
 
 
+def _delete_remote_media(device_id: str, remote_path: str) -> bool:
+    """Remove the file and its MediaStore row. False when the file could not be removed."""
+    rm_code, _, _ = _adb_shell(device_id, 'rm', '-f', remote_path)
+    if rm_code != 0:
+        return False
+
+    # Drop the MediaStore row too: deleting the file alone leaves a ghost thumbnail in the
+    # gallery, and the picker would offer a medium that no longer exists.
+    normalized = remote_path.replace('/sdcard/', '/storage/emulated/0/')
+    for uri in ('content://media/external/images/media', 'content://media/external/video/media'):
+        _adb_shell(device_id, 'content', 'delete', '--uri', uri, '--where', f'_data=\'{normalized}\'')
+    return True
+
+
+def _still_holds_our_file(device_id: str, entry: dict) -> Optional[bool]:
+    """True when the path still holds a file of the size we pushed, False when it is gone or
+    holds another file, None when the device does not tell."""
+    _, out, err = _adb_shell(device_id, 'stat', '-c', '%s', entry['path'])
+    size = out.strip()
+    if size.isdigit():
+        return int(size) == entry['size']
+    if 'No such file' in f'{out} {err}':
+        return False
+    return None
+
+
+def _purge_registered(device_id: str, cutoff: float) -> int:
+    entries = pushed_media_registry.load(device_id)
+    kept = []
+    removed = 0
+    for entry in entries:
+        if entry['pushed_at'] > cutoff:
+            kept.append(entry)
+            continue
+        ours = _still_holds_our_file(device_id, entry)
+        if ours is False:
+            continue  # gone, or another file under that name now: forgotten, never deleted
+        if ours and _delete_remote_media(device_id, entry['path']):
+            removed += 1
+            continue
+        kept.append(entry)  # no answer from the device: retried on the next run
+    if len(kept) != len(entries):
+        pushed_media_registry.save(device_id, kept)
+    return removed
+
+
+def _purge_legacy_prefixed(device_id: str, remote_dir: str, cutoff: float) -> int:
+    code, out, _ = _adb_shell(device_id, 'ls', '-1', remote_dir)
+    if code != 0 or not out:
+        return 0
+
+    removed = 0
+    for name in (line.strip() for line in out.splitlines()):
+        if not name:
+            continue
+        pushed_at = parse_pushed_timestamp(name)
+        if pushed_at is None or pushed_at > cutoff:
+            continue
+        if _delete_remote_media(device_id, f'{remote_dir.rstrip("/")}/{name}'):
+            removed += 1
+    return removed
+
+
 def purge_pushed_media(
     device_id: str,
     remote_dir: str = DEFAULT_REMOTE_DIR,
-    file_prefix: str = DEFAULT_FILE_PREFIX,
     max_age_hours: float = 6.0,
     log: Optional[Callable[[str, str], None]] = None,
 ) -> int:
@@ -192,8 +301,10 @@ def purge_pushed_media(
     at the START of a run instead and only touches files older than `max_age_hours`, which cannot
     belong to a publish still in flight.
 
-    Only files matching the prefix AND carrying a parsable timestamp are removed — never a bare
-    wildcard sweep of the camera folder, which is the user's own.
+    What is ours comes from `pushed_media_registry`, the exact paths `push_media` wrote — never
+    from a name, since the user's own shots are named the same way. A registered path is deleted
+    only while it still holds a file of the size we pushed. Files from before the registry carry
+    the legacy `TAKTIK_` prefix and a parsable timestamp; those are still swept in `remote_dir`.
     """
     def _log(level: str, msg: str):
         if log is not None:
@@ -204,30 +315,8 @@ def purge_pushed_media(
                 pass
         getattr(logger, level if hasattr(logger, level) else 'debug')(msg)
 
-    code, out, _ = _adb_shell(device_id, 'ls', '-1', remote_dir)
-    if code != 0 or not out:
-        return 0
-
     cutoff = time.time() - max_age_hours * 3600
-    removed = 0
-    for name in (line.strip() for line in out.splitlines()):
-        if not name:
-            continue
-        pushed_at = parse_pushed_timestamp(name, file_prefix)
-        if pushed_at is None or pushed_at > cutoff:
-            continue
-
-        remote_path = f'{remote_dir.rstrip("/")}/{name}'
-        rm_code, _, _ = _adb_shell(device_id, 'rm', '-f', remote_path)
-        if rm_code != 0:
-            continue
-
-        # Drop the MediaStore row too: deleting the file alone leaves a ghost thumbnail in the
-        # gallery, and the picker would offer a medium that no longer exists.
-        normalized = remote_path.replace('/sdcard/', '/storage/emulated/0/')
-        for uri in ('content://media/external/images/media', 'content://media/external/video/media'):
-            _adb_shell(device_id, 'content', 'delete', '--uri', uri, '--where', f'_data=\'{normalized}\'')
-        removed += 1
+    removed = _purge_registered(device_id, cutoff) + _purge_legacy_prefixed(device_id, remote_dir, cutoff)
 
     if removed:
         _log('info', f'[media_store] purged {removed} previously pushed media older than {max_age_hours:g}h')
@@ -354,12 +443,11 @@ def push_and_scan(
     device_id: str,
     local_path: str,
     remote_dir: str = DEFAULT_REMOTE_DIR,
-    file_prefix: str = DEFAULT_FILE_PREFIX,
     log: Optional[Callable[[str, str], None]] = None,
     wait: bool = True,
 ) -> Optional[str]:
     """Convenience: push + scan + optional sleep. Returns remote path or None."""
-    remote_path = push_media(device_id, local_path, remote_dir=remote_dir, file_prefix=file_prefix)
+    remote_path = push_media(device_id, local_path, remote_dir=remote_dir)
     if not remote_path:
         return None
     trigger_media_scan(device_id, remote_path, local_path, log=log)
