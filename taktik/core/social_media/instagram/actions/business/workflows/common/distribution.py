@@ -58,17 +58,22 @@ RunSource = Callable[[str, int], Tuple[int, bool]]
 OnProgress = Callable[[str, int, int, int, int, str], None]
 
 
-def ipc_source_progress(workflow_kind: str) -> OnProgress:
+def ipc_source_progress(workflow_kind: str,
+                        failure_of: Optional[Callable[[str], Any]] = None) -> OnProgress:
     """Progress reporter for the desktop app, in the bot's stdout-JSON IPC idiom.
 
     The live session panel shows WHICH source is being worked and how the budget
     spreads across them — without this, a distributed run is indistinguishable
     from a single-source one until the session recap.
+
+    ``failure_of(source)``, when given, returns the motive a source failed on (a
+    ``StopReason``, or nothing): its ``done`` event then carries ``failure_code``, so the
+    panel can tell a source that could not be worked from one that ran dry.
     """
 
     def report(source: str, index: int, total: int, quota: int, processed: int, status: str) -> None:
         try:
-            print(json.dumps({
+            event = {
                 "type": "source_progress",
                 "workflow": workflow_kind,
                 "source": source,
@@ -77,7 +82,11 @@ def ipc_source_progress(workflow_kind: str) -> OnProgress:
                 "quota": quota,
                 "processed": processed,
                 "status": status,
-            }), flush=True)
+            }
+            failure = failure_of(source) if (failure_of and status == 'done') else None
+            if failure:
+                event["failure_code"] = getattr(failure, "code", None) or str(failure)
+            print(json.dumps(event), flush=True)
         except Exception:
             pass
 
