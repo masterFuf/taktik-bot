@@ -202,7 +202,10 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # --- detection ---
     "detection.business_account_indicators": [
-        "//*[contains(@text, \"Professional\")]",
+        # The "Contact" button of the header action row, and our own professional
+        # dashboard entry. Exact labels, scoped: a bio or a name may say "Professional".
+        "//*[contains(@resource-id, \"profile_header_actions_top_row\")]//*[@text=\"Contact\"]",
+        "//*[@text=\"Professional dashboard\"]",
     ],
     "detection.carousel_selectors": [
         "//*[contains(@content-desc, \"likes\") and contains(@content-desc, \"comment\")]",
@@ -315,7 +318,8 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@resource-id=\"com.instagram.android:id/row_header_textview\" and contains(@text, \"Suggested for you\")]",
     ],
     "detection.verified_account_indicators": [
-        "//*[contains(@content-desc, \"Verified\")]",
+        # On the action bar title only (see DetectionSelectors).
+        "//*[contains(@resource-id, \"action_bar_title\") and contains(@content-desc, \"Verified\")]",
     ],
     # --- direct_message ---
     "direct_message.conversation_back_description_contains": [],

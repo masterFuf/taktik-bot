@@ -65,6 +65,9 @@ class FilterCriteria:
     min_posts: int = 3
     max_following: int = 10000
     allow_private: bool = False
+    # Certified and professional accounts pass unless the operator refuses them.
+    allow_verified: bool = True
+    allow_business: bool = True
     max_followers_following_ratio: float = 10.0
     # Existing relationship, read on the profile header button. Opt-in, so false leaves
     skip_follows_us: bool = False
@@ -80,6 +83,8 @@ class FilterCriteria:
             min_posts=criteria.get('min_posts', 3),
             max_following=criteria.get('max_following', 10000),
             allow_private=criteria.get('allow_private', False),
+            allow_verified=bool(criteria.get('allow_verified', True)),
+            allow_business=bool(criteria.get('allow_business', True)),
             max_followers_following_ratio=criteria.get('max_followers_following_ratio', 10.0),
             skip_follows_us=bool(criteria.get('skip_follows_us', False)),
             skip_already_following=bool(criteria.get('skip_already_following', False)),
@@ -93,6 +98,8 @@ class FilterCriteria:
             'min_posts': self.min_posts,
             'max_following': self.max_following,
             'allow_private': self.allow_private,
+            'allow_verified': self.allow_verified,
+            'allow_business': self.allow_business,
             'max_followers_following_ratio': self.max_followers_following_ratio,
             'skip_follows_us': self.skip_follows_us,
             'skip_already_following': self.skip_already_following,
