@@ -1,5 +1,7 @@
 """Pacing profiles — 'natural' (default) has no inter-step pause; 'balanced' keeps the former
-5-15s; variants are slower/faster; safe resolve."""
+5-15s; variants are slower/faster; safe resolve; no profile carries a long break."""
+
+import dataclasses
 
 from taktik.core.shared.behavior.profiles import (
     PacingProfile,
@@ -15,8 +17,6 @@ def test_balanced_reproduces_current_values():
     assert (p.fatigue_base, p.fatigue_per_minute, p.fatigue_cap) == (1.0, 0.6, 1.5)
     assert (p.short_break_every_min, p.short_break_every_max) == (8, 15)
     assert (p.short_break_min_s, p.short_break_max_s) == (5.0, 15.0)
-    assert (p.long_break_every_min, p.long_break_every_max) == (30, 50)
-    assert (p.long_break_min_s, p.long_break_max_s) == (60.0, 180.0)
 
 
 def test_natural_is_default_with_no_inter_step_pause():
@@ -26,7 +26,7 @@ def test_natural_is_default_with_no_inter_step_pause():
     # …but the occasional real breaks are KEPT (same as balanced) — those are human.
     b = PACING_PROFILES["balanced"]
     assert (p.short_break_min_s, p.short_break_max_s) == (b.short_break_min_s, b.short_break_max_s)
-    assert (p.long_break_every_min, p.long_break_every_max) == (b.long_break_every_min, b.long_break_every_max)
+    assert (p.short_break_every_min, p.short_break_every_max) == (b.short_break_every_min, b.short_break_every_max)
 
 
 def test_resolve_defaults_to_natural():
@@ -41,13 +41,13 @@ def test_careful_is_slower_than_balanced():
     assert c.action_delay_min > b.action_delay_min
     assert c.action_delay_max > b.action_delay_max
     assert c.short_break_every_max < b.short_break_every_max   # breaks more often
-    assert c.long_break_max_s > b.long_break_max_s             # longer long breaks
+    assert c.short_break_max_s > b.short_break_max_s           # longer breaks
 
 
 def test_fast_debug_is_faster_than_balanced():
     b, f = PACING_PROFILES["balanced"], PACING_PROFILES["fast_debug"]
     assert f.action_delay_max < b.action_delay_max
-    assert f.long_break_every_min > b.long_break_every_min     # breaks far rarer
+    assert f.short_break_every_min > b.short_break_every_min   # breaks far rarer
 
 
 def test_strict_test_is_deterministic_friendly():
@@ -62,3 +62,8 @@ def test_every_profile_id_is_a_PacingProfile():
         assert isinstance(prof, PacingProfile)
         assert prof.profile_id == pid
         assert prof.action_delay_max >= prof.action_delay_min >= 0
+
+
+def test_no_profile_carries_a_long_break():
+    """The long break was removed: it never fired, and no profile setting may bring it back."""
+    assert [f.name for f in dataclasses.fields(PacingProfile) if f.name.startswith("long_break")] == []

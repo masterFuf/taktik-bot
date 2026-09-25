@@ -11,6 +11,8 @@ import random
 from typing import Optional, List, Dict, Any, Union
 from loguru import logger
 
+from taktik.core.shared.behavior.sampling import sample_within
+
 
 # Every space separator a phone can put between thousands, mapped to a plain one.
 #
@@ -207,10 +209,8 @@ class ActionUtils:
         mean = (min_seconds + max_seconds) / 2
         std_dev = (max_seconds - min_seconds) / 6
         
-        delay = random.normalvariate(mean, std_dev)
-        delay = max(min_seconds, min(max_seconds, delay))
-        
-        return delay
+        # A draw outside the range is drawn again rather than set to the bound.
+        return sample_within(lambda: random.normalvariate(mean, std_dev), min_seconds, max_seconds)
     
     @staticmethod
     def extract_hashtags_from_text(text: str) -> List[str]:

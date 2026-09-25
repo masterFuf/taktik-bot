@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import random
 import time
 
 from bridges.common.input.keyboard import KeyboardService
+from bridges.instagram.engagement.runtime.dm.timing import calculate_dm_typing_delay
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.shared.input.taktik_keyboard import ensure_taktik_keyboard
 from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
@@ -45,7 +45,7 @@ class ColdDMSenderMixin:
         msg_input.click()
         time.sleep(0.5)
 
-        typing_time = min(len(message) * random.uniform(0.03, 0.05) + random.uniform(0.5, 1.5), 5.0)
+        typing_time = calculate_dm_typing_delay(message)
         time.sleep(typing_time)
 
         # The shared composer: typed without typos as before, sent only once it reads the message.

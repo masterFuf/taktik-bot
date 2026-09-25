@@ -15,6 +15,8 @@ from __future__ import annotations
 import random
 from typing import Optional, Tuple
 
+from taktik.core.shared.behavior.sampling import sample_within
+
 Bounds = Tuple[int, int, int, int]  # (left, top, right, bottom)
 
 # Tap point spread (fraction of the half-size): people cluster around the centre.
@@ -27,9 +29,11 @@ _MARGIN = 0.12
 def sample_tap_point(bounds: Bounds, *, rng: Optional[random.Random] = None) -> Tuple[int, int]:
     """Sample a human tap point inside `bounds` (left, top, right, bottom).
 
-    Gaussian-weighted toward the centre, clamped to an inner margin so the tap stays
-    well inside the element (never the rim) — and never the dead centre twice. For a
-    tiny element this collapses toward the centre (as a human would, on a small target).
+    Gaussian-weighted toward the centre and truncated to an inner margin, so the tap stays
+    well inside the element (never the rim) — and never the dead centre twice. A draw that
+    falls in the margin is drawn again rather than pushed onto it, so the edge of the zone
+    is not hit more often than the points just inside it. For a tiny element this collapses
+    toward the centre (as a human would, on a small target).
     """
     rng = rng or random
     lx, ty, rx, by = bounds
@@ -44,14 +48,17 @@ def sample_tap_point(bounds: Bounds, *, rng: Optional[random.Random] = None) -> 
     if w <= 1 and h <= 1:
         return int(round(cx)), int(round(cy))
 
-    x = cx + rng.gauss(0.0, (w / 2.0) * _SPREAD)
-    y = cy + rng.gauss(0.0, (h / 2.0) * _SPREAD)
-
     # Keep strictly inside: inner margin, but at least ~1px off each edge for real boxes.
     mx = max(min(w * _MARGIN, (w - 1) / 2.0), 0.0)
     my = max(min(h * _MARGIN, (h - 1) / 2.0), 0.0)
-    x = min(max(x, left + mx), right - mx)
-    y = min(max(y, top + my), bottom - my)
+    sigma_x = (w / 2.0) * _SPREAD
+    sigma_y = (h / 2.0) * _SPREAD
+    first_x = cx + rng.gauss(0.0, sigma_x)
+    first_y = cy + rng.gauss(0.0, sigma_y)
+    x = sample_within(lambda: cx + rng.gauss(0.0, sigma_x), left + mx, right - mx,
+                      rng=rng, first=first_x)
+    y = sample_within(lambda: cy + rng.gauss(0.0, sigma_y), top + my, bottom - my,
+                      rng=rng, first=first_y)
     return int(round(x)), int(round(y))
 
 
@@ -61,12 +68,17 @@ def sample_tap_down_ms(*, rng: Optional[random.Random] = None) -> float:
     Mostly quick (~70ms), occasionally a touch longer (a deliberate press), always well
     under the Android long-press threshold (~400-500ms) so it stays a tap, never a
     long-press. Varying the press time alone makes the touch trace less mechanical.
+    A press outside 30-220 ms is drawn again, so no press lasts exactly the minimum.
     """
     rng = rng or random
-    ms = rng.gauss(70.0, 22.0)
-    if rng.random() < 0.10:
-        ms += rng.uniform(40.0, 110.0)  # occasional deliberate, slightly longer press
-    return float(min(max(ms, 30.0), 220.0))
+
+    def draw() -> float:
+        ms = rng.gauss(70.0, 22.0)
+        if rng.random() < 0.10:
+            ms += rng.uniform(40.0, 110.0)  # occasional deliberate, slightly longer press
+        return ms
+
+    return float(sample_within(draw, 30.0, 220.0, rng=rng))
 
 
 def _coerce_bounds(element) -> Optional[Bounds]:

@@ -3,6 +3,8 @@
 import time
 import random
 
+from taktik.core.shared.behavior.sampling import sample_within
+
 
 class TypingMixin:
     """Mixin: human text entry, through the dedicated keyboard with a fallback."""
@@ -32,10 +34,10 @@ class TypingMixin:
                 # Special characters: slightly slower, since the keyboard area changes
                 delay = random.uniform(min_delay * 1.2, max_delay * 1.5)
             else:
-                # Normal delay, on a gaussian distribution
+                # Normal delay, on a gaussian distribution truncated to the range by redrawing
                 mean = (min_delay + max_delay) / 2
                 std = (max_delay - min_delay) / 4
-                delay = max(min_delay, min(max_delay, random.gauss(mean, std)))
+                delay = sample_within(lambda: random.gauss(mean, std), min_delay, max_delay)
             
             # Occasionally a micro-pause, as if looking for the key
             if random.random() < 0.08:  # 8% de chance

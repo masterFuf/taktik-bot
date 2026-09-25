@@ -15,6 +15,8 @@ import random
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
+from taktik.core.shared.behavior.sampling import sample_within
+
 _CALIBRATION_FILE = os.path.join(os.path.dirname(__file__), "human_scroll_calibration.json")
 
 
@@ -38,6 +40,15 @@ def load_calibration() -> Dict:
         "read_pause_ms": [4000, 6000, 13000],
         "burst_gap_ms": [800, 1180, 1600],
     }
+
+
+@lru_cache(maxsize=16)
+def _swipe_pool(direction: str, min_ndy: float) -> tuple:
+    """Calibrated swipes of `direction` whose vertical travel is at least `min_ndy` (fraction of
+    the screen height); all of them when none is that long."""
+    cal = load_calibration()
+    pool = cal.get(direction) or cal.get("up") or []
+    return tuple(item for item in pool if abs(item["ndy"]) >= min_ndy) or tuple(pool)
 
 
 def _ease(t: float) -> float:
@@ -99,51 +110,84 @@ def sample_swipe(
             so a deliberate "drag the post into view" can travel most of a screen.
 
     Returns (path_points, duration_seconds) ready for `swipe_points`.
+
+    Every sampled quantity that must stay inside a limit is drawn again when it falls outside,
+    never pushed onto the limit: a limit hit by a share of the gestures would put that share on
+    one exact value of the touch trace (start pixel, end row, drift angle, duration).
     """
     rng = rng or random
-    cal = load_calibration()
-    pool = cal.get(direction) or cal.get("up") or []
+    floor_px = dist_floor_h * screen_h
+    # Without a distance override the sampled travel is the real one: only swipes long enough
+    # to move the feed qualify, rather than lifting the short ones to exactly the floor.
+    pool = _swipe_pool(direction, dist_floor_h if distance_px is None else 0.0)
     base = rng.choice(pool)
 
     sign = -1.0 if direction == "up" else 1.0
-    # Start point: real normalised position + tiny jitter, clamped to safe margins.
-    sx = base["nx"] * screen_w + rng.uniform(-0.015, 0.015) * screen_w
-    sx = min(max(sx, 0.06 * screen_w), 0.94 * screen_w)
-    if start_band is not None:
-        lo, hi = min(start_band), max(start_band)
-        sy = rng.uniform(lo, hi)
-    else:
-        sy = base["ny"] * screen_h + rng.uniform(-0.02, 0.02) * screen_h
+    # Start point: real normalised position + tiny jitter, kept inside safe margins.
+    sx = sample_within(
+        lambda: base["nx"] * screen_w + rng.uniform(-0.015, 0.015) * screen_w,
+        0.06 * screen_w, 0.94 * screen_w, rng=rng, edge_band=0.03 * screen_w,
+    )
     # The start must stay on the content, clear of the bottom navigation bar: a touch-down on
     # a tab opens it instead of scrolling. Ratio-based, so it holds on every device.
-    sy = min(max(sy, 0.10 * screen_h), 0.85 * screen_h)
+    if start_band is not None:
+        lo, hi = min(start_band), max(start_band)
+        sy = sample_within(lambda: rng.uniform(lo, hi), 0.10 * screen_h, 0.85 * screen_h,
+                           rng=rng, edge_band=max(hi - lo, 0.01 * screen_h))
+    else:
+        sy = sample_within(
+            lambda: base["ny"] * screen_h + rng.uniform(-0.02, 0.02) * screen_h,
+            0.10 * screen_h, 0.85 * screen_h, rng=rng, edge_band=0.04 * screen_h,
+        )
 
     # Vertical magnitude: sampled or overridden, then kept inside the sampled envelope. The
     # floor guarantees the gesture always moves the feed and is never read as a tap.
     sampled_dy = abs(base["ndy"]) * screen_h
     if distance_px is not None:
-        dy_mag = min(max(abs(distance_px), dist_floor_h * screen_h), dist_cap_h * screen_h)
+        dy_mag = min(max(abs(distance_px), floor_px), dist_cap_h * screen_h)
+    elif sampled_dy >= floor_px:
+        dy_mag = sampled_dy
     else:
-        dy_mag = max(sampled_dy, dist_floor_h * screen_h)
+        dy_mag = floor_px + rng.uniform(0.0, 0.03) * screen_h
     dy = sign * dy_mag
-    ey = min(max(sy + dy, 0.04 * screen_h), 0.96 * screen_h)
-    actual_dy = abs(ey - sy)   # vertical room may clamp near the edges
+    # The end stays on the glass. When the travel asks for more room than there is, the finger
+    # lifts somewhere within a finger-width of the edge, not on one fixed row.
+    ey = sy + dy
+    if not 0.04 * screen_h <= ey <= 0.96 * screen_h:
+        edge = 0.04 * screen_h if ey < 0.04 * screen_h else 0.96 * screen_h
+        ey = edge + math.copysign(rng.uniform(0.0, 0.02) * screen_h, sy - edge)
+    actual_dy = abs(ey - sy)
 
-    # Horizontal drift keeps its sampled proportion but is hard-capped against the vertical
-    # travel, so the gesture stays clearly vertical and is never read as a sideways swipe.
-    drift_ratio = base["ndx"] / (abs(base["ndy"]) or 0.17)
-    dx = drift_ratio * actual_dy + rng.uniform(-0.01, 0.01) * screen_w
+    # Horizontal drift keeps a real sampled proportion but must stay under 0.15 of the vertical
+    # travel, so the gesture is clearly vertical and never read as a sideways swipe. Most real
+    # swipes drift more than that; capping them put four gestures in five on the same angle.
+    # A drift over the limit is replaced by the drift of another real swipe, and the end point
+    # is kept on the glass the same way.
     max_dx = 0.15 * actual_dy
-    dx = max(-max_dx, min(max_dx, dx))
 
-    ex = min(max(sx + dx, 0.04 * screen_w), 0.96 * screen_w)
+    def drift_of(item) -> float:
+        return item["ndx"] / (abs(item["ndy"]) or 0.17)
+
+    dx = sample_within(
+        lambda: drift_of(rng.choice(pool)) * actual_dy + rng.uniform(-0.01, 0.01) * screen_w,
+        max(-max_dx, 0.04 * screen_w - sx), min(max_dx, 0.96 * screen_w - sx),
+        rng=rng, first=drift_of(base) * actual_dy + rng.uniform(-0.01, 0.01) * screen_w,
+    )
+    ex = sx + dx
 
     # Duration: scale the real duration by how much we stretched the distance, + jitter.
-    # Capped at 0.85s total so the gesture stays a flick that flings the feed, not a slow
-    # drag (real cleaned swipes were ≤ ~0.85s at p90).
-    scale = (dy_mag / sampled_dy) if sampled_dy > 1 else 1.0
-    duration_ms = base["dur"] * min(max(scale, 0.7), 1.4) * rng.uniform(0.9, 1.12)
-    duration_ms = min(max(duration_ms, 90.0), 850.0)
+    # Kept under 0.85s so the gesture stays a flick that flings the feed, not a slow
+    # drag (real cleaned swipes were ≤ ~0.85s at p90). A duration outside 90-850 ms is replaced
+    # by the duration of another real swipe stretched to the same distance.
+    def stretched_ms(item) -> float:
+        own_dy = abs(item["ndy"]) * screen_h
+        scale = (dy_mag / own_dy) if own_dy > 1 else 1.0
+        return item["dur"] * min(max(scale, 0.7), 1.4)
+
+    duration_ms = sample_within(
+        lambda: stretched_ms(rng.choice(pool)) * rng.uniform(0.9, 1.12), 90.0, 850.0,
+        rng=rng, first=stretched_ms(base) * rng.uniform(0.9, 1.12), edge_band=(20.0, 150.0),
+    )
 
     # Very slight sideways bow on top of the end-point drift (random side). Kept small —
     # it is perpendicular (horizontal) to a vertical swipe, so a large bow would re-introduce

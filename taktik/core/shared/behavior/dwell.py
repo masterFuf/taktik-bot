@@ -10,6 +10,8 @@ relevance-based dwell. See `internal docs` (iteration #19).
 import re
 import random
 
+from taktik.core.shared.behavior.sampling import sample_within
+
 # Tunable seeds (calibrate against measured behaviour on the Lab).
 GLANCE_S = (1.2, 3.5)        # look at the media (image/video) — not reading
 READ_CPS = (13.0, 22.0)      # chars/second reading speed (skim-ish); sampled per item
@@ -59,11 +61,14 @@ def caption_prose_chars(text: str) -> int:
 def content_dwell(prose_len: int) -> float:
     """Seconds a human dwells on an item given its prose length: an image glance + reading time
     (prose ÷ reading speed, capped because humans skim) + an occasional linger. No more constant,
-    content-blind dwell (e.g. 14s on a plain image)."""
+    content-blind dwell (e.g. 14s on a plain image). A reading time over the cap draws its speed
+    again; a caption too long for any speed is skimmed in the last few seconds under the cap,
+    rather than read in exactly `READ_CAP_S` every time."""
     glance = random.uniform(*GLANCE_S)
     reading = 0.0
     if prose_len >= 12:     # below ~12 chars there's nothing to "read"
-        reading = min(prose_len / random.uniform(*READ_CPS), READ_CAP_S)
+        reading = sample_within(lambda: prose_len / random.uniform(*READ_CPS), 0.0, READ_CAP_S,
+                                edge_band=4.0)
     total = glance + reading
     if random.random() < LINGER_PROB:
         total += random.uniform(*LINGER_S)

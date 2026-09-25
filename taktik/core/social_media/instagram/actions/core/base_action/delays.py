@@ -1,4 +1,4 @@
-"""Humanized delays — gaussian distribution, fatigue-aware, action-type based."""
+"""Humanized delays — right-skewed (log-normal) distribution, fatigue-aware, action-type based."""
 
 import time
 
@@ -8,7 +8,7 @@ class DelaysMixin:
 
     def _random_sleep(self, min_delay: float = 0.3, max_delay: float = 0.8,
                       scale: float = 1.0) -> None:
-        """Sleep on a gaussian distribution, with the session fatigue applied."""
+        """Sleep a right-skewed human delay around the range's middle, session fatigue applied."""
         bounded_scale = min(1.60, max(0.60, float(scale)))
         delay = self.human.gaussian_delay(min_delay, max_delay) * bounded_scale
         self.logger.debug(f"⏱️ Random sleep: {delay:.2f}s (fatigue: x{self.human.get_fatigue_multiplier():.2f})")
@@ -47,14 +47,10 @@ class DelaysMixin:
     
     def _maybe_take_break(self) -> bool:
         """Check and take a break when needed. True when one was taken."""
-        should_break, break_type, duration = self.human.should_take_break()
-        
+        should_break, _, duration = self.human.should_take_break()
+
         if should_break:
-            if break_type == 'long':
-                self.logger.info(f"☕ Pause longue naturelle ({duration/60:.1f} min) - {self.human.interactions_count} interactions effectuées")
-            else:
-                self.logger.info(f"⏸️ Pause courte ({duration:.0f}s) - {self.human.interactions_count} interactions")
-            
+            self.logger.info(f"⏸️ Pause courte ({duration:.0f}s) - {self.human.interactions_count} interactions")
             time.sleep(duration)
             return True
         
