@@ -33,6 +33,8 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
      "register_instagram_account_handlers"),
     ("Instagram scraping", "taktik.core.social_media.instagram.workflows.scraping.agent_handler",
      "register_instagram_scraping_handlers"),
+    ("Instagram cold DM", "taktik.core.social_media.instagram.workflows.cold_dm.agent_handler",
+     "register_instagram_cold_dm_handlers"),
     ("Instagram tasks", "taktik.core.social_media.instagram.workflows.tasks.agent_handler",
      "register_instagram_task_handlers"),
     ("TikTok For You", "taktik.core.social_media.tiktok.actions.business.workflows.for_you.agent_handler",
@@ -143,6 +145,8 @@ def build_registry(
         # The scraping handlers build their AI service from a key, the payload's or the environment's.
         "instagram_scraping_ai_service": cli_instagram_scraping_ai_service,
         "instagram_ai_key": cli_openrouter_key,
+        # The cold DM run drives the device the way the cold DM bridge prepares it.
+        "instagram_cold_dm_runtime": instagram_host.cold_dm_runtime if instagram_host else None,
     }
 
     for label, module_path, func_name in REGISTRARS:

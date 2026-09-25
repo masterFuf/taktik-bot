@@ -1,13 +1,13 @@
-"""Send-result handling for the Instagram Cold DM bridge."""
+"""Send-result handling for the Instagram Cold DM workflow."""
 
 from __future__ import annotations
 
-from bridges.instagram.engagement.runtime.cold_dm.persistence import record_sent_dm
-from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.workflows.cold_dm.persistence import record_sent_dm
+from loguru import logger
 
 
 def validate_cold_dm_inputs(*, recipients: list, messages: list, use_ai: bool) -> dict | None:
-    """Return a terminal error result when the bridge input cannot run."""
+    """Return a terminal error result when the run's input cannot run."""
     if not messages and not use_ai:
         return {"success": False, "error": "No messages provided and AI mode not configured"}
 

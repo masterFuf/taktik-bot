@@ -1,0 +1,809 @@
+{
+ "default": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "db_check 7 closed_one instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:profile_header_message_button",
+   "click id:profile_header_message_button",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "click id:row_thread_composer_edittext",
+   "type Hello there",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "click id:row_thread_composer_send_button_container",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text closed_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:private_profile_empty_state",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 2,
+    "username": "open_one"
+   },
+   {
+    "type": "progress",
+    "current": 2,
+    "total": 2,
+    "username": "closed_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 1,
+    "dmsSuccess": 1,
+    "dmsFailed": 0,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [
+   {
+    "account_id": 7,
+    "recipient": "open_one",
+    "message": "Hello there",
+    "success": true,
+    "error": null,
+    "session_id": "session-1",
+    "platform": "instagram"
+   }
+  ],
+  "ai": []
+ },
+ "private_allowed": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "db_check 7 closed_one instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:profile_header_message_button",
+   "click id:profile_header_message_button",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "click id:row_thread_composer_edittext",
+   "type Hello there",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "click id:row_thread_composer_send_button_container",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text closed_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:private_profile_empty_state",
+   "found id:profile_header_message_button",
+   "click id:profile_header_message_button",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "click id:row_thread_composer_edittext",
+   "type Hello there",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "click id:row_thread_composer_send_button_container",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 2,
+    "username": "open_one"
+   },
+   {
+    "type": "progress",
+    "current": 2,
+    "total": 2,
+    "username": "closed_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 2,
+    "dmsSuccess": 2,
+    "dmsFailed": 0,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [
+   {
+    "account_id": 7,
+    "recipient": "open_one",
+    "message": "Hello there",
+    "success": true,
+    "error": null,
+    "session_id": "session-1",
+    "platform": "instagram"
+   },
+   {
+    "account_id": 7,
+    "recipient": "closed_one",
+    "message": "Hello there",
+    "success": true,
+    "error": null,
+    "session_id": "session-1",
+    "platform": "instagram"
+   }
+  ],
+  "ai": []
+ },
+ "private_no_button": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "db_check 7 closed_one instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:profile_header_message_button",
+   "click id:profile_header_message_button",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "click id:row_thread_composer_edittext",
+   "type Hello there",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "click id:row_thread_composer_send_button_container",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text closed_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:private_profile_empty_state",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 2,
+    "username": "open_one"
+   },
+   {
+    "type": "progress",
+    "current": 2,
+    "total": 2,
+    "username": "closed_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 1,
+    "dmsSuccess": 1,
+    "dmsFailed": 0,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [
+   {
+    "account_id": 7,
+    "recipient": "open_one",
+    "message": "Hello there",
+    "success": true,
+    "error": null,
+    "session_id": "session-1",
+    "platform": "instagram"
+   }
+  ],
+  "ai": []
+ },
+ "verified_skipped": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "db_check 7 closed_one instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "read_verified",
+   "found id:profile_header_message_button",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text closed_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:private_profile_empty_state",
+   "read_verified",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 2,
+    "username": "open_one"
+   },
+   {
+    "type": "progress",
+    "current": 2,
+    "total": 2,
+    "username": "closed_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 0,
+    "dmsSuccess": 0,
+    "dmsFailed": 0,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "all_done": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "db_check 7 closed_one instagram"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "dmsSent": 0,
+    "dmsSuccess": 0,
+    "dmsFailed": 0,
+    "error": "All recipients already received a DM"
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "ai": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:profile_header_message_button",
+   "click id:profile_header_message_button",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "click id:row_thread_composer_edittext",
+   "type AI note for open_one",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "click id:row_thread_composer_send_button_container",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 1,
+    "username": "open_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 1,
+    "dmsSuccess": 1,
+    "dmsFailed": 0,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [
+   {
+    "account_id": 7,
+    "recipient": "open_one",
+    "message": "AI note for open_one",
+    "success": true,
+    "error": null,
+    "session_id": "session-1",
+    "platform": "instagram"
+   }
+  ],
+  "ai": [
+   {
+    "key": "sk-or-v1-dddddddddddddddddddddddddddddddddddddddddddddddd",
+    "ipc": true,
+    "label": "cold_dm @open_one"
+   }
+  ]
+ },
+ "not_found": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 1,
+    "username": "open_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 0,
+    "dmsSuccess": 0,
+    "dmsFailed": 1,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "no_button": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 1,
+    "username": "open_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 0,
+    "dmsSuccess": 0,
+    "dmsFailed": 1,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "invite_sent": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:profile_header_message_button",
+   "click id:profile_header_message_button",
+   "found textContains:Invite sent",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 1,
+    "username": "open_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 1,
+    "dmsSuccess": 0,
+    "dmsFailed": 0,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [
+   {
+    "account_id": 7,
+    "recipient": "open_one",
+    "message": "",
+    "success": true,
+    "error": "Invite already sent",
+    "session_id": "session-1",
+    "platform": "instagram"
+   }
+  ],
+  "ai": []
+ },
+ "clone": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "active_package com.taktik.ig1",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "stop com.taktik.ig1",
+   "launch com.taktik.ig1",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:profile_header_message_button",
+   "click id:profile_header_message_button",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "click id:row_thread_composer_edittext",
+   "type Hello there",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "click id:row_thread_composer_send_button_container",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 1,
+    "username": "open_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 1,
+    "dmsSuccess": 1,
+    "dmsFailed": 0,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [
+   {
+    "account_id": 7,
+    "recipient": "open_one",
+    "message": "Hello there",
+    "success": true,
+    "error": null,
+    "session_id": "session-1",
+    "platform": "instagram"
+   }
+  ],
+  "ai": []
+ },
+ "cap": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "db_check 7 open_one instagram",
+   "db_check 7 open_two instagram",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "detect_language",
+   "found id:search_tab",
+   "click id:search_tab",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "found id:action_bar_search_edit_text",
+   "click id:action_bar_search_edit_text",
+   "set_text id:action_bar_search_edit_text open_one",
+   "found text:Accounts",
+   "click text:Accounts",
+   "found id:row_search_user_container",
+   "found id:row_search_user_username",
+   "click id:row_search_user_container",
+   "found id:profile_header_message_button",
+   "click id:profile_header_message_button",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "found id:row_thread_composer_edittext",
+   "click id:row_thread_composer_edittext",
+   "type Hello there",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "found id:row_thread_composer_send_button_container",
+   "click id:row_thread_composer_send_button_container",
+   "press back",
+   "found id:feed_tab",
+   "click id:feed_tab"
+  ],
+  "stdout": [
+   {
+    "type": "progress",
+    "current": 1,
+    "total": 1,
+    "username": "open_one"
+   },
+   {
+    "success": true,
+    "dmsSent": 1,
+    "dmsSuccess": 1,
+    "dmsFailed": 0,
+    "error": null
+   }
+  ],
+  "events": [],
+  "db": [
+   {
+    "account_id": 7,
+    "recipient": "open_one",
+    "message": "Hello there",
+    "success": true,
+    "error": null,
+    "session_id": "session-1",
+    "platform": "instagram"
+   }
+  ],
+  "ai": []
+ },
+ "no_recipients": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "dmsSent": 0,
+    "dmsSuccess": 0,
+    "dmsFailed": 0,
+    "error": "No recipients provided"
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "no_messages": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "dmsSent": 0,
+    "dmsSuccess": 0,
+    "dmsFailed": 0,
+    "error": "No messages provided and AI mode not configured"
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "no_connection": {
+  "exit": 1,
+  "calls": [
+   "connect"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Failed to connect to device"
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "no_device": {
+  "exit": 1,
+  "calls": [],
+  "stdout": [
+   {
+    "success": false,
+    "error": "'deviceId'"
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "no_argument": {
+  "exit": 1,
+  "calls": [],
+  "stdout": [],
+  "events": [],
+  "db": [],
+  "ai": []
+ },
+ "unreadable": {
+  "exit": 1,
+  "calls": [],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+   }
+  ],
+  "events": [],
+  "db": [],
+  "ai": []
+ }
+}

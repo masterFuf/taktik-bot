@@ -1,20 +1,20 @@
-"""Message composer helpers for the Instagram Cold DM bridge."""
+"""Message composer helpers for the Instagram Cold DM workflow."""
 
 from __future__ import annotations
 
 import random
 import time
 
-from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
 class ColdDMSenderMixin:
     """DM composer and invite-state detection for Cold DM outreach."""
 
-    def _init_cold_dm_sender(self, device_id: str) -> None:
-        self._keyboard = KeyboardService(device_id)
+    def _init_cold_dm_sender(self, keyboard) -> None:
+        # The host's Taktik Keyboard service (`type_text`, `device_id`): the bridges' facade.
+        self._keyboard = keyboard
 
     def send_message(self, message: str) -> bool:
         """Send a message in the current conversation."""

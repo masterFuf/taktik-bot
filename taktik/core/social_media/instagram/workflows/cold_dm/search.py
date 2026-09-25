@@ -1,10 +1,10 @@
-"""Search navigation helpers for the Instagram Cold DM bridge."""
+"""Search navigation helpers for the Instagram Cold DM workflow."""
 
 from __future__ import annotations
 
 import time
 
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 

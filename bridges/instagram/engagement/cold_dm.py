@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Instagram Cold DM bridge entrypoint."""
+"""Instagram Cold DM bridge entrypoint (the workflow is the core's `run_instagram_cold_dm`)."""
 
 import sys
 from pathlib import Path
@@ -11,7 +11,6 @@ from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment(log_level="INFO")
 
-from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
 
 
 def main():
@@ -24,4 +23,4 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["ColdDMWorkflow", "main"]
+__all__ = ["main"]

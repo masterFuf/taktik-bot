@@ -1,11 +1,11 @@
-"""Timing helpers for the Instagram Cold DM bridge."""
+"""Timing helpers for the Instagram Cold DM workflow."""
 
 from __future__ import annotations
 
 import random
 import time
 
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
 
 
 def wait_before_next_cold_dm(*, index: int, total: int, delay_min: int, delay_max: int) -> None:

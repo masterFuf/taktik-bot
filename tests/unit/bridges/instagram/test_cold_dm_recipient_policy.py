@@ -6,7 +6,6 @@ was never looked at. These tests hold the decision (core, no device) and the bri
 reads the screen and the payload.
 """
 
-import json
 from types import SimpleNamespace
 
 import pytest
@@ -82,7 +81,7 @@ class _Device:
 
 
 def _runtime(*, private=False, message=True, verified=False):
-    from bridges.instagram.engagement.runtime.cold_dm.navigation import ColdDMNavigationMixin
+    from taktik.core.social_media.instagram.workflows.cold_dm.navigation import ColdDMNavigationMixin
 
     reads = []
 
@@ -121,15 +120,18 @@ def test_the_bridge_reads_the_badge_only_when_asked(monkeypatch):
     assert reads == ["badge"] and runtime.device.message_node.clicks == 0
 
 
-# ------------------------------------------------------------------------ bridge: the payload
+# ------------------------------------------------------- the launcher: the payload (bridge and CLI)
 
 @pytest.mark.parametrize("payload, expected", [
     ({}, ColdDmRecipientPolicy(skip_private=True, skip_verified=False)),
     ({"skipPrivateAccounts": False}, ColdDmRecipientPolicy(skip_private=False)),
     ({"skipVerifiedAccounts": True}, ColdDmRecipientPolicy(skip_verified=True)),
 ])
-def test_the_page_settings_reach_the_workflow(tmp_path, monkeypatch, payload, expected):
-    from bridges.instagram.engagement.runtime.cold_dm import commands
+def test_the_page_settings_reach_the_workflow(payload, expected):
+    from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import (
+        ColdDmRuntime,
+        run_instagram_cold_dm,
+    )
 
     seen = {}
 
@@ -137,20 +139,15 @@ def test_the_page_settings_reach_the_workflow(tmp_path, monkeypatch, payload, ex
         def __init__(self, *a, **k):
             pass
 
-        def connect(self):
-            return True
-
         def run(self, *args, recipient_policy=None, **kwargs):
             seen["policy"] = recipient_policy
             return {"success": True}
 
-    monkeypatch.setattr(commands, "ColdDMWorkflow", _Workflow)
-    monkeypatch.setattr(commands, "enforce_pre_session_ip_rotation", lambda *a, **k: True)
-    config = {"deviceId": "dev", "recipients": ["a"], "messages": ["hi"], **payload}
-    path = tmp_path / "cold_dm.json"
-    path.write_text(json.dumps(config), encoding="utf-8")
-
-    commands.run_cold_dm_cli([str(path)])
+    run_instagram_cold_dm(
+        {"deviceId": "dev", "recipients": ["a"], "messages": ["hi"], **payload},
+        runtime=ColdDmRuntime(device=None, device_manager=None, keyboard=None),
+        workflow_factory=_Workflow,
+    )
 
     assert seen["policy"] == expected
 
@@ -175,7 +172,7 @@ def test_the_lab_check_runs_the_bridge_evaluation_without_tapping():
 def _lab_send(monkeypatch, device, params):
     """The Lab send, with the search steps and the composer as the only stand-ins."""
     from bridges.compat.diagnostics.actions.instagram.dm import send_cold_dm
-    from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
+    from taktik.core.social_media.instagram.workflows.cold_dm.workflow import ColdDMWorkflow
 
     monkeypatch.setattr("time.sleep", lambda *_: None)
     sent = []

@@ -329,110 +329,28 @@ def cli(ctx, lang=None):
                         input("\nPress Enter to continue...")
                         continue
                     
-                    elif mgmt_choice == 2:
-                        # Post Content interactif
-                        from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
-                        from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-                        from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
-                        import uiautomator2 as u2
-                        
-                        console.print("\n[bold green]📸 Post Content[/bold green]")
-                        
-                        image_path = Prompt.ask("[cyan]📷 Image path[/cyan]")
-                        caption = Prompt.ask("[cyan]✍️  Caption[/cyan] (optional)", default="")
-                        location = Prompt.ask("[cyan]📍 Location[/cyan] (optional)", default="")
-                        hashtags_input = Prompt.ask("[cyan]#️⃣ Hashtags[/cyan] (optional, space-separated)", default="")
-                        
-                        if not image_path:
-                            console.print("[red]❌ Image path required.[/red]")
+                    elif mgmt_choice in (2, 3):
+                        # Post / story: the desktop's publishing workflow, as `taktik publish`.
+                        from taktik.cli.commands.publish_cmds import run_publish
+
+                        is_story = mgmt_choice == 3
+                        console.print("\n[bold green]📱 Post Story[/bold green]" if is_story
+                                      else "\n[bold green]📸 Post Content[/bold green]")
+                        media_path = Prompt.ask("[cyan]📷 Media path (photo or video)[/cyan]")
+                        if not media_path:
+                            console.print("[red]❌ Media path required.[/red]")
                             continue
-                        
-                        hashtag_list = None
-                        if hashtags_input:
-                            hashtag_list = [tag.strip() for tag in hashtags_input.split()]
-                        
-                        try:
-                            device = u2.connect(device_id)
-                            device_mgr = DeviceManager()
-                            device_mgr.connect(device_id)
-                            
-                            nav_actions = NavigationActions(device)
-                            detection_actions = DetectionActions(device)
-                            workflow = ContentWorkflow(device_mgr, nav_actions, detection_actions)
-                            
-                            console.print("\n[yellow]⏳ Publishing...[/yellow]")
-                            result = workflow.post_single_photo(
-                                image_path, 
-                                caption if caption else None, 
-                                location if location else None,
-                                hashtag_list
-                            )
-                            
-                            if result['success']:
-                                console.print(Panel.fit(
-                                    f"[green]✅ Post published successfully![/green]",
-                                    title="[bold green]Success[/bold green]",
-                                    border_style="green"
-                                ))
-                            else:
-                                console.print(Panel.fit(
-                                    f"[red]❌ Failed to publish[/red]\n"
-                                    f"[cyan]Error:[/cyan] {result['message']}",
-                                    title="[bold red]Failed[/bold red]",
-                                    border_style="red"
-                                ))
-                        except Exception as e:
-                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
-                        
+                        caption = hashtags_input = ""
+                        if not is_story:
+                            caption = Prompt.ask("[cyan]✍️  Caption[/cyan] (optional)", default="")
+                            hashtags_input = Prompt.ask("[cyan]#️⃣ Hashtags[/cyan] (optional, space-separated)", default="")
+
+                        run_publish("story" if is_story else "post", device_id, (media_path,),
+                                    caption, hashtags_input)
+
                         input("\nPress Enter to continue...")
                         continue
-                    
-                    elif mgmt_choice == 3:
-                        # Post Story interactif
-                        from taktik.core.social_media.instagram.workflows.management.content.content_workflow import ContentWorkflow
-                        from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-                        from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
-                        import uiautomator2 as u2
-                        
-                        console.print("\n[bold green]📱 Post Story[/bold green]")
-                        
-                        image_path = Prompt.ask("[cyan]📷 Image path[/cyan]")
-                        
-                        if not image_path:
-                            console.print("[red]❌ Image path required.[/red]")
-                            continue
-                        
-                        try:
-                            device = u2.connect(device_id)
-                            device_mgr = DeviceManager()
-                            device_mgr.connect(device_id)
-                            
-                            nav_actions = NavigationActions(device)
-                            detection_actions = DetectionActions(device)
-                            workflow = ContentWorkflow(device_mgr, nav_actions, detection_actions)
-                            
-                            console.print("\n[yellow]⏳ Publishing story...[/yellow]")
-                            result = workflow.post_story(image_path)
-                            
-                            if result['success']:
-                                console.print(Panel.fit(
-                                    f"[green]✅ Story published successfully![/green]",
-                                    title="[bold green]Success[/bold green]",
-                                    border_style="green"
-                                ))
-                            else:
-                                console.print(Panel.fit(
-                                    f"[red]❌ Failed to publish story[/red]\n"
-                                    f"[cyan]Error:[/cyan] {result['message']}",
-                                    title="[bold red]Failed[/bold red]",
-                                    border_style="red"
-                                ))
-                        except Exception as e:
-                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
-                        
-                        input("\nPress Enter to continue...")
-                        continue
-                    
+
                     elif mgmt_choice == 4:
                         # Cold DM Workflow
                         cold_dm_config = generate_cold_dm_workflow()
@@ -445,11 +363,15 @@ def cli(ctx, lang=None):
                         if not connect_device(device_manager, device_id, current_translations):
                             continue
                         
-                        from taktik.core.social_media.instagram.workflows.cold_dm import ColdDMWorkflow
-                        
+                        # The desktop's cold DM engine, through its handler: the recipient policy,
+                        # the record of who already got a DM, AI with OPENROUTER_API_KEY.
                         console.print("[blue]💬 Initializing Cold DM workflow...[/blue]")
-                        cold_dm_workflow = ColdDMWorkflow(device_manager, cold_dm_config)
-                        cold_dm_workflow.run()
+                        from taktik.cli.common.instagram_host import run_instagram_cold_dm_payload
+                        try:
+                            run_instagram_cold_dm_payload(device_manager, device_id, cold_dm_config)
+                        except Exception as exc:  # noqa: BLE001 - a failed run reports, not tracebacks
+                            console.print(f"[red]Cold DM failed:[/red] {type(exc).__name__}: {exc}")
+                            sys.exit(1)
                         
                         console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
                         sys.exit(0)
@@ -691,8 +613,7 @@ from taktik.cli.commands.workflow_cmds import workflows as _workflows_group
 
 cli.add_command(_workflows_group)
 
-# Instagram publishing on the production path. The older `management content` commands run a
-# separate, drifted implementation whose "post-bulk" publishes N posts rather than a carousel.
+# Instagram publishing, on the workflow the desktop's publish bridge runs.
 from taktik.cli.commands.publish_cmds import publish as _publish_group
 
 cli.add_command(_publish_group)

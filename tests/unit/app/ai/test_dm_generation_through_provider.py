@@ -116,7 +116,7 @@ def _rate_limited():
 
 
 def test_cold_dm_goes_through_the_provider_and_reports_its_cost(http):
-    from bridges.instagram.engagement.runtime.cold_dm.ai import generate_ai_message
+    from taktik.core.social_media.instagram.workflows.cold_dm.ai import generate_ai_message
 
     calls, answers = http
     answers.append(_answer('"Salut Lea, ton dernier post m\'a fait sourire !"'))
@@ -145,7 +145,7 @@ def test_cold_dm_goes_through_the_provider_and_reports_its_cost(http):
 
 
 def test_cold_dm_retries_a_rate_limit_instead_of_dropping_the_message(http):
-    from bridges.instagram.engagement.runtime.cold_dm.ai import generate_ai_message
+    from taktik.core.social_media.instagram.workflows.cold_dm.ai import generate_ai_message
 
     calls, answers = http
     answers.extend([_rate_limited(), _answer("Bonjour !")])
@@ -155,7 +155,7 @@ def test_cold_dm_retries_a_rate_limit_instead_of_dropping_the_message(http):
 
 
 def test_cold_dm_returns_empty_on_failure_so_the_recipient_is_skipped(http):
-    from bridges.instagram.engagement.runtime.cold_dm.ai import generate_ai_message
+    from taktik.core.social_media.instagram.workflows.cold_dm.ai import generate_ai_message
 
     _calls, answers = http
     answers.append(urllib.error.HTTPError(provider.OPENROUTER_API_URL, 500, "boom", {},

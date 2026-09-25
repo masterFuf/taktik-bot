@@ -33,11 +33,15 @@ def test_the_registry_covers_the_platforms_that_had_no_cli_surface():
 
 
 def test_workflow_ids_are_canonical_and_namespaced():
+    from taktik.core.agent.io.manifest import load_workflow_manifest
+
+    # An Agent plan only reaches ids the manifest declares; `coldDm` is spelled that way there.
+    manifest = load_workflow_manifest()
     build = build_registry(device=None, device_id="")
     for workflow_id in build.workflow_ids:
         platform, _, rest = workflow_id.partition(".")
         assert platform and rest, workflow_id
-        assert workflow_id == workflow_id.lower()
+        assert workflow_id == workflow_id.lower() or manifest.contains(workflow_id), workflow_id
 
 
 # --- parameter handling -----------------------------------------------------

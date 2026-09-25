@@ -1,9 +1,9 @@
-"""Recipient filtering helpers for the Instagram Cold DM bridge."""
+"""Recipient filtering helpers for the Instagram Cold DM workflow."""
 
 from __future__ import annotations
 
-from bridges.instagram.engagement.runtime.cold_dm.persistence import check_dm_already_sent
-from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.workflows.cold_dm.persistence import check_dm_already_sent
+from loguru import logger
 
 
 class ColdDMRecipientMixin:
