@@ -20,7 +20,7 @@ def resolve_app_config(connection: Any, platform: str, package_override: Optiona
     if package_override and package_override != app_config["package"]:
         logger.info(f"[AppService] Using clone package: {package_override}")
         app_config["package"] = package_override
-        # Taktik-cloner packages (com.taktik.ig*, com.taktik.tk*) do not share
+        # Taktik-cloner packages (com.taktik.ig*, com.taktik.tt*) do not share
         # the same internal activity class, so skip explicit activity launch.
         if package_override.startswith("com.taktik."):
             app_config["activity"] = None
