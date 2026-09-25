@@ -221,8 +221,10 @@ class HashtagBusiness(
         while posts_engaged < max_posts and examined < max_to_examine:
             # The run's lock: this loop moved to the next post and engaged it after a block
             # seen on the previous one (a refused like, a refused follow among its likers).
-            if run_halt.arret_demande():
-                stop_reason = stop_reasons.action_blocked()
+            halt = run_halt.arret_demande()
+            if halt:
+                # The latch says why: a block, but also the desktop gone or the phone unplugged.
+                stop_reason = stop_reasons.for_halt(halt)
                 break
             if need_to_open_post:
                 current = self._find_first_valid_post(hashtag, effective_config, skip_count=0)
@@ -322,8 +324,9 @@ class HashtagBusiness(
                         account_id=account_id,
                     )
 
-            if run_halt.arret_demande():
-                stop_reason = stop_reasons.action_blocked()
+            halt = run_halt.arret_demande()
+            if halt:
+                stop_reason = stop_reasons.for_halt(halt)
                 break
 
             # Read the post like a person before moving on (carousel + caption + dwell),

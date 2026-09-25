@@ -125,8 +125,10 @@ def visit_suggestions(surface: SuggestionSurface, *, max_profiles: int = 5,
 
     while result["visited"] < max_profiles:
         # The run's lock: each visit is a paid AI qualification and maybe a follow.
-        if run_halt.arret_demande():
-            result["stop_reason"] = "action_blocked"
+        halt = run_halt.arret_demande()
+        if halt:
+            # The latch's own code: a block, the desktop gone, the phone unplugged.
+            result["stop_reason"] = halt.get("code") or "action_blocked"
             break
         if not surface.reach():
             result["stop_reason"] = getattr(surface, "reach_failure_reason", "zone_not_reached")
