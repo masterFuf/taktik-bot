@@ -4,6 +4,8 @@ from typing import List, Dict, Optional, Tuple
 import uiautomator2 as u2
 from loguru import logger
 
+from taktik.core.shared.device.server_restart import call_past_a_dying_server, retry_cut_reads
+
 
 class DeviceManager:
     # ATX agent packages
@@ -59,8 +61,10 @@ class DeviceManager:
                     return False
                 self.device_id = devices[0]["id"]
             
-            self.device = u2.connect(self.device_id)
+            # A server left by a process that just exited may answer, then die (server_restart).
+            self.device = call_past_a_dying_server(lambda: u2.connect(self.device_id))
             logger.info(f"Connected to device: {self.device_id}")
+            retry_cut_reads(self.device)
 
             # Count every server call and adb shell of this phone from here on (M1): what an action
             # costs in dumps, round trips and waits. Pass-through, never raises.
