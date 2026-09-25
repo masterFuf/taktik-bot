@@ -7,6 +7,7 @@ shell execution lives under `taktik.core.shared.device.adb`.
 
 import atexit
 import base64
+import os
 import threading
 import time
 from typing import Dict, Optional
@@ -36,6 +37,15 @@ _original_ime: Dict[str, Optional[str]] = {}
 _restore_lock = threading.Lock()
 _atexit_registered = False
 
+# Set by the desktop app on every bridge it starts (the owner watchdog reads it too). The app then
+# gives the keyboard back itself, once no other run is left on the phone: a bridge that did it at
+# its own exit would pull the keyboard from under another run still typing there.
+DESKTOP_OWNER_ENV = "TAKTIK_DESKTOP_PID"
+
+
+def _desktop_gives_keyboard_back() -> bool:
+    return bool(os.environ.get(DESKTOP_OWNER_ENV, "").strip())
+
 
 def _clean_ime(value: Optional[str]) -> Optional[str]:
     value = (value or "").strip()
@@ -49,7 +59,8 @@ def _read_default_ime(device_id: str) -> Optional[str]:
 def remember_original_keyboard(device_id: str, current: Optional[str] = None,
                                known: bool = False) -> None:
     """Remember the phone's keyboard the FIRST time this process looks at it, and arrange for it
-    to be given back when the process ends (the end of the bridge, so of the session).
+    to be given back when the process ends (the end of the bridge, so of the session). Not when
+    the desktop started this process: it gives the keyboard back itself.
 
     `current`/`known`: the default keyboard the caller just read, to spare a second adb call. The
     first look happens in `is_taktik_keyboard_active`, which every typing path runs BEFORE deciding
@@ -68,7 +79,7 @@ def remember_original_keyboard(device_id: str, current: Optional[str] = None,
             except Exception as exc:  # the switch goes on; the restore falls back on another keyboard
                 logger.debug(f"Could not read the keyboard of {device_id}: {exc}")
                 _original_ime[device_id] = None
-        if not _atexit_registered:
+        if not _atexit_registered and not _desktop_gives_keyboard_back():
             atexit.register(restore_all_keyboards)
             _atexit_registered = True
 
