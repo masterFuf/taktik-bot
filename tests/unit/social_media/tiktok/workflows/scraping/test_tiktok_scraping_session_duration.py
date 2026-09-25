@@ -11,15 +11,20 @@ est `max_duration_reached` (code partagé `duration_cap`) ; la session est rang�
 STOPPED : le run a fait le temps qu'on lui donnait.
 """
 
-from types import SimpleNamespace
-
 import pytest
 
-import bridges.tiktok.scraping.runtime.workflow as bridge
-import taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions as navigation_module
+import taktik.core.database.tiktok_scraping as scraping_store
 import taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow as workflow_module
-from bridges.tiktok.scraping.runtime.config import build_scraping_config
-from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import ScrapingConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.scraping.agent_handler import (
+    run_tiktok_scraping,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import (
+    ScrapingConfig,
+    ScrapingStats,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows.scraping.payload import (
+    scraping_config_from_payload,
+)
 from taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow import ScrapingWorkflow
 
 
@@ -60,13 +65,13 @@ def _workflow(clock, minutes, seconds_per_post=600):
 
 def test_the_page_payload_reaches_the_workflow_config():
     # Ce que TikTokScraping.tsx envoie, recopié par buildScrapingPayload.
-    config = build_scraping_config({"type": "hashtag", "hashtag": "cuisine", "sessionDurationMinutes": 30})
+    config = scraping_config_from_payload({"type": "hashtag", "hashtag": "cuisine", "sessionDurationMinutes": 30})
 
     assert config.session_duration_minutes == 30
 
 
 def test_no_duration_sent_means_no_limit():
-    assert build_scraping_config({"type": "hashtag", "hashtag": "cuisine"}).session_duration_minutes == 0
+    assert scraping_config_from_payload({"type": "hashtag", "hashtag": "cuisine"}).session_duration_minutes == 0
 
 
 def test_the_run_stops_at_the_deadline_between_two_posts(clock):
@@ -99,7 +104,7 @@ def test_a_manual_stop_keeps_its_own_reason(clock):
     assert workflow.completion_reason == "stopped_by_user"
 
 
-# --- le pont : la session et le dernier statut -------------------------------------------------
+# --- le lanceur (pont et CLI) : la session et le dernier statut ---------------------------------
 
 
 class _FakeScrapingWorkflow:
@@ -109,6 +114,7 @@ class _FakeScrapingWorkflow:
         self.config = config
         self.completion_reason = None
         self.stopped = False
+        self.stats = ScrapingStats()
 
     def set_on_status_callback(self, cb):
         pass
@@ -131,23 +137,33 @@ class _FakeScrapingWorkflow:
         return [{"username": "a"}, {"username": "b"}]
 
 
+class _Notifier:
+    def __init__(self, calls):
+        self.calls = calls
+
+    def send(self, event_type, **payload):
+        if event_type == "status":
+            self.calls["status"].append((payload["status"], payload["message"]))
+
+
 @pytest.fixture
 def run_bridge(monkeypatch):
     calls = {"session": [], "status": []}
-    manager = SimpleNamespace(device_manager=SimpleNamespace(device=object()))
-    monkeypatch.setattr(bridge, "tiktok_startup", lambda device_id, fetch_profile=True: (manager, None))
-    monkeypatch.setattr(navigation_module, "NavigationActions", lambda device: object())
-    monkeypatch.setattr(workflow_module, "ScrapingWorkflow", _FakeScrapingWorkflow)
-    monkeypatch.setattr(bridge, "create_scraping_session", lambda config: 42)
-    monkeypatch.setattr(bridge, "update_scraping_session", lambda *args: calls["session"].append(args))
-    monkeypatch.setattr(bridge, "send_status", lambda status, message: calls["status"].append((status, message)))
-    monkeypatch.setattr(bridge, "send_scraping_completed", lambda total: None)
+    monkeypatch.setattr(scraping_store, "open_scraping_session", lambda source_type, source_name: 42)
+    monkeypatch.setattr(scraping_store, "close_scraping_session", lambda *args: calls["session"].append(args))
 
     def _run(reason):
         _FakeScrapingWorkflow.reason = reason
         payload = {"deviceId": "emulator-5554", "type": "hashtag", "hashtag": "cuisine",
                    "sessionDurationMinutes": 20, "saveToDb": True}
-        assert bridge.run_scraping_workflow(payload) is True
+        result = run_tiktok_scraping(
+            payload,
+            device=object(),
+            notifier=_Notifier(calls),
+            navigation_factory=lambda device: object(),
+            workflow_factory=_FakeScrapingWorkflow,
+        )
+        assert result["success"] is True
         return calls
 
     return _run

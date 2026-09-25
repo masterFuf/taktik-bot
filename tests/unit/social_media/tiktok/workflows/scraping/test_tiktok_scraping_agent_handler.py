@@ -1,5 +1,6 @@
 import pytest
 
+import taktik.core.database.tiktok_scraping as scraping_store
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows.scraping import (
     TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID,
@@ -22,6 +23,7 @@ class FakeScrapingWorkflow:
         self.navigation = navigation
         self.config = config
         self.stats = ScrapingStats()
+        self.completion_reason = None
         self.callbacks = {}
         self.instances.append(self)
 
@@ -51,6 +53,7 @@ class FakeScrapingWorkflow:
             self.callbacks["profile"](profile)
         if "save_profile" in self.callbacks:
             self.callbacks["save_profile"](profile)
+        self.completion_reason = "completed"
         return [profile]
 
 
@@ -62,9 +65,21 @@ class FakeNotifier:
         self.calls.append((event_type, payload))
 
 
-def test_register_tiktok_scraping_handler_executes_target_workflow():
+@pytest.fixture(autouse=True)
+def store(monkeypatch):
+    """The scraping session rows, recorded instead of written."""
+    rows = []
+    monkeypatch.setattr(scraping_store, "open_scraping_session",
+                        lambda source_type, source_name: rows.append(("open", source_type, source_name)) or 7)
+    monkeypatch.setattr(scraping_store, "save_scraped_profile",
+                        lambda session_id, profile: rows.append(("profile", session_id, dict(profile))))
+    monkeypatch.setattr(scraping_store, "close_scraping_session",
+                        lambda *args: rows.append(("close", *args)))
+    return rows
+
+
+def test_register_tiktok_scraping_handler_executes_target_workflow(store):
     FakeScrapingWorkflow.instances = []
-    saved_profiles = []
     registry = WorkflowRegistry()
     notifier = FakeNotifier()
     device = object()
@@ -73,7 +88,6 @@ def test_register_tiktok_scraping_handler_executes_target_workflow():
         registry,
         device=device,
         notifier=notifier,
-        profile_sink=saved_profiles.append,
         navigation_factory=FakeNavigation,
         workflow_factory=FakeScrapingWorkflow,
     )
@@ -116,16 +130,46 @@ def test_register_tiktok_scraping_handler_executes_target_workflow():
     assert events[-1].payload["success"] is True
     assert events[-1].payload["total_scraped"] == 1
     assert events[-1].payload["profiles"][0]["username"] == "creator"
-    assert saved_profiles == [{"username": "creator", "followers_count": 42}]
+    # The session and its profile are filed from the handler too, as the desktop bridge files them.
+    assert store == [
+        ("open", "FOLLOWING", "@creator"),
+        ("profile", 7, {"username": "creator", "followers_count": 42}),
+        ("close", 7, 1, "COMPLETED", 0),
+    ]
     assert ("status", {"status": "scraping", "message": "Scraping profiles"}) in notifier.calls
     assert (
         "scraping_progress",
         {"scraped": 1, "total": 12, "current": "creator"},
     ) in notifier.calls
-    assert (
-        "scraping_profile",
-        {"profile": {"username": "creator", "followers_count": 42}},
-    ) in notifier.calls
+    # The desktop's `scraping_profile` event, from the handler as from the bridge.
+    profile_events = [payload for kind, payload in notifier.calls if kind == "scraping_profile"]
+    assert len(profile_events) == 1
+    assert {key: value for key, value in profile_events[0].items() if key != "scrapedAt"} == {
+        "username": "creator", "followersCount": 42, "followingCount": 0,
+    }
+    assert ("scraping_completed", {"totalScraped": 1}) in notifier.calls
+    assert notifier.calls[-1] == ("status", {"status": "completed", "message": "Scraped 1 profiles"})
+
+
+def test_a_run_told_not_to_save_files_nothing(store):
+    FakeScrapingWorkflow.instances = []
+    registry = WorkflowRegistry()
+    register_tiktok_scraping_handlers(
+        registry,
+        device=object(),
+        navigation_factory=FakeNavigation,
+        workflow_factory=FakeScrapingWorkflow,
+    )
+
+    result = registry.resolve(TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID)(
+        WorkflowInvocation(platform="tiktok", workflow_id=TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID,
+                           params={"type": "hashtag", "hashtag": "food", "saveToDb": False}),
+        {},
+    )
+
+    assert result["total_scraped"] == 1
+    assert result["session_id"] is None
+    assert store == []
 
 
 def test_tiktok_scraping_handler_accepts_hashtag_workflow_id():

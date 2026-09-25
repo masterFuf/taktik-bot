@@ -85,6 +85,23 @@ class Rig:
         self.on_profile = None
         #: The unfollow run raises (a screen it cannot reach).
         self.unfollow_fails = False
+        #: The scraping source: the handles it gives, how the run ends, an error it reports on the
+        #: way, whether it raises, and the id the database gives the session (None: not created).
+        self.scraped_usernames: list[str] = ["fan_one", "fan_two"]
+        self.scraping_reason = None
+        self.scraping_error = None
+        self.scraping_raises = False
+        self.scraping_session_id = 42
+        #: Signal number -> handler, for the bridges that install their own.
+        self.signal_handlers: dict = {}
+        #: The publish phone: whether the bridge's connection succeeds, what the upload and the
+        #: text post answer (None: success), whether they raise, whether the clone patch raises.
+        self.publish_connects = True
+        self.upload_outcome = None
+        self.upload_raises = False
+        self.text_post_outcome = None
+        self.text_post_raises = False
+        self.clone_patch_raises = False
         self._install()
 
     # ------------------------------------------------------------------ fakes
@@ -399,6 +416,244 @@ class Rig:
         self._install_inbox_fakes()
         self._install_dm_fakes()
         self._install_unfollow_fakes()
+        self._install_scraping_fakes()
+        self._install_publish_fakes()
+
+    def _install_publish_fakes(self) -> None:
+        rig = self
+        mp = self.monkeypatch
+
+        class FakeConnectionService:
+            def __init__(self, device_id):
+                rig.calls.append(f"connection {device_id}")
+                self.device_id = device_id
+                self.device = None
+
+            def connect(self):
+                rig.calls.append("connect")
+                if rig.publish_connects:
+                    self.device = rig.device
+                return rig.publish_connects
+
+        # Bound by name at import in the publish bridge.
+        from bridges.tiktok.publish.runtime import bridge as publish_bridge
+
+        mp.setattr(publish_bridge, "ConnectionService", FakeConnectionService)
+        # The bridge's before/after screenshots go to debug_ui: recorded, never written.
+        mp.setattr(publish_bridge.TikTokPublishBridge, "_capture_phase",
+                   lambda _self, device, phase: rig.calls.append(f"capture {phase}"))
+
+        from taktik.core.social_media.tiktok.workflows import publish as publish_package
+        from taktik.core.social_media.tiktok.workflows.publish import (
+            agent_handler as publish_handler,
+            upload_workflow,
+        )
+
+        class FakeUploadWorkflow:
+            """Records how it is built and what it is asked; calls the step hook once, as the real
+            one calls it per stage; answers `rig.upload_outcome`."""
+
+            def __init__(self, device, device_id, notifier=None, step_hook=None):
+                rig.calls.append(f"upload_workflow_built {device_id} notifier={notifier is not None} "
+                                 f"step_hook={step_hook is not None}")
+                self.step_hook = step_hook
+                rig.workflows.append(self)
+
+            def execute(self, local_path, caption="", hashtags=None, package_name=None):
+                rig.calls.append(f"upload {local_path} caption={caption!r} hashtags={hashtags} "
+                                 f"package={package_name}")
+                if rig.upload_raises:
+                    raise RuntimeError("the gallery never opened")
+                if self.step_hook is not None:
+                    self.step_hook("40_caption")
+                return dict(rig.upload_outcome or {"success": True, "message": "Video published",
+                                                   "error_type": None})
+
+        for module in (upload_workflow, publish_package):
+            mp.setattr(module, "TikTokUploadWorkflow", FakeUploadWorkflow)
+        for fn in (publish_handler.register_tiktok_publish_handlers,
+                   publish_handler.build_tiktok_upload_post_handler):
+            if (fn.__kwdefaults__ or {}).get("workflow_factory") is not None:
+                mp.setitem(fn.__kwdefaults__, "workflow_factory", FakeUploadWorkflow)
+
+        from taktik.core.social_media.tiktok.services.publish import text_post
+
+        def fake_publish_text_post(device, device_id, text, *, to_story=False, click=None):
+            rig.calls.append(f"text_post {device_id} {text!r} to_story={to_story}")
+            if rig.text_post_raises:
+                raise RuntimeError("the composer vanished")
+            return dict(rig.text_post_outcome or {"success": True, "step": "published", "typed": text,
+                                                  "destination": "story" if to_story else "feed",
+                                                  "error": None})
+
+        mp.setattr(text_post, "publish_text_post", fake_publish_text_post)
+
+        import taktik.core.clone as clone
+
+        def fake_set_active_package(package):
+            rig.calls.append(f"set_active_package {package}")
+
+        def fake_patch_selectors(platform, package):
+            rig.calls.append(f"patch_selectors {platform} {package}")
+            if rig.clone_patch_raises:
+                raise RuntimeError("no catalogue for this package")
+            return 3
+
+        mp.setattr(clone, "set_active_package", fake_set_active_package)
+        mp.setattr(clone, "patch_selectors_for_package", fake_patch_selectors)
+
+    def _install_scraping_fakes(self) -> None:
+        rig = self
+        mp = self.monkeypatch
+
+        import signal
+
+        from bridges.common.runtime import signal_handler
+
+        # A bridge that installs its own stop handlers must not replace pytest's; and no IPC left
+        # by another bridge's setup in this process.
+        mp.setattr(signal, "signal", lambda signum, handler: rig.signal_handlers.__setitem__(signum, handler))
+        mp.setattr(signal_handler, "_ipc", None)
+
+        from taktik.core.social_media.tiktok.actions.business.workflows import (
+            scraping as scraping_package,
+        )
+        from taktik.core.social_media.tiktok.actions.business.workflows.scraping import (
+            agent_handler as scraping_handler,
+            workflow as scraping_workflow,
+        )
+        from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import (
+            ScrapingStats,
+        )
+
+        class ScriptedScrapingStats(ScrapingStats):
+            """A fixed elapsed time, so a snapshot of `to_dict()` holds still."""
+
+            def to_dict(self):
+                return {**super().to_dict(), "elapsed_seconds": 0, "elapsed_formatted": "0m 0s"}
+
+        class FakeScrapingWorkflow:
+            """Records its config, fires the callbacks the real one fires, and returns the handles
+            of `rig.scraped_usernames` within its budget; the account-posts mode collects links,
+            not people, as the real one."""
+
+            def __init__(self, device, navigation, config):
+                rig.calls.append("scraping_workflow_built")
+                self.device = device
+                self.navigation = navigation
+                self.config = config
+                self.callbacks = {}
+                self.completion_reason = None
+                self.stats = ScriptedScrapingStats()
+                rig.workflows.append(self)
+
+            def _fire(self, name, *args):
+                callback = self.callbacks.get(name)
+                if callback is not None:
+                    callback(*args)
+
+            def set_on_status_callback(self, cb):
+                self.callbacks["status"] = cb
+
+            def set_on_progress_callback(self, cb):
+                self.callbacks["progress"] = cb
+
+            def set_on_profile_callback(self, cb):
+                self.callbacks["profile"] = cb
+
+            def set_on_save_profile_callback(self, cb):
+                self.callbacks["save_profile"] = cb
+
+            def set_on_error_callback(self, cb):
+                self.callbacks["error"] = cb
+
+            def stop(self):
+                rig.calls.append("scraping_stop")
+                if self.completion_reason is None:
+                    self.completion_reason = "stopped_by_user"
+
+            def run(self):
+                rig.calls.append(f"scraping_run {self.config.scrape_type}")
+                if rig.scraping_raises:
+                    raise RuntimeError("the source screen vanished")
+                self._fire("status", "scraping", f"Scraping {self.config.scrape_type}")
+                profiles = []
+                # The real one walks its accounts or its links: none given, nothing found.
+                sources = {"target": self.config.target_usernames, "account_posts": self.config.target_usernames,
+                           "post_url": self.config.post_urls}
+                has_source = bool(sources.get(self.config.scrape_type, True))
+                if has_source and self.config.scrape_type == "account_posts":
+                    self._fire("progress", 1, self.config.max_posts_per_account, "creator:post-one")
+                elif has_source:
+                    for name in rig.scraped_usernames[: self.config.max_profiles]:
+                        profile = {"username": name, "display_name": name.replace("_", " ").title(),
+                                   "followers_count": 12, "following_count": 3, "is_enriched": False}
+                        profiles.append(profile)
+                        self.stats.profiles_scraped += 1
+                        self._fire("progress", len(profiles), self.config.max_profiles, name)
+                        self._fire("profile", profile)
+                        self._fire("save_profile", profile)
+                if rig.scraping_error:
+                    self._fire("error", rig.scraping_error)
+                if self.completion_reason is None:
+                    self.completion_reason = rig.scraping_reason or "completed"
+                return profiles
+
+        for module in (scraping_workflow, scraping_package):
+            mp.setattr(module, "ScrapingWorkflow", FakeScrapingWorkflow)
+
+        class FakeScrapingNavigation:
+            def __init__(self, device):
+                self.device = device
+
+        # A registrar may bind its default factories when it is defined (None: resolved at call
+        # time, from the modules patched above).
+        for fn in (scraping_handler.register_tiktok_scraping_handlers,
+                   scraping_handler.build_tiktok_scraping_handler):
+            defaults = fn.__kwdefaults__ or {}
+            if defaults.get("workflow_factory") is not None:
+                mp.setitem(defaults, "workflow_factory", FakeScrapingWorkflow)
+            if defaults.get("navigation_factory") is not None:
+                mp.setitem(defaults, "navigation_factory", FakeScrapingNavigation)
+
+    def install_scraping_database(self) -> None:
+        """The scraping tables, at the repository seams every scraping writer goes through."""
+        rig = self
+        mp = self.monkeypatch
+
+        import sqlite3
+
+        from taktik.core.database.repositories.instagram.session.session_repository import (
+            SessionRepository,
+        )
+        from taktik.core.database.repositories.tiktok.tiktok_repository import TikTokRepository
+
+        # The repositories open the database file themselves: an empty one.
+        database_file = self.tmp_path / "scraping.db"
+        sqlite3.connect(database_file).close()
+        mp.setenv("TAKTIK_DB_PATH", str(database_file))
+
+        def create_scraping(_self, scraping_type, source_type, source_name, account_id=None,
+                            max_profiles=500, export_csv=False, save_to_db=True, config_used=None,
+                            platform="instagram"):
+            rig.db_writes.append({"scraping_session": {
+                "scraping_type": scraping_type, "source_type": source_type, "source_name": source_name,
+                "account_id": account_id, "max_profiles": max_profiles, "platform": platform}})
+            return rig.scraping_session_id
+
+        def update_scraping(_self, scraping_id, total_scraped=None, status=None, end_time=None,
+                            duration_seconds=None, error_message=None, csv_path=None):
+            rig.db_writes.append({"scraping_session_end": {
+                "scraping_id": scraping_id, "total_scraped": total_scraped, "status": status,
+                "has_end_time": bool(end_time), "duration_seconds": duration_seconds}})
+            return True
+
+        def save_scraped_profile(_self, scraping_id, profile):
+            rig.db_writes.append({"scraped_profile": {"scraping_id": scraping_id, **dict(profile)}})
+
+        mp.setattr(SessionRepository, "create_scraping", create_scraping)
+        mp.setattr(SessionRepository, "update_scraping", update_scraping)
+        mp.setattr(TikTokRepository, "save_scraped_profile", save_scraped_profile)
 
     def _install_sync_fakes(self) -> None:
         rig = self
@@ -1088,6 +1343,22 @@ class Rig:
             env=env,
         )
 
+    def run_publish_bridge(self, payload) -> int:
+        """The desktop's TikTok publish: `tiktok_publish_bridge`, its config file named on the
+        command line (None: no argument)."""
+        from bridges.tiktok.publish import publish
+
+        argv = ["tiktok_publish_bridge"]
+        if payload is not None:
+            config_path = self.tmp_path / "tiktok_publish.json"
+            config_path.write_text(payload if isinstance(payload, str) else json.dumps(payload),
+                                   encoding="utf-8")
+            argv.append(str(config_path))
+        self.monkeypatch.setattr(sys, "argv", argv)
+        with pytest.raises(SystemExit) as exit_info:
+            publish.main()
+        return exit_info.value.code
+
     def run_stdin_bridge(self, module_path: str, stdin_text: str) -> int:
         """A stdin bridge process (cold DM, unfollow), from its stdin line to its exit code."""
         import importlib
@@ -1115,6 +1386,12 @@ class Rig:
         """The desktop's unfollow: `tiktok_unfollow_bridge`, one JSON line on stdin (raw text as is)."""
         text = payload if isinstance(payload, str) else json.dumps(payload) + "\n"
         return self.run_stdin_bridge("bridges.tiktok.automation.unfollow", text)
+
+    def run_scraping_bridge(self, payload) -> int:
+        """The desktop's TikTok scraping: `tiktok_scraping_bridge`, one JSON line on stdin (raw text
+        as is)."""
+        text = payload if isinstance(payload, str) else json.dumps(payload) + "\n"
+        return self.run_stdin_bridge("bridges.tiktok.scraping.scraping", text)
 
     def show_notifications(self) -> None:
         """Three new followers (a handle, a name that resolves, one that does not) and two
@@ -1208,6 +1485,63 @@ def outreach_payload():
 @pytest.fixture
 def unfollow_payload():
     return _unfollow_payload
+
+
+@pytest.fixture
+def scraping_payload():
+    return _scraping_payload
+
+
+@pytest.fixture
+def publish_payload():
+    return _publish_payload
+
+
+def _publish_payload(post_type: str = "video", **overrides) -> dict:
+    """What `TikTokUploadWorkflowService.writeConfig` writes, key for key: a video with its
+    sanitised caption and hashtags, or a text post (no file)."""
+    payload = {"workflowType": "upload_post", "deviceId": DEVICE_ID,
+               "localPath": "C:/media/clip.mp4", "caption": "Morning run", "hashtags": ["running", "trail"]}
+    if post_type == "text":
+        # No file: `localPath` is undefined, so JSON drops it.
+        payload.pop("localPath")
+        payload.update({"caption": "", "hashtags": [], "postType": "text",
+                        "text": "Five kilometres before breakfast", "toStory": False})
+    payload.update(overrides)
+    return payload
+
+
+def _scraping_payload(mode: str = "target", **overrides) -> dict:
+    """What reaches the bridge's stdin: the page's start (TikTokScraping.tsx), or the scheduler
+    node's (`createTikTokScrapingPayload`), both through `buildScrapingPayload`, which fills every
+    key it names and drops the others (`exportCsv`). `overrides` go on top."""
+    payload = {
+        "deviceId": DEVICE_ID, "type": "target", "targetUsernames": [], "scrapeType": "followers",
+        "hashtag": "", "postUrls": [], "maxCommentersPerPost": 20, "soundQuery": "", "minSoundPosts": 500,
+        "maxUsersPerSound": 10, "maxSoundsPerSession": 5, "maxPostsPerAccount": 20, "maxProfiles": 500,
+        "maxPosts": 50, "saveToDb": True, "enrichProfiles": True, "maxProfilesToEnrich": 50,
+        "sessionDurationMinutes": 60, "workflowType": "scraping",
+    }
+    if mode == "target":
+        payload.update({"targetUsernames": ["alpha", "beta"], "scrapeType": "following", "maxProfiles": 30,
+                        "maxProfilesToEnrich": 5})
+    elif mode == "hashtag":
+        payload.update({"type": "hashtag", "hashtag": "running", "maxProfiles": 40, "maxPosts": 12})
+    elif mode == "post_url":
+        payload.update({"type": "post_url", "postUrls": ["https://www.tiktok.com/@creator/video/1",
+                                                         "https://vm.tiktok.com/ZNexample/"],
+                        "maxCommentersPerPost": 5, "maxProfiles": 8})
+    elif mode == "sound":
+        payload.update({"type": "sound", "soundQuery": "summer anthem", "minSoundPosts": 200,
+                        "maxUsersPerSound": 4, "maxSoundsPerSession": 2, "maxPosts": 15})
+    elif mode == "account_posts":
+        payload.update({"type": "account_posts", "targetUsernames": ["creator"], "maxPostsPerAccount": 6})
+    elif mode == "scheduler_node":
+        payload.update({"targetUsernames": ["alpha"], "maxProfiles": 100})
+    else:
+        raise KeyError(mode)
+    payload.update(overrides)
+    return payload
 
 
 #: A fictional OpenRouter key.
