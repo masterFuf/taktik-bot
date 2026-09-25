@@ -16,7 +16,7 @@ from loguru import logger
 from taktik.core.shared.text import fold_for_match
 from ....services.notifications.activity import clean_row_text
 from ...core.base_action import BaseAction
-from ...core.utils import extract_resource_id, first_matching
+from ...core.utils import extract_resource_id, first_matching, first_text
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ....ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
@@ -831,11 +831,9 @@ class DMActions(BaseAction):
         name = self._get_element_text(self.conversation_selectors.conversation_name, timeout=2)
         info['name'] = name
         
-        # Check if group
-        member_count_text = self._get_element_text(
-            self.conversation_selectors.group_member_count, 
-            timeout=1
-        )
+        # One read, no wait: the header is already there once the name is, and a one-to-one
+        # conversation has no member count, which made every call wait out the timeout.
+        member_count_text = first_text(self.device, self.conversation_selectors.group_member_count)
         if member_count_text:
             info['is_group'] = True
             # Extract number from text like "29"
@@ -998,6 +996,11 @@ class DMActions(BaseAction):
         
         # What the composer holds BEFORE, so "did it leave" is answerable afterwards.
         pending = self._composer_text()
+        wanted = self._squash(pending)
+        if wanted and self._composer_is_cleared():
+            self.logger.warning("The composer only shows its placeholder — nothing to send")
+            return False
+        bubbles_before = self._bubbles_reading(wanted) if wanted else 0
 
         clicked = self._find_and_click(self.conversation_selectors.send_button, timeout=2)
         if not clicked:
@@ -1009,12 +1012,12 @@ class DMActions(BaseAction):
                 return False
         self._human_like_delay('click')
 
-        # A send is confirmed by the composer EMPTYING, not by the click landing. This used to
-        # return True on either path, so a message still sitting on screen was recorded as sent —
-        # measured on device: True returned, text still in the field.
-        if pending:
+        # A send is confirmed by the composer going back to empty (or its placeholder), or by the
+        # bubble appearing -- not by the composer merely CHANGING: a keyboard that rewrites a word,
+        # an Enter that adds a line, or a sheet that hides the field all change it without sending.
+        if wanted:
             for _ in range(6):
-                if self._composer_text() != pending:
+                if self._composer_is_cleared() or self._bubbles_reading(wanted) > bubbles_before:
                     return True
                 time.sleep(0.5)
             self.logger.warning(
@@ -1023,6 +1026,35 @@ class DMActions(BaseAction):
 
         # Nothing was in the composer to begin with: nothing to confirm, and nothing to claim.
         return clicked
+
+    @staticmethod
+    def _squash(text: Optional[str]) -> str:
+        """`text` without any whitespace, so a trailing line break or a doubled space compares equal."""
+        return "".join((text or "").split())
+
+    def _composer_is_cleared(self) -> bool:
+        """Is the message field empty or showing only its placeholder? False when unreadable."""
+        for selector in self.conversation_selectors.message_input_field:
+            try:
+                found = self.device.xpath(selector).all()
+            except Exception:
+                continue
+            if found:
+                attrib = found[0].attrib
+                text = self._squash(attrib.get("text"))
+                return not text or text == self._squash(attrib.get("hint"))
+        return False
+
+    def _bubbles_reading(self, squashed: str) -> int:
+        """How many message bubbles read `squashed` (whitespace ignored)."""
+        count = 0
+        for element in first_matching(self.device, self.conversation_selectors.message_text):
+            try:
+                if self._squash(element.text) == squashed:
+                    count += 1
+            except Exception:
+                continue
+        return count
 
     def _composer_text(self) -> str:
         """Whatever the message field currently holds, or '' when it cannot be read."""

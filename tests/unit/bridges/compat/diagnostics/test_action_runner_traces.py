@@ -150,6 +150,39 @@ def test_selector_tracer_reset_clears_action_context():
     assert "family" not in tracer.traces[0]
 
 
+def test_a_screen_photo_s_questions_reach_the_lab_traces():
+    """A photo answers without `device.xpath()`, the call the traces wrap."""
+    from uiautomator2.xpath import XPathEntry
+
+    from taktik.core.shared.device.facade import BaseDeviceFacade
+
+    screen = ('<hierarchy rotation="0"><node class="android.widget.TextView" text="Demo" '
+              'resource-id="" content-desc="" bounds="[0,0][10,10]" /></hierarchy>')
+
+    class _Phone:
+        wait_timeout = 1.0
+
+        def __init__(self):
+            self.xpath = XPathEntry(self)
+
+        def dump_hierarchy(self, *_a, **_k):
+            return screen
+
+    facade = BaseDeviceFacade(_Phone())
+    tracer = action_runner._install_selector_tracer(facade, app="tiktok")
+    tracer.set_action_context("tt.detection.is_ad")
+
+    photo = facade.snapshot()
+    assert photo.exists(['//*[@text="Ad"]', '//android.widget.TextView[@text="Demo"]'])
+    assert facade.xpath('//*[@text="Demo"]').exists
+
+    assert [(t["xpath"], t["found"], t["family"]) for t in tracer.traces] == [
+        ('//*[@text="Ad"]', False, "detection"),
+        ('//android.widget.TextView[@text="Demo"]', True, "detection"),
+        ('//*[@text="Demo"]', True, "detection"),
+    ]
+
+
 def test_execute_action_emits_ui_action_trace(monkeypatch):
     emitted = []
     monkeypatch.setattr(action_runner, "emit", emitted.append)

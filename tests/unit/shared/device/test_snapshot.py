@@ -197,6 +197,34 @@ def test_photos_can_be_taken_from_several_threads():
     assert errors == []
 
 
+def test_every_question_asked_of_a_photo_is_observed():
+    """The Lab traces wrap `device.xpath()`, which a photo never calls: they are told instead."""
+    seen = []
+    photo = ScreenSnapshot(DUMP, observer=lambda sel, found, ms: seen.append((sel, found, ms >= 0)))
+    assert [node.text for node in photo.find(['//*[', '//*[@text="absent"]', '//android.widget.Button'])] == ["Suivi(e)"]
+    assert photo.exists('//android.widget.Button')  # asked again: answered from the photo, told again
+    assert seen == [('//*[', False, True), ('//*[@text="absent"]', False, True),
+                    ('//android.widget.Button', True, True), ('//android.widget.Button', True, True)]
+
+
+def test_an_observer_that_fails_changes_no_answer():
+    def broken(*_args):
+        raise RuntimeError("observer down")
+
+    photo = ScreenSnapshot(DUMP, observer=broken)
+    assert photo.exists('//android.widget.Button') and not photo.exists('//*[@text="absent"]')
+
+
+def test_a_source_tells_its_observers_of_every_photo_it_takes():
+    seen = []
+    source = SnapshotSource(lambda: DUMP)
+    source.snapshot().exists('//*[@text="before"]')  # no observer yet
+    source.observe(lambda sel, found, _ms: seen.append((sel, found)))
+    source.snapshot().exists('//android.widget.Button')
+    source.wait_for(lambda photo: photo.exists('//*[@text="Suivi(e)"]'), timeout=1, poll_ms=1)
+    assert seen == [('//android.widget.Button', True), ('//*[@text="Suivi(e)"]', True)]
+
+
 def test_a_facade_on_a_mock_device_still_takes_real_photos():
     """The facade forwards unknown attributes to its device: a mock answered the photo source
     itself, and every test built on it would have passed without a dump."""

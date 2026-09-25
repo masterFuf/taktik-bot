@@ -1,0 +1,14 @@
+{
+  "baseline_fingerprint_sha256": "5264030c1ed9930424ce888bfb8c31b1b74c23cf4b6dbfdea47c02666a248b2e",
+  "migrations": [
+    {
+      "file": "m0001_baseline.sql",
+      "kind": "baseline",
+      "name": "baseline",
+      "sha256": "5494eaf61f3919dcfa8d0cad299599003558f967cdc416d2b76e4199f4424a5f",
+      "version": 1
+    }
+  ],
+  "schema_version": 1,
+  "target_fingerprint_sha256": "e724f007c09a564fbcb037e1d549f2dd03dc8113f4b2d3747ca3cac8b5347c63"
+}

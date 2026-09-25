@@ -62,6 +62,21 @@ class FeedPostActionsMixin:
             self.logger.debug(f"Error getting post author: {e}")
             return None
     
+    def _like_budget_spent(self) -> bool:
+        """Is `like` among the session's exhausted intents (session ceiling or daily sub-quota)?
+
+        The session re-runs the feed step until its duration and each pass counts its own likes,
+        so the run's budget has to be read here, the way the suggestions pass reads `follow`.
+        Fail-open on a read error, like the rest of the guard."""
+        session = getattr(self, 'session_manager', None)
+        if session is None or not hasattr(session, 'exhausted_intents'):
+            return False
+        try:
+            return 'like' in (session.exhausted_intents() or set())
+        except Exception as e:
+            self.logger.debug(f"Like budget read failed: {e}")
+            return False
+
     def _like_current_post(self, record_as: Optional[str] = None) -> bool:
         """Like the current feed post, alternating like methods like a human would:
         sometimes a tap on the like button, sometimes a double-tap on the image.

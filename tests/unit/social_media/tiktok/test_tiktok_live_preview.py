@@ -65,6 +65,9 @@ def test_on_46_9_3_the_live_preview_is_found_and_a_video_is_not(on_46_9_3):
     assert not _found(VIDEO)
 
 
+PHOTO = object()  # every reader is stubbed: the photo is never looked at
+
+
 def _detector(author, live, calls):
     detector = object.__new__(VideoDetector)
 
@@ -85,13 +88,13 @@ def _detector(author, live, calls):
 
 def test_a_screen_without_author_is_asked_whether_it_is_a_live():
     calls = []
-    info = _detector(None, True, calls).get_video_info()
+    info = _detector(None, True, calls).get_video_info(screen=PHOTO)
     assert info["is_live"] is True
 
 
 def test_a_video_with_an_author_pays_no_extra_read():
     calls = []
-    info = _detector("demo_author", True, calls).get_video_info()
+    info = _detector("demo_author", True, calls).get_video_info(screen=PHOTO)
     assert info["is_live"] is False
     assert "is_live" not in calls
 

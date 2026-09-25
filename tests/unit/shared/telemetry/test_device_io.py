@@ -4,6 +4,7 @@ import pytest
 
 from taktik.core.shared.telemetry import clear_telemetry_sink, configure_telemetry_sink
 from taktik.core.shared.telemetry.device_io import (
+    DeviceIoMeasure,
     DeviceIoMeter,
     instrument_device_io,
     measure_device_io,
@@ -108,6 +109,38 @@ def test_without_a_sink_measuring_is_silent():
     clear_telemetry_sink()
     with measure_device_io("detection.dump_xml", DeviceIoMeter()):
         pass
+
+
+def test_what_the_action_found_is_emitted_with_its_costs(steps):
+    device, meter = FakeU2Device(), DeviceIoMeter()
+    instrument_device_io(device, meter)
+    with measure_device_io("tiktok.feed.decision", meter, source="for_you") as outcome:
+        device.jsonrpc_call("dumpWindowHierarchy")
+        outcome["kind"] = "ad"
+    detail = steps[0].detail
+    assert (detail["kind"], detail["source"], detail["dumps"]) == ("ad", "for_you", 1)
+
+
+def test_an_action_with_several_exits_is_emitted_once_by_the_exit_it_took(steps):
+    device, meter = FakeU2Device(), DeviceIoMeter()
+    instrument_device_io(device, meter)
+    decision = DeviceIoMeasure("tiktok.feed.decision", meter, source="search")
+    device.jsonrpc_call("dumpWindowHierarchy")
+    device.jsonrpc_call("dumpWindowHierarchy")
+    decision.finish(kind="comments")
+    decision.finish(kind="video")
+    assert [(s.action, s.detail["kind"], s.detail["dumps"]) for s in steps] == [
+        ("tiktok.feed.decision", "comments", 2)]
+
+
+def test_an_action_that_never_finishes_emits_nothing(steps):
+    DeviceIoMeasure("tiktok.feed.decision", DeviceIoMeter())
+    assert steps == []
+
+
+def test_an_outcome_that_cannot_be_emitted_does_not_break_the_action(steps):
+    DeviceIoMeasure("tiktok.feed.decision", DeviceIoMeter()).finish(action="clash")
+    assert steps == []
 
 
 # ── Where it is wired ─────────────────────────────────────────────────────────

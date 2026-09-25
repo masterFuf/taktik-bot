@@ -360,6 +360,8 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         commented = False
                         if not post_author:
                             self.logger.warning("Post author unreadable: post not engaged, it could not be recorded")
+                        elif self._like_budget_spent():
+                            self.logger.info("Like budget spent: post read, not liked")
                         elif random.randint(1, 100) <= effective_config.get('like_percentage', 100):
                             if self._like_current_post(record_as=post_author):
                                 posts_liked += 1

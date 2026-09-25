@@ -1,0 +1,1932 @@
+{
+ "retired_tables": [
+  "account_profiles",
+  "daily_stats",
+  "discovered_profiles",
+  "discovery_campaigns",
+  "discovery_interactions",
+  "discovery_progress",
+  "discovery_templates",
+  "gmail_accounts",
+  "instagram_accounts",
+  "instagram_posts",
+  "instagram_profiles",
+  "interaction_history",
+  "profile_ai_enrichments",
+  "scraped_comments",
+  "sessions",
+  "tiktok_accounts",
+  "tiktok_daily_stats",
+  "tiktok_filtered_profiles",
+  "tiktok_interaction_history",
+  "tiktok_profiles",
+  "tiktok_scraped_profiles",
+  "tiktok_sessions"
+ ],
+ "tables": {
+  "account_restriction_signals": {
+   "columns": {
+    "account_username": [
+     "TEXT",
+     0
+    ],
+    "detected_at": [
+     "TEXT",
+     0
+    ],
+    "encounter_order": [
+     "INTEGER",
+     0
+    ],
+    "gestures": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "jump_index": [
+     "INTEGER",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "session_id": [
+     "INTEGER",
+     0
+    ],
+    "signal": [
+     "TEXT",
+     0
+    ],
+    "source_followers": [
+     "INTEGER",
+     0
+    ],
+    "source_name": [
+     "TEXT",
+     0
+    ],
+    "source_type": [
+     "TEXT",
+     0
+    ],
+    "streak": [
+     "INTEGER",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "accounts": {
+   "columns": {
+    "bio": [
+     "TEXT",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "custom_context": [
+     "TEXT",
+     0
+    ],
+    "display_name": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "is_bot": [
+     "INTEGER",
+     0
+    ],
+    "legacy_account_id": [
+     "INTEGER",
+     0
+    ],
+    "license_id": [
+     "INTEGER",
+     0
+    ],
+    "niche": [
+     "TEXT",
+     0
+    ],
+    "objective": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "preferred_language": [
+     "TEXT",
+     0
+    ],
+    "product_service": [
+     "TEXT",
+     0
+    ],
+    "qualification_prompt": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "target_audience": [
+     "TEXT",
+     0
+    ],
+    "tone_personality": [
+     "TEXT",
+     0
+    ],
+    "unique_selling_point": [
+     "TEXT",
+     0
+    ],
+    "updated_at": [
+     "TEXT",
+     0
+    ],
+    "user_id": [
+     "INTEGER",
+     0
+    ],
+    "username": [
+     "TEXT",
+     0
+    ],
+    "warmup_intensity": [
+     "TEXT",
+     0
+    ],
+    "warmup_preset_id": [
+     "INTEGER",
+     0
+    ],
+    "website": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "ai_benchmark_results": {
+   "columns": {
+    "agreement": [
+     "TEXT",
+     0
+    ],
+    "baseline": [
+     "TEXT",
+     0
+    ],
+    "candidate": [
+     "TEXT",
+     0
+    ],
+    "case_ref": [
+     "TEXT",
+     0
+    ],
+    "cost_usd": [
+     "REAL",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "model": [
+     "TEXT",
+     0
+    ],
+    "run_id": [
+     "INTEGER",
+     0
+    ],
+    "seconds": [
+     "REAL",
+     0
+    ],
+    "served_model": [
+     "TEXT",
+     0
+    ],
+    "task": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "ai_benchmark_runs": {
+   "columns": {
+    "budget_usd": [
+     "REAL",
+     0
+    ],
+    "config": [
+     "TEXT",
+     0
+    ],
+    "finished_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "note": [
+     "TEXT",
+     0
+    ],
+    "sample_size": [
+     "INTEGER",
+     0
+    ],
+    "seed": [
+     "INTEGER",
+     0
+    ],
+    "started_at": [
+     "TEXT",
+     0
+    ],
+    "status": [
+     "TEXT",
+     0
+    ],
+    "total_cost_usd": [
+     "REAL",
+     0
+    ]
+   }
+  },
+  "ai_call_captures": {
+   "columns": {
+    "captured_at": [
+     "TEXT",
+     0
+    ],
+    "comment_id": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "kind": [
+     "TEXT",
+     0
+    ],
+    "meta": [
+     "TEXT",
+     0
+    ],
+    "model": [
+     "TEXT",
+     0
+    ],
+    "persona": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "prompt_hash": [
+     "TEXT",
+     0
+    ],
+    "user_prompt": [
+     "TEXT",
+     0
+    ],
+    "username": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "ai_prompt_bodies": {
+   "columns": {
+    "body": [
+     "TEXT",
+     0
+    ],
+    "chars": [
+     "INTEGER",
+     0
+    ],
+    "first_seen_at": [
+     "TEXT",
+     0
+    ],
+    "hash": [
+     "TEXT",
+     1
+    ],
+    "kind": [
+     "TEXT",
+     0
+    ],
+    "last_seen_at": [
+     "TEXT",
+     0
+    ],
+    "uses": [
+     "INTEGER",
+     0
+    ]
+   }
+  },
+  "content_relays": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "kind": [
+     "TEXT",
+     0
+    ],
+    "media_signature": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "reason": [
+     "TEXT",
+     0
+    ],
+    "source_username": [
+     "TEXT",
+     0
+    ],
+    "status": [
+     "TEXT",
+     0
+    ],
+    "updated_at": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "daily_stats_unified": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "completed_sessions": [
+     "INTEGER",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "date": [
+     "TEXT",
+     0
+    ],
+    "failed_sessions": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "synced_at": [
+     "TEXT",
+     0
+    ],
+    "synced_to_api": [
+     "INTEGER",
+     0
+    ],
+    "total_comments": [
+     "INTEGER",
+     0
+    ],
+    "total_duration_seconds": [
+     "INTEGER",
+     0
+    ],
+    "total_favorites": [
+     "INTEGER",
+     0
+    ],
+    "total_follows": [
+     "INTEGER",
+     0
+    ],
+    "total_likes": [
+     "INTEGER",
+     0
+    ],
+    "total_posts_watched": [
+     "INTEGER",
+     0
+    ],
+    "total_profile_visits": [
+     "INTEGER",
+     0
+    ],
+    "total_sessions": [
+     "INTEGER",
+     0
+    ],
+    "total_shares": [
+     "INTEGER",
+     0
+    ],
+    "total_story_likes": [
+     "INTEGER",
+     0
+    ],
+    "total_story_views": [
+     "INTEGER",
+     0
+    ],
+    "total_unfollows": [
+     "INTEGER",
+     0
+    ],
+    "updated_at": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "device_identity": {
+   "columns": {
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "device_id": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ]
+   }
+  },
+  "dm_messages": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "ai_cost_usd": [
+     "REAL",
+     0
+    ],
+    "ai_model": [
+     "TEXT",
+     0
+    ],
+    "content_hash": [
+     "TEXT",
+     0
+    ],
+    "direction": [
+     "TEXT",
+     0
+    ],
+    "displayed_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "msg_type": [
+     "TEXT",
+     0
+    ],
+    "partner_username": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "reaction": [
+     "TEXT",
+     0
+    ],
+    "sent_at": [
+     "TEXT",
+     0
+    ],
+    "seq": [
+     "INTEGER",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "text": [
+     "TEXT",
+     0
+    ],
+    "thread_sync_id": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "dm_threads": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "can_reply": [
+     "INTEGER",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "external_thread_id": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "is_group": [
+     "INTEGER",
+     0
+    ],
+    "last_message_at": [
+     "TEXT",
+     0
+    ],
+    "last_message_is_ours": [
+     "INTEGER",
+     0
+    ],
+    "last_message_text": [
+     "TEXT",
+     0
+    ],
+    "message_count": [
+     "INTEGER",
+     0
+    ],
+    "partner_profile_id": [
+     "INTEGER",
+     0
+    ],
+    "partner_username": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "unread_count": [
+     "INTEGER",
+     0
+    ],
+    "updated_at": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "feed_ads": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "advertiser": [
+     "TEXT",
+     0
+    ],
+    "ai_analysis": [
+     "TEXT",
+     0
+    ],
+    "ai_analyzed_at": [
+     "TEXT",
+     0
+    ],
+    "creative_hash": [
+     "TEXT",
+     0
+    ],
+    "first_seen_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "last_seen_at": [
+     "TEXT",
+     0
+    ],
+    "ocr_text": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "screenshot": [
+     "BLOB",
+     0
+    ],
+    "times_seen": [
+     "INTEGER",
+     0
+    ]
+   }
+  },
+  "filtered_profiles": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "filtered_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "profile_id": [
+     "INTEGER",
+     0
+    ],
+    "reason": [
+     "TEXT",
+     0
+    ],
+    "session_id": [
+     "INTEGER",
+     0
+    ],
+    "source_name": [
+     "TEXT",
+     0
+    ],
+    "source_type": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "username": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "interactions": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "account_username": [
+     "TEXT",
+     0
+    ],
+    "content": [
+     "TEXT",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "interaction_time": [
+     "TEXT",
+     0
+    ],
+    "interaction_type": [
+     "TEXT",
+     0
+    ],
+    "legacy_id": [
+     "INTEGER",
+     0
+    ],
+    "origin_device_id": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "profile_id": [
+     "INTEGER",
+     0
+    ],
+    "session_id": [
+     "INTEGER",
+     0
+    ],
+    "session_sync_id": [
+     "TEXT",
+     0
+    ],
+    "source": [
+     "TEXT",
+     0
+    ],
+    "success": [
+     "INTEGER",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "target_username": [
+     "TEXT",
+     0
+    ],
+    "video_id": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "notification_actions": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "action": [
+     "TEXT",
+     0
+    ],
+    "actor_username": [
+     "TEXT",
+     0
+    ],
+    "content_hash": [
+     "TEXT",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "source": [
+     "TEXT",
+     0
+    ],
+    "success": [
+     "INTEGER",
+     0
+    ]
+   }
+  },
+  "notifications": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "actor_profile_id": [
+     "INTEGER",
+     0
+    ],
+    "actor_username": [
+     "TEXT",
+     0
+    ],
+    "attributed": [
+     "INTEGER",
+     0
+    ],
+    "attribution_at": [
+     "TEXT",
+     0
+    ],
+    "attribution_type": [
+     "TEXT",
+     0
+    ],
+    "body": [
+     "TEXT",
+     0
+    ],
+    "content_hash": [
+     "TEXT",
+     0
+    ],
+    "first_seen_at": [
+     "TEXT",
+     0
+    ],
+    "has_action": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "label": [
+     "TEXT",
+     0
+    ],
+    "last_seen_at": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "raw_category": [
+     "TEXT",
+     0
+    ],
+    "relative_time": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "type": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "post_analysis": {
+   "columns": {
+    "ai_cost_usd": [
+     "REAL",
+     0
+    ],
+    "ai_model": [
+     "TEXT",
+     0
+    ],
+    "analyzed_at": [
+     "TEXT",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "description": [
+     "TEXT",
+     0
+    ],
+    "hit_count": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "last_used_at": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "post_author": [
+     "TEXT",
+     0
+    ],
+    "post_caption": [
+     "TEXT",
+     0
+    ],
+    "post_language": [
+     "TEXT",
+     0
+    ],
+    "post_ref": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "posted_comments": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "ai_cost_usd": [
+     "REAL",
+     0
+    ],
+    "ai_model": [
+     "TEXT",
+     0
+    ],
+    "ai_reasoning": [
+     "TEXT",
+     0
+    ],
+    "comment_text": [
+     "TEXT",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "kind": [
+     "TEXT",
+     0
+    ],
+    "language": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "post_author": [
+     "TEXT",
+     0
+    ],
+    "post_caption": [
+     "TEXT",
+     0
+    ],
+    "post_description": [
+     "TEXT",
+     0
+    ],
+    "post_ref": [
+     "TEXT",
+     0
+    ],
+    "post_url": [
+     "TEXT",
+     0
+    ],
+    "posted_at": [
+     "TEXT",
+     0
+    ],
+    "reply_to_text": [
+     "TEXT",
+     0
+    ],
+    "reply_to_username": [
+     "TEXT",
+     0
+    ],
+    "session_id": [
+     "INTEGER",
+     0
+    ],
+    "source": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "target_username": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "processed_hashtag_posts": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "comments_count": [
+     "INTEGER",
+     0
+    ],
+    "hashtag": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "interactions_made": [
+     "INTEGER",
+     0
+    ],
+    "likers_processed": [
+     "INTEGER",
+     0
+    ],
+    "likes_count": [
+     "INTEGER",
+     0
+    ],
+    "post_author": [
+     "TEXT",
+     0
+    ],
+    "post_caption_hash": [
+     "TEXT",
+     0
+    ],
+    "post_caption_preview": [
+     "TEXT",
+     0
+    ],
+    "processed_at": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "profile_following": {
+   "columns": {
+    "classified_at": [
+     "TEXT",
+     0
+    ],
+    "discovered_at": [
+     "TEXT",
+     0
+    ],
+    "following_id": [
+     "INTEGER",
+     0
+    ],
+    "following_username": [
+     "TEXT",
+     0
+    ],
+    "gender": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "niche": [
+     "TEXT",
+     0
+    ],
+    "niche_category": [
+     "TEXT",
+     0
+    ],
+    "profile_id": [
+     "INTEGER",
+     0
+    ],
+    "profile_username": [
+     "TEXT",
+     0
+    ],
+    "session_id": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "profile_stats_history": {
+   "columns": {
+    "biography": [
+     "TEXT",
+     0
+    ],
+    "category": [
+     "TEXT",
+     0
+    ],
+    "engagement_rate": [
+     "REAL",
+     0
+    ],
+    "external_url": [
+     "TEXT",
+     0
+    ],
+    "followers_count": [
+     "INTEGER",
+     0
+    ],
+    "following_count": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "is_business": [
+     "INTEGER",
+     0
+    ],
+    "is_verified": [
+     "INTEGER",
+     0
+    ],
+    "posts_count": [
+     "INTEGER",
+     0
+    ],
+    "profile_id": [
+     "INTEGER",
+     0
+    ],
+    "profile_pic_url": [
+     "TEXT",
+     0
+    ],
+    "recorded_at": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "username": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "scraped_profiles": {
+   "columns": {
+    "ai_analysis": [
+     "TEXT",
+     0
+    ],
+    "ai_qualified": [
+     "INTEGER",
+     0
+    ],
+    "ai_score": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "is_enriched": [
+     "INTEGER",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "profile_id": [
+     "INTEGER",
+     0
+    ],
+    "qualification_criteria": [
+     "TEXT",
+     0
+    ],
+    "scored_at": [
+     "TEXT",
+     0
+    ],
+    "scraped_at": [
+     "TEXT",
+     0
+    ],
+    "scraping_id": [
+     "INTEGER",
+     0
+    ],
+    "source_post_url": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "scraping_sessions": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "config_used": [
+     "TEXT",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "csv_path": [
+     "TEXT",
+     0
+    ],
+    "duration_seconds": [
+     "INTEGER",
+     0
+    ],
+    "end_time": [
+     "TEXT",
+     0
+    ],
+    "error_message": [
+     "TEXT",
+     0
+    ],
+    "export_csv": [
+     "INTEGER",
+     0
+    ],
+    "max_profiles": [
+     "INTEGER",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "save_to_db": [
+     "INTEGER",
+     0
+    ],
+    "scraping_id": [
+     "INTEGER",
+     1
+    ],
+    "scraping_type": [
+     "TEXT",
+     0
+    ],
+    "source_name": [
+     "TEXT",
+     0
+    ],
+    "source_type": [
+     "TEXT",
+     0
+    ],
+    "start_time": [
+     "TEXT",
+     0
+    ],
+    "status": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "total_scraped": [
+     "INTEGER",
+     0
+    ],
+    "updated_at": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "sent_dms": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "error_message": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "message_hash": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "recipient_username": [
+     "TEXT",
+     0
+    ],
+    "sent_at": [
+     "TEXT",
+     0
+    ],
+    "session_id": [
+     "TEXT",
+     0
+    ],
+    "success": [
+     "INTEGER",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "sessions_unified": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "ai_comments_generated": [
+     "INTEGER",
+     0
+    ],
+    "ai_cost_by_kind": [
+     "TEXT",
+     0
+    ],
+    "ai_posts_analyzed": [
+     "INTEGER",
+     0
+    ],
+    "ai_profiles_analyzed": [
+     "INTEGER",
+     0
+    ],
+    "ai_total_cost_usd": [
+     "REAL",
+     0
+    ],
+    "comments": [
+     "INTEGER",
+     0
+    ],
+    "config_used": [
+     "TEXT",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "duration_seconds": [
+     "INTEGER",
+     0
+    ],
+    "end_time": [
+     "TEXT",
+     0
+    ],
+    "error_message": [
+     "TEXT",
+     0
+    ],
+    "errors": [
+     "INTEGER",
+     0
+    ],
+    "favorites": [
+     "INTEGER",
+     0
+    ],
+    "follows": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "legacy_session_id": [
+     "INTEGER",
+     0
+    ],
+    "likes": [
+     "INTEGER",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "posts_watched": [
+     "INTEGER",
+     0
+    ],
+    "profiles_visited": [
+     "INTEGER",
+     0
+    ],
+    "session_name": [
+     "TEXT",
+     0
+    ],
+    "shares": [
+     "INTEGER",
+     0
+    ],
+    "start_time": [
+     "TEXT",
+     0
+    ],
+    "stats_comments": [
+     "INTEGER",
+     0
+    ],
+    "stats_follows": [
+     "INTEGER",
+     0
+    ],
+    "stats_likes": [
+     "INTEGER",
+     0
+    ],
+    "stats_profile_visits": [
+     "INTEGER",
+     0
+    ],
+    "stats_story_likes": [
+     "INTEGER",
+     0
+    ],
+    "stats_story_views": [
+     "INTEGER",
+     0
+    ],
+    "stats_total_interactions": [
+     "INTEGER",
+     0
+    ],
+    "stats_unfollows": [
+     "INTEGER",
+     0
+    ],
+    "status": [
+     "TEXT",
+     0
+    ],
+    "stop_reason_code": [
+     "TEXT",
+     0
+    ],
+    "stop_reason_params": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "synced_to_api": [
+     "INTEGER",
+     0
+    ],
+    "target": [
+     "TEXT",
+     0
+    ],
+    "target_type": [
+     "TEXT",
+     0
+    ],
+    "updated_at": [
+     "TEXT",
+     0
+    ],
+    "videos_watched": [
+     "INTEGER",
+     0
+    ],
+    "workflow_type": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "social_graph_sync": {
+   "columns": {
+    "account_id": [
+     "INTEGER",
+     0
+    ],
+    "direction": [
+     "TEXT",
+     0
+    ],
+    "display_name": [
+     "TEXT",
+     0
+    ],
+    "first_seen_at": [
+     "TEXT",
+     0
+    ],
+    "followed_by_bot": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "is_reciprocal": [
+     "INTEGER",
+     0
+    ],
+    "last_seen_at": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "source": [
+     "TEXT",
+     0
+    ],
+    "unfollowed_at": [
+     "TEXT",
+     0
+    ],
+    "username": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "social_posts": {
+   "columns": {
+    "author_username": [
+     "TEXT",
+     0
+    ],
+    "comments_count": [
+     "INTEGER",
+     0
+    ],
+    "first_seen_at": [
+     "TEXT",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "last_scraped_at": [
+     "TEXT",
+     0
+    ],
+    "likes_count": [
+     "INTEGER",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "post_key": [
+     "TEXT",
+     0
+    ],
+    "post_url": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ]
+   }
+  },
+  "social_profiles": {
+   "columns": {
+    "account_based_in": [
+     "TEXT",
+     0
+    ],
+    "ai_screenshot_path": [
+     "TEXT",
+     0
+    ],
+    "biography": [
+     "TEXT",
+     0
+    ],
+    "business_category": [
+     "TEXT",
+     0
+    ],
+    "created_at": [
+     "TEXT",
+     0
+    ],
+    "date_joined": [
+     "TEXT",
+     0
+    ],
+    "display_name": [
+     "TEXT",
+     0
+    ],
+    "followers_count": [
+     "INTEGER",
+     0
+    ],
+    "following_count": [
+     "INTEGER",
+     0
+    ],
+    "id": [
+     "INTEGER",
+     1
+    ],
+    "is_business": [
+     "INTEGER",
+     0
+    ],
+    "is_private": [
+     "INTEGER",
+     0
+    ],
+    "is_verified": [
+     "INTEGER",
+     0
+    ],
+    "legacy_profile_id": [
+     "INTEGER",
+     0
+    ],
+    "likes_count": [
+     "INTEGER",
+     0
+    ],
+    "location_city": [
+     "TEXT",
+     0
+    ],
+    "location_region": [
+     "TEXT",
+     0
+    ],
+    "notes": [
+     "TEXT",
+     0
+    ],
+    "platform": [
+     "TEXT",
+     0
+    ],
+    "posts_count": [
+     "INTEGER",
+     0
+    ],
+    "primary_language": [
+     "TEXT",
+     0
+    ],
+    "profile_pic_path": [
+     "TEXT",
+     0
+    ],
+    "sync_id": [
+     "TEXT",
+     0
+    ],
+    "unreachable_at": [
+     "TEXT",
+     0
+    ],
+    "unreachable_count": [
+     "INTEGER",
+     0
+    ],
+    "updated_at": [
+     "TEXT",
+     0
+    ],
+    "username": [
+     "TEXT",
+     0
+    ],
+    "website": [
+     "TEXT",
+     0
+    ]
+   }
+  }
+ },
+ "triggers": {},
+ "unique_keys": [
+  "account_restriction_signals(id)",
+  "account_restriction_signals(sync_id)",
+  "accounts(id)",
+  "accounts(legacy_account_id,platform)",
+  "accounts(platform,username)",
+  "ai_benchmark_results(id)",
+  "ai_benchmark_runs(id)",
+  "ai_call_captures(id)",
+  "ai_prompt_bodies(hash)",
+  "content_relays(account_id,media_signature,platform,source_username)",
+  "content_relays(id)",
+  "daily_stats_unified(account_id,date,platform)",
+  "daily_stats_unified(id)",
+  "device_identity(id)",
+  "dm_messages(content_hash,direction,platform,thread_sync_id)",
+  "dm_messages(id)",
+  "dm_messages(sync_id)",
+  "dm_threads(account_id,partner_username,platform)",
+  "dm_threads(id)",
+  "dm_threads(sync_id)",
+  "feed_ads(creative_hash)",
+  "feed_ads(id)",
+  "filtered_profiles(account_id,platform,profile_id)",
+  "filtered_profiles(id)",
+  "filtered_profiles(sync_id)",
+  "interactions(id)",
+  "interactions(legacy_id,platform)",
+  "interactions(sync_id)",
+  "notification_actions(id)",
+  "notifications(account_id,content_hash,platform)",
+  "notifications(id)",
+  "notifications(sync_id)",
+  "post_analysis(id)",
+  "post_analysis(platform,post_ref)",
+  "post_analysis(sync_id)",
+  "posted_comments(id)",
+  "posted_comments(sync_id)",
+  "processed_hashtag_posts(account_id,hashtag,post_author,post_caption_hash)",
+  "processed_hashtag_posts(id)",
+  "profile_following(following_username,profile_username)",
+  "profile_following(id)",
+  "profile_stats_history(id)",
+  "scraped_profiles(id)",
+  "scraped_profiles(profile_id,scraping_id)",
+  "scraping_sessions(scraping_id)",
+  "sent_dms(account_id,platform,recipient_username)",
+  "sent_dms(id)",
+  "sent_dms(sync_id)",
+  "sessions_unified(id)",
+  "sessions_unified(legacy_session_id,platform)",
+  "sessions_unified(sync_id)",
+  "social_graph_sync(account_id,direction,platform,username)",
+  "social_graph_sync(id)",
+  "social_posts(id)",
+  "social_posts(platform,post_key)",
+  "social_posts(sync_id)",
+  "social_profiles(id)",
+  "social_profiles(legacy_profile_id,platform)",
+  "social_profiles(platform,username)"
+ ],
+ "views": {
+  "instagram_profiles": [
+   "account_based_in",
+   "ai_age_group",
+   "ai_classification",
+   "ai_classified_at",
+   "ai_gender",
+   "ai_niche",
+   "ai_profession",
+   "ai_profession_tags",
+   "ai_score",
+   "ai_screenshot_path",
+   "ai_specific_niche",
+   "biography",
+   "business_category",
+   "created_at",
+   "date_joined",
+   "followers_count",
+   "following_count",
+   "full_name",
+   "is_business",
+   "is_private",
+   "is_verified",
+   "linked_accounts",
+   "location_city",
+   "location_region",
+   "notes",
+   "posts_count",
+   "profile_id",
+   "profile_pic_path",
+   "updated_at",
+   "username",
+   "website"
+  ],
+  "tiktok_profiles": [
+   "biography",
+   "created_at",
+   "display_name",
+   "followers_count",
+   "following_count",
+   "is_private",
+   "is_verified",
+   "likes_count",
+   "profile_id",
+   "profile_pic_path",
+   "updated_at",
+   "username",
+   "videos_count"
+  ]
+ }
+}

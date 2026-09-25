@@ -7,7 +7,7 @@ trip. `instrument_device_io(device)` wraps that method (and `shell`, the adb rou
 the connection, so the 57 direct `dump_hierarchy` calls and every `.xpath(...).exists` are counted
 without touching them. `measure_device_io(action)` takes the counters before and after an action
 and emits the difference through `emit_step("device_io", ...)`, the telemetry the bridges already
-forward.
+forward; `DeviceIoMeasure` does the same for an action that ends in several places.
 
 Measuring changes nothing the bot does: the wrapper calls the original method with the same
 arguments and returns what it returns (or raises what it raises). It never raises itself.
@@ -154,38 +154,65 @@ def _delta(before: Dict[str, float], after: Dict[str, float]) -> Dict[str, Any]:
     return out
 
 
+class DeviceIoMeasure:
+    """What one action costs on the phone, from its creation to `finish()`.
+
+    For an action that ends in several places (a loop turn that `continue`s): each exit calls
+    `finish(**outcome)` with what the action turned out to be. Emits once; an action that never
+    finishes emits nothing.
+    """
+
+    def __init__(self, action: str, meter: DeviceIoMeter = METER, **context: Any) -> None:
+        self._action = action
+        self._meter = meter
+        self._context = context
+        self._before = meter.snapshot()
+        self._started_at = time.perf_counter()
+        self._finished = False
+
+    def finish(self, **outcome: Any) -> None:
+        """Emit one `device_io` step. Fields: `dumps`, `dump_ms`, `rpc` (every server round trip,
+        dumps included), `rpc_ms`, `waits`, `wait_ms` (server-side waits), `shells`, `shell_ms`
+        (adb), `errors`, `total_ms` (wall time), `other_ms` (the rest: parsing, sleeps, the bot's
+        own work), then the context and the outcome."""
+        if self._finished:
+            return
+        self._finished = True
+        try:
+            total_ms = _elapsed_ms(self._started_at)
+            delta = _delta(self._before, self._meter.snapshot())
+            device_ms = delta.get("rpc_ms", 0.0) + delta.get("shell_ms", 0.0)
+            fields = {
+                "total_ms": round(total_ms, 1),
+                "other_ms": round(max(total_ms - device_ms, 0.0), 1),
+                **delta,
+                **self._context,
+                **outcome,
+            }
+            emit_step("device_io", action=self._action, **fields)
+        except Exception as exc:  # telemetry must never break an action
+            logger.debug(f"device io measure skipped for {self._action}: {exc}")
+
+
 @contextmanager
-def measure_device_io(action: str, meter: DeviceIoMeter = METER, **context: Any) -> Iterator[None]:
+def measure_device_io(action: str, meter: DeviceIoMeter = METER, **context: Any) -> Iterator[Dict[str, Any]]:
     """Emit what `action` cost on the phone: one `device_io` step when it ends (even on error).
 
-    Fields: `dumps`, `dump_ms`, `rpc` (every server round trip, dumps included), `rpc_ms`,
-    `waits`, `wait_ms` (server-side waits), `shells`, `shell_ms` (adb), `errors`, `total_ms`
-    (wall time of the action) and `other_ms` (the rest: parsing, sleeps, the bot's own work).
+    Yields a dict: what the action learns only by running (the screen it found) goes there and is
+    emitted with the costs. Fields: see `DeviceIoMeasure.finish`.
     """
-    before = meter.snapshot()
-    started_at = time.perf_counter()
+    measure = DeviceIoMeasure(action, meter, **context)
+    outcome: Dict[str, Any] = {}
     try:
-        yield
+        yield outcome
     finally:
-        try:
-            total_ms = _elapsed_ms(started_at)
-            delta = _delta(before, meter.snapshot())
-            device_ms = delta.get("rpc_ms", 0.0) + delta.get("shell_ms", 0.0)
-            emit_step(
-                "device_io",
-                action=action,
-                total_ms=round(total_ms, 1),
-                other_ms=round(max(total_ms - device_ms, 0.0), 1),
-                **delta,
-                **context,
-            )
-        except Exception as exc:  # telemetry must never break an action
-            logger.debug(f"device io measure skipped for {action}: {exc}")
+        measure.finish(**outcome)
 
 
 __all__ = [
     "DUMP_METHODS",
     "WAIT_METHODS",
+    "DeviceIoMeasure",
     "DeviceIoMeter",
     "METER",
     "instrument_device_io",

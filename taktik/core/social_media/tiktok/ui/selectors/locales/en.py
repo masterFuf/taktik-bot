@@ -264,6 +264,9 @@ STRINGS: Dict[str, List[str]] = {
     "inbox.seen_marker": [
         "//*[contains(@resource-id, \":id/l35\")][@text=\"Seen\"]",
         "//*[contains(@resource-id, \":id/l35\")][starts-with(@text, \"Seen\")]",
+        # Shape of the French entry (46.9.3); the English label is the one above.
+        "//*[@clickable=\"true\"][@long-clickable=\"true\"]"
+        "//android.widget.TextView[translate(@text, \"\u200e\", \"\")=\"Seen\"]",
     ],
     "inbox.suggested_accounts_section": [
         "//*[@text=\"Suggested accounts\"]",

@@ -24,8 +24,13 @@ What a photo does NOT do, deliberately:
 Works with uiautomator2 3.x (`requirements.lock` pins 3.5.0): `XPathSelector(xpath).all(source)`
 is the form common to 3.3 and 3.5+, whose constructor no longer takes a source.
 
-Step 1 only: the layer and its proof (`scripts/check_snapshot_equality.py`); it is wired into no
-workflow. The shared layer imports no platform module.
+Every selector asked of a photo is told to the observers of its source (`SnapshotSource.observe`,
+`facade.observe_snapshots`): the Lab traces see a photo's questions as they saw `d.xpath()`'s.
+
+The layer and its proof (`scripts/check_snapshot_equality.py`) are step 1. Step 2 wires it into
+TikTok: its waiting probes take one photo per turn (`tiktok/actions/core/base_action.py`), and a
+feed decision is read on one photo (`read_screen`, `tiktok/actions/atomic/detection/`). The
+shared layer imports no platform module.
 """
 
 from __future__ import annotations
@@ -43,6 +48,9 @@ from taktik.core.shared.device.ui_dump import parse_bounds
 
 Selectors = Union[str, Sequence[str]]
 Rewrite = Optional[Callable[[str], str]]
+# Told of every selector asked of a photo: (selector, found, elapsed_ms). The Lab traces wrap
+# `device.xpath`, which a photo never calls: without this they would lose every selector.
+Observer = Callable[[str, bool, float], None]
 
 
 class SnapshotUnavailable(RuntimeError):
@@ -96,9 +104,10 @@ class ScreenSnapshot:
     """A dump, parsed once. Selectors: one string or a list, the first that finds anything wins."""
 
     def __init__(self, xml_content: Optional[str], taken_at: Optional[float] = None,
-                 rewrite: Rewrite = None):
+                 rewrite: Rewrite = None, observer: Optional[Observer] = None):
         if not xml_content:
             raise SnapshotUnavailable("empty dump")
+        self._xml = xml_content
         self._source = PageSource(xml_content)
         try:
             root = self._source.root  # parse now: a dump that does not parse is not a photo
@@ -110,6 +119,7 @@ class ScreenSnapshot:
             raise SnapshotUnavailable("empty hierarchy")
         self._taken_at = time.monotonic() if taken_at is None else taken_at
         self._rewrite = rewrite
+        self._observer = observer
         self._cache: dict = {}
 
     @property
@@ -121,13 +131,31 @@ class ScreenSnapshot:
     def source(self) -> PageSource:
         return self._source
 
+    @property
+    def xml(self) -> str:
+        """The dump as the phone returned it, for whoever keeps screens (the screen ring)."""
+        return self._xml
+
     def elements(self, selector: str) -> list:
         """The elements `d.xpath(selector).all()` finds on this screen, for READING: they carry no
         device, so they cannot be tapped. An invalid selector raises uiautomator2's error."""
-        if selector not in self._cache:
-            xpath = self._rewrite(selector) if self._rewrite else selector
-            self._cache[selector] = XPathSelector(xpath).all(self._source)
-        return self._cache[selector]
+        started_at = time.perf_counter()
+        found = False
+        try:
+            if selector not in self._cache:
+                xpath = self._rewrite(selector) if self._rewrite else selector
+                self._cache[selector] = XPathSelector(xpath).all(self._source)
+            found = bool(self._cache[selector])
+            return self._cache[selector]
+        finally:
+            if self._observer is not None:
+                self._tell(selector, found, (time.perf_counter() - started_at) * 1000.0)
+
+    def _tell(self, selector: str, found: bool, elapsed_ms: float) -> None:
+        try:
+            self._observer(selector, found, elapsed_ms)
+        except Exception as exc:  # an observer never changes an answer
+            logger.debug(f"Screen photo observer failed on {selector!r}: {exc}")
 
     def _found_or_skipped(self, selector: str) -> list:
         try:
@@ -171,6 +199,16 @@ class SnapshotSource:
         self._lock = threading.Lock()
         self._last: Optional[ScreenSnapshot] = None
         self._generation = 0
+        self._observers: List[Observer] = []
+
+    def observe(self, observer: Observer) -> None:
+        """Tell `observer` of every selector asked of the photos taken from now on."""
+        with self._lock:
+            self._observers.append(observer)
+
+    def _tell_observers(self, selector: str, found: bool, elapsed_ms: float) -> None:
+        for observer in list(self._observers):
+            observer(selector, found, elapsed_ms)
 
     def snapshot(self, max_age_s: float = 0.0) -> ScreenSnapshot:
         with self._lock:
@@ -178,7 +216,8 @@ class SnapshotSource:
         if max_age_s > 0 and last is not None and last.age_ms < max_age_s * 1000.0:
             return last
         asked_at = time.monotonic()
-        photo = ScreenSnapshot(self._dump(), taken_at=asked_at, rewrite=self._rewrite)
+        photo = ScreenSnapshot(self._dump(), taken_at=asked_at, rewrite=self._rewrite,
+                               observer=self._tell_observers if self._observers else None)
         with self._lock:
             if self._generation == generation:
                 self._last = photo

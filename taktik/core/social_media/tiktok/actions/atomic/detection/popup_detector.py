@@ -50,14 +50,16 @@ class PopupDetector(BaseAction):
         """Check if the GDPR / EEA-to-China data transfer popup is visible."""
         return self._element_exists(self.popup_selectors.gdpr_popup, timeout=1)
 
-    def has_suggestion_page(self) -> bool:
+    def has_suggestion_page(self, screen=None) -> bool:
         """Check if on a suggestion page (Follow back / Not interested).
         
         This page appears in the For You feed suggesting users to follow back.
+        `screen`: the photo this decision is read on (`read_screen()`), answered without a wait.
         """
-        return self._element_exists(self.popup_selectors.suggestion_page_indicator, timeout=1)
+        return self._element_exists(self.popup_selectors.suggestion_page_indicator, timeout=1,
+                                    screen=screen)
 
-    def has_comments_section_open(self) -> bool:
+    def has_comments_section_open(self, screen=None) -> bool:
         """Is the comment sheet open? Answered by the SHEET's own catalogue, not a second guess.
 
         This used to ask `popup_selectors.comments_section_indicator`, a separate list written for
@@ -69,9 +71,11 @@ class PopupDetector(BaseAction):
 
         One question, one answer: `COMMENT_SELECTORS.sheet_indicator` is the measured one (all 9
         sheets, none of the 50 other screens), and a second spelling is how the two drift.
+
+        `screen`: the photo this decision is read on (`read_screen()`), answered without a wait.
         """
         from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import (
             COMMENT_SELECTORS,
         )
 
-        return self._element_exists(COMMENT_SELECTORS.sheet_indicator, timeout=1)
+        return self._element_exists(COMMENT_SELECTORS.sheet_indicator, timeout=1, screen=screen)

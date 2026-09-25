@@ -39,7 +39,7 @@ from .schemas.social_posts import (
     create_social_posts_tables,
     create_social_posts_indexes,
 )
-from .schemas.tiktok import create_tiktok_tables, create_tiktok_indexes
+from .schemas.tiktok import create_tiktok_tables
 
 
 def create_schema(conn: sqlite3.Connection) -> None:
@@ -52,7 +52,6 @@ def create_schema(conn: sqlite3.Connection) -> None:
     create_enrichment_tables(cursor)
     create_instagram_indexes(cursor)
     create_scraping_indexes(cursor)
-    create_tiktok_indexes(cursor)
     create_enrichment_indexes(cursor)
     create_social_graph_tables(cursor)
     create_gmail_tables(cursor)

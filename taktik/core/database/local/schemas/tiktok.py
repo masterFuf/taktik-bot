@@ -7,17 +7,8 @@ import sqlite3
 
 def create_tiktok_tables(cursor: sqlite3.Cursor) -> None:
     """Create TikTok tables."""
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS tiktok_accounts (
-            account_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            display_name TEXT,
-            is_bot INTEGER DEFAULT 1,
-            user_id INTEGER,
-            license_id INTEGER,
-            created_at TEXT DEFAULT (datetime('now'))
-        )
-    """)
+    # tiktok_accounts folded into the unified accounts table (Vague B). Not created any more:
+    # run_accounts_unification_migrations only drains and drops it on bases that still carry it.
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tiktok_profiles (
@@ -42,8 +33,3 @@ def create_tiktok_tables(cursor: sqlite3.Cursor) -> None:
     # tiktok_filtered_profiles folded into the unified filtered_profiles (platform axis, Vague B).
 
     # tiktok_scraped_profiles folded into the unified scraped_profiles (platform axis, Vague B).
-
-
-def create_tiktok_indexes(cursor: sqlite3.Cursor) -> None:
-    """Create TikTok indexes."""
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_tiktok_accounts_username ON tiktok_accounts(username)")

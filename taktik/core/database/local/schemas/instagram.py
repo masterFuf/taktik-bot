@@ -7,16 +7,8 @@ import sqlite3
 
 def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
     """Create Instagram core tables."""
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS instagram_accounts (
-            account_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            is_bot INTEGER DEFAULT 1,
-            user_id INTEGER,
-            license_id INTEGER,
-            created_at TEXT DEFAULT (datetime('now'))
-        )
-    """)
+    # instagram_accounts folded into the unified accounts table (Vague B). Not created any more:
+    # run_accounts_unification_migrations only drains and drops it on bases that still carry it.
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS instagram_profiles (
@@ -91,7 +83,6 @@ def create_instagram_tables(cursor: sqlite3.Cursor) -> None:
 
 def create_instagram_indexes(cursor: sqlite3.Cursor) -> None:
     """Create Instagram core indexes."""
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_accounts_username ON instagram_accounts(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_account ON filtered_profiles(account_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_filtered_username ON filtered_profiles(username)")
     cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_filtered_profiles_sync_id ON filtered_profiles(sync_id)")

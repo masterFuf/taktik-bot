@@ -39,6 +39,16 @@ class _Screen:
 
         return _Element(exists)
 
+    def snapshot(self):
+        """One photo of this screen: each selector answers as it does through `xpath()`."""
+        screen = self
+
+        class _Photo:
+            def elements(self, selector):
+                return [object()] if screen._answer(selector) else []
+
+        return _Photo()
+
 
 def _detector(screen) -> VideoDetector:
     detector = VideoDetector.__new__(VideoDetector)

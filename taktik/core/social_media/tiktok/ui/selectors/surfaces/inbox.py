@@ -25,6 +25,17 @@ from dataclasses import dataclass, field
 
 from ..locales import L
 
+# The unread count of a row: a View whose content-desc is only digits, inside a tap target.
+_UNREAD_COUNT = ('//*[@clickable="true"]//android.view.View[string-length(@content-desc)>0]'
+                 '[translate(@content-desc, "0123456789", "")=""]')
+
+# A story tile of the strip above the conversations: clickable, named by its content-desc, which
+# its caption repeats, and holding a clickable avatar. The bottom bar's tabs repeat their label
+# too but sit in no RecyclerView; the "+ Widget" and memories tiles have no clickable avatar.
+_STORY_TILE = ('//androidx.recyclerview.widget.RecyclerView/*[@clickable="true"]'
+               '[string-length(@content-desc)>0][android.widget.TextView[@text=../@content-desc]]'
+               '[*[@clickable="true"][android.widget.ImageView]]')
+
 
 @dataclass
 class InboxSelectors:
@@ -129,16 +140,24 @@ class InboxSelectors:
         '//*[contains(@resource-id, ":id/fa7")]',
         '//*[contains(@resource-id, ":id/lnb")]',
         '//*[contains(@resource-id, ":id/ydj")]',
+        # A2: the unread count of a row, a View whose content-desc is the number itself.
+        # `fa7` above is the row's right-hand slot and also holds the camera shortcut.
+        _UNREAD_COUNT,
     ])
 
     # === Stories row ===
+    # Each story avatar, as the `tsb` id designates.
     stories_row: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/tsb")]',
+        # A2.
+        _STORY_TILE + '/*[@clickable="true"][android.widget.ImageView]',
     ])
 
     story_username: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/tsi")]',
         '//*[contains(@resource-id, ":id/jmw")]',
+        # A2.
+        _STORY_TILE + '/android.widget.TextView[@text=../@content-desc]',
     ])
 
     # === Notification sections (items) ===
@@ -235,6 +254,8 @@ class InboxSelectors:
         return self._message_request_timestamp_base + L("inbox.conversation_timestamp_anchors")
     message_request_unread_badge: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/ydj")]',
+        # A2: a request row is a conversation row, so its badge is the same count.
+        _UNREAD_COUNT,
     ])
     _message_requests_page_title_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/nmh")]',

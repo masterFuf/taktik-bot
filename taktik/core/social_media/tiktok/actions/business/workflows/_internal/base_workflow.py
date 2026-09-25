@@ -167,10 +167,11 @@ class BaseTikTokWorkflow:
     # Popup handling
     # ------------------------------------------------------------------
 
-    def _handle_popups(self) -> bool:
+    def _handle_popups(self, screen=None) -> bool:
         """Check for and close any popups that might block interaction.
 
         What counts as an accidental surface rather than a destination comes from
-        ``OWNED_SURFACES``, declared by the workflow class.
+        ``OWNED_SURFACES``, declared by the workflow class. `screen`: the photo this turn was
+        read on (`detection.read_screen()`); True means a gesture, read the screen again.
         """
-        return self._popup_handler.close_all()
+        return self._popup_handler.close_all(screen)

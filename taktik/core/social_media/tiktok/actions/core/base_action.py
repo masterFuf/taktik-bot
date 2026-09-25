@@ -7,9 +7,16 @@ from .device_facade import DeviceFacade
 from .utils import ActionUtils
 
 from taktik.core.shared.actions.base_action import SharedBaseAction
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
 
 # Re-export for backward compatibility (some files import these from here)
 TAKTIK_KEYBOARD_PKG = 'com.alexal1.adbkeyboard'
+
+
+def _photo_of(screen):
+    """A `TikTokScreen` carries its photo (None when the screen could not be read); a photo is its
+    own."""
+    return getattr(screen, "photo", screen)
 
 
 class BaseAction(SharedBaseAction):
@@ -52,79 +59,125 @@ class BaseAction(SharedBaseAction):
         self._random_sleep(min_delay, max_delay)
     
     # =========================================================================
-    # TikTok-specific: element methods with polling timeout
+    # TikTok-specific: element methods with polling timeout, one screen photo per turn
+    #
+    # Each turn asks every selector of ONE photo of the screen (`device.snapshot()`, the code
+    # `d.xpath()` runs, on one dump) instead of one dump per selector; the timeout, the pause
+    # between turns and "the first selector that answers" are unchanged. Handed `screen` (a photo
+    # already taken for this decision, or the `TikTokScreen` that carries it), they answer on it
+    # at once and never wait.
     # =========================================================================
-    
-    def _element_exists(self, selectors: Union[List[str], str], timeout: float = 2.0) -> bool:
-        """Check if element exists (with polling timeout)."""
+
+    def _turn_photo(self):
+        """This turn's photo, or None when the screen could not be read: a failed dump finds
+        nothing this turn, as every probe of a failed `d.xpath()` found nothing."""
+        try:
+            return self.device.snapshot()
+        except SnapshotUnavailable:
+            return None
+
+    def _element_exists(self, selectors: Union[List[str], str], timeout: float = 2.0,
+                        screen=None) -> bool:
+        """Is one of `selectors` on screen? Polls until `timeout` unless handed `screen`."""
         if isinstance(selectors, str):
             selectors = [selectors]
-        
+        if screen is not None:
+            return self._found_on(_photo_of(screen), selectors)
+
         start_time = time.time()
-        last_error = None
 
         while time.time() - start_time < timeout:
-            for selector in selectors:
-                try:
-                    if self.device.xpath(selector).exists:
-                        return True
-                except Exception:
-                    continue
-            
+            if self._found_on(self._turn_photo(), selectors):
+                return True
             time.sleep(0.3)
         
         return False
-    
-    def _get_element_text(self, selectors: Union[List[str], str], timeout: float = 5.0) -> Optional[str]:
-        """Get text from element (with polling timeout)."""
+
+    def _get_element_text(self, selectors: Union[List[str], str], timeout: float = 5.0,
+                          screen=None) -> Optional[str]:
+        """The first non-empty text of `selectors`. Polls until `timeout` unless handed `screen`."""
         if isinstance(selectors, str):
             selectors = [selectors]
-        
+        if screen is not None:
+            return self._text_on(_photo_of(screen), selectors)
+
         start_time = time.time()
         
         while time.time() - start_time < timeout:
-            for selector in selectors:
-                try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        text = element.get_text()
-                        if text:
-                            return text.strip()
-                except Exception as e:
-                    self.logger.debug(f"Error getting text from {selector[:50]}: {e}")
-                    continue
-            
+            text = self._text_on(self._turn_photo(), selectors)
+            if text is not None:
+                return text
             time.sleep(0.5)
         
         return None
-    
-    def _get_element_content_desc(self, selectors: Union[List[str], str], timeout: float = 3.0) -> Optional[str]:
-        """Get content-desc attribute from element (with polling timeout).
-        
+
+    def _get_element_content_desc(self, selectors: Union[List[str], str], timeout: float = 3.0,
+                                  screen=None) -> Optional[str]:
+        """The first non-empty content-desc of `selectors`. Polls until `timeout` unless handed
+        `screen`.
+
         Used for TikTok Trill variant where counts/usernames are in content-desc
         rather than text nodes (e.g. 'Like video. 2 likes', 'username profile').
         """
         if isinstance(selectors, str):
             selectors = [selectors]
+        if screen is not None:
+            return self._content_desc_on(_photo_of(screen), selectors)
 
         start_time = time.time()
 
         while time.time() - start_time < timeout:
-            for selector in selectors:
-                try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        info = element.get()
-                        if info is not None:
-                            desc = info.attrib.get('content-desc', '')
-                            if desc:
-                                return desc.strip()
-                except Exception as e:
-                    self.logger.debug(f"Error getting content-desc from {selector[:50]}: {e}")
-                    continue
-
+            desc = self._content_desc_on(self._turn_photo(), selectors)
+            if desc is not None:
+                return desc
             time.sleep(0.3)
 
+        return None
+
+    # What `d.xpath(selector)` answered, asked of one photo: the first selector that finds an
+    # element wins, and what is read is that selector's FIRST element (`get_text()`, `get()`).
+    # An invalid selector is skipped, as the per-selector loops skipped it.
+
+    @staticmethod
+    def _found_on(photo, selectors: List[str]) -> bool:
+        if photo is None:
+            return False
+        for selector in selectors:
+            try:
+                if photo.elements(selector):
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def _text_on(self, photo, selectors: List[str]) -> Optional[str]:
+        if photo is None:
+            return None
+        for selector in selectors:
+            try:
+                found = photo.elements(selector)
+                if found:
+                    text = found[0].text
+                    if text:
+                        return text.strip()
+            except Exception as e:
+                self.logger.debug(f"Error getting text from {selector[:50]}: {e}")
+                continue
+        return None
+
+    def _content_desc_on(self, photo, selectors: List[str]) -> Optional[str]:
+        if photo is None:
+            return None
+        for selector in selectors:
+            try:
+                found = photo.elements(selector)
+                if found:
+                    desc = found[0].attrib.get('content-desc', '')
+                    if desc:
+                        return desc.strip()
+            except Exception as e:
+                self.logger.debug(f"Error getting content-desc from {selector[:50]}: {e}")
+                continue
         return None
 
     def _input_text(self, selectors: Union[List[str], str], text: str, 
@@ -134,7 +187,8 @@ class BaseAction(SharedBaseAction):
             selectors = [selectors]
         
         start_time = time.time()
-        
+        last_error = None  # a field never found, without any error, reached the report unbound
+
         while time.time() - start_time < timeout:
             for selector in selectors:
                 try:

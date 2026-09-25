@@ -19,11 +19,11 @@ def test_french_like_selectors_survive_language_filter():
 def test_video_detector_parses_french_like_count(monkeypatch):
     detector = VideoDetector(_DummyDevice())
 
-    monkeypatch.setattr(detector, "_get_element_text", lambda selectors, timeout=1: None)
+    monkeypatch.setattr(detector, "_get_element_text", lambda selectors, timeout=1, screen=None: None)
     monkeypatch.setattr(
         detector,
         "_get_element_content_desc",
-        lambda selectors, timeout=1: "Attribuer un « J'aime » à la vidéo. 68,5 K « J'aime »",
+        lambda selectors, timeout=1, screen=None: "Attribuer un « J'aime » à la vidéo. 68,5 K « J'aime »",
     )
 
     assert detector.get_video_like_count() == "68,5 K"
@@ -32,11 +32,11 @@ def test_video_detector_parses_french_like_count(monkeypatch):
 def test_video_detector_parses_french_comment_count(monkeypatch):
     detector = VideoDetector(_DummyDevice())
 
-    monkeypatch.setattr(detector, "_get_element_text", lambda selectors, timeout=1: None)
+    monkeypatch.setattr(detector, "_get_element_text", lambda selectors, timeout=1, screen=None: None)
     monkeypatch.setattr(
         detector,
         "_get_element_content_desc",
-        lambda selectors, timeout=1: "Lire ou ajouter des commentaires. 368 commentaires",
+        lambda selectors, timeout=1, screen=None: "Lire ou ajouter des commentaires. 368 commentaires",
     )
 
     assert detector.get_video_comment_count() == "368"
@@ -45,11 +45,11 @@ def test_video_detector_parses_french_comment_count(monkeypatch):
 def test_video_detector_reads_french_profile_content_desc(monkeypatch):
     detector = VideoDetector(_DummyDevice())
 
-    monkeypatch.setattr(detector, "_get_element_text", lambda selectors, timeout=1: None)
+    monkeypatch.setattr(detector, "_get_element_text", lambda selectors, timeout=1, screen=None: None)
     monkeypatch.setattr(
         detector,
         "_get_element_content_desc",
-        lambda selectors, timeout=1: "Profil Grindlabsofficial_",
+        lambda selectors, timeout=1, screen=None: "Profil Grindlabsofficial_",
     )
 
     assert detector.get_video_author() == "Grindlabsofficial_"

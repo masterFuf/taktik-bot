@@ -3,10 +3,12 @@
 Extracted from detection_actions.py — contains video-specific detection:
 like/favorite/follow state, video info extraction, ad detection, profile info.
 
+The readers take `screen`, the photo a decision is read on (`read_screen()`): handed one, they
+answer on it without waiting; without, they wait for their own target as before.
 """
 
 import re
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from loguru import logger
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
@@ -15,6 +17,7 @@ from taktik.core.shared.vision.screen_text import screenshot_pil as shared_scree
 from ...core.base_action import BaseAction
 from ....ui.labels import is_expandable_description, strip_more_suffix
 from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
+from .screen_reading import TikTokScreen, read_until
 
 
 def _parse_description(raw: str) -> Dict[str, Any]:
@@ -67,13 +70,14 @@ class VideoDetector(BaseAction):
 
     # === Video State Detection ===
 
-    def is_video_liked(self) -> bool:
+    def is_video_liked(self, screen=None) -> bool:
         """Check if current video is liked."""
-        return self._element_exists(self.video_selectors.unlike_indicator, timeout=1)
+        return self._element_exists(self.video_selectors.unlike_indicator, timeout=1, screen=screen)
 
-    def is_video_favorited(self) -> bool:
+    def is_video_favorited(self, screen=None) -> bool:
         """Check if current video is in favorites."""
-        return self._element_exists(self.video_selectors.video_favorited_indicator, timeout=1)
+        return self._element_exists(self.video_selectors.video_favorited_indicator, timeout=1,
+                                    screen=screen)
 
     def is_user_followed(self) -> bool:
         """Is the author of the video on screen already followed?
@@ -101,17 +105,18 @@ class VideoDetector(BaseAction):
 
     # === Video Info Extraction ===
 
-    def get_video_author(self) -> Optional[str]:
+    def get_video_author(self, screen=None) -> Optional[str]:
         """Get current video author username.
 
         Tries text node first (musically), then parses content-desc of the
         author avatar element (trill: content-desc = "username profile").
         """
-        text = self._get_element_text(self.video_selectors.author_username, timeout=1)
+        text = self._get_element_text(self.video_selectors.author_username, timeout=1, screen=screen)
         if text:
             return text
 
-        desc = self._get_element_content_desc(self.video_selectors.creator_profile_image, timeout=1)
+        desc = self._get_element_content_desc(self.video_selectors.creator_profile_image, timeout=1,
+                                              screen=screen)
         if desc:
             for suffix in self.video_selectors.creator_avatar_desc_suffixes:
                 if desc.endswith(suffix):
@@ -122,17 +127,18 @@ class VideoDetector(BaseAction):
 
         return None
 
-    def get_video_description(self) -> Optional[str]:
+    def get_video_description(self, screen=None) -> Optional[str]:
         """Get raw description text (may be truncated with '…more')."""
-        return self._get_element_text(self.video_selectors.video_description, timeout=1)
+        return self._get_element_text(self.video_selectors.video_description, timeout=1, screen=screen)
 
-    def get_video_description_full(self) -> Optional[str]:
+    def get_video_description_full(self, screen=None) -> Optional[str]:
         """Get the complete video description, expanding '…more' if present.
 
         Clicks the description element to expand it when truncated, then
         re-reads the full text.  Returns the raw (unparsed) full string.
+        A gesture: the expanded text is read on new photos, never on `screen`.
         """
-        raw = self._get_element_text(self.video_selectors.video_description, timeout=1)
+        raw = self._get_element_text(self.video_selectors.video_description, timeout=1, screen=screen)
         if not raw:
             return None
 
@@ -153,7 +159,7 @@ class VideoDetector(BaseAction):
 
         return raw
 
-    def get_video_description_parsed(self) -> Dict[str, Any]:
+    def get_video_description_parsed(self, screen=None) -> Dict[str, Any]:
         """Get the full description split into clean text and hashtags.
 
         Returns::
@@ -163,18 +169,19 @@ class VideoDetector(BaseAction):
                 'hashtags': list[str],             # ['#miumiu', '#outfit', ...]
             }
         """
-        raw = self.get_video_description_full()
+        raw = self.get_video_description_full(screen)
         if not raw:
             return {'description_text': None, 'hashtags': []}
         return _parse_description(raw)
 
-    def get_video_sound(self) -> Optional[str]:
+    def get_video_sound(self, screen=None) -> Optional[str]:
         """Get the music/sound name from the sound button.
 
         Trill content-desc: 'Sound: Pretty (Sped Up) by MEYY'
         Returns the part after 'Sound: ', e.g. 'Pretty (Sped Up) by MEYY'.
         """
-        desc = self._get_element_content_desc(self.video_selectors.sound_button, timeout=1)
+        desc = self._get_element_content_desc(self.video_selectors.sound_button, timeout=1,
+                                              screen=screen)
         if desc:
             sound_match = re.match(r'^(?:Sound|Son)\s*:\s*(.+)$', desc, re.IGNORECASE)
             if sound_match:
@@ -282,19 +289,20 @@ class VideoDetector(BaseAction):
             self.logger.debug(f"Error capturing author profile pic: {e}")
             return None
 
-    def get_video_like_count(self) -> Optional[str]:
+    def get_video_like_count(self, screen=None) -> Optional[str]:
         """Get current video like count.
 
         Tries text node first (musically), then parses content-desc
         (trill: 'Like video. 2 likes' or 'Like video. 1.2K likes').
         """
-        count = self._get_element_text(self.video_selectors.like_count, timeout=1)
+        count = self._get_element_text(self.video_selectors.like_count, timeout=1, screen=screen)
         if count:
             return count
 
         desc = self._get_element_content_desc(
             self.video_selectors.like_button_for_count,
             timeout=1,
+            screen=screen,
         )
         if desc:
             extracted = _extract_count_from_content_desc(desc, [
@@ -309,16 +317,17 @@ class VideoDetector(BaseAction):
 
         return None
 
-    def get_video_comment_count(self) -> Optional[str]:
+    def get_video_comment_count(self, screen=None) -> Optional[str]:
         """Get current video comment count.
 
         Trill: content-desc = 'Read or add comments. 0 comments'.
         """
-        count = self._get_element_text(self.video_selectors.comment_count, timeout=1)
+        count = self._get_element_text(self.video_selectors.comment_count, timeout=1, screen=screen)
         if count:
             return count
 
-        desc = self._get_element_content_desc(self.video_selectors.comment_button_for_count, timeout=1)
+        desc = self._get_element_content_desc(self.video_selectors.comment_button_for_count, timeout=1,
+                                              screen=screen)
         if desc:
             extracted = _extract_count_from_content_desc(desc, [
                 r'(?:Read or add comments|Lire ou ajouter des commentaires)[.\s]+(.+?)\s+(?:comments?|commentaires?)',
@@ -330,54 +339,75 @@ class VideoDetector(BaseAction):
 
     def get_video_info(self, include_comment_count: bool = False,
                        full_description: bool = True,
-                       light_if_ad: bool = False) -> Dict[str, Any]:
-        """Get all available info about current video.
+                       light_if_ad: bool = False, screen=None) -> Dict[str, Any]:
+        """Get all available info about current video, every field read on one photo.
 
         Args:
             include_comment_count: Also fetch comment count (slower).
             full_description: Expand truncated descriptions and parse hashtags.
             light_if_ad: The caller skips ads: read only the author of one, and move on.
+            screen: The photo this decision is read on (`read_screen()`). Without one, the first
+                photo that shows a video, an ad or a LIVE preview (2 s at most; the last one read
+                otherwise).
         """
+        if screen is None:
+            screen = read_until(self.device, lambda photo: photo,
+                                lambda photo: any(self.feed_item_on(photo)))
+            if screen is None:  # not a single dump could be read
+                screen = TikTokScreen()
         # First, so an ad's caption is never tapped open: that tap would be a click on the ad.
-        is_ad = self.is_ad_video()
+        is_ad = self.is_ad_video(screen)
         if is_ad and light_if_ad:
             # Reading everything held an ad on screen for half a minute; a person swipes past it.
             return {
-                'author': self.get_video_author(), 'description': None, 'description_text': None,
+                'author': self.get_video_author(screen), 'description': None, 'description_text': None,
                 'hashtags': [], 'sound': None, 'like_count': None, 'is_liked': False,
                 'is_favorited': False, 'is_ad': True, 'is_live': False,
             }
         if full_description and not is_ad:
-            desc_parsed = self.get_video_description_parsed()
+            desc_parsed = self.get_video_description_parsed(screen)
         else:
-            raw = self.get_video_description()
+            raw = self.get_video_description(screen)
             desc_parsed = _parse_description(raw) if raw else {'description_text': None, 'hashtags': []}
 
+        # Read on the photo even after a caption was tapped open: author, sound and counts belong
+        # to the video, which that tap does not change.
         info: Dict[str, Any] = {
-            'author': self.get_video_author(),
+            'author': self.get_video_author(screen),
             # Legacy field kept for backward compat (raw text)
             'description': desc_parsed.get('description_text'),
             'description_text': desc_parsed.get('description_text'),
             'hashtags': desc_parsed.get('hashtags', []),
-            'sound': self.get_video_sound(),
-            'like_count': self.get_video_like_count(),
-            'is_liked': self.is_video_liked(),
-            'is_favorited': self.is_video_favorited(),
+            'sound': self.get_video_sound(screen),
+            'like_count': self.get_video_like_count(screen),
+            'is_liked': self.is_video_liked(screen),
+            'is_favorited': self.is_video_favorited(screen),
             'is_ad': is_ad,
         }
         # A LIVE preview has no author: only then is the question worth a read.
-        info['is_live'] = not info['author'] and self.is_live_preview()
+        info['is_live'] = not info['author'] and self.is_live_preview(screen)
         if include_comment_count:
-            info['comment_count'] = self.get_video_comment_count()
+            info['comment_count'] = self.get_video_comment_count(screen)
         return info
+
+    def feed_item_on(self, screen) -> Tuple[bool, bool, bool]:
+        """(video, ad, LIVE preview) on this photo: what `get_video_info` waits for when it is
+        handed none. A video needs its page AND an author or an ad label: the author reader alone
+        also answers on the inbox, and a photo taken mid-swipe may show neither."""
+        author = self.get_video_author(screen)
+        ad = self.is_ad_video(screen)
+        live = not author and self.is_live_preview(screen)
+        video = bool(author or ad) and self._element_exists(self.video_selectors.video_page_indicator,
+                                                            screen=screen)
+        return video, ad, live
 
     # === Ad Detection ===
 
-    def is_ad_video(self) -> bool:
+    def is_ad_video(self, screen=None) -> bool:
         """Check if current video is an advertisement."""
-        return self._element_exists(self.video_selectors.ad_label, timeout=1)
+        return self._element_exists(self.video_selectors.ad_label, timeout=1, screen=screen)
 
-    def is_live_preview(self) -> bool:
+    def is_live_preview(self, screen=None) -> bool:
         """Is the feed showing a LIVE preview rather than a video?"""
         selectors = self.video_selectors.live_preview
-        return bool(selectors) and self._element_exists(selectors, timeout=0.5)
+        return bool(selectors) and self._element_exists(selectors, timeout=0.5, screen=screen)
