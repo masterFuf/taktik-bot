@@ -76,6 +76,19 @@ def test_a_device_without_server_control_is_left_as_it_is():
     assert retry_cut_reads(device) is False
 
 
+def test_a_device_replaced_by_the_repair_keeps_its_wrappers(monkeypatch):
+    from taktik.core.shared.device import manager as manager_module
+
+    device = _DyingServerDevice(cuts=0)
+    monkeypatch.setattr(manager_module.u2, "connect", lambda _serial: device)
+    manager = manager_module.DeviceManager("serial-x")
+
+    assert manager._repair_atx() is True
+    assert manager.device is device
+    assert getattr(device, "_taktik_reads_survive_server_restart", False) is True
+    assert getattr(device, "_taktik_device_io_instrumented", False) is True
+
+
 def test_a_connection_cut_by_a_dying_server_is_tried_again():
     attempts = []
 

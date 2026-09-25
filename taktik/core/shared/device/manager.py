@@ -61,16 +61,8 @@ class DeviceManager:
                     return False
                 self.device_id = devices[0]["id"]
             
-            # A server left by a process that just exited may answer, then die (server_restart).
-            self.device = call_past_a_dying_server(lambda: u2.connect(self.device_id))
+            self.device = self._connect_u2()
             logger.info(f"Connected to device: {self.device_id}")
-            retry_cut_reads(self.device)
-
-            # Count every server call and adb shell of this phone from here on (M1): what an action
-            # costs in dumps, round trips and waits. Pass-through, never raises.
-            from taktik.core.shared.telemetry.device_io import instrument_device_io
-
-            instrument_device_io(self.device)
 
             # The selector catalog is a process-global and must match THIS phone. Bridges patch
             # it in their own connect(); the standalone CLI has no such base class, so an
@@ -97,6 +89,18 @@ class DeviceManager:
             logger.error(f"Failed to connect to device {self.device_id}: {e}")
             return False
     
+    def _connect_u2(self):
+        """Every uiautomator2 device this manager hands out, first connection or repair."""
+        from taktik.core.shared.telemetry.device_io import instrument_device_io
+
+        # A server left by a process that just exited may answer, then die (server_restart).
+        device = call_past_a_dying_server(lambda: u2.connect(self.device_id))
+        retry_cut_reads(device)
+        # Count every server call and adb shell of this phone from here on (M1): what an action
+        # costs in dumps, round trips and waits. Pass-through, never raises.
+        instrument_device_io(device)
+        return device
+
     @staticmethod
     def _apply_selector_overrides(device_id: str) -> None:
         """Match the selector catalog to the apps installed on this phone. Never raises."""
@@ -176,7 +180,7 @@ class DeviceManager:
             
             # Method 2: Force reinstall via u2.connect with init=True
             try:
-                self.device = u2.connect(self.device_id)
+                self.device = self._connect_u2()
                 # Try to force init
                 if hasattr(self.device, 'uiautomator'):
                     self.device.uiautomator.start()
@@ -197,7 +201,7 @@ class DeviceManager:
                 logger.info("Killed existing uiautomator processes")
                 
                 # Reconnect to trigger ATX restart
-                self.device = u2.connect(self.device_id)
+                self.device = self._connect_u2()
                 return True
             except Exception as e:
                 logger.warning(f"ADB ATX restart failed: {e}")
