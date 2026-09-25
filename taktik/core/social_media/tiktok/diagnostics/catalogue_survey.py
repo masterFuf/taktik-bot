@@ -68,9 +68,9 @@ STATE_DEPENDENT_FIELDS: Set[str] = {
     "video_state.video_already_liked", "video_state.video_favorited_indicator",
     "video_state.video_liked_indicator", "video_state.unlike_indicator",
     "video_state.user_followed_indicator", "video_state.ad_label", "video_state.subscribe_button",
-    # A sticker, a GIF, a group.
-    "conversation.message_sticker", "conversation.message_gif", "conversation.sticker_suggestion",
-    "conversation.games_button", "conversation.group_member_count", "inbox.group_member_count",
+    # A sticker (a GIF is one), a group.
+    "conversation.message_sticker", "conversation.sticker_suggestion",
+    "conversation.group_member_count", "inbox.group_member_count",
     # An error, an end of list, a spinner.
     "detection.error_message", "detection.network_error", "detection.rate_limit",
     "scroll.end_of_list", "scroll.loading_indicator",
