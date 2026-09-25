@@ -390,8 +390,11 @@ STRINGS: Dict[str, List[str]] = {
     # etait VIDE cote francais, donc sur un telephone FR le seul candidat restant etait
     # `clips_media_component` -- disparu en 442 -- et l'auteur d'un reel etait toujours
     # illisible. `username_from_media_label` sait deja lire les deux formes.
+    # Cadre hors du fil d'accueil : la, le meme libelle porte le NOM affiche de l'auteur, pas
+    # son pseudo. Le hashtag s'ouvre depuis la recherche, jamais depuis l'onglet Accueil.
     "hashtag.reel_author_container": [
-        "//*[contains(@content-desc, \"Reel de\")]",
+        "//*[contains(@content-desc, \"Reel de\")]"
+        "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\" and @selected=\"true\"])]",
     ],
     # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
     # labels, not xpaths: the fields of that surface carry no resource-id, so the text
@@ -764,7 +767,10 @@ STRINGS: Dict[str, List[str]] = {
     "post.username_extraction_selectors": [
         "//android.widget.TextView[(contains(@content-desc, \"nom d'utilisateur\") or contains(@content-desc, \"nom d’utilisateur\"))]",
     ],
-    "post.video_controls": [],
+    # Reel en pause (`clips_pause_button`). Le pendant francais de "Pause" reste a capturer.
+    "post.video_controls": [
+        "//android.widget.Button[@content-desc='Jouer']",
+    ],
     "post.video_player_selectors": [
         "//android.widget.ImageView[contains(@content-desc, \"vidéo\")]",
     ],
