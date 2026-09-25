@@ -1,11 +1,19 @@
-"""TikTok unfollow bridge workflow runner."""
+"""TikTok unfollow bridge runtime.
+
+The run is `run_tiktok_unfollow` (core), the launcher the Agent handler
+`tiktok.standalone.tiktok_unfollow` (and so the CLI) calls too: start TikTok, read the acting
+account on the phone, unfollow as that account. This bridge unwraps the app's stdin payload
+(`{device_id, config}`), rotates the IP when the page asks for it, and injects what is specific to
+the desktop: the startup that prints on stdout, its IPC for the live events, the stop signal.
+"""
 
 from __future__ import annotations
 
 from typing import Any, Dict
 
-from bridges.tiktok.runtime.ipc import logger, send_error, send_message, send_status, set_workflow
-from bridges.tiktok.runtime.startup import tiktok_startup
+from bridges.common.device.network import enforce_pre_session_ip_rotation
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error, send_status, set_workflow
+from bridges.tiktok.runtime.startup import tiktok_startup_provider
 
 
 def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
@@ -16,11 +24,7 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
 
     device_id = config.get("deviceId")
     bot_username = config.get("botUsername")
-    # The page and the scheduler send `delay_min` / `delay_max`; this runner read `minDelay` /
-    # `maxDelay`, so every run paused 1 to 3 s whatever was set. One reader now, shared with the
-    # Agent handler.
-    wf_config = unfollow_config_from_payload(config)
-    max_unfollows = wf_config.max_unfollows
+    max_unfollows = unfollow_config_from_payload(config).max_unfollows
 
     if not device_id:
         send_error("No device ID provided")
@@ -33,57 +37,16 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.models import (
-            NOT_CONFIRMED,
-        )
-        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow import (
-            UnfollowWorkflow,
+        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.agent_handler import (
+            run_tiktok_unfollow,
         )
 
-        manager, detected_username = tiktok_startup(device_id, fetch_profile=True)
-        logger.info(f"⏱️ Pause between unfollows: {wf_config.min_delay:g}-{wf_config.max_delay:g} s")
-        # The acting account dates its follows and files its unfollows; the startup reads its handle.
-        wf_config.bot_username = wf_config.bot_username or detected_username
-        if wf_config.min_follow_age_days:
-            logger.info(
-                f"🕒 Keeping accounts followed less than {wf_config.min_follow_age_days} day(s) ago, "
-                "and accounts whose follow date is unknown"
-            )
-
-        workflow = UnfollowWorkflow(manager.device_manager.device, wf_config)
-        set_workflow(workflow)
-
-        def on_unfollow(username, count):
-            send_message("unfollow_event", event="unfollowed", username=username, count=count)
-
-        def on_skip(username, reason="friends"):
-            send_message("unfollow_event", event="skipped", reason=reason, username=username)
-
-        def on_unconfirmed(username, state):
-            # A tap the row did not confirm: not an unfollow, and said so.
-            send_message("unfollow_event", event=NOT_CONFIRMED, reason=NOT_CONFIRMED,
-                         state=state, username=username)
-
-        def on_stats(stats_dict):
-            stats_dict["target"] = max_unfollows
-            send_message("unfollow_stats", stats=stats_dict)
-
-        workflow.set_on_unfollow_callback(on_unfollow)
-        workflow.set_on_skip_callback(on_skip)
-        workflow.set_on_unconfirmed_callback(on_unconfirmed)
-        workflow.set_on_stats_callback(on_stats)
-
-        send_status("running", f"Unfollowing users (0/{max_unfollows})")
-        stats = workflow.run()
-
-        send_message("unfollow_stats", stats={**stats.to_dict(), "target": max_unfollows})
-        logger.success(
-            f"✅ Unfollow workflow completed: {stats.unfollowed} users unfollowed (confirmed), "
-            f"{stats.unconfirmed} tap(s) not confirmed, kept: {stats.refusals or 'none'}"
-            + (f", stopped: {stats.stop_reason}" if stats.stop_reason else "")
+        run_tiktok_unfollow(
+            config,
+            notifier=_ipc,
+            tiktok_startup=tiktok_startup_provider(device_id),
+            workflow_hook=set_workflow,
         )
-        send_status("completed", f"Unfollowed {stats.unfollowed} users")
-
         return True
 
     except ImportError as e:
@@ -98,4 +61,36 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
         return False
 
 
-__all__ = ["run_unfollow_workflow"]
+class TikTokUnfollowBridge:
+    """One `tiktok_unfollow_bridge` process: the app's `{device_id, config}`, the IP rotation the
+    page asks for, then the run."""
+
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+
+    def run(self) -> int:
+        logger.info("🎵 TikTok Unfollow Bridge starting...")
+        try:
+            device_id = self.config.get("device_id")
+            config = self.config.get("config", {})
+            config["deviceId"] = device_id
+
+            logger.info(f"📋 Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
+
+            # The page offers "reset IP before the run".
+            if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Unfollow"):
+                return 1
+
+            if run_unfollow_workflow(config):
+                logger.success("✅ TikTok Unfollow workflow completed successfully")
+                return 0
+
+            logger.error("❌ TikTok Unfollow workflow failed")
+            return 1
+        except Exception as e:
+            send_error(f"Startup error: {e}")
+            logger.exception(f"Unexpected error: {e}")
+            return 1
+
+
+__all__ = ["TikTokUnfollowBridge", "run_unfollow_workflow"]

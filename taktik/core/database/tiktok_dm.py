@@ -5,8 +5,9 @@ Best-effort: persisting conversations must NEVER break the read or the send. Sou
 (`dm_threads` / `dm_messages` through `DmConversationService`, `sent_dms` through `SentDMService`).
 Security (AGENTS): never logs DM content, only usernames and counts.
 
-Written by the DM read and send (`tiktok/.../workflows/dm/agent_handler.py`) and by the welcome
-pass of the new-followers flow (`dm/welcome_pass.py`), from the desktop bridge and the CLI alike.
+Written by the DM read and send (`tiktok/.../workflows/dm/agent_handler.py`), by the welcome
+pass of the new-followers flow (`dm/welcome_pass.py`) and by the cold DM (its duplicate guard and
+its `sent_dms` markers), from the desktop bridge and the CLI alike.
 
 TikTok read nothing into those tables. The schema was written cross-platform from the start
 (`platform` column, an `unread_count` comment that names TikTok), and the service is fully
@@ -301,7 +302,40 @@ def record_welcome_dm(
     record_sent(account_id, recipient, message)
 
 
+# ---------------------------------------------------------------------------
+# The cold DM's duplicate guard and markers
+# ---------------------------------------------------------------------------
+# Through `SentDMService`, as the desktop run has always done, so its answers are the service's:
+# a database that cannot answer (no file, a failed query) reads as "never contacted". The welcome
+# DM refuses in that case (`sent_dm_already_recorded` above); the cold DM keeps what it did.
+
+
+def cold_dm_already_sent(account_id: int, recipient: str, platform: str = _PLATFORM) -> bool:
+    """Has this account already written to `recipient`? `sent_dms` is shared with the welcome DM."""
+    from taktik.core.database.messaging import SentDMService
+
+    return SentDMService.check_already_sent(account_id, recipient, platform=platform)
+
+
+def record_cold_dm(
+    account_id: int,
+    recipient: str,
+    message: str,
+    success: bool,
+    error_message: Optional[str] = None,
+    session_id: Optional[str] = None,
+    platform: str = _PLATFORM,
+) -> None:
+    """Mark a cold-DM attempt in `sent_dms`: a sent DM, or a privacy-blocked recipient, who is then
+    not tried again."""
+    from taktik.core.database.messaging import SentDMService
+
+    SentDMService.record(account_id, recipient, message, success, error_message, session_id, platform=platform)
+
+
 __all__ = [
+    "cold_dm_already_sent",
+    "record_cold_dm",
     "record_conversations",
     "record_sent",
     "record_sent_results",

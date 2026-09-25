@@ -85,4 +85,25 @@ def cli_tiktok_welcome_qualifier(ai_config: Mapping[str, Any], language: str):
     return build_tiktok_profile_qualifier(service, ai_config, log=_log, language=language)
 
 
-__all__ = ["OPENROUTER_KEY_ENV", "cli_tiktok_ai_hooks", "cli_tiktok_startup", "cli_tiktok_welcome_qualifier"]
+def cli_tiktok_outreach_message_generator(ai_prompt: str, api_key: str):
+    """The cold DM's AI message per recipient, with the key from the environment if the run
+    brings none. None without a key: the run falls back on its static messages."""
+    key = (api_key or "").strip() or os.environ.get(OPENROUTER_KEY_ENV, "").strip()
+    if not key:
+        logger.warning(f"AI requested but {OPENROUTER_KEY_ENV} is not set: this run goes on without AI")
+        return None
+
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (
+        outreach_message_generator,
+    )
+
+    return outreach_message_generator(ai_prompt, key)
+
+
+__all__ = [
+    "OPENROUTER_KEY_ENV",
+    "cli_tiktok_ai_hooks",
+    "cli_tiktok_outreach_message_generator",
+    "cli_tiktok_startup",
+    "cli_tiktok_welcome_qualifier",
+]

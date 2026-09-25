@@ -272,8 +272,11 @@ def test_tiktok_dm_outreach_handler_executes_workflow_with_injected_services():
         "max_dms": 3,
         "account_id": 7,
         "session_id": "session-1",
+        # Manual mode: no message written per recipient.
+        "message_provider": None,
     }
     assert events[-1].payload["success"] is True
+    assert ("status", {"status": "completed", "message": "Completed: 1 sent, 0 failed"}) in notifier.calls
 
 
 def test_tiktok_dm_outreach_handler_rejects_empty_recipients_before_workflow_creation():
@@ -304,3 +307,60 @@ def test_tiktok_dm_outreach_handler_rejects_empty_recipients_before_workflow_cre
         )
 
     assert FakeOutreachWorkflow.instances == []
+
+
+def _run_outreach(params, **injected):
+    FakeOutreachWorkflow.instances = []
+    registry = WorkflowRegistry()
+    register_tiktok_dm_outreach_handlers(
+        registry, device_id="device-1", workflow_factory=FakeOutreachWorkflow, **injected
+    )
+    return AgentPlanExecutor(registry).execute(
+        AgentPlan(
+            plan_id="plan-1",
+            steps=[
+                PlanStep(
+                    step_id="step-1",
+                    workflow=WorkflowInvocation(
+                        platform="tiktok", workflow_id=TIKTOK_DM_OUTREACH_WORKFLOW_ID, params=params
+                    ),
+                )
+            ],
+        )
+    )
+
+
+def test_tiktok_dm_outreach_handler_writes_each_message_in_ai_mode():
+    asked = []
+
+    def generator(prompt, key):
+        asked.append((prompt, key))
+        return lambda username: f"Salut {username}"
+
+    _run_outreach(
+        {"recipients": ["creator"], "messages": [], "messageMode": "ai", "aiPrompt": "Talk about running",
+         "openrouterApiKey": "key"},
+        tiktok_outreach_message_generator=generator,
+    )
+
+    workflow = FakeOutreachWorkflow.instances[0]
+    assert asked == [("Talk about running", "key")]
+    assert workflow.run_kwargs["messages"] == []
+    assert workflow.run_kwargs["message_provider"]("creator") == "Salut creator"
+
+
+def test_tiktok_dm_outreach_handler_refuses_a_manual_run_without_message_before_workflow_creation():
+    with pytest.raises(ValueError, match="requires at least one message"):
+        _run_outreach({"recipients": ["creator"], "messages": []})
+
+    assert FakeOutreachWorkflow.instances == []
+
+
+def test_tiktok_dm_outreach_handler_guards_against_duplicates_through_sent_dms_by_default():
+    from taktik.core.database.tiktok_dm import cold_dm_already_sent, record_cold_dm
+
+    _run_outreach({"recipients": ["creator"], "messages": ["hello"]})
+
+    workflow = FakeOutreachWorkflow.instances[0]
+    assert workflow.kwargs["duplicate_checker"] is cold_dm_already_sent
+    assert workflow.kwargs["sent_dm_recorder"] is record_cold_dm

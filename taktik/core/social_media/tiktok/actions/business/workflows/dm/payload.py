@@ -1,13 +1,15 @@
-"""One reading of a TikTok DM payload (read, send), for the bridge and the Agent handler alike.
+"""One reading of a TikTok DM payload (read, send, cold DM), for the bridge and the Agent handler
+alike.
 
 The wire form is the desktop page's camelCase (`TikTokDM.tsx`, `TikTokUnreplied.tsx` for the
-replies, and the scheduler's DM node); the snake_case names an Agent plan or a CLI call writes stay
-accepted. Every key is read by name, so the app's config contract test can see which ones the bot
-reads.
+replies, `TikTokColdDM.tsx` for the cold DM, and the scheduler's DM nodes); the snake_case names an
+Agent plan or a CLI call writes stay accepted. Every key is read by name, so the app's config
+contract test can see which ones the bot reads.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_payload import (
@@ -15,6 +17,8 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_
     as_float,
     as_int,
     first_given,
+    keyword_list,
+    text_list,
 )
 
 from .models import DMConfig
@@ -82,4 +86,69 @@ def dm_messages_from_payload(payload: Mapping[str, Any]) -> list[dict[str, Any]]
     return [{"conversation": conversation, "message": message}] if conversation or message else []
 
 
-__all__ = ["dm_messages_from_payload", "dm_read_config_from_payload", "dm_send_config_from_payload"]
+@dataclass(frozen=True)
+class DMOutreachRequest:
+    """One cold-DM run: who to write to, what, at which pace, and as which account."""
+
+    recipients: list
+    #: The static messages, kept as written; in AI mode, only the fallback.
+    messages: list
+    delay_min: Any
+    delay_max: Any
+    max_dms: int
+    account_id: int
+    session_id: str
+    #: "manual" (the static list) or "ai" (one message written per recipient).
+    message_mode: str
+    ai_prompt: str
+    openrouter_api_key: str
+
+    @property
+    def wants_ai(self) -> bool:
+        return self.message_mode == "ai"
+
+
+def _pause(value: Any, default: Any) -> Any:
+    """A pause in seconds, kept as sent (30 stays 30); a text is read as a number."""
+    if isinstance(value, bool) or value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return value
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def dm_outreach_request_from_payload(payload: Mapping[str, Any], *, default_session_id: str) -> DMOutreachRequest:
+    """The cold DM as the page and the scheduler send it, or as an Agent plan or a CLI call writes it.
+
+    Recipients as a list are kept as given; as text, split on commas. The messages are kept as
+    written: a message may hold a comma.
+    """
+    session_id = first_given(payload.get("sessionId"), payload.get("session_id"))
+    return DMOutreachRequest(
+        recipients=keyword_list(
+            first_given(payload.get("recipients"), payload.get("targetUsernames"), payload.get("target_usernames"))
+        ),
+        messages=text_list(first_given(payload.get("messages"), payload.get("messageTemplates"))),
+        delay_min=_pause(first_given(payload.get("delayMin"), payload.get("delay_min")), 30),
+        delay_max=_pause(first_given(payload.get("delayMax"), payload.get("delay_max")), 60),
+        max_dms=as_int(first_given(payload.get("maxDms"), payload.get("max_dms")), 50),
+        account_id=as_int(first_given(payload.get("accountId"), payload.get("account_id")), 1),
+        session_id=str(session_id) if session_id is not None else default_session_id,
+        message_mode=str(first_given(payload.get("messageMode"), payload.get("message_mode")) or "manual"),
+        ai_prompt=str(first_given(payload.get("aiPrompt"), payload.get("ai_prompt")) or ""),
+        openrouter_api_key=str(
+            first_given(payload.get("openrouterApiKey"), payload.get("openrouter_api_key")) or ""
+        ),
+    )
+
+
+__all__ = [
+    "DMOutreachRequest",
+    "dm_messages_from_payload",
+    "dm_outreach_request_from_payload",
+    "dm_read_config_from_payload",
+    "dm_send_config_from_payload",
+]

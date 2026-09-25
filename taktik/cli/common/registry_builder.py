@@ -108,6 +108,7 @@ def build_registry(
     """Register every available handler, returning the registry and any registrar failures."""
     from taktik.cli.common.tiktok_host import (
         cli_tiktok_ai_hooks,
+        cli_tiktok_outreach_message_generator,
         cli_tiktok_startup,
         cli_tiktok_welcome_qualifier,
     )
@@ -126,6 +127,7 @@ def build_registry(
         "tiktok_startup": cli_tiktok_startup(device, device_id) if device is not None else None,
         "tiktok_ai_hooks": cli_tiktok_ai_hooks,
         "tiktok_welcome_qualifier": cli_tiktok_welcome_qualifier,
+        "tiktok_outreach_message_generator": cli_tiktok_outreach_message_generator,
     }
 
     for label, module_path, func_name in REGISTRARS:

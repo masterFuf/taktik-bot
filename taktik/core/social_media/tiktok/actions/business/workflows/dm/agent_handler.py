@@ -11,7 +11,11 @@ handlers registered as `tiktok.automation.dm_read` and `.dm_send` (the CLI) call
 No injected callable receives the whole payload, so the app's config contract test can still see
 every key the bot reads.
 
-The cold-DM outreach handler lives here too; it is not on this path yet.
+`run_tiktok_dm_outreach` is the one launcher of a cold DM, for the desktop bridge and the handler
+registered as `tiktok.standalone.tiktok_dm_outreach` (the CLI): skip who was already written to,
+message the others, mark each attempt in `sent_dms` (`taktik/core/database/tiktok_dm.py`). Its
+AI message generator is injected: the bridge reports the cost on stdout, the CLI takes the key
+from the environment when the payload has none.
 """
 
 from __future__ import annotations
@@ -23,17 +27,12 @@ from loguru import logger
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
-    int_param,
-    list_param,
     merge_invocation_payload,
     notify,
-    value_param,
-)
-from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach import (
-    TikTokDMOutreachWorkflow,
 )
 from taktik.core.social_media.tiktok.actions.business.workflows.dm.payload import (
     dm_messages_from_payload,
+    dm_outreach_request_from_payload,
     dm_read_config_from_payload,
     dm_send_config_from_payload,
 )
@@ -47,6 +46,8 @@ DMWorkflowFactory = Callable[..., Any]
 DMOutreachWorkflowFactory = Callable[..., Any]
 StartupProvider = Callable[[], Any]
 WorkflowHook = Callable[[Any], None]
+#: (ai_prompt, api_key) -> one message per recipient, or None when no message can be written.
+OutreachMessageGenerator = Callable[[str, str], Optional[Callable[[str], str]]]
 
 
 def _default_workflow_factory() -> DMWorkflowFactory:
@@ -54,6 +55,12 @@ def _default_workflow_factory() -> DMWorkflowFactory:
     from taktik.core.social_media.tiktok.actions.business.workflows.dm import workflow
 
     return workflow.DMWorkflow
+
+
+def _default_outreach_factory() -> DMOutreachWorkflowFactory:
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm import outreach
+
+    return outreach.TikTokDMOutreachWorkflow
 
 
 def _emit(notifier: Any, method: str, *args: Any, **kwargs: Any) -> None:
@@ -202,28 +209,97 @@ def register_tiktok_dm_handlers(
     return registry
 
 
+def run_tiktok_dm_outreach(
+    payload: Mapping[str, Any],
+    *,
+    device_id: str,
+    notifier=None,
+    duplicate_checker=None,
+    sent_dm_recorder=None,
+    message_generator: Optional[OutreachMessageGenerator] = None,
+    workflow_factory: Optional[DMOutreachWorkflowFactory] = None,
+    workflow_hook: Optional[WorkflowHook] = None,
+) -> dict[str, Any]:
+    """Skip who this account already wrote to, message the others, mark each attempt.
+
+    Refused before the phone is touched without a recipient, or without a message in manual mode.
+    The duplicate guard and the markers default to `sent_dms`. In AI mode each message is written
+    by `message_generator(prompt, key)`; without one (no key), the static list is the fallback,
+    and with no list either the workflow refuses the run once connected, as the app has always
+    seen it do.
+    """
+    from taktik.core.database.tiktok_dm import cold_dm_already_sent, record_cold_dm
+    from taktik.core.social_media.tiktok.workflows.runtime.notifier import LoggingWorkflowNotifier
+
+    request = dm_outreach_request_from_payload(payload, default_session_id=device_id)
+    if not request.recipients:
+        raise ValueError("TikTok DM outreach requires at least one recipient")
+    if not request.messages and not request.wants_ai:
+        raise ValueError("TikTok DM outreach requires at least one message")
+
+    notifier = notifier if notifier is not None else LoggingWorkflowNotifier()
+    workflow = (workflow_factory or _default_outreach_factory())(
+        device_id,
+        notifier=notifier,
+        duplicate_checker=duplicate_checker or cold_dm_already_sent,
+        sent_dm_recorder=sent_dm_recorder or record_cold_dm,
+    )
+    if workflow_hook is not None:
+        workflow_hook(workflow)
+    if not workflow.connect():
+        raise RuntimeError("Failed to connect to device")
+
+    message_provider = None
+    if request.wants_ai:
+        if message_generator is not None and request.ai_prompt:
+            message_provider = message_generator(request.ai_prompt, request.openrouter_api_key)
+        if message_provider is None:
+            logger.warning("AI mode requested but no message can be generated: the static messages are the fallback")
+    logger.info(
+        f"Config: {len(request.recipients)} recipients, {len(request.messages)} messages, "
+        f"max {request.max_dms} DMs, AI mode: {message_provider is not None}"
+    )
+
+    result = workflow.run(
+        recipients=request.recipients,
+        messages=request.messages,
+        delay_min=request.delay_min,
+        delay_max=request.delay_max,
+        max_dms=request.max_dms,
+        account_id=request.account_id,
+        session_id=request.session_id,
+        message_provider=message_provider,
+    )
+    notify(
+        notifier,
+        "status",
+        status="completed",
+        message=f"Completed: {result.get('dms_success', 0)} sent, {result.get('dms_failed', 0)} failed",
+    )
+    return result
+
+
 def build_tiktok_dm_outreach_handler(
     *,
     device_id: str,
     notifier=None,
     duplicate_checker=None,
     sent_dm_recorder=None,
-    workflow_factory: DMOutreachWorkflowFactory = TikTokDMOutreachWorkflow,
+    tiktok_outreach_message_generator: Optional[OutreachMessageGenerator] = None,
+    workflow_factory: Optional[DMOutreachWorkflowFactory] = None,
 ) -> WorkflowHandler:
     """Build an injectable cold-DM outreach handler for the Agent runtime."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        merged = merge_invocation_payload(invocation, payload)
-        params = _outreach_params(merged, default_session_id=device_id)
-        workflow = workflow_factory(
-            device_id,
+        return run_tiktok_dm_outreach(
+            merge_invocation_payload(invocation, payload),
+            device_id=device_id,
             notifier=notifier,
             duplicate_checker=duplicate_checker,
             sent_dm_recorder=sent_dm_recorder,
+            message_generator=tiktok_outreach_message_generator,
+            workflow_factory=workflow_factory,
         )
-        if hasattr(workflow, "connect") and not workflow.connect():
-            raise RuntimeError("TikTok DM outreach failed to connect to device")
-        return workflow.run(**params)
 
     return handler
 
@@ -235,7 +311,8 @@ def register_tiktok_dm_outreach_handlers(
     notifier=None,
     duplicate_checker=None,
     sent_dm_recorder=None,
-    workflow_factory: DMOutreachWorkflowFactory = TikTokDMOutreachWorkflow,
+    tiktok_outreach_message_generator: Optional[OutreachMessageGenerator] = None,
+    workflow_factory: Optional[DMOutreachWorkflowFactory] = None,
 ) -> WorkflowRegistry:
     """Register TikTok cold-DM outreach handler into an injected Agent registry."""
     registry.register(
@@ -245,38 +322,11 @@ def register_tiktok_dm_outreach_handlers(
             notifier=notifier,
             duplicate_checker=duplicate_checker,
             sent_dm_recorder=sent_dm_recorder,
+            tiktok_outreach_message_generator=tiktok_outreach_message_generator,
             workflow_factory=workflow_factory,
         ),
     )
     return registry
-
-
-def _outreach_params(payload: Mapping[str, Any], *, default_session_id: str) -> dict[str, Any]:
-    recipients = list_param(payload, "recipients", "targetUsernames", "target_usernames")
-    messages = _outreach_messages(payload)
-    if not recipients:
-        raise ValueError("TikTok DM outreach requires at least one recipient")
-    if not messages:
-        raise ValueError("TikTok DM outreach requires at least one message")
-
-    return {
-        "recipients": recipients,
-        "messages": messages,
-        "delay_min": int_param(payload, "delay_min", "delayMin", default=30),
-        "delay_max": int_param(payload, "delay_max", "delayMax", default=60),
-        "max_dms": int_param(payload, "max_dms", "maxDms", default=50),
-        "account_id": int_param(payload, "account_id", "accountId", default=1),
-        "session_id": str(value_param(payload, "session_id", "sessionId", default=default_session_id)),
-    }
-
-
-def _outreach_messages(payload: Mapping[str, Any]) -> list[str]:
-    raw_messages = value_param(payload, "messages", "messageTemplates", default=[])
-    if isinstance(raw_messages, str):
-        return [raw_messages.strip()] if raw_messages.strip() else []
-    if isinstance(raw_messages, (list, tuple, set)):
-        return [str(message).strip() for message in raw_messages if str(message).strip()]
-    return []
 
 
 def _attach_callbacks(workflow: Any, notifier: Any) -> None:
@@ -324,6 +374,7 @@ __all__ = [
     "build_tiktok_dm_outreach_handler",
     "register_tiktok_dm_handlers",
     "register_tiktok_dm_outreach_handlers",
+    "run_tiktok_dm_outreach",
     "run_tiktok_dm_read",
     "run_tiktok_dm_send",
 ]

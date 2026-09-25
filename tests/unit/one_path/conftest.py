@@ -73,6 +73,18 @@ class Rig:
         #: Welcome DMs that fail (privacy-blocked), and the outreach workflows built.
         self.welcome_send_failures: set[str] = set()
         self.outreaches: list = []
+        #: The cold-DM phone: whether the workflow's own connection succeeds, the profiles that do
+        #: not open, that show no Message button, that are privacy-blocked, the sends that fail,
+        #: and whether the AI text call fails. `on_profile` is the profile the run stands on.
+        self.outreach_connects = True
+        self.unreachable_profiles: set[str] = set()
+        self.no_message_button: set[str] = set()
+        self.privacy_blocked: set[str] = set()
+        self.cold_send_failures: set[str] = set()
+        self.ai_text_fails = False
+        self.on_profile = None
+        #: The unfollow run raises (a screen it cannot reach).
+        self.unfollow_fails = False
         self._install()
 
     # ------------------------------------------------------------------ fakes
@@ -345,11 +357,21 @@ class Rig:
                 classification["engagement"] = dict(rig.verdicts[username])
             return {"classification": classification}
 
+        def text_completion(system_prompt, user_prompt, *, temperature=None, max_tokens=None, model=None,
+                            label=None, kind=None, **_kwargs):
+            rig.calls.append(f"ai_text {label}")
+            if rig.ai_text_fails:
+                return {"success": False, "error": "upstream down"}
+            handle = (label or "").rsplit("@", 1)[-1]
+            return {"success": True, "text": f'"Salut {handle}, on court ensemble ?"'}
+
         def fake_build_ai_service(*, api_key, ipc=None, **kwargs):
             rig.ai_services.append({"api_key": api_key, "has_ipc": ipc is not None})
-            return SimpleNamespace(name="fake-ai", classify_profile_niche=classify_profile_niche)
+            return SimpleNamespace(name="fake-ai", classify_profile_niche=classify_profile_niche,
+                                   text_completion=text_completion)
 
         mp.setattr(factory, "build_ai_service", fake_build_ai_service)
+        self._fake_build_ai_service = fake_build_ai_service
 
         from taktik.core.social_media.tiktok.workflows.core import ai_hooks
 
@@ -376,6 +398,7 @@ class Rig:
         self._install_sync_fakes()
         self._install_inbox_fakes()
         self._install_dm_fakes()
+        self._install_unfollow_fakes()
 
     def _install_sync_fakes(self) -> None:
         rig = self
@@ -720,7 +743,203 @@ class Rig:
                                                                       "failed": failed})
                 return {"success": True, "dms_sent": success, "dms_success": success, "dms_failed": failed}
 
+        # The cold DM runs the real workflow (`use_real_outreach`); the welcome pass runs this one.
+        self._real_outreach = outreach_module.TikTokDMOutreachWorkflow
         mp.setattr(outreach_module, "TikTokDMOutreachWorkflow", FakeOutreach)
+
+    def _install_unfollow_fakes(self) -> None:
+        rig = self
+        mp = self.monkeypatch
+
+        from taktik.core.social_media.tiktok.actions.business.workflows import unfollow as unfollow_package
+        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow import (
+            agent_handler as unfollow_handler,
+            workflow as unfollow_workflow,
+        )
+        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.models import (
+            UnfollowStats,
+        )
+
+        class FakeUnfollowWorkflow:
+            """Records its config and the account it runs as, then reports one kept row, one
+            confirmed unfollow and one tap the row did not confirm, as the real one does. A
+            confirmed unfollow is written only under a known acting account, as in the real one."""
+
+            def __init__(self, device, config):
+                rig.calls.append("unfollow_workflow_built")
+                self.device = device
+                self.config = config
+                self.callbacks = {}
+                rig.workflows.append(self)
+
+            def _fire(self, name, *args):
+                callback = self.callbacks.get(name)
+                if callback is not None:
+                    callback(*args)
+
+            def set_on_unfollow_callback(self, cb):
+                self.callbacks["unfollow"] = cb
+
+            def set_on_skip_callback(self, cb):
+                self.callbacks["skip"] = cb
+
+            def set_on_unconfirmed_callback(self, cb):
+                self.callbacks["unconfirmed"] = cb
+
+            def set_on_stats_callback(self, cb):
+                self.callbacks["stats"] = cb
+
+            def stop(self):
+                rig.calls.append("unfollow_stop")
+
+            def run(self):
+                rig.calls.append(f"unfollow_run as {self.config.bot_username}")
+                if rig.unfollow_fails:
+                    raise RuntimeError("Failed to navigate to profile")
+                stats = UnfollowStats()
+                stats.skipped_friends = 1
+                stats.refusals["friends"] = 1
+                self._fire("skip", "fan_two", "friends")
+                self._fire("stats", stats.to_dict())
+                stats.unfollowed = 1
+                stats.recorded = 1 if self.config.bot_username else 0
+                self._fire("unfollow", "fan_one", 1)
+                self._fire("stats", stats.to_dict())
+                stats.unconfirmed = 1
+                self._fire("unconfirmed", "fan_three", "following")
+                self._fire("stats", stats.to_dict())
+                return stats
+
+        for module in (unfollow_workflow, unfollow_package):
+            mp.setattr(module, "UnfollowWorkflow", FakeUnfollowWorkflow)
+        # A registrar may bind its default factory when it is defined.
+        for fn in (unfollow_handler.register_tiktok_unfollow_handlers,
+                   unfollow_handler.build_tiktok_unfollow_handler):
+            if "workflow_factory" in (fn.__kwdefaults__ or {}):
+                mp.setitem(fn.__kwdefaults__, "workflow_factory", FakeUnfollowWorkflow)
+
+    def use_real_outreach(self) -> None:
+        """The production cold-DM workflow, on a phone that answers from `rig`: its own TikTok
+        manager, profile navigation, Message button, privacy probes and composer are the fakes."""
+        rig = self
+        mp = self.monkeypatch
+
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm import outreach as outreach_module
+
+        real = self._real_outreach
+        mp.setattr(outreach_module, "TikTokDMOutreachWorkflow", real)
+        # Bound by name at import in the old cold-DM bridge and its AI module.
+        try:
+            from bridges.tiktok.engagement.runtime import dm_outreach as old_bridge_runtime
+        except ImportError:
+            old_bridge_runtime = None
+        if old_bridge_runtime is not None and hasattr(old_bridge_runtime, "TikTokDMOutreachWorkflow"):
+            mp.setattr(old_bridge_runtime, "TikTokDMOutreachWorkflow", real)
+        try:
+            from bridges.tiktok.engagement.runtime import dm_outreach_ai as old_bridge_ai
+        except ImportError:
+            old_bridge_ai = None
+        if old_bridge_ai is not None and hasattr(old_bridge_ai, "build_ai_service"):
+            mp.setattr(old_bridge_ai, "build_ai_service", self._fake_build_ai_service)
+
+        class FakeOutreachManager:
+            def __init__(self, device_id=None):
+                rig.calls.append(f"outreach_manager {device_id}")
+                self.device_manager = SimpleNamespace(connect=self._connect, device=None)
+
+            def _connect(self):
+                rig.calls.append("outreach_connect")
+                if rig.outreach_connects:
+                    self.device_manager.device = rig.device
+                return rig.outreach_connects
+
+            def stop(self):
+                rig.calls.append("stop tiktok")
+
+            def launch(self):
+                rig.calls.append("launch tiktok")
+
+        class FakeOutreachNavigation:
+            def __init__(self, device):
+                pass
+
+            def navigate_to_user_profile(self, username):
+                rig.calls.append(f"open_profile {username}")
+                rig.on_profile = username
+                return username not in rig.unreachable_profiles
+
+            def navigate_to_home(self):
+                rig.calls.append("navigate_home")
+                rig.on_profile = None
+
+        class FakeOutreachBase:
+            def __init__(self, device):
+                pass
+
+            def _find_and_click(self, selectors, timeout=5):
+                rig.calls.append("tap message_button")
+                return rig.on_profile not in rig.no_message_button
+
+            def _element_exists(self, selectors, timeout=2):
+                rig.calls.append("privacy_blocked?")
+                return rig.on_profile in rig.privacy_blocked
+
+        class FakeOutreachDM:
+            def __init__(self, device):
+                pass
+
+            def is_in_conversation(self):
+                rig.calls.append("in_conversation?")
+                return True
+
+            def send_text_message(self, message):
+                rig.calls.append(f"send_text {rig.on_profile} {message!r}")
+                return rig.on_profile not in rig.cold_send_failures
+
+        class FakeRng:
+            def uniform(self, low, high):
+                rig.calls.append(f"pick_delay {low}-{high}")
+                return low
+
+            def choice(self, items):
+                return items[0]
+
+        def fake_sleep(seconds):
+            rig.calls.append(f"sleep {seconds}")
+
+        defaults = real.__init__.__kwdefaults__
+        for name, fake in (("manager_factory", FakeOutreachManager),
+                           ("navigation_factory", FakeOutreachNavigation),
+                           ("dm_actions_factory", FakeOutreachDM),
+                           ("base_action_factory", FakeOutreachBase),
+                           ("rng", FakeRng()),
+                           ("sleeper", fake_sleep)):
+            mp.setitem(defaults, name, fake)
+
+    def use_real_sent_dms(self):
+        """A real, empty database for the duplicate guard and the sent-DM markers. Returns its path."""
+        import sqlite3
+
+        database_file = self.tmp_path / "cold_dm.db"
+        sqlite3.connect(database_file).close()
+        self.monkeypatch.setenv("TAKTIK_DB_PATH", str(database_file))
+        return database_file
+
+    def sent_dm_rows(self, database_file) -> list[dict]:
+        import sqlite3
+
+        connection = sqlite3.connect(database_file)
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute(
+                "SELECT account_id, recipient_username, success, error_message, session_id, platform, "
+                "message_hash IS NOT NULL AS has_message FROM sent_dms ORDER BY id"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        finally:
+            connection.close()
+        return [dict(row) for row in rows]
 
     def install_dm_database(self) -> None:
         """The DM tables, at the seams every DM writer and the welcome guard go through."""
@@ -869,6 +1088,34 @@ class Rig:
             env=env,
         )
 
+    def run_stdin_bridge(self, module_path: str, stdin_text: str) -> int:
+        """A stdin bridge process (cold DM, unfollow), from its stdin line to its exit code."""
+        import importlib
+        import io
+
+        self.monkeypatch.setattr(sys, "stdin", io.StringIO(stdin_text))
+        self.monkeypatch.setattr(sys, "argv", [module_path.rsplit(".", 1)[-1]])
+        module = importlib.import_module(module_path)
+        try:
+            module.main()
+        except SystemExit as exit_info:
+            code = exit_info.code
+            if code is None:
+                return 0
+            return code if isinstance(code, int) else 1
+        # An entrypoint that returns without exiting ends its process with 0.
+        return 0
+
+    def run_outreach_bridge(self, payload) -> int:
+        """The desktop's cold DM: `dm_outreach_bridge`, one JSON line on stdin (raw text as is)."""
+        text = payload if isinstance(payload, str) else json.dumps(payload) + "\n"
+        return self.run_stdin_bridge("bridges.tiktok.engagement.dm_outreach", text)
+
+    def run_unfollow_bridge(self, payload) -> int:
+        """The desktop's unfollow: `tiktok_unfollow_bridge`, one JSON line on stdin (raw text as is)."""
+        text = payload if isinstance(payload, str) else json.dumps(payload) + "\n"
+        return self.run_stdin_bridge("bridges.tiktok.automation.unfollow", text)
+
     def show_notifications(self) -> None:
         """Three new followers (a handle, a name that resolves, one that does not) and two
         Activity rows."""
@@ -951,6 +1198,51 @@ def inbox_payload():
 def welcome_ai():
     """A fresh copy of `WELCOME_AI` per call."""
     return lambda: json.loads(json.dumps(WELCOME_AI))
+
+
+@pytest.fixture
+def outreach_payload():
+    return _outreach_payload
+
+
+@pytest.fixture
+def unfollow_payload():
+    return _unfollow_payload
+
+
+#: A fictional OpenRouter key.
+OUTREACH_AI_KEY = "test-outreach-openrouter-key"
+
+
+def _outreach_payload(mode: str = "manual", **overrides) -> dict:
+    """What TikTokColdDM.tsx sends through `buildDmOutreachPayload`, key for key: three recipients
+    typed by hand, the page's delays, the selected account, the session id the main process
+    builds. In AI mode the static list is not sent, the prompt and the key are."""
+    payload = {
+        "device_id": DEVICE_ID,
+        "recipients": ["fan_one", "fan_two", "fan_three"],
+        "messages": ["Salut, ton contenu est top !", "Hello, on échange ?"],
+        "delayMin": 30, "delayMax": 60, "maxDms": 50, "accountId": 3,
+        "sessionId": "dm_outreach_emulator-5554_1", "messageMode": "manual", "aiPrompt": "",
+    }
+    if mode == "ai":
+        payload.update({"messages": [], "messageMode": "ai", "aiPrompt": "Parle de course à pied",
+                        "openrouterApiKey": OUTREACH_AI_KEY})
+    payload.update(overrides)
+    return payload
+
+
+def _unfollow_payload(source: str = "page", **overrides) -> dict:
+    """What TikTokUnfollow.tsx (or the scheduler node) sends through `buildUnfollowPayload`: the
+    serial beside a snake_case `config`. `overrides` go into `config`."""
+    if source == "scheduler_node":
+        config = {"max_unfollows": 30, "delay_min": 3, "delay_max": 8, "sort_order": "latest",
+                  "filter_type": "following_only", "skip_friends": False, "min_follow_age": 3}
+    else:
+        config = {"max_unfollows": 12, "delay_min": 7, "delay_max": 15, "sort_order": "default",
+                  "filter_type": "following_only", "skip_friends": True, "min_follow_age": 0}
+    config.update(overrides)
+    return {"device_id": DEVICE_ID, "config": config}
 
 
 def _dm_read_payload(**overrides) -> dict:

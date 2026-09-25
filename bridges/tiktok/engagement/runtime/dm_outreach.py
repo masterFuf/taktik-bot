@@ -1,15 +1,18 @@
-"""TikTok DM outreach bridge runtime support."""
+"""TikTok cold-DM bridge runtime.
+
+The run is `run_tiktok_dm_outreach` (core), the launcher the Agent handler
+`tiktok.standalone.tiktok_dm_outreach` (and so the CLI) calls too: skip who the account already
+wrote to, message the others, mark each attempt in `sent_dms`. This bridge rotates the IP when the
+page asks for it and injects what is specific to the desktop: the stdout events, the AI cost on
+stdout, the stop signal.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from bridges.common.persistence.database import SentDMService
-from bridges.tiktok.engagement.runtime.dm_outreach_ai import generate_ai_message
-from bridges.tiktok.runtime.ipc import logger, send_error, send_message, send_status, set_workflow
-from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach import (
-    TikTokDMOutreachWorkflow,
-)
+from bridges.common.device.network import enforce_pre_session_ip_rotation
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error, send_message, send_status, set_workflow
 
 
 class BridgeNotifier:
@@ -36,36 +39,22 @@ class BridgeNotifier:
             send_message("stats", stats=payload.get("stats", {}))
 
 
-def check_dm_already_sent(account_id: int, recipient_username: str, platform: str = "tiktok") -> bool:
-    """Check if a DM was already sent to this recipient."""
-    return SentDMService.check_already_sent(account_id, recipient_username, platform=platform)
-
-
-def record_sent_dm(
-    account_id: int,
-    recipient_username: str,
-    message: str,
-    success: bool,
-    error_message: Optional[str] = None,
-    session_id: Optional[str] = None,
-    platform: str = "tiktok",
-) -> None:
-    """Record a sent DM in the database."""
-    SentDMService.record(
-        account_id,
-        recipient_username,
-        message,
-        success,
-        error_message,
-        session_id,
-        platform=platform,
+def _message_generator(ai_prompt: str, api_key: str):
+    """The core's AI message per recipient, its cost reported on stdout (`ai_spend`)."""
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (
+        outreach_message_generator,
     )
 
+    return outreach_message_generator(ai_prompt, api_key, ipc=_ipc)
 
-def run_dm_outreach_workflow(config: Dict[str, Any]):
-    """Run the TikTok DM outreach workflow."""
+
+def run_dm_outreach_workflow(config: Dict[str, Any]) -> bool:
+    """Run the TikTok DM outreach workflow. Raises what the launcher refuses."""
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler import (
+        run_tiktok_dm_outreach,
+    )
+
     device_id = config.get("device_id") or config.get("deviceId")
-
     if not device_id:
         send_error("No device ID provided")
         return False
@@ -73,59 +62,36 @@ def run_dm_outreach_workflow(config: Dict[str, Any]):
     logger.info(f"Starting TikTok DM Outreach on device: {device_id}")
     send_status("starting", "Initializing DM Outreach workflow")
 
-    workflow = TikTokDMOutreachWorkflow(
-        device_id,
+    result = run_tiktok_dm_outreach(
+        config,
+        device_id=device_id,
         notifier=BridgeNotifier(),
-        duplicate_checker=check_dm_already_sent,
-        sent_dm_recorder=record_sent_dm,
+        message_generator=_message_generator,
+        workflow_hook=set_workflow,
     )
-    set_workflow(workflow)
-
-    if not workflow.connect():
-        send_error("Failed to connect to device")
-        return False
-
-    recipients = config.get("recipients", [])
-    messages = config.get("messages", [])
-    delay_min = config.get("delayMin", config.get("delay_min", 30))
-    delay_max = config.get("delayMax", config.get("delay_max", 60))
-    max_dms = config.get("maxDms", config.get("max_dms", 50))
-    account_id = config.get("accountId", config.get("account_id", 1))
-    session_id = config.get("sessionId", config.get("session_id", device_id))
-
-    # Generated mode: one message per recipient through the text provider, never the
-    # media one. Injected as a callback; falls back on the static list on failure.
-    message_mode = config.get("messageMode", config.get("message_mode", "manual"))
-    ai_prompt = config.get("aiPrompt", config.get("ai_prompt", ""))
-    openrouter_api_key = config.get("openrouterApiKey", config.get("openrouter_api_key", ""))
-    use_ai = message_mode == "ai" and bool(ai_prompt and openrouter_api_key)
-    if message_mode == "ai" and not openrouter_api_key:
-        logger.warning("AI mode requested but no OpenRouter API key provided, falling back to manual messages")
-    message_provider = (
-        (lambda recipient: generate_ai_message(recipient, ai_prompt, openrouter_api_key))
-        if use_ai
-        else None
-    )
-
-    logger.info(
-        f"Config: {len(recipients)} recipients, {len(messages)} messages, max {max_dms} DMs, AI mode: {use_ai}"
-    )
-
-    result = workflow.run(
-        recipients, messages, delay_min, delay_max, max_dms, account_id, session_id,
-        message_provider=message_provider,
-    )
-    send_status(
-        "completed",
-        f"Completed: {result.get('dms_success', 0)} sent, {result.get('dms_failed', 0)} failed",
-    )
-
-    return result.get("success", False)
+    return bool(result.get("success", False))
 
 
-__all__ = [
-    "BridgeNotifier",
-    "check_dm_already_sent",
-    "record_sent_dm",
-    "run_dm_outreach_workflow",
-]
+class TikTokDMOutreachBridge:
+    """One `dm_outreach_bridge` process: the IP rotation the page asks for, then the run."""
+
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+
+    def run(self) -> int:
+        logger.info("TikTok DM Outreach Bridge started")
+        try:
+            # The page offers "reset IP before the run".
+            device_id = self.config.get("device_id") or self.config.get("deviceId") or ""
+            if device_id and not enforce_pre_session_ip_rotation(
+                self.config, device_id, ipc=_ipc, label="DM outreach"
+            ):
+                return 1
+            return 0 if run_dm_outreach_workflow(self.config) else 1
+        except Exception as exc:
+            logger.error(f"DM Outreach error: {exc}", exc_info=True)
+            send_error(str(exc))
+            return 1
+
+
+__all__ = ["BridgeNotifier", "TikTokDMOutreachBridge", "run_dm_outreach_workflow"]

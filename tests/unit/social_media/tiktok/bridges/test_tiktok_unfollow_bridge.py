@@ -43,11 +43,13 @@ class _FakeWorkflow:
 
 @pytest.fixture
 def run_bridge(monkeypatch):
+    from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+
     _FakeWorkflow.built = []
-    manager = SimpleNamespace(device_manager=SimpleNamespace(device=object()))
-    monkeypatch.setattr(bridge, "tiktok_startup", lambda device_id, fetch_profile=True: (manager, None))
+    started = TikTokStartup(device=object(), bot_username=None)
+    monkeypatch.setattr(bridge, "tiktok_startup_provider", lambda device_id: lambda: started)
     monkeypatch.setattr(workflow_module, "UnfollowWorkflow", _FakeWorkflow)
-    monkeypatch.setattr(bridge, "send_message", lambda *a, **k: None)
+    monkeypatch.setattr(bridge, "_ipc", SimpleNamespace(send=lambda *a, **k: None, status=lambda *a, **k: None))
     monkeypatch.setattr(bridge, "send_status", lambda *a, **k: None)
 
     def _run(config):

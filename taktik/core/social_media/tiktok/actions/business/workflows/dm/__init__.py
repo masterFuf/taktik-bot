@@ -9,6 +9,7 @@ from .agent_handler import (
     build_tiktok_dm_handler,
     register_tiktok_dm_outreach_handlers,
     register_tiktok_dm_handlers,
+    run_tiktok_dm_outreach,
     run_tiktok_dm_read,
     run_tiktok_dm_send,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "register_tiktok_inbox_handlers",
     "register_tiktok_dm_handlers",
     "register_tiktok_dm_outreach_handlers",
+    "run_tiktok_dm_outreach",
     "run_tiktok_dm_read",
     "run_tiktok_dm_send",
     "run_tiktok_inbox",
