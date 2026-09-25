@@ -118,6 +118,9 @@ class DirectMessageSelectors:
         '//*[contains(@content-desc, "non lu")]',
         '//*[contains(@content-desc, "unread")]'
     ])
+    # The same words, read in a thread row's own content-desc (lowercased) by the inbox scan
+    # (`dm_navigation`). Were inline there.
+    unread_thread_desc_fragments: List[str] = field(default_factory=lambda: ["non lu", "unread"])
 
     # Prefixes IG puts before an inbox row preview when the LAST message is OURS
     # (content-desc: "username, Sent 49m ago" / "username, Envoye il y a 49 min").

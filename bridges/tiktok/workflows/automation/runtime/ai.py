@@ -19,7 +19,13 @@ def create_tiktok_ai_service(
     ipc: Any = None,
     log: LogCallback = lambda level, msg: None,
 ) -> tuple[bool, Any | None]:
-    """Create the optional OpenRouter AI service used by TikTok automation."""
+    """Create the optional OpenRouter AI service used by TikTok automation.
+
+    Without an IPC the provider reports no `ai_spend`: every TikTok qualification and comment
+    was paid and never reached the cost ledger, both callers passing `ipc=None`. The bridge's
+    own IPC is the default, as in the TikTok DM outreach."""
+    if ipc is None:
+        from bridges.tiktok.runtime.ipc import _ipc as ipc
     return create_ai_service(
         ai_config=ai_config,
         ipc=ipc,

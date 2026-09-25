@@ -24,6 +24,7 @@ from taktik.core.social_media.instagram.actions.business.workflows.feed.post_act
     FeedPostActionsMixin,
 )
 from taktik.core.social_media.instagram.actions.business.workflows.feed.workflow import FeedBusiness
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FeedSelectors
 
 
 def _log():
@@ -62,6 +63,7 @@ class _El:
 class _FeedSel:
     like_button = ["like_sel"]
     already_liked_indicators = ["already_sel"]
+    liked_button_desc_fragments = FeedSelectors().liked_button_desc_fragments
 
 
 class _Device:

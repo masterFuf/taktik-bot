@@ -36,6 +36,11 @@ class VideoCreatorSelectors:
     def creator_profile_image(self) -> List[str]:
         return self._creator_profile_image_base + L("video_creator.creator_profile_image")
 
+    # The author avatar's content-desc wraps the handle (trill: "username profile"), read by
+    # `VideoDetector` when the author text node is missing. Were inline in the detector.
+    creator_avatar_desc_suffixes: List[str] = field(default_factory=lambda: [" profile"])
+    creator_avatar_desc_prefixes: List[str] = field(default_factory=lambda: ["Profile ", "Profil "])
+
     _follow_button_base: List[str] = field(default_factory=lambda: [
         *resource_ids("hi1"),
     ])

@@ -191,7 +191,7 @@ def _open_search_screen(device, log_fn) -> bool:
             screen = device.info
             screen_w = screen.get("displayWidth", 1080)
 
-            for el in device.xpath("//android.widget.Button").all():
+            for el in device.xpath(tui.BUTTON_XPATH).all():
                 try:
                     attrs = el.attrib
                     if attrs.get("clickable") != "true":
@@ -236,7 +236,7 @@ def _open_search_screen(device, log_fn) -> bool:
     # Diagnostic dump so the next capture tells us how to locate the loupe.
     try:
         visible = []
-        for elem in device.xpath("//*[@resource-id]").all()[:40]:
+        for elem in device.xpath(tui.ANY_RESOURCE_ID_XPATH).all()[:40]:
             rid = elem.attrib.get("resource-id") or ""
             desc = elem.attrib.get("content-desc") or ""
             if rid or desc:
@@ -432,7 +432,7 @@ def _open_search_and_submit(device, query: str, log_fn) -> bool:
     text_field = device(resourceId=tui.SEARCH_TEXT_FIELD)
     if not text_field.wait(timeout=5.0):
         # Fallback: generic EditText
-        text_field = device(className="android.widget.EditText")
+        text_field = device(className=tui.EDIT_TEXT_CLASS)
         if not text_field.wait(timeout=4.0):
             log_fn("error", "Search input did not appear on the search screen")
             return False
@@ -763,7 +763,7 @@ def _do_likes_on_posts(device, username, *, probability: int, max_likes: int,
                 btn = like_buttons[idx]
                 # Skip already-liked (content-desc often contains "Unlike" / "Ne plus aimer")
                 desc = (btn.info.get("contentDescription") or "").lower()
-                if "unlike" in desc or "ne plus aimer" in desc:
+                if any(fragment in desc for fragment in tui.LIKED_BUTTON_DESC_FRAGMENTS):
                     continue
                 btn.click()
                 liked += 1

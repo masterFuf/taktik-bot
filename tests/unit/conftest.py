@@ -23,6 +23,41 @@ def _no_keyboard_given_back_at_exit(monkeypatch):
     monkeypatch.setattr(taktik_keyboard, "_atexit_registered", True)
 
 
+# Class attributes `install_instagram_ai_hooks` rewrites for the whole process. A test that
+# installed the hooks left them installed: the interaction-engine tests collected after it ran
+# the AI wrapper instead of the engine and made no gesture (13 failures in reverse order, found
+# 2026-09-24; the polluter was test_instagram_ai_hooks.py).
+_AI_HOOKED_ATTRIBUTES = (
+    ("taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow",
+     "PostUrlBusiness", "in_thread_reply_writer"),
+    ("taktik.core.social_media.instagram.actions.business.actions.comment.action",
+     "CommentAction", "comment_on_post"),
+    ("taktik.core.social_media.instagram.actions.core.base_business.interaction_engine",
+     "InteractionEngineMixin", "_perform_interactions_on_profile"),
+    ("taktik.core.social_media.instagram.actions.business.actions.like.orchestration",
+     "LikeOrchestration", "like_current_post"),
+)
+
+
+@pytest.fixture(autouse=True)
+def _ai_hooks_never_outlive_their_test():
+    """Put back, after each test, the methods the Instagram AI hooks replace."""
+    import importlib
+
+    missing = object()
+    saved = []
+    for module_name, class_name, attribute in _AI_HOOKED_ATTRIBUTES:
+        owner = getattr(importlib.import_module(module_name), class_name)
+        saved.append((owner, attribute, owner.__dict__.get(attribute, missing)))
+    yield
+    for owner, attribute, value in saved:
+        if value is missing:
+            if attribute in owner.__dict__:
+                delattr(owner, attribute)
+        else:
+            setattr(owner, attribute, value)
+
+
 @pytest.fixture
 def tmp_db_path(tmp_path: pathlib.Path) -> str:
     """Return a path to a fresh temporary SQLite file (deleted after test)."""

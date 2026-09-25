@@ -38,6 +38,13 @@ class PostSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_imageview"]'
     ])
     
+    # The author avatar's content-desc names the handle after these words; read by the post_url
+    # author extraction (`url_handling`), French first. Were inline regexes there.
+    profile_picture_desc_prefixes: List[str] = field(default_factory=lambda: [
+        "Photo de profil de ",
+        "Profile picture of ",
+    ])
+
     header_selectors: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]'
     ])
