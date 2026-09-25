@@ -210,23 +210,12 @@ class SyncFollowersMixin:
                                 enrich=True,
                             )
 
+                            # The extraction saves the profile and emits its `profile_captured`.
                             if info:
                                 self.logger.debug(
                                     f"✅ Enriched @{username}: "
                                     f"{info.get('followers_count', '?')} followers"
                                 )
-                                try:
-                                    print(json.dumps({
-                                        "type": "sync_user_enriched",
-                                        "list_type": "followers",
-                                        "username": username,
-                                        "followers_count": info.get('followers_count', 0),
-                                        "following_count": info.get('following_count', 0),
-                                        "posts_count": info.get('posts_count', 0),
-                                        "is_private": info.get('is_private', False),
-                                    }), flush=True)
-                                except Exception:
-                                    pass
 
                             # Back to the list
                             d.press('back')

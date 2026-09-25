@@ -133,9 +133,7 @@ class MediaCaptureService:
                 self._handle_media_data(message)
             elif msg_type == "cdn_capture":
                 self._handle_cdn_capture(message)
-            elif msg_type == "carousel_media":
-                self._handle_carousel_media(message)
-                
+
         except Exception as e:
             logger.error(f"Error handling proxy message: {e}")
     
@@ -205,23 +203,13 @@ class MediaCaptureService:
             logger.error(f"Error handling media data: {e}")
     
     def _handle_cdn_capture(self, data: Dict[str, Any]):
-        """Handle CDN URL capture."""
+        """Handle CDN URL capture: in-process callback only, one line per image is noise on stdout."""
         try:
-            # Trigger callback
             if self.on_cdn_captured:
                 self.on_cdn_captured(data)
-            
-            # Forward to desktop bridge
-            self._send_to_desktop("cdn_captured", data)
-            
         except Exception as e:
             logger.error(f"Error handling CDN capture: {e}")
-    
-    def _handle_carousel_media(self, data: Dict[str, Any]):
-        """Handle carousel media items."""
-        # Forward as media capture
-        self._send_to_desktop("carousel_captured", data)
-    
+
     def _send_to_desktop(self, event_type: str, data: Dict[str, Any]):
         """Send data to desktop bridge."""
         if self.desktop_bridge_callback:

@@ -547,26 +547,16 @@ class WorkflowRunner:
     
     def _run_scrape_non_followers_workflow(self, action: Dict[str, Any]) -> bool:
         """Run scrape_non_followers as a standalone workflow step.
-        
-        Self-contained: navigates from any state, unified view or profile.
+
+        Self-contained: navigates from any state, unified view or profile. Standalone only: the
+        desktop never sends this action, so the counts go to the log, the fans to the database.
         """
-        import json
-        
         unfollow_business = self._get_unfollow_business()
-        
+
         nf_stats = unfollow_business.scrape_non_followers_category()
         self.logger.info(
             f"📊 Fans (followers you do not follow back): {nf_stats['non_followers_count']}, "
             f"{nf_stats['mutuals_count']} mutuals"
         )
-        
-        # Emit IPC
-        msg = {
-            "type": "scrape_non_followers_complete",
-            "non_followers_count": nf_stats['non_followers_count'],
-            "mutuals_count": nf_stats['mutuals_count'],
-            "success": nf_stats['success'],
-        }
-        print(json.dumps(msg), flush=True)
-        
+
         return nf_stats['success']

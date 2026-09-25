@@ -129,8 +129,8 @@ def run_action_session_bridge() -> None:
             continue
 
         command_type = command.get("type")
+        # The app learns of the close from the process exit (code 0), not from a message.
         if command_type in {"shutdown", "stop", "close"}:
-            emit({"type": "session_closed", "success": True, "device_id": device_id, "platform": platform})
             return
 
         if command_type != "run_action":
