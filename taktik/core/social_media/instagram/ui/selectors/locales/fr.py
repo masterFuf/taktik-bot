@@ -917,9 +917,10 @@ STRINGS: Dict[str, List[str]] = {
     "profile.bio_more_words": [
         "plus", "suite",
     ],
+    # Commence par : « 60publications » contient « 0publications ».
     "profile.zero_posts_indicators": [
-        "//*[contains(@content-desc, \"0publications\")]",
-        "//*[contains(@content-desc, \"0 publications\")]",
+        "//*[starts-with(@content-desc, \"0publications\")]",
+        "//*[starts-with(@content-desc, \"0 publications\")]",
     ],
     # --- scroll ---
     "scroll.end_of_list_indicators": [
