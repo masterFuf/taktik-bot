@@ -164,10 +164,24 @@ def build_xpath_to_selector_id_index(
     for selector_id, entry in registry.get_all(app, version).items():
         for xpath in entry.xpaths:
             candidates.setdefault(xpath, set()).add(selector_id)
+    resolved = {xpath: _without_post_copies(ids) for xpath, ids in candidates.items()}
     return {
         xpath: next(iter(ids))
-        for xpath, ids in candidates.items()
+        for xpath, ids in resolved.items()
         if len(ids) == 1
+    }
+
+
+# Sub-catalogues whose fields copy POST_SELECTORS values at import.
+_POST_COPIES = frozenset({"post_comments", "post_grid", "post_likers", "post_reels", "post_share_sheet"})
+
+
+def _without_post_copies(ids: set) -> set:
+    """The same xpath under the same field of `post` and of a post copy is the `post` entry."""
+    post_fields = {sid.split(".", 1)[1] for sid in ids if sid.startswith("post.")}
+    return {
+        sid for sid in ids
+        if not (sid.split(".", 1)[0] in _POST_COPIES and sid.split(".", 1)[1] in post_fields)
     }
 
 
