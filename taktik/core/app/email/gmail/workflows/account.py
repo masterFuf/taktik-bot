@@ -1144,7 +1144,7 @@ class GmailWorkflow(GmailOtpReadingMixin):
             '//*[@resource-id="identifierId"]',
             '//*[@resource-id="Passwd"]',
             '//*[@resource-id="password"]',
-            '//*[@package="com.google.android.gms" and @class="android.widget.EditText"]',
+            '//android.widget.EditText[@package="com.google.android.gms"]',
         ], timeout=0.8)
         if field:
             try:
