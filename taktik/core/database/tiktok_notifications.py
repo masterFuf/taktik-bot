@@ -23,13 +23,17 @@ worse than no row: an empty attribution reads as "we have not scanned", a poison
 "this campaign does nothing".
 
 Best-effort throughout: persisting must never break a scan. Never logs a notification body.
+
+Written by the notifications pass (`tiktok/.../workflows/notifications`) and by the welcome pass
+of the new-followers bridge.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from bridges.tiktok.runtime.ipc import logger
+from loguru import logger
+
 from taktik.core.database.notifications import NotificationService
 from taktik.core.database.tiktok_account_identity import (
     looks_like_tiktok_handle,

@@ -88,7 +88,7 @@ def _calls(relative: str) -> set:
 
 
 @pytest.mark.parametrize("module", [
-    "bridges/tiktok/engagement/runtime/notifications/persistence.py",
+    "taktik/core/database/tiktok_notifications.py",
     "bridges/tiktok/workflows/engagement/runtime/dm_persistence.py",
 ])
 def test_no_tiktok_writer_resolves_its_account_through_instagram(module):

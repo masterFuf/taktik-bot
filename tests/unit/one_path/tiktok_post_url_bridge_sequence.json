@@ -1,0 +1,1921 @@
+{
+  "post_url_account_unread": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as from_app",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "allowRouterDevice": false,
+          "botUsername": "from_app",
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "likeProbability": 1,
+          "maxCommenters": 12,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxProfiles": 5,
+          "maxVideos": 5,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postUrl": "https://www.tiktok.com/@creator/video/1",
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "workflowType": "post_url"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comment_scrolls": 8,
+        "max_commenters": 12,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 5,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6.0,
+        "min_delay": 1.0,
+        "min_watch_time": 2.0,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40.0,
+        "pause_duration_min": 20.0,
+        "post_url": "https://www.tiktok.com/@creator/video/1",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "device_ids": [
+      "emulator-5554"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/1",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_ai": {
+    "ai_installs": [
+      {
+        "ai_config": {
+          "enabled": true,
+          "openrouterApiKey": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "profileAnalysis": true
+        },
+        "language": "fr"
+      }
+    ],
+    "ai_services": [
+      {
+        "api_key": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "has_ipc": true
+      }
+    ],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "ai": {
+            "enabled": true,
+            "openrouterApiKey": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "profileAnalysis": true
+          },
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxCommenters": 12,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxProfiles": 5,
+          "maxVideos": 5,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postUrl": "https://www.tiktok.com/@creator/video/1",
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "workflowType": "post_url"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comment_scrolls": 8,
+        "max_commenters": 12,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 5,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6.0,
+        "min_delay": 1.0,
+        "min_watch_time": 2.0,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40.0,
+        "pause_duration_min": 20.0,
+        "post_url": "https://www.tiktok.com/@creator/video/1",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "device_ids": [
+      "emulator-5554"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "ai_relevance",
+        {
+          "comment": false,
+          "follow": false,
+          "like": false,
+          "reason": "fits",
+          "relevant": true,
+          "score": 8,
+          "username": "creator"
+        }
+      ],
+      [
+        "ai_profile_done",
+        {
+          "classification": {
+            "niche": "running",
+            "niche_category": "sport"
+          },
+          "persist_only": true,
+          "platform": "tiktok",
+          "result": "[sport] running",
+          "target_username": "creator",
+          "username": "creator",
+          "workflow_type": "automation"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/1",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_blank_link": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "device_ids": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No post URL provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "post_url_budget_as_max_videos": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "likeProbability": 1,
+          "maxCommenters": 20,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxVideos": 7,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postUrl": "https://www.tiktok.com/@creator/video/1",
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "workflowType": "post_url"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comment_scrolls": 8,
+        "max_commenters": 20,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 7,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6.0,
+        "min_delay": 1.0,
+        "min_watch_time": 2.0,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40.0,
+        "pause_duration_min": 20.0,
+        "post_url": "https://www.tiktok.com/@creator/video/1",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "device_ids": [
+      "emulator-5554"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/1",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_comment_scrolls": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.2,
+        "comment_texts": [
+          "Top"
+        ],
+        "favorite_probability": 0.0,
+        "filters": {
+          "allowRouterDevice": false,
+          "commentProbability": 20,
+          "commentTexts": [
+            "Top"
+          ],
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "likeProbability": 1,
+          "maxCommentScrolls": 3,
+          "maxCommenters": 12,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxProfiles": 5,
+          "maxVideos": 5,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postUrl": "https://www.tiktok.com/@creator/video/1",
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "workflowType": "post_url"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comment_scrolls": 3,
+        "max_commenters": 12,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 5,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6.0,
+        "min_delay": 1.0,
+        "min_watch_time": 2.0,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40.0,
+        "pause_duration_min": 20.0,
+        "post_url": "https://www.tiktok.com/@creator/video/1",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "device_ids": [
+      "emulator-5554"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/1",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_likers_alias": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "likeProbability": 1,
+          "maxCommenters": 12,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxProfiles": 5,
+          "maxVideos": 5,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "videoUrl": "https://www.tiktok.com/@creator/video/2",
+          "workflowType": "post_likers"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comment_scrolls": 8,
+        "max_commenters": 12,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 5,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6.0,
+        "min_delay": 1.0,
+        "min_watch_time": 2.0,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40.0,
+        "pause_duration_min": 20.0,
+        "post_url": "https://www.tiktok.com/@creator/video/2",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "device_ids": [
+      "emulator-5554"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/2",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_no_budget": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "likeProbability": 1,
+          "maxCommenters": 12,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postUrl": "https://www.tiktok.com/@creator/video/1",
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "workflowType": "post_url"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comment_scrolls": 8,
+        "max_commenters": 12,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 12,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6.0,
+        "min_delay": 1.0,
+        "min_watch_time": 2.0,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40.0,
+        "pause_duration_min": 20.0,
+        "post_url": "https://www.tiktok.com/@creator/video/1",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "device_ids": [
+      "emulator-5554"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/1",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_no_device": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "device_ids": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No device ID provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "post_url_no_link": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "device_ids": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No post URL provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "post_url_nobody_commented": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "likeProbability": 1,
+          "maxCommenters": 12,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxProfiles": 5,
+          "maxVideos": 5,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postUrl": "https://www.tiktok.com/@creator/video/1",
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "workflowType": "post_url"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comment_scrolls": 8,
+        "max_commenters": 12,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 5,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6.0,
+        "min_delay": 1.0,
+        "min_watch_time": 2.0,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40.0,
+        "pause_duration_min": 20.0,
+        "post_url": "https://www.tiktok.com/@creator/video/1",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "device_ids": [
+      "emulator-5554"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/1",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 0,
+            "follows": 0,
+            "known_usernames_seen": 0,
+            "likes": 0,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "no_targets",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 0,
+            "follows": 0,
+            "known_usernames_seen": 0,
+            "likes": 0,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_filtered": 0,
+            "profiles_visited": 0,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "no_targets",
+          "message": "Visited 0 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_page": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "likeProbability": 1,
+          "maxCommenters": 12,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxProfiles": 5,
+          "maxVideos": 5,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postUrl": "https://www.tiktok.com/@creator/video/1",
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "workflowType": "post_url"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comment_scrolls": 8,
+        "max_commenters": 12,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 5,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6.0,
+        "min_delay": 1.0,
+        "min_watch_time": 2.0,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40.0,
+        "pause_duration_min": 20.0,
+        "post_url": "https://www.tiktok.com/@creator/video/1",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "device_ids": [
+      "emulator-5554"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/1",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_scheduler_node": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "device_ids": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No post URL provided"
+        }
+      ]
+    ],
+    "exit": 1
+  }
+}

@@ -1,0 +1,1641 @@
+{
+  "notifications_account_unread": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_follower_profile Fan Two",
+      "open_new_followers",
+      "open_follower_profile Emile B",
+      "open_inbox",
+      "open_activity expand=True",
+      "read_activity 30",
+      "force_stop tiktok"
+    ],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "2 j",
+          "kind": "like",
+          "others_count": 3,
+          "post_count": 1,
+          "usernames": [
+            "fan_one"
+          ]
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "1 sem.",
+          "kind": "profile_view",
+          "others_count": 10,
+          "post_count": 0,
+          "usernames": [
+            "Nico Lito"
+          ]
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {
+              "like": 1,
+              "profile_view": 1
+            },
+            "activity_read": 2,
+            "hello_sent": 0,
+            "new_followers_listed": 3,
+            "new_followers_recorded": 2,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_activity_closed": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_follower_profile Fan Two",
+      "open_new_followers",
+      "open_follower_profile Emile B",
+      "open_inbox",
+      "open_activity expand=True",
+      "open_inbox",
+      "open_activity expand=False",
+      "force_stop tiktok"
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "has_action": true,
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          },
+          {
+            "has_action": false,
+            "label": "Fan Two",
+            "time": "1 sem.",
+            "type": "new_follower",
+            "username": "fan_two"
+          }
+        ],
+        "platform": "tiktok"
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "warning",
+          "message": "The activity page could not be opened"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Following suggested accounts",
+          "status": "running"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "warning",
+          "message": "The activity page could not be opened"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {},
+            "activity_read": 0,
+            "hello_sent": 0,
+            "new_followers_listed": 3,
+            "new_followers_recorded": 2,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_device_id_snake": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_follower_profile Fan Two",
+      "open_new_followers",
+      "open_follower_profile Emile B",
+      "open_inbox",
+      "open_activity expand=True",
+      "read_activity 30",
+      "force_stop tiktok"
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "has_action": true,
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          },
+          {
+            "has_action": false,
+            "label": "Fan Two",
+            "time": "1 sem.",
+            "type": "new_follower",
+            "username": "fan_two"
+          }
+        ],
+        "platform": "tiktok"
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "2 j",
+          "kind": "like",
+          "others_count": 3,
+          "post_count": 1,
+          "usernames": [
+            "fan_one"
+          ]
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "1 sem.",
+          "kind": "profile_view",
+          "others_count": 10,
+          "post_count": 0,
+          "usernames": [
+            "Nico Lito"
+          ]
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {
+              "like": 1,
+              "profile_view": 1
+            },
+            "activity_read": 2,
+            "hello_sent": 0,
+            "new_followers_listed": 3,
+            "new_followers_recorded": 2,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_every_step": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_inbox",
+      "open_activity expand=True",
+      "read_activity 1",
+      "open_inbox",
+      "hello_candidates",
+      "say_hello Ana",
+      "say_hello Bob",
+      "open_inbox",
+      "open_activity expand=False",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "follow_suggested Suggested A",
+      "force_stop tiktok"
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "has_action": true,
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          }
+        ],
+        "platform": "tiktok"
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "warning",
+          "message": "2 follower(s) left unresolved (budget)"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "2 j",
+          "kind": "like",
+          "others_count": 3,
+          "post_count": 1,
+          "usernames": [
+            "fan_one"
+          ]
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Saying hello",
+          "status": "running"
+        }
+      ],
+      [
+        "hello_sent",
+        {
+          "name": "Ana"
+        }
+      ],
+      [
+        "hello_sent",
+        {
+          "name": "Bob"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Following suggested accounts",
+          "status": "running"
+        }
+      ],
+      [
+        "suggested_followed",
+        {
+          "name": "Suggested A"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {
+              "like": 1
+            },
+            "activity_read": 1,
+            "hello_sent": 2,
+            "new_followers_listed": 3,
+            "new_followers_recorded": 1,
+            "suggested_followed": 1
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_inbox_closed": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_follower_profile Fan Two",
+      "open_new_followers",
+      "open_follower_profile Emile B",
+      "open_inbox",
+      "open_inbox",
+      "open_inbox",
+      "open_activity expand=False",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "force_stop tiktok"
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "has_action": true,
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          },
+          {
+            "has_action": false,
+            "label": "Fan Two",
+            "time": "1 sem.",
+            "type": "new_follower",
+            "username": "fan_two"
+          }
+        ],
+        "platform": "tiktok"
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "warning",
+          "message": "The inbox could not be opened"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Saying hello",
+          "status": "running"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "warning",
+          "message": "The inbox could not be opened"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Following suggested accounts",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {},
+            "activity_read": 0,
+            "hello_sent": 0,
+            "new_followers_listed": 3,
+            "new_followers_recorded": 2,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_no_new_follower": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_inbox",
+      "open_activity expand=True",
+      "read_activity 30",
+      "force_stop tiktok"
+    ],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "2 j",
+          "kind": "like",
+          "others_count": 3,
+          "post_count": 1,
+          "usernames": [
+            "fan_one"
+          ]
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "1 sem.",
+          "kind": "profile_view",
+          "others_count": 10,
+          "post_count": 0,
+          "usernames": [
+            "Nico Lito"
+          ]
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {
+              "like": 1,
+              "profile_view": 1
+            },
+            "activity_read": 2,
+            "hello_sent": 0,
+            "new_followers_listed": 0,
+            "new_followers_recorded": 0,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_no_suggestion": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_follower_profile Fan Two",
+      "open_new_followers",
+      "open_follower_profile Emile B",
+      "open_inbox",
+      "open_activity expand=False",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "read_suggestions",
+      "scroll 0.6",
+      "force_stop tiktok"
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "has_action": true,
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          },
+          {
+            "has_action": false,
+            "label": "Fan Two",
+            "time": "1 sem.",
+            "type": "new_follower",
+            "username": "fan_two"
+          }
+        ],
+        "platform": "tiktok"
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Following suggested accounts",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {},
+            "activity_read": 0,
+            "hello_sent": 0,
+            "new_followers_listed": 3,
+            "new_followers_recorded": 2,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_nothing_asked": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "force_stop tiktok"
+    ],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {},
+            "activity_read": 0,
+            "hello_sent": 0,
+            "new_followers_listed": 0,
+            "new_followers_recorded": 0,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_page": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_follower_profile Fan Two",
+      "open_new_followers",
+      "open_follower_profile Emile B",
+      "open_inbox",
+      "open_activity expand=True",
+      "read_activity 30",
+      "force_stop tiktok"
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "has_action": true,
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          },
+          {
+            "has_action": false,
+            "label": "Fan Two",
+            "time": "1 sem.",
+            "type": "new_follower",
+            "username": "fan_two"
+          }
+        ],
+        "platform": "tiktok"
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "2 j",
+          "kind": "like",
+          "others_count": 3,
+          "post_count": 1,
+          "usernames": [
+            "fan_one"
+          ]
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "1 sem.",
+          "kind": "profile_view",
+          "others_count": 10,
+          "post_count": 0,
+          "usernames": [
+            "Nico Lito"
+          ]
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {
+              "like": 1,
+              "profile_view": 1
+            },
+            "activity_read": 2,
+            "hello_sent": 0,
+            "new_followers_listed": 3,
+            "new_followers_recorded": 2,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_page_closed": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "open_inbox",
+      "open_activity expand=True",
+      "read_activity 30",
+      "force_stop tiktok"
+    ],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "2 j",
+          "kind": "like",
+          "others_count": 3,
+          "post_count": 1,
+          "usernames": [
+            "fan_one"
+          ]
+        }
+      ],
+      [
+        "activity_row",
+        {
+          "age": "1 sem.",
+          "kind": "profile_view",
+          "others_count": 10,
+          "post_count": 0,
+          "usernames": [
+            "Nico Lito"
+          ]
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {
+              "like": 1,
+              "profile_view": 1
+            },
+            "activity_read": 2,
+            "hello_sent": 0,
+            "new_followers_listed": 0,
+            "new_followers_recorded": 0,
+            "suggested_followed": 0
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0,
+    "exit_old_code": 1
+  },
+  "notifications_start_fails": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "force_stop tiktok"
+    ],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "error",
+        {
+          "error": "Workflow error: Failed to restart TikTok app"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "notifications_step_fails": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_new_followers",
+      "list_new_followers 50",
+      "open_follower_profile Fan Two",
+      "open_new_followers",
+      "open_follower_profile Emile B",
+      "open_inbox",
+      "open_activity expand=True",
+      "read_activity 30",
+      "force_stop tiktok"
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "has_action": true,
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          },
+          {
+            "has_action": false,
+            "label": "Fan Two",
+            "time": "1 sem.",
+            "type": "new_follower",
+            "username": "fan_two"
+          }
+        ],
+        "platform": "tiktok"
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the activity page",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "activity list vanished",
+          "status": "error"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "error": "activity list vanished",
+          "stats": {
+            "activity_by_kind": {},
+            "activity_read": 0,
+            "hello_sent": 0,
+            "new_followers_listed": 3,
+            "new_followers_recorded": 2,
+            "suggested_followed": 0
+          },
+          "success": false
+        }
+      ]
+    ],
+    "exit": 1,
+    "exit_old_code": 0
+  }
+}

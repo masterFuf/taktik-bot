@@ -34,28 +34,14 @@ def create_tiktok_ai_service(
     )
 
 
-def install_profile_ai_hooks(config: dict, *, log: LogCallback = lambda level, msg: None) -> None:
-    """Install the profile-relevance and classification hooks for a profile-visiting run.
-
-    The install is `install_profile_ai_hooks_for_run` (core), shared with the CLI; this wrapper
-    adds the stdout emitters and the bridge IPC for `ai_spend`.
-
-    For a runner that still reads its payload in the bridge (Post URL); Followers and Target
-    Profiles hand `install_run_ai_hooks` to their core launcher, which reads the `ai` block.
-
-    Does nothing when the run has no AI enabled, and never raises: a broken AI setup must cost
-    the verdicts, not the run.
-    """
-    from taktik.core.social_media.tiktok.workflows.core.ai_hooks import (
-        ai_config_from_payload,
-        app_language_from_payload,
-    )
-
-    install_run_ai_hooks(ai_config_from_payload(config), app_language_from_payload(config), log=log)
-
-
 def install_run_ai_hooks(ai_config: dict, language: str, *, log: LogCallback = lambda level, msg: None) -> None:
-    """The bridge's AI hooks for a run's `ai` block: verdicts and classifications go to stdout."""
+    """The bridge's AI hooks for a run's `ai` block: verdicts and classifications go to stdout.
+
+    The install is `install_profile_ai_hooks_for_run` (core), shared with the CLI; this adds the
+    stdout emitters and the bridge IPC for `ai_spend`. Handed to the core launchers, which read the
+    `ai` block. Does nothing when the run has no AI enabled, and never raises: a broken AI setup
+    must cost the verdicts, not the run.
+    """
     if not ai_config.get("enabled"):
         return
 
@@ -89,4 +75,4 @@ def install_run_ai_hooks(ai_config: dict, language: str, *, log: LogCallback = l
         log("warning", f"Could not install TikTok AI hooks: {exc}")
 
 
-__all__ = ["create_tiktok_ai_service", "install_profile_ai_hooks", "install_run_ai_hooks"]
+__all__ = ["create_tiktok_ai_service", "install_run_ai_hooks"]

@@ -208,7 +208,7 @@ def _run_welcome_pass(config, manager, workflow, bot_username, followers, policy
             # nobody has, and the "have we already written to this person?" guard never matches.
             return qualify(device, resolved_handles.get(shown_name) or shown_name)
 
-        # NOTE: `install_profile_ai_hooks` is NOT used here on purpose. It patches
+        # NOTE: `install_run_ai_hooks` is NOT used here on purpose. It patches
         # `VideoInteractionMixin._interact_with_profile_posts`, which only the Followers and
         # Target-profiles workflows enter; DMWorkflow does not inherit that mixin, so the hook
         # would install cleanly, log "installed" and never fire once. The qualifier below is
@@ -260,7 +260,7 @@ def _run_welcome_pass(config, manager, workflow, bot_username, followers, policy
         # The attribution's raw material, and it costs nothing here: every profile has just been
         # opened and every handle is already in hand. Recording it lets the front answer "of the
         # people who followed us, how many had we engaged first?" -- see
-        # bridges/tiktok/engagement/runtime/notifications/persistence.py. A separate scan would
+        # taktik/core/database/tiktok_notifications.py. A separate scan would
         # have opened the same profiles a second time for the same thirteen seconds apiece.
         _record_followers_as_notifications(bot_username, followers, resolved_handles)
 
@@ -282,9 +282,9 @@ def _record_followers_as_notifications(
     Only the resolved ones. A row filed under a display name joins to nothing, so the follower
     would read as "never engaged" -- a confident wrong answer, and worse than no row at all.
     """
-    from bridges.tiktok.engagement.runtime.notifications.scan import NEW_FOLLOWER_TYPE
-    from bridges.tiktok.engagement.runtime.notifications.persistence import (
-        record_scan_notifications,
+    from taktik.core.database.tiktok_notifications import record_scan_notifications
+    from taktik.core.social_media.tiktok.actions.business.workflows.notifications.scan import (
+        NEW_FOLLOWER_TYPE,
     )
 
     items = []

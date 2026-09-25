@@ -1,0 +1,1301 @@
+{
+  "sync_account_from_app": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as from_app",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": true,
+        "list_type": "following",
+        "max_delay": 1.4,
+        "max_resolutions": 50,
+        "max_scrolls": 60,
+        "min_delay": 0.6,
+        "resolve_missing_handles": false
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok following sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "following",
+          "target": "from_app"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the following list of @from_app",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "known_reached",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "followers_seen": 0,
+            "following_seen": 1,
+            "new_count": 1,
+            "reciprocal_seen": 0,
+            "resolved": 0,
+            "rows_seen": 1,
+            "stopped_early": false,
+            "unidentified": 0,
+            "updated_count": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "known_reached",
+          "message": "1 row(s) recorded, 1 new",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "sync_account_unknown": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok following sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "error",
+        {
+          "error": "Could not identify the acting TikTok account"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "sync_followers_page": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": false,
+        "list_type": "followers",
+        "max_delay": 1.4,
+        "max_resolutions": 5,
+        "max_scrolls": 60,
+        "min_delay": 0.6,
+        "resolve_missing_handles": true
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok followers sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "followers",
+          "target": "acting_account"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the followers list of @acting_account",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "known_reached",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "followers_seen": 0,
+            "following_seen": 1,
+            "new_count": 1,
+            "reciprocal_seen": 0,
+            "resolved": 0,
+            "rows_seen": 1,
+            "stopped_early": false,
+            "unidentified": 0,
+            "updated_count": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "known_reached",
+          "message": "1 row(s) recorded, 1 new",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "sync_following_page": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": true,
+        "list_type": "following",
+        "max_delay": 1.4,
+        "max_resolutions": 50,
+        "max_scrolls": 60,
+        "min_delay": 0.6,
+        "resolve_missing_handles": false
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok following sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "following",
+          "target": "acting_account"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the following list of @acting_account",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "known_reached",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "followers_seen": 0,
+            "following_seen": 1,
+            "new_count": 1,
+            "reciprocal_seen": 0,
+            "resolved": 0,
+            "rows_seen": 1,
+            "stopped_early": false,
+            "unidentified": 0,
+            "updated_count": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "known_reached",
+          "message": "1 row(s) recorded, 1 new",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "sync_list_type_garbage": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": true,
+        "list_type": "both",
+        "max_delay": 1.4,
+        "max_resolutions": 50,
+        "max_scrolls": 60,
+        "min_delay": 0.6,
+        "resolve_missing_handles": false
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok both sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "both",
+          "target": "acting_account"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the both list of @acting_account",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "known_reached",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "followers_seen": 0,
+            "following_seen": 1,
+            "new_count": 1,
+            "reciprocal_seen": 0,
+            "resolved": 0,
+            "rows_seen": 1,
+            "stopped_early": false,
+            "unidentified": 0,
+            "updated_count": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "known_reached",
+          "message": "1 row(s) recorded, 1 new",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "sync_list_type_wins": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": true,
+        "list_type": "both",
+        "max_delay": 1.4,
+        "max_resolutions": 50,
+        "max_scrolls": 60,
+        "min_delay": 0.6,
+        "resolve_missing_handles": false
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok both sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "both",
+          "target": "acting_account"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the both list of @acting_account",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "known_reached",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "followers_seen": 0,
+            "following_seen": 1,
+            "new_count": 1,
+            "reciprocal_seen": 0,
+            "resolved": 0,
+            "rows_seen": 1,
+            "stopped_early": false,
+            "unidentified": 0,
+            "updated_count": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "known_reached",
+          "message": "1 row(s) recorded, 1 new",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "sync_lists_page": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": true,
+        "list_type": "both",
+        "max_delay": 1.4,
+        "max_resolutions": 50,
+        "max_scrolls": 60,
+        "min_delay": 0.6,
+        "resolve_missing_handles": false
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok both sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "both",
+          "target": "acting_account"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the both list of @acting_account",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "known_reached",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "followers_seen": 1,
+            "following_seen": 2,
+            "new_count": 2,
+            "reciprocal_seen": 1,
+            "resolved": 0,
+            "rows_seen": 3,
+            "stopped_early": false,
+            "unidentified": 2,
+            "updated_count": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "known_reached",
+          "message": "3 row(s) recorded, 2 new, 2 without a readable handle",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "sync_no_device": {
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No device ID provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "sync_scheduler_node": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": true,
+        "list_type": "followers",
+        "max_delay": 3.0,
+        "max_resolutions": 25,
+        "max_scrolls": 100,
+        "min_delay": 1.0,
+        "resolve_missing_handles": false
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok followers sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "followers",
+          "target": "acting_account"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the followers list of @acting_account",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "known_reached",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "followers_seen": 0,
+            "following_seen": 1,
+            "new_count": 1,
+            "reciprocal_seen": 0,
+            "resolved": 0,
+            "rows_seen": 1,
+            "stopped_early": false,
+            "unidentified": 0,
+            "updated_count": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "known_reached",
+          "message": "1 row(s) recorded, 1 new",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "sync_with_errors": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": true,
+        "list_type": "following",
+        "max_delay": 1.4,
+        "max_resolutions": 50,
+        "max_scrolls": 60,
+        "min_delay": 0.6,
+        "resolve_missing_handles": false
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok following sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "following",
+          "target": "acting_account"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the following list of @acting_account",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "error",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 1,
+            "followers_seen": 0,
+            "following_seen": 1,
+            "new_count": 1,
+            "reciprocal_seen": 0,
+            "resolved": 0,
+            "rows_seen": 1,
+            "stopped_early": false,
+            "unidentified": 0,
+            "updated_count": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "error",
+          "message": "1 row(s) recorded, 1 new",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "sync_workflow_type_only": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "incremental": true,
+        "list_type": "followers",
+        "max_delay": 1.4,
+        "max_resolutions": 50,
+        "max_scrolls": 60,
+        "min_delay": 0.6,
+        "resolve_missing_handles": false
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok followers sync on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "list_type": "followers",
+          "target": "acting_account"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading the followers list of @acting_account",
+          "status": "running"
+        }
+      ],
+      [
+        "sync_user_discovered",
+        {
+          "display_name": "Fan One",
+          "is_new": true,
+          "list_type": "following",
+          "relationship": "Suivi(e)",
+          "username": "fan_one"
+        }
+      ],
+      [
+        "sync_stats",
+        {
+          "stats": {
+            "completion_reason": "known_reached",
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "followers_seen": 0,
+            "following_seen": 1,
+            "new_count": 1,
+            "reciprocal_seen": 0,
+            "resolved": 0,
+            "rows_seen": 1,
+            "stopped_early": false,
+            "unidentified": 0,
+            "updated_count": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "known_reached",
+          "message": "1 row(s) recorded, 1 new",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  }
+}

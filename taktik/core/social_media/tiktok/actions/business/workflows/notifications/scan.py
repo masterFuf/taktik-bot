@@ -18,11 +18,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from bridges.tiktok.engagement.runtime.notifications.persistence import (
+from loguru import logger
+
+from taktik.core.database.tiktok_notifications import (
     looks_like_handle,
     record_scan_notifications,
 )
-from bridges.tiktok.runtime.ipc import logger
 
 #: The notification type the `follows` attribution category looks for. Same vocabulary Instagram
 #: writes, because the read model is shared and it filters on `n.type IN (...)`.

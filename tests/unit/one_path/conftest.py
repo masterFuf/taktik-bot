@@ -27,10 +27,33 @@ class Rig:
         self.ai_installs: list[dict] = []
         self.ai_services: list[dict] = []
         self.permission_visible = True
+        self.restart_ok = True
         #: The acting account the phone shows; None when its profile cannot be read.
         self.own_username = "acting_account"
         #: What each profile-visiting run returns, in order; missing fields keep their default.
         self.profile_runs: list[dict] = []
+        #: What each follow-graph sync returns, and the rows it reports on the way.
+        self.sync_runs: list[dict] = []
+        self.sync_rows: list[dict] = [
+            {"list_type": "following", "username": "fan_one", "display_name": "Fan One",
+             "relationship": "Suivi(e)", "is_new": True},
+        ]
+        #: The inbox, the new-followers page and the Activity page, as the phone shows them.
+        self.inbox_opens = True
+        self.new_followers_page_opens = True
+        self.new_follower_rows: list[dict] = []
+        #: Display name -> the handle its profile shows (absent: unreadable).
+        self.profile_handles: dict[str, str] = {}
+        self.activity_opens = True
+        self.activity_rows: list[dict] = []
+        self.activity_fails = False
+        self.hello_candidates: list[str] = []
+        #: What each read of the suggestions block returns, in order; then nothing.
+        self.suggestion_reads: list[list[dict]] = []
+        #: The rows the run hands to the database, in order.
+        self.db_writes: list[dict] = []
+        #: What the CLI's handler returned, run by run.
+        self.cli_results: list = []
         self._install()
 
     # ------------------------------------------------------------------ fakes
@@ -78,7 +101,7 @@ class Rig:
 
             def restart(self):
                 rig.calls.append("restart")
-                return True
+                return rig.restart_ok
 
         mp.setattr("taktik.core.social_media.tiktok.TikTokManager", FakeTikTokManager)
 
@@ -205,6 +228,8 @@ class Rig:
                 rig.calls.append("workflow_built")
                 self.device = device
                 self.config = config
+                #: Post URL opens its link on this serial.
+                self.device_id = device_id
                 self.callbacks = {}
                 rig.workflows.append(self)
 
@@ -312,6 +337,140 @@ class Rig:
 
         mp.setattr(ai_hooks, "install_tiktok_ai_hooks", fake_install)
 
+        self._install_sync_fakes()
+        self._install_inbox_fakes()
+
+    def _install_sync_fakes(self) -> None:
+        rig = self
+        mp = self.monkeypatch
+
+        from taktik.core.social_media.tiktok.actions.business.workflows import (
+            sync_lists as sync_lists_package,
+        )
+        from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists import (
+            workflow as sync_lists_workflow,
+        )
+        from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import (
+            SyncListsStats,
+        )
+
+        class ScriptedSyncStats(SyncListsStats):
+            def to_dict(self):
+                return {**super().to_dict(), "elapsed_seconds": 0, "elapsed_formatted": "0m 0s"}
+
+        class FakeSyncListsWorkflow:
+            """Records its config and the account it runs as, reports each row of `rig.sync_rows`,
+            returns the next outcome of `rig.sync_runs` (by default one new row)."""
+
+            def __init__(self, device, config):
+                rig.calls.append("workflow_built")
+                self.device = device
+                self.config = config
+                self.on_row = None
+                rig.workflows.append(self)
+
+            def set_on_row_callback(self, callback):
+                self.on_row = callback
+
+            def run(self, bot_username=None):
+                rig.calls.append(f"workflow_run as {bot_username}")
+                for row in rig.sync_rows:
+                    if self.on_row:
+                        self.on_row(dict(row))
+                outcome = {"rows_seen": 1, "new_count": 1, "following_seen": 1,
+                           "completion_reason": "known_reached"}
+                if rig.sync_runs:
+                    outcome.update(rig.sync_runs.pop(0))
+                return ScriptedSyncStats(**outcome)
+
+        for module in (sync_lists_workflow, sync_lists_package):
+            mp.setattr(module, "SyncListsWorkflow", FakeSyncListsWorkflow)
+
+    def _install_inbox_fakes(self) -> None:
+        rig = self
+        mp = self.monkeypatch
+
+        class FakeDMActions:
+            def __init__(self, device):
+                pass
+
+            def navigate_to_inbox(self):
+                rig.calls.append("open_inbox")
+                return rig.inbox_opens
+
+            def open_new_followers_page(self):
+                rig.calls.append("open_new_followers")
+                return rig.new_followers_page_opens
+
+            def get_new_followers(self, max_items=50):
+                rig.calls.append(f"list_new_followers {max_items}")
+                return [dict(row) for row in rig.new_follower_rows]
+
+            def open_new_follower_profile(self, shown):
+                rig.calls.append(f"open_follower_profile {shown}")
+                return rig.profile_handles.get(shown)
+
+            def say_hello_candidates(self):
+                rig.calls.append("hello_candidates")
+                return list(rig.hello_candidates)
+
+            def say_hello(self, name):
+                rig.calls.append(f"say_hello {name}")
+                return True
+
+        mp.setattr("taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions.DMActions",
+                   FakeDMActions)
+
+        class FakeActivityActions:
+            def __init__(self, device):
+                pass
+
+            def open_activity(self, expand=False):
+                rig.calls.append(f"open_activity expand={expand}")
+                return rig.activity_opens
+
+            def read_activity(self, max_rows=30):
+                rig.calls.append(f"read_activity {max_rows}")
+                if rig.activity_fails:
+                    raise RuntimeError("activity list vanished")
+                return [SimpleNamespace(**row) for row in rig.activity_rows[:max_rows]]
+
+            def read_suggested_accounts(self):
+                rig.calls.append("read_suggestions")
+                return rig.suggestion_reads.pop(0) if rig.suggestion_reads else []
+
+            def _scroll_down(self, scale=1.0):
+                rig.calls.append(f"scroll {scale}")
+
+            def follow_suggested_account(self, name):
+                rig.calls.append(f"follow_suggested {name}")
+                return True
+
+        mp.setattr(
+            "taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions.ActivityActions",
+            FakeActivityActions,
+        )
+
+        # The database, at the seams every notification writer goes through.
+        from taktik.core.database import tiktok_account_identity
+        from taktik.core.database.notifications import NotificationService
+
+        def get_or_create_account(handle, is_bot=True):
+            rig.db_writes.append({"account": handle})
+            return 42, False
+
+        fake_service = SimpleNamespace(local_db=SimpleNamespace(
+            tiktok=SimpleNamespace(get_or_create_account=get_or_create_account)))
+        mp.setattr(tiktok_account_identity, "configure_db_service", lambda *a, **k: None)
+        mp.setattr(tiktok_account_identity, "get_db_service", lambda: fake_service)
+
+        def record_notifications(*, platform, account_id, items):
+            rig.db_writes.append({"platform": platform, "account_id": account_id,
+                                  "items": [dict(item) for item in items]})
+            return [True] * len(items)
+
+        mp.setattr(NotificationService, "record_notifications", staticmethod(record_notifications))
+
     # --------------------------------------------------------------- the paths
 
     def run_bridge(self, payload: dict) -> int:
@@ -334,11 +493,40 @@ class Rig:
 
         manager = SimpleNamespace(device=self.device)
         self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (manager, DEVICE_ID))
+        print_result = workflow_cmds._print_result
+
+        def keep_result(result):
+            self.cli_results.append(result)
+            print_result(result)
+
+        self.monkeypatch.setattr(workflow_cmds, "_print_result", keep_result)
         return CliRunner().invoke(
             workflow_cmds.workflows,
             ["run", workflow_id, "--device", DEVICE_ID, "--json", json.dumps(payload)],
             env=env,
         )
+
+    def show_notifications(self) -> None:
+        """Three new followers (a handle, a name that resolves, one that does not) and two
+        Activity rows."""
+        self.new_follower_rows = [
+            {"username": "fan_one", "activity": "2 j", "can_follow_back": True},
+            {"username": "Fan Two", "activity": "1 sem.", "can_follow_back": False},
+            {"username": "Emile B", "activity": "3 sem.", "can_follow_back": True},
+        ]
+        self.profile_handles = {"Fan Two": "fan_two"}
+        self.activity_rows = [
+            {"kind": "like", "usernames": ["fan_one"], "others_count": 3, "age_label": "2 j",
+             "post_count": 1},
+            {"kind": "profile_view", "usernames": ["Nico Lito"], "others_count": 10,
+             "age_label": "1 sem.", "post_count": 0},
+        ]
+
+    def forget_run(self) -> None:
+        """Clear what a run recorded, before the same payload goes down the other path."""
+        for recorded in (self.calls, self.events, self.workflows, self.ai_installs, self.ai_services,
+                         self.db_writes, self.cli_results):
+            recorded.clear()
 
     @property
     def built_configs(self) -> list:
@@ -364,6 +552,62 @@ def page_payload():
 @pytest.fixture
 def followers_payload():
     return _followers_payload
+
+
+@pytest.fixture
+def post_url_payload():
+    return _post_url_payload
+
+
+@pytest.fixture
+def sync_payload():
+    return _sync_payload
+
+
+@pytest.fixture
+def notifications_payload():
+    return _notifications_payload
+
+
+def _post_url_payload(**overrides) -> dict:
+    """What TikTokPostUrl.tsx sends, key for key, AI off, "1 %" of likes."""
+    payload = {
+        "deviceId": DEVICE_ID, "allowRouterDevice": False, "workflowType": "post_url",
+        "postUrl": "https://www.tiktok.com/@creator/video/1", "maxCommenters": 12, "maxProfiles": 5,
+        "maxVideos": 5, "maxLikesPerSession": 30, "maxFollowsPerSession": 10, "postsPerProfile": 1,
+        "minWatchTime": 2, "maxWatchTime": 6, "likeProbability": 1, "followProbability": 5,
+        "favoriteProbability": 0, "pauseAfterActions": 8, "pauseDurationMin": 20,
+        "pauseDurationMax": 40, "requiredHashtags": [], "excludedHashtags": [], "minLikes": None,
+        "maxLikes": None, "skipAlreadyLiked": True,
+    }
+    payload.update(overrides)
+    return payload
+
+
+_SYNC_WORKFLOW_BY_LIST = {"following": "sync_following", "followers": "sync_followers", "both": "sync_lists"}
+
+
+def _sync_payload(list_type: str = "following", **overrides) -> dict:
+    """What TikTokSync.tsx sends, key for key, with its defaults."""
+    payload = {
+        "deviceId": DEVICE_ID, "allowRouterDevice": False,
+        "workflowType": _SYNC_WORKFLOW_BY_LIST[list_type], "listType": list_type, "incremental": True,
+        "maxScrolls": 60, "resolveMissingHandles": False, "maxResolutions": 50, "minDelay": 0.6,
+        "maxDelay": 1.4,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _notifications_payload(**overrides) -> dict:
+    """What TikTokNotifications.tsx sends, key for key, with its defaults."""
+    payload = {
+        "deviceId": DEVICE_ID, "workflowType": "notifications", "scanNewFollowers": True,
+        "maxFollowerResolutions": 10, "readActivity": True, "maxActivityRows": 30, "maxHellos": 0,
+        "maxSuggestedFollows": 0,
+    }
+    payload.update(overrides)
+    return payload
 
 
 def _followers_payload(**overrides) -> dict:
