@@ -52,6 +52,7 @@ class AccountChangeLanguageRunnerMixin:
                 native_name=result.get("native_name"),
                 message=result.get("message", ""),
                 error_type=result.get("error_type"),
+                app_restarted=result.get("app_restarted", False),
             )
             return 0 if result["success"] else 1
         except Exception as exc:  # noqa: BLE001
