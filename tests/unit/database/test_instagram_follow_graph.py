@@ -6,6 +6,9 @@ from taktik.core.database.local.schemas.instagram import (
     create_instagram_indexes,
     create_instagram_tables,
 )
+from taktik.core.database.local.migration_steps.accounts import (
+    run_accounts_unification_migrations,
+)
 from taktik.core.database.local.migration_steps.interactions import (
     run_interactions_unification_migrations,
 )
@@ -34,6 +37,7 @@ class _FakeLocalDb:
         # could not catch a lookup reading the wrong one -- which is exactly the mistake that
         # scopes a query to Instagram forever.
         run_social_profiles_unification_migrations(cursor)
+        run_accounts_unification_migrations(cursor)
         self._conn.commit()
         self.social_graph = SocialGraphRepository(self._conn)
 
@@ -43,7 +47,7 @@ class _FakeLocalDb:
 
 def _seed_account(fake_db, account_id=7):
     fake_db._get_connection().execute(
-        "INSERT INTO instagram_accounts (account_id, username, is_bot) VALUES (?, ?, 1)",
+        "INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', ?, ?, 1)",
         (account_id, f"bot_{account_id}"),
     )
     fake_db._get_connection().commit()
