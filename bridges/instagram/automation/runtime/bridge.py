@@ -1,9 +1,20 @@
-"""Instagram desktop automation bridge runtime class."""
+"""Instagram desktop automation bridge runtime class.
+
+The run is `run_instagram_automation`, the launcher the Agent handlers `instagram.automation.*`
+(and so the CLI) call too. Called by name rather than through the registry so the app's config
+contract test can follow the payload. The bridge keeps what belongs to the desktop process: the
+database setup, its device connection, the IP rotation, the media capture, the decision round
+trip, its stdout, and the app stop when the process ends.
+"""
 
 from __future__ import annotations
 
 from bridges.instagram.runtime.ai import create_instagram_ai_service
 from bridges.instagram.automation.runtime.decision_client import DesktopProfileDecisionClient
+from bridges.instagram.automation.runtime.events import (
+    InstagramAutomationReporter,
+    send_instagram_workflow_error,
+)
 from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
 from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
 from bridges.instagram.automation.runtime.signals import register_desktop_shutdown_handlers
@@ -11,8 +22,7 @@ from bridges.instagram.automation.runtime.validation import (
     format_targets_display,
     validate_desktop_bridge_config,
 )
-from bridges.instagram.automation.runtime.workflow import InstagramAutomationRunner
-from bridges.instagram.runtime.ipc import _ipc, send_log, send_status
+from bridges.instagram.runtime.ipc import _ipc, logger, send_log, send_status
 
 
 class DesktopBridge:
@@ -23,7 +33,6 @@ class DesktopBridge:
         self.device_id = config.get("deviceId")
         self.workflow_type = config.get("workflowType")
         self.target = config.get("target")
-        self.language = config.get("language", "en")
         self.package_name = config.get("packageName")
         self.running = True
         self.runtime = InstagramDesktopRuntime(
@@ -31,7 +40,6 @@ class DesktopBridge:
             package_name=self.package_name,
             network_reset=config.get("networkReset", {}),
         )
-        self.automation = None
 
         self.ai_config = config.get("ai", {})
         self.ai_enabled, self.ai_service = create_instagram_ai_service(
@@ -65,27 +73,42 @@ class DesktopBridge:
         if self.decision_client:
             self.decision_client.close()
 
-    def run_workflow(self) -> bool:
-        """Run the configured workflow."""
-        runner = InstagramAutomationRunner(
-            config=self.config,
-            device_manager=self.runtime.device_manager,
-            app_service=self.runtime.app_service,
-            package_name=self.package_name,
-            ai_enabled=self.ai_enabled,
-            ai_service=self.ai_service,
-            ai_config=self.ai_config,
-            language=self.language,
-            decision_provider=(
-                self.decision_client.request_plan if self.decision_client else None
-            ),
+    def _start_instagram(self, _package_name) -> bool:
+        # The app service was built on the payload's package when the device connected.
+        return self.runtime.launch_instagram()
+
+    def _ai_service_for(self, _ai_config):
+        # Built with the bridge, before the run, as the desktop has always seen it announced.
+        return self.ai_service if self.ai_enabled else None
+
+    def run_workflow(self) -> dict:
+        """Start Instagram and run the configured workflow (the core launcher)."""
+        from taktik.core.social_media.instagram.workflows.core.agent_handler import (
+            run_instagram_automation,
         )
-        result = runner.run()
-        self.automation = runner.automation
-        return result
+
+        app_service = self.runtime.app_service
+        return run_instagram_automation(
+            self.config,
+            device_manager=self.runtime.device_manager,
+            instagram_start=self._start_instagram,
+            instagram_ai_service=self._ai_service_for,
+            decision_provider=self.decision_client.request_plan if self.decision_client else None,
+            instagram_installed_version=app_service.get_installed_version if app_service else None,
+            reporter=InstagramAutomationReporter(self.config, ai_enabled=self.ai_enabled),
+            log=send_log,
+        )
 
     def run(self) -> int:
         """Main entry point."""
+        try:
+            return self._run()
+        finally:
+            self.close()
+
+    def _run(self) -> int:
+        from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
+
         send_status("starting", "TAKTIK Desktop Bridge starting...")
         targets_display, target_count = format_targets_display(self.target)
         send_log(
@@ -116,17 +139,21 @@ class DesktopBridge:
 
         self.media_capture.start()
 
-        if not self.runtime.launch_instagram():
+        started = True
+        try:
+            self.run_workflow()
+        except InstagramStartError:
+            started = False
             self.media_capture.stop()
             return 4
-
-        try:
-            if not self.run_workflow():
-                self.media_capture.stop()
-                return 5
+        except Exception as e:
+            send_instagram_workflow_error(e)
+            logger.exception("Workflow error")
+            return 5
         finally:
-            self.media_capture.stop()
-            self.runtime.stop_app()
+            if started:
+                self.media_capture.stop()
+                self.runtime.stop_app()
 
         send_status("finished", "Session completed")
         return 0

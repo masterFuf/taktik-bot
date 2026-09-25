@@ -7,7 +7,6 @@ import json
 from loguru import logger
 
 from bridges.instagram.scraping.runtime.commands import load_scraping_bridge_config
-from bridges.instagram.scraping.runtime.config import build_scraping_config
 from bridges.instagram.scraping.runtime.session import (
     configure_scraping_database,
     connect_scraping_device,
@@ -31,8 +30,7 @@ def run_scraping_bridge(argv: list[str]) -> int:
         if device_manager is None:
             return 1
 
-        scraping_config = build_scraping_config(config)
-        result = run_scraping_workflow(device_manager, scraping_config, config)
+        result = run_scraping_workflow(device_manager, config)
         print(json.dumps(result))
         return 0
 

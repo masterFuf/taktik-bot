@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""TikTok DM reading workflow bridge runner."""
+"""TikTok DM reading bridge runner.
+
+The run is `run_tiktok_dm_read` (core), the launcher the Agent handler `tiktok.automation.dm_read`
+(and so the CLI) calls too: start, read the inbox, record the conversations under the account read
+on the phone. This bridge only checks the device and injects what is specific to the desktop: the
+startup that prints on stdout, its IPC for the live events, the stop signal.
+"""
 
 from typing import Any, Dict
 
-from bridges.tiktok.runtime.ipc import logger, send_dm_stats, send_error, send_status, set_workflow
-from bridges.tiktok.runtime.startup import tiktok_startup
-from bridges.tiktok.workflows.engagement.runtime.dm_callbacks import wire_dm_read_callbacks
-from bridges.tiktok.workflows.engagement.runtime.dm_persistence import (
-    record_conversations,
-    resolve_account_id,
-)
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error, send_status, set_workflow
+from bridges.tiktok.runtime.startup import tiktok_startup_provider
 
 
 def run_dm_read_workflow(config: Dict[str, Any]):
@@ -23,44 +24,16 @@ def run_dm_read_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok DM workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import (
-            DMConfig,
-            DMWorkflow,
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler import (
+            run_tiktok_dm_read,
         )
 
-        manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
-
-        workflow_config = DMConfig(
-            max_conversations=config.get("maxConversations", 20),
-            skip_notifications=config.get("skipNotifications", True),
-            skip_groups=config.get("skipGroups", False),
-            only_unread=config.get("onlyUnread", False),
-            delay_between_conversations=config.get("delayBetweenConversations", 1.0),
+        run_tiktok_dm_read(
+            config,
+            notifier=_ipc,
+            tiktok_startup=tiktok_startup_provider(device_id),
+            workflow_hook=set_workflow,
         )
-
-        logger.info("📥 Creating DM workflow...")
-        send_status("running", "Reading DM conversations")
-
-        workflow = DMWorkflow(manager.device_manager.device, workflow_config)
-        set_workflow(workflow)
-        wire_dm_read_callbacks(workflow)
-
-        logger.info("▶️ Reading conversations...")
-        conversations = workflow.read_conversations()
-
-        # Persistence is best-effort and comes AFTER the read: a database problem must not
-        # cost the conversations that were just read off the screen.
-        record_conversations(
-            resolve_account_id(bot_username),
-            [c.to_dict() if hasattr(c, "to_dict") else dict(c) for c in conversations],
-        )
-
-        stats = workflow.get_stats()
-        send_dm_stats(stats.to_dict())
-
-        logger.success(f"✅ DM reading completed: {len(conversations)} conversations")
-        send_status("completed", f"Read {len(conversations)} conversations")
-
         return True
 
     except ImportError as e:

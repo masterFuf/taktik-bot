@@ -6,6 +6,7 @@ from .agent_handler import (
     TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID,
     build_tiktok_scraping_handler,
     register_tiktok_scraping_handlers,
+    run_tiktok_scraping,
 )
 from .workflow import ScrapingWorkflow
 from .models import ScrapingConfig, ScrapingStats
@@ -19,4 +20,5 @@ __all__ = [
     "ScrapingStats",
     "build_tiktok_scraping_handler",
     "register_tiktok_scraping_handlers",
+    "run_tiktok_scraping",
 ]

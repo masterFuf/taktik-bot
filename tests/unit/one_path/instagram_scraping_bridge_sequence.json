@@ -1,0 +1,520 @@
+{
+ "target": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "totalScraped": 2,
+    "completionReason": "limit_reached",
+    "error": null
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "target",
+    "session_duration_minutes": 20,
+    "max_profiles": 3,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": true,
+    "fetchLocation": true,
+    "minFollowers": 10,
+    "minPosts": 1,
+    "maxFollowing": 2000,
+    "requireProfilePicture": true,
+    "skipPrivateProfiles": false,
+    "rescrape_after_days": 0,
+    "deep_qualify": true,
+    "deep_qualify_max_following": 12,
+    "response_language": "fr",
+    "target_usernames": [
+     "alpha",
+     "beta"
+    ],
+    "scrape_type": "followers",
+    "scrape_post_likers": true,
+    "scrape_post_commenters": false,
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "hashtag_ai": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "totalScraped": 2,
+    "completionReason": "limit_reached",
+    "error": null
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "hashtag",
+    "session_duration_minutes": 15,
+    "max_profiles": 4,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": false,
+    "fetchLocation": false,
+    "minPosts": 2,
+    "requireProfilePicture": false,
+    "skipPrivateProfiles": true,
+    "response_language": "en",
+    "hashtags": [
+     "cuisine",
+     "recette"
+    ],
+    "hashtag": "cuisine",
+    "scrape_likers": false,
+    "scrape_commenters": true,
+    "max_posts": 6,
+    "ai_mode": true,
+    "ai_profile_analysis": true,
+    "ai_niche": "food",
+    "ai_qualification_prompt": "Cooks only",
+    "openrouter_api_key": "sk-or-v1-cccccccccccccccccccccccccccccccccccccccccccccccc",
+    "vision_model": "vision-x",
+    "niche_taxonomy": {
+     "food": [
+      "baking"
+     ]
+    },
+    "ai_rescrape_mode": "stats_only"
+   }
+  ],
+  "ai_builds": [
+   {
+    "api_key": "sk-or-v1-cccccccccccccccccccccccccccccccccccccccccccccccc",
+    "ipc": true,
+    "vision_model": "vision-x",
+    "niche_taxonomy": {
+     "food": [
+      "baking"
+     ]
+    }
+   }
+  ]
+ },
+ "post_url": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "totalScraped": 2,
+    "completionReason": "limit_reached",
+    "error": null
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "post_url",
+    "session_duration_minutes": 10,
+    "max_profiles": 5,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": false,
+    "fetchLocation": false,
+    "requireProfilePicture": false,
+    "skipPrivateProfiles": true,
+    "response_language": "en",
+    "post_urls": [
+     "https://www.instagram.com/p/AbC123/",
+     "https://www.instagram.com/reel/XyZ9/"
+    ],
+    "post_url": "https://www.instagram.com/p/AbC123/",
+    "scrape_likers": false,
+    "scrape_commenters": true,
+    "post_id": "AbC123",
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "usernames": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "totalScraped": 2,
+    "completionReason": "limit_reached",
+    "error": null
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "usernames",
+    "session_duration_minutes": 10,
+    "max_profiles": 2,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": false,
+    "fetchLocation": false,
+    "requireProfilePicture": false,
+    "skipPrivateProfiles": true,
+    "response_language": "en",
+    "usernames": [
+     "first_account",
+     "second_account"
+    ],
+    "source_name": "shortlist",
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "profile_posts": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "totalScraped": 2,
+    "completionReason": "limit_reached",
+    "error": null
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "profile_posts",
+    "session_duration_minutes": 10,
+    "max_profiles": 1,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": false,
+    "fetchLocation": false,
+    "requireProfilePicture": false,
+    "skipPrivateProfiles": true,
+    "response_language": "en",
+    "target_usernames": [
+     "alpha"
+    ],
+    "scrape_type": "profile_posts",
+    "max_posts_per_target": 20,
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "single_hashtag": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "totalScraped": 2,
+    "completionReason": "limit_reached",
+    "error": null
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "hashtag",
+    "session_duration_minutes": 15,
+    "max_profiles": 4,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": false,
+    "fetchLocation": false,
+    "minPosts": 2,
+    "requireProfilePicture": false,
+    "skipPrivateProfiles": true,
+    "response_language": "en",
+    "hashtags": [
+     "viral"
+    ],
+    "hashtag": "viral",
+    "scrape_likers": false,
+    "scrape_commenters": true,
+    "max_posts": 6,
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "single_post_url": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "totalScraped": 2,
+    "completionReason": "limit_reached",
+    "error": null
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "post_url",
+    "session_duration_minutes": 10,
+    "max_profiles": 5,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": false,
+    "fetchLocation": false,
+    "requireProfilePicture": false,
+    "skipPrivateProfiles": true,
+    "response_language": "en",
+    "post_urls": [
+     "https://www.instagram.com/p/One1/"
+    ],
+    "post_url": "https://www.instagram.com/p/One1/",
+    "scrape_likers": false,
+    "scrape_commenters": true,
+    "post_id": "One1",
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "bare": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "totalScraped": 2,
+    "completionReason": "limit_reached",
+    "error": null
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "target",
+    "session_duration_minutes": 60,
+    "max_profiles": 500,
+    "export_csv": true,
+    "save_to_db": true,
+    "enrich_profiles": false,
+    "fetchLocation": false,
+    "requireProfilePicture": false,
+    "skipPrivateProfiles": true,
+    "response_language": "en",
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "run_failed": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "totalScraped": 0,
+    "completionReason": "source_unreachable",
+    "error": "followers list not reached"
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "target",
+    "session_duration_minutes": 20,
+    "max_profiles": 3,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": true,
+    "fetchLocation": true,
+    "minFollowers": 10,
+    "minPosts": 1,
+    "maxFollowing": 2000,
+    "requireProfilePicture": true,
+    "skipPrivateProfiles": false,
+    "rescrape_after_days": 0,
+    "deep_qualify": true,
+    "deep_qualify_max_following": 12,
+    "response_language": "fr",
+    "target_usernames": [
+     "alpha",
+     "beta"
+    ],
+    "scrape_type": "followers",
+    "scrape_post_likers": true,
+    "scrape_post_commenters": false,
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "run_raises": {
+  "exit": 1,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "workflow notifier=True ai_factory=True",
+   "run_scraping",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "uiautomator died"
+   }
+  ],
+  "events": [],
+  "configs": [
+   {
+    "type": "target",
+    "session_duration_minutes": 20,
+    "max_profiles": 3,
+    "export_csv": false,
+    "save_to_db": true,
+    "enrich_profiles": true,
+    "fetchLocation": true,
+    "minFollowers": 10,
+    "minPosts": 1,
+    "maxFollowing": 2000,
+    "requireProfilePicture": true,
+    "skipPrivateProfiles": false,
+    "rescrape_after_days": 0,
+    "deep_qualify": true,
+    "deep_qualify_max_following": 12,
+    "response_language": "fr",
+    "target_usernames": [
+     "alpha",
+     "beta"
+    ],
+    "scrape_type": "followers",
+    "scrape_post_likers": true,
+    "scrape_post_commenters": false,
+    "ai_mode": false
+   }
+  ],
+  "ai_builds": []
+ },
+ "no_connection": {
+  "exit": 1,
+  "calls": [
+   "configure_db",
+   "connection emulator-5554",
+   "connect",
+   "disconnect"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Failed to connect to device"
+   }
+  ],
+  "events": [],
+  "configs": [],
+  "ai_builds": []
+ },
+ "no_device": {
+  "exit": 1,
+  "calls": [],
+  "stdout": [
+   {
+    "success": false,
+    "error": "No deviceId provided"
+   }
+  ],
+  "events": [],
+  "configs": [],
+  "ai_builds": []
+ },
+ "no_argument": {
+  "exit": 1,
+  "calls": [],
+  "stdout": [
+   {
+    "success": false,
+    "error": "No config file provided"
+   }
+  ],
+  "events": [],
+  "configs": [],
+  "ai_builds": []
+ },
+ "unreadable": {
+  "exit": 1,
+  "calls": [],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Failed to load config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+   }
+  ],
+  "events": [],
+  "configs": [],
+  "ai_builds": []
+ }
+}

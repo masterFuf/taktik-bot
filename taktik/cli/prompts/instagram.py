@@ -51,8 +51,7 @@ def generate_dynamic_workflow(target_type):
 def generate_target_workflow():
     current_translations = get_translations()
     from taktik.cli.common.workflow_builder import (
-        collect_probabilities, collect_filters, collect_session_settings,
-        build_filters_config, build_session_config, build_interaction_settings,
+        automation_payload, collect_probabilities, collect_filters, collect_session_settings,
         display_probabilities_rows, display_filters_rows, display_session_rows,
         display_estimates,
     )
@@ -69,7 +68,7 @@ def generate_target_workflow():
     target_usernames = [t.strip() for t in target_username.split(',') if t.strip()]
     if len(target_usernames) > 1:
         console.print(f"[green]✅ {len(target_usernames)} targets detected: {', '.join(['@' + t for t in target_usernames])}[/green]")
-    target_username = target_usernames[0]  # Keep first for backward compatibility
+    target_username = target_usernames[0]
     
     interaction_types = {
         "1": "followers",
@@ -98,45 +97,16 @@ def generate_target_workflow():
     filters = collect_filters(current_translations)
     session = collect_session_settings(current_translations)
     
-    interaction_settings = build_interaction_settings(probas)
-    
-    workflow_config = {
-        "filters": build_filters_config(filters),
-        "session_settings": build_session_config("target_followers", max_profiles, max_likes_per_profile, probas, session),
-        "actions": [
-            {
-                "type": "interact_with_followers",
-                "target_username": target_username,
-                "target_usernames": target_usernames,
-                "interaction_type": interaction_type,
-                "max_interactions": max_profiles,
-                "like_posts": True,
-                "max_likes_per_profile": max_likes_per_profile,
-                "probabilities": {
-                    "like_percentage": probas['like_percentage'],
-                    "follow_percentage": probas['follow_percentage'],
-                    "comment_percentage": probas['comment_percentage'],
-                    "story_percentage": probas['story_percentage'],
-                    "story_like_percentage": probas['story_like_percentage']
-                },
-                **interaction_settings
-            }
-        ],
-        "comments": [
-            "Great content! 😊",
-            "Love your posts! ❤️",
-            "Amazing content! ✨",
-            "Nice work! 👍",
-            "Awesome! 🔥",
-            "Beautiful! 💯"
-        ],
-        "debug": {
-            "save_screenshots": True,
-            "screenshot_failed_actions": True,
-            "log_level": "DEBUG"
-        }
-    }
-    
+    payload = automation_payload(
+        "target_followers" if interaction_type == "followers" else "target_following",
+        ",".join(target_usernames),
+        max_profiles=max_profiles,
+        max_likes_per_profile=max_likes_per_profile,
+        probas=probas,
+        filters=filters,
+        session=session,
+    )
+
     console.print(f"\n[green]{current_translations['target_workflow_summary']}[/green]")
     
     table = Table(show_header=True, header_style="bold magenta")
@@ -152,21 +122,17 @@ def generate_target_workflow():
     display_filters_rows(table, filters, current_translations)
     display_session_rows(table, session, current_translations)
     
-    if filters['blacklist_words']:
-        table.add_row(f"→ {current_translations['blacklisted_words']}", ", ".join(filters['blacklist_words'][:3]) + ("..." if len(filters['blacklist_words']) > 3 else ""))
-    
     console.print(table)
     
     display_estimates(max_profiles, max_likes_per_profile, probas, current_translations)
     
     console.print(f"\n[green]{current_translations['target_workflow_configured'].format(target_username)}[/green]")
-    return workflow_config
+    return payload
 
 def generate_hashtags_workflow():
     current_translations = get_translations()
     from taktik.cli.common.workflow_builder import (
-        collect_probabilities, collect_filters, collect_session_settings,
-        build_filters_config, build_session_config, build_interaction_settings,
+        automation_payload, collect_probabilities, collect_filters, collect_session_settings,
         display_probabilities_rows, display_filters_rows, display_session_rows,
         display_estimates,
     )
@@ -195,42 +161,17 @@ def generate_hashtags_workflow():
     filters = collect_filters(current_translations, defaults={'min_followers': 10, 'min_posts': 3})
     session = collect_session_settings(current_translations)
     
-    interaction_settings = build_interaction_settings(probas)
-    # Remove comment_settings since hashtag workflow doesn't use it in the same way
-    interaction_settings.pop('comment_settings', None)
-    
-    workflow_config = {
-        "filters": build_filters_config(filters),
-        "session_settings": build_session_config("hashtag_interactions", max_profiles, max_likes_per_profile, probas, session),
-        "actions": [
-            {
-                "type": "hashtag",
-                "hashtag": hashtag,
-                "max_interactions": max_profiles,
-                "max_likes_per_profile": max_likes_per_profile,
-                "post_criteria": {
-                    "min_likes": int(min_likes),
-                    "max_likes": int(max_likes)
-                },
-                "probabilities": {
-                    "like_percentage": probas['like_percentage'],
-                    "follow_percentage": probas['follow_percentage'],
-                    "comment_percentage": probas['comment_percentage'],
-                    "story_percentage": probas['story_percentage'],
-                    "story_like_percentage": probas['story_like_percentage']
-                },
-                "filter_criteria": {
-                    "min_followers": filters['min_followers'],
-                    "max_followers": filters['max_followers'],
-                    "min_posts": filters['min_posts'],
-                    "skip_private": True,
-                    "skip_business": False
-                },
-                **interaction_settings
-            }
-        ]
-    }
-    
+    payload = automation_payload(
+        "hashtags",
+        hashtag,
+        max_profiles=max_profiles,
+        max_likes_per_profile=max_likes_per_profile,
+        probas=probas,
+        filters=filters,
+        session=session,
+        postCriteria={"minLikes": int(min_likes), "maxLikes": int(max_likes)},
+    )
+
     console.print("\n[green]📋 Résumé de la configuration Hashtag :[/green]")
     
     table = Table(show_header=True, header_style="bold magenta")
@@ -251,13 +192,12 @@ def generate_hashtags_workflow():
     display_estimates(max_profiles, max_likes_per_profile, probas, current_translations)
     
     console.print(f"\n[green]✅ Workflow hashtag #{hashtag} configured successfully![/green]")
-    return workflow_config
+    return payload
 
 def generate_post_url_workflow():
     current_translations = get_translations()
     from taktik.cli.common.workflow_builder import (
-        collect_probabilities, collect_filters, collect_session_settings,
-        build_filters_config, build_session_config, build_interaction_settings,
+        automation_payload, collect_probabilities, collect_filters, collect_session_settings,
         display_probabilities_rows, display_filters_rows, display_session_rows,
         display_estimates,
     )
@@ -284,30 +224,16 @@ def generate_post_url_workflow():
     filters = collect_filters(current_translations)
     session = collect_session_settings(current_translations)
     
-    interaction_settings = build_interaction_settings(probas)
-    
-    workflow_config = {
-        "filters": build_filters_config(filters),
-        "session_settings": build_session_config("target_followers", max_profiles, max_likes_per_profile, probas, session),
-        'steps': [
-            {
-                'type': 'post_url',
-                'post_url': post_url,
-                'interaction_type': 'post-likers',
-                'max_interactions': max_profiles,
-                'max_likes_per_profile': max_likes_per_profile,
-                'probabilities': {
-                    'like_percentage': probas['like_percentage'],
-                    'follow_percentage': probas['follow_percentage'],
-                    'comment_percentage': probas['comment_percentage'],
-                    'story_percentage': probas['story_percentage'],
-                    'story_like_percentage': probas['story_like_percentage']
-                },
-                **interaction_settings
-            }
-        ]
-    }
-    
+    payload = automation_payload(
+        "post_url",
+        post_url,
+        max_profiles=max_profiles,
+        max_likes_per_profile=max_likes_per_profile,
+        probas=probas,
+        filters=filters,
+        session=session,
+    )
+
     console.print(f"\n[green]{current_translations['post_url_workflow_summary']}[/green]")
     
     table = Table(show_header=True, header_style="bold magenta")
@@ -331,7 +257,7 @@ def generate_post_url_workflow():
     
     console.print(f"\n[green]{current_translations['post_url_workflow_success'].format(post_url)}[/green]")
     
-    return workflow_config
+    return payload
 
 def _validate_instagram_url(url: str) -> bool:
     import re

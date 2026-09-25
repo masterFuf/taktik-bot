@@ -1,46 +1,134 @@
-"""Agent runtime handlers for Instagram scraping workflows."""
+"""The one launcher of an Instagram scraping run, and its Agent handlers.
+
+`run_instagram_scraping` is what the desktop bridge (`scraping_bridge`) calls and what the handlers
+registered as `instagram.scraping.<type>` (the CLI) call: read the payload (`payload.py`), start
+Instagram when the host asks, then run `ScrapingWorkflow`. What differs between the hosts is
+injected:
+- `instagram_start(package_name) -> bool`: a clean restart before the run. The desktop restarts
+  Instagram itself before it launches the bridge, so the bridge injects none.
+- `ai_notifier`: where the AI qualification reports (the bridge's stdout IPC).
+- `instagram_scraping_ai_service(**kwargs)`: builds the AI service the run asks for.
+- `instagram_ai_key() -> str | None`: the OpenRouter key when the payload brings none (the CLI's
+  environment).
+No injected callable receives the whole payload, so the app's config contract test can still see
+every key the bot reads.
+"""
 
 from __future__ import annotations
 
-import re
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Optional
+
+from loguru import logger
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import (
-    ScrapingWorkflow,
+from taktik.core.social_media.instagram.workflows.scraping.payload import (
+    INSTAGRAM_SCRAPING_TYPES,
+    scraping_config_from_payload,
+    scraping_source_error,
 )
 
 
 INSTAGRAM_SCRAPING_TARGET_WORKFLOW_ID = "instagram.scraping.target"
 INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID = "instagram.scraping.hashtag"
 INSTAGRAM_SCRAPING_POST_URL_WORKFLOW_ID = "instagram.scraping.post_url"
-INSTAGRAM_SCRAPING_WORKFLOW_IDS = (
-    INSTAGRAM_SCRAPING_TARGET_WORKFLOW_ID,
-    INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID,
-    INSTAGRAM_SCRAPING_POST_URL_WORKFLOW_ID,
-)
+INSTAGRAM_SCRAPING_USERNAMES_WORKFLOW_ID = "instagram.scraping.usernames"
+INSTAGRAM_SCRAPING_PROFILE_POSTS_WORKFLOW_ID = "instagram.scraping.profile_posts"
+INSTAGRAM_SCRAPING_WORKFLOW_IDS = tuple(f"instagram.scraping.{kind}" for kind in INSTAGRAM_SCRAPING_TYPES)
+
 ScrapingWorkflowFactory = Callable[..., Any]
+InstagramStart = Callable[[Optional[str]], bool]
+AIServiceFactory = Callable[..., Any]
+AIKeyProvider = Callable[[], Optional[str]]
+
+
+def _default_workflow_factory() -> ScrapingWorkflowFactory:
+    # Resolved at call time, so the module's class is the one a run gets.
+    from taktik.core.social_media.instagram.workflows.scraping import scraping_workflow
+
+    return scraping_workflow.ScrapingWorkflow
+
+
+def run_instagram_scraping(
+    payload: Mapping[str, Any],
+    *,
+    device_manager,
+    instagram_start: Optional[InstagramStart] = None,
+    ai_notifier=None,
+    instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
+    instagram_ai_key: Optional[AIKeyProvider] = None,
+    workflow_factory: Optional[ScrapingWorkflowFactory] = None,
+) -> dict[str, Any]:
+    """Start Instagram when the host asks, then scrape the source a payload names."""
+    from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
+
+    if instagram_start is not None and not instagram_start(payload.get("packageName")):
+        raise InstagramStartError("Instagram did not start cleanly; the scraping was not started")
+
+    scraping_config = scraping_config_from_payload(payload)
+    if scraping_config.get('ai_mode') and not scraping_config.get('openrouter_api_key') and instagram_ai_key:
+        key = instagram_ai_key()
+        if key:
+            scraping_config['openrouter_api_key'] = key
+
+    logger.info(f"Starting scraping workflow: {scraping_config['type']}")
+    if scraping_config.get('enrich_profiles', False):
+        logger.info("Enriched scraping enabled - will visit each profile for details")
+    if scraping_config.get('deep_qualify', False):
+        logger.info(
+            f"\U0001f52c Deep qualify enabled — "
+            f"max_following={scraping_config.get('deep_qualify_max_following', 30)}"
+        )
+    else:
+        logger.info(
+            f"\U0001f52c Deep qualify OFF — config received "
+            f"deepQualify={payload.get('deepQualify')!r}, "
+            f"enrichProfiles={payload.get('enrichProfiles')!r}"
+        )
+
+    workflow = (workflow_factory or _default_workflow_factory())(
+        device_manager,
+        scraping_config,
+        ai_notifier=ai_notifier,
+        ai_service_factory=instagram_scraping_ai_service,
+    )
+    return workflow.run()
+
+
+def instagram_scraping_payload(invocation: WorkflowInvocation, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """The payload a handler call stands for: every key kept, the source type the id names."""
+    merged = dict(payload)
+    merged.update(invocation.params)
+    merged["type"] = _scraping_type_from_id(invocation.workflow_id)
+    return merged
 
 
 def build_instagram_scraping_handler(
     *,
     device_manager,
     ai_notifier=None,
-    ai_service_factory=None,
-    workflow_factory: ScrapingWorkflowFactory = ScrapingWorkflow,
+    instagram_start: Optional[InstagramStart] = None,
+    instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
+    instagram_ai_key: Optional[AIKeyProvider] = None,
+    workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> WorkflowHandler:
-    """Build an injectable scraping handler without owning device connection."""
+    """Build an injectable scraping handler: the launcher, on the injected host."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        config = _scraping_config(invocation, payload)
-        workflow = workflow_factory(
-            device_manager,
-            config,
+        run_payload = instagram_scraping_payload(invocation, payload)
+        # A run with nothing to scrape is refused before the phone is touched.
+        error = scraping_source_error(scraping_config_from_payload(run_payload))
+        if error:
+            raise ValueError(error)
+        return run_instagram_scraping(
+            run_payload,
+            device_manager=device_manager,
+            instagram_start=instagram_start,
             ai_notifier=ai_notifier,
-            ai_service_factory=ai_service_factory,
+            instagram_scraping_ai_service=instagram_scraping_ai_service,
+            instagram_ai_key=instagram_ai_key,
+            workflow_factory=workflow_factory,
         )
-        return workflow.run()
 
     return handler
 
@@ -50,14 +138,18 @@ def register_instagram_scraping_handlers(
     *,
     device_manager,
     ai_notifier=None,
-    ai_service_factory=None,
-    workflow_factory: ScrapingWorkflowFactory = ScrapingWorkflow,
+    instagram_start: Optional[InstagramStart] = None,
+    instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
+    instagram_ai_key: Optional[AIKeyProvider] = None,
+    workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> WorkflowRegistry:
     """Register Instagram scraping handlers into an injected Agent registry."""
     handler = build_instagram_scraping_handler(
         device_manager=device_manager,
         ai_notifier=ai_notifier,
-        ai_service_factory=ai_service_factory,
+        instagram_start=instagram_start,
+        instagram_scraping_ai_service=instagram_scraping_ai_service,
+        instagram_ai_key=instagram_ai_key,
         workflow_factory=workflow_factory,
     )
     for workflow_id in INSTAGRAM_SCRAPING_WORKFLOW_IDS:
@@ -65,172 +157,23 @@ def register_instagram_scraping_handlers(
     return registry
 
 
-def _scraping_config(invocation: WorkflowInvocation, payload: Mapping[str, Any]) -> dict[str, Any]:
-    merged = dict(payload)
-    merged.update(invocation.params)
-
-    if invocation.workflow_id == INSTAGRAM_SCRAPING_TARGET_WORKFLOW_ID:
-        scraping_type = "target"
-    elif invocation.workflow_id == INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID:
-        scraping_type = "hashtag"
-    elif invocation.workflow_id == INSTAGRAM_SCRAPING_POST_URL_WORKFLOW_ID:
-        scraping_type = "post_url"
-    else:
-        raise ValueError(f"Unsupported Instagram scraping workflow id: {invocation.workflow_id}")
-
-    config: dict[str, Any] = {
-        "type": scraping_type,
-        "session_duration_minutes": _int_param(
-            merged,
-            "session_duration_minutes",
-            "sessionDurationMinutes",
-            default=60,
-        ),
-        "max_profiles": _int_param(merged, "max_profiles", "maxProfiles", default=500),
-        "export_csv": _bool_param(merged, "export_csv", "exportCsv", default=True),
-        "save_to_db": _bool_param(merged, "save_to_db", "saveToDb", default=True),
-        "enrich_profiles": _bool_param(
-            merged,
-            "enrich_profiles",
-            "enrichProfiles",
-            default=False,
-        ),
-        "response_language": _string_param(merged, "response_language", "appLanguage", default="en"),
-    }
-
-    rescrape_after_days = _value_param(merged, "rescrape_after_days", "rescrapeAfterDays")
-    if rescrape_after_days is not None:
-        config["rescrape_after_days"] = int(rescrape_after_days)
-
-    if _bool_param(merged, "deep_qualify", "deepQualify", default=False):
-        config["deep_qualify"] = True
-        dq_max = _value_param(merged, "deep_qualify_max_following", "deepQualifyMaxFollowing")
-        if dq_max is not None:
-            config["deep_qualify_max_following"] = int(dq_max)
-
-    if scraping_type == "target":
-        _apply_target_config(config, merged)
-    elif scraping_type == "hashtag":
-        _apply_hashtag_config(config, merged)
-    else:
-        _apply_post_url_config(config, merged)
-
-    _apply_ai_config(config, merged)
-    return config
+def _scraping_type_from_id(workflow_id: str) -> str:
+    prefix = "instagram.scraping."
+    scraping_type = workflow_id[len(prefix):] if workflow_id.startswith(prefix) else ""
+    if scraping_type not in INSTAGRAM_SCRAPING_TYPES:
+        raise ValueError(f"Unsupported Instagram scraping workflow id: {workflow_id}")
+    return scraping_type
 
 
-def _apply_target_config(config: dict[str, Any], payload: Mapping[str, Any]) -> None:
-    targets = _list_param(payload, "target_usernames", "targetUsernames", "targets", "targetAccounts")
-    if not targets:
-        raise ValueError("Instagram target scraping requires targetUsernames")
-    config["target_usernames"] = targets
-    config["scrape_type"] = _string_param(payload, "scrape_type", "scrapeType", default="followers")
-    config["scrape_post_likers"] = _bool_param(
-        payload,
-        "scrape_post_likers",
-        "scrapePostLikers",
-        default=True,
-    )
-    config["scrape_post_commenters"] = _bool_param(
-        payload,
-        "scrape_post_commenters",
-        "scrapePostCommenters",
-        default=False,
-    )
-
-
-def _apply_hashtag_config(config: dict[str, Any], payload: Mapping[str, Any]) -> None:
-    hashtags = _list_param(payload, "hashtags", "hashtag")
-    if not hashtags:
-        raise ValueError("Instagram hashtag scraping requires hashtags")
-    config["hashtags"] = hashtags
-    config["hashtag"] = hashtags[0]
-    config["scrape_likers"] = _bool_param(payload, "scrape_likers", "scrapeHashtagLikers", default=True)
-    config["scrape_commenters"] = _bool_param(
-        payload,
-        "scrape_commenters",
-        "scrapeHashtagCommenters",
-        default=False,
-    )
-    config["max_posts"] = _int_param(payload, "max_posts", "maxPosts", default=50)
-
-
-def _apply_post_url_config(config: dict[str, Any], payload: Mapping[str, Any]) -> None:
-    post_urls = _list_param(payload, "post_urls", "postUrls", "postUrl")
-    if not post_urls:
-        raise ValueError("Instagram post_url scraping requires postUrls")
-    config["post_urls"] = post_urls
-    config["post_url"] = post_urls[0]
-    config["scrape_likers"] = _bool_param(payload, "scrape_likers", "scrapePostUrlLikers", default=True)
-    config["scrape_commenters"] = _bool_param(
-        payload,
-        "scrape_commenters",
-        "scrapePostUrlCommenters",
-        default=False,
-    )
-    config["post_id"] = _post_id_from_url(post_urls[0])
-
-
-def _apply_ai_config(config: dict[str, Any], payload: Mapping[str, Any]) -> None:
-    ai_config = payload.get("ai")
-    if isinstance(ai_config, Mapping) and ai_config.get("enabled"):
-        config["ai_mode"] = True
-        config["ai_profile_analysis"] = ai_config.get("profileAnalysis", True)
-        config["ai_niche"] = ai_config.get("niche", "")
-        config["ai_qualification_prompt"] = ai_config.get("qualificationPrompt", "")
-        config["openrouter_api_key"] = ai_config.get("openrouterApiKey", "")
-        config["vision_model"] = ai_config.get("visionModel", "")
-        config["ai_rescrape_mode"] = _string_param(payload, "ai_rescrape_mode", "aiRescrapeMode", default="full")
-    else:
-        config["ai_mode"] = _bool_param(payload, "ai_mode", "aiMode", default=False)
-
-
-def _post_id_from_url(url: str) -> str:
-    match = re.search(r"/p/([^/]+)/", url)
-    if match:
-        return match.group(1)
-    match = re.search(r"/reel/([^/]+)/", url)
-    return match.group(1) if match else "unknown"
-
-
-def _value_param(payload: Mapping[str, Any], *names: str) -> Any:
-    for name in names:
-        if name in payload:
-            return payload[name]
-    return None
-
-
-def _string_param(payload: Mapping[str, Any], *names: str, default: str) -> str:
-    value = _value_param(payload, *names)
-    if value is None:
-        return default
-    return str(value).strip() or default
-
-
-def _int_param(payload: Mapping[str, Any], *names: str, default: int) -> int:
-    value = _value_param(payload, *names)
-    if value is None:
-        return default
-    return int(value)
-
-
-def _bool_param(payload: Mapping[str, Any], *names: str, default: bool) -> bool:
-    value = _value_param(payload, *names)
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return bool(value)
-
-
-def _list_param(payload: Mapping[str, Any], *names: str) -> list[str]:
-    value = _value_param(payload, *names)
-    if value is None:
-        return []
-    if isinstance(value, str):
-        return [value.strip()] if value.strip() else []
-    if isinstance(value, Sequence):
-        return [str(item).strip() for item in value if str(item).strip()]
-    return [str(value).strip()] if str(value).strip() else []
+__all__ = [
+    "INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID",
+    "INSTAGRAM_SCRAPING_POST_URL_WORKFLOW_ID",
+    "INSTAGRAM_SCRAPING_PROFILE_POSTS_WORKFLOW_ID",
+    "INSTAGRAM_SCRAPING_TARGET_WORKFLOW_ID",
+    "INSTAGRAM_SCRAPING_USERNAMES_WORKFLOW_ID",
+    "INSTAGRAM_SCRAPING_WORKFLOW_IDS",
+    "build_instagram_scraping_handler",
+    "instagram_scraping_payload",
+    "register_instagram_scraping_handlers",
+    "run_instagram_scraping",
+]

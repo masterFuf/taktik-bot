@@ -5,7 +5,6 @@ import threading
 from bridges.instagram.automation.runtime.decision_client import (
     DesktopProfileDecisionClient,
 )
-from bridges.instagram.automation.runtime.entrypoint import run_desktop_config
 
 
 class _BlockingInput:
@@ -103,23 +102,22 @@ def test_close_releases_a_pending_request_and_stops_reader():
     assert client._reader.is_alive() is False
 
 
-def test_desktop_entrypoint_always_closes_bridge():
+def test_the_desktop_bridge_closes_its_decision_reader_whatever_the_run_does(monkeypatch):
+    from bridges.instagram.automation.runtime.bridge import DesktopBridge
+
     calls = []
+    bridge = DesktopBridge.__new__(DesktopBridge)
+    bridge.decision_client = type("_Client", (), {"close": lambda self: calls.append("close")})()
 
-    class _Bridge:
-        def __init__(self, config):
-            calls.append(("init", config))
+    def _crash():
+        calls.append("run")
+        raise RuntimeError("the run blew up")
 
-        def run(self):
-            calls.append(("run",))
-            return 7
+    monkeypatch.setattr(bridge, "_run", _crash)
 
-        def close(self):
-            calls.append(("close",))
+    try:
+        bridge.run()
+    except RuntimeError:
+        pass
 
-    assert run_desktop_config({"workflowType": "target"}, _Bridge) == 7
-    assert calls == [
-        ("init", {"workflowType": "target"}),
-        ("run",),
-        ("close",),
-    ]
+    assert calls == ["run", "close"]

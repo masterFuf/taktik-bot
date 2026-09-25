@@ -1,37 +1,25 @@
-"""Workflow runner for the Instagram scraping bridge."""
+"""Workflow runner for the Instagram scraping bridge.
+
+The run is `run_instagram_scraping`, the launcher the Agent handlers `instagram.scraping.*` (and so
+the CLI) call too, called by name so the app's config contract test can follow the payload. The
+bridge brings its stdout IPC, its AI service factory and the result shape the desktop reads.
+"""
 
 from __future__ import annotations
 
-from loguru import logger
-
 from bridges.instagram.runtime.ipc import _ipc
 from bridges.instagram.scraping.runtime.ai import build_scraping_ai_service
-from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 
 
-def run_scraping_workflow(device_manager, scraping_config: dict, bridge_config: dict) -> dict:
-    logger.info(f"Starting scraping workflow: {scraping_config['type']}")
-    if scraping_config.get('enrich_profiles', False):
-        logger.info("Enriched scraping enabled - will visit each profile for details")
-    if scraping_config.get('deep_qualify', False):
-        logger.info(
-            f"\U0001f52c Deep qualify enabled \u2014 "
-            f"max_following={scraping_config.get('deep_qualify_max_following', 30)}"
-        )
-    else:
-        logger.info(
-            f"\U0001f52c Deep qualify OFF \u2014 config received "
-            f"deepQualify={bridge_config.get('deepQualify')!r}, "
-            f"enrichProfiles={bridge_config.get('enrichProfiles')!r}"
-        )
+def run_scraping_workflow(device_manager, bridge_config: dict) -> dict:
+    from taktik.core.social_media.instagram.workflows.scraping.agent_handler import run_instagram_scraping
 
-    workflow = ScrapingWorkflow(
-        device_manager,
-        scraping_config,
+    result = run_instagram_scraping(
+        bridge_config,
+        device_manager=device_manager,
         ai_notifier=_ipc,
-        ai_service_factory=build_scraping_ai_service,
+        instagram_scraping_ai_service=build_scraping_ai_service,
     )
-    result = workflow.run()
 
     return {
         "success": result.get('success', False),

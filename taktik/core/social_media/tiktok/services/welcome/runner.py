@@ -6,11 +6,11 @@ only be tested with a phone in hand. Here the device shows up as two injected ca
 (`visit_profile`, `qualify`), so the whole decision path — including the branches nobody wants
 to reproduce on a real account — is exercised without one.
 
-`visit_profile` is expected to be the production navigation
-(`NavigationActions.navigate_to_user_profile`), which already answers ARRIVAL rather than
-click: it checks the screen is a profile at all, then that the handle is the one asked for. A
-False from it means we did not land where we meant to, and a verdict taken there would describe
-a stranger's profile while being filed under our follower's name.
+`visit_profile` is the production navigation (`DMActions.open_new_follower_profile`: the row is
+opened, since the page shows display names, and the handle is read off the profile that opens),
+which answers ARRIVAL rather than click. A False from it means we did not land where we meant to,
+and a verdict taken there would describe a stranger's profile while being filed under our
+follower's name.
 """
 
 from __future__ import annotations

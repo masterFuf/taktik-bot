@@ -41,6 +41,17 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
      "register_tiktok_search_handlers"),
     ("TikTok followers", "taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler",
      "register_tiktok_followers_handlers"),
+    ("TikTok target profiles",
+     "taktik.core.social_media.tiktok.actions.business.workflows.target_profiles.agent_handler",
+     "register_tiktok_target_profiles_handlers"),
+    ("TikTok post URL", "taktik.core.social_media.tiktok.actions.business.workflows.post_url.agent_handler",
+     "register_tiktok_post_url_handlers"),
+    ("TikTok follow-graph sync",
+     "taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.agent_handler",
+     "register_tiktok_sync_lists_handlers"),
+    ("TikTok notifications",
+     "taktik.core.social_media.tiktok.actions.business.workflows.notifications.agent_handler",
+     "register_tiktok_notifications_handlers"),
     ("TikTok DM", "taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler",
      "register_tiktok_dm_handlers"),
     ("TikTok DM outreach", "taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler",
@@ -95,21 +106,43 @@ def build_registry(
     startup_provider: Callable[..., Any] | None = None,
 ) -> RegistryBuild:
     """Register every available handler, returning the registry and any registrar failures."""
-    from taktik.cli.common.tiktok_host import cli_tiktok_ai_hooks, cli_tiktok_startup
+    from taktik.cli.common.instagram_host import (
+        CliInstagramHost,
+        cli_instagram_ai_service,
+        cli_instagram_scraping_ai_service,
+        cli_openrouter_key,
+    )
+    from taktik.cli.common.tiktok_host import (
+        cli_tiktok_ai_hooks,
+        cli_tiktok_outreach_message_generator,
+        cli_tiktok_startup,
+        cli_tiktok_welcome_qualifier,
+    )
 
     registry = WorkflowRegistry()
     failures: list[tuple[str, str]] = []
+    manager = device_manager if device_manager is not None else device
+    instagram_host = CliInstagramHost(manager, device_id) if manager is not None else None
 
     supplied: dict[str, Any] = {
         "device": device,
         "device_id": device_id,
-        "device_manager": device_manager if device_manager is not None else device,
+        "device_manager": manager,
         "notifier": notifier,
         "ai_notifier": notifier,
         "startup_provider": startup_provider,
         # TikTok handlers that take these start and hook a run the way the bridges do.
         "tiktok_startup": cli_tiktok_startup(device, device_id) if device is not None else None,
         "tiktok_ai_hooks": cli_tiktok_ai_hooks,
+        "tiktok_welcome_qualifier": cli_tiktok_welcome_qualifier,
+        "tiktok_outreach_message_generator": cli_tiktok_outreach_message_generator,
+        # The Instagram automation handlers start and hook a run the way the desktop bridge does.
+        "instagram_start": instagram_host.start if instagram_host else None,
+        "instagram_installed_version": instagram_host.installed_version if instagram_host else None,
+        "instagram_ai_service": cli_instagram_ai_service,
+        # The scraping handlers build their AI service from a key, the payload's or the environment's.
+        "instagram_scraping_ai_service": cli_instagram_scraping_ai_service,
+        "instagram_ai_key": cli_openrouter_key,
     }
 
     for label, module_path, func_name in REGISTRARS:

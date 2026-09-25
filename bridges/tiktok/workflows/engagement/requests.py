@@ -1,73 +1,53 @@
 #!/usr/bin/env python3
-"""TikTok message-requests workflow bridge runner (inbox v2 - Phase 3).
+"""TikTok message-requests bridge runner (inbox v2 - Phase 3).
 
 Two modes, set by the config:
-- scrape, the default: open the message-requests page, list the requests and emit
-    one event per item, without acting.
-- execute: apply the decisions, replying
-  {username, action: 'accept'|'decline', message?}) — accepte/refuse, et répond après acceptation
-    when a message is provided. Emits one result per decision.
+- scrape, the default: open the message-requests page, list the requests and emit one event per
+  item, without acting.
+- execute: apply the decisions `{username, action: 'accept'|'decline', message?}`, replying after
+  an accept when a message is given. Emits one result per decision.
+
+The run is `run_tiktok_inbox` (core, flow `dm_requests`), the launcher the Agent handler
+`tiktok.automation.dm_requests` (and so the CLI) calls too. This bridge only checks the request and
+injects the startup that prints on stdout, its IPC and the stop signal.
 """
 
 from typing import Any, Dict
 
-from bridges.tiktok.runtime.ipc import logger, send_error, send_status, set_workflow
-from bridges.tiktok.runtime.startup import tiktok_startup
-from bridges.tiktok.workflows.engagement.runtime.dm_callbacks import (
-    wire_message_requests_read_callbacks,
-    wire_request_decision_callbacks,
-)
+from bridges.tiktok.runtime.ipc import _ipc, logger, send_error, set_workflow
+from bridges.tiktok.runtime.startup import tiktok_startup_provider
 
 
 def run_message_requests_workflow(config: Dict[str, Any]):
-    """Run the TikTok message-requests workflow (scrape ou execute)."""
+    """Run the TikTok message-requests workflow (scrape or execute)."""
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_payload import (
+        EXECUTE,
+        REQUESTS,
+        inbox_mode_from_payload,
+        request_decisions_from_payload,
+    )
+
     device_id = config.get("deviceId")
     if not device_id:
         send_error("No device ID provided")
         return False
 
-    mode = config.get("mode", "scrape")
+    if inbox_mode_from_payload(config) == EXECUTE and not request_decisions_from_payload(config):
+        send_error("No decisions to process")
+        return False
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import (
-            DMConfig,
-            DMWorkflow,
+        from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_agent_handler import (
+            run_tiktok_inbox,
         )
 
-        manager, _ = tiktok_startup(device_id, fetch_profile=True)
-        workflow = DMWorkflow(
-            manager.device_manager.device,
-            DMConfig(delay_between_conversations=config.get("delayBetweenActions", 1.0)),
+        run_tiktok_inbox(
+            config,
+            flow=REQUESTS,
+            notifier=_ipc,
+            tiktok_startup=tiktok_startup_provider(device_id),
+            workflow_hook=set_workflow,
         )
-        set_workflow(workflow)
-
-        if mode == "execute":
-            decisions = config.get("decisions", [])
-            if not decisions:
-                send_error("No decisions to process")
-                return False
-
-            logger.info(f"📥 Traitement de {len(decisions)} demande(s) sur {device_id}")
-            send_status("running", f"Processing {len(decisions)} request(s)")
-
-            wire_request_decision_callbacks(workflow)
-            results = workflow.process_message_requests(decisions)
-            done = sum(1 for r in results if r.get("success"))
-
-            logger.success(f"✅ Demandes traitées : {done}/{len(decisions)}")
-            send_status("completed", f"Processed {done}/{len(decisions)} requests")
-            return True
-
-        # mode == "scrape"
-        max_items = config.get("maxItems", 30)
-        logger.info(f"📥 Scrape des demandes de messages sur {device_id} (max {max_items})")
-        send_status("running", "Reading message requests")
-
-        wire_message_requests_read_callbacks(workflow)
-        requests = workflow.read_message_requests(max_items=max_items)
-
-        logger.success(f"✅ {len(requests)} demande(s) listée(s)")
-        send_status("completed", f"Listed {len(requests)} message requests")
         return True
 
     except ImportError as e:

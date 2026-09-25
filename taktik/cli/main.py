@@ -247,11 +247,17 @@ def cli(ctx, lang=None):
                 if not instagram.is_installed():
                     console.print(f"[red]{current_translations['instagram_not_installed']}[/red]")
                     continue
-                console.print(f"[blue]{current_translations['launching_instagram']}[/blue]")
-                if instagram.launch():
-                    console.print(f"[green]{current_translations['instagram_launched_success']}[/green]")
-                else:
+                # Automation and scraping runs restart Instagram themselves, cleanly, like desktop
+                # runs: a warm launch here would only be undone.
+                def _launch_instagram() -> bool:
+                    console.print(f"[blue]{current_translations['launching_instagram']}[/blue]")
+                    if instagram.launch():
+                        console.print(f"[green]{current_translations['instagram_launched_success']}[/green]")
+                        return True
                     console.print(f"[red]{current_translations['instagram_launch_failed']}[/red]")
+                    return False
+
+                if mode_choice == 1 and not _launch_instagram():
                     continue
                 
                 if mode_choice == 1:
@@ -523,16 +529,16 @@ def cli(ctx, lang=None):
                         continue
                 
                 elif mode_choice == 2:
-                    # Mode Automation (ancien workflow)
-                    from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-                    
+                    # Mode Automation: the prompts describe the run the way a desktop page does,
+                    # and the run goes through the automation handler, the desktop's launcher
+                    # (clean restart, selector overrides, language, AI with OPENROUTER_API_KEY).
                     target_type = select_target_type()
                     if not target_type:
                         console.print(f"[red]{current_translations['no_target_selected']}[/red]")
                         continue
-                    
-                    dynamic_config = generate_dynamic_workflow(target_type)
-                    if not dynamic_config:
+
+                    payload = generate_dynamic_workflow(target_type)
+                    if not payload:
                         console.print(f"[red]{current_translations['workflow_generation_error']}[/red]")
                         continue
 
@@ -541,23 +547,13 @@ def cli(ctx, lang=None):
                         continue
 
                     console.print(f"[blue]{current_translations['initializing_automation']}[/blue]")
-                    automation = InstagramAutomation(device_manager)
+                    from taktik.cli.common.instagram_host import run_instagram_payload
+                    try:
+                        run_instagram_payload(device_manager, device_id, payload)
+                    except Exception as exc:  # noqa: BLE001 - a failed run reports, not tracebacks
+                        console.print(f"[red]Workflow failed:[/red] {type(exc).__name__}: {exc}")
+                        sys.exit(1)
 
-                    # The licence-limit call that used to sit here was a leftover: the method was
-                    # removed from InstagramAutomation, and the `api_key` it was passed had never
-                    # been defined in this scope either. It raised on every single automation run
-                    # started from the CLI. The bot has no licence limits in standalone — the only
-                    # quota is the desktop app's device count, which lives on that side.
-                    #
-                    # Same runtime setup as the desktop bridges — version-specific selector
-                    # overrides and app-language detection included. The CLI used to assign the
-                    # config by hand and skip both, so an open-source user on a newer Instagram
-                    # ran the baseline selectors the desktop had already outgrown.
-                    _prepare_instagram_cli_runtime(automation, dynamic_config, device_id)
-                    console.print(f"[green]{current_translations['dynamic_config_applied']}[/green]")
-                    
-                    automation.run_workflow()
-                    
                     console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
                     sys.exit(0)
                 
@@ -595,11 +591,13 @@ def cli(ctx, lang=None):
                             continue
                         
                         if post_scraping_choice == 3:
-                            # Full Post Scraping Workflow
+                            # Full Post Scraping Workflow (CLI only): it starts from Instagram open.
                             scraping_config = generate_post_scraping_workflow()
                             if scraping_config:
                                 from taktik.cli.common.device_selector import connect_device as _cd
                                 if not _cd(device_manager, device_id, current_translations):
+                                    continue
+                                if not _launch_instagram():
                                     continue
                                 
                                 from taktik.core.social_media.instagram.workflows.post_scraping import PostScrapingWorkflow
@@ -612,9 +610,9 @@ def cli(ctx, lang=None):
                                 sys.exit(0)
                             continue
                         else:
-                            scraping_config = generate_url_scraping_workflow()
-                            if scraping_config:
-                                scraping_config['scrape_type'] = 'likers' if post_scraping_choice == 1 else 'comments'
+                            scraping_config = generate_url_scraping_workflow(
+                                "likers" if post_scraping_choice == 1 else "commenters"
+                            )
                     
                     if scraping_choice in [1, 2] or (scraping_choice == 3 and scraping_config):
                         if not scraping_config:
@@ -625,28 +623,16 @@ def cli(ctx, lang=None):
                         if not _cd3(device_manager, device_id, current_translations):
                             continue
                         
-                        # Start the scraping
-                        from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
-                        
+                        # The run goes through the scraping handler, the desktop's launcher: clean
+                        # restart, the page's filters, AI with OPENROUTER_API_KEY.
                         console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
-                        from taktik.core.app.ai.factory import build_ai_service
+                        from taktik.cli.common.instagram_host import run_instagram_scraping_payload
+                        try:
+                            run_instagram_scraping_payload(device_manager, device_id, scraping_config)
+                        except Exception as exc:  # noqa: BLE001 - a failed run reports, not tracebacks
+                            console.print(f"[red]Scraping failed:[/red] {type(exc).__name__}: {exc}")
+                            sys.exit(1)
 
-                        def _build_scraping_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None):
-                            # Standalone CLI: no premium taxonomy to inject.
-                            return build_ai_service(
-                                api_key=api_key,
-                                ipc=ipc,
-                                vision_model=vision_model,
-                                text_model=text_model,
-                            )
-
-                        scraping_workflow = ScrapingWorkflow(
-                            device_manager,
-                            scraping_config,
-                            ai_service_factory=_build_scraping_ai_service,
-                        )
-                        scraping_workflow.run()
-                        
                         console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
                         sys.exit(0)
             
@@ -765,108 +751,61 @@ def list_devices():
 
 @automation.command("workflow")
 @click.option('--device-id', '-d', help="ID de l'appareil (ex: emulator-5566)")
-@click.option('--config', '-c', type=click.Path(exists=True), help="Chemin vers le fichier de configuration JSON du workflow")
+@click.option('--config', '-c', type=click.Path(exists=True),
+              help="Fichier JSON du run, au format d'une page du desktop (workflowType, target, limits...)")
 def workflow_instagram(device_id, config):
-    from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+    """Run an Instagram automation through the automation handler, the desktop's launcher."""
+    from taktik.cli.common.instagram_host import is_internal_workflow_format, run_instagram_payload
+
     console.print(Panel.fit("[bold green]Lancement du workflow Instagram[/bold green]"))
-    
+
     if not device_id:
         devices = DeviceManager.list_devices()
         if not devices:
             console.print("[red]Aucun appareil connecté.[/red]")
             return
         device_id = devices[0]['id']
-    
+
     console.print(f"[blue]Utilisation de l'appareil: {device_id}[/blue]")
-    
-    if not config:
-        target_type = select_target_type()
-        if not target_type:
-            console.print("[red]Aucune cible sélectionnée. Arrêt du workflow.[/red]")
-            return
-        
-        dynamic_config = generate_dynamic_workflow(target_type)
-        if not dynamic_config:
-            console.print("[red]Erreur lors de la génération du workflow dynamique.[/red]")
-            return
-    
-    final_config = None
+
     if config:
         try:
-            with open(config, 'r') as f:
-                final_config = json.load(f)
+            with open(config, 'r', encoding='utf-8-sig') as f:
+                payload = json.load(f)
             console.print(f"[green]Configuration chargée depuis {config}[/green]")
         except Exception as e:
             console.print(f"[red]Erreur lors du chargement de la configuration: {e}[/red]")
             return
-    elif 'dynamic_config' in locals():
-        final_config = dynamic_config
-        console.print("[green]Configuration dynamique préparée[/green]")
+        # The old internal format bypassed the restart, the warmup caps and everything else the
+        # launcher reads; it is refused rather than run on a second path.
+        if is_internal_workflow_format(payload):
+            console.print("[red]Ce fichier est au format interne du workflow (actions, session_settings), "
+                          "qui n'est plus accepté.[/red] Écrivez le run comme une page du desktop : "
+                          "workflowType, target, limits, probabilities, filters, session.")
+            raise SystemExit(1)
+        if not payload.get('workflowType'):
+            console.print("[red]Le fichier doit nommer son workflowType (feed, target_followers, hashtags...).[/red]")
+            raise SystemExit(1)
     else:
-        console.print("[yellow]Aucune configuration fournie, utilisation des paramètres par défaut.[/yellow]")
-        final_config = {}
-    
-    try:
-        device_manager = DeviceManager()
-        if not device_manager.connect(device_id):
-            console.print(f"[red]Impossible de se connecter à l'appareil {device_id}[/red]")
+        target_type = select_target_type()
+        if not target_type:
+            console.print("[red]Aucune cible sélectionnée. Arrêt du workflow.[/red]")
             return
-        
-        if not device_manager.device:
-            console.print(f"[red]Erreur: L'appareil n'a pas pu être initialisé correctement[/red]")
+        payload = generate_dynamic_workflow(target_type)
+        if not payload:
+            console.print("[red]Erreur lors de la génération du workflow dynamique.[/red]")
             return
-            
-        console.print("[blue]Initialisation de l'automatisation Instagram...[/blue]")
-        automation = InstagramAutomation(device_manager, config=final_config)
-        # Same runtime setup as the desktop bridges (selector version overrides + language).
-        _prepare_instagram_cli_runtime(automation, final_config or {}, device_id)
 
-        console.print("[green]Automatisation initialisée avec succès[/green]")
-        
-        if final_config:
-            session_settings = final_config.get('session_settings', {})
-            duration = session_settings.get('session_duration_minutes', 60)
-            max_profiles = session_settings.get('total_profiles_limit', session_settings.get('total_interactions_limit', 'illimité'))
-            console.print(f"[cyan]⚙️  Configuration appliquée: {duration} min, {max_profiles} profils max[/cyan]")
-        
-    except ValueError as e:
-        console.print(f"[red]Erreur de configuration: {e}[/red]")
+    device_manager = DeviceManager()
+    if not device_manager.connect(device_id) or not device_manager.device:
+        console.print(f"[red]Impossible de se connecter à l'appareil {device_id}[/red]")
         return
-    except Exception as e:
-        console.print(f"[red]Erreur inattendue lors de l'initialisation: {e}[/red]")
-        import traceback
-        console.print(traceback.format_exc())
-        return
-    automation.run_workflow()
-    
 
-def _prepare_instagram_cli_runtime(automation, workflow_config: dict, device_id: str) -> None:
-    """The bridges' runtime setup, from the CLI: selector version overrides + language.
-
-    One implementation, two entry points. The desktop bridges go through
-    `prepare_instagram_automation_runtime` (and `PlatformBridgeBase.connect()`), so a
-    phone whose Instagram auto-updated gets the version-patched selectors; the CLI
-    built the automation by hand and got neither the overrides nor the language
-    detection — the standalone user was the one running blind on a new version.
-    Best-effort like everywhere else: a failure logs and the run proceeds on the
-    baseline selectors.
-    """
     try:
-        from taktik.core.shared.device.app_inspection import get_installed_app_version
-        from taktik.core.social_media.instagram.workflows.core.runtime_setup import (
-            prepare_instagram_automation_runtime,
-        )
-
-        prepare_instagram_automation_runtime(
-            automation=automation,
-            workflow_config=workflow_config,
-            installed_version_provider=lambda: get_installed_app_version(
-                device_id, "com.instagram.android", "instagram"
-            ),
-            log=lambda level, message: console.print(f"[cyan]{message}[/cyan]"),
-        )
-    except Exception as exc:  # noqa: BLE001 — setup is an upgrade, never a gate
-        console.print(f"[yellow]Runtime setup partiel: {exc}[/yellow]")
+        run_instagram_payload(device_manager, device_id, payload)
+    except Exception as exc:  # noqa: BLE001 - a failed run reports, not tracebacks
+        console.print(f"[red]Workflow failed:[/red] {type(exc).__name__}: {exc}")
+        raise SystemExit(1)
 
 
 @tiktok.command("launch")

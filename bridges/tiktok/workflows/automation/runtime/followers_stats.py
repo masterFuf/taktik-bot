@@ -1,27 +1,12 @@
-"""Stats and callback helpers for the TikTok Followers bridge runner."""
+"""Live stats of a multi-target Followers run, as the bridge prints them.
+
+The session totals themselves are the core's (`followers.agent_handler.new_session_totals`).
+"""
 
 from typing import Any, Dict
 
 from bridges.tiktok.runtime.ipc import send_message
 from bridges.tiktok.workflows.automation.runtime.workflow_callbacks import wire_workflow_callbacks
-
-
-def create_total_stats() -> Dict[str, int]:
-    """Create the aggregate stats payload expected by the historical bridge contract."""
-    return {
-        "followers_seen": 0,
-        "profiles_visited": 0,
-        "posts_watched": 0,
-        "likes": 0,
-        "favorites": 0,
-        "follows": 0,
-        "already_friends": 0,
-        "skipped": 0,
-        "known_usernames_seen": 0,
-        "new_usernames_seen": 0,
-        "consecutive_known_usernames": 0,
-        "errors": 0,
-    }
 
 
 def merge_live_stats(
@@ -49,22 +34,6 @@ def merge_live_stats(
         "target_index": target_idx,
         "total_targets": total_targets,
     }
-
-
-def record_target_stats(total_stats: Dict[str, Any], stats) -> None:
-    """Accumulate a completed target stats object into the multi-target total."""
-    total_stats["followers_seen"] += stats.followers_seen
-    total_stats["profiles_visited"] += stats.profiles_visited
-    total_stats["posts_watched"] += stats.posts_watched
-    total_stats["likes"] += stats.likes
-    total_stats["favorites"] += stats.favorites
-    total_stats["follows"] += stats.follows
-    total_stats["already_friends"] += stats.already_friends
-    total_stats["skipped"] += stats.skipped
-    total_stats["known_usernames_seen"] += stats.known_usernames_seen
-    total_stats["new_usernames_seen"] += stats.new_usernames_seen
-    total_stats["consecutive_known_usernames"] = stats.consecutive_known_usernames
-    total_stats["errors"] += stats.errors
 
 
 def wire_followers_callbacks(

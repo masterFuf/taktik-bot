@@ -168,13 +168,15 @@ def test_cold_dm_returns_empty_on_failure_so_the_recipient_is_skipped(http):
 
 
 def test_tiktok_outreach_goes_through_the_provider_and_reports_its_cost(http):
-    from bridges.tiktok.engagement.runtime.dm_outreach_ai import generate_ai_message
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (
+        generate_outreach_message,
+    )
 
     calls, answers = http
     answers.append(_answer('"Hello from TikTok"'))
     ipc = _RecordingIpc()
 
-    assert generate_ai_message("tom", "Talk about skate", "key", ipc=ipc) == "Hello from TikTok"
+    assert generate_outreach_message("tom", "Talk about skate", "key", ipc=ipc) == "Hello from TikTok"
     body = calls[0]["body"]
     assert calls[0]["timeout"] == 30
     assert body["model"] == MODEL_GENERATION
@@ -189,12 +191,14 @@ def test_tiktok_outreach_goes_through_the_provider_and_reports_its_cost(http):
 
 
 def test_tiktok_outreach_returns_empty_on_failure(http):
-    from bridges.tiktok.engagement.runtime.dm_outreach_ai import generate_ai_message
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (
+        generate_outreach_message,
+    )
 
     _calls, answers = http
     answers.append(RuntimeError("network down"))
 
-    assert generate_ai_message("tom", "x", "key", ipc=_RecordingIpc()) == ""
+    assert generate_outreach_message("tom", "x", "key", ipc=_RecordingIpc()) == ""
 
 
 # ---------------------------------------------------------------- CLI DM auto-reply

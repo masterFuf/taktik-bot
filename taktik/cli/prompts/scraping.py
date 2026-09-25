@@ -7,6 +7,10 @@ from taktik.cli.prompts.instagram import _validate_instagram_url, _extract_post_
 console = Console()
 
 # ==================== SCRAPING WORKFLOW GENERATORS ====================
+#
+# The target, hashtag and post URL prompts describe the run the way the desktop's Scraping page does
+# (camelCase payload): the menu hands it to the scraping handler, the same launcher as the desktop
+# bridge. The full post scraping further down is a CLI-only workflow with its own format.
 
 def generate_target_scraping_workflow():
     """Generate configuration for target-based scraping (followers/following)."""
@@ -41,12 +45,12 @@ def generate_target_scraping_workflow():
     
     scraping_config = {
         "type": "target",
-        "scrape_type": scrape_type,
-        "target_usernames": target_usernames,
-        "max_profiles": max_profiles,
-        "session_duration_minutes": session_duration,
-        "save_to_db": True,
-        "export_csv": True
+        "scrapeType": scrape_type,
+        "targetUsernames": target_usernames,
+        "maxProfiles": max_profiles,
+        "sessionDurationMinutes": session_duration,
+        "saveToDb": True,
+        "exportCsv": True
     }
     
     # Summary
@@ -84,11 +88,11 @@ def generate_hashtag_scraping_workflow():
     
     # Scraping mode
     console.print("\n[yellow]📋 What do you want to scrape?[/yellow]")
-    console.print("[bold]1.[/bold] 👤 Post authors (users who posted with this hashtag)")
-    console.print("[bold]2.[/bold] ❤️ Post likers (users who liked posts with this hashtag)")
+    console.print("[bold]1.[/bold] ❤️ Post likers (users who liked posts with this hashtag)")
+    console.print("[bold]2.[/bold] 💬 Post commenters (users who commented on them)")
     
     scrape_choice = Prompt.ask("[cyan]Your choice[/cyan]", choices=["1", "2"], default="1")
-    scrape_type = "authors" if scrape_choice == "1" else "likers"
+    scrape_type = "likers" if scrape_choice == "1" else "commenters"
     
     # Limits
     console.print("\n[yellow]📊 Scraping limits[/yellow]")
@@ -101,13 +105,14 @@ def generate_hashtag_scraping_workflow():
     
     scraping_config = {
         "type": "hashtag",
-        "hashtag": hashtag,
-        "scrape_type": scrape_type,
-        "max_profiles": max_profiles,
-        "max_posts": max_posts,
-        "session_duration_minutes": session_duration,
-        "save_to_db": True,
-        "export_csv": True
+        "hashtags": [hashtag],
+        "scrapeHashtagLikers": scrape_type == "likers",
+        "scrapeHashtagCommenters": scrape_type == "commenters",
+        "maxProfiles": max_profiles,
+        "maxPosts": max_posts,
+        "sessionDurationMinutes": session_duration,
+        "saveToDb": True,
+        "exportCsv": True
     }
     
     # Summary
@@ -133,8 +138,8 @@ def generate_hashtag_scraping_workflow():
     return scraping_config
 
 
-def generate_url_scraping_workflow():
-    """Generate configuration for post URL-based scraping (likers)."""
+def generate_url_scraping_workflow(population: str = "likers"):
+    """Generate configuration for post URL-based scraping: its likers, or its commenters."""
     console.print("\n[bold green]🔍 Post URL Scraping Configuration[/bold green]")
     
     post_url = Prompt.ask("[cyan]Instagram post URL[/cyan]")
@@ -148,7 +153,7 @@ def generate_url_scraping_workflow():
     
     # Limits
     console.print("\n[yellow]📊 Scraping limits[/yellow]")
-    max_profiles = int(Prompt.ask("[cyan]Maximum likers to scrape[/cyan]", default="200"))
+    max_profiles = int(Prompt.ask(f"[cyan]Maximum {population} to scrape[/cyan]", default="200"))
     
     # Session settings
     console.print("\n[yellow]⏱️ Session settings[/yellow]")
@@ -156,13 +161,13 @@ def generate_url_scraping_workflow():
     
     scraping_config = {
         "type": "post_url",
-        "post_url": post_url,
-        "post_id": _extract_post_id_from_url(post_url),
-        "scrape_type": "likers",
-        "max_profiles": max_profiles,
-        "session_duration_minutes": session_duration,
-        "save_to_db": True,
-        "export_csv": True
+        "postUrls": [post_url],
+        "scrapePostUrlLikers": population == "likers",
+        "scrapePostUrlCommenters": population == "commenters",
+        "maxProfiles": max_profiles,
+        "sessionDurationMinutes": session_duration,
+        "saveToDb": True,
+        "exportCsv": True
     }
     
     # Summary
@@ -173,8 +178,8 @@ def generate_url_scraping_workflow():
     table.add_column("Value", style="yellow")
     
     table.add_row("Post URL", post_url[:50] + "..." if len(post_url) > 50 else post_url)
-    table.add_row("Post ID", scraping_config["post_id"] or "Unknown")
-    table.add_row("Scrape type", "Likers")
+    table.add_row("Post ID", _extract_post_id_from_url(post_url) or "Unknown")
+    table.add_row("Scrape type", population.capitalize())
     table.add_row("Max profiles", str(max_profiles))
     table.add_row("Session duration", f"{session_duration} min")
     table.add_row("Save to database", "Yes")

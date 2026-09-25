@@ -45,7 +45,7 @@ class FakeNotifier:
         self.calls.append((event_type, payload))
 
 
-def test_register_tiktok_followers_handler_executes_single_target_workflow():
+def test_register_tiktok_followers_handler_executes_a_single_target_run():
     FakeFollowersWorkflow.instances = []
     registry = WorkflowRegistry()
     notifier = FakeNotifier()
@@ -78,7 +78,7 @@ def test_register_tiktok_followers_handler_executes_single_target_workflow():
                             "likeProbability": 75,
                             "commentProbability": 10,
                             "shareProbability": 5,
-                            "favoriteProbability": 0.25,
+                            "favorite_probability": 0.25,
                             "followProbability": 40,
                             "storyLikeProbability": 20,
                             "maxLikesPerSession": 7,
@@ -122,7 +122,8 @@ def test_register_tiktok_followers_handler_executes_single_target_workflow():
     assert workflow.config.pause_duration_min == 10
     assert workflow.config.pause_duration_max == 20
     assert workflow.config.include_friends is True
-    assert workflow.config.skip_private_accounts is True
+    # A filter criterion, not a setting of the run.
+    assert workflow.config.filters["allow_private"] is False
     assert workflow.config.max_consecutive_known_usernames == 9
     assert events[-1].payload["success"] is True
     assert events[-1].payload["stats"]["profiles_visited"] == 1
@@ -141,7 +142,7 @@ def test_tiktok_followers_handler_rejects_missing_target_before_workflow_creatio
     )
     executor = AgentPlanExecutor(registry)
 
-    with pytest.raises(ValueError, match="requires a non-empty searchQuery"):
+    with pytest.raises(ValueError, match="requires at least one target"):
         executor.execute(
             AgentPlan(
                 plan_id="plan-1",

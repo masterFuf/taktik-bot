@@ -1,25 +1,32 @@
-"""One runner, two workflow types — and it has to know which list it was asked for."""
+"""One runner, three workflow types — and it has to know which list it was asked for."""
 
-from bridges.tiktok.workflows.automation.sync_lists import resolve_list_type
 from bridges.tiktok.workflows.runtime.dispatcher import dispatch_tiktok_workflow
+from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.payload import (
+    list_type_from_payload,
+)
 
 
 def test_the_workflow_type_says_which_list():
-    assert resolve_list_type({"workflowType": "sync_following"}) == "following"
-    assert resolve_list_type({"workflowType": "sync_followers"}) == "followers"
-    assert resolve_list_type({"workflowType": "sync_lists"}) == "both"
+    assert list_type_from_payload({"workflowType": "sync_following"}) == "following"
+    assert list_type_from_payload({"workflowType": "sync_followers"}) == "followers"
+    assert list_type_from_payload({"workflowType": "sync_lists"}) == "both"
 
 
 def test_an_explicit_list_type_wins():
-    assert resolve_list_type({"workflowType": "sync_following", "listType": "both"}) == "both"
-    assert resolve_list_type({"workflowType": "sync_followers", "listType": "following"}) == "following"
+    assert list_type_from_payload({"workflowType": "sync_following", "listType": "both"}) == "both"
+    assert list_type_from_payload({"workflowType": "sync_followers", "listType": "following"}) == "following"
+
+
+def test_the_cli_id_stands_for_the_workflow_type():
+    assert list_type_from_payload({}, "sync_followers") == "followers"
+    assert list_type_from_payload({"workflowType": "sync_lists"}, "sync_following") == "following"
 
 
 def test_an_unknown_payload_reads_the_following_list_rather_than_guessing_both():
     """Defaulting to 'both' would double the device time of a mislabelled run."""
-    assert resolve_list_type({}) == "following"
-    assert resolve_list_type({"workflowType": "nonsense"}) == "following"
-    assert resolve_list_type({"listType": "garbage"}) == "following"
+    assert list_type_from_payload({}) == "following"
+    assert list_type_from_payload({"workflowType": "nonsense"}) == "following"
+    assert list_type_from_payload({"listType": "garbage"}) == "following"
 
 
 def test_all_three_types_are_dispatched():

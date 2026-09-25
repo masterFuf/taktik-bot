@@ -35,6 +35,26 @@ def attach_video_callbacks(workflow: Any, notifier: Any) -> None:
         workflow.set_on_pause_callback(lambda duration: notify(notifier, "pause", duration=duration))
 
 
+def attach_profile_callbacks(workflow: Any, notifier: Any) -> None:
+    """Forward the callbacks of a profile-visiting workflow (Followers, Target Profiles)."""
+    if notifier is None:
+        return
+
+    if hasattr(workflow, "set_on_stats_callback"):
+        workflow.set_on_stats_callback(lambda stats: notify(notifier, "followers_stats", stats=stats))
+    if hasattr(workflow, "set_on_action_callback"):
+        workflow.set_on_action_callback(
+            lambda action: notify(
+                notifier,
+                "action",
+                action=action.get("action", "unknown"),
+                target=action.get("target", ""),
+            )
+        )
+    if hasattr(workflow, "set_on_pause_callback"):
+        workflow.set_on_pause_callback(lambda duration: notify(notifier, "pause", duration=duration))
+
+
 def notify(notifier: Any, event_type: str, **payload: Any) -> None:
     """Send a notifier event through a generic send method or named callback."""
     sender = getattr(notifier, "send", None)

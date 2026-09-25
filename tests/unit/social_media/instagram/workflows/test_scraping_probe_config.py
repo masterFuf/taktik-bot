@@ -8,7 +8,9 @@ the three switches are pinned here.
 from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.workflows.scraping import (
     _bridge_config,
 )
-from bridges.instagram.scraping.runtime.config import build_scraping_config
+from taktik.core.social_media.instagram.workflows.scraping.payload import (
+    scraping_config_from_payload as build_scraping_config,
+)
 
 
 def _config(scraping_type, target, limits=None):

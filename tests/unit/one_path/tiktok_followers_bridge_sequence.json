@@ -1,0 +1,3552 @@
+{
+  "followers_account_unread": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as from_app",
+      "return_home",
+      "workflow_built",
+      "workflow_run as from_app",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "botUsername": "from_app",
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 2,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      },
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "botUsername": "from_app",
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 1,
+        "max_follows_per_session": 14,
+        "max_likes_per_session": 39,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "beta",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": "beta",
+          "target_index": 0,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/2: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "beta",
+          "next_target": null,
+          "target_index": 1,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 2/2: @beta",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 1,
+          "target": "beta",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "beta",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 2,
+            "follows": 2,
+            "known_usernames_seen": 0,
+            "likes": 2,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_visited": 2,
+            "skipped": 0,
+            "target_index": 1,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 2,
+            "follows": 2,
+            "known_usernames_seen": 0,
+            "likes": 2,
+            "new_usernames_seen": 0,
+            "posts_watched": 4,
+            "profiles_visited": 2,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 2 profiles across 2 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "followers_ai": {
+    "ai_installs": [
+      {
+        "ai_config": {
+          "enabled": true,
+          "openrouterApiKey": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "profileAnalysis": true
+        },
+        "language": "fr"
+      }
+    ],
+    "ai_services": [
+      {
+        "api_key": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "has_ipc": true
+      }
+    ],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "return_home",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "ai": {
+            "enabled": true,
+            "openrouterApiKey": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "profileAnalysis": true
+          },
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 2,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      },
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "ai": {
+            "enabled": true,
+            "openrouterApiKey": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "profileAnalysis": true
+          },
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 1,
+        "max_follows_per_session": 14,
+        "max_likes_per_session": 39,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "beta",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "ai_relevance",
+        {
+          "comment": false,
+          "follow": false,
+          "like": false,
+          "reason": "fits",
+          "relevant": true,
+          "score": 8,
+          "username": "creator"
+        }
+      ],
+      [
+        "ai_profile_done",
+        {
+          "classification": {
+            "niche": "running",
+            "niche_category": "sport"
+          },
+          "persist_only": true,
+          "platform": "tiktok",
+          "result": "[sport] running",
+          "target_username": "creator",
+          "username": "creator",
+          "workflow_type": "automation"
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": "beta",
+          "target_index": 0,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/2: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "beta",
+          "next_target": null,
+          "target_index": 1,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 2/2: @beta",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 1,
+          "target": "beta",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "beta",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 2,
+            "follows": 2,
+            "known_usernames_seen": 0,
+            "likes": 2,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_visited": 2,
+            "skipped": 0,
+            "target_index": 1,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 2,
+            "follows": 2,
+            "known_usernames_seen": 0,
+            "likes": 2,
+            "new_usernames_seen": 0,
+            "posts_watched": 4,
+            "profiles_visited": 2,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 2 profiles across 2 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "followers_blank_targets": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No valid targets provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "followers_budget_below_targets": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 1,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15.0,
+        "min_delay": 1.0,
+        "min_watch_time": 5.0,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60.0,
+        "pause_duration_min": 30.0,
+        "posts_per_profile": 2,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": null,
+          "target_index": 0,
+          "total_targets": 1
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/1: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 1
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 profiles across 1 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "followers_budget_exhausted": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "return_home",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 1,
+          "maxLikesPerSession": 1,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "beta",
+            "gamma"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 2,
+        "max_follows_per_session": 1,
+        "max_likes_per_session": 1,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": "beta",
+          "target_index": 0,
+          "total_targets": 3
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/3: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha",
+            "beta",
+            "gamma"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 3
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 profiles across 3 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "followers_limit_reached": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 2,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": "beta",
+          "target_index": 0,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/2: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "max_likes_reached",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_likes_reached",
+          "message": "Visited 1 profiles across 2 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "followers_navigation_failed": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 2,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": "beta",
+          "target_index": 0,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/2: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 0,
+            "follows": 0,
+            "known_usernames_seen": 0,
+            "likes": 0,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 0,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "navigation_failed",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 0,
+            "follows": 0,
+            "known_usernames_seen": 0,
+            "likes": 0,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "navigation_failed",
+          "message": "Visited 0 profiles across 2 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "followers_no_device": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No device ID provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "followers_no_followers": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "return_home",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 2,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      },
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 1,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "beta",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": "beta",
+          "target_index": 0,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/2: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 0,
+            "follows": 0,
+            "known_usernames_seen": 0,
+            "likes": 0,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 0,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "beta",
+          "next_target": null,
+          "target_index": 1,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 2/2: @beta",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 1,
+          "target": "beta",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "beta",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "target_index": 1,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 profiles across 2 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "followers_no_target": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No target provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "followers_scheduler": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "return_home",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.1,
+        "filters": {
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 10,
+          "followProbability": 20,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 70,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 8,
+          "maxFollowsPerSession": 20,
+          "maxLikesPerSession": 50,
+          "maxVideos": 3,
+          "maxWatchTime": 15,
+          "minDelay": 3,
+          "minWatchTime": 3,
+          "pauseAfterActions": 20,
+          "pauseDurationMax": 180,
+          "pauseDurationMin": 60,
+          "postsPerProfile": 3,
+          "searchQuery": "alpha",
+          "skipAds": true,
+          "skipAlreadyLiked": true,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.2,
+        "include_friends": false,
+        "like_probability": 0.7,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 8,
+        "max_followers": 2,
+        "max_follows_per_session": 20,
+        "max_likes_per_session": 50,
+        "max_watch_time": 15,
+        "min_delay": 3,
+        "min_watch_time": 3,
+        "pause_after_actions": 20,
+        "pause_duration_max": 180,
+        "pause_duration_min": 60,
+        "posts_per_profile": 3,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      },
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.1,
+        "filters": {
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 10,
+          "followProbability": 20,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 70,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 8,
+          "maxFollowsPerSession": 20,
+          "maxLikesPerSession": 50,
+          "maxVideos": 3,
+          "maxWatchTime": 15,
+          "minDelay": 3,
+          "minWatchTime": 3,
+          "pauseAfterActions": 20,
+          "pauseDurationMax": 180,
+          "pauseDurationMin": 60,
+          "postsPerProfile": 3,
+          "searchQuery": "alpha",
+          "skipAds": true,
+          "skipAlreadyLiked": true,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.2,
+        "include_friends": false,
+        "like_probability": 0.7,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 8,
+        "max_followers": 1,
+        "max_follows_per_session": 19,
+        "max_likes_per_session": 49,
+        "max_watch_time": 15,
+        "min_delay": 3,
+        "min_watch_time": 3,
+        "pause_after_actions": 20,
+        "pause_duration_max": 180,
+        "pause_duration_min": 60,
+        "posts_per_profile": 3,
+        "search_query": "beta",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": "beta",
+          "target_index": 0,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/2: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "beta",
+          "next_target": null,
+          "target_index": 1,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 2/2: @beta",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 1,
+          "target": "beta",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "beta",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 2,
+            "follows": 2,
+            "known_usernames_seen": 0,
+            "likes": 2,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_visited": 2,
+            "skipped": 0,
+            "target_index": 1,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 2,
+            "follows": 2,
+            "known_usernames_seen": 0,
+            "likes": 2,
+            "new_usernames_seen": 0,
+            "posts_watched": 4,
+            "profiles_visited": 2,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 2 profiles across 2 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "followers_two_targets": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "return_home",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 2,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "alpha",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      },
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "followers"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 1,
+        "max_follows_per_session": 14,
+        "max_likes_per_session": 39,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "beta",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Followers workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "alpha",
+          "next_target": "beta",
+          "target_index": 0,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 1/2: @alpha",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "alpha",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "alpha",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "target_index": 0,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "target_switch",
+        {
+          "current_target": "beta",
+          "next_target": null,
+          "target_index": 1,
+          "total_targets": 2
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing target 2/2: @beta",
+          "status": "running"
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 1,
+          "target": "beta",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "current_target": "beta",
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 2,
+            "follows": 2,
+            "known_usernames_seen": 0,
+            "likes": 2,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_visited": 2,
+            "skipped": 0,
+            "target_index": 1,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 2,
+            "follows": 2,
+            "known_usernames_seen": 0,
+            "likes": 2,
+            "new_usernames_seen": 0,
+            "posts_watched": 4,
+            "profiles_visited": 2,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 2 profiles across 2 targets",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "post_url_page": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "excludedHashtags": [],
+          "favoriteProbability": 0,
+          "followProbability": 5,
+          "likeProbability": 40,
+          "maxCommenters": 12,
+          "maxFollowsPerSession": 10,
+          "maxLikesPerSession": 30,
+          "maxProfiles": 5,
+          "maxVideos": 5,
+          "maxWatchTime": 6,
+          "minWatchTime": 2,
+          "pauseAfterActions": 8,
+          "pauseDurationMax": 40,
+          "pauseDurationMin": 20,
+          "postUrl": "https://www.tiktok.com/@creator/video/1",
+          "postsPerProfile": 1,
+          "requiredHashtags": [],
+          "skipAlreadyLiked": true,
+          "workflowType": "post_url"
+        },
+        "follow_probability": 0.05,
+        "include_friends": false,
+        "like_probability": 0.4,
+        "max_comment_scrolls": 8,
+        "max_commenters": 12,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3.0,
+        "max_followers": 5,
+        "max_follows_per_session": 10,
+        "max_likes_per_session": 30,
+        "max_watch_time": 6,
+        "min_delay": 1.0,
+        "min_watch_time": 2,
+        "pause_after_actions": 8,
+        "pause_duration_max": 40,
+        "pause_duration_min": 20,
+        "post_url": "https://www.tiktok.com/@creator/video/1",
+        "posts_per_profile": 1,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": []
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Post URL workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "https://www.tiktok.com/@creator/video/1",
+          "targets": []
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening the video and reading its comments",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 commenter(s) of this video",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "target_profiles_no_profile": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No profile provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "target_profiles_page": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.3,
+        "filters": {
+          "allowRouterDevice": false,
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 30,
+          "followProbability": 50,
+          "includeFriends": false,
+          "language": "fr",
+          "likeProbability": 1,
+          "maxConsecutiveKnownUsernames": 150,
+          "maxDelay": 3,
+          "maxFollowsPerSession": 15,
+          "maxLikesPerSession": 40,
+          "maxWatchTime": 15,
+          "minDelay": 1,
+          "minWatchTime": 5,
+          "pauseAfterActions": 10,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 30,
+          "postsPerProfile": 2,
+          "profiles": [
+            "alpha",
+            "@beta",
+            "",
+            "@"
+          ],
+          "storyLikeProbability": 50,
+          "targets": [
+            "alpha",
+            "@beta"
+          ],
+          "workflowType": "target_profiles"
+        },
+        "follow_probability": 0.5,
+        "include_friends": false,
+        "like_probability": 0.01,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 3,
+        "max_followers": 3,
+        "max_follows_per_session": 15,
+        "max_likes_per_session": 40,
+        "max_watch_time": 15,
+        "min_delay": 1,
+        "min_watch_time": 5,
+        "pause_after_actions": 10,
+        "pause_duration_max": 60,
+        "pause_duration_min": 30,
+        "posts_per_profile": 2,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": [
+          "alpha",
+          "beta"
+        ]
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Target Profiles workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "",
+          "targets": [
+            "alpha",
+            "beta"
+          ]
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Engaging 2 profiles",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "total_targets": 2
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 of 2 profiles",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "target_profiles_qualify": {
+    "ai_installs": [],
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "workflow_built",
+      "workflow_run as acting_account",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "comment_probability": 0.1,
+        "comment_texts": [],
+        "favorite_probability": 0.0,
+        "filters": {
+          "ai": {
+            "enabled": true,
+            "profileAnalysis": true
+          },
+          "deviceId": "emulator-5554",
+          "favoriteProbability": 0,
+          "followProbability": 0,
+          "includeFriends": true,
+          "language": "fr",
+          "likeProbability": 0,
+          "maxDelay": 5,
+          "maxFollowsPerSession": 20,
+          "maxLikesPerSession": 50,
+          "maxProfiles": 4,
+          "maxWatchTime": 3,
+          "minDelay": 2,
+          "minWatchTime": 1,
+          "pauseAfterActions": 20,
+          "pauseDurationMax": 60,
+          "pauseDurationMin": 20,
+          "postsPerProfile": 0,
+          "profiles": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ],
+          "workflowType": "target_profiles"
+        },
+        "follow_probability": 0.0,
+        "include_friends": true,
+        "like_probability": 0.0,
+        "max_comments_per_session": 10,
+        "max_consecutive_known_usernames": 150,
+        "max_delay": 5,
+        "max_followers": 4,
+        "max_follows_per_session": 20,
+        "max_likes_per_session": 50,
+        "max_watch_time": 3,
+        "min_delay": 2,
+        "min_watch_time": 1,
+        "pause_after_actions": 20,
+        "pause_duration_max": 60,
+        "pause_duration_min": 20,
+        "posts_per_profile": 0,
+        "search_query": "",
+        "share_probability": 0.05,
+        "skip_private_accounts": false,
+        "story_like_probability": 0.5,
+        "usernames": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ]
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok Target Profiles workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "workflow_start",
+        {
+          "current_target_index": 0,
+          "target": "",
+          "targets": [
+            "a",
+            "b",
+            "c",
+            "d"
+          ]
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Engaging 4 profiles",
+          "status": "running"
+        }
+      ],
+      [
+        "action",
+        {
+          "action": "like",
+          "target": "fan"
+        }
+      ],
+      [
+        "profile_captured",
+        {
+          "biography": null,
+          "display_name": null,
+          "followers_count": 12,
+          "following_count": null,
+          "is_private": false,
+          "is_verified": false,
+          "likes_count": null,
+          "platform": "tiktok",
+          "profile_pic_base64": null,
+          "username": "fan",
+          "videos_count": null
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "consecutive_known_usernames": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 0,
+            "profiles_visited": 1,
+            "skipped": 0,
+            "total_targets": 4
+          }
+        }
+      ],
+      [
+        "pause",
+        {
+          "duration": 9
+        }
+      ],
+      [
+        "followers_stats",
+        {
+          "stats": {
+            "already_friends": 0,
+            "comments": 0,
+            "completion_reason": "max_profiles_reached",
+            "consecutive_known_usernames": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "favorites": 0,
+            "followers_seen": 1,
+            "follows": 1,
+            "known_usernames_seen": 0,
+            "likes": 1,
+            "new_usernames_seen": 0,
+            "posts_watched": 2,
+            "profiles_filtered": 0,
+            "profiles_visited": 1,
+            "shares": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "completion_reason": "max_profiles_reached",
+          "message": "Visited 1 of 4 profiles",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  }
+}

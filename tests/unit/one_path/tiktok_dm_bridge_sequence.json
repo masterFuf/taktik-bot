@@ -1,0 +1,1609 @@
+{
+  "dm_read_account_unread": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "read_conversations 10",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1.0,
+        "mark_as_read": true,
+        "max_conversations": 10,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok DM workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading DM conversations",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 1,
+          "name": "fan_one",
+          "total": 10
+        }
+      ],
+      [
+        "dm_conversation",
+        {
+          "conversation": {
+            "can_reply": true,
+            "is_group": false,
+            "last_message": "Merci pour le suivi",
+            "member_count": null,
+            "messages": [
+              {
+                "is_sent": false,
+                "text": "salut",
+                "type": "text"
+              },
+              {
+                "is_sent": false,
+                "text": "Merci pour le suivi",
+                "type": "text"
+              }
+            ],
+            "name": "fan_one",
+            "timestamp": null,
+            "unread_count": 1
+          }
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 1,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 2,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 2,
+          "name": "Fan Two",
+          "total": 10
+        }
+      ],
+      [
+        "dm_conversation",
+        {
+          "conversation": {
+            "can_reply": true,
+            "is_group": false,
+            "last_message": null,
+            "member_count": null,
+            "messages": [
+              {
+                "is_sent": false,
+                "text": "coucou",
+                "timestamp": "Hier",
+                "type": "text"
+              }
+            ],
+            "name": "Fan Two",
+            "timestamp": null,
+            "unread_count": 0
+          }
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 2,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 3,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 2,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 3,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Read 2 conversations",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "dm_read_empty_inbox": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "read_conversations 10",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1.0,
+        "mark_as_read": true,
+        "max_conversations": 10,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok DM workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading DM conversations",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Read 0 conversations",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "dm_read_no_device": {
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "db_writes": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No device ID provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "dm_read_page": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "read_conversations 10",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1.0,
+        "mark_as_read": true,
+        "max_conversations": 10,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "profile": "fan_one"
+      },
+      {
+        "dm_conversation": {
+          "account_id": 42,
+          "can_reply": true,
+          "is_group": false,
+          "last_message_is_ours": true,
+          "messages": [
+            {
+              "direction": "received",
+              "displayed_at": null,
+              "msg_type": "text",
+              "text": "salut"
+            },
+            {
+              "direction": "sent",
+              "displayed_at": null,
+              "msg_type": "text",
+              "text": "Merci pour le suivi"
+            }
+          ],
+          "partner_profile_id": 7,
+          "partner_username": "fan_one",
+          "platform": "tiktok",
+          "unread_count": 1
+        }
+      },
+      {
+        "dm_conversation": {
+          "account_id": 42,
+          "can_reply": true,
+          "is_group": false,
+          "last_message_is_ours": false,
+          "messages": [
+            {
+              "direction": "received",
+              "displayed_at": "Hier",
+              "msg_type": "text",
+              "text": "coucou"
+            }
+          ],
+          "partner_profile_id": null,
+          "partner_username": "Fan Two",
+          "platform": "tiktok",
+          "unread_count": 0
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok DM workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading DM conversations",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 1,
+          "name": "fan_one",
+          "total": 10
+        }
+      ],
+      [
+        "dm_conversation",
+        {
+          "conversation": {
+            "can_reply": true,
+            "is_group": false,
+            "last_message": "Merci pour le suivi",
+            "member_count": null,
+            "messages": [
+              {
+                "is_sent": false,
+                "text": "salut",
+                "type": "text"
+              },
+              {
+                "is_sent": false,
+                "text": "Merci pour le suivi",
+                "type": "text"
+              }
+            ],
+            "name": "fan_one",
+            "timestamp": null,
+            "unread_count": 1
+          }
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 1,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 2,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 2,
+          "name": "Fan Two",
+          "total": 10
+        }
+      ],
+      [
+        "dm_conversation",
+        {
+          "conversation": {
+            "can_reply": true,
+            "is_group": false,
+            "last_message": null,
+            "member_count": null,
+            "messages": [
+              {
+                "is_sent": false,
+                "text": "coucou",
+                "timestamp": "Hier",
+                "type": "text"
+              }
+            ],
+            "name": "Fan Two",
+            "timestamp": null,
+            "unread_count": 0
+          }
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 2,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 3,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 2,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 3,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Read 2 conversations",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "dm_read_scheduler_node": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "read_conversations 1",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 2,
+        "mark_as_read": true,
+        "max_conversations": 1,
+        "only_unread": true,
+        "skip_groups": true,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "profile": "fan_one"
+      },
+      {
+        "dm_conversation": {
+          "account_id": 42,
+          "can_reply": true,
+          "is_group": false,
+          "last_message_is_ours": true,
+          "messages": [
+            {
+              "direction": "received",
+              "displayed_at": null,
+              "msg_type": "text",
+              "text": "salut"
+            },
+            {
+              "direction": "sent",
+              "displayed_at": null,
+              "msg_type": "text",
+              "text": "Merci pour le suivi"
+            }
+          ],
+          "partner_profile_id": 7,
+          "partner_username": "fan_one",
+          "platform": "tiktok",
+          "unread_count": 1
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok DM workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading DM conversations",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 1,
+          "name": "fan_one",
+          "total": 1
+        }
+      ],
+      [
+        "dm_conversation",
+        {
+          "conversation": {
+            "can_reply": true,
+            "is_group": false,
+            "last_message": "Merci pour le suivi",
+            "member_count": null,
+            "messages": [
+              {
+                "is_sent": false,
+                "text": "salut",
+                "type": "text"
+              },
+              {
+                "is_sent": false,
+                "text": "Merci pour le suivi",
+                "type": "text"
+              }
+            ],
+            "name": "fan_one",
+            "timestamp": null,
+            "unread_count": 1
+          }
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 1,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 2,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 1,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 2,
+            "messages_sent": 0,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Read 1 conversations",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "dm_read_start_fails": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing TikTok DM workflow on emulator-5554",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "error",
+        {
+          "error": "DM workflow error: Failed to restart TikTok app"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "dm_send_account_unread": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "send_message fan_one 'Merci beaucoup !'",
+      "send_message Fan Two 'Avec plaisir, à bientôt\\n'",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1.0,
+        "mark_as_read": true,
+        "max_conversations": 20,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Sending 2 messages",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Sending 2 messages",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 1,
+          "name": "fan_one",
+          "total": 2
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 1,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_sent",
+        {
+          "conversation": "fan_one",
+          "error": null,
+          "success": true
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 2,
+          "name": "Fan Two",
+          "total": 2
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 2,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_sent",
+        {
+          "conversation": "Fan Two",
+          "error": null,
+          "success": true
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 2,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Sent 2/2 messages",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "dm_send_all_sent": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "send_message fan_one 'Merci beaucoup !'",
+      "send_message Fan Two 'Avec plaisir, à bientôt\\n'",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1.0,
+        "mark_as_read": true,
+        "max_conversations": 20,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "profile": "fan_one"
+      },
+      {
+        "dm_sent_message": {
+          "account_id": 42,
+          "partner_profile_id": 7,
+          "partner_username": "fan_one",
+          "platform": "tiktok",
+          "text": "Merci beaucoup !"
+        }
+      },
+      {
+        "dm_sent_message": {
+          "account_id": 42,
+          "partner_profile_id": null,
+          "partner_username": "Fan Two",
+          "platform": "tiktok",
+          "text": "Avec plaisir, à bientôt\n"
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Sending 2 messages",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Sending 2 messages",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 1,
+          "name": "fan_one",
+          "total": 2
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 1,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_sent",
+        {
+          "conversation": "fan_one",
+          "error": null,
+          "success": true
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 2,
+          "name": "Fan Two",
+          "total": 2
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 2,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_sent",
+        {
+          "conversation": "Fan Two",
+          "error": null,
+          "success": true
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 2,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Sent 2/2 messages",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "dm_send_no_device": {
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "db_writes": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No device ID provided"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "dm_send_no_message": {
+    "calls": [
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "db_writes": [],
+    "events": [
+      [
+        "error",
+        {
+          "error": "No messages to send"
+        }
+      ]
+    ],
+    "exit": 1
+  },
+  "dm_send_page": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "send_message fan_one 'Merci beaucoup !'",
+      "send_message Fan Two 'Avec plaisir, à bientôt\\n'",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1.0,
+        "mark_as_read": true,
+        "max_conversations": 20,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "profile": "fan_one"
+      },
+      {
+        "dm_sent_message": {
+          "account_id": 42,
+          "partner_profile_id": 7,
+          "partner_username": "fan_one",
+          "platform": "tiktok",
+          "text": "Merci beaucoup !"
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Sending 2 messages",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Sending 2 messages",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 1,
+          "name": "fan_one",
+          "total": 2
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 1,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_sent",
+        {
+          "conversation": "fan_one",
+          "error": null,
+          "success": true
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 2,
+          "name": "Fan Two",
+          "total": 2
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 1,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Sent 1/2 messages",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "dm_send_scheduler_node": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "send_message fan_one 'Hello'",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1,
+        "mark_as_read": true,
+        "max_conversations": 20,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "profile": "fan_one"
+      },
+      {
+        "dm_sent_message": {
+          "account_id": 42,
+          "partner_profile_id": 7,
+          "partner_username": "fan_one",
+          "platform": "tiktok",
+          "text": "Hello"
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Sending 1 messages",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Sending 1 messages",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_progress",
+        {
+          "current": 1,
+          "name": "fan_one",
+          "total": 1
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 1,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "dm_sent",
+        {
+          "conversation": "fan_one",
+          "error": null,
+          "success": true
+        }
+      ],
+      [
+        "dm_stats",
+        {
+          "stats": {
+            "conversations_read": 0,
+            "elapsed_formatted": "0m 0s",
+            "elapsed_seconds": 0,
+            "errors": 0,
+            "groups_skipped": 0,
+            "messages_read": 0,
+            "messages_sent": 1,
+            "notifications_skipped": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Sent 1/1 messages",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "dm_send_start_fails": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "force_stop tiktok"
+    ],
+    "configs": [],
+    "db_writes": [],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Sending 2 messages",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "error",
+        {
+          "error": "DM send error: Failed to restart TikTok app"
+        }
+      ]
+    ],
+    "exit": 1
+  }
+}

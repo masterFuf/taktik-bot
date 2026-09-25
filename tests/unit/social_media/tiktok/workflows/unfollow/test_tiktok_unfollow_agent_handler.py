@@ -129,3 +129,44 @@ def test_tiktok_unfollow_handler_keeps_skip_friends_default():
     )
 
     assert FakeUnfollowWorkflow.instances[0].config.include_friends is False
+
+
+def _run_with_startup(params, bot_username):
+    from types import SimpleNamespace
+
+    FakeUnfollowWorkflow.instances = []
+    registry = WorkflowRegistry()
+    started_device = object()
+    register_tiktok_unfollow_handlers(
+        registry,
+        device=object(),
+        workflow_factory=FakeUnfollowWorkflow,
+        tiktok_startup=lambda: SimpleNamespace(device=started_device, bot_username=bot_username),
+    )
+    AgentPlanExecutor(registry).execute(
+        AgentPlan(
+            plan_id="plan-1",
+            steps=[
+                PlanStep(
+                    step_id="step-1",
+                    workflow=WorkflowInvocation(
+                        platform="tiktok", workflow_id=TIKTOK_UNFOLLOW_WORKFLOW_ID, params=params
+                    ),
+                )
+            ],
+        )
+    )
+    return FakeUnfollowWorkflow.instances[0], started_device
+
+
+def test_tiktok_unfollow_handler_acts_as_the_account_the_startup_read():
+    workflow, started_device = _run_with_startup({"max_unfollows": 3}, "acting_account")
+
+    assert workflow.device is started_device
+    assert workflow.config.bot_username == "acting_account"
+
+
+def test_tiktok_unfollow_handler_keeps_an_account_named_in_the_payload():
+    workflow, _ = _run_with_startup({"botUsername": "@named_account"}, "acting_account")
+
+    assert workflow.config.bot_username == "named_account"

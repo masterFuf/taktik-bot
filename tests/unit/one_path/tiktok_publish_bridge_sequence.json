@@ -1,0 +1,520 @@
+{
+ "connect_fails": {
+  "calls": [
+   "connection emulator-5554",
+   "connect"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Failed to connect to device emulator-5554"
+    }
+   ]
+  ],
+  "exit": 1
+ },
+ "no_config_argument": {
+  "calls": [],
+  "events": [],
+  "exit": 1
+ },
+ "no_device": {
+  "calls": [],
+  "events": [
+   [
+    "error",
+    {
+     "error": "deviceId is required"
+    }
+   ]
+  ],
+  "exit": 1
+ },
+ "text": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "capture 00_before",
+   "text_post emulator-5554 'Five kilometres before breakfast' to_story=False",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Publishing a TikTok text post...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "text post published to feed",
+     "status": "success"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": null,
+     "message": "text post published to feed",
+     "success": true,
+     "workflow": "text_post"
+    }
+   ]
+  ],
+  "exit": 0
+ },
+ "text_fails": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "capture 00_before",
+   "text_post emulator-5554 'Five kilometres before breakfast' to_story=False",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Publishing a TikTok text post...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "the TEXT mode is not offered on this creation screen",
+     "status": "error"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": "mode_text",
+     "message": "the TEXT mode is not offered on this creation screen",
+     "success": false,
+     "workflow": "text_post"
+    }
+   ]
+  ],
+  "exit": 1
+ },
+ "text_raises": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "capture 00_before",
+   "text_post emulator-5554 'Five kilometres before breakfast' to_story=False"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Publishing a TikTok text post...",
+     "status": "running"
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Text post failed: the composer vanished"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "error",
+     "message": "<traceback>"
+    }
+   ]
+  ],
+  "exit": 1
+ },
+ "text_to_story_on_clone": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "set_active_package com.example.tiktokclone",
+   "patch_selectors tiktok com.example.tiktokclone",
+   "capture 00_before",
+   "text_post emulator-5554 'Five kilometres before breakfast' to_story=True",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "🧬 Package override: patched 3 selector(s) for com.example.tiktokclone"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Publishing a TikTok text post...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "text post published to story",
+     "status": "success"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": null,
+     "message": "text post published to story",
+     "success": true,
+     "workflow": "text_post"
+    }
+   ]
+  ],
+  "exit": 0
+ },
+ "text_without_text": {
+  "calls": [],
+  "events": [
+   [
+    "error",
+    {
+     "error": "text is required for a text post"
+    }
+   ]
+  ],
+  "exit": 1
+ },
+ "unreadable_config": {
+  "calls": [],
+  "events": [],
+  "exit": 1
+ },
+ "video": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "upload_workflow_built emulator-5554 notifier=True step_hook=True",
+   "capture 00_before",
+   "upload C:/media/clip.mp4 caption='Morning run' hashtags=['running', 'trail'] package=None",
+   "capture 40_caption",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Starting TikTok upload workflow...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Video published",
+     "status": "success"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": null,
+     "message": "Video published",
+     "success": true,
+     "workflow": "upload_post"
+    }
+   ]
+  ],
+  "exit": 0
+ },
+ "video_clone_package": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "set_active_package com.example.tiktokclone",
+   "patch_selectors tiktok com.example.tiktokclone",
+   "upload_workflow_built emulator-5554 notifier=True step_hook=True",
+   "capture 00_before",
+   "upload C:/media/clip.mp4 caption='Morning run' hashtags=['running', 'trail'] package=com.example.tiktokclone",
+   "capture 40_caption",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "🧬 Package override: patched 3 selector(s) for com.example.tiktokclone"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Starting TikTok upload workflow...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Video published",
+     "status": "success"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": null,
+     "message": "Video published",
+     "success": true,
+     "workflow": "upload_post"
+    }
+   ]
+  ],
+  "exit": 0
+ },
+ "video_clone_patch_fails": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "set_active_package com.example.tiktokclone",
+   "patch_selectors tiktok com.example.tiktokclone",
+   "upload_workflow_built emulator-5554 notifier=True step_hook=True",
+   "capture 00_before",
+   "upload C:/media/clip.mp4 caption='Morning run' hashtags=['running', 'trail'] package=com.example.tiktokclone",
+   "capture 40_caption",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "warning",
+     "message": "⚠️ Clone selector patching failed (non-fatal): no catalogue for this package"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Starting TikTok upload workflow...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Video published",
+     "status": "success"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": null,
+     "message": "Video published",
+     "success": true,
+     "workflow": "upload_post"
+    }
+   ]
+  ],
+  "exit": 0
+ },
+ "video_fails": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "upload_workflow_built emulator-5554 notifier=True step_hook=True",
+   "capture 00_before",
+   "upload C:/media/clip.mp4 caption='Morning run' hashtags=['running', 'trail'] package=None",
+   "capture 40_caption",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Starting TikTok upload workflow...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Publish button not found",
+     "status": "error"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": "publish_button_not_found",
+     "message": "Publish button not found",
+     "success": false,
+     "workflow": "upload_post"
+    }
+   ]
+  ],
+  "exit": 1
+ },
+ "video_official_package": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "upload_workflow_built emulator-5554 notifier=True step_hook=True",
+   "capture 00_before",
+   "upload C:/media/clip.mp4 caption='Morning run' hashtags=['running', 'trail'] package=com.zhiliaoapp.musically",
+   "capture 40_caption",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Starting TikTok upload workflow...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Video published",
+     "status": "success"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": null,
+     "message": "Video published",
+     "success": true,
+     "workflow": "upload_post"
+    }
+   ]
+  ],
+  "exit": 0
+ },
+ "video_raises": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "upload_workflow_built emulator-5554 notifier=True step_hook=True",
+   "capture 00_before",
+   "upload C:/media/clip.mp4 caption='Morning run' hashtags=['running', 'trail'] package=None"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Starting TikTok upload workflow...",
+     "status": "running"
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Upload workflow error: the gallery never opened"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "error",
+     "message": "<traceback>"
+    }
+   ]
+  ],
+  "exit": 1
+ },
+ "video_without_file": {
+  "calls": [],
+  "events": [
+   [
+    "error",
+    {
+     "error": "localPath is required"
+    }
+   ]
+  ],
+  "exit": 1
+ }
+}

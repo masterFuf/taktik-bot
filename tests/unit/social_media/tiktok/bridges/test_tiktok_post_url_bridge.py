@@ -11,8 +11,11 @@ from types import SimpleNamespace
 import pytest
 
 import bridges.tiktok.workflows.automation.post_url as bridge
-import taktik.core.social_media.tiktok.actions.business.workflows.post_url as post_url_package
+import taktik.core.social_media.tiktok.actions.business.workflows.post_url.workflow as post_url_workflow
 from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersStats
+from taktik.core.social_media.tiktok.actions.business.workflows.post_url.payload import (
+    profile_budget_from_payload,
+)
 
 
 class _FakeWorkflow:
@@ -31,11 +34,12 @@ def run_bridge(monkeypatch):
     _FakeWorkflow.built = []
     manager = SimpleNamespace(device_manager=SimpleNamespace(device=object()))
     monkeypatch.setattr(bridge, "tiktok_startup", lambda device_id, fetch_profile=True: (manager, "bot"))
-    monkeypatch.setattr(bridge, "install_profile_ai_hooks", lambda config, log=None: None)
+    monkeypatch.setattr(bridge, "install_run_ai_hooks", lambda ai_config, language, log=None: None)
     monkeypatch.setattr(bridge, "wire_single_pass_callbacks", lambda workflow, stats: None)
+    monkeypatch.setattr(bridge, "set_workflow", lambda workflow: None)
     monkeypatch.setattr(bridge, "send_message", lambda *a, **k: None)
     monkeypatch.setattr(bridge, "send_status", lambda *a, **k: None)
-    monkeypatch.setattr(post_url_package, "PostUrlWorkflow", _FakeWorkflow)
+    monkeypatch.setattr(post_url_workflow, "PostUrlWorkflow", _FakeWorkflow)
 
     def _run(config):
         payload = {"deviceId": "emulator-5554", "postUrl": "https://www.tiktok.com/@a/video/1", **config}
@@ -60,9 +64,9 @@ def test_the_page_payload_keeps_its_budget(run_bridge):
 
 
 def test_max_profiles_wins_when_the_two_names_disagree():
-    assert bridge.read_profile_budget({"maxProfiles": 5, "maxVideos": 9}, 20) == 5
+    assert profile_budget_from_payload({"maxProfiles": 5, "maxVideos": 9}, 20) == 5
 
 
 def test_no_budget_at_all_falls_back_to_the_commenter_count():
-    assert bridge.read_profile_budget({}, 20) == 20
-    assert bridge.read_profile_budget({"maxVideos": 0}, 20) == 20
+    assert profile_budget_from_payload({}, 20) == 20
+    assert profile_budget_from_payload({"maxVideos": 0}, 20) == 20
