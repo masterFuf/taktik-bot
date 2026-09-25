@@ -1,7 +1,8 @@
 """Check bridge registry consistency between Bot and Front.
 
-This is intentionally read-only. It lets us add a manifest and catch drift
-before replacing the hardcoded registries used by packaging/runtime code.
+This is intentionally read-only. The launcher and the build scripts read
+`bridges.manifest.json`; this check refuses a hand-written list coming back
+in launcher.py and compares the manifest with the Front's `PLATFORM_BRIDGES`.
 """
 
 from __future__ import annotations
@@ -33,15 +34,22 @@ def load_manifest() -> dict[str, str]:
     return flattened
 
 
-def load_launcher_modules() -> dict[str, str]:
+def launcher_hardcodes_its_list() -> bool:
+    """True if launcher.py writes the bridge table by hand instead of reading the manifest."""
     tree = ast.parse(LAUNCHER_PATH.read_text(encoding="utf-8-sig"))
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "BRIDGE_MODULES":
-                    value = ast.literal_eval(node.value)
-                    return dict(value)
-    raise RuntimeError("BRIDGE_MODULES not found in launcher.py")
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and isinstance(node.value, ast.Dict):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(isinstance(t, ast.Name) and t.id == "BRIDGE_MODULES" for t in targets):
+                return bool(node.value.keys)
+    return False
+
+
+def load_launcher_modules() -> dict[str, str]:
+    """The table the launcher actually routes with, as it loads it at start."""
+    from bridges import launcher
+
+    return dict(launcher.load_bridge_modules())
 
 
 def load_front_bridges() -> set[str]:
@@ -58,6 +66,9 @@ def main() -> int:
     front = load_front_bridges()
 
     errors: list[str] = []
+
+    if launcher_hardcodes_its_list():
+        errors.append("launcher.py hardcodes BRIDGE_MODULES: it must read bridges.manifest.json")
 
     if manifest != launcher:
         missing_in_launcher = sorted(set(manifest) - set(launcher))

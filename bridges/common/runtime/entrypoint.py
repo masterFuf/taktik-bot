@@ -34,21 +34,42 @@ def _send_error(error: str) -> None:
     _ipc.error(error)
 
 
+def _read_stdin_config() -> dict:
+    """One JSON line on stdin, the way the stdin bridges receive their payload."""
+    line = sys.stdin.readline()
+    if not line:
+        _send_error("No config received from stdin")
+        logger.error("No config received from stdin")
+        sys.exit(1)
+    try:
+        return json.loads(line)
+    except json.JSONDecodeError as exc:
+        _send_error(f"Invalid JSON config: {exc}")
+        logger.error(f"Invalid JSON config on stdin: {exc}")
+        sys.exit(1)
+
+
 def run_bridge_main(
     bridge_factory: Callable[[dict], Any],
     *,
     usage: str = "bridge <config_path>",
     install_signal_handlers: bool = False,
+    config_source: str = "argv",
 ) -> None:
     """
-    Universal `main()` for bridges that take a single JSON config path and
-    expose a `.run() -> int` method.
+    Universal `main()` for bridges that expose a `.run() -> int` method.
+
+    `config_source="argv"` reads the JSON file named by `sys.argv[1]`; `"stdin"` reads one JSON
+    line from stdin.
     """
+    if config_source not in ("argv", "stdin"):
+        raise ValueError(f"Unknown config_source: {config_source}")
+
     if install_signal_handlers:
         signal.signal(signal.SIGINT, _sig_mod._handle_signal)
         signal.signal(signal.SIGTERM, _sig_mod._handle_signal)
 
-    if len(sys.argv) < 2:
+    if config_source == "argv" and len(sys.argv) < 2:
         print(json.dumps({"type": "error", "message": f"Usage: {usage}"}))
         sys.exit(1)
 
@@ -66,13 +87,16 @@ def run_bridge_main(
             # Un diagnostic qui empeche un pont de demarrer serait pire que pas de diagnostic.
             pass
 
-    config_path = sys.argv[1]
-    try:
-        config = load_bridge_config(config_path)
-    except Exception as exc:
-        _send_error(f"Failed to load config: {exc}")
-        logger.error(f"Failed to load config from {config_path}: {exc}")
-        sys.exit(1)
+    if config_source == "stdin":
+        config = _read_stdin_config()
+    else:
+        config_path = sys.argv[1]
+        try:
+            config = load_bridge_config(config_path)
+        except Exception as exc:
+            _send_error(f"Failed to load config: {exc}")
+            logger.error(f"Failed to load config from {config_path}: {exc}")
+            sys.exit(1)
 
     try:
         bridge = bridge_factory(config)

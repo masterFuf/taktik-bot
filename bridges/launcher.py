@@ -5,7 +5,8 @@ Single executable that routes to the appropriate bridge based on the first
 command-line argument.
 
 Instead of shipping 22 separate ~52 MB PyInstaller executables (total ~1.1 GB),
-we compile ONE launcher that includes all bridge modules.
+we compile ONE launcher that includes all bridge modules. The bridge list is
+`bridges.manifest.json`, read at start; the build scripts read the same file.
 
 Usage:
     taktik_launcher.exe <bridge_name> [bridge_args...]
@@ -25,46 +26,47 @@ if str(BOT_ROOT) not in sys.path:
     sys.path.insert(0, str(BOT_ROOT))
 
 
-# Bridge name → module path mapping
-BRIDGE_MODULES = {
-    # Instagram
-    "desktop_bridge":       "bridges.instagram.automation.desktop",
-    "dm_bridge":            "bridges.instagram.engagement.dm",
-    "scraping_bridge":      "bridges.instagram.scraping.scraping",
-    "cold_dm_bridge":       "bridges.instagram.engagement.cold_dm",
-    "notifications_bridge": "bridges.instagram.engagement.notifications",
-    "account_bridge":       "bridges.instagram.account.account",
-    "taktik_agent_bridge":  "bridges.instagram.agent.taktik_agent",
-    "persona_analysis_bridge": "bridges.instagram.analysis.persona",
-    "publish_bridge":       "bridges.instagram.publish.publish",
-    "task_bridge":          "bridges.instagram.tasks.tasks",
-    # TikTok
-    "tiktok_bridge":          "bridges.tiktok.workflows.dispatcher",
-    "tiktok_unfollow_bridge": "bridges.tiktok.automation.unfollow",
-    "dm_outreach_bridge":     "bridges.tiktok.engagement.dm_outreach",
-    "tiktok_scraping_bridge": "bridges.tiktok.scraping.scraping",
-    "tiktok_account_bridge":  "bridges.tiktok.account.account",
-    "tiktok_publish_bridge":  "bridges.tiktok.publish.publish",
-    # Threads
-    "threads_bridge": "bridges.threads.workflows.dispatcher",
-    # Gmail
-    "gmail_account_bridge": "bridges.gmail.account.account",
-    # YouTube
-    "youtube_account_bridge":     "bridges.youtube.account.account",
-    "youtube_upload_bridge":      "bridges.youtube.publish.upload",
-    "youtube_action_test_bridge": "bridges.youtube.diagnostics.action_test",
-    # Compat
-    "selector_test_bridge":     "bridges.compat.diagnostics.entrypoints.selector_test",
-    "workflow_test_bridge":     "bridges.compat.diagnostics.entrypoints.workflow_test",
-    "action_test_bridge":       "bridges.compat.diagnostics.entrypoints.action_test",
-    "action_session_bridge":    "bridges.compat.diagnostics.entrypoints.action_session",
-    "tiktok_action_test_bridge":"bridges.compat.diagnostics.entrypoints.tiktok_action_test",
-}
+MANIFEST_NAME = "bridges.manifest.json"
+
+
+def _manifest_candidates() -> list[Path]:
+    """Where the manifest sits: beside this file in a checkout, under `bridges/` in a build."""
+    here = Path(__file__).resolve().parent
+    candidates = [here / MANIFEST_NAME, here / "bridges" / MANIFEST_NAME]
+    bundle = getattr(sys, "_MEIPASS", None)
+    if bundle:
+        candidates.append(Path(bundle) / "bridges" / MANIFEST_NAME)
+    return candidates
+
+
+def load_bridge_modules() -> dict[str, str]:
+    """Bridge name -> module path, read from `bridges.manifest.json` (the only list)."""
+    for candidate in _manifest_candidates():
+        if candidate.is_file():
+            manifest = json.loads(candidate.read_text(encoding="utf-8-sig"))
+            modules: dict[str, str] = {}
+            for platform_bridges in manifest.values():
+                modules.update(platform_bridges)
+            return modules
+    raise FileNotFoundError(f"{MANIFEST_NAME} not found in {[str(c) for c in _manifest_candidates()]}")
+
+
+try:
+    BRIDGE_MODULES: dict[str, str] = load_bridge_modules()
+    _MANIFEST_ERROR = None
+except Exception as exc:  # reported by main() as a JSON event, not a traceback
+    BRIDGE_MODULES = {}
+    _MANIFEST_ERROR = f"{type(exc).__name__}: {exc}"
 
 
 def main():
     if len(sys.argv) < 2:
         error = {"type": "error", "message": "Usage: taktik_launcher.exe <bridge_name> [args...]"}
+        print(json.dumps(error), flush=True)
+        sys.exit(1)
+
+    if _MANIFEST_ERROR and not BRIDGE_MODULES:
+        error = {"type": "error", "message": f"Bridge manifest unreadable: {_MANIFEST_ERROR}"}
         print(json.dumps(error), flush=True)
         sys.exit(1)
 
