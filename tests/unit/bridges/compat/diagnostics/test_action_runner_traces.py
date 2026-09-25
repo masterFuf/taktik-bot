@@ -380,6 +380,19 @@ def test_build_xpath_index_is_unambiguous_and_namespaced():
         assert isinstance(selector_id, str) and "." in selector_id
 
 
+def test_a_post_field_copied_by_a_sub_catalogue_keeps_its_post_id():
+    """The reels, grid and other post sub-catalogues copy POST_SELECTORS values: the same
+    xpath under the same field is the post entry, not an ambiguity to drop."""
+    from taktik.core.compat.selectors.setup import build_xpath_to_selector_id_index
+    from taktik.core.social_media.instagram.ui.selectors import POST_SELECTORS
+
+    index = build_xpath_to_selector_id_index("instagram")
+    for field in ("like_count", "post_container", "comment_count"):
+        value = getattr(POST_SELECTORS, field)
+        xpath = value[0] if isinstance(value, list) else value
+        assert index.get(xpath) == f"post.{field}"
+
+
 def test_execute_action_perf_fast_skips_media_but_keeps_report(monkeypatch, tmp_path):
     emitted = []
     monkeypatch.setattr(action_runner, "emit", emitted.append)
