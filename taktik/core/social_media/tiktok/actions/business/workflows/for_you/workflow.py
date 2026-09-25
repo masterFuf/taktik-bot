@@ -15,6 +15,7 @@ import random
 from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
 
 from taktik.core.shared.telemetry.sink import emit_step
+from taktik.core.shared.telemetry.device_io import DeviceIoMeasure
 
 from .._internal import BaseVideoWorkflow, VideoWorkflowStats, FeedInterruptionsMixin
 from .models import ForYouConfig
@@ -72,15 +73,20 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 if not self._wait_if_paused():
                     break
                 
+                # What reading this turn's screen costs on the phone, by what it was (M1).
+                decision = DeviceIoMeasure("tiktok.feed.decision", source="for_you")
+
                 # Check and close any popups first
                 self._handle_popups()
                 
                 # Check for comments section accidentally opened
                 if self._handle_comments_section():
+                    decision.finish(kind="comments")
                     continue
                 
                 # Check for suggestion page (Follow back / Not interested)
                 if self._handle_suggestion_page():
+                    decision.finish(kind="suggestion")
                     continue
                 
                 # Check limits
@@ -90,6 +96,7 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 
                 # Get video info immediately for real-time display
                 video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads)
+                decision.finish(kind=self._screen_kind(video_info))
                 
                 # Detect stuck state
                 if self._handle_stuck_video(video_info):

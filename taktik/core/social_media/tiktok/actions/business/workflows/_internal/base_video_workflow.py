@@ -263,6 +263,19 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         return closed
 
     # ------------------------------------------------------------------
+    # What the loop turn read
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _screen_kind(video_info: Dict[str, Any]) -> str:
+        """What the video info says the screen was, for the cost of reading it (`device_io`)."""
+        if video_info.get('is_live'):
+            return 'live'
+        if video_info.get('is_ad'):
+            return 'ad'
+        return 'video' if video_info.get('author') else 'unknown'
+
+    # ------------------------------------------------------------------
     # Stuck-video detection
     # ------------------------------------------------------------------
 
