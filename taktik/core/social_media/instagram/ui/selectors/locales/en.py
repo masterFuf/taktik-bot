@@ -409,8 +409,10 @@ STRINGS: Dict[str, List[str]] = {
     "hashtag.hashtag_header": [
         "//*[contains(@text, \"posts\")]",
     ],
+    # Cadre hors du fil d'accueil, comme en francais : la rangee du fil porte aussi « Reel by ».
     "hashtag.reel_author_container": [
-        "//*[contains(@content-desc, \"Reel by\")]",
+        "//*[contains(@content-desc, \"Reel by\")]"
+        "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\" and @selected=\"true\"])]",
     ],
     # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
     # labels, not xpaths: the fields of that surface carry no resource-id, so the text

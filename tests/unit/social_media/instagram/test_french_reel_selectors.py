@@ -107,3 +107,15 @@ def test_the_home_feed_label_is_not_read_as_a_reel_author(french):
 
 def test_the_same_label_outside_the_home_tab_is_still_read(french):
     assert _author(LIST_FROM_SEARCH) == "demo_author"
+
+
+def test_the_english_home_feed_label_is_not_read_as_a_reel_author():
+    before = locales.active_locale()
+    locales.set_active_locale("en")
+    try:
+        feed = _list_screen("feed_tab", "Reel by demo_author, 67 likes, 2 hours ago")
+        viewer = _reel_viewer().replace(MEDIA_LABEL, "Reel by demo_author. Double tap to play or pause.")
+        assert not _hits(feed, HASHTAG_SELECTORS.reel_author_container[-1:])
+        assert _author(viewer) == "demo_author"
+    finally:
+        locales.set_active_locale(before)
