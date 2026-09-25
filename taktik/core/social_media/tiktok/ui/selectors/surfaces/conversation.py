@@ -5,6 +5,15 @@ from dataclasses import dataclass, field
 
 from ..locales import L
 
+# A row of a list that is not a tap target itself: a date, a notice, a message. Inbox and
+# follower rows are clickable, so they never qualify. Same shape on 43.1.4 and 46.9.3.
+_LIST_ROW = '//androidx.recyclerview.widget.RecyclerView/*[not(@clickable="true")]'
+
+# A time of day ("HH:MM", "H:MM PM") on a TextView without content-desc; the status-bar clock
+# carries one, a date separator does not.
+_TIME_TEXT = ('android.widget.TextView[string-length(@content-desc)=0]'
+              '[contains(translate(@text, "0123456789", "0000000000"), "0:00")]')
+
 
 @dataclass
 class ConversationSelectors:
@@ -128,6 +137,10 @@ class ConversationSelectors:
     message_sender_avatar: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/b71")]',
         '//*[contains(@resource-id, ":id/b5p")]',
+        # A2: in a message row (it holds a long-clickable bubble), the tap target around a
+        # TextView without text. 43.1.4: that TextView itself; 46.9.3: its clickable frame.
+        _LIST_ROW + '[descendant::*[@long-clickable="true"]]//*[@clickable="true"]'
+        '[not(@long-clickable="true")][descendant-or-self::android.widget.TextView[string-length(@text)=0]]',
     ])
     
     message_content_container: List[str] = field(default_factory=lambda: [
@@ -154,22 +167,29 @@ class ConversationSelectors:
         """
         return self._message_text_base + L("conversation.message_text_anchors")
     
-    message_sticker: List[str] = field(default_factory=lambda: [
+    _message_sticker_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/p10")]',
         '//*[contains(@resource-id, ":id/e95")][@content-desc="Stickers"]',
     ])
-    
-    message_gif: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/e7j")][@content-desc="GIF"]',
-    ])
-    
+
+    @property
+    def message_sticker(self) -> List[str]:
+        """Sticker bubbles, GIFs included: a GIF arrives in the same "Stickers" bubble on 43.1.4
+        and 46.9.3, and "GIF" only labels the picker grid, so there is no separate GIF field."""
+        return self._message_sticker_base + L("conversation.message_sticker_anchors")
+
     # === Date separators ===
     date_separator: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/l9k")]',
+        # A2: a list row with nothing to tap whose text holds a time of day. A system notice
+        # has the same shape but no time; a gallery duration sits in a clickable tile.
+        _LIST_ROW + f'[not(descendant::*[@clickable="true"])][descendant::{_TIME_TEXT}]',
     ])
-    
+
     date_text: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/n9t")]',
+        # A2, the text of date_separator.
+        _LIST_ROW + f'[not(descendant::*[@clickable="true"])]//{_TIME_TEXT}',
     ])
     
     # === Reply button (for specific message) ===
@@ -262,6 +282,8 @@ class ConversationSelectors:
     sticker_suggestion: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/q12")]',
         '//*[contains(@resource-id, ":id/q14")]',
+        # A2: the card in the message list that carries its own strip of tappable stickers.
+        _LIST_ROW + '[descendant::androidx.recyclerview.widget.RecyclerView/android.widget.ImageView[@clickable="true"]]',
     ])
     
     @property
@@ -285,11 +307,7 @@ class ConversationSelectors:
         # locale entry was EMPTY -- so `close_sticker_suggestions=True` closed nothing at all.
         return self.close_interstitial
     
-    # === Games/Cards buttons ===
-    games_button: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/v1")][@text="Games"]',
-    ])
-    
+    # === Cards button ===
     cards_button: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/v1")][@text="Cards"]',
         # A2: the label is the same node on both versions, only the id moves.

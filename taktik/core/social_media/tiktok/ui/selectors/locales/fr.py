@@ -124,7 +124,22 @@ STRINGS: Dict[str, List[str]] = {
         "[not(self::android.widget.EditText)][not(self::android.widget.Button)]"
         "[@text!=\"Vu\"]",
     ],
-    "conversation.reply_button": [],
+    "conversation.reply_button": [
+        # 43.1.4: the entry of the menu a long press on a message opens (icon and label).
+        "//*[@clickable=\"true\"][android.widget.ImageView[@content-desc=\"Répondre\"]]"
+        "[android.widget.TextView[@text=\"Répondre\"]]",
+        # 46.9.3: the chip TikTok sets beside a received sticker, inside the message row. The
+        # comment sheet's « Répondre » sits in rows without a long-clickable bubble.
+        "//androidx.recyclerview.widget.RecyclerView/*[not(@clickable=\"true\")]"
+        "[descendant::*[@long-clickable=\"true\"][not(@clickable=\"true\")]]"
+        "//android.widget.Button[@text=\"Répondre\"]",
+    ],
+    # Sticker bubbles, on 43.1.4 and 46.9.3; a sent GIF comes back as one of them. The comment
+    # composer's « Stickers » button is outside any list row.
+    "conversation.message_sticker_anchors": [
+        "//androidx.recyclerview.widget.RecyclerView/*[not(@clickable=\"true\")]"
+        "//*[@clickable=\"true\"][@content-desc=\"Stickers\"]",
+    ],
     # --- country_picker ---
     "country_picker.close_button": [
         # Meme mesure que `popup.collections_close`. L'ecran de choix du pays n'a jamais ete
@@ -333,6 +348,10 @@ STRINGS: Dict[str, List[str]] = {
     "inbox.seen_marker": [
         "//*[contains(@resource-id, \":id/l35\")][@text=\"Vu\"]",
         "//*[contains(@resource-id, \":id/l35\")][starts-with(@text, \"Vu\")]",
+        # The preview of a conversation row; 46.9.3 prefixes it with U+200E. The « Vu » under
+        # a message inside the conversation is not in a long-clickable row.
+        "//*[@clickable=\"true\"][@long-clickable=\"true\"]"
+        "//android.widget.TextView[translate(@text, \"\u200e\", \"\")=\"Vu\"]",
     ],
     "inbox.suggested_accounts_section": [
         "//*[@text=\"Comptes suggérés\"]",
