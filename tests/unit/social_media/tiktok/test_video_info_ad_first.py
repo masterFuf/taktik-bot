@@ -13,6 +13,7 @@ def _detector(is_ad, calls):
         return reader
 
     detector.is_ad_video = record("is_ad", is_ad)
+    detector.is_live_preview = record("is_live", False)
     detector.get_video_description_parsed = record(
         "expand", {"description_text": "full caption", "hashtags": []})
     detector.get_video_description = record("raw", "Démarrez gratuitement")

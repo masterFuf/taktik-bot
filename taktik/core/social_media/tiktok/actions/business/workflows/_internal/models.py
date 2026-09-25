@@ -18,6 +18,7 @@ class VideoWorkflowStats:
     videos_rejected: int = 0
     videos_skipped: int = 0
     ads_skipped: int = 0
+    lives_skipped: int = 0
     popups_closed: int = 0
     suggestions_handled: int = 0
     errors: int = 0
@@ -36,6 +37,7 @@ class VideoWorkflowStats:
             'videos_rejected': self.videos_rejected,
             'videos_skipped': self.videos_skipped,
             'ads_skipped': self.ads_skipped,
+            'lives_skipped': self.lives_skipped,
             'popups_closed': self.popups_closed,
             'suggestions_handled': self.suggestions_handled,
             'errors': self.errors,

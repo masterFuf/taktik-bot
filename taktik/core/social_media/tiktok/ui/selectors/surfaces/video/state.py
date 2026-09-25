@@ -116,5 +116,9 @@ class VideoStateSelectors:
     def subscribe_button(self) -> List[str]:
         return self._subscribe_button_base + L("video_state.subscribe_button")
 
+    #: A LIVE preview in the feed: not a video, nothing to watch, like or follow on it. Empty on the
+    #: baseline, whose preview has not been captured; readable ids per version in the overrides.
+    live_preview: List[str] = field(default_factory=list)
+
 
 VIDEO_STATE_SELECTORS = VideoStateSelectors()

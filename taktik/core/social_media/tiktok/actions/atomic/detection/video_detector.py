@@ -356,6 +356,8 @@ class VideoDetector(BaseAction):
             'is_favorited': self.is_video_favorited(),
             'is_ad': is_ad,
         }
+        # A LIVE preview has no author: only then is the question worth a read.
+        info['is_live'] = not info['author'] and self.is_live_preview()
         if include_comment_count:
             info['comment_count'] = self.get_video_comment_count()
         return info
@@ -365,3 +367,8 @@ class VideoDetector(BaseAction):
     def is_ad_video(self) -> bool:
         """Check if current video is an advertisement."""
         return self._element_exists(self.video_selectors.ad_label, timeout=1)
+
+    def is_live_preview(self) -> bool:
+        """Is the feed showing a LIVE preview rather than a video?"""
+        selectors = self.video_selectors.live_preview
+        return bool(selectors) and self._element_exists(selectors, timeout=0.5)

@@ -19,6 +19,11 @@ meta:
   baseline_version: "43.1.4"
   last_updated: "2026-03-05"
 
-versions: {}
+versions:
   # Add version-specific overrides here as new app versions are discovered.
   # Only include selectors that CHANGED — unchanged selectors inherit from Python.
+  "46.9.3":
+    # LIVE preview in the For You feed (Pixel 6a, 2 captures): readable ids, no author.
+    video_state.live_preview:
+      - '//*[contains(@resource-id, ":id/tv_live_nickname")]'
+      - '//*[contains(@resource-id, ":id/tv_live_tips")]'

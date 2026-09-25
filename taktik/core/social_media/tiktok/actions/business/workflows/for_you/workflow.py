@@ -95,6 +95,15 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 if self._handle_stuck_video(video_info):
                     continue
 
+                # A LIVE preview is not a video: nothing to watch, like or follow on it.
+                if video_info.get('is_live'):
+                    self.logger.info("📡 Skipping a LIVE preview")
+                    self.stats.lives_skipped += 1
+                    self._send_stats_update()
+                    if not self.scroll.scroll_to_next_video():
+                        self.stats.errors += 1
+                    continue
+
                 # Plan the dwell BEFORE the callback so the front's per-video card shows
                 # the watch time (the bot then sleeps exactly this value). Ads are skipped
                 # without watching, so they carry no watch_time.
