@@ -1,0 +1,1605 @@
+{
+ "feed": {
+  "exit": 0,
+  "calls": [
+   "stats_callback",
+   "configure_db",
+   "connect emulator-5554",
+   "network_baseline emulator-5554",
+   "atx_health repair=True retries=3",
+   "is_installed com.instagram.android",
+   "stop com.instagram.android",
+   "launch com.instagram.android com.instagram.mainactivity.InstagramMainActivity stop_first=False",
+   "active_package com.instagram.android",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
+   "run_workflow",
+   "stop com.instagram.android"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=feed, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Setting up database service..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "license_valid",
+     "message": "Database service configured"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connecting",
+     "message": "Connecting to device emulator-5554..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connected",
+     "message": "Connected to emulator-5554"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Media capture disabled in config"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "instagram_ready",
+     "message": "Instagram launched successfully"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "Starting feed workflow for @feed"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Configuration: {\n  \"filters\": {\n    \"min_followers\": 0,\n    \"max_followers\": 100000,\n    \"min_followings\": 0,\n    \"max_followings\": 10000,\n    \"min_posts\": 0,\n    \"privacy_relation\": \"public_and_private\",\n    \"blacklist_words\": [],\n    \"skip_follows_us\": true,\n    \"skip_already_following\": true\n  },\n  \"session_settings\": {\n    \"workflow_type\": \"feed\",\n    \"total_profiles_limit\": 0,\n    \"total_follows_limit\": 0,\n    \"total_likes_limit\": 0,\n    \"session_duration_minutes\": 30,\n    \"skip_initial_restart\": true,\n    \"randomize_actions\": true,\n    \"enable_screenshots\": true,\n    \"screenshot_path\": \"screenshots\",\n    \"warmup_policy\": {\n      \"max_actions_per_day\": 40,\n      \"max_follows_per_day\": 5,\n      \"max_comments_per_day\": 0,\n      \"max_unfollows_per_day\": 10,\n      \"min_action_gap_seconds\": 12.0,\n      \"max_actions_per_session\": 20\n    }\n  },\n  \"actions\": [\n    {\n      \"type\": \"feed\",\n      \"max_interactions\": 3,\n      \"max_posts_to_check\": 3,\n      \"like_percentage\": 0,\n      \"follow_percentage\": 0,\n      \"comment_percentage\": 0,\n      \"story_watch_percentage\": 0,\n      \"story_like_percentage\": 0,\n      \"view_feed_stories\": false,\n      \"max_feed_story_profiles\": 5,\n      \"feed_story_reaction_percentage\": 0,\n      \"feed_story_reaction\": \"laugh\",\n      \"min_post_likes\": 0,\n      \"max_post_likes\": 0,\n      \"custom_comments\": [],\n      \"skip_suggested\": true,\n      \"read_captions\": true,\n      \"browse_carousels\": false,\n      \"capture_ads\": false,\n      \"interact_with_post_author\": false,\n      \"interact_with_post_likers\": false,\n      \"max_likers_per_post\": 5,\n      \"skip_reels\": false,\n      \"follow_suggestions\": false,\n      \"suggestions_only\": false,\n      \"max_carousel_scrolls\": 12,\n      \"max_suggestion_follows\": 20,\n      \"suggestions_contacts_choice\": \"deny\",\n      \"max_suggestion_passes\": 1\n    }\n  ],\n  \"behaviorPolicy\": {\n    \"profile\": \"prudent\"\n  }\n}"
+    }
+   ],
+   [
+    "session_config",
+    {
+     "config": {
+      "deviceId": "emulator-5554",
+      "workflowType": "feed",
+      "target": "feed",
+      "limits": {
+       "maxProfiles": 3,
+       "maxLikesPerProfile": 2
+      },
+      "probabilities": {
+       "like": 0,
+       "follow": 0,
+       "comment": 0,
+       "watchStories": 0,
+       "likeStories": 0
+      },
+      "filters": {
+       "minFollowers": 0,
+       "maxFollowers": 100000,
+       "minPosts": 0,
+       "maxFollowing": 10000
+      },
+      "session": {
+       "durationMinutes": 30
+      },
+      "behaviorPolicy": {
+       "profile": "prudent"
+      }
+     }
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Initializing automation..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Dynamic config applied"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Instagram v410.0.0.53.71: no selector overrides needed"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "App language detected: FR"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "running",
+     "message": "Running workflow..."
+    }
+   ],
+   [
+    "stats",
+    {
+     "likes": 0,
+     "follows": 0,
+     "comments": 0,
+     "profiles": 3,
+     "unfollows": 0
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "completed",
+     "message": "Workflow completed successfully"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "finished",
+     "message": "Session completed"
+    }
+   ]
+  ],
+  "config": {
+   "filters": {
+    "min_followers": 0,
+    "max_followers": 100000,
+    "min_followings": 0,
+    "max_followings": 10000,
+    "min_posts": 0,
+    "privacy_relation": "public_and_private",
+    "blacklist_words": [],
+    "skip_follows_us": true,
+    "skip_already_following": true
+   },
+   "session_settings": {
+    "workflow_type": "feed",
+    "total_profiles_limit": 0,
+    "total_follows_limit": 0,
+    "total_likes_limit": 0,
+    "session_duration_minutes": 30,
+    "skip_initial_restart": true,
+    "randomize_actions": true,
+    "enable_screenshots": true,
+    "screenshot_path": "screenshots",
+    "warmup_policy": {
+     "max_actions_per_day": 40,
+     "max_follows_per_day": 5,
+     "max_comments_per_day": 0,
+     "max_unfollows_per_day": 10,
+     "min_action_gap_seconds": 12.0,
+     "max_actions_per_session": 20
+    }
+   },
+   "actions": [
+    {
+     "type": "feed",
+     "max_interactions": 3,
+     "max_posts_to_check": 3,
+     "like_percentage": 0,
+     "follow_percentage": 0,
+     "comment_percentage": 0,
+     "story_watch_percentage": 0,
+     "story_like_percentage": 0,
+     "view_feed_stories": false,
+     "max_feed_story_profiles": 5,
+     "feed_story_reaction_percentage": 0,
+     "feed_story_reaction": "laugh",
+     "min_post_likes": 0,
+     "max_post_likes": 0,
+     "custom_comments": [],
+     "skip_suggested": true,
+     "read_captions": true,
+     "browse_carousels": false,
+     "capture_ads": false,
+     "interact_with_post_author": false,
+     "interact_with_post_likers": false,
+     "max_likers_per_post": 5,
+     "skip_reels": false,
+     "follow_suggestions": false,
+     "suggestions_only": false,
+     "max_carousel_scrolls": 12,
+     "max_suggestion_follows": 20,
+     "suggestions_contacts_choice": "deny",
+     "max_suggestion_passes": 1
+    }
+   ],
+   "behaviorPolicy": {
+    "profile": "prudent"
+   }
+  },
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "target_ai": {
+  "exit": 0,
+  "calls": [
+   "stats_callback",
+   "configure_db",
+   "connect emulator-5554",
+   "network_baseline emulator-5554",
+   "atx_health repair=True retries=3",
+   "is_installed com.instagram.android",
+   "stop com.instagram.android",
+   "launch com.instagram.android com.instagram.mainactivity.InstagramMainActivity stop_first=False",
+   "active_package com.instagram.android",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
+   "run_workflow",
+   "stop com.instagram.android"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=target_followers, targets=[alpha, beta] (2 target(s))"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Setting up database service..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "license_valid",
+     "message": "Database service configured"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connecting",
+     "message": "Connecting to device emulator-5554..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connected",
+     "message": "Connected to emulator-5554"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Media capture disabled in config"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "instagram_ready",
+     "message": "Instagram launched successfully"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "Starting target_followers workflow for @alpha, @beta"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Configuration: {\n  \"filters\": {\n    \"min_followers\": 10,\n    \"max_followers\": 5000,\n    \"min_followings\": 0,\n    \"max_followings\": 2000,\n    \"min_posts\": 1,\n    \"privacy_relation\": \"public_and_private\",\n    \"blacklist_words\": [],\n    \"skip_follows_us\": false,\n    \"skip_already_following\": false\n  },\n  \"session_settings\": {\n    \"workflow_type\": \"target_followers\",\n    \"total_profiles_limit\": 4,\n    \"total_follows_limit\": 0,\n    \"total_likes_limit\": 0,\n    \"session_duration_minutes\": 20,\n    \"skip_initial_restart\": true,\n    \"randomize_actions\": true,\n    \"enable_screenshots\": true,\n    \"screenshot_path\": \"screenshots\",\n    \"delay_between_actions\": {\n      \"min\": 4,\n      \"max\": 9\n    },\n    \"max_consecutive_known_usernames\": 40,\n    \"warmup_policy\": {\n      \"max_actions_per_day\": 30,\n      \"max_follows_per_day\": 0,\n      \"max_comments_per_day\": 0,\n      \"max_unfollows_per_day\": 0,\n      \"min_action_gap_seconds\": 8.0,\n      \"max_actions_per_session\": 15\n    }\n  },\n  \"actions\": [\n    {\n      \"type\": \"interact_with_followers\",\n      \"target_username\": \"alpha\",\n      \"target_usernames\": [\n        \"alpha\",\n        \"beta\"\n      ],\n      \"hashtag\": null,\n      \"hashtags\": [],\n      \"post_url\": null,\n      \"post_urls\": [],\n      \"distribution\": \"sequential\",\n      \"post_criteria\": null,\n      \"source_mode\": null,\n      \"interaction_mode\": null,\n      \"engage_posts\": null,\n      \"walk_likers\": null,\n      \"walk_commenters\": null,\n      \"max_posts\": null,\n      \"max_likers_per_post\": null,\n      \"max_commenters_per_post\": null,\n      \"like_comments\": null,\n      \"reply_to_comments\": null,\n      \"max_comment_likes\": null,\n      \"max_comment_replies\": null,\n      \"walk_profiles\": null,\n      \"interaction_type\": \"followers\",\n      \"max_interactions\": 4,\n      \"like_posts\": true,\n      \"min_likes_per_profile\": 1,\n      \"max_likes_per_profile\": 2,\n      \"probabilities\": {\n        \"like_percentage\": 0,\n        \"follow_percentage\": 0,\n        \"comment_percentage\": 0,\n        \"story_percentage\": 0,\n        \"story_like_percentage\": 0\n      },\n      \"like_settings\": {\n        \"enabled\": false,\n        \"like_carousels\": true,\n        \"like_reels\": true,\n        \"randomize_order\": true,\n        \"methods\": [\n          \"button_click\",\n          \"double_tap\"\n        ],\n        \"verify_like_success\": true,\n        \"max_attempts_per_post\": 2,\n        \"delay_between_attempts\": 2\n      },\n      \"follow_settings\": {\n        \"enabled\": false,\n        \"unfollow_after_days\": 3,\n        \"verify_follow_success\": true\n      },\n      \"story_settings\": {\n        \"enabled\": false,\n        \"watch_duration_range\": [\n          3,\n          8\n        ]\n      },\n      \"story_like_settings\": {\n        \"enabled\": false,\n        \"max_stories_per_user\": 3,\n        \"like_probability\": 0.0,\n        \"verify_like_success\": true\n      },\n      \"comment_settings\": {\n        \"enabled\": false,\n        \"custom_comments\": []\n      },\n      \"scrolling\": {\n        \"enabled\": true,\n        \"max_scroll_attempts\": 3,\n        \"scroll_delay\": 1.5\n      },\n      \"max_consecutive_known_usernames\": 40,\n      \"min_followers\": 10,\n      \"max_followers\": 5000,\n      \"min_posts\": 1,\n      \"max_following\": 2000,\n      \"skip_follows_us\": false,\n      \"skip_already_following\": false,\n      \"reinteraction_days\": null,\n      \"refilter_days\": null,\n      \"allow_private\": true,\n      \"max_consecutive_private_profiles\": null,\n      \"allow_verified\": false,\n      \"allow_business\": true,\n      \"filters\": {\n        \"min_followers\": 10,\n        \"max_followers\": 5000,\n        \"min_posts\": 1,\n        \"max_following\": 2000,\n        \"skip_follows_us\": false,\n        \"skip_already_following\": false,\n        \"reinteraction_days\": null,\n        \"refilter_days\": null,\n        \"allow_private\": true,\n        \"max_consecutive_private_profiles\": null,\n        \"allow_verified\": false,\n        \"allow_business\": true\n      }\n    }\n  ]\n}"
+    }
+   ],
+   [
+    "session_config",
+    {
+     "config": {
+      "deviceId": "emulator-5554",
+      "workflowType": "target_followers",
+      "target": "alpha,beta",
+      "limits": {
+       "maxProfiles": 4,
+       "maxLikesPerProfile": 2
+      },
+      "probabilities": {
+       "like": 0,
+       "follow": 0,
+       "comment": 0,
+       "watchStories": 0,
+       "likeStories": 0
+      },
+      "filters": {
+       "minFollowers": 10,
+       "maxFollowers": 5000,
+       "minPosts": 1,
+       "maxFollowing": 2000
+      },
+      "session": {
+       "durationMinutes": 20,
+       "minDelay": 4,
+       "maxDelay": 9,
+       "maxConsecutiveKnownUsernames": 40
+      },
+      "ai": {
+       "enabled": true,
+       "smartComments": false,
+       "profileAnalysis": true,
+       "postAnalysis": false
+      }
+     }
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Initializing automation..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Dynamic config applied"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Instagram v410.0.0.53.71: no selector overrides needed"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "App language detected: FR"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "running",
+     "message": "Running workflow..."
+    }
+   ],
+   [
+    "stats",
+    {
+     "likes": 0,
+     "follows": 0,
+     "comments": 0,
+     "profiles": 3,
+     "unfollows": 0
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "completed",
+     "message": "Workflow completed successfully"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "finished",
+     "message": "Session completed"
+    }
+   ]
+  ],
+  "config": {
+   "filters": {
+    "min_followers": 10,
+    "max_followers": 5000,
+    "min_followings": 0,
+    "max_followings": 2000,
+    "min_posts": 1,
+    "privacy_relation": "public_and_private",
+    "blacklist_words": [],
+    "skip_follows_us": false,
+    "skip_already_following": false
+   },
+   "session_settings": {
+    "workflow_type": "target_followers",
+    "total_profiles_limit": 4,
+    "total_follows_limit": 0,
+    "total_likes_limit": 0,
+    "session_duration_minutes": 20,
+    "skip_initial_restart": true,
+    "randomize_actions": true,
+    "enable_screenshots": true,
+    "screenshot_path": "screenshots",
+    "delay_between_actions": {
+     "min": 4,
+     "max": 9
+    },
+    "max_consecutive_known_usernames": 40,
+    "warmup_policy": {
+     "max_actions_per_day": 30,
+     "max_follows_per_day": 0,
+     "max_comments_per_day": 0,
+     "max_unfollows_per_day": 0,
+     "min_action_gap_seconds": 8.0,
+     "max_actions_per_session": 15
+    }
+   },
+   "actions": [
+    {
+     "type": "interact_with_followers",
+     "target_username": "alpha",
+     "target_usernames": [
+      "alpha",
+      "beta"
+     ],
+     "hashtag": null,
+     "hashtags": [],
+     "post_url": null,
+     "post_urls": [],
+     "distribution": "sequential",
+     "post_criteria": null,
+     "source_mode": null,
+     "interaction_mode": null,
+     "engage_posts": null,
+     "walk_likers": null,
+     "walk_commenters": null,
+     "max_posts": null,
+     "max_likers_per_post": null,
+     "max_commenters_per_post": null,
+     "like_comments": null,
+     "reply_to_comments": null,
+     "max_comment_likes": null,
+     "max_comment_replies": null,
+     "walk_profiles": null,
+     "interaction_type": "followers",
+     "max_interactions": 4,
+     "like_posts": true,
+     "min_likes_per_profile": 1,
+     "max_likes_per_profile": 2,
+     "probabilities": {
+      "like_percentage": 0,
+      "follow_percentage": 0,
+      "comment_percentage": 0,
+      "story_percentage": 0,
+      "story_like_percentage": 0
+     },
+     "like_settings": {
+      "enabled": false,
+      "like_carousels": true,
+      "like_reels": true,
+      "randomize_order": true,
+      "methods": [
+       "button_click",
+       "double_tap"
+      ],
+      "verify_like_success": true,
+      "max_attempts_per_post": 2,
+      "delay_between_attempts": 2
+     },
+     "follow_settings": {
+      "enabled": false,
+      "unfollow_after_days": 3,
+      "verify_follow_success": true
+     },
+     "story_settings": {
+      "enabled": false,
+      "watch_duration_range": [
+       3,
+       8
+      ]
+     },
+     "story_like_settings": {
+      "enabled": false,
+      "max_stories_per_user": 3,
+      "like_probability": 0.0,
+      "verify_like_success": true
+     },
+     "comment_settings": {
+      "enabled": false,
+      "custom_comments": []
+     },
+     "scrolling": {
+      "enabled": true,
+      "max_scroll_attempts": 3,
+      "scroll_delay": 1.5
+     },
+     "max_consecutive_known_usernames": 40,
+     "min_followers": 10,
+     "max_followers": 5000,
+     "min_posts": 1,
+     "max_following": 2000,
+     "skip_follows_us": false,
+     "skip_already_following": false,
+     "reinteraction_days": null,
+     "refilter_days": null,
+     "allow_private": true,
+     "max_consecutive_private_profiles": null,
+     "allow_verified": false,
+     "allow_business": true,
+     "filters": {
+      "min_followers": 10,
+      "max_followers": 5000,
+      "min_posts": 1,
+      "max_following": 2000,
+      "skip_follows_us": false,
+      "skip_already_following": false,
+      "reinteraction_days": null,
+      "refilter_days": null,
+      "allow_private": true,
+      "max_consecutive_private_profiles": null,
+      "allow_verified": false,
+      "allow_business": true
+     }
+    }
+   ]
+  },
+  "ai_services": [
+   {
+    "key": "sk-or-v1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "ipc": true
+   }
+  ],
+  "ai_installs": [
+   {
+    "ai": {
+     "service": 1,
+     "key": "sk-or-v1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "ai_config": {
+     "enabled": true,
+     "profileAnalysis": true,
+     "openrouterApiKey": "sk-or-v1-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "device": true,
+    "language": "fr",
+    "decision_provider": false
+   }
+  ]
+ },
+ "clone": {
+  "exit": 0,
+  "calls": [
+   "stats_callback",
+   "configure_db",
+   "connect emulator-5554",
+   "network_baseline emulator-5554",
+   "atx_health repair=True retries=3",
+   "is_installed com.taktik.ig1",
+   "stop com.taktik.ig1",
+   "launch com.taktik.ig1 None stop_first=False",
+   "active_package com.taktik.ig1",
+   "installed_version com.taktik.ig1",
+   "version_overrides 410.0.0.53.71",
+   "clone_patch com.taktik.ig1",
+   "detect_language",
+   "run_workflow",
+   "stop com.taktik.ig1"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=feed, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Setting up database service..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "license_valid",
+     "message": "Database service configured"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connecting",
+     "message": "Connecting to device emulator-5554..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connected",
+     "message": "Connected to emulator-5554"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Media capture disabled in config"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "instagram_ready",
+     "message": "Instagram launched successfully"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "Starting feed workflow for @feed"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Configuration: {\n  \"filters\": {\n    \"min_followers\": 0,\n    \"max_followers\": 100000,\n    \"min_followings\": 0,\n    \"max_followings\": 10000,\n    \"min_posts\": 0,\n    \"privacy_relation\": \"public_and_private\",\n    \"blacklist_words\": [],\n    \"skip_follows_us\": true,\n    \"skip_already_following\": true\n  },\n  \"session_settings\": {\n    \"workflow_type\": \"feed\",\n    \"total_profiles_limit\": 0,\n    \"total_follows_limit\": 0,\n    \"total_likes_limit\": 0,\n    \"session_duration_minutes\": 30,\n    \"skip_initial_restart\": true,\n    \"randomize_actions\": true,\n    \"enable_screenshots\": true,\n    \"screenshot_path\": \"screenshots\",\n    \"warmup_policy\": {\n      \"max_actions_per_day\": 40,\n      \"max_follows_per_day\": 5,\n      \"max_comments_per_day\": 0,\n      \"max_unfollows_per_day\": 10,\n      \"min_action_gap_seconds\": 12.0,\n      \"max_actions_per_session\": 20\n    }\n  },\n  \"actions\": [\n    {\n      \"type\": \"feed\",\n      \"max_interactions\": 3,\n      \"max_posts_to_check\": 3,\n      \"like_percentage\": 0,\n      \"follow_percentage\": 0,\n      \"comment_percentage\": 0,\n      \"story_watch_percentage\": 0,\n      \"story_like_percentage\": 0,\n      \"view_feed_stories\": false,\n      \"max_feed_story_profiles\": 5,\n      \"feed_story_reaction_percentage\": 0,\n      \"feed_story_reaction\": \"laugh\",\n      \"min_post_likes\": 0,\n      \"max_post_likes\": 0,\n      \"custom_comments\": [],\n      \"skip_suggested\": true,\n      \"read_captions\": true,\n      \"browse_carousels\": false,\n      \"capture_ads\": false,\n      \"interact_with_post_author\": false,\n      \"interact_with_post_likers\": false,\n      \"max_likers_per_post\": 5,\n      \"skip_reels\": false,\n      \"follow_suggestions\": false,\n      \"suggestions_only\": false,\n      \"max_carousel_scrolls\": 12,\n      \"max_suggestion_follows\": 20,\n      \"suggestions_contacts_choice\": \"deny\",\n      \"max_suggestion_passes\": 1\n    }\n  ],\n  \"behaviorPolicy\": {\n    \"profile\": \"prudent\"\n  }\n}"
+    }
+   ],
+   [
+    "session_config",
+    {
+     "config": {
+      "deviceId": "emulator-5554",
+      "workflowType": "feed",
+      "target": "feed",
+      "limits": {
+       "maxProfiles": 3,
+       "maxLikesPerProfile": 2
+      },
+      "probabilities": {
+       "like": 0,
+       "follow": 0,
+       "comment": 0,
+       "watchStories": 0,
+       "likeStories": 0
+      },
+      "filters": {
+       "minFollowers": 0,
+       "maxFollowers": 100000,
+       "minPosts": 0,
+       "maxFollowing": 10000
+      },
+      "session": {
+       "durationMinutes": 30
+      },
+      "behaviorPolicy": {
+       "profile": "prudent"
+      }
+     }
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Initializing automation..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Dynamic config applied"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Instagram v410.0.0.53.71: no selector overrides needed"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "App language detected: FR"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "running",
+     "message": "Running workflow..."
+    }
+   ],
+   [
+    "stats",
+    {
+     "likes": 0,
+     "follows": 0,
+     "comments": 0,
+     "profiles": 3,
+     "unfollows": 0
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "completed",
+     "message": "Workflow completed successfully"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "finished",
+     "message": "Session completed"
+    }
+   ]
+  ],
+  "config": {
+   "filters": {
+    "min_followers": 0,
+    "max_followers": 100000,
+    "min_followings": 0,
+    "max_followings": 10000,
+    "min_posts": 0,
+    "privacy_relation": "public_and_private",
+    "blacklist_words": [],
+    "skip_follows_us": true,
+    "skip_already_following": true
+   },
+   "session_settings": {
+    "workflow_type": "feed",
+    "total_profiles_limit": 0,
+    "total_follows_limit": 0,
+    "total_likes_limit": 0,
+    "session_duration_minutes": 30,
+    "skip_initial_restart": true,
+    "randomize_actions": true,
+    "enable_screenshots": true,
+    "screenshot_path": "screenshots",
+    "warmup_policy": {
+     "max_actions_per_day": 40,
+     "max_follows_per_day": 5,
+     "max_comments_per_day": 0,
+     "max_unfollows_per_day": 10,
+     "min_action_gap_seconds": 12.0,
+     "max_actions_per_session": 20
+    }
+   },
+   "actions": [
+    {
+     "type": "feed",
+     "max_interactions": 3,
+     "max_posts_to_check": 3,
+     "like_percentage": 0,
+     "follow_percentage": 0,
+     "comment_percentage": 0,
+     "story_watch_percentage": 0,
+     "story_like_percentage": 0,
+     "view_feed_stories": false,
+     "max_feed_story_profiles": 5,
+     "feed_story_reaction_percentage": 0,
+     "feed_story_reaction": "laugh",
+     "min_post_likes": 0,
+     "max_post_likes": 0,
+     "custom_comments": [],
+     "skip_suggested": true,
+     "read_captions": true,
+     "browse_carousels": false,
+     "capture_ads": false,
+     "interact_with_post_author": false,
+     "interact_with_post_likers": false,
+     "max_likers_per_post": 5,
+     "skip_reels": false,
+     "follow_suggestions": false,
+     "suggestions_only": false,
+     "max_carousel_scrolls": 12,
+     "max_suggestion_follows": 20,
+     "suggestions_contacts_choice": "deny",
+     "max_suggestion_passes": 1
+    }
+   ],
+   "behaviorPolicy": {
+    "profile": "prudent"
+   }
+  },
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "not_installed": {
+  "exit": 4,
+  "calls": [
+   "stats_callback",
+   "configure_db",
+   "connect emulator-5554",
+   "network_baseline emulator-5554",
+   "atx_health repair=True retries=3",
+   "is_installed com.instagram.android"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=feed, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Setting up database service..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "license_valid",
+     "message": "Database service configured"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connecting",
+     "message": "Connecting to device emulator-5554..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connected",
+     "message": "Connected to emulator-5554"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Media capture disabled in config"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram..."
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Instagram is not installed on this device",
+     "error_code": "INSTAGRAM_NOT_INSTALLED"
+    }
+   ]
+  ],
+  "config": null,
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "launch_failed": {
+  "exit": 4,
+  "calls": [
+   "stats_callback",
+   "configure_db",
+   "connect emulator-5554",
+   "network_baseline emulator-5554",
+   "atx_health repair=True retries=3",
+   "is_installed com.instagram.android",
+   "stop com.instagram.android",
+   "launch com.instagram.android com.instagram.mainactivity.InstagramMainActivity stop_first=False"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=feed, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Setting up database service..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "license_valid",
+     "message": "Database service configured"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connecting",
+     "message": "Connecting to device emulator-5554..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connected",
+     "message": "Connected to emulator-5554"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Media capture disabled in config"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram..."
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Failed to launch Instagram",
+     "error_code": "INSTAGRAM_LAUNCH_FAILED"
+    }
+   ]
+  ],
+  "config": null,
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "workflow_error": {
+  "exit": 5,
+  "calls": [
+   "stats_callback",
+   "configure_db",
+   "connect emulator-5554",
+   "network_baseline emulator-5554",
+   "atx_health repair=True retries=3",
+   "is_installed com.instagram.android",
+   "stop com.instagram.android",
+   "launch com.instagram.android com.instagram.mainactivity.InstagramMainActivity stop_first=False",
+   "active_package com.instagram.android",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
+   "run_workflow",
+   "stop com.instagram.android"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=feed, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Setting up database service..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "license_valid",
+     "message": "Database service configured"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connecting",
+     "message": "Connecting to device emulator-5554..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connected",
+     "message": "Connected to emulator-5554"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Media capture disabled in config"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "instagram_ready",
+     "message": "Instagram launched successfully"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "Starting feed workflow for @feed"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Configuration: {\n  \"filters\": {\n    \"min_followers\": 0,\n    \"max_followers\": 100000,\n    \"min_followings\": 0,\n    \"max_followings\": 10000,\n    \"min_posts\": 0,\n    \"privacy_relation\": \"public_and_private\",\n    \"blacklist_words\": [],\n    \"skip_follows_us\": true,\n    \"skip_already_following\": true\n  },\n  \"session_settings\": {\n    \"workflow_type\": \"feed\",\n    \"total_profiles_limit\": 0,\n    \"total_follows_limit\": 0,\n    \"total_likes_limit\": 0,\n    \"session_duration_minutes\": 30,\n    \"skip_initial_restart\": true,\n    \"randomize_actions\": true,\n    \"enable_screenshots\": true,\n    \"screenshot_path\": \"screenshots\",\n    \"warmup_policy\": {\n      \"max_actions_per_day\": 40,\n      \"max_follows_per_day\": 5,\n      \"max_comments_per_day\": 0,\n      \"max_unfollows_per_day\": 10,\n      \"min_action_gap_seconds\": 12.0,\n      \"max_actions_per_session\": 20\n    }\n  },\n  \"actions\": [\n    {\n      \"type\": \"feed\",\n      \"max_interactions\": 3,\n      \"max_posts_to_check\": 3,\n      \"like_percentage\": 0,\n      \"follow_percentage\": 0,\n      \"comment_percentage\": 0,\n      \"story_watch_percentage\": 0,\n      \"story_like_percentage\": 0,\n      \"view_feed_stories\": false,\n      \"max_feed_story_profiles\": 5,\n      \"feed_story_reaction_percentage\": 0,\n      \"feed_story_reaction\": \"laugh\",\n      \"min_post_likes\": 0,\n      \"max_post_likes\": 0,\n      \"custom_comments\": [],\n      \"skip_suggested\": true,\n      \"read_captions\": true,\n      \"browse_carousels\": false,\n      \"capture_ads\": false,\n      \"interact_with_post_author\": false,\n      \"interact_with_post_likers\": false,\n      \"max_likers_per_post\": 5,\n      \"skip_reels\": false,\n      \"follow_suggestions\": false,\n      \"suggestions_only\": false,\n      \"max_carousel_scrolls\": 12,\n      \"max_suggestion_follows\": 20,\n      \"suggestions_contacts_choice\": \"deny\",\n      \"max_suggestion_passes\": 1\n    }\n  ],\n  \"behaviorPolicy\": {\n    \"profile\": \"prudent\"\n  }\n}"
+    }
+   ],
+   [
+    "session_config",
+    {
+     "config": {
+      "deviceId": "emulator-5554",
+      "workflowType": "feed",
+      "target": "feed",
+      "limits": {
+       "maxProfiles": 3,
+       "maxLikesPerProfile": 2
+      },
+      "probabilities": {
+       "like": 0,
+       "follow": 0,
+       "comment": 0,
+       "watchStories": 0,
+       "likeStories": 0
+      },
+      "filters": {
+       "minFollowers": 0,
+       "maxFollowers": 100000,
+       "minPosts": 0,
+       "maxFollowing": 10000
+      },
+      "session": {
+       "durationMinutes": 30
+      },
+      "behaviorPolicy": {
+       "profile": "prudent"
+      }
+     }
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Initializing automation..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Dynamic config applied"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Instagram v410.0.0.53.71: no selector overrides needed"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "App language detected: FR"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "running",
+     "message": "Running workflow..."
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Workflow error: feed screen not reached",
+     "error_code": "WORKFLOW_ERROR",
+     "traceback": "<traceback>"
+    }
+   ]
+  ],
+  "config": {
+   "filters": {
+    "min_followers": 0,
+    "max_followers": 100000,
+    "min_followings": 0,
+    "max_followings": 10000,
+    "min_posts": 0,
+    "privacy_relation": "public_and_private",
+    "blacklist_words": [],
+    "skip_follows_us": true,
+    "skip_already_following": true
+   },
+   "session_settings": {
+    "workflow_type": "feed",
+    "total_profiles_limit": 0,
+    "total_follows_limit": 0,
+    "total_likes_limit": 0,
+    "session_duration_minutes": 30,
+    "skip_initial_restart": true,
+    "randomize_actions": true,
+    "enable_screenshots": true,
+    "screenshot_path": "screenshots",
+    "warmup_policy": {
+     "max_actions_per_day": 40,
+     "max_follows_per_day": 5,
+     "max_comments_per_day": 0,
+     "max_unfollows_per_day": 10,
+     "min_action_gap_seconds": 12.0,
+     "max_actions_per_session": 20
+    }
+   },
+   "actions": [
+    {
+     "type": "feed",
+     "max_interactions": 3,
+     "max_posts_to_check": 3,
+     "like_percentage": 0,
+     "follow_percentage": 0,
+     "comment_percentage": 0,
+     "story_watch_percentage": 0,
+     "story_like_percentage": 0,
+     "view_feed_stories": false,
+     "max_feed_story_profiles": 5,
+     "feed_story_reaction_percentage": 0,
+     "feed_story_reaction": "laugh",
+     "min_post_likes": 0,
+     "max_post_likes": 0,
+     "custom_comments": [],
+     "skip_suggested": true,
+     "read_captions": true,
+     "browse_carousels": false,
+     "capture_ads": false,
+     "interact_with_post_author": false,
+     "interact_with_post_likers": false,
+     "max_likers_per_post": 5,
+     "skip_reels": false,
+     "follow_suggestions": false,
+     "suggestions_only": false,
+     "max_carousel_scrolls": 12,
+     "max_suggestion_follows": 20,
+     "suggestions_contacts_choice": "deny",
+     "max_suggestion_passes": 1
+    }
+   ],
+   "behaviorPolicy": {
+    "profile": "prudent"
+   }
+  },
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "notifications_refused": {
+  "exit": 5,
+  "calls": [
+   "stats_callback",
+   "configure_db",
+   "connect emulator-5554",
+   "network_baseline emulator-5554",
+   "atx_health repair=True retries=3",
+   "is_installed com.instagram.android",
+   "stop com.instagram.android",
+   "launch com.instagram.android com.instagram.mainactivity.InstagramMainActivity stop_first=False",
+   "stop com.instagram.android"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=notifications, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Setting up database service..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "license_valid",
+     "message": "Database service configured"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connecting",
+     "message": "Connecting to device emulator-5554..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connected",
+     "message": "Connected to emulator-5554"
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Media capture disabled in config"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "instagram_ready",
+     "message": "Instagram launched successfully"
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Workflow error: workflowType 'notifications' is served by notifications_bridge, not desktop_bridge",
+     "error_code": "WORKFLOW_ERROR",
+     "traceback": "<traceback>"
+    }
+   ]
+  ],
+  "config": null,
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "no_connection": {
+  "exit": 3,
+  "calls": [
+   "stats_callback",
+   "configure_db",
+   "connect emulator-5554"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=feed, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "initializing",
+     "message": "Setting up database service..."
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "license_valid",
+     "message": "Database service configured"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "connecting",
+     "message": "Connecting to device emulator-5554..."
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Failed to connect to device emulator-5554",
+     "error_code": "DEVICE_CONNECTION_FAILED"
+    }
+   ]
+  ],
+  "config": null,
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "no_device": {
+  "exit": 1,
+  "calls": [
+   "stats_callback"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=None, workflow=feed, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Device ID is required"
+    }
+   ]
+  ],
+  "config": null,
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "no_workflow_type": {
+  "exit": 1,
+  "calls": [
+   "stats_callback"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=None, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Workflow type is required"
+    }
+   ]
+  ],
+  "config": null,
+  "ai_services": [],
+  "ai_installs": []
+ },
+ "no_target": {
+  "exit": 1,
+  "calls": [
+   "stats_callback"
+  ],
+  "events": [
+   [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=feed, targets=[] (0 target(s))"
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Target is required"
+    }
+   ]
+  ],
+  "config": null,
+  "ai_services": [],
+  "ai_installs": []
+ }
+}

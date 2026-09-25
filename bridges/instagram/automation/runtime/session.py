@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from bridges.common.device.app_manager import AppService
 from bridges.common.device.connection import ConnectionService
-from bridges.instagram.runtime.ipc import logger, send_error, send_log, send_status
+from bridges.instagram.runtime.ipc import _ipc, logger, send_error, send_status
 
 
 class InstagramDesktopRuntime:
@@ -97,45 +97,16 @@ class InstagramDesktopRuntime:
     def launch_instagram(self) -> bool:
         """Restart Instagram on the connected device for a clean, consistent initial state.
 
-        A clean restart (force-stop + launch) — the same way every other bridge starts the app —
-        guarantees we land on the home feed instead of resuming wherever a previous session left
-        Instagram (a foreign profile / a story / an interstitial), which made account detection
-        fail and waste ~45s. The bot honours `skip_initial_restart=True` (it must NOT restart
-        again) but still dismisses any post-restart popup."""
-        try:
-            send_status("launching", "Restarting Instagram...")
+        The sequence is the core's (`start_instagram_session`), shared with the CLI; the bridge
+        brings its app service, its uiautomator2 check and its stdout.
+        """
+        from taktik.core.social_media.instagram.workflows.core.startup import start_instagram_session
 
-            atx_result = self.connection.check_atx_health(repair=True, max_retries=3)
-            if not atx_result["atx_healthy"]:
-                error_detail = atx_result.get("error", "Unknown")
-                if atx_result.get("repaired"):
-                    send_status("atx_repaired", "UIAutomator2 agent repaired successfully")
-                else:
-                    logger.warning(f"ATX repair failed: {error_detail} - continuing anyway")
-                    send_log(
-                        "warning",
-                        f"ATX repair failed ({error_detail}) but continuing - workflow may still work",
-                    )
-
-            if not self.app_service.is_installed():
-                send_error("Instagram is not installed on this device", error_code="INSTAGRAM_NOT_INSTALLED")
-                return False
-
-            if not self.app_service.restart():
-                send_error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
-                return False
-
-            send_status("instagram_ready", "Instagram launched successfully")
-            return True
-
-        except Exception as e:
-            error_msg = str(e)
-            if "uiautomator" in error_msg.lower() or "atx" in error_msg.lower():
-                send_error(f"UIAutomator2 connection failed: {error_msg}", error_code="ATX_AGENT_FAILED")
-            else:
-                send_error(f"Failed to launch Instagram: {error_msg}", error_code="INSTAGRAM_LAUNCH_FAILED")
-            logger.exception("Instagram launch failed")
-            return False
+        return start_instagram_session(
+            self.app_service,
+            notifier=_ipc,
+            health_check=lambda: self.connection.check_atx_health(repair=True, max_retries=3),
+        )
 
     def stop_app(self) -> None:
         """Best-effort Instagram app stop at session end."""

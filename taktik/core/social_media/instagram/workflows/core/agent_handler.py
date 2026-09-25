@@ -1,23 +1,23 @@
-"""Agent runtime handlers for Instagram automation workflows."""
+"""The one launcher of an Instagram automation run, and its Agent handlers.
+
+`run_instagram_automation` is what the desktop bridge calls and what the handlers registered as
+`instagram.automation.<type>` (the CLI) call. The payload is the page's config, read whole by
+`build_instagram_automation_config`. What differs between the hosts is injected:
+- `instagram_start(package_name) -> bool`: the clean restart before the run (`startup.py`).
+- `instagram_ai_service(ai_config) -> service | None`: the AI service the run asks for.
+- `decision_provider`: the desktop's per-profile decision round trip, when the run asks for it.
+- `instagram_installed_version() -> str | None`: the version the selector overrides are chosen for.
+- `reporter`: the host's live events (`config_built`, `running`, `finished`), all optional.
+No injected callable receives the whole payload, so the app's config contract test can still see
+every key the bot reads.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.core.ai_hooks import (
-    install_instagram_ai_hooks,
-)
-from taktik.core.social_media.instagram.workflows.core.automation import (
-    InstagramAutomation,
-)
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
-    build_instagram_automation_config,
-)
-from taktik.core.social_media.instagram.workflows.core.runtime_setup import (
-    prepare_instagram_automation_runtime,
-)
 
 
 INSTAGRAM_AUTOMATION_WORKFLOW_TYPES = (
@@ -36,55 +36,148 @@ INSTAGRAM_AUTOMATION_WORKFLOW_IDS = tuple(
     f"instagram.automation.{workflow_type}"
     for workflow_type in INSTAGRAM_AUTOMATION_WORKFLOW_TYPES
 )
+#: Workflows whose target is the account itself: an absent target takes the workflow's name.
+_AUTO_TARGET_WORKFLOWS = {"feed", "notifications", "unfollow", "sync_following", "sync_followers_following"}
+
 InstagramAutomationFactory = Callable[..., Any]
 RuntimeSetup = Callable[..., None]
 AIHookInstaller = Callable[..., None]
+InstagramStart = Callable[[Optional[str]], bool]
 AIServiceFactory = Callable[[Mapping[str, Any]], Any]
+DecisionProvider = Callable[[Mapping[str, Any]], dict]
+VersionProvider = Callable[[], Optional[str]]
 LogCallback = Callable[[str, str], None]
+
+
+class InstagramStartError(RuntimeError):
+    """Instagram could not be brought to a clean start; the run did not begin."""
+
+
+def _log_to_logger(level: str, message: str) -> None:
+    from loguru import logger
+
+    getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
+
+
+def _emit(reporter: Any, method: str, *args: Any) -> None:
+    target = getattr(reporter, method, None)
+    if callable(target):
+        target(*args)
+
+
+def run_instagram_automation(
+    payload: Mapping[str, Any],
+    *,
+    device_manager,
+    instagram_start: Optional[InstagramStart] = None,
+    instagram_ai_service: Optional[AIServiceFactory] = None,
+    decision_provider: Optional[DecisionProvider] = None,
+    instagram_installed_version: Optional[VersionProvider] = None,
+    reporter: Any = None,
+    log: Optional[LogCallback] = None,
+    workflow_factory: Optional[InstagramAutomationFactory] = None,
+    runtime_setup: Optional[RuntimeSetup] = None,
+    ai_hook_installer: Optional[AIHookInstaller] = None,
+) -> dict[str, Any]:
+    """Start Instagram, then configure, hook and run one automation session from a page payload."""
+    # Resolved at call time, so a run gets the modules' current objects.
+    from taktik.core.social_media.instagram.workflows.core import ai_hooks, automation, runtime_setup as setup
+    from taktik.core.social_media.instagram.workflows.core.config_builder import (
+        build_instagram_automation_config,
+    )
+
+    # Without a host of its own (the CLI), the run's setup lines go to the log.
+    log = log or _log_to_logger
+    package_name = payload.get("packageName")
+
+    if instagram_start is not None and not instagram_start(package_name):
+        raise InstagramStartError("Instagram did not start cleanly; the run was not started")
+
+    workflow_config = build_instagram_automation_config(payload)
+    _emit(reporter, "config_built", workflow_config)
+
+    run = (workflow_factory or automation.InstagramAutomation)(device_manager)
+    (runtime_setup or setup.prepare_instagram_automation_runtime)(
+        automation=run,
+        workflow_config=workflow_config,
+        package_name=package_name,
+        installed_version_provider=instagram_installed_version,
+        log=log,
+    )
+
+    ai_config = payload.get("ai") or {}
+    decision_mode = (ai_config.get("decision") or {}).get("mode") == "decide"
+    ai_service = None
+    if ai_config.get("enabled") and instagram_ai_service is not None:
+        ai_service = instagram_ai_service(ai_config)
+    if ai_service or decision_mode:
+        (ai_hook_installer or ai_hooks.install_instagram_ai_hooks)(
+            ai=ai_service,
+            ai_config=ai_config,
+            device=getattr(device_manager, "device", None),
+            language=payload.get("language", "en"),
+            log=log,
+            decision_provider=decision_provider,
+        )
+
+    _emit(reporter, "running")
+    run.run_workflow()
+    # The session's totals, from the action ledger the session row is aggregated from.
+    stats = run.final_stats()
+    _emit(reporter, "finished", stats)
+    return {"success": True, "stats": stats}
+
+
+def instagram_automation_payload(
+    invocation: WorkflowInvocation,
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    """The page payload a handler call stands for: every key kept, the id's workflow, a target.
+
+    The handler used to copy eleven known sections and drop the rest, so the warmup caps, the
+    pacing profile, the feed settings, the split between sources or the post URL's comment
+    settings never reached a CLI run. Only the names a terminal user may type are added: the
+    target's aliases, `feed_stories`, `appLanguage`, `package_name`.
+    """
+    merged = dict(payload)
+    merged.update(invocation.params)
+
+    workflow_type = _workflow_type_from_id(invocation.workflow_id)
+    merged["workflowType"] = workflow_type
+    merged["target"] = _target_for_workflow(workflow_type, merged)
+    _alias(merged, "feedStories", "feed_stories")
+    _alias(merged, "language", "appLanguage")
+    _alias(merged, "packageName", "package_name")
+    if not str(merged.get("language") or "").strip():
+        merged["language"] = "en"
+    return merged
 
 
 def build_instagram_automation_handler(
     *,
     device_manager,
-    workflow_factory: InstagramAutomationFactory = InstagramAutomation,
-    runtime_setup: RuntimeSetup = prepare_instagram_automation_runtime,
-    ai_hook_installer: AIHookInstaller = install_instagram_ai_hooks,
-    ai_service_factory: AIServiceFactory | None = None,
-    installed_version_provider: Callable[[], str | None] | None = None,
-    log: LogCallback | None = None,
+    instagram_start: Optional[InstagramStart] = None,
+    instagram_ai_service: Optional[AIServiceFactory] = None,
+    instagram_installed_version: Optional[VersionProvider] = None,
+    workflow_factory: Optional[InstagramAutomationFactory] = None,
+    runtime_setup: Optional[RuntimeSetup] = None,
+    ai_hook_installer: Optional[AIHookInstaller] = None,
+    log: Optional[LogCallback] = None,
 ) -> WorkflowHandler:
-    """Build an injectable automation handler without owning bridge startup."""
+    """Build an injectable automation handler: the launcher, on the injected host."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        raw_config = _automation_bridge_config(invocation, payload)
-        workflow_config = build_instagram_automation_config(raw_config)
-        automation = workflow_factory(device_manager)
-
-        runtime_setup(
-            automation=automation,
-            workflow_config=workflow_config,
-            package_name=raw_config.get("packageName"),
-            installed_version_provider=installed_version_provider,
-            log=log or _noop_log,
+        return run_instagram_automation(
+            instagram_automation_payload(invocation, payload),
+            device_manager=device_manager,
+            instagram_start=instagram_start,
+            instagram_ai_service=instagram_ai_service,
+            instagram_installed_version=instagram_installed_version,
+            log=log,
+            workflow_factory=workflow_factory,
+            runtime_setup=runtime_setup,
+            ai_hook_installer=ai_hook_installer,
         )
-
-        ai_config = raw_config.get("ai")
-        if isinstance(ai_config, Mapping) and ai_config.get("enabled") and ai_service_factory:
-            ai_service = ai_service_factory(ai_config)
-            if ai_service:
-                ai_hook_installer(
-                    ai=ai_service,
-                    ai_config=ai_config,
-                    device=getattr(device_manager, "device", None),
-                    language=raw_config.get("language", "en"),
-                    log=log or _noop_log,
-                )
-
-        automation.run_workflow()
-        return {
-            "success": True,
-            "stats": dict(getattr(automation, "stats", {})),
-        }
 
     return handler
 
@@ -93,55 +186,28 @@ def register_instagram_automation_handlers(
     registry: WorkflowRegistry,
     *,
     device_manager,
-    workflow_factory: InstagramAutomationFactory = InstagramAutomation,
-    runtime_setup: RuntimeSetup = prepare_instagram_automation_runtime,
-    ai_hook_installer: AIHookInstaller = install_instagram_ai_hooks,
-    ai_service_factory: AIServiceFactory | None = None,
-    installed_version_provider: Callable[[], str | None] | None = None,
-    log: LogCallback | None = None,
+    instagram_start: Optional[InstagramStart] = None,
+    instagram_ai_service: Optional[AIServiceFactory] = None,
+    instagram_installed_version: Optional[VersionProvider] = None,
+    workflow_factory: Optional[InstagramAutomationFactory] = None,
+    runtime_setup: Optional[RuntimeSetup] = None,
+    ai_hook_installer: Optional[AIHookInstaller] = None,
+    log: Optional[LogCallback] = None,
 ) -> WorkflowRegistry:
     """Register Instagram automation handlers into an injected Agent registry."""
     handler = build_instagram_automation_handler(
         device_manager=device_manager,
+        instagram_start=instagram_start,
+        instagram_ai_service=instagram_ai_service,
+        instagram_installed_version=instagram_installed_version,
         workflow_factory=workflow_factory,
         runtime_setup=runtime_setup,
         ai_hook_installer=ai_hook_installer,
-        ai_service_factory=ai_service_factory,
-        installed_version_provider=installed_version_provider,
         log=log,
     )
     for workflow_id in INSTAGRAM_AUTOMATION_WORKFLOW_IDS:
         registry.register(workflow_id, handler)
     return registry
-
-
-def _automation_bridge_config(
-    invocation: WorkflowInvocation,
-    payload: Mapping[str, Any],
-) -> dict[str, Any]:
-    merged = dict(payload)
-    merged.update(invocation.params)
-
-    workflow_type = _workflow_type_from_id(invocation.workflow_id)
-    target = _target_for_workflow(workflow_type, merged)
-
-    config = {
-        "workflowType": workflow_type,
-        "target": target,
-        "limits": _mapping_param(merged, "limits"),
-        "probabilities": _mapping_param(merged, "probabilities"),
-        "filters": _mapping_param(merged, "filters"),
-        "session": _mapping_param(merged, "session"),
-        "comments": _mapping_param(merged, "comments"),
-        "feedStories": _mapping_param(merged, "feedStories", "feed_stories"),
-        "unfollow": _mapping_param(merged, "unfollow"),
-        "sync": _mapping_param(merged, "sync"),
-        "ai": _mapping_param(merged, "ai"),
-        "language": _string_param(merged, "language", "appLanguage", default="en"),
-        "packageName": _value_param(merged, "packageName", "package_name"),
-    }
-
-    return {key: value for key, value in config.items() if value is not None}
 
 
 def _workflow_type_from_id(workflow_id: str) -> str:
@@ -168,7 +234,7 @@ def _target_for_workflow(workflow_type: str, payload: Mapping[str, Any]) -> str:
     if value is not None and str(value).strip():
         return str(value).strip()
 
-    if workflow_type in {"feed", "notifications", "unfollow", "sync_following", "sync_followers_following"}:
+    if workflow_type in _AUTO_TARGET_WORKFLOWS:
         return workflow_type
 
     raise ValueError(f"Instagram automation workflow {workflow_type} requires target")
@@ -181,17 +247,17 @@ def _value_param(payload: Mapping[str, Any], *names: str) -> Any:
     return None
 
 
-def _mapping_param(payload: Mapping[str, Any], *names: str) -> dict[str, Any]:
-    value = _value_param(payload, *names)
-    return dict(value) if isinstance(value, Mapping) else {}
+def _alias(payload: dict[str, Any], name: str, alias: str) -> None:
+    if name not in payload and alias in payload:
+        payload[name] = payload[alias]
 
 
-def _string_param(payload: Mapping[str, Any], *names: str, default: str) -> str:
-    value = _value_param(payload, *names)
-    if value is None:
-        return default
-    return str(value).strip() or default
-
-
-def _noop_log(_level: str, _message: str) -> None:
-    return None
+__all__ = [
+    "INSTAGRAM_AUTOMATION_WORKFLOW_IDS",
+    "INSTAGRAM_AUTOMATION_WORKFLOW_TYPES",
+    "InstagramStartError",
+    "build_instagram_automation_handler",
+    "instagram_automation_payload",
+    "register_instagram_automation_handlers",
+    "run_instagram_automation",
+]

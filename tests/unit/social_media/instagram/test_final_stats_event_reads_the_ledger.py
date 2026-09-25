@@ -69,10 +69,10 @@ def test_without_a_session_the_run_tally_is_all_there_is(monkeypatch):
 
 
 def test_the_bridge_sends_the_ledger_totals_not_the_run_tally(monkeypatch):
-    """The bridge side of the chain: `send_instagram_workflow_final_stats` receives
-    `automation.final_stats()`."""
-    import bridges.instagram.automation.runtime.workflow as runtime
-    import taktik.core.social_media.instagram.workflows.core.automation as automation_module
+    """The bridge side of the chain: the reporter's `finished` receives `automation.final_stats()`
+    from the core launcher, and prints it as the final `stats` event."""
+    import bridges.instagram.automation.runtime.events as events
+    from taktik.core.social_media.instagram.workflows.core.agent_handler import run_instagram_automation
 
     sent = []
 
@@ -86,18 +86,18 @@ def test_the_bridge_sends_the_ledger_totals_not_the_run_tally(monkeypatch):
         def final_stats(self):
             return {'likes': 3, 'follows': 0, 'comments': 0, 'unfollows': 0, 'interactions': 2}
 
-    monkeypatch.setattr(automation_module, "InstagramAutomation", _Automation)
-    monkeypatch.setattr(runtime, "send_instagram_workflow_final_stats", sent.append)
-    monkeypatch.setattr(runtime, "send_instagram_session_config", lambda *a, **k: None)
-    monkeypatch.setattr(runtime, "send_status", lambda *a, **k: None)
-    monkeypatch.setattr(runtime, "send_log", lambda *a, **k: None)
-    runner = runtime.InstagramAutomationRunner(
-        config={'workflowType': 'hashtags', 'target': 'videoproduction'},
-        device_manager=None, app_service=None, package_name=None,
-        ai_enabled=False, ai_service=None, ai_config={}, language='fr',
+    monkeypatch.setattr(events, "send_instagram_workflow_final_stats", sent.append)
+    monkeypatch.setattr(events, "send_instagram_session_config", lambda *a, **k: None)
+    monkeypatch.setattr(events, "send_status", lambda *a, **k: None)
+    monkeypatch.setattr(events, "send_log", lambda *a, **k: None)
+    result = run_instagram_automation(
+        {'workflowType': 'hashtags', 'target': 'videoproduction', 'language': 'fr'},
+        device_manager=None,
+        workflow_factory=_Automation,
+        runtime_setup=lambda **_kwargs: None,
+        reporter=events.InstagramAutomationReporter({'workflowType': 'hashtags', 'target': 'videoproduction'},
+                                                    ai_enabled=False),
     )
-    monkeypatch.setattr(runner, "_prepare_runtime", lambda _config: None)
 
-    assert runner.run() is True
-
+    assert result['success'] is True
     assert sent == [{'likes': 3, 'follows': 0, 'comments': 0, 'unfollows': 0, 'interactions': 2}]

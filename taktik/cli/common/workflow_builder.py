@@ -1,11 +1,12 @@
 """
 Workflow Config Builder (Shared CLI utility)
 
-Eliminates duplication between generate_target_workflow, generate_hashtags_workflow,
-and generate_post_url_workflow by providing reusable config collection and display functions.
+The prompts of the Instagram automation menus, and the run they describe written the way the
+desktop pages write it (`automation_payload`): the menus hand that payload to the automation
+handler, the same launcher as the desktop bridge, instead of writing the workflow's internal
+format themselves.
 """
 
-import math
 from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt
@@ -60,7 +61,7 @@ def collect_filters(translations: dict, defaults: dict = None) -> dict:
     """Collect profile filtering criteria from user.
     
     Returns:
-        Dict with min_followers, max_followers, min_posts, max_followings, blacklist_words
+        Dict with min_followers, max_followers, min_posts, max_followings
     """
     d = defaults or {}
     console.print(f"\n[yellow]{translations.get('advanced_filters', '🔍 Advanced filters')}[/yellow]")
@@ -82,19 +83,11 @@ def collect_filters(translations: dict, defaults: dict = None) -> dict:
         default=str(d.get('max_followings', 7500))
     ))
     
-    console.print(f"\n[yellow]{translations.get('blacklist_optional', '🚫 Blacklist (optional)')}[/yellow]")
-    blacklist_input = Prompt.ask(
-        f"[cyan]{translations.get('blacklist_keywords', 'Blacklist keywords (comma-separated)')}[/cyan]",
-        default=""
-    )
-    blacklist_words = [word.strip() for word in blacklist_input.split(",") if word.strip()] if blacklist_input else []
-    
     return {
         'min_followers': min_followers,
         'max_followers': max_followers,
         'min_posts': min_posts,
         'max_followings': max_followings,
-        'blacklist_words': blacklist_words,
     }
 
 
@@ -127,78 +120,35 @@ def collect_session_settings(translations: dict, defaults: dict = None) -> dict:
     }
 
 
-def build_filters_config(filters: dict) -> dict:
-    """Build the standard 'filters' section of workflow config."""
+def automation_payload(workflow_type: str, target: str, *, max_profiles: int, max_likes_per_profile: int,
+                       probas: dict, filters: dict, session: dict, **extra) -> dict:
+    """The run as a desktop page describes it: the payload the automation handler reads."""
     return {
-        "min_followers": filters['min_followers'],
-        "max_followers": filters['max_followers'],
-        "min_followings": 0,
-        "max_followings": filters['max_followings'],
-        "min_posts": filters['min_posts'],
-        "privacy_relation": "public_and_private",
-        "blacklist_words": filters.get('blacklist_words', [])
-    }
-
-
-def build_session_config(workflow_type: str, max_profiles: int, max_likes_per_profile: int,
-                         probas: dict, session: dict) -> dict:
-    """Build the standard 'session_settings' section of workflow config."""
-    like_pct = probas['like_percentage']
-    follow_pct = probas['follow_percentage']
-    
-    return {
-        "workflow_type": workflow_type,
-        "total_profiles_limit": max_profiles,
-        "total_follows_limit": math.ceil(max_profiles * (follow_pct / 100)) if follow_pct > 0 else 0,
-        "total_likes_limit": math.ceil(max_profiles * max_likes_per_profile * (like_pct / 100)) if like_pct > 0 else 0,
-        "session_duration_minutes": session['session_duration'],
-        "delay_between_actions": {
-            "min": session['min_delay'],
-            "max": session['max_delay']
+        "workflowType": workflow_type,
+        "target": target,
+        "limits": {
+            "maxProfiles": max_profiles,
+            "maxLikesPerProfile": max_likes_per_profile,
         },
-        "randomize_actions": True,
-        "enable_screenshots": True,
-        "screenshot_path": "screenshots"
-    }
-
-
-def build_interaction_settings(probas: dict) -> dict:
-    """Build the standard like/follow/story/story_like/scrolling settings block."""
-    return {
-        "like_settings": {
-            "enabled": probas['like_percentage'] > 0,
-            "like_carousels": True,
-            "like_reels": True,
-            "randomize_order": True,
-            "methods": ["button_click", "double_tap"],
-            "verify_like_success": True,
-            "max_attempts_per_post": 2,
-            "delay_between_attempts": 2
+        "probabilities": {
+            "like": probas['like_percentage'],
+            "follow": probas['follow_percentage'],
+            "comment": probas['comment_percentage'],
+            "watchStories": probas['story_percentage'],
+            "likeStories": probas['story_like_percentage'],
         },
-        "follow_settings": {
-            "enabled": probas['follow_percentage'] > 0,
-            "unfollow_after_days": 3,
-            "verify_follow_success": True
+        "filters": {
+            "minFollowers": filters['min_followers'],
+            "maxFollowers": filters['max_followers'],
+            "minPosts": filters['min_posts'],
+            "maxFollowing": filters['max_followings'],
         },
-        "comment_settings": {
-            "enabled": probas['comment_percentage'] > 0,
-            "verify_comment_success": True
+        "session": {
+            "durationMinutes": session['session_duration'],
+            "minDelay": session['min_delay'],
+            "maxDelay": session['max_delay'],
         },
-        "story_settings": {
-            "enabled": probas['story_percentage'] > 0,
-            "watch_duration_range": [3, 8]
-        },
-        "story_like_settings": {
-            "enabled": probas['story_like_percentage'] > 0,
-            "max_stories_per_user": 3,
-            "like_probability": probas['story_like_percentage'] / 100.0,
-            "verify_like_success": True
-        },
-        "scrolling": {
-            "enabled": True,
-            "max_scroll_attempts": 3,
-            "scroll_delay": 1.5
-        }
+        **extra,
     }
 
 

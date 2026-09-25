@@ -106,6 +106,7 @@ def build_registry(
     startup_provider: Callable[..., Any] | None = None,
 ) -> RegistryBuild:
     """Register every available handler, returning the registry and any registrar failures."""
+    from taktik.cli.common.instagram_host import CliInstagramHost, cli_instagram_ai_service
     from taktik.cli.common.tiktok_host import (
         cli_tiktok_ai_hooks,
         cli_tiktok_outreach_message_generator,
@@ -115,11 +116,13 @@ def build_registry(
 
     registry = WorkflowRegistry()
     failures: list[tuple[str, str]] = []
+    manager = device_manager if device_manager is not None else device
+    instagram_host = CliInstagramHost(manager, device_id) if manager is not None else None
 
     supplied: dict[str, Any] = {
         "device": device,
         "device_id": device_id,
-        "device_manager": device_manager if device_manager is not None else device,
+        "device_manager": manager,
         "notifier": notifier,
         "ai_notifier": notifier,
         "startup_provider": startup_provider,
@@ -128,6 +131,10 @@ def build_registry(
         "tiktok_ai_hooks": cli_tiktok_ai_hooks,
         "tiktok_welcome_qualifier": cli_tiktok_welcome_qualifier,
         "tiktok_outreach_message_generator": cli_tiktok_outreach_message_generator,
+        # The Instagram automation handlers start and hook a run the way the desktop bridge does.
+        "instagram_start": instagram_host.start if instagram_host else None,
+        "instagram_installed_version": instagram_host.installed_version if instagram_host else None,
+        "instagram_ai_service": cli_instagram_ai_service,
     }
 
     for label, module_path, func_name in REGISTRARS:

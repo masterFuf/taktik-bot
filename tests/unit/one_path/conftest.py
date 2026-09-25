@@ -1742,3 +1742,11 @@ def _page_payload(**overrides) -> dict:
     }
     payload.update(overrides)
     return payload
+
+
+@pytest.fixture
+def ig_rig(monkeypatch, tmp_path):
+    """The Instagram automation rig (`instagram_rig.py`): desktop bridge and CLI on one phone."""
+    from instagram_rig import InstagramRig
+
+    return InstagramRig(monkeypatch, tmp_path)
