@@ -55,7 +55,7 @@ def resolve_account_id(bot_username: Optional[str]) -> Optional[int]:
         return None
     # Through the TIKTOK repository. `get_db_service().get_or_create_account(...)` was what this
     # called, and it resolves against Instagram: measured 2026-08-30, five TikTok DMs had been
-    # filed under 6590, the INSTAGRAM id of @marvin.ndiaye.extraits, while that account's TikTok
+    # filed under 6590, the INSTAGRAM id of @demo.extraits, while that account's TikTok
     # interactions sit under 4982. Nothing errored; the rows simply belonged to nobody.
     from taktik.core.database.tiktok_account_identity import resolve_tiktok_account_id
 

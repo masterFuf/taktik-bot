@@ -185,7 +185,7 @@ def fold_for_match(text: Optional[str]) -> str:
     Written once because it kept being written. It decides whether a post read twice is the same
     post, whether a caption matches a niche keyword, and whether the name in a conversation header
     is the person we meant to write to. That last one is what forced it into a shared home: the
-    header reads `Allocin(gl)és` where the handle is `allocingles`, so a guard comparing them
+    header reads `Cin(é)Club` where the handle is `cineclub_demo`, so a guard comparing them
     literally refuses to send a message to exactly the right person.
 
     NOT for handles that must stay distinct from one another: this folds `demo.2` and `demo2`

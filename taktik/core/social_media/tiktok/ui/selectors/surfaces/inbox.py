@@ -379,7 +379,7 @@ class InboxSelectors:
         Two things this page decides, both measured on 46.6.3 on 2026-08-30.
 
         It shows a DISPLAY NAME, never a handle: the row's only name node reads
-        `"Allocin(gl)és"`, which is @allocingles' display name with its emoji eaten by the XML
+        `"Cin(é)Club"`, which is @cineclub_demo' display name with its emoji eaten by the XML
         dump. There is no handle anywhere on the page. So a welcome pass cannot search its way to
         the profile — searching a display name lands on someone else or nowhere — and the only
         route is to OPEN the row and read the handle on the profile it opens. That is why this
@@ -431,7 +431,7 @@ class InboxSelectors:
         WHEN THERE IS NO BUTTON AT ALL, which is most of the time. Measured on 2026-08-30: a
         new-follower row shows a single button on its right, and once a CONVERSATION exists with
         that person it reads `Message` rather than a follow-back. Unfollowing them does not bring
-        the follow-back back -- verified: @allocingles was unfollowed, confirmed unfollowed on
+        the follow-back back -- verified: @cineclub_demo was unfollowed, confirmed unfollowed on
         their profile, and their row still showed `Message`.
 
         So `can_follow_back=False` on a row we do not follow is not a detection fault; there is

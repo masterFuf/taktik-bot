@@ -791,7 +791,7 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "profile.privacy_blocked_message": [],
     "profile.private_indicator": [
-        # Mesure le 2026-09-02 : @allocingles passe en prive, ouvert depuis l'autre telephone.
+        # Mesure le 2026-09-02 : @cineclub_demo passe en prive, ouvert depuis l'autre telephone.
         # Le noeud porteur est un TextView SANS resource-id -- seul son texte le designe.
         #
         # La PHRASE et non le mot. L'entree anglaise dit `contains(@text, "private")` ; le calque

@@ -316,7 +316,7 @@ class ProfileSelectors:
     # What the badge actually is: a small unlabelled ImageView rendered as the handle's
     # immediate sibling. Measured on eight profiles — it fires on the two verified accounts
     # (@charlidamelio, @yomidenzel) and on none of the six others. The half that makes it an
-    # indicator: @marvin.ndiaye.extraits carries the SAME icon id (`ss1`) for the "Compte non
+    # indicator: @demo.extraits carries the SAME icon id (`ss1`) for the "Compte non
     # recommandé" marker, one row lower and under a different parent, and this anchor refuses
     # it — an icon id alone would have called that account verified.
     _verified_badge_base: List[str] = field(default_factory=lambda: [

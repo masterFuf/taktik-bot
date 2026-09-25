@@ -1076,7 +1076,7 @@ class DMActions(BaseAction):
 
         Compared on the conversation HEADER, through the shared fold: TikTok shows the DISPLAY
         NAME there and a caller holds the handle, and the two differ by more than case. Measured
-        on device -- the header read `Allocin(gl)és` for @allocingles, so a literal containment
+        on device -- the header read `Cin(é)Club` for @cineclub_demo, so a literal containment
         test matched neither way and refused to send a message to exactly the right person.
 
         Returns False when the header cannot be read, so an unverifiable conversation is never
@@ -1163,8 +1163,8 @@ class DMActions(BaseAction):
         opened or the screen that came up is not a profile.
 
         Why this exists rather than a search. The new-followers page shows a DISPLAY NAME and
-        never a handle — measured 2026-08-30, the row's only name node reads `"Allocin(gl)és"`
-        for @allocingles — so handing that name to `navigate_to_user_profile` searches for a
+        never a handle — measured 2026-08-30, the row's only name node reads `"Cin(é)Club"`
+        for @cineclub_demo — so handing that name to `navigate_to_user_profile` searches for a
         person who does not exist under that name. The welcome pass did exactly that and reported
         `profile_unreachable` for every follower it had just listed.
 

@@ -17,7 +17,7 @@ the whole question ("did we earn this follower?"), and it hangs on `actor_userna
 HANDLE.
 
 Which is why this module refuses display names. TikTok's new-followers page and Activity page both
-render display names -- `Allocin(gl)és` for @allocingles -- and a row filed under one joins to
+render display names -- `Cin(é)Club` for @cineclub_demo -- and a row filed under one joins to
 nothing, so the follower shows up as "never engaged". That is a confident wrong answer, and it is
 worse than no row: an empty attribution reads as "we have not scanned", a poisoned one reads as
 "this campaign does nothing".

@@ -1,6 +1,6 @@
 """Journal of what one account has already re-shared from another.
 
-An agency account (`institut.rentable`) re-publishes what its owner posts from a personal
+An agency account (`demo.agence`) re-publishes what its owner posts from a personal
 account (`cindy.dermo`). The relay runs on a timer and has no memory of its own, so without
 this table it would re-share the same story on every pass — the one failure mode that is
 immediately visible to every follower.
