@@ -36,3 +36,16 @@ def test_an_ad_caption_is_read_without_expanding_it():
     assert info["is_ad"] is True
     assert "expand" not in calls
     assert info["description"] == "Démarrez gratuitement"
+
+
+def test_an_ad_about_to_be_skipped_is_read_no_further_than_its_author():
+    calls = []
+    info = _detector(True, calls).get_video_info(light_if_ad=True)
+    assert info["is_ad"] is True
+    assert calls == ["is_ad", "get_video_author"]
+
+
+def test_an_ad_the_run_keeps_is_read_in_full():
+    calls = []
+    _detector(True, calls).get_video_info(light_if_ad=False)
+    assert "get_video_sound" in calls

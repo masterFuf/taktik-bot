@@ -79,7 +79,7 @@ def _loop(monkeypatch, on_video):
                   skip_ads=False)
     wf._on_video_callback = None
     wf.scroll = _Scroll()
-    wf.detection = SimpleNamespace(get_video_info=lambda: {"author": "a", "like_count": "1"})
+    wf.detection = SimpleNamespace(get_video_info=lambda **_: {"author": "a", "like_count": "1"})
     wf._ensure_on_for_you = lambda: True
     wf._wait_if_paused = lambda: True
     wf._handle_popups = lambda: False

@@ -329,15 +329,24 @@ class VideoDetector(BaseAction):
         return None
 
     def get_video_info(self, include_comment_count: bool = False,
-                       full_description: bool = True) -> Dict[str, Any]:
+                       full_description: bool = True,
+                       light_if_ad: bool = False) -> Dict[str, Any]:
         """Get all available info about current video.
 
         Args:
             include_comment_count: Also fetch comment count (slower).
             full_description: Expand truncated descriptions and parse hashtags.
+            light_if_ad: The caller skips ads: read only the author of one, and move on.
         """
         # First, so an ad's caption is never tapped open: that tap would be a click on the ad.
         is_ad = self.is_ad_video()
+        if is_ad and light_if_ad:
+            # Reading everything held an ad on screen for half a minute; a person swipes past it.
+            return {
+                'author': self.get_video_author(), 'description': None, 'description_text': None,
+                'hashtags': [], 'sound': None, 'like_count': None, 'is_liked': False,
+                'is_favorited': False, 'is_ad': True, 'is_live': False,
+            }
         if full_description and not is_ad:
             desc_parsed = self.get_video_description_parsed()
         else:

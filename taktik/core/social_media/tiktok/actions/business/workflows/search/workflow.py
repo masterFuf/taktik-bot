@@ -83,7 +83,7 @@ class SearchWorkflow(BaseVideoWorkflow):
                     break
                 
                 # Get video info
-                video_info = self.detection.get_video_info()
+                video_info = self.detection.get_video_info(light_if_ad=self.config.skip_ads)
                 
                 # Detect stuck state
                 if self._handle_stuck_video(video_info):
