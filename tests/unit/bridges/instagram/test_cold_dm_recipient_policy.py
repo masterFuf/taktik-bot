@@ -170,3 +170,38 @@ def test_the_lab_check_runs_the_bridge_evaluation_without_tapping():
     assert skipped["details"]["skip_reason"] == SKIP_PRIVATE
     assert tried["details"]["skip_reason"] is None
     assert device.message_node.clicks == 0
+
+
+def _lab_send(monkeypatch, device, params):
+    """The Lab send, with the search steps and the composer as the only stand-ins."""
+    from bridges.compat.diagnostics.actions.instagram.dm import send_cold_dm
+    from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
+
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    sent = []
+    monkeypatch.setattr(ColdDMWorkflow, "navigate_to_search", lambda self: True)
+    monkeypatch.setattr(ColdDMWorkflow, "search_user", lambda self, username: True)
+    monkeypatch.setattr(ColdDMWorkflow, "send_message", lambda self, message: sent.append(message) or True)
+    bundle = SimpleNamespace(device=SimpleNamespace(device=device),
+                             detection=SimpleNamespace(is_verified_account=lambda: False))
+    return send_cold_dm(bundle, params), sent
+
+
+def test_the_lab_send_goes_through_the_bridge_steps_and_policy(monkeypatch):
+    """Same steps as the bridge (`ColdDMWorkflow.reach_and_send`): a private profile is left alone
+    by default, and nothing is typed."""
+    result, sent = _lab_send(monkeypatch, _Device(private=True), {"username": "@ana", "text": "Bonjour"})
+
+    assert result["success"] is False
+    assert result["details"]["outcome"] == SKIP_PRIVATE
+    assert sent == []
+
+
+def test_the_lab_send_sends_the_text_once_the_conversation_is_open(monkeypatch):
+    device = _Device()
+    result, sent = _lab_send(monkeypatch, device, {"username": "ana", "text": "Bonjour"})
+
+    assert result["success"] is True
+    assert result["details"]["outcome"] == "sent"
+    assert sent == ["Bonjour"]
+    assert device.message_node.clicks == 1

@@ -24,6 +24,14 @@ from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy impor
 )
 
 
+#: `reach_and_send` outcomes other than the recipient policy's skip reasons.
+SENT = "sent"
+NO_SEARCH = "no_search"
+NOT_FOUND = "not_found"
+NO_CONVERSATION = "no_conversation"
+NO_MESSAGE = "no_message"
+
+
 class ColdDMWorkflow(
     ColdDMRecipientMixin,
     ColdDMSearchMixin,
@@ -89,57 +97,36 @@ class ColdDMWorkflow(
             )
 
             try:
-                if not self.navigate_to_search():
-                    logger.warning(f"Could not navigate to search for {recipient}")
-                    self.dms_failed += 1
-                    self.go_home()
-                    continue
-
-                if not self.search_user(recipient):
-                    logger.warning(f"Could not find user: {recipient}")
-                    self.dms_failed += 1
-                    self.go_home()
-                    continue
-
-                open_result = self.open_dm_from_profile(recipient_policy)
-                if open_result in PRIVATE_SKIP_REASONS:
-                    logger.warning(f"Skipping {recipient} - private profile ({open_result})")
+                reached = self.reach_and_send(
+                    recipient,
+                    lambda: choose_cold_dm_message(
+                        recipient=recipient,
+                        messages=messages,
+                        use_ai=use_ai,
+                        ai_prompt=ai_prompt,
+                        openrouter_api_key=openrouter_api_key,
+                    ),
+                    recipient_policy,
+                )
+                outcome = reached["outcome"]
+                if outcome in PRIVATE_SKIP_REASONS:
                     self.private_profiles += 1
-                    self.go_home()
-                    continue
-                if open_result == SKIP_VERIFIED:
-                    logger.warning(f"Skipping {recipient} - verified account")
+                elif outcome == SKIP_VERIFIED:
                     self.verified_profiles += 1
-                    self.go_home()
-                    continue
-                if not open_result:
-                    logger.warning(f"Could not open DM for: {recipient}")
+                elif outcome == SENT:
+                    apply_cold_dm_send_result(
+                        workflow=self,
+                        recipient=recipient,
+                        message=reached["message"],
+                        send_result=reached["send_result"],
+                        account_id=account_id,
+                        session_id=session_id,
+                    )
+                else:
                     self.dms_failed += 1
+                if outcome != SENT:
                     self.go_home()
                     continue
-
-                message = choose_cold_dm_message(
-                    recipient=recipient,
-                    messages=messages,
-                    use_ai=use_ai,
-                    ai_prompt=ai_prompt,
-                    openrouter_api_key=openrouter_api_key,
-                )
-                if not message:
-                    self.dms_failed += 1
-                    self.go_home()
-                    continue
-
-                send_result = self.send_message(message)
-
-                apply_cold_dm_send_result(
-                    workflow=self,
-                    recipient=recipient,
-                    message=message,
-                    send_result=send_result,
-                    account_id=account_id,
-                    session_id=session_id,
-                )
 
                 self.go_home()
 
@@ -156,6 +143,33 @@ class ColdDMWorkflow(
                 self.go_home()
 
         return build_cold_dm_summary(self)
+
+    def reach_and_send(self, recipient: str, compose, policy: ColdDmRecipientPolicy | None = None) -> dict:
+        """One recipient, the production steps: search, open the profile, decide, open the
+        conversation, compose, send. Shared by `run` and the Lab (`dm.send_cold_dm`).
+
+        `compose` is called only once the conversation is open (an AI message costs a call).
+        Returns `outcome` (`SENT`, a `recipient_policy.SKIP_*` reason, or one of the
+        `NO_SEARCH`, `NOT_FOUND`, `NO_CONVERSATION`, `NO_MESSAGE` failures), with `message`
+        and `send_result` once sent. Counting and recording are the caller's.
+        """
+        if not self.navigate_to_search():
+            logger.warning(f"Could not navigate to search for {recipient}")
+            return {"outcome": NO_SEARCH}
+        if not self.search_user(recipient):
+            logger.warning(f"Could not find user: {recipient}")
+            return {"outcome": NOT_FOUND}
+        open_result = self.open_dm_from_profile(policy)
+        if open_result in PRIVATE_SKIP_REASONS or open_result == SKIP_VERIFIED:
+            logger.warning(f"Skipping {recipient} - {open_result}")
+            return {"outcome": open_result}
+        if not open_result:
+            logger.warning(f"Could not open DM for: {recipient}")
+            return {"outcome": NO_CONVERSATION}
+        message = compose()
+        if not message:
+            return {"outcome": NO_MESSAGE}
+        return {"outcome": SENT, "message": message, "send_result": self.send_message(message)}
 
     def _detect_app_language(self) -> None:
         """Pick the selector language once, on the app's first screen (best effort).
