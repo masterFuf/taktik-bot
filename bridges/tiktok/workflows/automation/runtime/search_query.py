@@ -94,6 +94,8 @@ def run_search_query(
     total_stats.popups_closed += stats.popups_closed
     total_stats.suggestions_handled += stats.suggestions_handled
     total_stats.errors += stats.errors
+    # The run's motive is its last query's: a feed stuck on an earlier query did not end the run.
+    total_stats.completion_reason = stats.completion_reason
 
     next_remaining_likes = max(0, remaining_likes - stats.videos_liked)
     next_remaining_follows = max(0, remaining_follows - stats.users_followed)

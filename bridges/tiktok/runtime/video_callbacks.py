@@ -1,6 +1,14 @@
 """Video workflow callback wiring for TikTok bridge runners."""
 
-from bridges.tiktok.runtime.ipc import logger, send_action, send_pause, send_stats, send_status, send_video_info
+from bridges.tiktok.runtime.ipc import (
+    logger,
+    send_action,
+    send_message,
+    send_pause,
+    send_stats,
+    send_status,
+    send_video_info,
+)
 
 
 def setup_video_workflow_callbacks(workflow) -> None:
@@ -70,7 +78,12 @@ def setup_video_workflow_callbacks(workflow) -> None:
 
 
 def send_final_video_stats(stats, workflow_name: str = "Workflow") -> None:
-    """Send final stats and completion status for a video-based workflow."""
+    """Send final stats and completion status for a video-based workflow.
+
+    The status carries `completion_reason` when the run stopped on its own for a reason worth
+    showing (`feed_stuck`): the desktop turns it into the run's stop motive, as for the other
+    TikTok workflows.
+    """
     send_stats(
         videos_watched=stats.videos_watched,
         videos_liked=stats.videos_liked,
@@ -80,7 +93,12 @@ def send_final_video_stats(stats, workflow_name: str = "Workflow") -> None:
         errors=stats.errors,
     )
     logger.success(f"✅ {workflow_name} completed: {stats.to_dict()}")
-    send_status(
-        "completed",
-        f"{workflow_name} completed: {stats.videos_watched} videos, {stats.videos_liked} likes, {stats.users_followed} follows",
+    message = (
+        f"{workflow_name} completed: {stats.videos_watched} videos, "
+        f"{stats.videos_liked} likes, {stats.users_followed} follows"
     )
+    reason = getattr(stats, "completion_reason", "")
+    if reason:
+        send_message("status", status="completed", message=message, completion_reason=reason)
+    else:
+        send_status("completed", message)
