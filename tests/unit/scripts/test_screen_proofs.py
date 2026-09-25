@@ -1,4 +1,4 @@
-"""The two proofs of the screen photo: selector equality, and TikTok screen decisions replayed.
+"""The two proofs of the screen photo: selector equality, and screen decisions replayed.
 
 Captures are invented (public repository); the real corpus stays outside it.
 """
@@ -99,7 +99,7 @@ def test_a_capture_missing_from_the_new_state_is_not_a_silent_pass():
     assert outcome["differences"] == len(replay.PROBES) - 1
 
 
-def _child(tmp_path, xml, version, language="en"):
+def _child(tmp_path, xml, version, language="en", platform="tiktok"):
     capture = tmp_path / f"capture-{version}.xml"
     capture.write_text(xml, encoding="utf-8")
     files, out = tmp_path / f"files-{version}", tmp_path / f"out-{version}.json"
@@ -107,7 +107,8 @@ def _child(tmp_path, xml, version, language="en"):
     env = {**os.environ, "PYTHONPATH": str(CORE), "PYTHONIOENCODING": "utf-8"}
     done = subprocess.run(
         [sys.executable, str(CORE / "scripts" / "replay_screen_decisions.py"), "--child", "decisions",
-         "--files", str(files), "--out", str(out), "--version", version, "--language", language],
+         "--files", str(files), "--out", str(out), "--version", version, "--language", language,
+         "--platform", platform],
         cwd=str(CORE), env=env, capture_output=True, text=True, encoding="utf-8")
     assert done.returncode == 0, done.stderr[-1500:]
     return json.loads(out.read_text(encoding="utf-8"))[str(capture)]
@@ -125,3 +126,43 @@ def test_the_child_applies_the_version_overrides(tmp_path):
     """The 46.9.3 LIVE ids live in the YAML only: the version decides what the reads see."""
     assert _child(tmp_path, LIVE, "43.1.4")["video_info_feed"]["answer"]["is_live"] is False
     assert _child(tmp_path, LIVE, "46.9.3")["video_info_feed"]["answer"]["is_live"] is True
+
+
+IG = "com.instagram.android"
+
+
+def _ig_node(rid, text, bounds):
+    return (f'<node index="0" text="{text}" resource-id="{IG}:id/{rid}" class="android.widget.TextView" '
+            f'package="{IG}" content-desc="" clickable="true" enabled="true" bounds="{bounds}" />')
+
+
+FOLLOW_LIST = ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
+               f'<node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="{IG}" '
+               'bounds="[0,0][1080,2400]">'
+               + _ig_node("follow_list_username", "alice_demo", "[200,600][700,650]")
+               + _ig_node("follow_list_row_large_follow_button", "Following", "[760,590][1040,660]")
+               + _ig_node("follow_list_username", "bob_demo", "[200,780][700,830]")
+               + _ig_node("follow_list_row_large_follow_button", "Follow back", "[760,770][1040,840]")
+               + "</node></hierarchy>")
+
+
+def test_the_instagram_child_reads_a_follow_list_as_production_mounts_it(tmp_path):
+    answers = _child(tmp_path, FOLLOW_LIST, "410.0.0.53.71", platform="instagram")
+    assert [row[0] for row in answers["list_rows"]["answer"]] == ["alice_demo", "bob_demo"]
+    assert answers["row_states"]["answer"] == {"alice_demo": "following", "bob_demo": "follow_back"}
+    assert answers["row_states"]["calls"] == 2
+    assert answers["click_row"]["answer"] is True and answers["click_row"]["gestures"] == ["long_click"]
+    assert [row[:2] for row in answers["unfollow_rows"]["answer"]["rows"]] == [
+        ["alice_demo", "following"], ["bob_demo", "follow_back"]]
+
+
+def test_the_reads_made_once_per_row_are_counted_per_row():
+    def answers(dumps):
+        return {"list_rows": {"answer": [["a", [0, 0, 1, 1]]], "gestures": [], "dumps": 1},
+                "row_states": {"answer": {"a": "follow"}, "gestures": [], "dumps": dumps, "calls": 2}}
+
+    outcome = replay.compare({("a.xml", "410"): answers(8)}, {("a.xml", "410"): answers(2)},
+                             replay.INSTAGRAM_PROBES)
+    cell = outcome["per_probe"]["row_states"]["list"]
+    assert outcome["differences"] == 0
+    assert (cell["calls"], cell["sum_before"], cell["sum_after"]) == (2, 8, 2)

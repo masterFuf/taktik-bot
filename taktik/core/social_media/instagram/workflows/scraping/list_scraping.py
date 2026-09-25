@@ -540,14 +540,18 @@ class ScrapingListMixin(DeepQualifyMixin):
                     # Emit visit event BEFORE clicking — card shows up in Agent panel immediately
                     IPCEmitter.emit_scraping_profile_visit(username, profile_data)
 
-                    # If enriching on the fly, click on profile to get details
-                    if enrich_on_the_fly and element:
+                    # If enriching on the fly, click on profile to get details: a humanized tap
+                    # within the row's bounds (anti-detection), the most frequent tap of the
+                    # scrape; self.device is the raw u2 device here, so go through the shared
+                    # helper. A row read on a photo of the screen carries no device (no
+                    # `.click()`): when the tap fails nothing moved and the list is still on
+                    # screen, so the row is kept without its details and no back is pressed.
+                    tapped = bool(enrich_on_the_fly and element) and tap_element_human(
+                        self.device, element, logger=self.logger)
+                    if enrich_on_the_fly and element and not tapped:
+                        self.logger.warning(f"⚠️ @{username} not tapped (bounds unusable or tap failed): kept without profile details")
+                    if tapped:
                         try:
-                            # Humanized tap within the profile element bounds (anti-detection) —
-                            # this is the most frequent tap of the scrape. self.device is the raw
-                            # u2 device here, so go through the shared helper; fallback to centre.
-                            if not tap_element_human(self.device, element, logger=self.logger):
-                                element.click()
                             time.sleep(1.5)
 
                             # Everything done WHILE ON the profile — identical whether we got here

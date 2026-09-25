@@ -1,18 +1,26 @@
-"""Replay the TikTok screen decisions of two states of the code on captured dumps. Read-only.
+"""Replay the screen decisions of two states of the code on captured dumps. Read-only.
 
-For each TikTok capture, under each version the overrides know (the baseline and every version of
-`compat/data/overrides/tiktok.yaml`), in the language the capture shows, the production reads run
-on a fake phone: its `xpath` is uiautomator2's own `XPathEntry` (the code `d.xpath()` runs), its
-dump is the capture, its clock jumps when the code sleeps. The reads: the popup scan, the comment
-sheet, the suggestion page, `get_video_info` as the feed loops call it and in full, the For You and
-inbox checks, `is_user_followed`, the Lab's screen name, and the top of a feed turn as the loop
-reads it (`feed_turn`: on one photo where the code has `read_screen`). Their answers, and the
-gestures they would make, are compared between a base revision (`git archive`) and the working
-tree. Exit 1 on any difference. The dumps of a feed turn are printed, by kind of screen, with the
-fake cost of `--dump-ms` per dump.
+For each capture of a platform, under each version the overrides know (the baseline and every
+version of `compat/data/overrides/<platform>.yaml`), in the language the capture shows, the
+production reads run on a fake phone: its `xpath` is uiautomator2's own `XPathEntry` (the code
+`d.xpath()` runs), its dump is the capture, its clock jumps when the code sleeps. Instagram's phone
+is wrapped as every Instagram bridge wraps it (`CloneAwareDeviceProxy`, through the Lab's own
+facade builder), so the replay sees the proxy's selector rewrite. The answers of the reads, and
+the gestures they would make, are compared between a base revision (`git archive`) and the working
+tree. Exit 1 on any difference.
+
+TikTok (default): the popup scan, the comment sheet, the suggestion page, `get_video_info` as the
+feed loops call it and in full, the For You and inbox checks, `is_user_followed`, the Lab's screen
+name, and the top of a feed turn as the loop reads it (`feed_turn`). The dumps of a feed turn are
+printed by kind of screen, with the fake cost of `--dump-ms` per dump.
+
+Instagram (`--platform instagram`): the follow list readers (rows, usernames, the state of each
+row's button, the tap on a row, the list checks), the unfollow's reads (its rows, tabs,
+confirmation wait, row re-read) and the profile checks it makes. The dumps of each read are
+printed by kind of screen, per call for the reads made once per row.
 
     python scripts/replay_screen_decisions.py --corpus DIR [--corpus DIR ...] [--base HEAD]
-    python scripts/replay_screen_decisions.py --list FILE [--save-list FILE] [--report FILE]
+    python scripts/replay_screen_decisions.py --platform instagram --list FILE [--save-list FILE]
 
 The corpus defaults to $TAKTIK_DEBUG_UI, else ./debug_ui (captures are personal data: never in
 this repository). A read that exists in one state only is listed, not compared.
@@ -35,8 +43,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TIKTOK_PACKAGES = ("com.zhiliaoapp.musically", "com.ss.android.ugc.trill", "com.ss.android.ugc.aweme",
                    "com.taktik.tt")
+INSTAGRAM_PACKAGE = "com.instagram.android"
 PROBES = ("popups", "comments", "suggestion", "video_info_feed", "video_info_full", "for_you",
           "inbox", "followed", "lab_screen", "feed_turn", "read_screen")
+INSTAGRAM_PROBES = ("list_rows", "list_usernames", "row_states", "click_row", "list_open", "list_end",
+                    "in_suggestions", "limited", "loading", "unfollow_rows", "tabs", "confirm_wait",
+                    "row_unfollowed", "follow_back_row", "profile_screen", "profile_username",
+                    "follow_button", "profile_check")
+# Reads made once per row of a list: their dumps are also printed per call.
+PER_ROW = ("row_states",)
+PLATFORMS = {
+    "tiktok": {"packages": TIKTOK_PACKAGES, "probes": PROBES},
+    "instagram": {"packages": ("com.instagram.",), "probes": INSTAGRAM_PROBES},
+}
 
 
 # ── Child: runs inside one state of the code (PYTHONPATH), never imports the other ─────────────
@@ -53,10 +72,18 @@ def _plain(value):
     return repr(value)
 
 
-def _child_languages(files):
+def _language_module(platform: str):
+    if platform == "instagram":
+        from taktik.core.social_media.instagram.ui import language
+    else:
+        from taktik.core.social_media.tiktok.ui import language
+    return language
+
+
+def _child_languages(files, platform="tiktok"):
     from loguru import logger
     logger.remove()
-    from taktik.core.social_media.tiktok.ui.language import _DETECTION
+    detection = _language_module(platform)._DETECTION
 
     class Screen:
         def __init__(self, xml):
@@ -67,19 +94,17 @@ def _child_languages(files):
 
     languages = {}
     for path in files:
-        _DETECTION.reset()
+        detection.reset()
         try:
-            languages[path] = _DETECTION.detect_language(Screen(Path(path).read_text(encoding="utf-8", errors="replace")))
+            languages[path] = detection.detect_language(Screen(Path(path).read_text(encoding="utf-8", errors="replace")))
         except Exception:
             languages[path] = "unknown"
     return languages
 
 
-def _child_decisions(files, version, language, dump_ms):
+def _fake_phone(dump_ms: float, package: str):
+    """A phone whose clock jumps when the code sleeps or dumps, and which counts its dumps."""
     import time
-
-    from loguru import logger
-    logger.remove()
 
     now = [1000.0]
     time.time = lambda: now[0]
@@ -123,13 +148,21 @@ def _child_decisions(files, version, language, dump_ms):
             return 1080, 2400
 
         def app_current(self):
-            return {"package": "com.zhiliaoapp.musically", "activity": "unknown"}
+            return {"package": package, "activity": "unknown"}
+
+    return Phone()
+
+
+def _child_decisions(files, version, language, dump_ms):
+    from loguru import logger
+    logger.remove()
+
+    phone = _fake_phone(dump_ms, "com.zhiliaoapp.musically")
 
     from taktik.core.compat.selectors.setup import apply_version_overrides
     from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
 
     apply_version_overrides("tiktok", version)
-    phone = Phone()
     phone.xml = Path(files[0]).read_text(encoding="utf-8", errors="replace")
     detect_and_optimize(phone, override=language if language in ("fr", "en") else None)
 
@@ -170,20 +203,118 @@ def _child_decisions(files, version, language, dump_ms):
     if hasattr(detection, "read_screen"):
         probes["read_screen"] = lambda: getattr(detection.read_screen(), "kind", None)
 
+    return _run_probes(files, phone, probes)
+
+
+def _run_probes(files, phone, probes, before_each=None):
+    """Every probe on every capture: its answer, its gestures, its dumps, and how many calls it
+    made when it reads once per row (`calls`, set by the probe in `counted`)."""
     out = {}
     for path in files:
         phone.xml = Path(path).read_text(encoding="utf-8", errors="replace")
+        if before_each is not None:
+            before_each()
         answers = {}
         for name, probe in probes.items():
             dumps_before, gestures_before = phone.dumps, len(phone.gestures)
+            counted = {}
             try:
-                answer = _plain(probe())
+                answer = _plain(probe(counted) if name in PER_ROW else probe())
             except Exception as exc:
                 answer = f"error: {type(exc).__name__}"
             answers[name] = {"answer": answer, "gestures": phone.gestures[gestures_before:],
                              "dumps": phone.dumps - dumps_before}
+            if "calls" in counted:
+                answers[name]["calls"] = counted["calls"]
         out[path] = answers
     return out
+
+
+def _child_instagram_decisions(files, version, language, dump_ms):
+    from loguru import logger
+    logger.remove()
+
+    phone = _fake_phone(dump_ms, INSTAGRAM_PACKAGE)
+
+    from taktik.core.compat.selectors.setup import apply_version_overrides
+    from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+
+    apply_version_overrides("instagram", version)
+    phone.xml = Path(files[0]).read_text(encoding="utf-8", errors="replace")
+    detect_and_optimize(phone, override=language if language in ("fr", "en") else None)
+
+    # The Lab's builder: the facade over `CloneAwareDeviceProxy`, as production mounts it.
+    from bridges.compat.diagnostics.runtime.action_test.bundles.instagram import (
+        build_instagram_action_bundle, create_instagram_device_facade)
+    from taktik.core.shared.diagnostics import run_halt
+
+    bundle = build_instagram_action_bundle(create_instagram_device_facade(phone))
+    detection, unfollow = bundle.detection, bundle.unfollow
+    shown = {"names": [], "rows": []}
+
+    def list_rows():
+        rows = detection.get_visible_followers_with_elements()
+        shown["names"] = [row["username"] for row in rows]
+        return [(row["username"], tuple(row["element"].bounds)) for row in rows]
+
+    def row_states(counted):
+        counted["calls"] = len(shown["names"])
+        return {name: detection.get_row_follow_state(name) for name in shown["names"]}
+
+    def click_row():
+        return detection.click_follower_in_list(shown["names"][0]) if shown["names"] else None
+
+    def unfollow_rows():
+        rows = unfollow._visible_follow_rows(with_display_names=True)
+        shown["rows"] = [row["username"] for row in rows]
+        return {"rows": [(row["username"], row["state"], row.get("display_name"), tuple(row["button"].bounds))
+                         for row in rows],
+                "suggestions": unfollow.suggestions_on_screen, "unpaired": unfollow.unpaired_on_screen}
+
+    def tabs():
+        return {kind: (unfollow._list_tab_selected(INSTAGRAM_PACKAGE, kind), unfollow._list_tab_count(kind))
+                for kind in ("following", "followers")}
+
+    def row_unfollowed():
+        return unfollow._wait_row_unfollowed(shown["rows"][0]) if shown["rows"] else None
+
+    def profile_check():
+        """What the unfollow checks on a candidate's profile, for the profile shown."""
+        username = detection.get_username_from_profile()
+        if not username:
+            return None
+        return {"on_profile": unfollow._on_profile_of(username),
+                "follows_you": unfollow._profile_follows_you(username),
+                "verified": detection.is_verified_account(), "business": detection.is_business_account()}
+
+    probes = {
+        "list_rows": list_rows,
+        "list_usernames": detection.extract_usernames_from_follow_list,
+        "row_states": row_states,
+        "click_row": click_row,
+        "list_open": detection.is_followers_list_open,
+        "list_end": detection.is_followers_list_end_reached,
+        "in_suggestions": detection.is_in_suggestions_section,
+        "limited": detection.is_followers_list_limited,
+        "loading": detection.is_loading_spinner_visible,
+        "unfollow_rows": unfollow_rows,
+        "tabs": tabs,
+        "confirm_wait": lambda: unfollow._tap_unfollow_confirm(timeout=unfollow.confirm_dialog_timeout),
+        "row_unfollowed": row_unfollowed,
+        "follow_back_row": unfollow._has_follow_back_row,
+        "profile_screen": detection.is_on_profile_screen,
+        "profile_username": detection.get_username_from_profile,
+        "follow_button": unfollow.click_actions.get_follow_button_state,
+        "profile_check": profile_check,
+    }
+
+    def before_each():
+        # Each capture is a new screen: no signal of the previous one, no stop lock.
+        for component in (detection, unfollow.detection_actions):
+            component._screen_signal_snapshot_cache = None
+        run_halt.reinitialiser()
+
+    return _run_probes(files, phone, probes, before_each)
 
 
 def child_main(argv):
@@ -191,13 +322,16 @@ def child_main(argv):
     parser.add_argument("--child", required=True, choices=("languages", "decisions"))
     parser.add_argument("--files", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--platform", default="tiktok", choices=tuple(PLATFORMS))
     parser.add_argument("--version", default="")
     parser.add_argument("--language", default="unknown")
     parser.add_argument("--dump-ms", type=float, default=250.0)
     args = parser.parse_args(argv)
     files = [line for line in Path(args.files).read_text(encoding="utf-8").splitlines() if line]
     if args.child == "languages":
-        result = _child_languages(files)
+        result = _child_languages(files, args.platform)
+    elif args.platform == "instagram":
+        result = _child_instagram_decisions(files, args.version, args.language, args.dump_ms)
     else:
         result = _child_decisions(files, args.version, args.language, args.dump_ms)
     Path(args.out).write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
@@ -229,29 +363,32 @@ def _extract(revision: str, workdir: Path) -> Path:
     return target
 
 
-def _versions() -> list:
+def _versions(platform: str = "tiktok") -> list:
     import yaml
 
-    data = yaml.safe_load((ROOT / "taktik/core/compat/data/overrides/tiktok.yaml").read_text(encoding="utf-8")) or {}
-    baseline = str((data.get("meta") or {}).get("baseline_version") or "43.1.4")
+    data = yaml.safe_load((ROOT / f"taktik/core/compat/data/overrides/{platform}.yaml").read_text(encoding="utf-8")) or {}
+    baseline = str((data.get("meta") or {}).get("baseline_version")
+                   or {"tiktok": "43.1.4", "instagram": "410.0.0.53.71"}[platform])
     return [baseline] + [str(v) for v in (data.get("versions") or {}) if str(v) != baseline]
 
 
 def _dumps(args) -> list:
     if args.list:
         return [line.strip() for line in Path(args.list).read_text(encoding="utf-8").splitlines() if line.strip()]
+    packages = PLATFORMS[args.platform]["packages"]
     corpora = args.corpus or [os.environ.get("TAKTIK_DEBUG_UI") or str(ROOT / "debug_ui")]
     found = []
     for corpus in corpora:
         base = Path(corpus)
         for path in sorted(base.rglob("*.xml")) if base.is_dir() else []:
             text = path.read_text(encoding="utf-8", errors="replace")
-            if any(f'package="{package}' in text for package in TIKTOK_PACKAGES):
+            if any(f'package="{package}' in text for package in packages):
                 found.append(str(path))
-    return found
+    return found[:: max(1, args.every)]
 
 
-def _decide(root: Path, workdir: Path, label: str, groups: dict, dump_ms: float, jobs: int) -> dict:
+def _decide(root: Path, workdir: Path, label: str, groups: dict, dump_ms: float, jobs: int,
+            platform: str = "tiktok") -> dict:
     tasks = []
     for (version, language), files in groups.items():
         for index in range(0, len(files), 60):
@@ -260,8 +397,8 @@ def _decide(root: Path, workdir: Path, label: str, groups: dict, dump_ms: float,
 
     def run(task):
         tag, version, language, files = task
-        answers = _run_child(root, workdir, tag, files, child="decisions", version=version,
-                             language=language, dump_ms=dump_ms)
+        answers = _run_child(root, workdir, tag, files, child="decisions", platform=platform,
+                             version=version, language=language, dump_ms=dump_ms)
         return {(path, version): value for path, value in answers.items()}
 
     merged = {}
@@ -287,6 +424,16 @@ def screen_kind(answers: dict) -> str:
     def said(probe):
         return (answers.get(probe) or {}).get("answer")
 
+    if "list_rows" in answers or "profile_screen" in answers:
+        unfollow_rows = said("unfollow_rows")
+        for kind, present in (("list", bool(said("list_rows")) or bool((unfollow_rows or {}).get("rows")
+                                                                         if isinstance(unfollow_rows, dict) else False)),
+                              ("dialog", said("confirm_wait") is True),
+                              ("profile", said("profile_screen") is True)):
+            if present:
+                return kind
+        return "other"
+
     info = said("video_info_feed")
     info = info if isinstance(info, dict) else {}
     for kind, present in (("comments", said("comments") is True), ("suggestion", said("suggestion") is True),
@@ -297,15 +444,17 @@ def screen_kind(answers: dict) -> str:
     return "unknown"
 
 
-def compare(before: dict, after: dict) -> dict:
+def compare(before: dict, after: dict, probes=PROBES) -> dict:
     """Answers and gestures of each read, base against now, per (capture, version).
 
     A read present in one state only is listed, not compared; a capture missing from `after`
-    counts as a difference for each of its reads."""
+    counts as a difference for each of its reads. `per_probe[probe][kind]` keeps the dumps of each
+    read, base and now, by kind of screen, and the calls of the reads made once per row."""
     compared = differences = 0
     examples, only_one_side = [], set()
     dumps_before, dumps_after = [], []
     by_kind: dict = {}
+    per_probe: dict = {}
     for key in sorted(before):
         old, new = before[key], after.get(key)
         if new is None:
@@ -313,7 +462,8 @@ def compare(before: dict, after: dict) -> dict:
             examples.append((Path(key[0]).name, key[1], "(missing)", {"answer": None, "gestures": []},
                              {"answer": "missing now", "gestures": []}))
             continue
-        for probe in PROBES:
+        kind = screen_kind(old)
+        for probe in probes:
             if (probe in old) != (probe in new):
                 only_one_side.add(probe)
                 continue
@@ -324,14 +474,51 @@ def compare(before: dict, after: dict) -> dict:
                 differences += 1
                 if len(examples) < 20:
                     examples.append((Path(key[0]).name, key[1], probe, old[probe], new[probe]))
+            cell = per_probe.setdefault(probe, {}).setdefault(kind, {"before": [], "after": [], "calls": 0,
+                                                                     "sum_before": 0, "sum_after": 0})
+            cell["before"].append(old[probe]["dumps"])
+            cell["after"].append(new[probe]["dumps"])
+            calls = old[probe].get("calls")
+            if calls:
+                cell["calls"] += calls
+                cell["sum_before"] += old[probe]["dumps"]
+                cell["sum_after"] += new[probe]["dumps"]
         dumps_before.append(_turn_dumps(old))
         dumps_after.append(_turn_dumps(new))
-        pair = by_kind.setdefault(screen_kind(old), ([], []))
+        pair = by_kind.setdefault(kind, ([], []))
         pair[0].append(dumps_before[-1])
         pair[1].append(dumps_after[-1])
     return {"compared": compared, "differences": differences, "examples": examples,
             "only_one_side": sorted(only_one_side), "dumps_before": dumps_before or [0],
-            "dumps_after": dumps_after or [0], "by_kind": by_kind}
+            "dumps_after": dumps_after or [0], "by_kind": by_kind, "per_probe": per_probe}
+
+
+def _print_tiktok(outcome: dict, dump_ms: float) -> None:
+    dumps_before, dumps_after = outcome["dumps_before"], outcome["dumps_after"]
+    print(f"Dumps of a feed turn as the loop reads it (popups, comments, suggestion, video info) at "
+          f"{dump_ms:.0f} ms each: base median {statistics.median(dumps_before):.0f} "
+          f"(max {max(dumps_before)}), now median {statistics.median(dumps_after):.0f} (max {max(dumps_after)}).")
+    for kind, (old_dumps, new_dumps) in sorted(outcome["by_kind"].items()):
+        print(f"  {kind:10} {len(old_dumps):4} decisions: base median {statistics.median(old_dumps):.0f} "
+              f"(max {max(old_dumps)}), now median {statistics.median(new_dumps):.0f} (max {max(new_dumps)})")
+
+
+def _print_per_probe(outcome: dict, probes) -> None:
+    """Dumps of each read by kind of screen, base -> now: median (max), and per call for the
+    reads made once per row."""
+    print("Dumps per read, by kind of screen, base -> now: median (max)"
+          + "; per row for " + ", ".join(PER_ROW))
+    for probe in probes:
+        cells = outcome["per_probe"].get(probe) or {}
+        parts = []
+        for kind, cell in sorted(cells.items()):
+            text = (f"{kind} {len(cell['before'])}: {statistics.median(cell['before']):.0f} ({max(cell['before'])})"
+                    f" -> {statistics.median(cell['after']):.0f} ({max(cell['after'])})")
+            if cell["calls"]:
+                text += (f", per row {cell['sum_before'] / cell['calls']:.1f} -> "
+                         f"{cell['sum_after'] / cell['calls']:.1f} ({cell['calls']} rows)")
+            parts.append(text)
+        print(f"  {probe:17} " + " | ".join(parts))
 
 
 def main(argv=None) -> int:
@@ -339,47 +526,48 @@ def main(argv=None) -> int:
     if "--child" in argv:
         return child_main(argv)
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--platform", default="tiktok", choices=tuple(PLATFORMS))
     parser.add_argument("--corpus", action="append", help="a capture folder (repeatable)")
     parser.add_argument("--list", help="read the captures from this file, one path per line")
     parser.add_argument("--save-list", help="write the captures replayed to this file")
+    parser.add_argument("--every", type=int, default=1, help="one capture in K (sampling)")
     parser.add_argument("--base", default="HEAD", help="revision to compare the working tree with")
     parser.add_argument("--dump-ms", type=float, default=250.0, help="fake cost of one dump")
     parser.add_argument("--report", help="write every answer of both states to this JSON file")
     parser.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     args = parser.parse_args(argv)
+    platform = args.platform
+    probes = PLATFORMS[platform]["probes"]
 
     dumps = _dumps(args)
     if not dumps:
-        print("No TikTok capture found: nothing to replay.")
+        print(f"No {platform} capture found: nothing to replay.")
         return 0
     if args.save_list:
         Path(args.save_list).write_text("\n".join(dumps) + "\n", encoding="utf-8")
-    versions = _versions()
+    versions = _versions(platform)
 
     with tempfile.TemporaryDirectory() as tmp:
         workdir = Path(tmp)
-        languages = _run_child(ROOT, workdir, "languages", dumps, child="languages")
+        languages = _run_child(ROOT, workdir, "languages", dumps, child="languages", platform=platform)
         groups = {}
         for path in dumps:
             for version in versions:
                 groups.setdefault((version, languages.get(path, "unknown")), []).append(path)
         base_root = _extract(args.base, workdir)
-        before = _decide(base_root, workdir, "base", groups, args.dump_ms, args.jobs)
-        after = _decide(ROOT, workdir, "now", groups, args.dump_ms, args.jobs)
+        before = _decide(base_root, workdir, "base", groups, args.dump_ms, args.jobs, platform)
+        after = _decide(ROOT, workdir, "now", groups, args.dump_ms, args.jobs, platform)
 
-    outcome = compare(before, after)
-    dumps_before, dumps_after = outcome["dumps_before"], outcome["dumps_after"]
+    outcome = compare(before, after, probes)
     counts = {language: sum(1 for v in languages.values() if v == language) for language in set(languages.values())}
-    print(f"{len(dumps)} TikTok captures (languages {counts}) x versions {versions}; base {args.base}.")
+    print(f"{len(dumps)} {platform} captures (languages {counts}) x versions {versions}; base {args.base}.")
     print(f"Decisions compared: {outcome['compared']}, differences: {outcome['differences']}.")
     if outcome["only_one_side"]:
         print(f"Reads present in one state only (not compared): {outcome['only_one_side']}")
-    print(f"Dumps of a feed turn as the loop reads it (popups, comments, suggestion, video info) at "
-          f"{args.dump_ms:.0f} ms each: base median {statistics.median(dumps_before):.0f} "
-          f"(max {max(dumps_before)}), now median {statistics.median(dumps_after):.0f} (max {max(dumps_after)}).")
-    for kind, (old_dumps, new_dumps) in sorted(outcome["by_kind"].items()):
-        print(f"  {kind:10} {len(old_dumps):4} decisions: base median {statistics.median(old_dumps):.0f} "
-              f"(max {max(old_dumps)}), now median {statistics.median(new_dumps):.0f} (max {max(new_dumps)})")
+    if platform == "tiktok":
+        _print_tiktok(outcome, args.dump_ms)
+    else:
+        _print_per_probe(outcome, probes)
     for name, version, probe, old, new in outcome["examples"]:
         print(f"  DIFF {name} {version} {probe}: {json.dumps(old['answer'], ensure_ascii=False)[:160]} "
               f"{old['gestures']} -> {json.dumps(new['answer'], ensure_ascii=False)[:160]} {new['gestures']}")

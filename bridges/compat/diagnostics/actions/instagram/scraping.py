@@ -3,8 +3,9 @@
 The reads/navigations at the heart of every follower/following/post scrape, exposed so each
 can be unit-tested in isolation (a selector drift here silently yields 0 profiles in prod):
 - entry navigations (``a.nav``): open a hashtag / open a post by URL (deep-link).
-- list reads/detections (``a.detection``): list the visible profiles, and the three stop
-  signals (limited list, end reached, suggestions section).
+- list reads/detections (``a.detection``): list the visible profiles, a row's follow state,
+  open a row's profile, and the three stop signals (limited list, end reached, suggestions
+  section).
 - list pagination (``a.scroll``): scroll the followers list, click "load more".
 - shared helpers: read a post's share URL, detect reel-vs-post.
 
@@ -82,6 +83,20 @@ def get_row_follow_state(a, p):
     logger.info(f"scraping.get_row_follow_state @{username}: {state}")
     return {"success": state != "unknown", "message": state,
             "details": {"username": username, "follow_state": state}}
+
+
+@action("scraping.open_row_profile")
+def open_row_profile(a, p):
+    """Open the profile of a list row, as the Target, likers and hashtag loops do: the production
+    `click_follower_in_list`, which finds the username on one photo of the screen and taps a
+    human point inside its bounds. Param: username. Be on a followers/following or likers list."""
+    username = a.detection._clean_username(p.get("username") or "")
+    if not username:
+        return {"success": False, "message": "username param required"}
+    opened = a.detection.click_follower_in_list(username)
+    logger.info(f"scraping.open_row_profile @{username}: {opened}")
+    return {"success": bool(opened), "message": f"@{username} tapped={bool(opened)}",
+            "details": {"username": username}}
 
 
 @action("scraping.is_list_limited")

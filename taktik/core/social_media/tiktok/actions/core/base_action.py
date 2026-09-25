@@ -7,7 +7,6 @@ from .device_facade import DeviceFacade
 from .utils import ActionUtils
 
 from taktik.core.shared.actions.base_action import SharedBaseAction
-from taktik.core.shared.device.snapshot import SnapshotUnavailable
 
 # Re-export for backward compatibility (some files import these from here)
 TAKTIK_KEYBOARD_PKG = 'com.alexal1.adbkeyboard'
@@ -61,20 +60,12 @@ class BaseAction(SharedBaseAction):
     # =========================================================================
     # TikTok-specific: element methods with polling timeout, one screen photo per turn
     #
-    # Each turn asks every selector of ONE photo of the screen (`device.snapshot()`, the code
+    # Each turn asks every selector of ONE photo of the screen (the shared `_turn_photo`, the code
     # `d.xpath()` runs, on one dump) instead of one dump per selector; the timeout, the pause
     # between turns and "the first selector that answers" are unchanged. Handed `screen` (a photo
     # already taken for this decision, or the `TikTokScreen` that carries it), they answer on it
     # at once and never wait.
     # =========================================================================
-
-    def _turn_photo(self):
-        """This turn's photo, or None when the screen could not be read: a failed dump finds
-        nothing this turn, as every probe of a failed `d.xpath()` found nothing."""
-        try:
-            return self.device.snapshot()
-        except SnapshotUnavailable:
-            return None
 
     def _element_exists(self, selectors: Union[List[str], str], timeout: float = 2.0,
                         screen=None) -> bool:

@@ -1,4 +1,11 @@
-"""Followers/following list detection, extraction, and interaction."""
+"""Followers/following list detection, extraction, and interaction.
+
+The rows of a list (their usernames, a row's button, the tap on a row) are read on ONE photo of
+the screen per call (`_turn_photo`, step 3 of the one-photo spec): `d.xpath()` took a dump for
+each `.exists` and each `.all()`, so a row's state cost four dumps and the rows two. The photo
+answers as `d.xpath()` does, through the proxy's selector rewrite; its elements carry text and
+bounds, and a row is tapped from its bounds.
+"""
 
 from typing import Optional, Dict, Any, List
 from loguru import logger
@@ -49,42 +56,31 @@ class ListDetectionMixin(BaseAction):
     # === Username extraction ===
 
     def extract_usernames_from_follow_list(self) -> List[str]:
-        usernames = []
-        
-        for selector in self.detection_selectors.follow_list_username_selectors:
-            try:
-                elements = self.device.xpath(selector)
-                if elements.exists:
-                    for element in elements.all():
-                        username_text = element.text
-                        if username_text:
-                            clean_username = self._clean_username(username_text)
-                            if self._is_valid_username(clean_username):
-                                usernames.append(clean_username)
-                    break
-            except Exception as e:
-                self.logger.debug(f"Error extracting usernames: {e}")
-                continue
-        
-        unique_usernames = list(dict.fromkeys(usernames))
+        """The usernames of the visible rows, each once, in screen order."""
+        unique_usernames = list(dict.fromkeys(
+            row['username'] for row in self.get_visible_followers_with_elements()))
         self.logger.debug(f"{len(unique_usernames)} usernames extracted from list")
         return unique_usernames
     
     def get_visible_followers_with_elements(self) -> List[Dict[str, Any]]:
         """
-        Read the visible followers with their clickable elements.
+        Read the visible followers with their elements, on one photo of the screen.
         Used by the direct-interaction workflow.
         
         Returns:
-            List of dicts with the username and its clickable element
+            List of dicts with the username and its element: the photo's, which gives the
+            row's text and bounds (tap it with `tap_element_human`, never `.click()`)
         """
         followers = []
-        
+        photo = self._turn_photo()
+        if photo is None:
+            return followers
+
         for selector in self.detection_selectors.follow_list_username_selectors:
             try:
-                elements = self.device.xpath(selector)
-                if elements.exists:
-                    for element in elements.all():
+                elements = photo.elements(selector)
+                if elements:
+                    for element in elements:
                         username_text = element.text
                         if username_text:
                             clean_username = self._clean_username(username_text)
@@ -110,6 +106,9 @@ class ListDetectionMixin(BaseAction):
         by vertical position: the button whose centre is closest to the username's, within one
         button height (on IG 410 a username with a display name sits above its button's top). No label is hardcoded: the text is classified through the
         shared classifier, using the locale labels, the same ones as the header.
+
+        The username and the buttons come from the same photo: read from successive dumps, a
+        list still moving could pair a username with the button of another row.
         """
         try:
             from ..interaction.profile_interaction import classify_follow_state
@@ -124,13 +123,17 @@ class ListDetectionMixin(BaseAction):
                     pass
                 return None
 
+            photo = self._turn_photo()
+            if photo is None:
+                return 'unknown'
+
             # vertical centre of the target username
             target_yc = None
             for selector in self.detection_selectors.follow_list_username_selectors:
-                els = self.device.xpath(selector)
-                if not els.exists:
+                els = photo.elements(selector)
+                if not els:
                     continue
-                for el in els.all():
+                for el in els:
                     t = el.text
                     if t and self._clean_username(t) == username:
                         band = _yband(el)
@@ -148,10 +151,10 @@ class ListDetectionMixin(BaseAction):
             from taktik.core.shared.device.ui_dump import index_of_closest_row
 
             for selector in PROFILE_SELECTORS.follow_list_row_buttons:
-                els = self.device.xpath(selector)
-                if not els.exists:
+                els = photo.elements(selector)
+                if not els:
                     continue
-                buttons = [(el, _yband(el)) for el in els.all()]
+                buttons = [(el, _yband(el)) for el in els]
                 buttons = [(el, band) for el, band in buttons if band]
                 index = index_of_closest_row(target_yc, [band[0] for _el, band in buttons])
                 if index is None:
@@ -175,23 +178,24 @@ class ListDetectionMixin(BaseAction):
             True si le clic a réussi
         """
         try:
-            # Look for the element carrying that username
-            for selector in self.detection_selectors.follow_list_username_selectors:
-                elements = self.device.xpath(selector)
-                if elements.exists:
-                    for element in elements.all():
-                        element_text = element.text
-                        if element_text:
-                            clean_text = self._clean_username(element_text)
-                            if clean_text == username:
-                                # Humanized tap (random point within bounds) instead of the exact
-                                # centre — this is the most frequent tap of target/hashtag/post-likers
-                                # (shared profile-open in followers/likers lists). Falls back to a
-                                # centre click if the bounds are unreadable.
-                                if not self._human_tap_bounds(element):
-                                    element.click()
-                                self.logger.debug(f"✅ Clicked on @{username} in list")
-                                return True
+            # Look for the element carrying that username, on one photo of the screen
+            photo = self._turn_photo()
+            selectors = self.detection_selectors.follow_list_username_selectors if photo is not None else []
+            for selector in selectors:
+                for element in photo.elements(selector):
+                    element_text = element.text
+                    if element_text:
+                        clean_text = self._clean_username(element_text)
+                        if clean_text == username:
+                            # Humanized tap (random point within bounds) instead of the exact
+                            # centre — this is the most frequent tap of target/hashtag/post-likers
+                            # (shared profile-open in followers/likers lists). A photo's element
+                            # carries no device: without usable bounds there is nothing to tap.
+                            if not self._human_tap_bounds(element):
+                                self.logger.warning(f"❌ @{username} found but not tapped (bounds unusable or tap failed)")
+                                return False
+                            self.logger.debug(f"✅ Clicked on @{username} in list")
+                            return True
             
             self.logger.warning(f"❌ Could not find @{username} in visible list")
             return False

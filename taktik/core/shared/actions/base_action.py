@@ -16,6 +16,7 @@ from loguru import logger
 
 from taktik.core.shared.device.adb import run_adb_shell
 from taktik.core.shared.device.facade import BaseDeviceFacade
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.shared.actions.utils import ActionUtils
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.shared.input.taktik_keyboard import (
@@ -298,6 +299,15 @@ class SharedBaseAction:
         can't be read, so the caller can fall back to a plain centre ``element.click()``."""
         from taktik.core.shared.behavior.tap import tap_element_human
         return tap_element_human(self.device, element, logger=self.logger)
+
+    def _turn_photo(self):
+        """One photo of the screen for this read (`device.snapshot()`: the code `d.xpath()` runs,
+        on one dump, through the device's selector rewrite), or None when the screen could not be
+        read: a failed dump finds nothing, as every probe of a failed `d.xpath()` found nothing."""
+        try:
+            return self.device.snapshot()
+        except SnapshotUnavailable:
+            return None
 
     def _wait_for_element(self, selectors: Union[List[str], str], timeout: float = 10.0,
                          check_interval: float = 0.5, silent: bool = False) -> bool:
