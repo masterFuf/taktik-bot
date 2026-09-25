@@ -117,3 +117,26 @@ def reply_in_thread(a, p):
         "message": result.get("message", ""),
         "details": result,
     }
+
+
+@action("comment.read_visible_texts")
+def read_visible_texts(a, p):
+    """Read the comment bodies on screen as the persona analysis reads them (production
+    `PersonaCommentsMixin._visible_comment_texts`): the body ids first, else the rows of one
+    screen photo, each body paired to the author above it (IG 442 gives the body no id).
+    Be on an open comments sheet."""
+    from bridges.compat.diagnostics.runtime.events import configure_logger
+    from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
+
+    # The persona reader's module boots the bridge runtime, whose logger setup replaces the Lab's
+    # JSON log sink on first import: give it back.
+    configure_logger()
+    reader = type("PersonaCommentReader", (PersonaCommentsMixin,), {})()
+    reader.device = a.device
+    texts = reader._visible_comment_texts() or []
+    preview = "; ".join(text[:40] for text in texts[:5])
+    return {
+        "success": bool(texts),
+        "message": f"{len(texts)} comment text(s) — {preview or 'none readable'}",
+        "details": {"count": len(texts), "texts": texts},
+    }

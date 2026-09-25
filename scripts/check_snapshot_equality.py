@@ -27,10 +27,16 @@ that fail to import are named.
 
 `--lxml` also compares, for information, the photo with plain lxml on `parse_ui_dump`: the engine
 of the dump readers that do not go through `d.xpath()` (TikTok's popup scan, the author photo...).
-A difference there is what such a reader would answer differently once it reads a photo.
+A difference there is what such a reader would answer differently once it reads a photo: node by
+node, a selector lxml rejects counting as finding nothing (the readers skip it), and on an
+Instagram dump through the proxy's rewrite, the path an Instagram reader's photo takes. Each
+difference has a cause: `rewrite` (the photo without the rewrite agrees with lxml) or `engine`
+(uiautomator2's own evaluation: shorthands, `re:`). `--lxml-report FILE` writes every one of
+them, one JSON object per line (dump, selector, nodes found by each side, cause, resource-ids
+gained and lost).
 
 Usage: python scripts/check_snapshot_equality.py [--corpus DIR ...] [--platform all|instagram|tiktok]
-       [--list FILE] [--save-list FILE] [--limit N] [--every K] [--lxml] [--jobs N]
+       [--list FILE] [--save-list FILE] [--limit N] [--every K] [--lxml] [--lxml-report FILE] [--jobs N]
 The corpus defaults to $TAKTIK_DEBUG_UI, else ./debug_ui. `--platform` keeps that platform's dumps
 and catalogue (TikTok: the plain path only). `--list` reads the dumps from a file (one path per
 line); `--save-list` writes the dumps checked, so a later run checks the same ones.
@@ -40,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import multiprocessing
 import os
 import pkgutil
@@ -193,18 +200,46 @@ class DumpCheck:
             return "both_raise" if expected_error == got_error else "different"
         return "same" if expected == got else "different"
 
-    def lxml_agrees(self, selector: str) -> bool:
-        """Does plain lxml on `parse_ui_dump` find something exactly when the photo does?"""
+    def lxml_found(self, selector: str):
+        """(paths plain lxml on `parse_ui_dump` finds, whether lxml rejected the selector)."""
         from taktik.core.shared.device.ui_dump import parse_ui_dump
 
         if self._lxml_tree is None:
             self._lxml_tree = parse_ui_dump(self.xml)
+        if self._lxml_tree is None:
+            return [], False
         try:
-            by_lxml = bool(self._lxml_tree.xpath(selector)) if self._lxml_tree is not None else False
+            found = self._lxml_tree.xpath(selector)
         except Exception:
-            by_lxml = False  # the readers skip a selector lxml rejects
-        by_photo = bool(self.photographed(selector, False)[0])
-        return by_lxml == by_photo
+            return [], True  # the readers skip a selector lxml rejects
+        if not isinstance(found, list):
+            return ([repr(found)] if found else []), False
+        return [n.getroottree().getpath(n) if hasattr(n, "getroottree") else repr(n) for n in found], False
+
+    def lxml_agrees(self, selector: str, rewrite: bool = False) -> bool:
+        """Does plain lxml on `parse_ui_dump` find the nodes the photo finds?"""
+        return self.lxml_difference(selector, rewrite) is None
+
+    def lxml_difference(self, selector: str, rewrite: bool = False):
+        """None when plain lxml finds the nodes the photo finds (through the proxy's rewrite when
+        `rewrite`), else what each side found and why they differ."""
+        old, rejected = self.lxml_found(selector)
+        new = self.photographed(selector, rewrite)[0] or []
+        if old == new:
+            return None
+        plain = self.photographed(selector, False)[0] or []
+        cause = "rewrite" if rewrite and plain == old else "engine"
+        return {"selector": selector, "lxml": "rejected" if rejected else len(old), "photo": len(new),
+                "cause": cause, "gained": self._ids(p for p in new if p not in old),
+                "lost": self._ids(p for p in old if p not in new)}
+
+    def _ids(self, paths) -> list:
+        root = self.source.root.getroottree()
+        found = set()
+        for path in paths:
+            nodes = root.xpath(path) if path.startswith("/") else []
+            found.add(nodes[0].get("resource-id", "") if nodes else path)
+        return sorted(found)[:6]
 
 
 def dump_platform(text: str) -> str | None:
@@ -219,21 +254,25 @@ def dump_platform(text: str) -> str | None:
 _WORKER: dict = {}
 
 
-def _init_worker(selectors, rewrites, lxml):
-    _WORKER.update(selectors=selectors, rewrites=rewrites, lxml=lxml)
+def _init_worker(selectors, rewrites, lxml, lxml_report=False):
+    _WORKER.update(selectors=selectors, rewrites=rewrites, lxml=lxml, lxml_report=lxml_report)
 
 
 def check_dump(path: str) -> dict:
     """Counts and a few examples for one dump."""
     selectors, rewrites, lxml = _WORKER["selectors"], _WORKER["rewrites"], _WORKER["lxml"]
     result = {"same": 0, "both_raise": 0, "different": 0, "rewrite_changes": 0, "unreadable": 0,
-              "lxml_different": 0, "examples": [], "lxml_examples": []}
+              "lxml_different": 0, "lxml_rewrite": 0, "lxml_engine": 0, "examples": [],
+              "lxml_examples": [], "lxml_all": []}
     try:
-        check = DumpCheck(Path(path).read_text(encoding="utf-8", errors="replace"))
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+        check = DumpCheck(text)
     except Exception:
         result["unreadable"] = 1
         return result
     name = Path(path).name
+    # An Instagram reader's photo goes through the proxy's rewrite; any other, plain.
+    lxml_rewrite = True in rewrites and dump_platform(text) == "instagram"
     for selector in selectors:
         production = {rewrite: check.production(selector, rewrite) for rewrite in rewrites}
         for rewrite in rewrites:
@@ -243,10 +282,14 @@ def check_dump(path: str) -> dict:
                 result["examples"].append((name, rewrite, selector[:120]))
         if len(rewrites) == 2 and production[True] != production[False]:
             result["rewrite_changes"] += 1
-        if lxml and not check.lxml_agrees(selector):
+        difference = check.lxml_difference(selector, lxml_rewrite) if lxml else None
+        if difference is not None:
             result["lxml_different"] += 1
+            result[f"lxml_{difference['cause']}"] += 1
             if len(result["lxml_examples"]) < 5:
-                result["lxml_examples"].append((name, selector[:120]))
+                result["lxml_examples"].append((name, difference["cause"], selector[:120]))
+            if _WORKER.get("lxml_report"):
+                result["lxml_all"].append({"dump": path, **difference})
     return result
 
 
@@ -275,6 +318,7 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=0, help="at most N dumps (0: all)")
     parser.add_argument("--every", type=int, default=1, help="one dump in K (sampling)")
     parser.add_argument("--lxml", action="store_true", help="also compare with plain lxml (information)")
+    parser.add_argument("--lxml-report", help="with --lxml: write every difference to this file (JSON lines)")
     parser.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     args = parser.parse_args()
 
@@ -302,10 +346,10 @@ def main() -> int:
 
     started = time.perf_counter()
     totals = {"same": 0, "both_raise": 0, "different": 0, "rewrite_changes": 0, "unreadable": 0,
-              "lxml_different": 0}
-    examples, lxml_examples = [], []
+              "lxml_different": 0, "lxml_rewrite": 0, "lxml_engine": 0}
+    examples, lxml_examples, lxml_all = [], [], []
     paths = [str(d) for d in dumps]
-    init = (selectors, rewrites, args.lxml)
+    init = (selectors, rewrites, args.lxml, bool(args.lxml_report))
     if args.jobs > 1 and len(paths) > 1:
         with multiprocessing.Pool(args.jobs, initializer=_init_worker, initargs=init) as pool:
             results = pool.imap_unordered(check_dump, paths, chunksize=4)
@@ -318,6 +362,7 @@ def main() -> int:
             totals[key] += result[key]
         examples += result["examples"]
         lxml_examples += result["lxml_examples"]
+        lxml_all += result["lxml_all"]
     elapsed = time.perf_counter() - started
     evaluations = totals["same"] + totals["both_raise"] + totals["different"]
     print(f"evaluations: {evaluations}, same: {totals['same']}, rejected on both sides: "
@@ -328,9 +373,14 @@ def main() -> int:
         print(f"  DIFF {name} ({'proxy' if rewrite else 'plain'}): {selector}")
     if args.lxml:
         print(f"plain lxml on parse_ui_dump answers otherwise than the photo (information): "
-              f"{totals['lxml_different']} of {len(dumps) * len(selectors)} evaluations")
-        for name, selector in lxml_examples[:10]:
-            print(f"  LXML {name}: {selector}")
+              f"{totals['lxml_different']} of {len(dumps) * len(selectors)} evaluations "
+              f"(proxy rewrite {totals['lxml_rewrite']}, uiautomator2 engine {totals['lxml_engine']})")
+        for name, cause, selector in lxml_examples[:10]:
+            print(f"  LXML {name} ({cause}): {selector}")
+        if args.lxml_report:
+            with open(args.lxml_report, "w", encoding="utf-8") as report:
+                for line in sorted(lxml_all, key=lambda d: (d["dump"], d["selector"])):
+                    report.write(json.dumps(line, ensure_ascii=False) + "\n")
     return 1 if totals["different"] else 0
 
 
