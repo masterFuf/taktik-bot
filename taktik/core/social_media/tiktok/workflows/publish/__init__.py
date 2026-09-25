@@ -4,6 +4,7 @@ from taktik.core.social_media.tiktok.workflows.publish.agent_handler import (
     TIKTOK_UPLOAD_POST_WORKFLOW_ID,
     build_tiktok_upload_post_handler,
     register_tiktok_publish_handlers,
+    run_tiktok_publish,
 )
 from taktik.core.social_media.tiktok.workflows.publish.upload_workflow import TikTokUploadWorkflow
 
@@ -12,4 +13,5 @@ __all__ = [
     "TikTokUploadWorkflow",
     "build_tiktok_upload_post_handler",
     "register_tiktok_publish_handlers",
+    "run_tiktok_publish",
 ]

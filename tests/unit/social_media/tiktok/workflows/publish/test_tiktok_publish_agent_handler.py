@@ -1,5 +1,6 @@
 import pytest
 
+import taktik.core.clone as clone
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
 from taktik.core.social_media.tiktok.workflows.publish import (
     TIKTOK_UPLOAD_POST_WORKFLOW_ID,
@@ -10,10 +11,11 @@ from taktik.core.social_media.tiktok.workflows.publish import (
 class FakeTikTokUploadWorkflow:
     instances = []
 
-    def __init__(self, device, device_id, notifier=None):
+    def __init__(self, device, device_id, notifier=None, step_hook=None):
         self.device = device
         self.device_id = device_id
         self.notifier = notifier
+        self.step_hook = step_hook
         self.calls = []
         self.instances.append(self)
 
@@ -22,7 +24,17 @@ class FakeTikTokUploadWorkflow:
         return {"success": True, "message": "published", "error_type": None, "received": kwargs}
 
 
-def test_register_tiktok_publish_handler_executes_upload_workflow():
+@pytest.fixture(autouse=True)
+def clone_patches(monkeypatch):
+    """The selector catalogue is process-wide: a cloned package is recorded, never patched."""
+    patched = []
+    monkeypatch.setattr(clone, "set_active_package", lambda package: patched.append(("active", package)))
+    monkeypatch.setattr(clone, "patch_selectors_for_package",
+                        lambda platform, package: patched.append((platform, package)) or 0)
+    return patched
+
+
+def test_register_tiktok_publish_handler_executes_upload_workflow(clone_patches):
     FakeTikTokUploadWorkflow.instances = []
     registry = WorkflowRegistry()
     notifier = object()
@@ -73,6 +85,8 @@ def test_register_tiktok_publish_handler_executes_upload_workflow():
     ]
     assert events[-1].payload["success"] is True
     assert events[-1].payload["received"]["local_path"] == "C:/media/video.mp4"
+    # A cloned TikTok gets its selectors patched from the handler too, as from the desktop bridge.
+    assert clone_patches == [("active", "com.bytedance.trill"), ("tiktok", "com.bytedance.trill")]
 
 
 def test_tiktok_publish_handler_rejects_missing_local_path_before_workflow_creation():
@@ -86,7 +100,7 @@ def test_tiktok_publish_handler_rejects_missing_local_path_before_workflow_creat
     )
     executor = AgentPlanExecutor(registry)
 
-    with pytest.raises(ValueError, match="requires a non-empty localPath"):
+    with pytest.raises(ValueError, match="localPath is required"):
         executor.execute(
             AgentPlan(
                 plan_id="plan-1",
