@@ -409,9 +409,14 @@ STRINGS: Dict[str, List[str]] = {
     "hashtag.hashtag_header": [
         "//*[contains(@text, \"posts\")]",
     ],
-    # Cadre hors du fil d'accueil, comme en francais : la rangee du fil porte aussi « Reel by ».
+    # The reel viewer only. The same label names a home feed row (off, as in French), every grid
+    # cell ("Reel by <display name> at row 1, column 2": profile, explore, hashtag grid; French
+    # says "Reel par" there), the feed suggestions ("Suggested Reel by ...") and the view-count
+    # preview of one's own reel: a display name or another screen's account (IG 410 dumps).
     "hashtag.reel_author_container": [
-        "//*[contains(@content-desc, \"Reel by\")]"
+        "//*[starts-with(@content-desc, \"Reel by \")]"
+        "[not(contains(@content-desc, \" at row \") or contains(@content-desc, \" at Row \")"
+        " or contains(@content-desc, \"View Count\"))]"
         "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\" and @selected=\"true\"])]",
     ],
     # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
@@ -725,8 +730,10 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Comment\") and @clickable=\"true\"]",
         "//android.widget.ImageView[contains(@content-desc, \"Comment\")]",
     ],
+    # IG 410 hints the comments sheet composer "What do you think of this?".
     "post.comment_field_selectors": [
         "//*[contains(@hint, \"Add a comment\")]",
+        "//*[contains(@hint, \"What do you think\")]",
     ],
     "post.comments_view_indicators": [
         "//*[contains(@text, \"Comments\")]",
@@ -742,8 +749,17 @@ STRINGS: Dict[str, List[str]] = {
     "post.like_button_advanced_selectors": [
         "//*[contains(@content-desc, \"Like\")][@clickable=\"true\"]",
     ],
-    "post.like_button_indicators": [],
-    "post.like_count_selectors": [],
+    # Exact label: a containment would also take the "Like button" of a notification row and
+    # the "Like Story" of the story viewer. Feed/post Button, reel ImageView (IG 410).
+    "post.like_button_indicators": [
+        "//android.widget.Button[@content-desc='Like']",
+        "//android.widget.ImageView[@content-desc='Like']",
+    ],
+    # The reel counter reads "Like number is648. View likes" (IG 410); the comment counter
+    # says "Comment number is...", the like button just "Like".
+    "post.like_count_selectors": [
+        "//*[contains(@content-desc, \"Like number is\")]",
+    ],
     "post.liked_by_selectors": [
         "//*[starts-with(@text, \"Liked by\")]",
     ],
@@ -804,7 +820,12 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Send Post\"]",
         "//android.widget.ImageView[contains(@content-desc, \"Share\")]",
     ],
-    "post.timestamp_selectors": [],
+    # "2 hours ago", "1 day ago", "3 days ago  •  See translation" under a post (IG 410). The
+    # "ago" keeps song titles out ("Sunday Morning" of a music sticker).
+    "post.timestamp_selectors": [
+        "//android.widget.TextView[contains(@content-desc, \"hour\") and contains(@content-desc, \" ago\")]",
+        "//android.widget.TextView[contains(@content-desc, \"day\") and contains(@content-desc, \" ago\")]",
+    ],
     "post.username_extraction_selectors": [],
     "post.video_controls": [
         "//android.widget.Button[@content-desc='Play']",
@@ -816,6 +837,7 @@ STRINGS: Dict[str, List[str]] = {
     # --- post_comments ---
     "post_comments.comment_composer_indicators": [
         "//*[contains(@hint, \"Add a comment\")]",
+        "//*[contains(@hint, \"What do you think\")]",
     ],
     # Heart control on a comment row, NOT-liked state (plain text, NOT an xpath — matched
     # by CONTAINMENT against the node's content-desc, which reads either "Tap to like
@@ -981,6 +1003,7 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "text_input.comment_field_selectors": [
         "//*[contains(@hint, \"Add a comment\")]",
+        "//*[contains(@hint, \"What do you think\")]",
     ],
     "text_input.send_button_selectors": [
         "//*[contains(@content-desc, \"Send\")]",
