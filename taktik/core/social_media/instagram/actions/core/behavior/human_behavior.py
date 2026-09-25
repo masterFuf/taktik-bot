@@ -7,14 +7,12 @@ from typing import Tuple
 from taktik.core.shared.behavior.sampling import lognormal_with_mean
 
 # Breaks come after a number of REAL interactions and last a number of seconds. The means are the
-# ones of the historical uniform draws (8-15 and 30-50 interactions, 5-15 s and 60-180 s); the laws
-# are log-normal, wider, and scaled per session, so the rhythm is no longer the same narrow band
-# in every run. Bounds are wide sanity limits: truncation redraws, and the mean is solved for them.
+# ones of the historical uniform draws (8-15 interactions, 5-15 s); the laws are log-normal, wider,
+# and scaled per session, so the rhythm is no longer the same narrow band in every run. Bounds are
+# wide sanity limits: truncation redraws, and the mean is solved for them.
 _SHORT_BREAK_EVERY = (11.5, 4, 28)       # (mean, min, max) interactions
-_LONG_BREAK_EVERY = (40.0, 30, 160)
 _BREAK_EVERY_CV = 0.35
 _SHORT_BREAK_S = (10.0, 3.0, 60.0)       # (mean, min, max) seconds
-_LONG_BREAK_S = (120.0, 30.0, 600.0)
 _BREAK_LENGTH_CV = 0.5
 # One session breaks more often, or longer, than another. Mean 1, so the long-run averages hold.
 _SESSION_TEMPO = (1.0, 0.18, 0.6, 1.6)   # (mean, cv, min, max)
@@ -57,16 +55,11 @@ class HumanBehavior:
         
         # Break configuration, based on the REAL interactions only
         self.interactions_before_short_break = self._break_every(_SHORT_BREAK_EVERY)
-        self.interactions_before_long_break = self._break_every(_LONG_BREAK_EVERY, scaled=False)
-        
-    def _break_every(self, spec, scaled: bool = True) -> int:
-        """Interactions until the next break of this kind, for this session's tempo.
 
-        The long spacing is not scaled: a fast session would bring it under the short one's
-        maximum, and the long break would start firing (see `should_take_break`)."""
+    def _break_every(self, spec) -> int:
+        """Interactions until the next break, for this session's tempo."""
         mean, lo, hi = spec
-        tempo = self.break_spacing_tempo if scaled else 1.0
-        return int(round(lognormal_with_mean(mean * tempo, _BREAK_EVERY_CV, lo, hi)))
+        return int(round(lognormal_with_mean(mean * self.break_spacing_tempo, _BREAK_EVERY_CV, lo, hi)))
 
     def _break_length(self, spec) -> float:
         """Length of a break of this kind, in seconds, for this session's tempo."""
@@ -82,23 +75,12 @@ class HumanBehavior:
     
     def should_take_break(self) -> Tuple[bool, str, float]:
         """Is a break needed?
-        Returns: (should_break, break_type, duration)
-        
+        Returns: (should_break, break_type, duration); the only break type is 'short'.
+
         Breaks are based on REAL interactions, not on profile visits or scrolls.
-        
-        Both kinds count from the LAST break of either kind, and a short break always comes
-        due before the long one can (spacing bounds 4-28 against 30-160): as before, the long
-        break never fires. Kept as it is on purpose -- firing it would add minutes of pause to
-        every run.
         """
         interactions_since_break = self.interactions_count - self.last_break_at
-        
-        # Long break, every few dozen interactions
-        if interactions_since_break >= self.interactions_before_long_break:
-            self.last_break_at = self.interactions_count
-            self.interactions_before_long_break = self._break_every(_LONG_BREAK_EVERY, scaled=False)
-            return (True, 'long', self._break_length(_LONG_BREAK_S))
-        
+
         # Short break, every several interactions
         if interactions_since_break >= self.interactions_before_short_break:
             self.last_break_at = self.interactions_count

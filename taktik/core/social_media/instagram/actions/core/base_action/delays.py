@@ -47,14 +47,10 @@ class DelaysMixin:
     
     def _maybe_take_break(self) -> bool:
         """Check and take a break when needed. True when one was taken."""
-        should_break, break_type, duration = self.human.should_take_break()
-        
+        should_break, _, duration = self.human.should_take_break()
+
         if should_break:
-            if break_type == 'long':
-                self.logger.info(f"☕ Pause longue naturelle ({duration/60:.1f} min) - {self.human.interactions_count} interactions effectuées")
-            else:
-                self.logger.info(f"⏸️ Pause courte ({duration:.0f}s) - {self.human.interactions_count} interactions")
-            
+            self.logger.info(f"⏸️ Pause courte ({duration:.0f}s) - {self.human.interactions_count} interactions")
             time.sleep(duration)
             return True
         

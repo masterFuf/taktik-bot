@@ -3,8 +3,9 @@
 Before: a short break every 8-15 interactions (uniform, sd 2.3), lasting 5-15 s (uniform), the
 same narrow band in every session; micro-delays on a gaussian of sd = range / 4 clamped to
 [0.8 min, 1.2 max]. Now: log-normal laws with the same means, wider, a per-session tempo, and
-truncation by redrawing. The long break still never fires (both kinds count from the last break
-of either kind); that is kept on purpose, firing it would add minutes of pause to every run.
+truncation by redrawing. There is no long break any more: it never fired (both kinds counted from
+the last break of either kind, and the short one always came due first), and it was removed
+rather than repaired.
 """
 
 import random
@@ -91,6 +92,17 @@ def test_breaks_still_come_from_the_real_interactions_only_and_are_short(fresh_h
                 kinds.append(kind)
                 assert duration > 0
     assert kinds and set(kinds) == {"short"}
+
+
+def test_no_long_break_even_when_the_short_one_is_far_away(fresh_human):
+    """With the short break pushed out of reach, nothing else may pause the session."""
+    for _ in range(300):
+        human = fresh_human()
+        human.interactions_before_short_break = 10_000
+        for _ in range(200):
+            human.record_interaction()
+            assert human.should_take_break() == (False, None, 0)
+    assert not hasattr(hb_module, "_LONG_BREAK_EVERY") and not hasattr(hb_module, "_LONG_BREAK_S")
 
 
 def test_session_tempo_averages_one(fresh_human):
