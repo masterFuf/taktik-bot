@@ -249,22 +249,20 @@ def _still_holds_our_file(device_id: str, entry: dict) -> Optional[bool]:
 
 
 def _purge_registered(device_id: str, cutoff: float) -> int:
-    entries = pushed_media_registry.load(device_id)
-    kept = []
+    forgotten = []
     removed = 0
-    for entry in entries:
+    for entry in pushed_media_registry.load(device_id):
         if entry['pushed_at'] > cutoff:
-            kept.append(entry)
             continue
         ours = _still_holds_our_file(device_id, entry)
         if ours is False:
-            continue  # gone, or another file under that name now: forgotten, never deleted
-        if ours and _delete_remote_media(device_id, entry['path']):
+            forgotten.append(entry['path'])  # gone, or another file under that name: never deleted
+        elif ours and _delete_remote_media(device_id, entry['path']):
+            forgotten.append(entry['path'])
             removed += 1
-            continue
-        kept.append(entry)  # no answer from the device: retried on the next run
-    if len(kept) != len(entries):
-        pushed_media_registry.save(device_id, kept)
+        # no answer from the device: kept, retried on the next run
+    if forgotten:
+        pushed_media_registry.forget(device_id, forgotten)
     return removed
 
 
