@@ -9,7 +9,8 @@ The risky failure here is not "it forgot a file", it is "it deleted a holiday pi
 selection rule is what gets pinned.
 
 These tests cover the files pushed before camera-style naming, recognised by their `TAKTIK_`
-prefix. The registry that covers today's pushes is tested in `test_media_store_camera_names.py`.
+prefix, or `YT_` for the YouTube uploads. The registry that covers today's pushes is tested in
+`test_media_store_camera_names.py`.
 """
 import time
 
@@ -97,3 +98,18 @@ def test_parse_rejects_foreign_names():
     assert parse_pushed_timestamp("IMG_20240101_120000.jpg") is None
     assert parse_pushed_timestamp("holiday.png") is None
     assert parse_pushed_timestamp(_name(1)) is not None
+
+
+def test_old_youtube_uploads_are_removed_too(adb):
+    """YouTube pushed `YT_<stamp>.mp4` before camera-style naming; nothing swept those."""
+    old_upload = _name(48, prefix="YT", ext=".mp4")
+    fake = adb([old_upload, _name(1, prefix="YT", ext=".mp4"), "YT_clip.mp4", "YT_20240101_120000_1.mp4"])
+
+    assert purge_pushed_media("dev") == 1
+    assert fake.removed == [f"/sdcard/DCIM/Camera/{old_upload}"]
+    assert len(fake.deleted_rows) == 2
+
+
+def test_parse_reads_the_youtube_prefix():
+    assert parse_pushed_timestamp(_name(1, prefix="YT", ext=".mp4")) is not None
+    assert parse_pushed_timestamp("YT_clip.mp4") is None
