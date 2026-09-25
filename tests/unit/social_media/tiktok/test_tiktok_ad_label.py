@@ -1,5 +1,6 @@
-"""The French For You feed marks an ad two ways on 46.9.3: an accented "Publicité" button, and a
-"Musique promotionnelle" sound, which a promoted series carries even without the button.
+"""TikTok marks an ad two ways on 46.9.3, in French and in English: a label button ("Publicité",
+"Ad"), and a promoted sound ("Musique promotionnelle", "Promoted Music"), which a promoted series
+carries even without the button.
 
 The screens reproduce the shape of the captures (every element a <node>, the widget type an
 attribute), evaluated by uiautomator2's own `d.xpath()` engine. Brands and counts are invented.
@@ -66,3 +67,16 @@ def test_a_promoted_series_without_the_button_is_still_an_ad():
 
 def test_an_organic_video_is_not_an_ad_even_when_its_caption_says_publicite():
     assert not _is_ad(_video("Son : son original - demo_author par Demo"))
+
+
+def test_the_english_ad_button_and_promoted_sound_mark_an_ad():
+    set_active_locale("en")
+    try:
+        with_button = _video("Sound: Promoted Music by Brand Demo", _n("Button", "Ad", rid=PKG + "i8p"))
+        sound_only = _video("Sound: Promoted Music by Brand Demo")
+        organic = _video("Sound: original sound - demo_author by Demo")
+        assert _is_ad(with_button)
+        assert _is_ad(sound_only)
+        assert not _is_ad(organic)
+    finally:
+        set_active_locale("fr")

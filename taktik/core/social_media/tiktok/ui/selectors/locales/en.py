@@ -1110,7 +1110,11 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Bottom sheet\"]",
     ],
     # --- video_state ---
-    "video_state.ad_label": [],
+    # 46.9.3 : « Ad » sur un Button, et le son « Sound: Promoted Music by <marque> », seul signe
+    # de certaines pubs.
+    "video_state.ad_label": [
+        "//*[@text=\"Ad\" or starts-with(@content-desc, \"Sound: Promoted Music\")]",
+    ],
     "video_state.like_button_unliked": [
         "//*[@content-desc=\"Like video\"]",
         "//*[@resource-id=\"com.zhiliaoapp.musically:id/f57\"][contains(@content-desc, \"Like video\")]",
