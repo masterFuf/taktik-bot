@@ -195,4 +195,4 @@ def make_workflow(clock, base_db):
 @pytest.fixture
 def screen():
     """The row builder and the tap outcomes, for the tests of this folder."""
-    return types.SimpleNamespace(Row=Row, FLIP=FLIP, STAY=STAY, SHEET=SHEET)
+    return types.SimpleNamespace(Row=Row, FollowingList=FollowingList, FLIP=FLIP, STAY=STAY, SHEET=SHEET)
