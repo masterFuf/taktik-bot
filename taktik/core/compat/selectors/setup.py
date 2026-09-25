@@ -26,6 +26,15 @@ from ...social_media.instagram.ui.selectors import (
     NOTIFICATION_SELECTORS as IG_NOTIFICATION,
     HASHTAG_SELECTORS as IG_HASHTAG,
     FOLLOWERS_LIST_SELECTORS as IG_FOLLOWERS_LIST,
+    POST_COMMENTS_SELECTORS as IG_POST_COMMENTS,
+    POST_GRID_SELECTORS as IG_POST_GRID,
+    POST_LIKERS_SELECTORS as IG_POST_LIKERS,
+    POST_REELS_SELECTORS as IG_POST_REELS,
+    POST_SHARE_SHEET_SELECTORS as IG_POST_SHARE_SHEET,
+    FEED_SUGGESTIONS_SELECTORS as IG_FEED_SUGGESTIONS,
+    DISCOVER_PEOPLE_SELECTORS as IG_DISCOVER_PEOPLE,
+    SETTINGS_SELECTORS as IG_SETTINGS,
+    DEBUG_SELECTORS as IG_DEBUG,
 )
 from ...social_media.tiktok.ui.selectors import (
     AUTH_SELECTORS as TT_AUTH,
@@ -79,6 +88,17 @@ INSTAGRAM_SELECTOR_DOMAINS = {
     "notification": IG_NOTIFICATION,
     "hashtag": IG_HASHTAG,
     "followers_list": IG_FOLLOWERS_LIST,
+    # The post sub-catalogues copy POST_SELECTORS values at import: a `post.*` override does not
+    # reach their readers, so each is addressed under its own name.
+    "post_comments": IG_POST_COMMENTS,
+    "post_grid": IG_POST_GRID,
+    "post_likers": IG_POST_LIKERS,
+    "post_reels": IG_POST_REELS,
+    "post_share_sheet": IG_POST_SHARE_SHEET,
+    "feed_suggestions": IG_FEED_SUGGESTIONS,
+    "discover_people": IG_DISCOVER_PEOPLE,
+    "settings": IG_SETTINGS,
+    "debug": IG_DEBUG,
 }
 
 TIKTOK_SELECTOR_DOMAINS = {

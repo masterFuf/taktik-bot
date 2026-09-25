@@ -103,6 +103,23 @@ def test_every_shipped_catalogue_is_reachable_by_the_override_machinery():
     )
 
 
+def test_every_instagram_catalogue_is_reachable():
+    """Same guard for Instagram: nine catalogues (the post sub-catalogues among them) were out of
+    reach of the version overrides and of the clone patch."""
+    from dataclasses import is_dataclass
+
+    from taktik.core.social_media.instagram.ui import selectors as instagram_barrel
+
+    registered = {id(obj) for obj in INSTAGRAM_SELECTOR_DOMAINS.values()}
+    unreachable = sorted(
+        name for name in getattr(instagram_barrel, "__all__", [])
+        if name.endswith("SELECTORS")
+        and is_dataclass(getattr(instagram_barrel, name, None))
+        and id(getattr(instagram_barrel, name)) not in registered
+    )
+    assert not unreachable, f"catalogues shipped but not registered in INSTAGRAM_SELECTOR_DOMAINS: {unreachable}"
+
+
 def test_the_compat_map_and_the_language_optimiser_see_the_same_catalogues():
     """Two enumerations of the same objects must not drift — that is how ten went missing.
 
