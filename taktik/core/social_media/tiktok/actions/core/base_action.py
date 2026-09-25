@@ -179,6 +179,8 @@ class BaseAction(SharedBaseAction):
         
         start_time = time.time()
         last_error = None  # a field never found, without any error, reached the report unbound
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
 
         while time.time() - start_time < timeout:
             for selector in selectors:
@@ -193,9 +195,11 @@ class BaseAction(SharedBaseAction):
                             # Clear using Taktik Keyboard
                             self._clear_text_with_taktik_keyboard()
                             time.sleep(0.2)
-                        
-                        # Use Taktik Keyboard for reliable text input
-                        if not self._type_with_taktik_keyboard(text):
+                            # The field must hold exactly `text` (read back, retyped once if not).
+                            if not self._type_text_checked(text):
+                                self.logger.warning("The field does not hold the requested text")
+                                return False
+                        elif not self._type_with_taktik_keyboard(text):
                             self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
                             self.device.send_keys(text)
                         

@@ -71,6 +71,8 @@ class CredentialsMixin:
             except Exception:
                 pass
 
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self.text_actions._ensure_taktik_keyboard()
         if cx and cy:
             self.device.click(cx, cy)
             time.sleep(0.8)
@@ -240,6 +242,9 @@ class CredentialsMixin:
         # Stratégie 2 : Taktik keyboard (nécessite focus clavier actif)
         # Tap again to be sure the focus is on the field
         self.logger.info(f"⌨️ Typing username '{username}' via ADB keyboard (type_text)...")
+        # Switched before this tap, the last one before the typing: switched after it, the
+        # field could lose its focus.
+        self.text_actions._ensure_taktik_keyboard()
         if cx and cy:
             self.device.click(cx, cy)
             time.sleep(0.4)

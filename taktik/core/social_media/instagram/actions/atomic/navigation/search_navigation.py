@@ -169,7 +169,9 @@ class SearchNavigationMixin(BaseAction):
         # Step 2: Click on search bar to activate it
         # On the explore page, we need to click on the search bar at the top
         search_bar_selectors = NAVIGATION_SELECTORS.explore_search_bar
-        
+
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
         if not self._find_and_click(search_bar_selectors, timeout=5):
             self.logger.error("Cannot find/click search bar")
             return False
@@ -192,10 +194,10 @@ class SearchNavigationMixin(BaseAction):
         # the search independent of whatever the previous one left behind.
         self._clear_text_with_taktik_keyboard()
         
-        # Step 3: Type username using Taktik Keyboard (reliable ADB broadcast)
-        if not self._type_with_taktik_keyboard(username):
-            self.logger.warning("Taktik Keyboard failed for username, falling back to send_keys")
-            self.device.send_keys(username)
+        # Step 3: Type the username; the field must then hold exactly it (read back, retyped once).
+        if not self._type_text_checked(username):
+            self.logger.error("The search field does not hold the username")
+            return False
         
         # Wait for search results to load
         self._human_like_delay('typing')
@@ -224,7 +226,9 @@ class SearchNavigationMixin(BaseAction):
             if not self.navigate_to_search():
                 self.logger.error("Cannot navigate to search screen")
                 return False
-            
+
+            # Before the tap: a keyboard switched after it can cost the field its focus.
+            self._ensure_taktik_keyboard()
             search_bar_clicked = self._find_and_click(
                 self.detection_selectors.hashtag_search_bar_selectors, timeout=2
             )
@@ -236,10 +240,10 @@ class SearchNavigationMixin(BaseAction):
             self._human_like_delay('input')
             
             hashtag_query = f"#{hashtag}"
-            # Use Taktik Keyboard for more reliable typing (especially for # character)
-            if not self._type_with_taktik_keyboard(hashtag_query):
-                self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
-                self.device.send_keys(hashtag_query)
+            # The field must then hold exactly the query (read back, retyped once if not).
+            if not self._type_text_checked(hashtag_query):
+                self.logger.error("The search field does not hold the hashtag query")
+                return False
             self._human_like_delay('typing')
             time.sleep(2)
             hashtag_result_selectors = NAVIGATION_SELECTORS.hashtag_result_selectors(hashtag)

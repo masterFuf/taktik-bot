@@ -9,8 +9,10 @@ most thorough field lookup and the workflow that had the humanised tap; none had
 This module is their union, and the only place that knows how to talk to a DM composer:
 
 - **finding the field** tries every signature the four used, richest first;
-- **focusing it** uses the sampled human tap, with a centre click as fallback;
-- **typing** goes through the Taktik keyboard, then `set_text`, then `send_keys`;
+- **focusing it** uses the sampled human tap, with a centre click as fallback, once the Taktik
+  keyboard is the phone's keyboard (a switch after the tap can cost the field its focus);
+- **typing** goes through the Taktik keyboard, then `set_text`, then `send_keys`, and counts
+  only when the composer then reads exactly the message;
 - **sending** tries the xpath catalogue, then the resource-ids, then the content-descriptions.
 
 `device_id` is REQUIRED. The three call sites that resolved it as
@@ -24,7 +26,11 @@ from typing import Any, Optional
 from loguru import logger as _default_logger
 
 from taktik.core.shared.behavior.tap import tap_element_human
-from taktik.core.shared.input.taktik_keyboard import type_text_human
+from taktik.core.shared.input.taktik_keyboard import (
+    ensure_taktik_keyboard,
+    field_holds_text,
+    type_text_checked,
+)
 from ....ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -134,25 +140,32 @@ def type_message(
     if element is None:
         return False
 
+    # Before the tap: a keyboard switched after it can cost the field its focus.
+    ensure_taktik_keyboard(device_id)
     focus_message_input(device, element, logger=log)
     time.sleep(0.3)
 
-    if type_text_human(device_id, message, typos=typos):
+    # Each path counts only if the composer then reads exactly the message.
+    if type_text_checked(device, device_id, message, typos=typos):
         return True
 
-    log.warning("Taktik Keyboard failed, falling back to set_text")
+    log.warning("The composer does not hold the message, falling back to set_text")
     try:
         element.set_text(message)
-        return True
+        if field_holds_text(device, message):
+            return True
     except Exception as exc:
         log.warning(f"set_text failed: {exc}, trying send_keys")
 
     try:
         element.send_keys(message)
-        return True
+        if field_holds_text(device, message):
+            return True
     except Exception as exc:
         log.error(f"Could not type the DM: {exc}")
         return False
+    log.error("The composer does not hold the requested message: not sent")
+    return False
 
 
 def find_send_button(device, *, timeout: float = 3.0, logger=None) -> Optional[Any]:
@@ -221,6 +234,9 @@ def send_message(
         return False
 
     time.sleep(settle)
+    if not field_holds_text(device, message):
+        log.error("The composer does not hold the requested message: not sent")
+        return False
     if not click_send_button(device, logger=log):
         return False
 

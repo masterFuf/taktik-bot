@@ -224,6 +224,8 @@ class InstagramSignup:
                 element = self.device.xpath(selector)
                 if element.exists:
                     self.logger.debug(f"Found {label} with selector: {selector}")
+                    # Before the tap: a keyboard switched after it can cost the field its focus.
+                    self.text_actions._ensure_taktik_keyboard()
                     element.click()
                     time.sleep(self.utils.generate_human_like_delay(0.3, 0.6))
                     if self.text_actions.type_text(value, clear_first=True, human_typing=True):

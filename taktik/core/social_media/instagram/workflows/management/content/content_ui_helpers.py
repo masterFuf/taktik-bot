@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-from taktik.core.shared.input.taktik_keyboard import type_with_taktik_keyboard
+from taktik.core.shared.input.taktik_keyboard import ensure_taktik_keyboard, type_with_taktik_keyboard
 from taktik.core.shared.device.media_store import push_media, trigger_media_scan, scan_wait_for
 
 
@@ -335,10 +335,12 @@ class ContentUIHelpersMixin:
                 caption_field = self._first_text_button(self.content_selectors.caption_placeholder_texts, timeout=5)
             
             if caption_field.exists(timeout=5):
+                device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
+                # Before the tap: a keyboard switched after it can cost the field its focus.
+                ensure_taktik_keyboard(device_id)
                 caption_field.click()
                 time.sleep(0.5)
                 # Use Taktik Keyboard for reliable text input
-                device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
                 if not type_with_taktik_keyboard(device_id, full_text):
                     self.logger.warning("Taktik Keyboard failed, falling back to set_text")
                     caption_field.set_text(full_text)
@@ -361,14 +363,16 @@ class ContentUIHelpersMixin:
             
             location_button = self._first_text_button(self.content_selectors.location_button_texts, timeout=3)
             if location_button.exists(timeout=3):
+                device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
+                # This tap opens the search field focused: the keyboard is switched before it.
+                ensure_taktik_keyboard(device_id)
                 location_button.click()
                 time.sleep(1)
-                
+
                 # Search the location
                 search_field = self.device(**self.content_selectors.location_search_field_selector)
                 if search_field.exists(timeout=3):
                     # Use Taktik Keyboard for reliable text input
-                    device_id = getattr(self.device_manager, 'device_id', None) or 'emulator-5554'
                     if not type_with_taktik_keyboard(device_id, location):
                         self.logger.warning("Taktik Keyboard failed, falling back to set_text")
                         search_field.set_text(location)

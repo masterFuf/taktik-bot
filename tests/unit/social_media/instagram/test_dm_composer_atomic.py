@@ -10,6 +10,12 @@ import pytest
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 
 
+@pytest.fixture(autouse=True)
+def _keyboard_already_there(monkeypatch):
+    """The keyboard switch before the tap talks to adb; these tests are about the field."""
+    monkeypatch.setattr(dm_composer, "ensure_taktik_keyboard", lambda _device_id: True)
+
+
 class _Element:
     def __init__(self, name):
         self.name = name
@@ -130,9 +136,10 @@ def test_an_unnameable_device_raises_instead_of_guessing():
 # ── Typing ───────────────────────────────────────────────────────────────────
 
 def test_typing_falls_back_to_set_text_when_the_keyboard_fails(monkeypatch):
-    monkeypatch.setattr(dm_composer, "type_text_human", lambda *a, **k: False)
-    monkeypatch.setattr(dm_composer, "tap_element_human", lambda *a, **k: True)
     element = _Element("composer")
+    monkeypatch.setattr(dm_composer, "type_text_checked", lambda *a, **k: False)
+    monkeypatch.setattr(dm_composer, "field_holds_text", lambda device, text: element.text_set == text)
+    monkeypatch.setattr(dm_composer, "tap_element_human", lambda *a, **k: True)
 
     ok = dm_composer.type_message(_Device(xpath_hit=element), "PHONE-1", "bonjour", element=element)
 
@@ -140,8 +147,30 @@ def test_typing_falls_back_to_set_text_when_the_keyboard_fails(monkeypatch):
     assert element.text_set == "bonjour"
 
 
+def test_a_fallback_that_leaves_another_text_is_a_failure(monkeypatch):
+    element = _Element("composer")
+    monkeypatch.setattr(dm_composer, "type_text_checked", lambda *a, **k: False)
+    monkeypatch.setattr(dm_composer, "field_holds_text", lambda device, text: False)
+    monkeypatch.setattr(dm_composer, "tap_element_human", lambda *a, **k: True)
+
+    assert dm_composer.type_message(_Device(), "PHONE-1", "bonjour", element=element) is False
+
+
+def test_a_composer_that_does_not_read_the_message_is_not_sent(monkeypatch):
+    """Checked once more right before the send: the typing may be fine and the field change."""
+    pressed = []
+    monkeypatch.setattr(dm_composer, "find_message_input", lambda *a, **k: _Element("composer"))
+    monkeypatch.setattr(dm_composer, "type_message", lambda *a, **k: True)
+    monkeypatch.setattr(dm_composer, "field_holds_text", lambda device, text: False)
+    monkeypatch.setattr(dm_composer, "click_send_button", lambda *a, **k: pressed.append(1) or True)
+    monkeypatch.setattr(dm_composer.time, "sleep", lambda _s: None)
+
+    assert dm_composer.send_message(_Device(), "PHONE-1", "bonjour") is False
+    assert pressed == []
+
+
 def test_typing_reports_failure_when_every_path_fails(monkeypatch):
-    monkeypatch.setattr(dm_composer, "type_text_human", lambda *a, **k: False)
+    monkeypatch.setattr(dm_composer, "type_text_checked", lambda *a, **k: False)
     monkeypatch.setattr(dm_composer, "tap_element_human", lambda *a, **k: True)
 
     class _Hostile(_Element):

@@ -3,7 +3,11 @@
 import time
 from typing import Optional
 
-from taktik.core.shared.input.taktik_keyboard import type_with_taktik_keyboard
+from taktik.core.shared.input.taktik_keyboard import (
+    ensure_taktik_keyboard,
+    field_holds_text,
+    type_text_checked,
+)
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 
 
@@ -59,17 +63,23 @@ class OutreachActionsMixin:
             # Tap the search bar
             search_field = self.device(**self.dm_selectors.message_input_class_selector)
             if search_field.exists(timeout=5):
-                search_field.click()
-                time.sleep(1)
-                # SEARCH field, not the composer: typed straight, with no typo, because a
-                # momentarily wrong letter reorders the suggestion list under the finger.
                 # The device_id is resolved from the device itself, never guessed.
                 device_id = dm_composer.resolve_device_id(
                     self.device, getattr(self.device_manager, 'device_id', None)
                 )
-                if not type_with_taktik_keyboard(device_id, username):
-                    self.logger.warning("Taktik Keyboard failed, falling back to set_text")
+                # Before the tap: a keyboard switched after it can cost the field its focus.
+                ensure_taktik_keyboard(device_id)
+                search_field.click()
+                time.sleep(1)
+                # SEARCH field, not the composer: typed straight, with no typo, because a
+                # momentarily wrong letter reorders the suggestion list under the finger.
+                # The field must then hold exactly the username (read back, retyped once).
+                if not type_text_checked(self.device, device_id, username, typos=False):
+                    self.logger.warning("The search field does not hold the username, falling back to set_text")
                     search_field.set_text(username)
+                    if not field_holds_text(self.device, username):
+                        self.logger.error("The search field does not hold the username")
+                        return False
                 time.sleep(2)
             else:
                 self.logger.error("Search field not found")

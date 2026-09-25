@@ -389,6 +389,8 @@ class InstagramPostWorkflow:
             self._a["click"]._wait_for_element(CC.gallery_grid_xpaths(), timeout=5, silent=True)
 
     def _fill_caption(self, text: str) -> bool:
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._a["kb"]._ensure_taktik_keyboard()
         if not self._tap(CC.composer_xpaths(), timeout=5):
             self._log("warning", "Caption field not focusable")
             return False

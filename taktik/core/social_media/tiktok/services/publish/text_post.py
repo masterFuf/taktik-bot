@@ -29,7 +29,7 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from taktik.core.shared.input.taktik_keyboard import type_text_human
+from taktik.core.shared.input.taktik_keyboard import type_text_checked
 from ...actions.core.utils import first_matching, first_text
 from ...ui.selectors.flows.publish import (
     PUBLISH_CREATION_ENTRY_SELECTORS,
@@ -56,7 +56,7 @@ def publish_text_post(
 
     `device_id` is separate from `device` because the keyboard types over ADB and needs the
     SERIAL -- passing the device object there is exactly the mistake that made this flow look
-    blocked for an hour: `type_text_human` swallows the failure and returns False, the field keeps
+    blocked for an hour: the keyboard swallows the failure and returns False, the field keeps
     its placeholder, and the screen looks like it refused the text.
     """
     result: Dict[str, Any] = {
@@ -92,7 +92,8 @@ def publish_text_post(
         return result
     time.sleep(1.5)
 
-    if not type_text_human(device_id, body):
+    # The composer must hold exactly the text (read back, retyped once if not).
+    if not type_text_checked(device, device_id, body):
         result["error"] = "the keyboard did not type"
         return result
     time.sleep(2.0)

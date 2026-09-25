@@ -2,7 +2,6 @@
 
 import time
 import random
-import base64
 
 
 class TypingMixin:
@@ -107,47 +106,20 @@ class TypingMixin:
         """
         if not text:
             return True
-        
+
         try:
-            device_serial = self._get_device_serial()
-            
-            # Check if Taktik Keyboard is active, activate if not
-            if not self._is_taktik_keyboard_active():
-                self.logger.debug("Taktik Keyboard not active, activating...")
-                if not self._activate_taktik_keyboard():
-                    self.logger.warning("⚠️ Could not activate Taktik Keyboard, trying adb input text")
-                    if self._adb_input_text(text):
-                        return True
-                    self.device.send_keys(text)
-                    return True
-            
-            # Encode text as base64
-            text_b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
-            
-            # Send broadcast with text
-            broadcast_cmd = f'am broadcast -a {self._IME_MESSAGE_B64} --es msg {text_b64} --ei delay_mean {delay_mean} --ei delay_deviation {delay_deviation}'
-            result = self._run_adb_shell(device_serial, broadcast_cmd)
-            
-            if result and 'error' not in result.lower():
-                # Wait for typing to complete
-                typing_time = (delay_mean * len(text) + delay_deviation) / 1000
-                self.logger.debug(f"⌨️ Taktik Keyboard typing {len(text)} chars ({typing_time:.1f}s)")
-                time.sleep(typing_time + 0.5)  # Add small buffer
+            from taktik.core.shared.input.taktik_keyboard import type_with_taktik_keyboard
+
+            # The shared owner activates the keyboard, broadcasts and waits out the typing.
+            if type_with_taktik_keyboard(self._get_device_serial(), text, delay_mean, delay_deviation):
                 return True
-            else:
-                self.logger.warning(f"⚠️ Taktik Keyboard broadcast failed: {result}")
-                # Fallback: adb input text, then send_keys
-                if self._adb_input_text(text):
-                    return True
-                self.device.send_keys(text)
-                return True
-                
+            self.logger.warning("⚠️ Taktik Keyboard failed, trying adb input text")
         except Exception as e:
             self.logger.error(f"❌ Error using Taktik Keyboard: {e}")
-            try:
-                if self._adb_input_text(text):
-                    return True
-                self.device.send_keys(text)
+        try:
+            if self._adb_input_text(text):
                 return True
-            except Exception:
-                return False
+            self.device.send_keys(text)
+            return True
+        except Exception:
+            return False

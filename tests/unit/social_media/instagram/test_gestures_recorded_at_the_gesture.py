@@ -64,10 +64,11 @@ def _comment_action(close=None):
     act._is_comment_composer_open = lambda: True
     act._click_comment_button = lambda: True
     act._dismiss_share_sheet_if_open = lambda: False
-    act._type_comment = lambda _text: True
+    act._type_comment = lambda _text, mention="": True
     act._post_comment = lambda: True
     act._is_comments_view_open = lambda: True
     act._human_like_delay = lambda _kind: None
+    act._ensure_taktik_keyboard = lambda: True
     act._find_comment_reply_control = lambda _handle: (1, 2, 3, 4)
     act._ensure_reply_mention = lambda _h, _t: None
     act.device = types.SimpleNamespace(human_tap=lambda bounds, **_k: (bounds[0], bounds[1]))

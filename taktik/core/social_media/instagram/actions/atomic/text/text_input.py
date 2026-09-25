@@ -83,7 +83,9 @@ class TextInputMixin(BaseAction):
             True if successful, False otherwise
         """
         self.logger.debug(f"{emoji} Typing {field_name} ({len(text)} chars)")
-        
+
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
         if not self._find_and_click(field_selectors, timeout=5):
             self.logger.error(f"Cannot find field {field_name}")
             return False

@@ -17,12 +17,23 @@ def _dumpsys(cur, connected):
             f"  mCurId={cur} mHaveConnection={flag} mBoundToMethod={flag} mVisibleBound=false\n")
 
 
+def _dumpsys_android16(cur, connected):
+    """Android 16 (Pixel 6a): one field per line, no `mCurId=`; the client part says `mCurImeId=null`."""
+    flag = "true" if connected else "false"
+    return ("  UserId=0\n    mBindingController:\n"
+            f"      mSelectedImeId={cur}\n      mCurImeId={cur}\n"
+            f"      mHasMainConnection={flag}\n      mVisibleBound=false\n"
+            f"    mCurClient=ClientState{{1ae85b5 mUid=10288}}\n    mBoundToMethod={flag}\n"
+            "  mActive=false mRestartOnNextWindowFocus=true mBindSequence=-1 mCurImeId=null\n")
+
+
 class Phone:
     """Switches to the ADB keyboard at `ime set`, and binds it `bind_after` dumpsys reads later."""
 
-    def __init__(self, bind_after):
+    def __init__(self, bind_after, dumpsys=_dumpsys):
         self.default = kb.GBOARD_IME
         self.bind_after = bind_after
+        self.dumpsys = dumpsys
         self.reads = 0
         self.log = []
 
@@ -36,8 +47,8 @@ class Phone:
         if command == "dumpsys input_method":
             self.reads += 1
             if self.default != ADB:
-                return _dumpsys(kb.GBOARD_IME, True)
-            return _dumpsys(ADB, self.reads > self.bind_after)
+                return self.dumpsys(kb.GBOARD_IME, True)
+            return self.dumpsys(ADB, self.reads > self.bind_after)
         return ""
 
 
@@ -58,6 +69,22 @@ def test_activation_waits_until_the_keyboard_is_bound(monkeypatch):
     # Returned only after the read that showed the ADB keyboard bound with a connection.
     assert phone.reads == 4
     assert phone.log[-1] == "dumpsys input_method"
+
+
+def test_activation_waits_for_the_keyboard_on_android_16(monkeypatch):
+    """Android 16 has no `mCurId=`: read as "unknown", the switch was never waited on."""
+    phone = Phone(bind_after=3, dumpsys=_dumpsys_android16)
+    monkeypatch.setattr(kb, "run_adb_shell", phone)
+
+    assert kb.activate_taktik_keyboard("6a") is True
+    assert phone.reads == 4
+
+
+@pytest.mark.parametrize("cur, connected, bound", [
+    (ADB, True, True), (ADB, False, False), (kb.GBOARD_IME, True, False)])
+def test_the_android_16_dumpsys_is_read(monkeypatch, cur, connected, bound):
+    monkeypatch.setattr(kb, "run_adb_shell", lambda _id, _cmd: _dumpsys_android16(cur, connected))
+    assert kb._taktik_keyboard_bound("6a") is bound
 
 
 def test_an_unreadable_dumpsys_does_not_hold_the_switch(monkeypatch):

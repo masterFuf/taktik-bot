@@ -100,10 +100,10 @@ def _publish(screen, text, *, typed=True, **kwargs):
     """
     import taktik.core.social_media.tiktok.services.publish.text_post as module
 
-    original_type = module.type_text_human
+    original_type = module.type_text_checked
     original_sleep = module.time.sleep
     original_timeout = module._PUBLISH_TIMEOUT
-    module.type_text_human = lambda serial, body: typed
+    module.type_text_checked = lambda device, serial, body: typed
     module.time.sleep = lambda _seconds: None
     # Le delai de publication est reel lui aussi : sans plafond, le cas « rien ne confirme »
     # tournerait vingt-cinq secondes a vide.
@@ -111,7 +111,7 @@ def _publish(screen, text, *, typed=True, **kwargs):
     try:
         return publish_text_post(screen, "SERIAL", text, click=screen.tap, **kwargs)
     finally:
-        module.type_text_human = original_type
+        module.type_text_checked = original_type
         module.time.sleep = original_sleep
         module._PUBLISH_TIMEOUT = original_timeout
 

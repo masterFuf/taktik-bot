@@ -13,6 +13,11 @@ import time
 from typing import Any, Dict, List, Optional
 from loguru import logger
 
+from taktik.core.shared.input.taktik_keyboard import (
+    ensure_taktik_keyboard,
+    field_holds_text,
+    type_text_checked,
+)
 from taktik.core.shared.text import fold_for_match
 from ....services.notifications.activity import clean_row_text
 from ...core.base_action import BaseAction
@@ -944,7 +949,13 @@ class DMActions(BaseAction):
             True if text was entered successfully
         """
         self.logger.debug(f"⌨️ Typing message ({len(text)} chars)...")
-        
+
+        # The keyboard is switched BEFORE the tap: switched after it, the composer folds with the
+        # keyboard it opened and drops its focus, and the text goes nowhere (`ensure_taktik_keyboard`).
+        device_id = getattr(self.device, "device_id", None) or getattr(self.device, "serial", None)
+        if device_id:
+            ensure_taktik_keyboard(str(device_id))
+
         # Click on input field first
         if not self._find_and_click(self.conversation_selectors.message_input_field, timeout=3):
             self.logger.warning("Message input field not found")
@@ -966,33 +977,41 @@ class DMActions(BaseAction):
         self._clear_text_with_taktik_keyboard()
         time.sleep(0.2)
 
-        device_id = getattr(self.device, "device_id", None) or getattr(self.device, "serial", None)
+        # The composer must end up holding exactly `text`: read back, retyped once if not.
         if device_id:
             try:
-                from taktik.core.shared.input.taktik_keyboard import type_text_human
-
-                if type_text_human(str(device_id), text):
+                if type_text_checked(self.device, str(device_id), text):
                     time.sleep(0.3)
                     return True
-                self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
+                self.logger.warning("The composer does not hold the message, falling back to send_keys")
             except Exception as exc:
                 self.logger.warning(f"Taktik Keyboard unavailable ({exc}), falling back")
 
         try:
             self.device.send_keys(text)
             time.sleep(0.3)
-            return True
         except Exception as e:
             self.logger.error(f"Failed to type message: {e}")
             return False
+        if field_holds_text(self.device, text):
+            return True
+        self.logger.error("The composer does not hold the requested message: not sent")
+        return False
     
-    def send_message(self) -> bool:
+    def send_message(self, expected: Optional[str] = None) -> bool:
         """Send the typed message by clicking send button.
+
+        `expected`: the text asked for. When given, the composer must hold exactly it
+        (`field_holds_text`), otherwise nothing is sent.
         
         Returns:
             True if message was sent successfully
         """
         self.logger.debug("📤 Sending message")
+
+        if expected is not None and not field_holds_text(self.device, expected):
+            self.logger.error("The composer does not hold the requested message: not sent")
+            return False
         
         # What the composer holds BEFORE, so "did it leave" is answerable afterwards.
         pending = self._composer_text()
@@ -1115,7 +1134,7 @@ class DMActions(BaseAction):
         if not self.type_message(text):
             return False
         
-        return self.send_message()
+        return self.send_message(expected=text)
     
     # ==========================================================================
     # NAVIGATION
