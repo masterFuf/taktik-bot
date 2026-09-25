@@ -247,15 +247,18 @@ def cli(ctx, lang=None):
                 if not instagram.is_installed():
                     console.print(f"[red]{current_translations['instagram_not_installed']}[/red]")
                     continue
-                # An automation run restarts Instagram itself, cleanly, like a desktop run: a warm
-                # launch here would only be undone.
-                if mode_choice != 2:
+                # Automation and scraping runs restart Instagram themselves, cleanly, like desktop
+                # runs: a warm launch here would only be undone.
+                def _launch_instagram() -> bool:
                     console.print(f"[blue]{current_translations['launching_instagram']}[/blue]")
                     if instagram.launch():
                         console.print(f"[green]{current_translations['instagram_launched_success']}[/green]")
-                    else:
-                        console.print(f"[red]{current_translations['instagram_launch_failed']}[/red]")
-                        continue
+                        return True
+                    console.print(f"[red]{current_translations['instagram_launch_failed']}[/red]")
+                    return False
+
+                if mode_choice == 1 and not _launch_instagram():
+                    continue
                 
                 if mode_choice == 1:
                     # Mode Management
@@ -588,11 +591,13 @@ def cli(ctx, lang=None):
                             continue
                         
                         if post_scraping_choice == 3:
-                            # Full Post Scraping Workflow
+                            # Full Post Scraping Workflow (CLI only): it starts from Instagram open.
                             scraping_config = generate_post_scraping_workflow()
                             if scraping_config:
                                 from taktik.cli.common.device_selector import connect_device as _cd
                                 if not _cd(device_manager, device_id, current_translations):
+                                    continue
+                                if not _launch_instagram():
                                     continue
                                 
                                 from taktik.core.social_media.instagram.workflows.post_scraping import PostScrapingWorkflow
@@ -605,9 +610,9 @@ def cli(ctx, lang=None):
                                 sys.exit(0)
                             continue
                         else:
-                            scraping_config = generate_url_scraping_workflow()
-                            if scraping_config:
-                                scraping_config['scrape_type'] = 'likers' if post_scraping_choice == 1 else 'comments'
+                            scraping_config = generate_url_scraping_workflow(
+                                "likers" if post_scraping_choice == 1 else "commenters"
+                            )
                     
                     if scraping_choice in [1, 2] or (scraping_choice == 3 and scraping_config):
                         if not scraping_config:
@@ -618,28 +623,16 @@ def cli(ctx, lang=None):
                         if not _cd3(device_manager, device_id, current_translations):
                             continue
                         
-                        # Start the scraping
-                        from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
-                        
+                        # The run goes through the scraping handler, the desktop's launcher: clean
+                        # restart, the page's filters, AI with OPENROUTER_API_KEY.
                         console.print("[blue]🔍 Initializing scraping workflow...[/blue]")
-                        from taktik.core.app.ai.factory import build_ai_service
+                        from taktik.cli.common.instagram_host import run_instagram_scraping_payload
+                        try:
+                            run_instagram_scraping_payload(device_manager, device_id, scraping_config)
+                        except Exception as exc:  # noqa: BLE001 - a failed run reports, not tracebacks
+                            console.print(f"[red]Scraping failed:[/red] {type(exc).__name__}: {exc}")
+                            sys.exit(1)
 
-                        def _build_scraping_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None):
-                            # Standalone CLI: no premium taxonomy to inject.
-                            return build_ai_service(
-                                api_key=api_key,
-                                ipc=ipc,
-                                vision_model=vision_model,
-                                text_model=text_model,
-                            )
-
-                        scraping_workflow = ScrapingWorkflow(
-                            device_manager,
-                            scraping_config,
-                            ai_service_factory=_build_scraping_ai_service,
-                        )
-                        scraping_workflow.run()
-                        
                         console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
                         sys.exit(0)
             

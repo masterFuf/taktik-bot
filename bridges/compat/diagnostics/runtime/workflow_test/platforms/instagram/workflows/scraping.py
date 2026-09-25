@@ -8,7 +8,8 @@ read profiles from it; it is not there to fill the database or to spend on quali
 `run_scraping_bridge` was named as the entry point, but it is CLI-shaped: it parses argv AND opens
 its own device connection, which would fight the one the bench already holds. The wiring therefore
 targets `run_scraping_workflow`, the layer just below — the same one the bridge itself calls once
-it has connected — and hands it the bench's own device manager.
+it has connected, which runs the core launcher `run_instagram_scraping` — and hands it the bench's
+own device manager.
 
 `scrape_profile_posts` probes the post catalogue source: with persistence off it opens a few posts
 of the target and reads their cards without writing a row.
@@ -30,7 +31,7 @@ _SCRAPING_TYPES = {
 
 
 def _bridge_config(scraping_type: str, target, limits: dict, delays) -> dict:
-    """Build the camelCase payload `build_scraping_config` expects.
+    """Build the camelCase payload the scraping reading (`scraping_config_from_payload`) expects.
 
     Persistence and AI are forced off: this is a capability probe, not a run.
     """
@@ -85,11 +86,9 @@ def run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, del
         )
         return False
 
-    from bridges.instagram.scraping.runtime.config import build_scraping_config
     from bridges.instagram.scraping.runtime.workflow import run_scraping_workflow
 
     bridge_config = _bridge_config(scraping_type, target, limits, delays)
-    scraping_config = build_scraping_config(bridge_config)
 
     ipc.send(
         "workflow_step",
@@ -98,7 +97,7 @@ def run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, del
         message=f"Scraping {scraping_type} (read-only, nothing saved)",
     )
 
-    result = run_scraping_workflow(conn.device_manager, scraping_config, bridge_config)
+    result = run_scraping_workflow(conn.device_manager, bridge_config)
 
     success = bool(result.get("success"))
     ipc.send(

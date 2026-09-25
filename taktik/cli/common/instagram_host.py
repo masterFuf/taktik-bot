@@ -5,7 +5,8 @@ Same clean restart as the desktop bridge (`start_instagram_session` on the bridg
 the one app lifecycle of the bot), same selector version overrides, same AI hooks; the events go to
 the log instead of stdout. The AI key comes from `OPENROUTER_API_KEY` when the payload brings none.
 What stays with the desktop process: the uiautomator2 repair, the IP rotation, the media capture,
-the per-profile decision round trip.
+the per-profile decision round trip. A scraping run is restarted the same way: the desktop restarts
+Instagram before it launches its scraping bridge.
 """
 from __future__ import annotations
 
@@ -62,12 +63,29 @@ def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
         return None
 
     if not ai_config.get("openrouterApiKey"):
-        key = os.environ.get(OPENROUTER_KEY_ENV, "").strip()
+        key = cli_openrouter_key()
         if not key:
-            logger.warning(f"AI requested but {OPENROUTER_KEY_ENV} is not set: this run goes on without AI")
             return None
         ai_config["openrouterApiKey"] = key
     return ai_config
+
+
+def cli_openrouter_key() -> Optional[str]:
+    """The OpenRouter key of the environment, for a run that asks for AI without bringing one."""
+    key = os.environ.get(OPENROUTER_KEY_ENV, "").strip()
+    if not key:
+        logger.warning(f"AI requested but {OPENROUTER_KEY_ENV} is not set: this run goes on without AI")
+        return None
+    return key
+
+
+def cli_instagram_scraping_ai_service(*, api_key: str, ipc=None, vision_model: str = None,
+                                      text_model: str = None, niche_taxonomy: dict = None):
+    """The AI service a scraping run builds: the core's, as the bridge's factory builds it."""
+    from taktik.core.app.ai.factory import build_ai_service
+
+    return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model,
+                            text_model=text_model, niche_taxonomy=niche_taxonomy)
 
 
 def cli_instagram_ai_service(ai_config: Mapping[str, Any]):
@@ -96,13 +114,13 @@ def is_internal_workflow_format(config: Mapping[str, Any]) -> bool:
     return any(key in config for key in _INTERNAL_FORMAT_KEYS)
 
 
-def run_instagram_payload(device_manager: Any, device_id: str, payload: Mapping[str, Any]) -> dict:
-    """Run a page payload through the automation handler: the same path as
-    `taktik workflows run instagram.automation.<type>` and as the desktop bridge's launcher."""
+def _run_through_handler(device_manager: Any, device_id: str, workflow_id: str,
+                         payload: Mapping[str, Any]) -> dict:
+    """Run a page payload through the handler registered as `workflow_id`: the same path as
+    `taktik workflows run <workflow_id>` and as the desktop bridge's launcher."""
     from taktik.cli.common.registry_builder import build_registry
     from taktik.core.agent.kernel.contracts import WorkflowInvocation
 
-    workflow_id = f"instagram.automation.{payload.get('workflowType')}"
     build = build_registry(device=getattr(device_manager, "device", None), device_id=device_id,
                            device_manager=device_manager)
     handler = build.registry.resolve(workflow_id)
@@ -110,10 +128,24 @@ def run_instagram_payload(device_manager: Any, device_id: str, payload: Mapping[
     return handler(invocation, {"deviceId": device_id, **dict(payload)})
 
 
+def run_instagram_payload(device_manager: Any, device_id: str, payload: Mapping[str, Any]) -> dict:
+    """Run an automation page payload (`instagram.automation.<workflowType>`)."""
+    return _run_through_handler(device_manager, device_id,
+                                f"instagram.automation.{payload.get('workflowType')}", payload)
+
+
+def run_instagram_scraping_payload(device_manager: Any, device_id: str, payload: Mapping[str, Any]) -> dict:
+    """Run a Scraping page payload (`instagram.scraping.<type>`)."""
+    return _run_through_handler(device_manager, device_id, f"instagram.scraping.{payload.get('type')}", payload)
+
+
 __all__ = [
     "CliInstagramHost",
     "OPENROUTER_KEY_ENV",
     "cli_instagram_ai_service",
+    "cli_instagram_scraping_ai_service",
+    "cli_openrouter_key",
     "is_internal_workflow_format",
     "run_instagram_payload",
+    "run_instagram_scraping_payload",
 ]

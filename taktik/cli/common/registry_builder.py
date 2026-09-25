@@ -106,7 +106,12 @@ def build_registry(
     startup_provider: Callable[..., Any] | None = None,
 ) -> RegistryBuild:
     """Register every available handler, returning the registry and any registrar failures."""
-    from taktik.cli.common.instagram_host import CliInstagramHost, cli_instagram_ai_service
+    from taktik.cli.common.instagram_host import (
+        CliInstagramHost,
+        cli_instagram_ai_service,
+        cli_instagram_scraping_ai_service,
+        cli_openrouter_key,
+    )
     from taktik.cli.common.tiktok_host import (
         cli_tiktok_ai_hooks,
         cli_tiktok_outreach_message_generator,
@@ -135,6 +140,9 @@ def build_registry(
         "instagram_start": instagram_host.start if instagram_host else None,
         "instagram_installed_version": instagram_host.installed_version if instagram_host else None,
         "instagram_ai_service": cli_instagram_ai_service,
+        # The scraping handlers build their AI service from a key, the payload's or the environment's.
+        "instagram_scraping_ai_service": cli_instagram_scraping_ai_service,
+        "instagram_ai_key": cli_openrouter_key,
     }
 
     for label, module_path, func_name in REGISTRARS:

@@ -1,8 +1,9 @@
-"""The scraping bridge config mapper must forward the profile filters.
+"""The scraping config reading must forward the profile filters.
 
 Device bug (2026-07-12): a profile with 0 posts was scraped, saved AND deep-qualified (paid AI)
 even though the operator had set "Min posts = 1". The filter code itself was correct — it was
-never fed: `build_scraping_config` is a WHITELIST mapper and simply did not copy any of the
+never fed: the reading (`scraping_config_from_payload`, the bridge's until it moved to the
+core so the CLI reads the same) is a WHITELIST mapper and simply did not copy any of the
 filter keys, so the workflow read them from an empty config and every filter evaluated to
 "disabled". No min followers, no min posts, no skip-private: NONE of the scraping filters had
 ever worked.
@@ -14,7 +15,9 @@ reject every profile with a single follower and scrape nothing.
 
 import pytest
 
-from bridges.instagram.scraping.runtime.config import build_scraping_config
+from taktik.core.social_media.instagram.workflows.scraping.payload import (
+    scraping_config_from_payload as build_scraping_config,
+)
 
 
 def _cfg(**over):

@@ -324,7 +324,9 @@ def test_a_single_readable_counter_is_kept(monkeypatch):
 # ── Bridge config ────────────────────────────────────────────────────────────
 
 def test_bridge_config_maps_the_profile_posts_source():
-    from bridges.instagram.scraping.runtime.config import build_scraping_config
+    from taktik.core.social_media.instagram.workflows.scraping.payload import (
+        scraping_config_from_payload as build_scraping_config,
+    )
 
     cfg = build_scraping_config({
         "type": "profile_posts", "targetUsernames": ["nike", "adidas"],
