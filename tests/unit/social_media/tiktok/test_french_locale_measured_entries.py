@@ -165,6 +165,12 @@ def test_a_profile_is_told_by_its_stat_label_not_by_a_following_tab():
     assert _found("profile.profile_page_indicator", FOLLOWERS_LIST) == []
 
 
+def test_the_following_tab_is_the_feed_header_one_not_a_profile_or_list_label():
+    assert len(_found("navigation.following_tab", FEED)) == 1
+    assert _found("navigation.following_tab", PROFILE) == []
+    assert _found("navigation.following_tab", FOLLOWERS_LIST) == []
+
+
 def test_the_search_follow_button_is_one_per_user_row_and_none_on_a_follower_list():
     assert len(_found("search.user_result_follow_button", USERS_TAB)) == 2
     assert _found("search.user_result_follow_button", FOLLOWERS_LIST) == []
@@ -186,6 +192,7 @@ def test_other_share_labels_are_not_a_video_page():
 
 @pytest.mark.parametrize("key, singleton, prop", [
     ("navigation.shop_tab", "NAVIGATION_SELECTORS", "shop_tab"),
+    ("navigation.following_tab", "NAVIGATION_SELECTORS", "following_tab"),
     ("search.shop_tab", "SEARCH_SELECTORS", "shop_tab"),
     ("popup.comments_close_button", "POPUP_SELECTORS", "comments_close_button"),
     ("popup.inbox_page_indicator", "POPUP_SELECTORS", "inbox_page_indicator"),

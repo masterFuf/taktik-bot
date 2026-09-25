@@ -406,8 +406,10 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.explore_tab": [
         "//*[contains(@content-desc, \"Explorer\")]",
     ],
+    # The feed header tab reads `Suivis` (43.1.4 and 46.9.3); the same word labels the profile
+    # stat and the followers list, hence the tab strip that also holds `Pour toi`.
     "navigation.following_tab": [
-        "//*[contains(@content-desc, \"Abonnements\")]",
+        "//*[@content-desc=\"Suivis\"][ancestor::*[2][.//*[@content-desc=\"Pour toi\"]]]",
     ],
     # `Ami`, not `Amis`. Measured on both phones: the tab's content-desc is `Ami(e)s`, and
     # `Amis` is not contained in it — the string runs A-m-i-(-e-)-s. The id alternative covered
