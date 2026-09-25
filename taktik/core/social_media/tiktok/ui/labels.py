@@ -95,13 +95,15 @@ def classify_follow_button(text: str) -> Optional[str]:
     return None
 
 
-def _more_suffix_start(text: str) -> Optional[int]:
+def _more_suffix_start(text: str, labels=None) -> Optional[int]:
     """Where the ellipsis and "more" word TikTok appends to a cut caption begin, or None.
 
     The space between the two varies ("… plus", "…plus"), and so does the ellipsis ("…", "...").
     """
     tail = (text or "").rstrip()
-    for label in VIDEO_MEDIA_SELECTORS.description_more_labels or []:
+    if labels is None:
+        labels = VIDEO_MEDIA_SELECTORS.description_more_labels
+    for label in labels or []:
         if label and tail.endswith(label):
             head = tail[: -len(label)].rstrip()
             for ellipsis in ("…", "..."):
@@ -113,6 +115,11 @@ def _more_suffix_start(text: str) -> Optional[int]:
 def is_truncated_description(text: str) -> bool:
     """True when TikTok cut the caption and offers to show the rest."""
     return _more_suffix_start(text) is not None
+
+
+def is_expandable_description(text: str) -> bool:
+    """True when the caption is cut AND its language is one the bot taps open."""
+    return _more_suffix_start(text, VIDEO_MEDIA_SELECTORS.description_expand_labels) is not None
 
 
 def strip_more_suffix(text: str) -> str:

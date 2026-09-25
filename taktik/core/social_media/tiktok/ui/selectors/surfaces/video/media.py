@@ -35,6 +35,12 @@ class VideoMediaSelectors:
         """The word after the ellipsis that ends a truncated caption ("…more", "…plus")."""
         return L("video_media.description_more_labels")
 
+    @property
+    def description_expand_labels(self) -> List[str]:
+        """Those of the words above whose caption the bot taps open. The tap lands on the caption's
+        centre, which can be a hashtag: a language is added here only once a run has proven it."""
+        return L("video_media.description_expand_labels")
+
     video_container: List[str] = field(default_factory=lambda: [
         *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Video"]'),
         *resource_ids_with("long_press_layout", xpath_filter='[@content-desc="Vid\u00e9o"]'),

@@ -38,3 +38,13 @@ def test_the_cut_marker_is_removed_from_the_parsed_caption(locale):
     assert _parse_description("Le secret #bio … plus")["description_text"] == "Le secret"
     locale("en")
     assert _parse_description("The secret #bio …more")["description_text"] == "The secret"
+
+
+def test_a_french_cut_caption_is_read_as_displayed_never_tapped(locale):
+    """The tap lands on the caption's centre, which can be a hashtag: French is not proven."""
+    from taktik.core.social_media.tiktok.ui.labels import is_expandable_description
+
+    locale("fr")
+    assert not is_expandable_description("Deux mots #tag … plus")
+    locale("en")
+    assert is_expandable_description("Two words #tag …more")

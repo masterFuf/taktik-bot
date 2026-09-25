@@ -1168,6 +1168,9 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # --- video_media ---
     # Legende tronquee : « … plus » ou « …plus » selon la video.
+    # Lue telle qu'affichee, sans tap : le tap au centre de la legende peut tomber sur un hashtag
+    # et ouvrir sa page. Aucun run francais ne l'a prouve.
+    "video_media.description_expand_labels": [],
     "video_media.description_more_labels": [
         "plus",
     ],

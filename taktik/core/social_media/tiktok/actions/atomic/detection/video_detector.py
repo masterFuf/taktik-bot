@@ -13,7 +13,7 @@ from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
 
 from ...core.base_action import BaseAction
-from ....ui.labels import is_truncated_description, strip_more_suffix
+from ....ui.labels import is_expandable_description, strip_more_suffix
 from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
@@ -136,7 +136,7 @@ class VideoDetector(BaseAction):
         if not raw:
             return None
 
-        if is_truncated_description(raw):
+        if is_expandable_description(raw):
             try:
                 for sel in self.video_selectors.video_description:
                     elem = self.device.xpath(sel)
