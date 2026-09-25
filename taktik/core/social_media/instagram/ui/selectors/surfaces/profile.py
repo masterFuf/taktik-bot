@@ -23,7 +23,7 @@ class ProfileSelectors:
         '//*[contains(@resource-id, "action_bar_title")]',
         '//*[contains(@resource-id, "action_bar_large_title_auto_size")]',
         '//*[contains(@resource-id, "row_profile_header_username")]',
-        '//android.widget.TextView[contains(@text, "@")]'
+        # No catch-all on a text holding an @: with the action bar unreadable it read a bio.
     ])
     action_bar_title_resource_id: str = "com.instagram.android:id/action_bar_title"
 
