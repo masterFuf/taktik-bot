@@ -2,6 +2,7 @@ import random
 import time
 from loguru import logger
 
+from taktik.core.shared.behavior.sampling import sample_within
 from taktik.core.shared.device.facade import BaseDeviceFacade
 
 
@@ -46,9 +47,13 @@ class DeviceFacade(BaseDeviceFacade):
         engine cap (~0.34 of screen height), so a fixed ratio produced an identical distance every
         call (a fixed-distance fingerprint). Sample a per-call value in the 0.28-0.34 band (kept at/
         below the cap so it is NOT clamped to a constant) → varied distance, max unchanged vs before,
-        never longer (no new overshoot risk). Scaled by `scale`."""
+        never longer (no new overshoot risk). Scaled by `scale`; a scaled value outside 0.18-0.34 is
+        drawn again, and a scale that puts the whole band outside lands in a strip beside the
+        limit (0.4 used to give exactly 0.18 on every comment-list scroll)."""
         try:
-            return round(min(max(random.uniform(0.28, 0.34) * (float(scale) / 0.8), 0.18), 0.34), 3)
+            factor = float(scale) / 0.8
+            return round(sample_within(lambda: random.uniform(0.28, 0.34) * factor, 0.18, 0.34,
+                                       edge_band=(0.03, 0.06)), 3)
         except Exception:
             return 0.31
 
@@ -56,9 +61,12 @@ class DeviceFacade(BaseDeviceFacade):
     def _pager_drag_ratio(distance_scale: float) -> float:
         """Travel of a DRAG on the video feed. The pager only turns the page when the finger
         passes about half the screen; the list band (0.28-0.34) snapped back every time
-        (0 advance in 10 on TikTok 46.9.3, against 20 in 20 for the flick)."""
+        (0 advance in 10 on TikTok 46.9.3, against 20 in 20 for the flick). A travel under the
+        0.56 floor is drawn again rather than set to it."""
         try:
-            return round(min(max(random.uniform(0.58, 0.72) * float(distance_scale), 0.56), 0.85), 3)
+            factor = float(distance_scale)
+            return round(sample_within(lambda: random.uniform(0.58, 0.72) * factor, 0.56, 0.85,
+                                       edge_band=(0.04, 0.05)), 3)
         except Exception:
             return 0.62
 
@@ -168,9 +176,12 @@ class DeviceFacade(BaseDeviceFacade):
     def _jitter_point(x: int, y: int, spread: float = 4.0, cap: int = 8) -> tuple:
         """Small gaussian jitter around a target point so repeated coordinate taps never land on
         the exact same pixel (removes the touch-heatmap fingerprint). Kept small (±cap px) so it
-        stays inside the intended button. Prefer human_tap(bounds) when element bounds are known."""
-        dx = max(-cap, min(cap, int(random.gauss(0, spread))))
-        dy = max(-cap, min(cap, int(random.gauss(0, spread))))
+        stays inside the intended button. Prefer human_tap(bounds) when element bounds are known.
+        An offset beyond the cap is drawn again, and offsets are rounded, not truncated toward
+        zero, which used to land twice as many taps on the target's own row and column."""
+        limit = cap + 0.5
+        dx = round(sample_within(lambda: random.gauss(0, spread), -limit, limit))
+        dy = round(sample_within(lambda: random.gauss(0, spread), -limit, limit))
         return x + dx, y + dy
 
     def click(self, x: int, y: int):

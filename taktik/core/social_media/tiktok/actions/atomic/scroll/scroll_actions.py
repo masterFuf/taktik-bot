@@ -6,6 +6,8 @@ from loguru import logger
 import time
 import random
 
+from taktik.core.shared.behavior.sampling import sample_within
+
 from ...core.base_action import BaseAction
 from ....ui.selectors.support.scroll import SCROLL_SELECTORS
 from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
@@ -81,9 +83,9 @@ class ScrollActions(BaseAction):
         try:
             self.logger.debug(f"👀 Watching video for {duration}s")
             
-            # Random variation in watch time
-            actual_duration = duration + random.uniform(-0.5, 1.0)
-            actual_duration = max(1.0, actual_duration)
+            # Random variation in watch time, never under a second (drawn again, not floored)
+            actual_duration = sample_within(lambda: duration + random.uniform(-0.5, 1.0),
+                                            1.0, float('inf'), edge_band=0.5)
             
             time.sleep(actual_duration)
             

@@ -6,6 +6,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.policy import parse_behavior_policy
 from taktik.core.shared.behavior.profiles import resolve_pacing_profile
+from taktik.core.shared.behavior.sampling import sample_within
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
 from taktik.core.shared.diagnostics import run_halt
@@ -400,15 +401,22 @@ class SessionManager:
         """
         delay_config = self.config.get('session_settings', {}).get('delay_between_actions')
         if isinstance(delay_config, dict) and ('min' in delay_config or 'max' in delay_config):
-            delay = random.uniform(delay_config.get('min', 5), delay_config.get('max', 15))
+            low, high = delay_config.get('min', 5), delay_config.get('max', 15)
         else:
-            delay = random.uniform(self.pacing.action_delay_min, self.pacing.action_delay_max)
+            low, high = self.pacing.action_delay_min, self.pacing.action_delay_max
 
         # Pace floor of the guard: never faster than this minimum, whatever the pacing profile
         # chosen elsewhere. This is the lever that breaks the mechanical regularity observed on
         # a fresh account. Zero or absent means no floor, and standalone is unchanged.
         floor = float(self._warmup_policy.get('min_action_gap_seconds', 0) or 0)
-        return max(delay, floor) if floor > 0 else delay
+        if floor <= 0:
+            return random.uniform(low, high)
+        # A delay under the floor is drawn again. When the whole range sits under it, the delay
+        # keeps the range's own spread above the floor: raising every gap to exactly the floor
+        # made the cadence a metronome, the very regularity the floor is there to break.
+        spread = max(abs(high - low), 0.1 * floor)
+        return sample_within(lambda: random.uniform(low, high), floor, float('inf'),
+                             edge_band=spread)
 
     def get_session_stats(self) -> Dict:
         """Return current session statistics.

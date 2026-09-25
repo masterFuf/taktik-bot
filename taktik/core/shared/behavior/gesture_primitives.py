@@ -25,6 +25,7 @@ from typing import List, Optional, Sequence, Tuple
 from loguru import logger as _gesture_logger
 
 from .gesture import sample_swipe
+from .sampling import sample_within
 from taktik.core.shared.telemetry import emit_step
 
 
@@ -235,20 +236,55 @@ _DEVICE_MAX_POINTS = 400
 _CONTROLLED_VEL_RANGE = (800.0, 3200.0)
 
 
-def _controlled_duration(duration: float, distance_px: float, speed: float = 1.0) -> float:
+def _controlled_duration(duration: float, distance_px: float, speed: float = 1.0,
+                         redraw=None) -> float:
     """Keep a controlled gesture's implied velocity inside the human accompanied-drag band.
 
     `sample_swipe` takes its duration from a randomly chosen REAL swipe and only rescales it by
     ±40% for distance, so it is close to independent of how far we ask the finger to travel: the
     same 0.62h request came out anywhere between 169 ms (8000 px/s — a flick, not a drag) and
-    850 ms (1600 px/s). Sampling stays the source of variability; this trims only the two tails a
-    hand cannot produce while staying on the glass. The band scales with `velocity_scale` so a
-    caller asking for a brisker gesture still gets one.
+    850 ms (1600 px/s). Sampling stays the source of variability; the two tails a hand cannot
+    produce while staying on the glass are drawn again with `redraw` (a fresh sampled duration),
+    not trimmed onto the band's edge -- trimming put half the long drags at exactly 3200 px/s.
+    Without `redraw`, or when no redraw fits, the duration comes from a strip beside the edge
+    the draws were missing. The band scales with `velocity_scale` so a caller asking for a
+    brisker gesture still gets one.
     """
     if distance_px <= 0:
         return duration
     lo, hi = _CONTROLLED_VEL_RANGE[0] * speed, _CONTROLLED_VEL_RANGE[1] * speed
-    return min(max(duration, distance_px / hi), distance_px / lo)
+    shortest, longest = distance_px / hi, distance_px / lo
+    return sample_within(
+        redraw or (lambda: duration), shortest, longest,
+        first=duration, max_tries=32 if redraw else 0,
+        edge_band=0.10 * (longest - shortest),
+    )
+
+
+def _fling_total_duration(dy: float) -> float:
+    """Total duration of the legacy curved fling: dy over a release velocity of 2800-3800 px/s,
+    kept in 0.06-0.24 s by drawing the velocity again. A flick too short (or too long) for any
+    velocity of the band lands in a narrow strip beside the limit instead of on it."""
+    return sample_within(lambda: dy / random.uniform(2800, 3800), 0.06, 0.24, edge_band=0.02)
+
+
+def _flick_duration(dy: float, vel_range: Tuple[float, float]) -> float:
+    """Duration of a decisive flick: dy over a release velocity drawn from `vel_range`.
+
+    The floor (45 ms, enough steps for uiautomator2 to inject a real move) and the ceiling
+    (110 ms, still a fling) are not piled on: a velocity that misses is drawn again. Most feed
+    flicks are too short for any velocity of the band to reach the floor; those take a duration
+    in the 45-75 ms strip above it, as they already did."""
+    return sample_within(lambda: dy / random.uniform(*vel_range), 0.045, 0.11,
+                         edge_band=(0.030, 0.015))
+
+
+def _drag_duration(dy: float, vel_range: Tuple[float, float]) -> float:
+    """Duration of a long continuous drag: dy over a velocity drawn from `vel_range`, in
+    0.40-0.85 s. A long drag near the top of the band draws its velocity again rather than
+    lasting exactly 0.85 s -- which nine drags in ten of 0.75h did."""
+    return sample_within(lambda: dy / random.uniform(*vel_range), 0.40, 0.85,
+                         edge_band=0.06)
 
 
 def _min_jerk(u: float) -> float:
@@ -323,7 +359,7 @@ class GestureMixin:
         is proportional to the flick distance — instead of the wildly variable coast a fixed random
         duration produced. Used by the legacy `_human_swipe` profile."""
         dy = abs(path[-1][1] - path[0][1]) or 1
-        return min(max(dy / random.uniform(2800, 3800), 0.06), 0.24)
+        return _fling_total_duration(dy)
 
     def _human_swipe(self, direction: str = "up", distance_px: Optional[float] = None,
                      start_band: Optional[tuple] = None, controlled: bool = False,
@@ -336,21 +372,29 @@ class GestureMixin:
         final segment the slowest, so it does NOT trigger a real fling (the content tracks the
         finger ~1:1). For a true coast use `_strong_flick`."""
         try:
-            path, duration = sample_swipe(
-                int(self.screen_width), int(self.screen_height),
-                direction=direction, distance_px=distance_px, start_band=start_band,
-                # Controlled 1:1 gestures often need half to two-thirds of a screen. The historical
-                # 0.34h cap was tuned for the coasting curve and silently shortened grid/retry drags.
-                dist_cap_h=0.95 if controlled else 0.34,
-            )
+            def sample():
+                return sample_swipe(
+                    int(self.screen_width), int(self.screen_height),
+                    direction=direction, distance_px=distance_px, start_band=start_band,
+                    # Controlled 1:1 gestures often need half to two-thirds of a screen. The
+                    # historical 0.34h cap was tuned for the coasting curve and silently shortened
+                    # grid/retry drags.
+                    dist_cap_h=0.95 if controlled else 0.34,
+                )
+
+            path, duration = sample()
             path = self._prepare_gesture_path(path, guard_start=guard_start)
             speed = min(1.50, max(0.60, float(velocity_scale)))
             duration = duration / speed
             if controlled:
                 # A controlled gesture tracks the finger, so its duration must be coherent with the
                 # distance it is asked to cover. The fling branch below overrides the duration with
-                # `_fling_total` and never needed this.
-                duration = _controlled_duration(duration, abs(path[-1][1] - path[0][1]), speed)
+                # `_fling_total` and never needed this. A duration out of the band is replaced by
+                # the duration of another sampled swipe for the same request.
+                duration = _controlled_duration(
+                    duration, abs(path[-1][1] - path[0][1]), speed,
+                    redraw=lambda: sample()[1] / speed,
+                )
             n_seg = max(1, len(path) - 1)
             raw = getattr(self.device, "_device", None)
 
@@ -404,13 +448,10 @@ class GestureMixin:
             dy = abs(ey - sy) or 1
             speed = min(1.50, max(0.50, float(velocity_scale)))
             scaled_vel_range = tuple(float(value) * speed for value in vel_range)
-            # Randomise the FLOOR so short flicks are not all clamped to one identical value: on
-            # a video feed most flicks are short, so a hard floor turns the duration into a
-            # constant. The sampled range still lifts with enough velocity to fling.
-            duration = min(
-                max(dy / random.uniform(*scaled_vel_range), random.uniform(0.045, 0.075)),
-                0.11,
-            )
+            # On a video feed most flicks are short, so a hard floor would turn the duration into
+            # a constant: see `_flick_duration`. The sampled range still lifts with enough
+            # velocity to fling.
+            duration = _flick_duration(dy, scaled_vel_range)
             raw = getattr(self.device, "_device", None)
             if raw is not None and hasattr(raw, "swipe"):
                 raw.swipe(sx, sy, ex, ey, duration=duration)
@@ -452,7 +493,7 @@ class GestureMixin:
             dy = abs(ey - sy) or 1
             speed = min(1.50, max(0.50, float(velocity_scale)))
             scaled_vel_range = tuple(float(value) * speed for value in vel_range)
-            duration = min(max(dy / random.uniform(*scaled_vel_range), 0.40), 0.85)
+            duration = _drag_duration(dy, scaled_vel_range)
             raw = getattr(self.device, "_device", None)
             if not self._execute_device_path(raw, path, duration):
                 touch = self._touch_api(raw)
@@ -655,27 +696,34 @@ class GestureMixin:
                 local_w, local_h = right - left, bottom - top
                 sy = (top + bottom) / 2 + local_h * random.uniform(-0.025, 0.025)
                 ey = sy + min(0.02 * h, 0.04 * local_h) * random.uniform(-1.0, 1.0)
-                dist = local_w * distance_ratio * reach * random.uniform(0.9, 1.05)
+                span, x0 = local_w, left
                 if direction == "left":
-                    sx = left + local_w * random.uniform(0.78, 0.86)
-                    ex = sx - dist
+                    start_band = (0.78, 0.86)
                 else:
-                    sx = left + local_w * random.uniform(0.14, 0.22)
-                    ex = sx + dist
-                ex = min(max(ex, left + 0.05 * local_w), right - 0.05 * local_w)
+                    start_band = (0.14, 0.22)
             else:
                 base_y = y_ratio if y_ratio is not None else random.uniform(0.42, 0.58)
                 sy = h * base_y
                 ey = sy + h * random.uniform(-0.02, 0.02)      # slight vertical wobble
-                dist = w * distance_ratio * reach * random.uniform(0.9, 1.05)
+                span, x0 = w, 0
                 if direction == "left":
-                    sx = w * random.uniform(0.78, 0.88)
-                    ex = sx - dist
+                    start_band = (0.78, 0.88)
                 else:
-                    sx = w * random.uniform(0.12, 0.22)
-                    ex = sx + dist
-                ex = min(max(ex, 0.05 * w), 0.95 * w)
-            duration = min(0.50, max(0.16, random.uniform(0.22, 0.38) / speed))
+                    start_band = (0.12, 0.22)
+            sign = -1.0 if direction == "left" else 1.0
+            nominal = span * distance_ratio * reach
+            # The travel is drawn before the start, as it always was, so a seeded run replays.
+            dist = nominal * random.uniform(0.9, 1.05)
+            sx = x0 + span * random.uniform(*start_band)
+            # The end stays 5% inside the zone. A travel that would cross it is drawn again, so
+            # a long reach does not lift every swipe on the same column.
+            ex = sample_within(
+                lambda: sx + sign * nominal * random.uniform(0.9, 1.05),
+                x0 + 0.05 * span, x0 + 0.95 * span,
+                first=sx + sign * dist, edge_band=0.04 * span,
+            )
+            duration = sample_within(lambda: random.uniform(0.22, 0.38) / speed, 0.16, 0.50,
+                                     edge_band=0.04)
             raw = getattr(self.device, "_device", None)
             if raw is not None and hasattr(raw, "swipe"):
                 raw.swipe(int(sx), int(sy), int(ex), int(ey), duration=duration)
