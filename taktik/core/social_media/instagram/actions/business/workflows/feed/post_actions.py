@@ -122,6 +122,25 @@ class FeedPostActionsMixin:
         if author:
             self.like_business.record_post_like(author)
     
+    def _comment_feed_post(self, author: str, config: Dict[str, Any],
+                           comment_text: Optional[str] = None) -> Dict[str, Any]:
+        """Comment the feed post on screen, filed under its author.
+
+        The production comment (`CommentAction.comment_on_post`, the hashtag posts pass's): it
+        files the comment at the send (session counter, ledger row, posted_comments), looks for
+        "Try again later" and closes the sheet it opened. The text is `comment_text` when the
+        caller has one (the Taktik Agent autopilot's AI), else the AI comment hook's, else one of
+        the operator's custom comments. Never a built-in template (`template_fallback=False`):
+        with no AI and no custom comment, the Feed does not comment (Kevin, 2026-09-25), the
+        same few fixed comments on post after post being a trace of automation."""
+        return self.comment_business.comment_on_post(
+            comment_text=comment_text,
+            custom_comments=(config or {}).get('custom_comments'),
+            config=config,
+            username=author,
+            template_fallback=False,
+        ) or {}
+
     def _extract_post_metadata(self) -> Optional[Dict[str, Any]]:
         """Metadata of the currently visible post (likes, comments)."""
         try:

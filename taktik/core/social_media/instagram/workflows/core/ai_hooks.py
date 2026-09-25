@@ -231,7 +231,11 @@ def install_instagram_ai_hooks(
                 custom_comments=None,
                 config=None,
                 username=None,
+                **passthrough,
             ):
+                # Every other argument of the action goes through (`template_fallback`, which
+                # the Feed passes): a wrapper that takes only these six raises TypeError on
+                # them, as the like wrapper did on `record_as`.
                 if comment_text:
                     return original_comment_on_post(
                         self_comment,
@@ -240,6 +244,7 @@ def install_instagram_ai_hooks(
                         custom_comments=custom_comments,
                         config=config,
                         username=username,
+                        **passthrough,
                     )
 
                 def skip_comment(reason: str, stage: str) -> dict[str, Any]:
@@ -508,6 +513,7 @@ def install_instagram_ai_hooks(
                             custom_comments=None,
                             config=config,
                             username=username,
+                            **{k: v for k, v in passthrough.items() if k != "ai_metadata"},
                             # Everything only this hook knows about how the comment was
                             # produced, so the stored record answers "which post, which
                             # model, what did it cost, why this comment" later on.
@@ -553,6 +559,7 @@ def install_instagram_ai_hooks(
                     custom_comments=custom_comments,
                     config=config,
                     username=username,
+                    **passthrough,
                 )
 
             CommentAction.comment_on_post = ai_comment_on_post

@@ -36,24 +36,36 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
     
     def comment_on_post(self, comment_text: str = None, template_category: str = 'generic',
                        custom_comments: List[str] = None, config: dict = None, username: str = None,
-                       ai_metadata: Optional[Dict[str, Any]] = None) -> dict:
+                       ai_metadata: Optional[Dict[str, Any]] = None,
+                       template_fallback: bool = True) -> dict:
         """Post a comment. `ai_metadata` carries what only the AI hook knows (model, cost,
         reasoning, post caption/description, language) so the stored record of the comment
-        is complete; it stays None for template/custom comments."""
+        is complete; it stays None for template/custom comments.
+
+        `template_fallback=False`: with no text and no custom comment, post nothing rather than
+        a built-in template (skipped result, the screen untouched). The Feed asks for it: the
+        same few fixed comments on post after post are a trace of automation (Kevin,
+        2026-09-25). The AI hook forwards it, so a failed generation does not fall back on a
+        template either."""
         config = {**self.default_config, **(config or {})}
-        
+
         stats = {
             'commented': False,
             'comment_text': None,
             'errors': 0,
             'success': False
         }
-        
+
         try:
             if not comment_text:
                 if custom_comments and len(custom_comments) > 0:
                     comment_text = random.choice(custom_comments)
                     self.logger.debug(f"Using custom comment from user list")
+                elif not template_fallback:
+                    self.logger.info("No comment text (no AI comment, no custom comment): not commenting")
+                    stats['skipped'] = True
+                    stats['skip_reason'] = 'no_comment_text'
+                    return stats
                 else:
                     comment_text = get_random_comment(self.comment_templates, template_category)
                     self.logger.debug(f"Using template comment from category: {template_category}")

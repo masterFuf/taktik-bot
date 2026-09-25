@@ -359,21 +359,19 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         # touches the screen: the first refusal ends the run.
                         blocked = liked and self._stop_if_action_blocked(post_author, 'like')
 
-                        # Comment the post when configured: the production comment, the one the
-                        # hashtag posts pass uses. It files the comment at the send (session
-                        # counter, ledger row, posted_comments) and closes the sheet it opened.
+                        # Comment the post when configured: the production comment, filed at the
+                        # send (`_comment_feed_post`). Without an AI comment or a custom comment
+                        # there is no comment at all, never a built-in template.
                         if liked and not blocked and random.randint(1, 100) <= effective_config.get('comment_percentage', 0):
-                            result = self.comment_business.comment_on_post(
-                                custom_comments=effective_config.get('custom_comments'),
-                                config=effective_config,
-                                username=post_author,
-                            )
-                            if result and result.get('commented'):
+                            result = self._comment_feed_post(post_author, effective_config)
+                            if result.get('commented'):
                                 stats['comments_made'] += 1
                                 self.stats_manager.increment('comments')
                                 self.logger.info(f"💬 Comment posted (@{post_author})")
                                 commented = True
-                            blocked = self._stop_if_action_blocked(post_author, 'comment')
+                            # Nothing was sent when the comment was skipped: no screen to read.
+                            if not result.get('skipped'):
+                                blocked = self._stop_if_action_blocked(post_author, 'comment')
 
                         if liked or commented:
                             # An engaged feed post IS the output of this workflow: it visits no
