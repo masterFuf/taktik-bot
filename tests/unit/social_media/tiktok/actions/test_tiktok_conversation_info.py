@@ -49,6 +49,18 @@ class _Device:
             return _Selection("Alex")
         return _Selection(None)
 
+    def snapshot(self):
+        """One photo of this screen: the probes read the conversation name on it."""
+
+        def elements(selector):
+            if selector in CONVERSATION_SELECTORS.group_member_count:
+                return [] if self.member_count is None else [_Element(self.member_count)]
+            if selector == CONVERSATION_SELECTORS.conversation_name[0]:
+                return [_Element("Alex")]
+            return []
+
+        return types.SimpleNamespace(elements=elements)
+
 
 @pytest.fixture
 def sleeps(monkeypatch):
