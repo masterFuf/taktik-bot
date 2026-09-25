@@ -27,6 +27,46 @@ meta:
 
 versions:
 
+  # ─── Instagram v447.x ───────────────────────────────────────────────
+  # Verified against live v447.0.0.55.81 dumps (Pixel 6a, French, 2026-09-24):
+  # kopzovodka and ubisoft (professional), simonerocha_ (certified, personal),
+  # benjaminfmr (private). The v410 dumps of the same profiles, same day
+  # (Pixel 3), keep the baseline.
+  #
+  # Profile header: the category line lost its id (`profile_header_business_category`)
+  # and moved INTO the info block `profile_user_info_compose_view`, as the TextView
+  # right under its first View; the bio sits one View deeper. So the professional
+  # flag and the category read nothing, and the bio read the category ("Gaming"
+  # as the bio of ubisoft). Each list repeats the baseline entries: an override
+  # replaces the whole list.
+  #
+  # Hashtag search: the untapped search bar is a Button (a field once tapped),
+  # which the EditText-only entries missed; a hashtag run ended at once on
+  # "sources exhausted" (2026-09-24). The same id, any class.
+  "447.0.0.0":
+
+    detection._business_account_indicators_base:
+      - '//*[contains(@resource-id, "profile_header_business_category")]'
+      - '//*[contains(@resource-id, "profile_user_info_compose_view")]/android.view.View/android.widget.TextView'
+
+    detection._hashtag_search_bar_selectors_base:
+      - '//*[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]'
+      - '//android.widget.EditText[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]'
+      - '//android.widget.EditText[@clickable="true"]'
+
+    profile.enrichment_category_selectors:
+      - '//*[@resource-id="com.instagram.android:id/profile_header_business_category"]'
+      - '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]/android.view.View/android.widget.TextView'
+
+    profile.bio:
+      - '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//android.widget.TextView[not(parent::*/parent::*[contains(@resource-id, "profile_user_info_compose_view")])]'
+      - '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]'
+      - '//*[contains(@resource-id, "profile_header_bio_text")]'
+
+    profile.enrichment_bio_selectors:
+      - '//*[@resource-id="com.instagram.android:id/profile_user_info_compose_view"]//android.widget.TextView[not(parent::*/parent::*[contains(@resource-id, "profile_user_info_compose_view")])]'
+      - '//*[@resource-id="com.instagram.android:id/profile_header_bio_text"]'
+
   # ─── Instagram v442.x ───────────────────────────────────────────────
   # Verified against a live v442.0.0.46.79 device dump (2026-08-25).
   #

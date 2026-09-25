@@ -149,10 +149,7 @@ class DetectionSelectors:
         return self._search_bar_selectors_base + L("detection.search_bar_selectors")
 
     _hashtag_search_bar_selectors_base: List[str] = field(default_factory=lambda: [
-        # Any class: on IG 447 the untapped search bar is a Button (it becomes a field once
-        # tapped), and the EditText-only entries below found nothing -- a hashtag run on 447
-        # ended at once on "sources exhausted" (2026-09-24). Same entry as `explore_search_bar`.
-        '//*[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]',
+        # IG 447 (a Button until tapped): compat/data/overrides/instagram.yaml.
         '//android.widget.EditText[@resource-id="com.instagram.android:id/action_bar_search_edit_text"]',
         '//android.widget.EditText[@clickable="true"]'
     ])

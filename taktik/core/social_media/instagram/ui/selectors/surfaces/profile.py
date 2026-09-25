@@ -32,8 +32,9 @@ class ProfileSelectors:
     profile_header_container: str = '//*[@resource-id="com.instagram.android:id/profile_header_container"]'
 
     bio: List[str] = field(default_factory=lambda: [
-        # The bio moved into a Jetpack Compose container on IG 442 (`profile_user_info_compose_view`),
-        # and `profile_header_bio_text` disappeared. The text node is reached by TAG, not by
+        # The bio lives in a Jetpack Compose container (`profile_user_info_compose_view`), on 410
+        # as on 442: every 410 profile dump of the Lab corpus shows it, none shows
+        # `profile_header_bio_text`. The text node is reached by TAG, not by
         # `@class=`: uiautomator2 renames every `<node class="X">` to `<X>` and DROPS the attribute,
         # so `@class` does not exist in the tree a selector is evaluated against. The legacy
         # resource-id stays as a fallback for older builds that still expose it.
