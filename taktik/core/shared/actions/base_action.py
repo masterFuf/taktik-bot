@@ -21,6 +21,7 @@ from taktik.core.shared.input.taktik_keyboard import (
     IME_CLEAR_TEXT,
     is_taktik_keyboard_active,
     activate_taktik_keyboard,
+    ensure_taktik_keyboard,
     type_text_checked,
     type_with_taktik_keyboard,
 )
@@ -439,6 +440,15 @@ class SharedBaseAction:
         try:
             device_serial = self._get_device_serial()
             return activate_taktik_keyboard(device_serial)
+        except Exception as e:
+            self.logger.error(f"❌ Error activating Taktik Keyboard: {e}")
+            return False
+
+    def _ensure_taktik_keyboard(self) -> bool:
+        """Switch to Taktik Keyboard BEFORE tapping the field it will type into
+        (`ensure_taktik_keyboard`): a switch after the tap can cost the field its focus."""
+        try:
+            return ensure_taktik_keyboard(self._get_device_serial())
         except Exception as e:
             self.logger.error(f"❌ Error activating Taktik Keyboard: {e}")
             return False

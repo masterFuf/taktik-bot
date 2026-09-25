@@ -13,7 +13,11 @@ import time
 from typing import Any, Dict, List, Optional
 from loguru import logger
 
-from taktik.core.shared.input.taktik_keyboard import field_holds_text, type_text_checked
+from taktik.core.shared.input.taktik_keyboard import (
+    ensure_taktik_keyboard,
+    field_holds_text,
+    type_text_checked,
+)
 from taktik.core.shared.text import fold_for_match
 from ....services.notifications.activity import clean_row_text
 from ...core.base_action import BaseAction
@@ -945,7 +949,13 @@ class DMActions(BaseAction):
             True if text was entered successfully
         """
         self.logger.debug(f"⌨️ Typing message ({len(text)} chars)...")
-        
+
+        # The keyboard is switched BEFORE the tap: switched after it, the composer folds with the
+        # keyboard it opened and drops its focus, and the text goes nowhere (`ensure_taktik_keyboard`).
+        device_id = getattr(self.device, "device_id", None) or getattr(self.device, "serial", None)
+        if device_id:
+            ensure_taktik_keyboard(str(device_id))
+
         # Click on input field first
         if not self._find_and_click(self.conversation_selectors.message_input_field, timeout=3):
             self.logger.warning("Message input field not found")
@@ -968,7 +978,6 @@ class DMActions(BaseAction):
         time.sleep(0.2)
 
         # The composer must end up holding exactly `text`: read back, retyped once if not.
-        device_id = getattr(self.device, "device_id", None) or getattr(self.device, "serial", None)
         if device_id:
             try:
                 if type_text_checked(self.device, str(device_id), text):

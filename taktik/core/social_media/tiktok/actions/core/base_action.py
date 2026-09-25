@@ -188,6 +188,8 @@ class BaseAction(SharedBaseAction):
         
         start_time = time.time()
         last_error = None  # a field never found, without any error, reached the report unbound
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
 
         while time.time() - start_time < timeout:
             for selector in selectors:

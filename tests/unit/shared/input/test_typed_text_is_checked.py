@@ -195,3 +195,40 @@ def test_a_lost_mention_is_typed_back(phone):
 def test_what_counts_as_the_same_text(phone, read, same):
     phone.field = read
     assert kb.field_holds_text(phone, "Test TAKTIK") is same
+
+
+class UnfocusedScreen:
+    """A screen where no node reports the focus, as TikTok's DM composer once typed into."""
+
+    def __init__(self, *texts):
+        self.texts = list(texts)
+
+    def __call__(self, **selector):
+        screen = self
+
+        class _Selection:
+            @property
+            def count(self):
+                return len(screen.texts)
+
+            @property
+            def info(self):
+                if selector.get("focused") or not screen.texts:
+                    raise RuntimeError("UiObjectNotFoundError")
+                return {"text": screen.texts[0], "focused": False}
+
+        return _Selection()
+
+
+def test_an_unfocused_field_is_read_when_it_is_the_only_one():
+    assert kb.read_focused_text(UnfocusedScreen("hello there")) == "hello there"
+    assert kb.field_holds_text(UnfocusedScreen("hello there"), "hello there")
+
+
+def test_two_unfocused_fields_are_not_guessed():
+    assert kb.read_focused_text(UnfocusedScreen("hello there", "search")) is None
+    assert not kb.field_holds_text(UnfocusedScreen("hello there", "search"), "hello there")
+
+
+def test_no_field_at_all_reads_nothing():
+    assert kb.read_focused_text(UnfocusedScreen()) is None

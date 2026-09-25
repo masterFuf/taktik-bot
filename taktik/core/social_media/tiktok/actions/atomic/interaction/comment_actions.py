@@ -17,9 +17,8 @@ from typing import Any, Dict, List, Optional
 
 from taktik.core.shared.text import as_xml_dumped
 from taktik.core.shared.input.taktik_keyboard import (
-    activate_taktik_keyboard,
     clear_text_with_taktik_keyboard,
-    is_taktik_keyboard_active,
+    ensure_taktik_keyboard,
     type_text_checked,
 )
 
@@ -453,6 +452,9 @@ class CommentActions(BaseAction):
         if not inputs:
             self.logger.warning("The comment composer was not found")
             return False
+        serial = self._get_device_serial()
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        ensure_taktik_keyboard(serial)
         try:
             if not tap_element_human(self.device, inputs[0], logger=self.logger):
                 inputs[0].click()
@@ -461,10 +463,6 @@ class CommentActions(BaseAction):
             return False
         self._human_like_delay('click')
 
-        serial = self._get_device_serial()
-        if not is_taktik_keyboard_active(serial):
-            activate_taktik_keyboard(serial)
-            time.sleep(0.8)
         # Read back and retyped once if the field does not hold exactly the comment.
         if not type_text_checked(self.device, serial, text, typos=False):
             self.logger.warning("The comment field does not hold the comment: not sent")

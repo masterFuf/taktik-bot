@@ -121,3 +121,63 @@ def test_a_message_that_cannot_be_typed_right_is_not_sent(monkeypatch):
     assert _actions(phone, monkeypatch).send_text_message("Test TAKTIK") is False
 
     assert phone.sent == []
+
+
+_REAL_IS_ACTIVE = kb.is_taktik_keyboard_active
+
+
+class _FoldingComposerPhone(_Phone):
+    """TikTok 47.0.3 on Android 16, measured on a Pixel 6a: switching keyboards while the composer
+    is focused hides the keyboard it opened, the composer folds and drops its focus, and every
+    text or backspace sent after that goes nowhere (the field keeps its hint)."""
+
+    def __init__(self):
+        super().__init__()
+        self.keyboard = kb.GBOARD_IME
+        self.focused = False
+        self.steps = []
+
+    def shell(self, device_id, command):
+        if "default_input_method" in command:
+            return self.keyboard
+        if command.startswith("ime set "):
+            self.keyboard = command[len("ime set "):]
+            self.steps.append("switch")
+            self.focused = False
+            return f"Input method {self.keyboard} selected for user #0"
+        if ("ADB_INPUT_B64" in command or "ADB_CLEAR_TEXT" in command) and (
+                self.keyboard != kb.TAKTIK_KEYBOARD_IME or not self.focused):
+            return "Broadcast completed: result=0"
+        return super().shell(device_id, command)
+
+    def __call__(self, **selector):
+        if selector.get("focused") and not self.focused:
+            raise RuntimeError("UiObjectNotFoundError")
+        return types.SimpleNamespace(
+            count=1, info={"text": self.composer or PLACEHOLDER, "focused": self.focused})
+
+
+def test_the_keyboard_is_switched_before_the_composer_is_tapped(monkeypatch):
+    """Switched after the tap (tap, then the switch inside the clear or the typing), the message
+    never reached the composer and nothing could be sent."""
+    monkeypatch.setattr(kb, "is_taktik_keyboard_active", _REAL_IS_ACTIVE)
+    monkeypatch.setattr(kb, "_active_ime_cache", {})
+    monkeypatch.setattr(kb, "_original_ime", {})
+    monkeypatch.setattr(kb, "_atexit_registered", True)
+    monkeypatch.setattr(typing_plan, "build_typing_plan", lambda text, rng=None: [("type", text)])
+    phone = _FoldingComposerPhone()
+    dm = _actions(phone, monkeypatch)
+    click = dm._find_and_click
+
+    def find_and_click(selectors, timeout=2):
+        if selectors == CONVERSATION_SELECTORS.message_input_field:
+            phone.steps.append("tap")
+            phone.focused = True
+        return click(selectors, timeout)
+
+    dm._find_and_click = find_and_click
+
+    assert dm.send_text_message("Test TAKTIK") is True
+
+    assert phone.steps == ["switch", "tap"]
+    assert phone.sent == ["Test TAKTIK"]

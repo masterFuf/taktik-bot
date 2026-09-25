@@ -140,17 +140,30 @@ _BIND_POLL_SECONDS = 0.1
 def _taktik_keyboard_bound(device_id: str) -> Optional[bool]:
     """Is the ADB keyboard the input method Android has bound, with a live connection?
 
+    Up to Android 15 one line says it (`mCurId=... mHaveConnection=true ... mBoundToMethod=true`).
+    Android 16 writes one field per line (`mCurImeId=`, `mHasMainConnection=`, `mBoundToMethod=`)
+    and has no `mCurId=`: read as "unknown", a switch there was never waited on.
+
     None when `dumpsys input_method` does not say (another Android version, an adb error): the
     caller then cannot wait on it and goes on as before.
     """
     out = run_adb_shell(device_id, "dumpsys input_method") or ""
-    marker = f"mCurId={TAKTIK_KEYBOARD_IME} "
-    if "mCurId=" not in out:
+    if "mCurId=" in out:
+        marker = f"mCurId={TAKTIK_KEYBOARD_IME} "
+        for line in out.splitlines():
+            if marker in line:
+                return "mHaveConnection=true" in line and "mBoundToMethod=true" in line
+        return False
+    values: Dict[str, set] = {}
+    for token in out.split():
+        name, sep, value = token.partition("=")
+        if sep and name in ("mCurImeId", "mHasMainConnection", "mBoundToMethod"):
+            values.setdefault(name, set()).add(value)
+    if "mCurImeId" not in values:
         return None
-    for line in out.splitlines():
-        if marker in line:
-            return "mHaveConnection=true" in line and "mBoundToMethod=true" in line
-    return False
+    return (TAKTIK_KEYBOARD_IME in values["mCurImeId"]
+            and "true" in values.get("mHasMainConnection", ())
+            and "true" in values.get("mBoundToMethod", ()))
 
 
 def _wait_until_bound(device_id: str) -> None:
@@ -195,6 +208,17 @@ def activate_taktik_keyboard(device_id: str) -> bool:
     except Exception as exc:
         logger.error(f"Error activating Taktik Keyboard: {exc}")
         return False
+
+
+def ensure_taktik_keyboard(device_id: str) -> bool:
+    """Make Taktik Keyboard the phone's keyboard BEFORE the field it will type into is focused.
+
+    Switching keyboards while a field is focused hides the keyboard on screen. TikTok's DM
+    composer (47.0.3, Android 16) folds when its keyboard goes and drops the focus: every text
+    and backspace sent after the switch lands nowhere, and the field keeps its hint. Switched
+    before the tap, the field is focused with this keyboard already there and keeps the text.
+    """
+    return is_taktik_keyboard_active(device_id) or activate_taktik_keyboard(device_id)
 
 
 def typing_seconds(text: str, delay_mean: int = 80, delay_deviation: int = 30) -> float:
@@ -343,14 +367,30 @@ def read_focused_text(device) -> Optional[str]:
     Read over uiautomator2's JSON-RPC (`device(focused=True).info`), not an XML dump: a dump
     turns every emoji into dots, so a correct text would never compare equal. An empty field
     may read as its hint; that never equals a text we typed.
+
+    The focus flag is not reliable: TikTok's DM composer (47.0.3, Android 16) holds the typed
+    text with focused="false" once the Taktik Keyboard has typed into it. Without a focused
+    field, the screen's only text field is read; with several, none is (which one received the
+    text is unknown).
     """
     for selector in ({"focused": True, "className": "android.widget.EditText"}, {"focused": True}):
         try:
             info = device(**selector).info
-        except Exception:
+        except Exception as exc:
+            logger.debug(f"No focused field with {selector}: {type(exc).__name__}")
             continue
         if isinstance(info, dict):
             return info.get("text") or ""
+    try:
+        fields = device(className="android.widget.EditText")
+        count = fields.count
+        if count == 1:
+            info = fields.info
+            if isinstance(info, dict):
+                return info.get("text") or ""
+        logger.warning(f"No focused field, and {count} text fields on screen: cannot read it back")
+    except Exception as exc:
+        logger.warning(f"Typed field not readable: {type(exc).__name__}: {exc}")
     return None
 
 
@@ -443,6 +483,7 @@ __all__ = [
     "IME_CLEAR_TEXT",
     "is_taktik_keyboard_active",
     "activate_taktik_keyboard",
+    "ensure_taktik_keyboard",
     "remember_original_keyboard",
     "restore_original_keyboard",
     "restore_all_keyboards",
