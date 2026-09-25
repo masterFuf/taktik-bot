@@ -25,7 +25,6 @@ import random
 import time
 from typing import Any, Dict, List, Optional
 
-from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from ....atomic.interaction.profile_interaction import classify_follow_state
@@ -52,23 +51,12 @@ class FeedSuggestionsMixin:
     # ------------------------------------------------------------------
 
     def _suggestions_dump_root(self):
-        """Dump complet (non compresse) tel que `parse_ui_dump` le rend, ou None."""
-        xml = None
+        """L'arbre d'une photo d'ecran (un dump complet, l'arbre que voit `d.xpath()`), ou None."""
         try:
-            xml = self.device.dump_hierarchy(compressed=False)
-        except TypeError:
-            try:
-                xml = self.device.dump_hierarchy()
-            except Exception as exc:
-                self.logger.debug(f"dump_hierarchy failed: {exc}")
+            return self.device.snapshot().root
         except Exception as exc:
-            self.logger.debug(f"dump_hierarchy failed: {exc}")
-        if not xml:
+            self.logger.debug(f"screen photo failed: {exc}")
             return None
-        root = parse_ui_dump(xml)
-        if root is None:
-            self.logger.debug("XML parse failed")
-        return root
 
     def has_feed_suggestions_carousel(self) -> bool:
         """LIGHT carousel probe: one device access, no full dump.

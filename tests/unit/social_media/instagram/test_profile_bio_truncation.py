@@ -1,3 +1,4 @@
+from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.atomic.detection.profile_extraction import (
     ProfileExtractionMixin,
     _bio_text_looks_truncated,
@@ -21,6 +22,13 @@ class _Device:
     def get_xml_dump(self, **kwargs):
         self.dump_calls.append(kwargs)
         return self.xml
+
+    def snapshot(self):
+        # The facade's screen photo: one dump.
+        return ScreenSnapshot(self.get_xml_dump())
+
+    def snapshot_of(self, xml):
+        return ScreenSnapshot(xml)
 
     def click_coordinates(self, x, y):
         self.clicks.append((x, y))

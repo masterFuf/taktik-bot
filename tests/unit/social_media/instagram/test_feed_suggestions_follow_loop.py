@@ -14,6 +14,7 @@ import logging
 
 import pytest
 
+from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions import (
     FeedSuggestionsMixin,
 )
@@ -65,6 +66,10 @@ class _FakeDevice:
 
     def dump_hierarchy(self, compressed=False):
         return self._dumps.pop(0) if len(self._dumps) > 1 else self._dumps[0]
+
+    def snapshot(self):
+        # The facade's screen photo: one dump.
+        return ScreenSnapshot(self.dump_hierarchy())
 
     def human_tap(self, bounds):
         self.taps.append(tuple(bounds))

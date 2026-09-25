@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from loguru import logger
 
 from taktik.core.shared.actions.utils import ActionUtils
+from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.atomic.detection.profile_extraction import (
     ProfileExtractionMixin,
     _handle_from_node,
@@ -37,6 +38,13 @@ class _DumpDevice:
 
     def get_xml_dump(self, **_kwargs):
         return self._xml
+
+    def snapshot(self):
+        # The facade's screen photo: one dump.
+        return ScreenSnapshot(self.get_xml_dump())
+
+    def snapshot_of(self, xml):
+        return ScreenSnapshot(xml)
 
 
 class _XPathDevice:

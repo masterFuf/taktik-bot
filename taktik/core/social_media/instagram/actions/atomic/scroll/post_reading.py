@@ -11,7 +11,7 @@ text into view), browse 1-2 carousel slides, and `human_reading_pause` — the o
 beat whose TOTAL time matches the CONTENT (image glance vs prose-proportional reading, from
 `taktik.core.shared.behavior.dwell`).
 
-Pure mixin — host must expose `self.device` (facade with `_device.dump_hierarchy` and
+Pure mixin — host must expose `self.device` (facade with `snapshot()` and
 `click_coordinates`), `self.screen_height`, `self.logger`, and the `_long_drag` gesture
 primitive (shared `GestureMixin`). `FeedScrollMixin` inherits this; the like workflow reaches
 it through its composed `scroll_actions`.
@@ -24,7 +24,6 @@ from typing import Optional
 
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
-from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.text import text_lost_emoji
 
 # uiautomator bounds string: "[left,top][right,bottom]" — shared with the feed engine.
@@ -52,13 +51,11 @@ class PostReadingMixin:
     and `_long_drag`."""
 
     def _dump_root(self):
-        """One hierarchy dump → `parse_ui_dump` root (or None). Used by the reading actions; called
-        during a multi-second reading pause, so its freeze overlaps the dwell (invisible)."""
+        """The tree of one screen photo (one dump; the tree `d.xpath()` sees), or None. Used by
+        the reading actions; called during a multi-second reading pause, so its freeze overlaps
+        the dwell (invisible)."""
         try:
-            xml = self.device._device.dump_hierarchy()
-            root = parse_ui_dump(xml)
-            if root is None:
-                raise ValueError("unparseable hierarchy dump")
+            root = self.device.snapshot().root
             remember_geometry = getattr(self, "_remember_post_action_geometry", None)
             if callable(remember_geometry):
                 remember_geometry(root)

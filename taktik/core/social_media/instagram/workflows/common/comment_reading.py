@@ -79,11 +79,13 @@ def parse_litho_comments(dumpsys_output: str) -> List[Dict[str, Any]]:
 
 def extract_visible_comment_usernames(xml: str) -> Set[str]:
     """Lower-cased usernames currently on screen, from a hierarchy dump."""
-    visible: Set[str] = set()
     root = parse_ui_dump(xml)
-    if root is None:
-        return visible
+    return set() if root is None else visible_comment_usernames(root)
 
+
+def visible_comment_usernames(root) -> Set[str]:
+    """Lower-cased usernames on the screen whose tree is `root` (a photo's, or `parse_ui_dump`'s)."""
+    visible: Set[str] = set()
     recycler = _find_comments_recycler(root)
     if recycler is None or len(recycler) == 0:
         recycler = root
@@ -129,12 +131,10 @@ def read_visible_comments(device, device_id: str = "") -> List[Dict[str, Any]]:
         return []
 
     try:
-        xml = device.dump_hierarchy()
+        on_screen = visible_comment_usernames(device.snapshot().root)
     except Exception as exc:
-        logger.debug(f"[comments] hierarchy dump failed: {exc}")
+        logger.debug(f"[comments] screen photo failed: {exc}")
         return []
-
-    on_screen = extract_visible_comment_usernames(xml or "")
 
     try:
         result = run_adb_shell_process(
@@ -172,6 +172,7 @@ def _looks_like_username_button(node_class: str, text: str) -> bool:
 __all__ = [
     "parse_litho_comments",
     "extract_visible_comment_usernames",
+    "visible_comment_usernames",
     "read_visible_comments",
     "resolve_device_serial",
 ]

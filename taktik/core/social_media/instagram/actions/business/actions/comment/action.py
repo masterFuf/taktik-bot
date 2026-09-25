@@ -654,20 +654,12 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
         return find_comment_reply_target(root, username, list(self.post_selectors.reply_button_labels))
 
     def _dump_comments_root(self):
-        """The current hierarchy as `parse_ui_dump` gives it, or None."""
-        from taktik.core.shared.device.ui_dump import parse_ui_dump
-
+        """The tree of one screen photo (the tree `d.xpath()` sees), or None."""
         try:
-            xml = self.device.dump_hierarchy()
+            return self.device.snapshot().root
         except Exception as exc:
-            self.logger.debug(f"dump_hierarchy failed: {exc}")
+            self.logger.debug(f"screen photo failed: {exc}")
             return None
-        if not xml:
-            return None
-        root = parse_ui_dump(xml)
-        if root is None:
-            self.logger.debug("XML parse failed")
-        return root
 
     def _find_comment_like_control(self, username: str) -> Optional[Dict[str, Any]]:
         """The like control of ``username``'s comment row, with its liked state."""

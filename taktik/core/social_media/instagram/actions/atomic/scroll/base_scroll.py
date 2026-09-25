@@ -7,7 +7,6 @@ from loguru import logger
 
 from ...core.base_action import BaseAction
 from taktik.core.shared.behavior.gesture_primitives import GestureMixin
-from taktik.core.shared.device.ui_dump import parse_ui_dump
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from .post_reading import _BOUNDS_RE
 
@@ -46,10 +45,7 @@ class BaseScrollMixin(GestureMixin, BaseAction):
                 return cached[1]
 
             try:
-                xml = self.device._device.dump_hierarchy()
-                root = parse_ui_dump(xml)
-                if root is None:
-                    raise ValueError("unparseable hierarchy dump")
+                root = self.device.snapshot().root
             except Exception as exc:
                 self.logger.debug(f"post action geometry dump failed: {exc}")
                 result = {"available": False, "post_visible": False, "bounds": [], "roles": {}}
