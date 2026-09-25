@@ -42,7 +42,7 @@ class _Host(LikeOrchestration):
 
 def _run(sequence, like_ok=True, comment_ok=True, sigs=None):
     host = _Host(like_ok=like_ok, comment_ok=comment_ok, sigs=sigs)
-    liked, commented = host._run_engagement_sequence(sequence, 'u', [], 'generic', {})
+    liked, commented = host._run_engagement_sequence(sequence, 'u', [], {})
     return host.calls, liked, commented
 
 
@@ -111,7 +111,6 @@ def test_comment_current_post_accepts_legacy_boolean_result(
         host,
         "candidate",
         [],
-        "generic",
         {},
     ) is expected
 

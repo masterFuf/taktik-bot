@@ -43,7 +43,6 @@ class _CommentOnlyHarness:
         sequence,
         _username,
         _custom_comments,
-        _comment_template_category,
         _config,
     ):
         self.sequences.append(sequence)
