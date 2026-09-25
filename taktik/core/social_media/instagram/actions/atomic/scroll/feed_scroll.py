@@ -18,7 +18,6 @@ import time
 import random
 from typing import Callable, Optional, Dict, Any, List
 
-from taktik.core.shared.device.ui_dump import parse_ui_dump
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from .post_reading import PostReadingMixin, _BOUNDS_RE
 
@@ -79,17 +78,15 @@ class FeedScrollMixin(PostReadingMixin):
         # All UI signatures come from FS (FeedScrollSelectors). NB: `clips_tab` is just the Reels
         # nav button (always present) — the actual inline video is `FS.video_ids`.
         try:
-            xml = self.device._device.dump_hierarchy()
+            photo = self.device.snapshot()
             # Ce dump est deja paye : le donner a l'anneau des ecrans ne coute rien a l'appareil,
             # et c'est le passage le plus frequent d'un run Instagram.
             try:
                 from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
-                _noter_ecran(xml, platform='instagram', note='feed_scroll')
+                _noter_ecran(photo.xml, platform='instagram', note='feed_scroll')
             except Exception:  # noqa: BLE001
                 pass
-            root = parse_ui_dump(xml)
-            if root is None:
-                raise ValueError("unparseable hierarchy dump")
+            root = photo.root
             remember_geometry = getattr(self, "_remember_post_action_geometry", None)
             if callable(remember_geometry):
                 remember_geometry(root)

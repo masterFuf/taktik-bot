@@ -28,7 +28,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from taktik.core.shared.device.ui_dump import iter_widgets, parse_ui_dump
+from taktik.core.shared.device.ui_dump import iter_widgets
 from taktik.core.shared.input.taktik_keyboard import type_text_human
 from taktik.core.shared.vision import locate_text_on_screen
 
@@ -221,23 +221,12 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             return False
 
     def _dump_root(self):
-        """Full (uncompressed) hierarchy dump as `parse_ui_dump` gives it, or None."""
-        xml = None
+        """The tree of one screen photo (a full dump, the tree `d.xpath()` sees), or None."""
         try:
-            xml = self.device.dump_hierarchy(compressed=False)
-        except TypeError:
-            try:
-                xml = self.device.dump_hierarchy()
-            except Exception as exc:
-                self.logger.error(f"dump_hierarchy failed: {exc}")
+            return self.device.snapshot().root
         except Exception as exc:
-            self.logger.error(f"dump_hierarchy failed: {exc}")
-        if not xml:
+            self.logger.error(f"screen photo failed: {exc}")
             return None
-        root = parse_ui_dump(xml)
-        if root is None:
-            self.logger.error("XML parse failed")
-        return root
 
     def _tap_point(self, point: Optional[tuple], name: str) -> bool:
         if not point:

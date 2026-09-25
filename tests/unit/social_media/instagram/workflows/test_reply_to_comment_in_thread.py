@@ -9,6 +9,7 @@ import types
 
 import pytest
 
+from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
 
 THREAD = """
@@ -49,6 +50,10 @@ class _Device:
 
     def dump_hierarchy(self, *_a, **_k):
         return self._xml
+
+    def snapshot(self):
+        # The facade's screen photo: one dump.
+        return ScreenSnapshot(self.dump_hierarchy())
 
     def xpath(self, _selector):
         return self._field

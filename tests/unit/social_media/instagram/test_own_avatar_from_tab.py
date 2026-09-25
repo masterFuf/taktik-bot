@@ -10,6 +10,7 @@ import io
 
 from PIL import Image
 
+from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.atomic.detection.profile_extraction import (
     ProfileExtractionMixin,
 )
@@ -41,6 +42,10 @@ class _FakeDevice:
 
     def get_xml_dump(self) -> str:
         return self._xml
+
+    def snapshot(self) -> ScreenSnapshot:
+        # The facade's screen photo: one dump.
+        return ScreenSnapshot(self.get_xml_dump())
 
     def screenshot_pil(self) -> Image.Image:
         return Image.new("RGB", (_SCREEN_W, _SCREEN_H), color=(10, 20, 30))

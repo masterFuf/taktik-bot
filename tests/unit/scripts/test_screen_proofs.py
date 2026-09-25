@@ -179,3 +179,37 @@ def test_the_reads_made_once_per_row_are_counted_per_row():
     cell = outcome["per_probe"]["row_states"]["list"]
     assert outcome["differences"] == 0
     assert (cell["calls"], cell["sum_before"], cell["sum_after"]) == (2, 8, 2)
+
+
+CLONE_PROFILE = ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
+                 '<node index="0" text="demo.studio" resource-id="com.taktik.ig1:id/action_bar_title" '
+                 'class="android.widget.TextView" package="com.taktik.ig1" content-desc="" '
+                 'bounds="[40,120][400,180]" /></hierarchy>')
+
+
+def test_the_instagram_child_replays_the_one_dump_readers_and_says_why_they_differ(tmp_path):
+    """The one-dump readers are replayed like the others, one dump each; `_why` names, for the
+    capture, each selector plain lxml answers otherwise than the photo behind the proxy."""
+    answers = _child(tmp_path, CLONE_PROFILE, "410.0.0.53.71", platform="instagram")
+    for probe in ("screen_signals", "profile_flags", "profile_text", "profile_enriched", "reading_tree",
+                  "comments_tree", "suggestions_tree", "notifications_tree"):
+        assert answers[probe]["dumps"] == 1, probe
+    assert answers["profile_text"]["answer"]["username"] == "demo.studio"  # the clone, read through the proxy
+    assert isinstance(answers["reading_tree"]["answer"], str)
+    username = {entry["selector"]: entry for entry in answers["_why"]["text.username"]}
+    exact = f'//*[@resource-id="{IG}:id/action_bar_title"]'
+    assert username[exact]["cause"] == "rewrite" and username[exact]["lxml"] == 0
+    assert username[exact]["gained"] == ["com.taktik.ig1:id/action_bar_title"]
+
+
+def test_the_lxml_comparison_takes_an_instagram_readers_path():
+    bare = ('<hierarchy rotation="0"><node class="android.view.View" resource-id="activity_feed_list" '
+            f'package="{IG}" /></hierarchy>')
+    check = equality.DumpCheck(bare)
+    selector = f'//*[@resource-id="{IG}:id/activity_feed_list"]'
+    assert check.lxml_difference(selector) is None  # without the proxy, lxml and the photo agree
+    difference = check.lxml_difference(selector, rewrite=True)
+    assert (difference["cause"], difference["lxml"], difference["photo"]) == ("rewrite", 0, 1)
+    assert difference["gained"] == ["activity_feed_list"]
+    shorthand = check.lxml_difference("^activity", rewrite=True)
+    assert (shorthand["cause"], shorthand["lxml"]) == ("engine", "rejected")

@@ -250,6 +250,57 @@ def test_the_shared_facade_uses_the_device_rewrite():
     assert BaseDeviceFacade(device).snapshot().find(SELECTORS[1]) == []
 
 
+def test_the_tree_of_a_photo_is_the_tree_parse_ui_dump_builds():
+    """The dump readers that walk the tree (post reading, feed anchors, comment rows...) read it
+    off a photo: the same nodes, tags and attributes as `parse_ui_dump`."""
+    from lxml import etree
+
+    from taktik.core.shared.device.ui_dump import parse_ui_dump
+
+    assert etree.tostring(ScreenSnapshot(DUMP).root) == etree.tostring(parse_ui_dump(DUMP))
+
+
+def test_a_relative_selector_under_a_found_element_goes_through_the_rewrite():
+    """`d.xpath()` has no relative form; the one relative read (a banner row's title) keeps the
+    device's rewrite, so a bare or clone id under the row is found as the row itself was."""
+    dump = (
+        '<hierarchy rotation="0"><node class="android.widget.LinearLayout" resource-id="banner_row">'
+        '<node class="android.widget.TextView" resource-id="com.taktik.ig1:id/banner_item_title" '
+        'text="Threads" /></node></hierarchy>')
+    proxy = CloneAwareDeviceProxy(_U2Device(dump), "com.instagram.android")
+    seen = []
+    photo = ScreenSnapshot(dump, rewrite=proxy.rewrite_xpath,
+                           observer=lambda sel, found, _ms: seen.append((sel, found)))
+    title = f'.//*[@resource-id="{IG}/banner_item_title"]'
+    row = photo.elements(f'//*[@resource-id="{IG}/banner_row"]')
+    assert len(row) == 1
+    assert [el.attrib.get("text") for el in photo.elements_within(row[0], title)] == ["Threads"]
+    assert ScreenSnapshot(dump).elements_within(row[0], title) == []
+    assert seen[-1] == (title, True)
+
+
+def test_a_photo_of_a_dump_already_held_takes_no_dump_and_keeps_the_rewrite():
+    """A reader that dumped with its own timeout, or was handed a dump, answers on it as on a
+    photo: the device's rewrite, the observers, and no new dump."""
+    from taktik.core.shared.device.facade import BaseDeviceFacade
+
+    dumps = []
+
+    class _Counting(_U2Device):
+        def dump_hierarchy(self, *a, **k):
+            dumps.append(1)
+            return self.xml
+
+    facade = BaseDeviceFacade(CloneAwareDeviceProxy(_Counting(DUMP), "com.instagram.android"))
+    seen = []
+    facade.observe_snapshots(lambda sel, found, _ms: seen.append((sel, found)))
+    photo = facade.snapshot_of(DUMP)
+    assert [node.text for node in photo.find(SELECTORS[1])] == ["gamma"]
+    assert dumps == [] and seen == [(SELECTORS[1], True)]
+    with pytest.raises(SnapshotUnavailable):
+        facade.snapshot_of(None)
+
+
 CORPUS = Path(os.environ.get("TAKTIK_DEBUG_UI") or Path(__file__).resolve().parents[4] / "debug_ui")
 
 

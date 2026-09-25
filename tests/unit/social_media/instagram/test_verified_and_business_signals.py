@@ -39,24 +39,20 @@ class _Quiet:
     error = warning = info = debug
 
 
-class _Dump:
-    """Just what `DeviceFacade.batch_xpath_check` reads: the dump and a logger."""
+class _Screen:
+    """The phone, as far as the facade reads it: the screen's dump."""
 
     def __init__(self, xml):
         self._xml = xml
-        self.logger = _Quiet()
 
-    def get_xml_dump(self):
+    def dump_hierarchy(self):
         return self._xml
-
-    def batch_xpath_check(self, selectors):
-        # The production evaluation, unbound: one dump, lxml, first match wins.
-        return DeviceFacade.batch_xpath_check(self, selectors)
 
 
 class _Profile(ProfileExtractionMixin):
     def __init__(self, xml):
-        self.device = _Dump(xml)
+        # The production evaluation: the Instagram facade, one photo, first match wins.
+        self.device = DeviceFacade(_Screen(xml))
         self.logger = _Quiet()
         self.detection_selectors = DETECTION_SELECTORS
 

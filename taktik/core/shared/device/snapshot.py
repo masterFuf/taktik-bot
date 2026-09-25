@@ -41,12 +41,14 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional, Sequence, Tuple, Union
 
 from loguru import logger
-from lxml.etree import XPathError as LxmlXPathError
-from uiautomator2.xpath import PageSource, XPathError as U2XPathError, XPathSelector
+from lxml.etree import XPathError as LxmlXPathError, _Element as LxmlElement
+from uiautomator2.xpath import PageSource, XMLElement, XPathError as U2XPathError, XPathSelector
 
 from taktik.core.shared.device.ui_dump import parse_bounds
 
 Selectors = Union[str, Sequence[str]]
+# The namespaces uiautomator2 gives its own evaluation (`re:` is EXSLT regular expressions).
+_XPATH_NAMESPACES = {"re": "http://exslt.org/regular-expressions"}
 Rewrite = Optional[Callable[[str], str]]
 # Told of every selector asked of a photo: (selector, found, elapsed_ms). The Lab traces wrap
 # `device.xpath`, which a photo never calls: without this they would lose every selector.
@@ -136,6 +138,30 @@ class ScreenSnapshot:
         """The dump as the phone returned it, for whoever keeps screens (the screen ring)."""
         return self._xml
 
+    @property
+    def root(self):
+        """The tree `d.xpath()` evaluates selectors against (tags are widget classes, `class` is
+        gone), for a reader that walks it instead of asking selectors. The tree `parse_ui_dump`
+        builds, node for node. Shared by every question asked of this photo: read it, never
+        change it."""
+        return self._source.root
+
+    def elements_within(self, element, selector: str) -> list:
+        """The elements a RELATIVE selector (`.//...`) finds under `element`, one of this photo's
+        elements. `d.xpath()` has no relative form, so lxml evaluates it on the node; the
+        device's rewrite still applies, so an id equality means here what it means in
+        `elements()`. An invalid selector raises lxml's error."""
+        started_at = time.perf_counter()
+        found = []
+        try:
+            xpath = self._rewrite(selector) if self._rewrite else selector
+            nodes = element.elem.xpath(xpath, namespaces=_XPATH_NAMESPACES)
+            found = [XMLElement(node) for node in nodes if isinstance(node, LxmlElement)]
+            return found
+        finally:
+            if self._observer is not None:
+                self._tell(selector, bool(found), (time.perf_counter() - started_at) * 1000.0)
+
     def elements(self, selector: str) -> list:
         """The elements `d.xpath(selector).all()` finds on this screen, for READING: they carry no
         device, so they cannot be tapped. An invalid selector raises uiautomator2's error."""
@@ -209,6 +235,12 @@ class SnapshotSource:
     def _tell_observers(self, selector: str, found: bool, elapsed_ms: float) -> None:
         for observer in list(self._observers):
             observer(selector, found, elapsed_ms)
+
+    def photo_of(self, xml_content: Optional[str]) -> ScreenSnapshot:
+        """A photo of a dump the caller already holds (read with its own timeout, or handed in):
+        the same rewrite and observers as `snapshot()`, never kept for `max_age_s`."""
+        return ScreenSnapshot(xml_content, rewrite=self._rewrite,
+                              observer=self._tell_observers if self._observers else None)
 
     def snapshot(self, max_age_s: float = 0.0) -> ScreenSnapshot:
         with self._lock:

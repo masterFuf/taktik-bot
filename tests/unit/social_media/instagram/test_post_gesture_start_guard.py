@@ -1,7 +1,6 @@
 """Instagram supplies live post-action bounds to the shared gesture start guard."""
 
-from types import SimpleNamespace
-
+from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.actions.atomic.scroll.base_scroll import BaseScrollMixin
@@ -24,7 +23,7 @@ class _Raw:
 
 def _host(xml):
     host = object.__new__(BaseScrollMixin)
-    host.device = SimpleNamespace(_device=_Raw(xml))
+    host.device = BaseDeviceFacade(_Raw(xml))
     host.logger = _Log()
     return host
 

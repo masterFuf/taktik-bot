@@ -302,9 +302,9 @@ class DetectionSelectors:
     # `profile_header_container`, 149 of the 206 profile dumps of the Lab corpus), whose cards
     # are other people's accounts: a bare `verified_badge` anywhere, or a "Verified" read on any
     # content-desc, called the visited profile certified because a SUGGESTION was.
-    # `contains(@resource-id, ...)` rather than an equality: `batch_xpath_check` evaluates the
-    # raw dump, which the clone proxy does not rewrite, so an exact
-    # `com.instagram.android:id/...` would never match a clone.
+    # `contains(@resource-id, ...)` rather than an equality: written when `batch_xpath_check`
+    # read the raw dump, which the clone proxy did not rewrite. It now reads a screen photo
+    # through that rewrite, where an equality would match a clone and a bare id as well.
     # The localized half (the title's content-desc "<username> Vérifié", the form Instagram
     # gives its titles in the story viewer and the share sheet) lives in the overlay.
     _verified_account_indicators_base: List[str] = field(default_factory=lambda: [

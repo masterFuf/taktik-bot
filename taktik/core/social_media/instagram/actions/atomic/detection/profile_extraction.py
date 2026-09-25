@@ -7,6 +7,7 @@ from loguru import logger
 from ...core.base_action import BaseAction
 from ....ui.labels import is_ui_label
 from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.shared.text import handle_from_screen_text
 from taktik.core.shared.vision import locate_text_on_screen
 
@@ -54,7 +55,7 @@ from taktik.core.shared.text import (
 
 
 class ProfileExtractionMixin(BaseAction):
-    """Mixin: profile flags, text extraction, enriched data (XML batch), bio more button."""
+    """Mixin: profile flags, text extraction, enriched data (one screen photo), bio more button."""
 
     # === Profile flags ===
 
@@ -150,35 +151,29 @@ class ProfileExtractionMixin(BaseAction):
 
     def get_profile_text_batch(self) -> Dict[str, Optional[str]]:
         """
-        Get username, full_name, bio in a single XML dump.
-        Much faster than individual calls (~1s vs ~9s).
-        
+        Get username, full_name, bio on one screen photo (one dump), each selector answered as
+        `d.xpath()` answers it through the device's rewrite.
+
         Returns:
             Dict with keys: username, full_name, biography
         """
-        from taktik.core.shared.device.ui_dump import parse_ui_dump
-        
         results = {
             'username': None,
             'full_name': None,
             'biography': None
         }
-        
-        xml_content = self.device.get_xml_dump()
-        if not xml_content:
+
+        photo = self._profile_photo()
+        if photo is None:
             return results
-        
+
         try:
-            tree = parse_ui_dump(xml_content)
-            if tree is None:
-                return results
-            
             # Extract username
             for selector in self.selectors.username:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     if elements:
-                        handle = _handle_from_node(elements[0].get('text', ''))
+                        handle = _handle_from_node(elements[0].attrib.get('text', ''))
                         if handle:
                             results['username'] = handle
                             break
@@ -188,9 +183,9 @@ class ProfileExtractionMixin(BaseAction):
             # Extract full name
             for selector in self.selectors.full_name:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     if elements:
-                        text = elements[0].get('text', '').strip()
+                        text = elements[0].attrib.get('text', '').strip()
                         if text:
                             results['full_name'] = text
                             break
@@ -200,9 +195,9 @@ class ProfileExtractionMixin(BaseAction):
             # Extract biography
             for selector in self.selectors.bio:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     if elements:
-                        text = elements[0].get('text', '').strip()
+                        text = elements[0].attrib.get('text', '').strip()
                         if text:
                             results['biography'] = text
                             break
@@ -232,6 +227,24 @@ class ProfileExtractionMixin(BaseAction):
         except Exception as e:
             self.logger.error(f"Error in batch text extraction: {e}")
             return results
+
+    def _profile_photo(self, xml_content: Optional[str] = None,
+                       timeout_seconds: Optional[float] = None):
+        """The photo a profile reader reads: of the dump handed in, else of a new one (bounded
+        by `timeout_seconds` when given). None when the screen cannot be read."""
+        try:
+            if xml_content is not None:
+                return self.device.snapshot_of(xml_content)
+            if timeout_seconds is None:
+                return self.device.snapshot()
+            try:
+                xml_content = self.device.get_xml_dump(timeout_seconds=timeout_seconds)
+            except TypeError:
+                # A lightweight facade without the bounded call.
+                return self.device.snapshot()
+            return self.device.snapshot_of(xml_content)
+        except SnapshotUnavailable:
+            return None
 
     def _read_text_without_xml(self, resource_ids) -> Optional[str]:
         """Read an element's text through JSON-RPC instead of the XML dump.
@@ -282,15 +295,13 @@ class ProfileExtractionMixin(BaseAction):
         dump_timeout_seconds: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
-        Get all enriched profile data in a single XML dump.
+        Get all enriched profile data on one screen photo (one dump, or the dump handed in).
         Extracts: username, full_name, bio, business_category, website, linked_accounts.
         Also detects if bio has "more" button to expand.
-        
+
         Returns:
             Dict with all enriched profile fields
         """
-        from taktik.core.shared.device.ui_dump import parse_ui_dump
-        
         results = {
             'username': None,
             'full_name': None,
@@ -301,33 +312,18 @@ class ProfileExtractionMixin(BaseAction):
             'bio_truncated': False,  # True if "more" button detected
         }
         
-        if xml_content is None:
-            if dump_timeout_seconds is None:
-                xml_content = self.device.get_xml_dump()
-            else:
-                try:
-                    xml_content = self.device.get_xml_dump(
-                        timeout_seconds=dump_timeout_seconds
-                    )
-                except TypeError:
-                    # Compatibility with lightweight test/device facades. Production's
-                    # BaseDeviceFacade supports the bounded call above.
-                    xml_content = self.device.get_xml_dump()
-        if not xml_content:
+        photo = self._profile_photo(xml_content, dump_timeout_seconds)
+        if photo is None:
             return results
-        
+
         try:
-            tree = parse_ui_dump(xml_content)
-            if tree is None:
-                return results
-            
             # Extract username from action bar
             username_selectors = PROFILE_SELECTORS.enrichment_username_selectors
             for selector in username_selectors:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     if elements:
-                        handle = _handle_from_node(elements[0].get('text', ''))
+                        handle = _handle_from_node(elements[0].attrib.get('text', ''))
                         if handle:
                             results['username'] = handle
                             break
@@ -338,9 +334,9 @@ class ProfileExtractionMixin(BaseAction):
             full_name_selectors = PROFILE_SELECTORS.enrichment_full_name_selectors
             for selector in full_name_selectors:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     if elements:
-                        text = elements[0].get('text', '').strip()
+                        text = elements[0].attrib.get('text', '').strip()
                         if text:
                             results['full_name'] = text
                             break
@@ -351,9 +347,9 @@ class ProfileExtractionMixin(BaseAction):
             category_selectors = PROFILE_SELECTORS.enrichment_category_selectors
             for selector in category_selectors:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     if elements:
-                        text = elements[0].get('text', '').strip()
+                        text = elements[0].attrib.get('text', '').strip()
                         if text:
                             results['business_category'] = text
                             break
@@ -364,11 +360,11 @@ class ProfileExtractionMixin(BaseAction):
             bio_selectors = PROFILE_SELECTORS.enrichment_bio_selectors
             for selector in bio_selectors:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     self.logger.debug(f"Bio selector '{selector[:60]}...' found {len(elements)} elements")
                     # Iterate through all TextViews to find one with actual bio text
                     for element in elements:
-                        text = element.get('text', '').strip()
+                        text = element.attrib.get('text', '').strip()
                         # Skip empty, "See translation", or very short texts that are likely not bio
                         if text and text != 'See translation' and len(text) > 3:
                             # Only a TRAILING ellipsis / localized expander proves truncation.
@@ -379,7 +375,7 @@ class ProfileExtractionMixin(BaseAction):
                             ):
                                 results['bio_truncated'] = True
                                 match = _BOUNDS_RE.search(
-                                    element.get('bounds', '') or ''
+                                    element.attrib.get('bounds', '') or ''
                                 )
                                 if match:
                                     results['_bio_region'] = tuple(
@@ -398,9 +394,9 @@ class ProfileExtractionMixin(BaseAction):
             website_selectors = PROFILE_SELECTORS.enrichment_website_selectors
             for selector in website_selectors:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     if elements:
-                        text = elements[0].get('text', '').strip()
+                        text = elements[0].attrib.get('text', '').strip()
                         if text:
                             results['website'] = text
                             break
@@ -411,12 +407,14 @@ class ProfileExtractionMixin(BaseAction):
             banner_selectors = PROFILE_SELECTORS.enrichment_banner_selectors
             for selector in banner_selectors:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     for elem in elements:
                         # Get the title (account name)
-                        title_elem = elem.xpath(PROFILE_SELECTORS.enrichment_banner_title_selector)
+                        title_elem = photo.elements_within(
+                            elem, PROFILE_SELECTORS.enrichment_banner_title_selector
+                        )
                         if title_elem:
-                            account_name = title_elem[0].get('text', '').strip()
+                            account_name = title_elem[0].attrib.get('text', '').strip()
                             if account_name:
                                 # Try to detect platform from icon or context
                                 # For now, just store the name
@@ -481,26 +479,20 @@ class ProfileExtractionMixin(BaseAction):
         return it as a JPEG base64 data URL. `scale` upsamples the crop (Lanczos)."""
         import base64
         import io
-        from taktik.core.shared.device.ui_dump import parse_ui_dump
         from PIL import Image
 
         try:
-            if not xml_content:
-                xml_content = self.device.get_xml_dump()
-            if not xml_content:
-                return None
-
-            tree = parse_ui_dump(xml_content)
-            if tree is None:
+            photo = self._profile_photo(xml_content or None)
+            if photo is None:
                 return None
 
             # Find the avatar ImageView bounds
             bounds = None
             for selector in selectors:
                 try:
-                    elements = tree.xpath(selector)
+                    elements = photo.elements(selector)
                     if elements:
-                        bounds_str = elements[0].get('bounds', '')
+                        bounds_str = elements[0].attrib.get('bounds', '')
                         if bounds_str:
                             parts = bounds_str.replace('][', ',').replace('[', '').replace(']', '').split(',')
                             if len(parts) == 4:
@@ -561,32 +553,20 @@ class ProfileExtractionMixin(BaseAction):
         Language-neutral: finds the bio TextView (resource-id based) whose text carries
         the truncation ellipsis "…"/"...". Used as the OCR region to locate the expander.
         """
-        from taktik.core.shared.device.ui_dump import parse_ui_dump
-        xml = xml_content
-        if xml is None:
-            try:
-                xml = self.device.get_xml_dump(timeout_seconds=timeout_seconds)
-            except TypeError:
-                xml = self.device.get_xml_dump()
-        if not xml:
-            return None
-        try:
-            tree = parse_ui_dump(xml)
-            if tree is None:
-                return None
-        except Exception:
+        photo = self._profile_photo(xml_content, timeout_seconds)
+        if photo is None:
             return None
         for selector in PROFILE_SELECTORS.enrichment_bio_selectors:
             try:
-                elements = tree.xpath(selector)
+                elements = photo.elements(selector)
             except Exception:
                 continue
             for element in elements:
-                text = element.get("text", "") or ""
+                text = element.attrib.get("text", "") or ""
                 if _bio_text_looks_truncated(
                     text, PROFILE_SELECTORS.bio_more_words
                 ):
-                    match = _BOUNDS_RE.search(element.get("bounds", "") or "")
+                    match = _BOUNDS_RE.search(element.attrib.get("bounds", "") or "")
                     if match:
                         return tuple(int(g) for g in match.groups())
         return None
