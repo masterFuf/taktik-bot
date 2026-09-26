@@ -1,12 +1,29 @@
+from pathlib import Path
+
 import pytest
+import yaml
 
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
+from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
+from taktik.core.social_media.instagram.ui.selectors import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.workflows.core import runtime_setup
 from taktik.core.social_media.instagram.workflows.scraping import (
     INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID,
     INSTAGRAM_SCRAPING_POST_URL_WORKFLOW_ID,
     INSTAGRAM_SCRAPING_TARGET_WORKFLOW_ID,
     register_instagram_scraping_handlers,
+    run_instagram_scraping,
 )
+
+OVERRIDES = Path(runtime_setup.__file__).resolve().parents[4] / "compat" / "data" / "overrides" / "instagram.yaml"
+
+
+@pytest.fixture(autouse=True)
+def detections(monkeypatch):
+    """The language detection, recorded: a real one reads a screen and filters the catalogs."""
+    seen = []
+    monkeypatch.setattr(runtime_setup, "detect_and_optimize", lambda device: seen.append(device) or "en")
+    return seen
 
 
 class FakeScrapingWorkflow:
@@ -234,3 +251,71 @@ def test_a_source_without_anything_to_scrape_is_refused_before_the_start(workflo
             WorkflowInvocation(platform="instagram", workflow_id=workflow_id, params={}), {}
         )
     assert starts == [] and FakeScrapingWorkflow.instances == []
+
+
+class _Phone:
+    """A connected device manager; the device is never touched here."""
+
+    def __init__(self):
+        self.device = object()
+
+
+@pytest.fixture
+def back_to_baseline():
+    yield
+    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
+
+
+def test_the_launcher_matches_the_selectors_to_the_phone_before_the_workflow(detections, back_to_baseline):
+    """Instagram 447, app in English: the 447 overrides are in the catalogs and the language has been
+    read when the workflow is built, so its first localized read already faces the phone's app."""
+    phone = _Phone()
+    seen_when_built = {}
+
+    class Workflow(FakeScrapingWorkflow):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            seen_when_built["bio"] = list(PROFILE_SELECTORS.bio)
+            seen_when_built["detections"] = list(detections)
+
+    run_instagram_scraping(
+        {"type": "target", "targetUsernames": ["alpha"]},
+        device_manager=phone,
+        instagram_installed_version=lambda: "447.0.0.55.81",
+        workflow_factory=Workflow,
+    )
+
+    entries = yaml.safe_load(OVERRIDES.read_text(encoding="utf-8"))["versions"]["447.0.0.0"]
+    assert seen_when_built["bio"] == entries["profile.bio"]
+    assert seen_when_built["detections"] == [phone.device]
+
+
+def test_without_a_version_reader_the_language_is_still_read(detections, monkeypatch):
+    """The connection has already applied the official app's overrides; the language is the launcher's."""
+    applied = []
+    monkeypatch.setattr("taktik.core.compat.selectors.setup.apply_version_overrides",
+                        lambda platform, version: applied.append(version) or 0)
+    phone = _Phone()
+
+    run_instagram_scraping({"type": "usernames", "usernames": ["alpha"]}, device_manager=phone,
+                           workflow_factory=FakeScrapingWorkflow)
+
+    assert applied == []
+    assert detections == [phone.device]
+
+
+def test_the_cli_handler_passes_its_version_reader(detections, monkeypatch):
+    applied = []
+    monkeypatch.setattr("taktik.core.compat.selectors.setup.apply_version_overrides",
+                        lambda platform, version: applied.append((platform, version)) or 0)
+    registry = WorkflowRegistry()
+    register_instagram_scraping_handlers(registry, device_manager=_Phone(), workflow_factory=FakeScrapingWorkflow,
+                                         instagram_installed_version=lambda: "447.0.0.55.81")
+
+    registry.resolve(INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID)(
+        WorkflowInvocation(platform="instagram", workflow_id=INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID,
+                           params={"hashtag": "dev"}), {}
+    )
+
+    assert applied == [("instagram", "447.0.0.55.81")]
+    assert len(detections) == 1

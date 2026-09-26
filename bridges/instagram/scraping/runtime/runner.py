@@ -12,6 +12,7 @@ from bridges.instagram.scraping.runtime.session import (
     connect_scraping_device,
     create_scraping_connection,
     disconnect_scraping_connection,
+    scraping_installed_version,
 )
 from bridges.instagram.scraping.runtime.workflow import run_scraping_workflow
 
@@ -30,7 +31,11 @@ def run_scraping_bridge(argv: list[str]) -> int:
         if device_manager is None:
             return 1
 
-        result = run_scraping_workflow(device_manager, config)
+        result = run_scraping_workflow(
+            device_manager,
+            config,
+            installed_version=scraping_installed_version(connection, config.get("packageName")),
+        )
         print(json.dumps(result))
         return 0
 

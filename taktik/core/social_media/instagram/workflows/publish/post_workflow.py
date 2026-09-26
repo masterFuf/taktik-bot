@@ -7,7 +7,7 @@ The flow reproduces, step by step, the sequence validated through the diagnostic
 (selector-only, with NO hardcoded coordinate):
 
   1. push the file and index it in the media store
-  2. launch the app, clone-aware, and come back to the feed
+  2. launch the app, clone-aware, and come back to the feed, where the app language is detected
   3. open the creation screen
   4. close the draft modal when present, optional
   5. select the first media of the gallery, the most recent being the pushed one
@@ -144,6 +144,7 @@ class InstagramPostWorkflow:
 
         # 2. Launch Instagram + return to feed
         self._launch_and_home()
+        self._detect_app_language()
 
         # Story has a distinct tail (no Next/caption screen).
         if self.post_type == "story":
@@ -199,6 +200,13 @@ class InstagramPostWorkflow:
         except Exception as e:
             self._log("warning", f"navigate_to_home raised (non-fatal): {e}")
         time.sleep(1.0)
+
+    def _detect_app_language(self) -> None:
+        """The app language, on the feed, before the first localized selector (Create, Next,
+        Share): the setup every Instagram launcher shares."""
+        from taktik.core.social_media.instagram.workflows.core import runtime_setup
+
+        runtime_setup.prepare_instagram_selectors(device=self.device, log=self._log)
 
     def _open_creation_and_gallery(self) -> Optional[dict]:
         """Open creation, dismiss the draft modal, select the destination tab for the
@@ -294,10 +302,13 @@ class InstagramPostWorkflow:
             time.sleep(0.5)
 
         # Rehearsal: the share button being on screen is the proof the flow reached the end.
+        # Same order as the share below: Back only if the button is hidden, since Back on the
+        # composer leaves it once the caption editor has been closed with OK.
         if stop_before_share:
-            self._dismiss_keyboard()
             if not self._present(CC.share_button_xpaths(), timeout=6):
-                return self._error("share_not_found", "Share button not found")
+                self._dismiss_keyboard()
+                if not self._present(CC.share_button_xpaths(), timeout=6):
+                    return self._error("share_not_found", "Share button not found")
             self._status("success", f"{self.post_type} reached the share screen (not published)")
             self._log("info", f"Instagram {self.post_type}: stopped before sharing")
             return {"success": True, "message": f"{self.post_type} reached the share screen (not published)", "error_type": None}

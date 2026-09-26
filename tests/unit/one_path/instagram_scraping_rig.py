@@ -130,6 +130,7 @@ class InstagramScrapingRig:
         self.cli_results: list = []
         self.connect_ok = True
         self.installed = True
+        self.installed_version = "410.0.0.53.71"
         self.run_result = {"success": True, "total_scraped": 2, "completion_reason": "limit_reached"}
         self.run_raises: Exception | None = None
         self._install()
@@ -214,7 +215,23 @@ class InstagramScrapingRig:
 
         from bridges.common.device import app_manager
 
-        mp.setattr(app_manager, "get_installed_app_version", lambda device_id, package, platform: "410.0.0.53.71")
+        def fake_version(device_id, package, platform):
+            rig.calls.append(f"installed_version {package}")
+            return rig.installed_version
+
+        mp.setattr(app_manager, "get_installed_app_version", fake_version)
+
+        # The selector and language setup of a run, recorded instead of applied.
+        from taktik.core.social_media.instagram.workflows.core import runtime_setup
+
+        mp.setattr(runtime_setup, "patch_selectors_for_package",
+                   lambda platform, package: rig.calls.append(f"clone_patch {package}") or 0)
+        mp.setattr(runtime_setup, "detect_and_optimize",
+                   lambda device, *a, **k: rig.calls.append("detect_language") or "en")
+        from taktik.core.compat.selectors import setup as compat_setup
+
+        mp.setattr(compat_setup, "apply_version_overrides",
+                   lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
 
         def fake_build_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None, niche_taxonomy=None):
             rig.ai_builds.append({"api_key": api_key, "ipc": ipc is not None, "vision_model": vision_model,

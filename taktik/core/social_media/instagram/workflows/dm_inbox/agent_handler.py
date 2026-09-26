@@ -61,8 +61,18 @@ def run_instagram_dm(config: Mapping[str, Any], *, runtime, emit: Optional[Emit]
     return _failure(f"Unknown command: {command}")
 
 
+def _detect_app_language(runtime) -> None:
+    """The app language, on the feed a clean restart opens, before the inbox's localized selectors:
+    the setup every Instagram launcher shares. A reply has no restart, so it keeps what it finds."""
+    from taktik.core.social_media.instagram.workflows.core import runtime_setup
+    from taktik.core.social_media.instagram.workflows.core.agent_handler import _log_to_logger
+
+    runtime_setup.prepare_instagram_selectors(device=getattr(runtime, "device", None), log=_log_to_logger)
+
+
 def _read(runtime, limit: int, emit: Optional[Emit]) -> dict[str, Any]:
     runtime.restart_instagram()
+    _detect_app_language(runtime)
 
     if not runtime.navigate_to_dm_inbox():
         return _failure("Cannot navigate to DM inbox")
@@ -111,6 +121,7 @@ def _read(runtime, limit: int, emit: Optional[Emit]) -> dict[str, Any]:
 
 def _read_requests(runtime, limit: int) -> dict[str, Any]:
     runtime.restart_instagram()
+    _detect_app_language(runtime)
 
     if not runtime.navigate_to_dm_inbox():
         return _failure("Cannot navigate to DM inbox")

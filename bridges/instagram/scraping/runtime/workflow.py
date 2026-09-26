@@ -2,7 +2,9 @@
 
 The run is `run_instagram_scraping`, the launcher the Agent handlers `instagram.scraping.*` (and so
 the CLI) call too, called by name so the app's config contract test can follow the payload. The
-bridge brings its stdout IPC, its AI service factory and the result shape the desktop reads.
+bridge brings its stdout IPC, its AI service factory, the installed version reader and the result
+shape the desktop reads. The Lab bench passes no version reader: its session has already applied
+the overrides of the version it tests.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ from bridges.instagram.runtime.ipc import _ipc
 from bridges.instagram.scraping.runtime.ai import build_scraping_ai_service
 
 
-def run_scraping_workflow(device_manager, bridge_config: dict) -> dict:
+def run_scraping_workflow(device_manager, bridge_config: dict, installed_version=None) -> dict:
     from taktik.core.social_media.instagram.workflows.scraping.agent_handler import run_instagram_scraping
 
     result = run_instagram_scraping(
@@ -19,6 +21,7 @@ def run_scraping_workflow(device_manager, bridge_config: dict) -> dict:
         device_manager=device_manager,
         ai_notifier=_ipc,
         instagram_scraping_ai_service=build_scraping_ai_service,
+        instagram_installed_version=installed_version,
     )
 
     return {

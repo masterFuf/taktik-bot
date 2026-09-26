@@ -72,3 +72,19 @@ def test_a_cli_reply_to_a_conversation_it_cannot_find_fails(igd_rig):
     assert result.exit_code == 1
     assert "Cannot find conversation with nobody" in result.output
     assert igd_rig.db == []
+
+
+def test_a_read_reads_the_app_language_after_the_restart_on_both_paths(igd_rig):
+    """The inbox is read with the phone's locale, not the union of every locale: the language is
+    read on the feed the clean restart opens, before the inbox is looked for. A reply restarts
+    nothing and starts on whatever screen it finds, often a conversation: it reads no language."""
+    for command in ("read", "read_requests"):
+        bridge, cli = _run_both(igd_rig, dm_command(command), "instagram.engagement.dm_read")
+        for steps in (bridge["steps"], cli["steps"]):
+            start = steps.index("detect_language")
+            assert steps[start - 1].startswith("launch ") and steps[start + 1] == "navigate_to_dm_inbox"
+        igd_rig.reset()
+
+    spec = dm_command("send", username="dave", message="Yes, from ten")
+    bridge, cli = _run_both(igd_rig, spec, "instagram.engagement.dm_send", screen="inbox")
+    assert "detect_language" not in bridge["steps"] and "detect_language" not in cli["steps"]

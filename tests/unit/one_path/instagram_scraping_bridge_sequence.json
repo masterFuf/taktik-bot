@@ -5,6 +5,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -54,6 +57,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -121,6 +127,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -165,6 +174,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -206,6 +218,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -247,6 +262,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -291,6 +309,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -334,6 +355,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -370,6 +394,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"
@@ -419,6 +446,9 @@
    "configure_db",
    "connection emulator-5554",
    "connect",
+   "installed_version com.instagram.android",
+   "version_overrides 410.0.0.53.71",
+   "detect_language",
    "workflow notifier=True ai_factory=True",
    "run_scraping",
    "disconnect"

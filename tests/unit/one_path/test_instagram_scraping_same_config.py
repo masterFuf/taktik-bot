@@ -4,6 +4,7 @@ The CLI ran the Agent handler, which kept its own older reading of the payload: 
 (`minPosts`, `minFollowers`, private profiles, profile picture), no `fetchLocation`, no premium
 taxonomy, no `usernames` or `profile_posts` sources, and no AI service at all. The desktop restarts
 Instagram before every scraping run (Electron, before the bridge); the CLI restarted nothing.
+Neither path read the app language at the start, as the automation does (`runtime_setup`).
 """
 from loguru import logger
 
@@ -77,6 +78,35 @@ def test_the_cli_restarts_instagram_before_scraping_like_the_app(igs_rig):
     restart = [f"is_installed {INSTAGRAM}", f"stop {INSTAGRAM}"]
     assert steps[steps.index(restart[0]):][:2] == restart
     assert steps.index(f"stop {INSTAGRAM}") < steps.index("run_scraping")
+
+
+_SELECTOR_SETUP = ("installed_version", "version_overrides", "clone_patch", "detect_language")
+
+
+def _selector_setup(calls):
+    return [call for call in calls if call.split(" ")[0] in _SELECTOR_SETUP]
+
+
+def _workflow_built(calls):
+    return next(i for i, call in enumerate(calls) if call.startswith("workflow "))
+
+
+def test_both_paths_match_the_selectors_to_the_phone_before_the_workflow(igs_rig):
+    """A phone on another version or in another language: the overrides of the installed version,
+    then the app language, before the workflow reads a screen. The launcher did neither: only the
+    connection applied the official app's overrides, and the language was never read."""
+    igs_rig.installed_version = "447.0.0.55.81"
+    assert igs_rig.run_bridge(target_payload()) == 0, igs_rig.stdout_lines
+    bridge = list(igs_rig.calls)
+    igs_rig.reset()
+    result = igs_rig.run_cli(target_payload())
+    assert result.exit_code == 0, result.output
+    cli = list(igs_rig.calls)
+
+    expected = [f"installed_version {INSTAGRAM}", "version_overrides 447.0.0.55.81", "detect_language"]
+    for calls in (bridge, cli):
+        assert _selector_setup(calls) == expected
+        assert calls.index("detect_language") < _workflow_built(calls) < calls.index("run_scraping")
 
 
 def test_the_cli_takes_the_openrouter_key_from_the_environment(igs_rig):

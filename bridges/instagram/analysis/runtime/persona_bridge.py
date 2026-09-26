@@ -50,6 +50,7 @@ class PersonaAnalysisBridge(
                 _ipc.error("Impossible de lancer Instagram", error_code="LAUNCH_FAILED")
                 return {"success": False, "error": "Failed to launch Instagram"}
             time.sleep(2)
+            self._detect_app_language()
 
             nav, error_result = self.open_target_profile(collected)
             if error_result:
@@ -78,6 +79,14 @@ class PersonaAnalysisBridge(
             logger.exception(f"[PersonaAnalysis] Unexpected error: {exc}")
             _ipc.status("error", str(exc))
             return {"success": False, "error": str(exc)}
+
+    def _detect_app_language(self) -> None:
+        """The app language, on the feed the restart opens, before the profile's localized reads:
+        the setup every Instagram launcher shares."""
+        from taktik.core.social_media.instagram.workflows.core import runtime_setup
+        from taktik.core.social_media.instagram.workflows.core.agent_handler import _log_to_logger
+
+        runtime_setup.prepare_instagram_selectors(device=self.device, log=_log_to_logger)
 
 
 __all__ = ["PersonaAnalysisBridge"]

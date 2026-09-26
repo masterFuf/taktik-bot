@@ -6,6 +6,7 @@
    "version_overrides 410.0.0.53.71",
    "stop com.instagram.android",
    "launch com.instagram.android",
+   "detect_language",
    "navigate_to_dm_inbox",
    "found id:igds_action_bar_title",
    "db_account alpha_bot",
@@ -147,6 +148,7 @@
    "version_overrides 410.0.0.53.71",
    "stop com.instagram.android",
    "launch com.instagram.android",
+   "detect_language",
    "navigate_to_dm_inbox",
    "tap row carol",
    "found id:header_title",
@@ -280,6 +282,7 @@
    "version_overrides 410.0.0.53.71",
    "stop com.instagram.android",
    "launch com.instagram.android",
+   "detect_language",
    "navigate_to_dm_inbox",
    "found id:igds_action_bar_title",
    "db_account alpha_bot",
@@ -330,6 +333,7 @@
    "version_overrides 410.0.0.53.71",
    "stop com.instagram.android.clone",
    "launch com.instagram.android.clone",
+   "detect_language",
    "navigate_to_dm_inbox",
    "found id:igds_action_bar_title",
    "db_account alpha_bot",
@@ -471,6 +475,7 @@
    "version_overrides 410.0.0.53.71",
    "stop com.instagram.android",
    "launch com.instagram.android",
+   "detect_language",
    "navigate_to_dm_inbox"
   ],
   "stdout": [
@@ -488,6 +493,7 @@
    "version_overrides 410.0.0.53.71",
    "stop com.instagram.android",
    "launch com.instagram.android",
+   "detect_language",
    "navigate_to_dm_inbox"
   ],
   "stdout": [
@@ -519,6 +525,7 @@
    "version_overrides 410.0.0.53.71",
    "stop com.instagram.android",
    "launch com.instagram.android",
+   "detect_language",
    "navigate_to_dm_inbox",
    "found id:igds_action_bar_title",
    "db_account alpha_bot",
@@ -636,6 +643,7 @@
    "version_overrides 410.0.0.53.71",
    "stop com.instagram.android",
    "launch com.instagram.android",
+   "detect_language",
    "navigate_to_dm_inbox",
    "found id:igds_action_bar_title",
    "db_account alpha_bot",
