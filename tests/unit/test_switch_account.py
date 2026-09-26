@@ -132,6 +132,76 @@ def test_detect_active_account_rejects_non_handle(monkeypatch):
     assert emitted == []
 
 
+
+class _ForegroundDevice(_FakeDevice):
+    """A device that also answers which app is on screen, like uiautomator2's `app_current()`."""
+
+    def __init__(self, xml: str, package: str):
+        super().__init__(xml)
+        self._package = package
+
+    def app_current(self):
+        return {"package": self._package, "activity": ".Main"}
+
+
+def _never(what):
+    return lambda *a, **k: (_ for _ in ()).throw(AssertionError(f"{what} must not be read"))
+
+
+def test_another_app_on_screen_is_not_a_logged_out_account(monkeypatch):
+    # Out of Instagram: nothing tapped, nothing read, and said as such (it used to be "logged out?").
+    switcher = InstagramSwitchAccount(_ForegroundDevice(_dump(), "com.google.android.apps.nexuslauncher"),
+                                      "device-1")
+    monkeypatch.setattr(switcher, "_on_account_picker", _never("the picker"))
+    monkeypatch.setattr(switcher, "_read_profile_username", _never("the profile"))
+    reading = switcher.read_active_account()
+    assert (reading.username, reading.reason) == (None, "app_not_foreground")
+    assert reading.foreground_package == "com.google.android.apps.nexuslauncher"
+    assert switcher.detect_active_account() is None
+
+
+def test_an_instagram_clone_on_screen_is_instagram(monkeypatch):
+    switcher = InstagramSwitchAccount(_ForegroundDevice(_dump(), "com.instagram.androie"), "device-1")
+    monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
+    monkeypatch.setattr(switcher, "_read_profile_username", lambda: "account.two")
+    assert switcher.read_active_account().reason == "active"
+
+
+def test_the_readings_name_why_there_is_no_account(monkeypatch):
+    switcher = InstagramSwitchAccount(_ForegroundDevice(_dump(), "com.instagram.android"), "device-1")
+    monkeypatch.setattr(switcher, "_on_account_picker", lambda: True)
+    assert switcher.read_active_account().reason == "logged_out"
+    monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
+    monkeypatch.setattr(switcher, "_read_profile_username", lambda: None)
+    assert switcher.read_active_account().reason == "unreadable"
+
+
+def _lab_detect_active_account(device):
+    import types
+    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+
+    register_actions()
+    return ACTION_REGISTRY["account.detect_active_account"](
+        types.SimpleNamespace(device=device, device_id="device-1"), {})
+
+
+def test_the_lab_says_instagram_is_not_on_screen_instead_of_logged_out(monkeypatch):
+    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    monkeypatch.setattr(switch_mod.InstagramSwitchAccount, "_read_profile_username", _never("the profile"))
+    result = _lab_detect_active_account(_ForegroundDevice(_dump(), "com.android.chrome"))
+    assert result["success"] is False
+    assert "logged out" not in result["message"]
+    assert "not in the foreground (com.android.chrome)" in result["message"]
+    assert result["details"]["reason"] == "app_not_foreground"
+
+
+def test_the_lab_still_says_logged_out_on_the_picker(monkeypatch):
+    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    monkeypatch.setattr(switch_mod.InstagramSwitchAccount, "_on_account_picker", lambda self: True)
+    result = _lab_detect_active_account(_ForegroundDevice(_dump(), "com.instagram.android"))
+    assert result["details"]["reason"] == "logged_out"
+    assert "logged out" in result["message"]
+
 def test_list_accounts_returns_active_account_when_logged_in(monkeypatch):
     # When an account is active (not on the picker), list_accounts is non-destructive: it reads the
     # active account from the profile and returns just that one (instead of the old empty list).

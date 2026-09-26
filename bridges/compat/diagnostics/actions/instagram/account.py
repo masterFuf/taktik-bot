@@ -111,17 +111,31 @@ def detect_connected_accounts(a, p):
     return {"success": True, "found": bool(v), "message": f"on_account_list={bool(v)}"}
 
 
+_NO_ACTIVE_ACCOUNT = {
+    "logged_out": "no active account: logged out (account picker on screen)",
+    "unreadable": "active account not read (profile not reached, or no @handle on it)",
+}
+
+
 @action("account.detect_active_account")
 def detect_active_account(a, p):
-    """Detection: read the account currently ACTIVE on the device (@username) by navigating to the
-    own profile tab (InstagramSwitchAccount.detect_active_account). Non-destructive (no logout).
-    Returns the active username, or empty when logged out (on the account picker)."""
-    username = _switch(a).detect_active_account()
+    """Read the account currently ACTIVE on the device (@username) from the own profile
+    (InstagramSwitchAccount.read_active_account). Not gesture-free: one navigation tap on the
+    Profile tab, unless already on it. Non-destructive (no logout). Another app on screen: nothing
+    tapped, reason "app_not_foreground", never "logged out"."""
+    reading = _switch(a).read_active_account()
+    if reading.username:
+        message = f"active_account=@{reading.username}"
+    elif reading.reason == "app_not_foreground":
+        message = f"Instagram not in the foreground ({reading.foreground_package}): nothing read"
+    else:
+        message = _NO_ACTIVE_ACCOUNT.get(reading.reason, reading.reason)
     return {
-        "success": bool(username),
-        "found": bool(username),
-        "message": f"active_account=@{username}" if username else "no active account (logged out?)",
-        "username": username,
+        "success": bool(reading.username),
+        "found": bool(reading.username),
+        "message": message,
+        "username": reading.username,
+        "details": {"reason": reading.reason, "foreground_package": reading.foreground_package},
     }
 
 

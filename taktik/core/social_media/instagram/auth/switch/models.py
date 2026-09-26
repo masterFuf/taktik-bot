@@ -1,5 +1,6 @@
 """Data models for the account-switch process."""
 
+from dataclasses import dataclass
 from typing import List, Optional
 
 
@@ -33,3 +34,17 @@ class SwitchResult:
             f"SwitchResult(success={self.success}, switched_to='{self.switched_to}', "
             f"relogin_required={self.relogin_required})"
         )
+
+
+@dataclass(frozen=True)
+class ActiveAccountReading:
+    """What a read of the active account saw: the @username, or why there is none.
+
+    `reason`: "active" (username read), "logged_out" (account picker on screen),
+    "app_not_foreground" (another app on screen, named by `foreground_package`; nothing tapped),
+    "unreadable" (profile not reached, or no @handle on it).
+    """
+
+    username: Optional[str]
+    reason: str
+    foreground_package: Optional[str] = None

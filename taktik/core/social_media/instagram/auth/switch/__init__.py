@@ -23,8 +23,11 @@ from typing import Callable, List, Optional
 
 from loguru import logger
 
+from taktik.core.clone.packages.package_map import belongs_to_platform
+from taktik.core.shared.device.app_inspection import foreground_package
+
 from ...ui.selectors.shell.auth import AUTH_SELECTORS
-from .models import SwitchResult
+from .models import ActiveAccountReading, SwitchResult
 from ..logout import InstagramLogout
 
 # Profile-header stats leak into the dump behind the switcher sheet as content-desc like
@@ -231,31 +234,48 @@ class InstagramSwitchAccount:
         return detection.get_username_from_profile()
 
     def detect_active_account(self) -> Optional[str]:
-        """Read the @username of the account currently ACTIVE on the device — non-destructive.
+        """The @username of the account currently ACTIVE on the device, or None (see
+        `read_active_account` for why)."""
+        return self.read_active_account().username
 
-        Flow: when an account is active (home feed), navigate to the own profile tab and
-        read the logged-in username. Emits `active_account_detected` (via the `on_active_account`
-        callback) so the front recales the device↔account DB link. Returns None when logged out (on
-        the picker there is no active account) or when the username can't be read / isn't a handle.
+    def read_active_account(self) -> ActiveAccountReading:
+        """Read the account currently ACTIVE on the device — non-destructive, but one navigation
+        tap: the Profile tab, unless already on it.
+
+        Another app on screen: nothing tapped, "app_not_foreground". On the picker: "logged_out".
+        Otherwise the own profile is read; a valid handle is emitted as `active_account_detected`
+        (via `on_active_account`) so the front recales the device↔account DB link.
         """
+        foreign = self._foreign_foreground_package()
+        if foreign:
+            self.logger.warning(f"detect_active_account: Instagram not in the foreground ({foreign})")
+            return ActiveAccountReading(None, "app_not_foreground", foreign)
         if self._on_account_picker():
-            return None
+            return ActiveAccountReading(None, "logged_out")
         self._notify("Reading the active account from the profile…")
         self._emit_step("navigate_profile")
         try:
             raw = self._read_profile_username()
         except Exception as exc:  # noqa: BLE001
             self.logger.warning(f"detect_active_account failed: {exc}")
-            return None
+            return ActiveAccountReading(None, "unreadable")
         username = self._norm(raw)
         if not username or not _HANDLE_RE.match(username):
             self.logger.warning(f"detect_active_account: no valid username (got {raw!r})")
-            return None
+            return ActiveAccountReading(None, "unreadable")
         self.logger.info(f"👤 Active account on device: @{username}")
         self._notify(f"Active account on this device: @{username}")
         self._emit_step("active_account", username=username)
         self._emit_active(username)
-        return username
+        return ActiveAccountReading(username, "active")
+
+    def _foreign_foreground_package(self) -> Optional[str]:
+        """The package on screen when it is not an Instagram build or clone. An unreadable
+        foreground is not a foreign app: None."""
+        package = foreground_package(self.device)
+        if not package or belongs_to_platform(package, "instagram"):
+            return None
+        return package
 
     def switch_to(self, target_username: str) -> SwitchResult:
         target = self._norm(target_username)

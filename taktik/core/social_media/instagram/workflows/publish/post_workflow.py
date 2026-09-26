@@ -569,9 +569,9 @@ class InstagramPostWorkflow:
         return False
 
     def _own_story_state(self, photo=None) -> Optional[str]:
-        """Our own bubble of the feed tray: "empty" (its "Add to story" badge), "posted" (seen
-        whole, no badge), None when it is not seen whole (not on the feed, tray scrolled).
-        Reads only."""
+        """Our own bubble of the feed tray, seen whole: "posted" (its ring is on), "empty" (no
+        ring; its "Add to story" badge stays either way). None when it is not seen whole (not on
+        the feed, tray scrolled). Reads only."""
         photo = self._photo() if photo is None else photo
         if photo is None:
             return None
@@ -582,7 +582,7 @@ class InstagramPostWorkflow:
         width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
         if width <= 0 or height < 0.8 * width:
             return None
-        return "empty" if photo.exists(CC.own_story_empty_badge_xpath()) else "posted"
+        return "posted" if photo.exists(CC.own_story_ring_xpath()) else "empty"
 
     def _wait_for_story_commit(self, story_before: Optional[str], timeout: float = 120.0,
                                poll_s: float = 2.0) -> str:
