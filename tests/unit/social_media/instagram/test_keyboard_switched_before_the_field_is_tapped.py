@@ -41,9 +41,6 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages im
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 from taktik.core.social_media.instagram.workflows.cold_dm.sender import ColdDMSenderMixin
-from taktik.core.social_media.instagram.workflows.management.dm.outreach_actions import (
-    OutreachActionsMixin,
-)
 from taktik.core.social_media.instagram.workflows.management.notifications import (
     notifications_workflow as nw,
 )
@@ -278,7 +275,7 @@ def _action(cls, phone):
     return action
 
 
-# -- The DM composer atomic (messaging workflow, DM replies, DM outreach) ------------------------
+# -- The DM composer atomic (messaging workflow, DM replies) --------------------------------------
 
 def test_the_dm_composer_is_tapped_after_the_keyboard_switch(phone):
     """Switched after the tap, the message never reached the composer: `set_text` wrote it."""
@@ -354,23 +351,9 @@ def _content_hashtag_search(phone):
     return content_navigation.navigate_to_hashtag(business, "paris"), "#paris"
 
 
-def _outreach_profile_search(phone):
-    phone.add_button(NAVIGATION_SELECTORS.search_tab[0])
-    phone.add_button(DM_SELECTORS.account_result_selector_for_username("ana"))
-
-    class _Outreach(OutreachActionsMixin):
-        device = phone
-        device_manager = types.SimpleNamespace(device_id=phone.device_id)
-        nav_selectors = NAVIGATION_SELECTORS
-        dm_selectors = DM_SELECTORS
-        logger = _Quiet()
-
-    return _Outreach()._navigate_to_profile("ana"), "ana"
-
-
 @pytest.mark.parametrize("search", [
-    _profile_search, _hashtag_search, _content_hashtag_search, _outreach_profile_search,
-], ids=["profile", "hashtag", "content_hashtag", "outreach_profile"])
+    _profile_search, _hashtag_search, _content_hashtag_search,
+], ids=["profile", "hashtag", "content_hashtag"])
 def test_the_search_fields_are_tapped_after_the_keyboard_switch(phone, search):
     """Switched after the tap, the query never reached the search field."""
     reached, query = search(phone)
