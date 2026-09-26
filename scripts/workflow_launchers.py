@@ -68,9 +68,9 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
         ("bridges/instagram/account/runtime/login.py", "LoginWorkflow"):
             "Q3, account lot: bridge builds LoginWorkflow, handler has its own copy.",
         ("bridges/instagram/account/runtime/logout.py", "LogoutWorkflow"):
-            "Q3, account lot.",
+            "Q3, account lot: the bridge still builds its workflow itself.",
         ("bridges/instagram/account/runtime/register.py", "SignupWorkflow"):
-            "Q3, account lot.",
+            "Q3, account lot: the bridge still builds its workflow itself.",
         ("bridges/instagram/account/runtime/language.py", "ChangeLanguageWorkflow"):
             "Q3, account lot (change_language has no handler yet).",
         ("bridges/instagram/account/runtime/switch.py", "SwitchAccountWorkflow"):
@@ -102,25 +102,25 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
         ("bridges/tiktok/account/runtime/account_login.py", "TikTokLoginWorkflow"):
             "TikTok account lot: bridge not moved to the handler yet.",
         ("bridges/tiktok/account/runtime/account_logout.py", "TikTokLogoutWorkflow"):
-            "TikTok account lot.",
+            "TikTok account lot: not on its launcher yet.",
         ("bridges/tiktok/account/runtime/account_register.py", "TikTokSignupWorkflow"):
-            "TikTok account lot.",
+            "TikTok account lot: not on its launcher yet.",
         ("bridges/tiktok/account/runtime/account_language.py", "TikTokChangeLanguageWorkflow"):
             "TikTok account lot (change_language has no handler yet).",
         # Threads: handler exists, the bridge keeps its own config and calls the engine.
         ("bridges/threads/workflows/runtime/feed.py", "run_feed_and_interact"):
             "Threads lot: bridge builds its own config and calls the engine.",
         ("bridges/threads/workflows/runtime/search.py", "run_search_and_interact"):
-            "Threads lot.",
+            "Threads lot: not on its launcher yet.",
     },
     "bridge_without_launcher": {
-        ("account_bridge",): "Q3, account lot.",
+        ("account_bridge",): "Q3, account lot: the bridge still builds its workflow itself.",
         ("notifications_bridge",): "Q5, notifications lot in progress.",
         ("persona_analysis_bridge",):
             "persona analysis: no manifest id, no CLI; left as is by decision (Q6).",
-        ("publish_bridge",): "Q4 postponed.",
-        ("tiktok_account_bridge",): "TikTok account lot.",
-        ("threads_bridge",): "Threads lot.",
+        ("publish_bridge",): "Q4 postponed: publication stays as is for now.",
+        ("tiktok_account_bridge",): "TikTok account lot: not on its launcher yet.",
+        ("threads_bridge",): "Threads lot: not on its launcher yet.",
     },
     "app_extra_launch_module": {
         ("desktop_bridge", "electron/services/tools/debug/bridge/DesktopDebugBridgeService.ts"):
