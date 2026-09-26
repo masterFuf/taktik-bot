@@ -83,6 +83,29 @@ class NavigationSelectors:
         return self._back_buttons_base + L("navigation.back_buttons")
     action_bar_back_button_resource_id: str = "com.instagram.android:id/action_bar_button_back"
 
+    # === Instagram root screens ===
+    # A main tab's own screen (home feed, Explore, Reels, DM inbox, own profile): the tab bar is
+    # up and Instagram shows no back arrow. Back there leaves Instagram (home feed) or jumps to
+    # another tab. Told by the tab bar, not the selected tab: after a cold start no tab is
+    # selected yet (every home feed of the C0 captures).
+    main_tab_bar: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/feed_tab"]',
+        '//*[@resource-id="com.instagram.android:id/clips_tab"]',
+        '//*[@resource-id="com.instagram.android:id/search_tab"]',
+        '//*[@resource-id="com.instagram.android:id/profile_tab"]',
+        '//*[@resource-id="com.instagram.android:id/direct_tab"]',
+    ])
+
+    # What a Back closes without leaving the screen under it: a bottom sheet (comments, likers,
+    # share: one chassis on IG 410), a dialog, the keyboard of a focused field.
+    back_closable_layers: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/layout_container_bottom_sheet"]',
+        '//*[@resource-id="com.instagram.android:id/background_dimmer"]',
+        '//*[@resource-id="com.instagram.android:id/igds_alert_dialog_headline"]',
+        '//*[@resource-id="com.instagram.android:id/dialog_container"]',
+        '//android.widget.EditText[@focused="true" and @package="com.instagram.android"]',
+    ])
+
     # === Back buttons for the followers/following list ===
     back_buttons_action_bar: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/left_action_bar_buttons"]//android.widget.ImageView[@clickable="true"]',

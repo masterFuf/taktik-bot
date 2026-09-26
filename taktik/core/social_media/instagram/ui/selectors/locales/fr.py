@@ -407,14 +407,18 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.activity_tab": [
         "//*[contains(@content-desc, \"Activité\")]",
     ],
+    # Tabs and back arrows: Instagram's own nodes only. Every dump also holds the Android
+    # navigation bar (com.android.systemui:id/back "Retour", :id/home_button "Accueil") and can
+    # hold the launcher (accessibility_action_view "Accueil"): a tap there leaves Instagram.
+    # A clone's package is swapped in by the clone proxy.
     "navigation.back_button": [
-        "//*[contains(@content-desc, \"Retour\")]",
-        "//*[contains(@content-desc, \"Précédent\")]",
+        "//*[contains(@content-desc, \"Retour\") and @package=\"com.instagram.android\"]",
+        "//*[contains(@content-desc, \"Précédent\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.back_buttons": [
-        "//android.widget.ImageView[@content-desc=\"Retour\"]",
-        "//*[@content-desc=\"Retour\"]",
-        "//*[@content-desc=\"Précédent\"]",
+        "//android.widget.ImageView[@content-desc=\"Retour\" and @package=\"com.instagram.android\"]",
+        "//*[@content-desc=\"Retour\" and @package=\"com.instagram.android\"]",
+        "//*[@content-desc=\"Précédent\" and @package=\"com.instagram.android\"]",
     ],
     "navigation.close_button": [
         "//*[contains(@content-desc, \"Fermer\")]",
@@ -427,18 +431,14 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "navigation.explore_search_bar_texts": [],
     "navigation.home_tab": [
-        # not(systemui): the Android navigation bar home button also carries the same
-        # (com.android.systemui:id/home_button) a aussi content-desc "Accueil" ;
-        # content-desc, so without this guard, in a fullscreen story where the Instagram
-        # bar is absent, the bot tapped it and dropped out to the Android launcher.
-        "//*[contains(@content-desc, \"Accueil\") and not(@package=\"com.android.systemui\")]",
+        "//*[contains(@content-desc, \"Accueil\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.home_tab_description_contains": [],
     "navigation.home_tab_descriptions": [],
     "navigation.posts_tab_options": [],
     "navigation.profile_tab": [
-        "//*[contains(@content-desc, \"Profil\") and contains(name(), \"ImageView\") and not(@package=\"com.android.systemui\")]",
-        "//*[contains(@content-desc, \"Profil\") and not(@package=\"com.android.systemui\")]",
+        "//*[contains(@content-desc, \"Profil\") and contains(name(), \"ImageView\") and @package=\"com.instagram.android\"]",
+        "//*[contains(@content-desc, \"Profil\") and @package=\"com.instagram.android\"]",
         "//*[contains(@resource-id, \"tab_bar_icon\") and contains(@content-desc, \"Profil\")]",
     ],
     "navigation.recent_tab_selectors": [
@@ -446,7 +446,7 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Récents\")]",
     ],
     "navigation.search_tab": [
-        "//*[contains(@content-desc, \"Rechercher\") and not(@package=\"com.android.systemui\")]",
+        "//*[contains(@content-desc, \"Rechercher\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.search_tab_description_contains": [],
     "navigation.search_tab_descriptions": [],

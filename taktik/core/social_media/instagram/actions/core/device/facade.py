@@ -36,10 +36,12 @@ class DeviceFacade(BaseDeviceFacade):
     # Key press
     # =========================================================================
 
+    _KEYCODE_BACK = 4
+
     def press(self, key: Union[str, int]) -> bool:
         """Press a key the way the shared `press_back()` does: a key name the server knows, or
         an Android key code (int). Returns what the server answers; False for a key it cannot
-        press, which is then not sent."""
+        press, which is then not sent. A Back on an Instagram root screen is refused."""
         try:
             if isinstance(key, int) and not isinstance(key, bool):
                 sent = key
@@ -48,6 +50,8 @@ class DeviceFacade(BaseDeviceFacade):
                 if sent not in self.SERVER_KEY_NAMES:
                     self.logger.warning(f"Key {key!r} is not one the device can press; not sent")
                     return False
+            if sent in ("back", self._KEYCODE_BACK) and self._refuse_back_on_root():
+                return False
             result = self._device.press(sent)
             time.sleep(0.5)
             return bool(result)
@@ -55,9 +59,34 @@ class DeviceFacade(BaseDeviceFacade):
         except Exception as e:
             self.logger.error(f"Error pressing key {key}: {e}")
             return False
-    
+
     def back(self):
         return self.press("back")
+
+    def press_back(self):
+        if self._refuse_back_on_root():
+            return
+        super().press_back()
+
+    def is_on_root_screen(self) -> bool:
+        """A main tab's own screen with nothing a Back would close: there Back leaves Instagram
+        (home feed) or jumps to another tab. False when the screen cannot be read."""
+        from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+
+        try:
+            photo = self.snapshot()
+            return (photo.exists(NAVIGATION_SELECTORS.main_tab_bar)
+                    and not photo.exists(NAVIGATION_SELECTORS.back_buttons)
+                    and not photo.exists(NAVIGATION_SELECTORS.back_closable_layers))
+        except Exception as e:
+            self.logger.debug(f"Root screen check skipped, screen unreadable: {e}")
+            return False
+
+    def _refuse_back_on_root(self) -> bool:
+        if not self.is_on_root_screen():
+            return False
+        self.logger.warning("Back refused: Instagram root screen, it would leave Instagram or switch tab")
+        return True
     
     def home(self):
         try:
