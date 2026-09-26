@@ -205,12 +205,14 @@ Les POC locaux et scripts smoke dependants d'un appareil doivent rester dans `te
 - Applications sociales installees sur le device
 - **Python 3.10+** pour l'usage CLI
 
-### Versions recommandees
+### Versions supportees
 
-| Application | Version recommandee | Langue |
-|---|---|---|
-| **Instagram** | `410.0.0.53.71` | Anglais requis |
-| **TikTok** | `43.1.4` | Anglais requis |
+Les versions d'Instagram et de TikTok supportees, par architecture, avec un lien de telechargement
+de l'APK d'origine pour chacune, sont dans **[COMPATIBILITY.md](COMPATIBILITY.md)** (en anglais).
+Ce fichier est genere depuis les donnees de selecteurs du bot
+(`python scripts/audit_compatibility_file.py --write`) et verifie par le meme script.
+
+Instagram et TikTok doivent etre en **anglais**.
 
 ### Appareils compatibles
 
