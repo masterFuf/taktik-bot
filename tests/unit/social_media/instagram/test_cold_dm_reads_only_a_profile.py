@@ -11,11 +11,15 @@ The screens are real dumps, anonymized (every text and content-desc emptied exce
 interface labels, the Android system bars removed):
 - `ig410_fr_home_feed.xml`: the Pixel 3's home feed, in French;
 - `ig410_en_own_profile.xml`: the account's own profile with its tab bar, in English;
+- `ig410_fr_own_profile.xml`: the Pixel 3's own profile with its tab bar, in French, where the
+  first fix still failed on the phone;
 - `ig410_en_profile_with_message_button.xml`: another account's profile and its Message button.
 
 The phone answers `xpath` through uiautomator2's own engine and the `d(text=...)` calls from the
 same dump, behind the clone proxy and the facade the bridges mount; its clock jumps when the code
-sleeps.
+sleeps. Like the phone, a `d(...)` node's `info` carries no `resourceName`: measured on the Pixel 3
+for the Direct tab, whose dump shows `direct_tab`. A first fix read that name to skip the tab, and
+took the tab for the button on the phone while these tests, whose nodes still had the id, passed.
 """
 
 import re
@@ -41,6 +45,7 @@ PKG = "com.instagram.android"
 FIXTURES = Path(__file__).parent / "fixtures"
 HOME_FR = (FIXTURES / "ig410_fr_home_feed.xml").read_text(encoding="utf-8")
 OWN_PROFILE_EN = (FIXTURES / "ig410_en_own_profile.xml").read_text(encoding="utf-8")
+OWN_PROFILE_FR = (FIXTURES / "ig410_fr_own_profile.xml").read_text(encoding="utf-8")
 PROFILE_EN = (FIXTURES / "ig410_en_profile_with_message_button.xml").read_text(encoding="utf-8")
 MESSAGE_BUTTON = (496, 877, 943, 965)
 
@@ -98,7 +103,12 @@ class _Selection:
 
     @property
     def info(self):
-        return {"resourceName": self._nodes[0].get("resource-id")}
+        node = self._nodes[0]
+        left, top, right, bottom = _bounds(node)
+        # What uiautomator2 answered on the phone: no resourceName.
+        return {"resourceName": None, "packageName": node.get("package"),
+                "contentDescription": node.get("content-desc"), "text": node.get("text"),
+                "bounds": {"left": left, "top": top, "right": right, "bottom": bottom}}
 
     def click(self):
         left, top, right, bottom = _bounds(self._nodes[0])
@@ -193,9 +203,11 @@ def test_a_search_that_opened_no_profile_taps_nothing_and_composes_nothing(monke
 
 # ── on a profile: the Direct tab is never the Message button ─────────────────────────────────
 
-def test_the_direct_tab_is_not_the_message_button_of_a_profile_without_one():
-    set_active_locale("en")
-    phone = _Phone(OWN_PROFILE_EN)
+@pytest.mark.parametrize("language, xml", [("fr", OWN_PROFILE_FR), ("en", OWN_PROFILE_EN)],
+                         ids=["own-profile-fr", "own-profile-en"])
+def test_the_direct_tab_is_not_the_message_button_of_a_profile_without_one(language, xml):
+    set_active_locale(language)
+    phone = _Phone(xml)
     workflow = _workflow(phone)
 
     opened = workflow.open_dm_from_profile(ColdDmRecipientPolicy(skip_private=False))
@@ -220,11 +232,13 @@ def test_the_message_button_of_a_profile_is_still_found_and_tapped():
     assert left <= x <= right and top <= y <= bottom
 
 
-def test_the_lab_check_on_a_profile_without_message_button_says_the_dm_would_fail():
+@pytest.mark.parametrize("language, xml", [("fr", OWN_PROFILE_FR), ("en", OWN_PROFILE_EN)],
+                         ids=["own-profile-fr", "own-profile-en"])
+def test_the_lab_check_on_a_profile_without_message_button_says_the_dm_would_fail(language, xml):
     from bridges.compat.diagnostics.actions.instagram.dm import cold_dm_check_profile
 
-    set_active_locale("en")
-    phone = _Phone(OWN_PROFILE_EN)
+    set_active_locale(language)
+    phone = _Phone(xml)
 
     result = cold_dm_check_profile(_lab_bundle(phone), {"skipPrivate": "false"})
 

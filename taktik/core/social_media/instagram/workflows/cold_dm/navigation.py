@@ -6,7 +6,6 @@ import time
 
 from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
     ColdDmRecipientPolicy,
@@ -18,28 +17,6 @@ NOT_ON_PROFILE = "not_on_profile"
 
 #: How long a profile opened from the search may take to draw, as in the other profile flows.
 PROFILE_LOAD_TIMEOUT_S = 8.0
-
-
-def _is_direct_tab(node) -> bool:
-    """Is this uiautomator2 node the tab bar's Direct tab (any package prefix)?"""
-    try:
-        name = (node.info or {}).get("resourceName") or ""
-    except Exception:
-        return False
-    return name.rpartition(":id/")[2] == DM_SELECTORS.direct_tab_resource_id.rpartition(":id/")[2]
-
-
-def _first_outside_tab_bar(found):
-    """The first node of a uiautomator2 selection that is not the Direct tab, or None."""
-    try:
-        count = found.count if found.exists else 0
-    except Exception:
-        return None
-    for index in range(count):
-        node = found[index]
-        if not _is_direct_tab(node):
-            return node
-    return None
 
 
 class ColdDMNavigationMixin:
@@ -67,19 +44,17 @@ class ColdDMNavigationMixin:
         return DetectionActions(self.device_manager)
 
     def find_message_button(self):
-        """The profile's Message button, or None.
+        """The profile's Message button, looked for inside the profile header only, or None.
 
-        Never the tab bar's Direct tab: IG 410 gives it the button's own label as content-desc
-        ("Message", "Envoyer un message"), so a profile without the button (one's own, a private
-        one) answered with the tab, and the tap opened the inbox.
+        Asked of `d.xpath()`, which reads the dump's ids: uiautomator's node info gives no
+        `resourceName` for the tab bar's Direct tab (Pixel 3, IG 410), whose content-desc is the
+        button's own label on every screen with the bar, own profile included.
         """
-        for label in PROFILE_SELECTORS.message_button_text_labels:
-            for found in (self.device(text=label), self.device(description=label)):
-                node = _first_outside_tab_bar(found)
-                if node is not None:
-                    return node
-        msg_btn = self.device(resourceId=PROFILE_SELECTORS.message_button_resource_id)
-        return msg_btn if msg_btn.exists else None
+        for selector in PROFILE_SELECTORS.header_message_button:
+            found = self.device.xpath(selector)
+            if found is not None and found.exists:
+                return found
+        return None
 
     def evaluate_cold_dm_profile(self, policy: ColdDmRecipientPolicy | None = None) -> dict:
         """Read the open profile and decide, without touching the screen.

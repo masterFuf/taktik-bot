@@ -71,7 +71,8 @@ class _Node:
 
 
 class _Device:
-    """Answers `device(text=/description=/resourceId=/textContains=)` from a fixed screen."""
+    """Answers `device(text=/description=/resourceId=/textContains=)` and the profile header's
+    Message button xpaths from a fixed screen."""
 
     def __init__(self, *, private=False, message=True):
         self.private = private
@@ -85,7 +86,12 @@ class _Device:
             return _Node(self.private)
         if "textContains" in kwargs:
             return _Node(False)
-        if self.message and (kwargs.get("text") in PROFILE_SELECTORS.message_button_text_labels):
+        return _Node(False)
+
+    def xpath(self, selector):
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
+        if self.message and selector in PROFILE_SELECTORS.header_message_button:
             return self.message_node
         return _Node(False)
 
