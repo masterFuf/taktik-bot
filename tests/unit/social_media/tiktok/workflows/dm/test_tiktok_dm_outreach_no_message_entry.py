@@ -29,12 +29,9 @@ from taktik.core.social_media.tiktok.ui.selectors.locales import active_locale, 
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 FOLLOWER_PROFILE = (FIXTURES / "tt47_fr_profile_follows_us_no_message_entry.xml").read_text(encoding="utf-8")
-# Neither a profile nor a Message entry: what the run would face after a stray navigation.
-NOT_A_PROFILE = (
-    '<hierarchy rotation="0"><node index="0" text="" resource-id="" class="android.widget.FrameLayout" '
-    'package="com.zhiliaoapp.musically" content-desc="" clickable="false" bounds="[0,0][1080,2400]" />'
-    "</hierarchy>"
-)
+# Neither a profile nor a Message entry: what the run would face after a stray navigation, here
+# the For You feed of the same phone and version (its tab bar says « Messages »).
+NOT_A_PROFILE = (FIXTURES / "tt4703_fr_home.xml").read_text(encoding="utf-8")
 
 
 class _Clock:

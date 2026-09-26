@@ -1,15 +1,48 @@
-from lxml import etree
+"""Which screen Instagram shows, read on real screens of Instagram 410.0.0.53.71 (fixtures).
 
+A post header on the home feed is not a profile; a profile header is. The screens are real dumps,
+anonymized: the English home feed with its suggestions carousel, the French one, the connected
+account's profile in both languages, a profile opened from the search, and the information window
+of the story editor, which none of the four signals describes. They are read the way production
+reads a dump (`parse_ui_dump`).
+
+Not asserted here: on some 410 captures (the French home feed of these fixtures among them) the
+selection sits on the tab's icon, not on `feed_tab` itself, and no home signal answers. Open point,
+to be proven on a phone before a selector changes.
+"""
+
+from pathlib import Path
+
+import pytest
+
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.actions.atomic.detection.screen_detection import (
     ScreenDetectionMixin,
 )
 from taktik.core.social_media.instagram.ui.language import filter_selectors
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DetectionSelectors
 
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _screen(name: str) -> str:
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+HOME_EN = _screen("ig410_en_feed_carousel_framed.xml")
+HOME_FR = _screen("ig410_fr_home_feed.xml")
+PROFILES = {
+    "own_en": _screen("ig410_en_own_profile.xml"),
+    "own_fr": _screen("ig410_fr_own_profile.xml"),
+    "from_search_fr": _screen("ig410_fr_profile_opened_from_search.xml"),
+    "with_message_button_en": _screen("ig410_en_profile_with_message_button.xml"),
+}
+STORY_WINDOW = _screen("ig410_en_story_share_information_window.xml")
+
 
 def _matches(xml: str, selectors: list[str]) -> bool:
-    tree = etree.fromstring(xml.encode("utf-8"))
-    return any(tree.xpath(selector) for selector in selectors)
+    root = parse_ui_dump(xml)
+    return any(root.xpath(selector) for selector in selectors)
 
 
 class _NoopLogger:
@@ -19,7 +52,7 @@ class _NoopLogger:
 
 class _ScreenProbe(ScreenDetectionMixin):
     def __init__(self, xml: str, *, enable_batch: bool = False):
-        self._tree = etree.fromstring(xml.encode("utf-8"))
+        self._tree = parse_ui_dump(xml)
         self.detection_selectors = DetectionSelectors()
         self.logger = _NoopLogger()
         self.device = self if enable_batch else _LiveOnlyDevice()
@@ -44,74 +77,37 @@ class _LiveOnlyDevice:
     pass
 
 
-def test_feed_post_header_does_not_match_profile_surface():
+@pytest.mark.parametrize("xml", [HOME_EN, HOME_FR], ids=["en", "fr"])
+def test_feed_post_header_does_not_match_profile_surface(xml):
     selectors = DetectionSelectors()
-    xml = """
-    <hierarchy>
-      <node resource-id="com.instagram.android:id/feed_tab" content-desc="Home" selected="true" />
-      <node resource-id="com.instagram.android:id/row_feed_profile_header" />
-      <node resource-id="com.instagram.android:id/action_bar_title" text="Instagram" />
-      <node text="Follow" />
-    </hierarchy>
-    """
 
-    assert _matches(xml, selectors.home_screen_indicators) is True
     assert _matches(xml, selectors.profile_surface_indicators) is False
 
 
-def test_home_feed_with_post_header_is_not_reported_as_profile_screen():
-    probe = _ScreenProbe(
-        """
-        <hierarchy>
-          <node resource-id="com.instagram.android:id/feed_tab" content-desc="Home" selected="true" />
-          <node resource-id="com.instagram.android:id/row_feed_profile_header" />
-          <node resource-id="com.instagram.android:id/action_bar_title" text="Instagram" />
-          <node text="Follow" />
-        </hierarchy>
-        """
-    )
-
-    assert ScreenDetectionMixin.is_on_profile_screen(probe) is False
+def test_the_english_home_feed_is_a_home_screen():
+    assert _matches(HOME_EN, DetectionSelectors().home_screen_indicators) is True
 
 
-def test_real_profile_header_matches_profile_surface():
+@pytest.mark.parametrize("xml", [HOME_EN, HOME_FR], ids=["en", "fr"])
+def test_home_feed_with_post_header_is_not_reported_as_profile_screen(xml):
+    assert ScreenDetectionMixin.is_on_profile_screen(_ScreenProbe(xml)) is False
+
+
+@pytest.mark.parametrize("xml", PROFILES.values(), ids=PROFILES.keys())
+def test_real_profile_header_matches_profile_surface(xml):
     selectors = DetectionSelectors()
-    xml = """
-    <hierarchy>
-      <node resource-id="com.instagram.android:id/profile_header_container">
-        <node resource-id="com.instagram.android:id/row_profile_header" />
-      </node>
-    </hierarchy>
-    """
 
     assert _matches(xml, selectors.profile_surface_indicators) is True
     assert _matches(xml, selectors.profile_screen_indicators) is True
 
 
-def test_real_profile_header_is_reported_as_profile_screen():
-    probe = _ScreenProbe(
-        """
-        <hierarchy>
-          <node resource-id="com.instagram.android:id/profile_header_container">
-            <node resource-id="com.instagram.android:id/row_profile_header" />
-          </node>
-        </hierarchy>
-        """
-    )
-
-    assert ScreenDetectionMixin.is_on_profile_screen(probe) is True
+@pytest.mark.parametrize("xml", PROFILES.values(), ids=PROFILES.keys())
+def test_real_profile_header_is_reported_as_profile_screen(xml):
+    assert ScreenDetectionMixin.is_on_profile_screen(_ScreenProbe(xml)) is True
 
 
 def test_screen_detection_reuses_batched_signal_snapshot():
-    probe = _ScreenProbe(
-        """
-        <hierarchy>
-          <node resource-id="com.instagram.android:id/feed_tab" content-desc="Home" selected="true" />
-          <node resource-id="com.instagram.android:id/row_feed_profile_header" />
-        </hierarchy>
-        """,
-        enable_batch=True,
-    )
+    probe = _ScreenProbe(HOME_EN, enable_batch=True)
 
     assert ScreenDetectionMixin.is_on_profile_screen(probe) is False
     assert ScreenDetectionMixin.is_on_home_screen(probe) is True
@@ -119,16 +115,9 @@ def test_screen_detection_reuses_batched_signal_snapshot():
 
 
 def test_batched_negatives_avoid_live_fallback_on_unknown_screen():
-    # An unknown screen makes every batched signal negative. The single dump must
+    # A screen no signal describes makes every batched signal negative. The single dump must
     # stay authoritative: no live re-probing of every indicator list.
-    probe = _ScreenProbe(
-        """
-        <hierarchy>
-          <node resource-id="com.instagram.android:id/some_unrelated_view" />
-        </hierarchy>
-        """,
-        enable_batch=True,
-    )
+    probe = _ScreenProbe(STORY_WINDOW, enable_batch=True)
 
     assert ScreenDetectionMixin.is_on_profile_screen(probe) is False
     assert ScreenDetectionMixin.is_on_home_screen(probe) is False
@@ -140,15 +129,10 @@ def test_batched_negatives_avoid_live_fallback_on_unknown_screen():
 
 
 def test_screen_detection_falls_back_without_batch_xpath_check():
-    probe = _ScreenProbe(
-        """
-        <hierarchy>
-          <node resource-id="com.instagram.android:id/profile_header_container" />
-        </hierarchy>
-        """
-    )
+    probe = _ScreenProbe(PROFILES["own_fr"])
 
     assert ScreenDetectionMixin.is_on_profile_screen(probe) is True
+    assert probe.live_calls >= 1
 
 
 def test_french_language_filter_keeps_neutral_selected_feed_tab():
@@ -159,14 +143,6 @@ def test_french_language_filter_keeps_neutral_selected_feed_tab():
     assert '//*[contains(@content-desc, "Home") and @selected="true"]' not in filtered
 
 
-def test_unselected_search_tabs_do_not_match_search_screen():
-    selectors = DetectionSelectors()
-    xml = """
-    <hierarchy>
-      <node resource-id="com.instagram.android:id/feed_tab" content-desc="Home" selected="true" />
-      <node resource-id="com.instagram.android:id/search_tab" content-desc="Search" selected="false" />
-      <node resource-id="com.instagram.android:id/clips_tab" content-desc="Reels" selected="false" />
-    </hierarchy>
-    """
-
-    assert _matches(xml, selectors.search_screen_indicators) is False
+@pytest.mark.parametrize("xml", [HOME_EN, HOME_FR], ids=["en", "fr"])
+def test_unselected_search_tabs_do_not_match_search_screen(xml):
+    assert _matches(xml, DetectionSelectors().search_screen_indicators) is False

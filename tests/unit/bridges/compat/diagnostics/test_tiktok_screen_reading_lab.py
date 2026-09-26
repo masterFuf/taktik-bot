@@ -2,10 +2,12 @@
 
 `tt.detection.read_screen` calls the production `DetectionActions.read_screen`, and the runner
 names the screen before and after every action from the same reading instead of waiting out
-`is_on_inbox_page` then `is_on_for_you_page` selector by selector. The screens are invented and
-read by uiautomator2's own `XPathEntry`.
+`is_on_inbox_page` then `is_on_for_you_page` selector by selector. The screens are real dumps of
+TikTok 43.1.4 in French (Pixel 3a), anonymized (`scripts/anonymize_dump.py`), read by uiautomator2's
+own `XPathEntry`.
 """
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -19,20 +21,11 @@ from bridges.compat.diagnostics.runtime.action_test.bundles.tiktok import (
 )
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 
-PKG = "com.zhiliaoapp.musically:id/"
-
-
-def _n(text="", desc="", rid="", selected="false"):
-    rid = f"{PKG}{rid}" if rid else ""
-    return (f'<node class="android.widget.TextView" text="{text}" content-desc="{desc}" resource-id="{rid}" '
-            f'package="com.zhiliaoapp.musically" selected="{selected}" bounds="[0,0][10,10]" />')
-
-
-FOR_YOU = ('<hierarchy rotation="0">' + _n(desc="Pour toi") + _n(desc="Accueil", selected="true")
-           + _n(text="demo_author", rid="title") + _n(desc="Attribuer un « J'aime » à la vidéo. 12", rid="f57")
-           + _n(desc="Partager une vidéo. 3 partages") + "</hierarchy>")
-INBOX = ('<hierarchy rotation="0">' + _n(text="Messages", rid="title")
-         + _n(desc="Messages", selected="true") + "</hierarchy>")
+FIXTURES = Path(__file__).resolve().parents[3] / "social_media" / "tiktok" / "fixtures"
+#: The For You feed on a video, as the Lab's `tt.navigation.go_home` left it.
+FOR_YOU = (FIXTURES / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
+#: The inbox, its widget banner included.
+INBOX = (FIXTURES / "tt4314_fr_inbox.xml").read_text(encoding="utf-8")
 
 
 class _Phone:
@@ -72,7 +65,8 @@ def test_the_lab_action_is_the_production_reading():
     assert isinstance(details["photoAgeMs"], int) and phone.dumps == 1
 
 
-@pytest.mark.parametrize("xml, name", [(FOR_YOU, "tiktok.feed.for_you"), (INBOX, "tiktok.inbox")])
+@pytest.mark.parametrize("xml, name", [(FOR_YOU, "tiktok.feed.for_you"), (INBOX, "tiktok.inbox")],
+                         ids=["for_you", "inbox"])
 def test_the_runner_names_a_tiktok_screen_from_one_photo(xml, name):
     bundle, phone = _bundle(xml)
     assert runner._detect_screen(bundle) == name
