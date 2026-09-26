@@ -191,6 +191,17 @@ class FeedSuggestionsSelectors:
     def carousel_cta_texts(self) -> List[str]:
         return L("feed_suggestions.carousel_cta_texts")
 
+    # --- Framing: the bars that bound the feed's visible band ---
+    # The dump drops what is off screen, so a card whose Follow button sits under the tab bar has
+    # no button at all. Same ids the feed scroll frames posts with.
+    @property
+    def viewport_top_bar_id(self) -> str:
+        return FEED_SCROLL_SELECTORS.action_bar_id
+
+    @property
+    def viewport_bottom_bar_id(self) -> str:
+        return FEED_SCROLL_SELECTORS.tab_bar_id
+
 
 FEED_SUGGESTIONS_SELECTORS = FeedSuggestionsSelectors()
 

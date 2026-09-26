@@ -17,9 +17,15 @@ single source of truth, shared with the profile header.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from taktik.core.shared.device.ui_dump import iter_widgets, parse_bounds
+
+# A node clipped by the screen ends exactly on the band's edge.
+_EDGE_TOLERANCE_PX = 2
+# Share of the visible band left free beyond the carousel once framed, so the varied framing
+# gesture still lands with the whole block in view.
+_FRAME_MARGIN_RATIO = 0.10
 
 
 def _has_id(node, bare_id: str) -> bool:
@@ -149,44 +155,139 @@ def _compose_header_and_cta(root, selectors):
     return None, None
 
 
+def _short_id(node) -> str:
+    return (node.get("resource-id") or "").rsplit("/", 1)[-1]
+
+
+def _visible_band(container, root, selectors) -> Optional[Tuple[int, int]]:
+    """``(top, bottom)`` of the feed band the carousel scrolls in, or None.
+
+    The scrolling list holding the carousel gives the band, since the dump clips every node to
+    it; the feed's top action bar and its tab bar narrow it when they cover it. With neither a
+    list nor a tab bar there is no proof of where the screen ends, and nothing is assessed.
+    """
+    band = None
+    for ancestor in container.iterancestors():
+        if (ancestor.get("scrollable") or "").lower() == "true":
+            band = parse_bounds(ancestor.get("bounds") or "")
+            if band:
+                break
+    top_bar = bottom_bar = None
+    for node in iter_widgets(root):
+        short = _short_id(node)
+        if short == selectors.viewport_top_bar_id:
+            top_bar = parse_bounds(node.get("bounds") or "")
+        elif short == selectors.viewport_bottom_bar_id:
+            bottom_bar = parse_bounds(node.get("bounds") or "")
+    if band is None and bottom_bar is None:
+        return None
+    top = band[1] if band else 0
+    bottom = band[3] if band else bottom_bar[1]
+    if top_bar:
+        top = max(top, top_bar[3])
+    if bottom_bar:
+        bottom = min(bottom, bottom_bar[1])
+    return (top, bottom) if bottom > top else None
+
+
+def _in_band(bounds, band) -> bool:
+    """True when ``bounds`` lie whole inside the band, not clipped at either edge."""
+    return (bool(bounds) and bounds[1] >= band[0] + _EDGE_TOLERANCE_PX
+            and bounds[3] <= band[1] - _EDGE_TOLERANCE_PX)
+
+
+def _carousel_framing(container_bounds, band, cta_bounds,
+                      cards_hidden: int, cards_clipped: int) -> Dict[str, Any]:
+    """Is the whole carousel in view, and how far should the feed move if not?
+
+    ``shift_px`` is how far the CONTENT must move up (negative: down): cut at the bottom, the
+    header is brought near the top of the band, which shows the most of what hides below; cut at
+    the top, the bottom is brought near the bottom of the band. A block cut on both sides, or
+    already against the edge it should move away from, is taller than the band: ``fits`` False.
+    """
+    top, bottom = band
+    cut_top = container_bounds[1] <= top + _EDGE_TOLERANCE_PX
+    cut_bottom = container_bounds[3] >= bottom - _EDGE_TOLERANCE_PX
+    margin = int(round((bottom - top) * _FRAME_MARGIN_RATIO))
+    shift = 0
+    if cut_bottom and not cut_top:
+        shift = max(container_bounds[1] - (top + margin), 0)
+    elif cut_top and not cut_bottom:
+        shift = min(container_bounds[3] - (bottom - margin), 0)
+    framed = not (cut_top or cut_bottom)
+    return {
+        "framed": framed,
+        "cut": ("both" if cut_top and cut_bottom else "top" if cut_top
+                else "bottom" if cut_bottom else None),
+        "fits": framed or shift != 0,
+        "shift_px": shift,
+        "band": band,
+        "bounds": container_bounds,
+        "cards_hidden": cards_hidden,
+        "cards_clipped": cards_clipped,
+        "cta_in_band": _in_band(cta_bounds, band),
+    }
+
+
 def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
     """State of the suggestions carousel in the feed dump.
 
-    Returns ``{present, title, cta_bounds, cards}`` — ``cta_bounds`` is the 4-tuple of
-    the "See all" button, to be tapped to open the discovery screen, and ``cards`` the
-    list of inline cards ``{name, follow_bounds, state_label}``.
+    Returns ``{present, title, cta_bounds, cards, cards_status, framing}`` — ``cta_bounds`` is
+    the 4-tuple of the "See all" button, to be tapped to open the discovery screen, and
+    ``cards`` the inline cards ``{name, follow_bounds, state_label}`` whose Follow button is
+    whole on screen: a card cut by the screen edge is never offered to a tap.
+
+    ``framing`` (None when the dump shows no feed band) says whether the whole block is in
+    view: ``framed``, ``cut`` (top/bottom/both), ``shift_px`` to frame it, ``cards_hidden``
+    (cards whose button is off screen, so absent from the dump), ``cards_clipped`` (button
+    partly off screen), ``cta_in_band``. ``cards_status`` is ``readable``, ``not_framed`` (cards
+    may be there but none is whole on screen) or ``none``.
     """
     result: Dict[str, Any] = {
         "present": False,
         "title": "",
         "cta_bounds": None,
         "cards": [],
+        "cards_status": "none",
+        "framing": None,
     }
     if root is None:
         return result
 
+    container = None
     for node in iter_widgets(root):
         if _has_id(node, selectors.carousel_container_id):
             result["present"] = True
+            container = node
             break
+    band = _visible_band(container, root, selectors) if container is not None else None
 
+    card_containers = cards_hidden = cards_clipped = 0
     for node in iter_widgets(root):
         if _has_id(node, selectors.carousel_title_id):
             result["title"] = _label_of(node)
         elif _has_id(node, selectors.carousel_cta_id):
             result["cta_bounds"] = parse_bounds(node.get("bounds") or "")
         elif _has_id(node, selectors.card_container_id):
+            card_containers += 1
             name_node = _find_descendant(node, selectors.card_name_id)
             follow_node = _find_descendant(node, selectors.card_follow_button_id)
             if follow_node is None:
+                cards_hidden += 1
+                continue
+            follow_bounds = parse_bounds(follow_node.get("bounds") or "")
+            if band is not None and not _in_band(follow_bounds, band):
+                cards_clipped += 1
                 continue
             result["cards"].append({
                 "name": _label_of(name_node),
                 "state_label": _label_of(follow_node),
-                "follow_bounds": parse_bounds(follow_node.get("bounds") or ""),
+                "follow_bounds": follow_bounds,
             })
 
-    if not result["cards"]:
+    # The IG 442 fallback only when the 410 cards are absent: on a cut 410 carousel it took the
+    # Follow button of a sponsored post's header for a card.
+    if not result["cards"] and not card_containers:
         result["cards"] = _compose_cards(root, selectors)
 
     # IG 442 rebuilt the block in Compose and kept NO resource-id: `netego_carousel_*` is
@@ -205,6 +306,18 @@ def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
     # to consider the block present: it is what gets tapped.
     if result["cta_bounds"] and not result["present"]:
         result["present"] = True
+
+    if band is not None:
+        container_bounds = parse_bounds(container.get("bounds") or "")
+        if container_bounds:
+            result["framing"] = _carousel_framing(
+                container_bounds, band, result["cta_bounds"], cards_hidden, cards_clipped,
+            )
+    framing = result["framing"]
+    if result["cards"]:
+        result["cards_status"] = "readable"
+    elif framing is not None and not framing["framed"]:
+        result["cards_status"] = "not_framed"
     return result
 
 

@@ -123,7 +123,11 @@ class DiscoverSuggestionsVisitMixin:
             result['stop_reason'] = 'home_not_reached'
             return result
 
-        if not self.find_feed_suggestions_carousel(max_carousel_scrolls).get('found'):
+        search = self.find_feed_suggestions_carousel(max_carousel_scrolls)
+        if not search.get('found'):
+            return result
+        if self._carousel_cta_cut(search):
+            result['stop_reason'] = 'carousel_not_framed'
             return result
 
         if not self.open_suggestions_see_all():
