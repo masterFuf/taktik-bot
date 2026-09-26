@@ -85,8 +85,9 @@ def problems(root: Path = ROOT, app: Path | None = None) -> List[str]:
         if where in seen:
             found.append(f"{where}: declared twice")
         seen.add(where)
-        if where not in runnable:
-            found.append(f"{where}: not a runnable workflow of workflows.manifest.json")
+        for workflow_id in (where, *contract.also):
+            if workflow_id not in runnable:
+                found.append(f"{workflow_id}: not a runnable workflow of workflows.manifest.json")
         if contract.bridge not in bridges:
             found.append(f"{where}: bridge {contract.bridge} is not in bridges/bridges.manifest.json")
         for label, dotted in (("launcher", contract.launcher), ("reader", contract.reader),
@@ -121,7 +122,8 @@ def main() -> int:
 
     app = app_root()
     checked = "generated file up to date" if app.is_dir() else "app not found, generated file not checked"
-    print(f"[workflow-contract] OK: {len(WORKFLOW_CONTRACTS)} workflows declared; {checked}")
+    workflows = sum(1 + len(contract.also) for contract in WORKFLOW_CONTRACTS)
+    print(f"[workflow-contract] OK: {workflows} workflows declared by {len(WORKFLOW_CONTRACTS)} declarations; {checked}")
     return 0
 
 

@@ -1,8 +1,9 @@
 """The one launcher of an Instagram scraping run, and its Agent handlers.
 
 `run_instagram_scraping` is what the desktop bridge (`scraping_bridge`) calls and what the handlers
-registered as `instagram.scraping.<type>` (the CLI) call: read the payload (`payload.py`), start
-Instagram when the host asks, match the selectors to the phone (installed version, app language:
+registered as `instagram.scraping.<type>` (the CLI) call: read the payload (`payload.py`), refuse a
+run with nothing to scrape before the phone is touched, start Instagram when the host asks, match
+the selectors to the phone (installed version, app language:
 `runtime_setup.prepare_instagram_selectors`, the automation launcher's), then run
 `ScrapingWorkflow`. What differs between the hosts is injected:
 - `instagram_start(package_name) -> bool`: a clean restart before the run. The desktop restarts
@@ -72,10 +73,15 @@ def run_instagram_scraping(
         _log_to_logger,
     )
 
+    scraping_config = scraping_config_from_payload(payload)
+    # A run with nothing to scrape is refused before the phone is touched, from every host.
+    error = scraping_source_error(scraping_config)
+    if error:
+        raise ValueError(error)
+
     if instagram_start is not None and not instagram_start(payload.get("packageName")):
         raise InstagramStartError("Instagram did not start cleanly; the scraping was not started")
 
-    scraping_config = scraping_config_from_payload(payload)
     if scraping_config.get('ai_mode') and not scraping_config.get('openrouter_api_key') and instagram_ai_key:
         key = instagram_ai_key()
         if key:
@@ -134,13 +140,8 @@ def build_instagram_scraping_handler(
     """Build an injectable scraping handler: the launcher, on the injected host."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        run_payload = instagram_scraping_payload(invocation, payload)
-        # A run with nothing to scrape is refused before the phone is touched.
-        error = scraping_source_error(scraping_config_from_payload(run_payload))
-        if error:
-            raise ValueError(error)
         return run_instagram_scraping(
-            run_payload,
+            instagram_scraping_payload(invocation, payload),
             device_manager=device_manager,
             instagram_start=instagram_start,
             ai_notifier=ai_notifier,

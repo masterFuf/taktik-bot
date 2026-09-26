@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from loguru import logger
 
 from bridges.common.device.app_manager import AppService
@@ -24,8 +22,8 @@ def create_scraping_connection(device_id: str) -> ConnectionService:
 
 
 def connect_scraping_device(connection: ConnectionService):
+    """The connected device manager, or None: the runner reports the failure."""
     if not connection.connect():
-        print(json.dumps({"success": False, "error": "Failed to connect to device"}))
         return None
 
     return connection.device_manager

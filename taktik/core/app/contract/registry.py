@@ -4,14 +4,19 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
-from . import tiktok
+from . import instagram_scraping, tiktok
 from .schema import WorkflowContract
 
-WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (*tiktok.CONTRACTS,)
+WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (*tiktok.CONTRACTS, *instagram_scraping.CONTRACTS)
 
 
 def contracts_by_id() -> Dict[str, WorkflowContract]:
-    return {contract.workflow_id: contract for contract in WORKFLOW_CONTRACTS}
+    """Every id of the manifest a declaration covers, its own and the ones it shares (`also`)."""
+    return {
+        workflow_id: contract
+        for contract in WORKFLOW_CONTRACTS
+        for workflow_id in (contract.workflow_id, *contract.also)
+    }
 
 
 __all__ = ["WORKFLOW_CONTRACTS", "contracts_by_id"]

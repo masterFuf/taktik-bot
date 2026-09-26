@@ -39,6 +39,7 @@ from taktik.core.app.contract.schema import (  # noqa: E402
     Shape,
     WorkflowContract,
     has_default,
+    scalar_default,
 )
 from taktik.core.app.contract.shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT  # noqa: E402
 
@@ -100,7 +101,7 @@ def constant_name(name: str) -> str:
 
 def doc_line(item: Field) -> str:
     text = item.doc.strip()
-    if has_default(item) and not isinstance(item.default, (tuple, list)):
+    if scalar_default(item):
         text += f" Default {literal(item.default)}."
     elif isinstance(item.default, Computed):
         text += f" Default: {item.default.description}."
@@ -179,8 +180,7 @@ def render_contract(contract: WorkflowContract) -> Tuple[List[str], List[str]]:
     out.append("}")
     exported.append(f"{name}Settings")
 
-    defaults = [item for item in app_settings(contract)
-                if has_default(item) and not isinstance(item.default, (tuple, list))]
+    defaults = [item for item in app_settings(contract) if scalar_default(item)]
     if defaults:
         keys = " | ".join(f"'{item.key}'" for item in defaults)
         const = f"{constant_name(name)}_DEFAULTS"
@@ -290,6 +290,7 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dic
         workflows[contract.workflow_id] = {
             "name": contract.name,
             "bridge": contract.bridge,
+            "also": list(contract.also),
             "launcher": contract.launcher,
             "reader": contract.reader,
             "nest": contract.nest,
@@ -307,6 +308,10 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dic
             ],
             "events": {event.type: [item.key for item in event.fields] for event in contract.events},
         }
+    # An id that shares a declaration (`also`) reads the same file: the gates look it up by id.
+    for contract in contracts:
+        for workflow_id in contract.also:
+            workflows[workflow_id] = {**workflows[contract.workflow_id], "sameAs": contract.workflow_id}
     return {"workflows": workflows, "exports": exported}
 
 

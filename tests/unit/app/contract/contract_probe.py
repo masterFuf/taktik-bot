@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import importlib
 import inspect
-from typing import Any, Dict, Iterable, Set, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Set, Tuple
 
-from taktik.core.app.contract.schema import Field, ListOf, OneOf, WorkflowContract, has_default
+from taktik.core.app.contract.schema import Field, ListOf, MapOf, OneOf, Shape, WorkflowContract, has_default
 
 DEVICE = "emulator-5554"
 
@@ -69,6 +69,8 @@ def probe(item: Field, variant: int = 0) -> Any:
         return others[variant % len(others)]
     if isinstance(spec, ListOf) and spec.item == "string":
         return [f"alpha{variant}", f"beta{variant}"]
+    if isinstance(spec, MapOf) and spec.value == ListOf("string"):
+        return {f"slug{variant}": [f"alpha{variant}"]}
     raise AssertionError(f"no probe for {item.key}: {spec!r}")
 
 
@@ -120,14 +122,98 @@ def read(contract: WorkflowContract, payload: Dict[str, Any]) -> Any:
 def value_of(contract: WorkflowContract, item: Field, payload: Dict[str, Any]) -> Any:
     if item.reader:
         return resolve(item.reader)(payload)
-    return getattr(read(contract, payload), item.attr)
+    result = read(contract, payload)
+    # A reader that returns a dict leaves out what the payload does not set.
+    return result.get(item.attr) if isinstance(result, Mapping) else getattr(result, item.attr)
 
 
 def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -> Any:
     launcher = resolve(contract.launcher)
-    if "device_id" in inspect.signature(launcher).parameters:
+    parameters = inspect.signature(launcher).parameters
+    if "device_id" in parameters:
         kwargs.setdefault("device_id", DEVICE)
+    if "device_manager" in parameters:
+        # A refusal comes before the phone: a launcher that needs one to refuse fails the test.
+        kwargs.setdefault("device_manager", None)
     return launcher(payload, **kwargs)
+
+
+# ------------------------------------------------------------------ nested and conditional settings
+
+
+def leaves(contract: WorkflowContract) -> List[Tuple[Tuple[str, ...], Field]]:
+    """Each setting with the path of the object holding it: a group (`ai`) stands for its fields."""
+    out: List[Tuple[Tuple[str, ...], Field]] = []
+    for item in contract.settings:
+        if isinstance(item.type, Shape) and not item.attr and not item.reader:
+            out += [((item.key,), sub) for sub in item.type.fields]
+        else:
+            out.append(((), item))
+    return out
+
+
+def merge(base: Dict[str, Any], extra: Mapping[str, Any]) -> Dict[str, Any]:
+    out = dict(base)
+    for key, value in extra.items():
+        if isinstance(value, Mapping) and isinstance(out.get(key), Mapping):
+            out[key] = merge(dict(out[key]), value)
+        else:
+            out[key] = value
+    return out
+
+
+def at(path: Tuple[str, ...], value: Any) -> Dict[str, Any]:
+    """`{"a": {"b": value}}` for the path `("a", "b")`."""
+    for key in reversed(path):
+        value = {key: value}
+    return value
+
+
+def conditions(item: Field) -> Dict[str, Any]:
+    """A payload fragment under which `item` is read (the first value its `when` accepts)."""
+    out: Dict[str, Any] = {}
+    for dotted, wanted in item.when.items():
+        value = wanted[0] if isinstance(wanted, tuple) else wanted
+        out = merge(out, at(tuple(dotted.split(".")), value))
+    return out
+
+
+def given(payload: Mapping[str, Any], path: Tuple[str, ...]) -> Any:
+    value: Any = payload
+    for key in path:
+        if not isinstance(value, Mapping) or key not in value:
+            return None
+        value = value[key]
+    return value
+
+
+def satisfied(item: Field, payload: Mapping[str, Any]) -> bool:
+    """The payload, as given, holds what `item.when` asks: the reader reads `item`."""
+    for dotted, wanted in item.when.items():
+        value = given(payload, tuple(dotted.split(".")))
+        if not (value in wanted if isinstance(wanted, tuple) else value == wanted):
+            return False
+    return True
+
+
+def payload_of(contract: WorkflowContract, prefix: Tuple[str, ...], item: Field,
+               values: Mapping[str, Any]) -> Dict[str, Any]:
+    """A runnable payload under which `item` is read, with `values` (name -> value) at its place."""
+    fragment = conditions(item)
+    for name, value in values.items():
+        fragment = merge(fragment, at((*prefix, name), value))
+    return payload_for(contract, fragment)
+
+
+def declared_setting_paths(contract: WorkflowContract) -> Set[Tuple[str, ...]]:
+    """Every path a reader may read: each name of each setting, and of the fields of a group."""
+    paths: Set[Tuple[str, ...]] = set()
+    for item in contract.settings:
+        for name in item.names:
+            paths.add((name,))
+            if isinstance(item.type, Shape):
+                paths |= {(name, sub_name) for sub in item.type.fields for sub_name in sub.names}
+    return paths
 
 
 def names(fields: Iterable[Field]) -> Set[str]:

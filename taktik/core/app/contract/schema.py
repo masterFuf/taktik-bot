@@ -82,6 +82,8 @@ class Field:
     attr      the attribute of the reader's result that the key sets (conformance test)
     negate    the attribute holds the opposite of the key (`skip_friends` sets `include_friends`)
     reader    "module:function" reading this key alone, when the contract's reader does not
+    when      read only when these settings hold these values (a dotted path names a key of a
+              nested setting; a tuple: any of them); ignored otherwise
     by        OPERATOR or HOST
     app       False: accepted from the CLI or an Agent plan only, never sent by the app
     nullable  the value may be null (events)
@@ -97,6 +99,7 @@ class Field:
     attr: Optional[str] = None
     negate: bool = False
     reader: Optional[str] = None
+    when: Mapping[str, Any] = field(default_factory=dict)
     by: str = OPERATOR
     app: bool = True
     nullable: bool = False
@@ -130,6 +133,7 @@ class WorkflowContract:
     """What one workflow of the manifest reads, and what its bridge prints.
 
     workflow_id     the id of `workflows.manifest.json`
+    also            other ids of the manifest the same launcher runs with this payload
     name            the prefix of the generated TypeScript names
     bridge          the name in `bridges/bridges.manifest.json`
     launcher        "module:function" of the one launcher (`run_*`) the CLI and the bridge call
@@ -151,6 +155,7 @@ class WorkflowContract:
     reader: str
     settings: Tuple[Field, ...]
     doc: str = ""
+    also: Tuple[str, ...] = ()
     reader_kwargs: Mapping[str, Any] = field(default_factory=dict)
     bridge_fields: Tuple[Field, ...] = ()
     nest: Optional[str] = None
@@ -175,6 +180,11 @@ def has_default(item: Field) -> bool:
     return item.default is not NO_DEFAULT and not isinstance(item.default, Computed)
 
 
+def scalar_default(item: Field) -> bool:
+    """A default the app can hold as a constant (not a list nor an object)."""
+    return has_default(item) and isinstance(item.default, (bool, int, float, str))
+
+
 __all__ = [
     "Computed",
     "Event",
@@ -191,4 +201,5 @@ __all__ = [
     "TypeSpec",
     "WorkflowContract",
     "has_default",
+    "scalar_default",
 ]

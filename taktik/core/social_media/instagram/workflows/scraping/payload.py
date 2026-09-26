@@ -19,6 +19,9 @@ from taktik.core.social_media.instagram.workflows.scraping.profile_posts_scrapin
 
 INSTAGRAM_SCRAPING_TYPES = ("target", "hashtag", "post_url", "usernames", "profile_posts")
 
+#: Accounts a deep qualification reads from a profile's following list when the payload says none.
+DEFAULT_DEEP_QUALIFY_MAX_FOLLOWING = 30
+
 #: Profile filters read by ScrapingListMixin._get_profile_filter_reason. They stay in camelCase
 #: on purpose: that is exactly what the workflow reads (list_scraping.py). Renaming them here
 #: without renaming the reader would silently disable them again.
@@ -86,11 +89,12 @@ def scraping_config_from_payload(config: Mapping[str, Any]) -> dict:
     if rescrape_after_days is not None:
         scraping_config['rescrape_after_days'] = int(rescrape_after_days)
 
-    if config.get('deepQualify', config.get('deep_qualify')):
-        scraping_config['deep_qualify'] = True
+    scraping_config['deep_qualify'] = bool(config.get('deepQualify', config.get('deep_qualify', False)))
+    if scraping_config['deep_qualify']:
         dq_max = config.get('deepQualifyMaxFollowing', config.get('deep_qualify_max_following'))
-        if dq_max is not None:
-            scraping_config['deep_qualify_max_following'] = int(dq_max)
+        scraping_config['deep_qualify_max_following'] = (
+            int(dq_max) if dq_max is not None else DEFAULT_DEEP_QUALIFY_MAX_FOLLOWING
+        )
 
     scraping_config['response_language'] = config.get('appLanguage', config.get('response_language', 'en'))
 
@@ -186,6 +190,7 @@ def post_id_from_url(first_url: str) -> str:
 
 
 __all__ = [
+    "DEFAULT_DEEP_QUALIFY_MAX_FOLLOWING",
     "INSTAGRAM_SCRAPING_TYPES",
     "post_id_from_url",
     "scraping_config_from_payload",

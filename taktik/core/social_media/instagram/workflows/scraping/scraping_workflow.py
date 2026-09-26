@@ -216,6 +216,20 @@ class ScrapingWorkflow(
             "profiles": scraped,
         }
 
+    @staticmethod
+    def _announce_target_info(target: str, available_count: int, effective_max: int, scrape_type: str) -> None:
+        """Tell the live panel how much of an account's list this run will read."""
+        try:
+            print(json.dumps({
+                "type": "target_info",
+                "username": target,
+                "available_count": available_count,
+                "effective_max": effective_max,
+                "scrape_type": scrape_type
+            }), flush=True)
+        except Exception:
+            pass
+
     def _scrape_target(self) -> Dict[str, Any]:
         """Scrape followers, following, or post likers/commenters from target accounts."""
         target_usernames = self.config.get('target_usernames', [])
@@ -295,16 +309,7 @@ class ScrapingWorkflow(
                 })
                 # Emit target_info to Electron live panel (only when count is known)
                 if scrape_type in ('followers', 'following'):
-                    try:
-                        print(json.dumps({
-                            "type": "target_info",
-                            "username": target,
-                            "available_count": available_count,
-                            "effective_max": actual_max,
-                            "scrape_type": scrape_type
-                        }), flush=True)
-                    except Exception:
-                        pass
+                    self._announce_target_info(target, available_count, actual_max, scrape_type)
             else:
                 self.logger.warning(f"Could not get profile info for @{target}")
                 actual_max = remaining_to_scrape

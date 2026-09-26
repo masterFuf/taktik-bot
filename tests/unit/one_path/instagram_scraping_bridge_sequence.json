@@ -14,6 +14,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": true,
     "totalScraped": 2,
     "completionReason": "limit_reached",
@@ -66,6 +67,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": true,
     "totalScraped": 2,
     "completionReason": "limit_reached",
@@ -85,6 +87,7 @@
     "minPosts": 2,
     "requireProfilePicture": false,
     "skipPrivateProfiles": true,
+    "deep_qualify": false,
     "response_language": "en",
     "hashtags": [
      "cuisine",
@@ -137,6 +140,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": true,
     "totalScraped": 2,
     "completionReason": "limit_reached",
@@ -155,6 +159,7 @@
     "fetchLocation": false,
     "requireProfilePicture": false,
     "skipPrivateProfiles": true,
+    "deep_qualify": false,
     "response_language": "en",
     "post_urls": [
      "https://www.instagram.com/p/AbC123/",
@@ -184,6 +189,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": true,
     "totalScraped": 2,
     "completionReason": "limit_reached",
@@ -202,6 +208,7 @@
     "fetchLocation": false,
     "requireProfilePicture": false,
     "skipPrivateProfiles": true,
+    "deep_qualify": false,
     "response_language": "en",
     "usernames": [
      "first_account",
@@ -228,6 +235,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": true,
     "totalScraped": 2,
     "completionReason": "limit_reached",
@@ -246,6 +254,7 @@
     "fetchLocation": false,
     "requireProfilePicture": false,
     "skipPrivateProfiles": true,
+    "deep_qualify": false,
     "response_language": "en",
     "target_usernames": [
      "alpha"
@@ -272,6 +281,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": true,
     "totalScraped": 2,
     "completionReason": "limit_reached",
@@ -291,6 +301,7 @@
     "minPosts": 2,
     "requireProfilePicture": false,
     "skipPrivateProfiles": true,
+    "deep_qualify": false,
     "response_language": "en",
     "hashtags": [
      "viral"
@@ -319,6 +330,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": true,
     "totalScraped": 2,
     "completionReason": "limit_reached",
@@ -337,6 +349,7 @@
     "fetchLocation": false,
     "requireProfilePicture": false,
     "skipPrivateProfiles": true,
+    "deep_qualify": false,
     "response_language": "en",
     "post_urls": [
      "https://www.instagram.com/p/One1/"
@@ -351,42 +364,22 @@
   "ai_builds": []
  },
  "bare": {
-  "exit": 0,
+  "exit": 1,
   "calls": [
    "configure_db",
    "connection emulator-5554",
    "connect",
-   "installed_version com.instagram.android",
-   "version_overrides 410.0.0.53.71",
-   "detect_language",
-   "workflow notifier=True ai_factory=True",
-   "run_scraping",
    "disconnect"
   ],
   "stdout": [
    {
-    "success": true,
-    "totalScraped": 2,
-    "completionReason": "limit_reached",
-    "error": null
+    "type": "scraping_result",
+    "success": false,
+    "error": "Instagram target scraping requires targetUsernames"
    }
   ],
   "events": [],
-  "configs": [
-   {
-    "type": "target",
-    "session_duration_minutes": 60,
-    "max_profiles": 500,
-    "export_csv": true,
-    "save_to_db": true,
-    "enrich_profiles": false,
-    "fetchLocation": false,
-    "requireProfilePicture": false,
-    "skipPrivateProfiles": true,
-    "response_language": "en",
-    "ai_mode": false
-   }
-  ],
+  "configs": [],
   "ai_builds": []
  },
  "run_failed": {
@@ -404,6 +397,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": false,
     "totalScraped": 0,
     "completionReason": "source_unreachable",
@@ -456,6 +450,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": false,
     "error": "uiautomator died"
    }
@@ -501,6 +496,7 @@
   ],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": false,
     "error": "Failed to connect to device"
    }
@@ -514,6 +510,7 @@
   "calls": [],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": false,
     "error": "No deviceId provided"
    }
@@ -527,6 +524,7 @@
   "calls": [],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": false,
     "error": "No config file provided"
    }
@@ -540,6 +538,7 @@
   "calls": [],
   "stdout": [
    {
+    "type": "scraping_result",
     "success": false,
     "error": "Failed to load config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
    }
