@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import time
-
 from bridges.common.device.app_manager import AppService
 from bridges.common.device.connection import ConnectionService
 from bridges.instagram.runtime.ipc import send_error, send_status
 
 
 class AccountSessionLifecycleMixin:
-    """Prepare DB, device connection and Instagram launch before account workflows."""
+    """Prepare DB and device connection; the launcher decides how Instagram starts."""
 
     def _prepare_runtime_session(self):
         try:
@@ -32,22 +30,10 @@ class AccountSessionLifecycleMixin:
             send_error("Device object unavailable after connection")
             return None
 
-        app_service = AppService(
+        # Restart or keep the current screen: `run_instagram_account` chooses per flow.
+        self._app = AppService(
             self._connection,
             platform="instagram",
             package_override=self.package_name,
         )
-        # Account switch / list act on Instagram's current account-picker (or home) state. A cold
-        # force-restart there is wasteful — it just lands us back on the same picker. So when IG is
-        # ALREADY in the foreground, keep the current screen (the workflow detects the picker or
-        # navigates); only fall back to a clean restart when it isn't showing. Every other account
-        # flow (login/register/logout/change_language) keeps the clean restart for a known state.
-        if self.workflow_type in ("switch_account", "list_accounts", "list_saved_accounts") and app_service.is_running():
-            send_status("initializing", "Instagram already open — using the current screen")
-            time.sleep(1)
-        else:
-            send_status("initializing", "Restarting Instagram...")
-            app_service.restart()
-            time.sleep(2)
-
         return device

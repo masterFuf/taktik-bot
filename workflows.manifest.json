@@ -23,7 +23,10 @@
       "login",
       "register",
       "logout",
-      "change_language"
+      "change_language",
+      "switch_account",
+      "list_accounts",
+      "list_saved_accounts"
     ],
     "engagement": [
       "dm_read",

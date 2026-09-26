@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from bridges.instagram.account.runtime.language import AccountChangeLanguageRunnerMixin
+from bridges.instagram.account.runtime.launch import AccountLaunchMixin
 from bridges.instagram.account.runtime.login import AccountLoginRunnerMixin
 from bridges.instagram.account.runtime.logout import AccountLogoutRunnerMixin
 from bridges.instagram.account.runtime.register import AccountRegisterRunnerMixin
@@ -15,6 +16,7 @@ class AccountWorkflowRunnerMixin(
     AccountLogoutRunnerMixin,
     AccountChangeLanguageRunnerMixin,
     AccountSwitchRunnerMixin,
+    AccountLaunchMixin,
 ):
     """Run Instagram account workflows and emit bridge JSON events."""
 

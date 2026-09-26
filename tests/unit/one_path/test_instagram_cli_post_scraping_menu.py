@@ -88,8 +88,8 @@ def test_a_posts_of_accounts_menu_run_goes_through_the_scraping_launcher(igs_rig
 
 
 def test_the_interactive_menu_builds_no_engine_of_its_own():
-    """Only the account lot's login is still excused in the menu; nothing else it runs is built
-    by the menu itself."""
+    """Nothing the interactive menu runs is built by the menu itself: every flow goes through its
+    launcher."""
     sys.path.insert(0, str(CORE / "scripts"))
     import workflow_launchers
 
@@ -100,4 +100,4 @@ def test_the_interactive_menu_builds_no_engine_of_its_own():
 
     built = {name for name, _line in workflow_launchers.engine_calls(tree, engines, launchers)}
 
-    assert built == {"LoginWorkflow"}
+    assert built == set()

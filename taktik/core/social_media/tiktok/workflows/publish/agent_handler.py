@@ -30,6 +30,9 @@ from taktik.core.social_media.tiktok.workflows.publish.payload import (
     PublishRequest,
     publish_request_from_payload,
 )
+from taktik.core.social_media.tiktok.workflows.runtime.startup import (
+    patch_clone_selectors as _patch_clone_selectors,
+)
 
 
 TIKTOK_UPLOAD_POST_WORKFLOW_ID = "tiktok.standalone.upload_post"
@@ -53,22 +56,6 @@ def _emit(notifier: Any, method: str, *args: Any) -> None:
 def _step(step_hook: Optional[StepHook], phase: str) -> None:
     if step_hook is not None:
         step_hook(phase)
-
-
-def _patch_clone_selectors(package_name: Optional[str], notifier: Any) -> None:
-    """A cloned TikTok names its resource-ids after its own package: patch the catalogue first."""
-    from taktik.core.clone.packages import get_original_package
-
-    if not package_name or package_name == get_original_package("tiktok"):
-        return
-    try:
-        from taktik.core.clone import patch_selectors_for_package, set_active_package
-
-        set_active_package(package_name)
-        patched = patch_selectors_for_package("tiktok", package_name)
-        _emit(notifier, "log", "info", f"🧬 Package override: patched {patched} selector(s) for {package_name}")
-    except Exception as e:
-        _emit(notifier, "log", "warning", f"⚠️ Clone selector patching failed (non-fatal): {e}")
 
 
 def _fail(notifier: Any, message: str) -> dict[str, Any]:

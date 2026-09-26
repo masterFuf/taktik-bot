@@ -88,6 +88,10 @@ class CliInstagramHost:
         self.app = self._app_for(package_name)
         return start_instagram_session(self.app)
 
+    def account_app(self, package_name: Optional[str]):
+        """The app lifecycle an account flow restarts, or keeps on its current screen."""
+        return self._app_for(package_name)
+
     def installed_version(self) -> Optional[str]:
         """The installed Instagram version, for the selector overrides."""
         app = self.app or self._app_for(None)
@@ -239,6 +243,12 @@ def run_instagram_dm_payload(device_manager: Any, device_id: str, workflow_id: s
     return _run_through_handler(device_manager, device_id, workflow_id, payload)
 
 
+def run_instagram_account_payload(device_manager: Any, device_id: str, workflow_id: str,
+                                  payload: Mapping[str, Any]) -> dict:
+    """Run an account flow (`instagram.account.login`, `logout`, `change_language`...)."""
+    return _run_through_handler(device_manager, device_id, workflow_id, payload)
+
+
 def run_instagram_cold_dm_payload(device_manager: Any, device_id: str, payload: Mapping[str, Any]) -> dict:
     """Run a Cold DM page payload (`instagram.engagement.coldDm`)."""
     return _run_through_handler(device_manager, device_id, "instagram.engagement.coldDm", payload)
@@ -252,6 +262,7 @@ __all__ = [
     "cli_instagram_scraping_ai_service",
     "cli_openrouter_key",
     "is_internal_workflow_format",
+    "run_instagram_account_payload",
     "run_instagram_cold_dm_payload",
     "run_instagram_dm_payload",
     "run_instagram_payload",

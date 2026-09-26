@@ -1,33 +1,29 @@
-"""TikTok app-language change adapter.
+"""TikTok app-language change adapter (the run is the core's `run_tiktok_account`).
 
-Mirrors the logout adapter exactly: the bridge layer converts a payload into a workflow call and
+Mirrors the logout adapter exactly: the bridge layer converts a payload into a launcher call and
 an `account_result` message, and owns none of the UI logic.
 """
 
-from bridges.tiktok.runtime.ipc import _ipc, send_error, send_log, send_message, send_status
+from bridges.tiktok.runtime.ipc import send_error, send_log, send_message, send_status
+from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+    TIKTOK_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID,
+)
 
 
 class TikTokAccountLanguageMixin:
     """Run the TikTok app-language change from the bridge payload."""
 
     def _run_change_language(self, device) -> int:
-        target = (self.config.get("targetLanguage") or self.config.get("language") or "").strip()
-        if not target:
-            # Refused here rather than defaulted: silently picking a language would change what
-            # the operator's phone speaks on the strength of a missing field.
-            send_error("targetLanguage is required (e.g. 'fr', 'en', 'en-US')")
+        params = self._account_params(TIKTOK_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID)
+        if params is None:
             return 1
+        target = params["target_language"]
 
         send_status("running", f"Switching the app language to {target}...")
         send_log("info", f"Change language workflow -> {target}")
 
         try:
-            from taktik.core.social_media.tiktok.workflows.management.language import (
-                TikTokChangeLanguageWorkflow,
-            )
-
-            workflow = TikTokChangeLanguageWorkflow(device, self.device_id, notifier=_ipc)
-            result = workflow.run(target)
+            result = self._launch_account(device, TIKTOK_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID, params)
             outcome = "success" if result["success"] else "error"
             send_status(outcome, result.get("error") or f"language: {result.get('language_after')}")
             send_message(

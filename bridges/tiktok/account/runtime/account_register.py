@@ -1,36 +1,25 @@
-"""TikTok account registration workflow adapter."""
+"""TikTok account registration adapter (the run is the core's `run_tiktok_account`)."""
 
-from bridges.tiktok.runtime.ipc import _ipc, send_error, send_log, send_message, send_status
+from bridges.tiktok.runtime.ipc import send_error, send_log, send_message, send_status
+from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+    TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID,
+)
 
 
 class TikTokAccountRegisterMixin:
     """Run TikTok account registration from the bridge payload."""
 
     def _run_register(self, device) -> int:
-        method = self.config.get("method", "email")
-        email = self.config.get("email", "")
-        phone = self.config.get("phone", "")
-        phone_country = self.config.get("phoneCountry", "") or None
-        gmail_password = self.config.get("gmailPassword", "") or None
-        tiktok_password = self.config.get("tiktokPassword") or self.config.get("tiktok_password") or None
-        nickname = self.config.get("nickname") or None
+        params = self._account_params(TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID)
+        if params is None:
+            return 1
+        method = params["method"]
 
         send_status("running", f"Starting register ({method})...")
         send_log("info", f"Register workflow - method={method}")
 
         try:
-            from taktik.core.social_media.tiktok.workflows.management.signup.signup_workflow import TikTokSignupWorkflow
-
-            workflow = TikTokSignupWorkflow(device, self.device_id, notifier=_ipc)
-            result = workflow.execute(
-                method=method,
-                email=email or None,
-                phone=phone or None,
-                phone_country=phone_country,
-                gmail_password=gmail_password,
-                tiktok_password=tiktok_password,
-                nickname=nickname,
-            )
+            result = self._launch_account(device, TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID, params)
             outcome = "success" if result["success"] else "error"
             send_status(outcome, result.get("message", ""))
             send_message(

@@ -1,8 +1,11 @@
-"""Instagram account logout workflow adapter."""
+"""Instagram account logout adapter (the run is the core's `run_instagram_account`)."""
 
 from __future__ import annotations
 
 from bridges.instagram.runtime.ipc import send_error, send_log, send_message, send_status
+from taktik.core.social_media.instagram.workflows.management.agent_handler import (
+    INSTAGRAM_ACCOUNT_LOGOUT_WORKFLOW_ID,
+)
 
 
 class AccountLogoutRunnerMixin:
@@ -13,10 +16,7 @@ class AccountLogoutRunnerMixin:
         send_log("info", "Logout workflow")
 
         try:
-            from taktik.core.social_media.instagram.workflows.management.logout.logout_workflow import LogoutWorkflow
-
-            workflow = LogoutWorkflow(device, self.device_id)
-            result = workflow.execute()
+            result = self._launch_account(device, INSTAGRAM_ACCOUNT_LOGOUT_WORKFLOW_ID, {})
             outcome = "success" if result["success"] else "error"
             send_status(outcome, result.get("message", ""))
             send_message(
