@@ -278,11 +278,12 @@ def test_load_never_raises_when_the_lookup_fails(monkeypatch):
 
 
 def test_unsupported_platform_answers_nothing_rather_than_guessing(monkeypatch):
-    """TikTok has no reader yet; it must get an honest empty answer, not Instagram's rows."""
-    class _Stub:
-        @staticmethod
-        def get_profiles_by_usernames(usernames):  # pragma: no cover - must not be called
-            raise AssertionError("the Instagram store must not answer for another platform")
+    """A platform without its own reader gets an honest empty answer; no store is even asked.
 
-    monkeypatch.setattr(ProfileQualification, "_db", staticmethod(lambda: _Stub))
-    assert ProfileQualification.load("coach_marie", platform="tiktok") is None
+    Counted rather than raised: `load_many` swallows lookup errors, so an assertion inside the
+    stub would pass unseen.
+    """
+    asked = []
+    monkeypatch.setattr(ProfileQualification, "_db", staticmethod(lambda: asked.append("db")))
+    assert ProfileQualification.load("coach_marie", platform="youtube") is None
+    assert asked == []

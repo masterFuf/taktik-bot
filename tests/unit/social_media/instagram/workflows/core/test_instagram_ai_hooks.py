@@ -241,6 +241,12 @@ def _patch_db(monkeypatch, rows):
     )
 
 
+@pytest.fixture(autouse=True)
+def _empty_qualification_store(monkeypatch):
+    """The comment hook reads the qualification cache: it starts empty, `_patch_db` fills it."""
+    _patch_db(monkeypatch, [])
+
+
 def test_load_cached_qualification_reuses_stored_niche(monkeypatch):
     # A profile already AI-qualified in the DB is returned so the interaction hook can reuse it
     # instead of re-paying for a fresh vision classification.
