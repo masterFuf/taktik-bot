@@ -39,6 +39,25 @@ def answer_permission_prompts(a, p):
             "details": {"answered": answered}}
 
 
+@action("publish.dismiss_story_promo")
+def dismiss_story_promo(a, p):
+    """Publish gate: close Instagram's information window over the story editor through its
+    acknowledgement ("OK"), never "View settings" (InstagramPostWorkflow._acknowledge_information_windows,
+    the step run before "Your story"). No window, or the button already showing: nothing tapped."""
+    from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation import (
+        CONTENT_CREATION_SELECTORS as CC,
+    )
+
+    workflow = _post_workflow(a)
+    windows = workflow._acknowledge_information_windows(CC.story_publish_xpaths())
+    if not windows.ok:
+        return {"success": False, "message": f"window left on screen: {windows.left_on_screen}",
+                "details": {"acknowledged": windows.acknowledged,
+                            "error_type": "information_window_unanswered"}}
+    return {"success": True, "message": f"information windows acknowledged: {windows.acknowledged}",
+            "details": {"acknowledged": windows.acknowledged}}
+
+
 @action("publish.ensure_gallery_open")
 def ensure_gallery_open(a, p):
     """Publish gate: ensure the gallery grid is open from the camera/creation screen

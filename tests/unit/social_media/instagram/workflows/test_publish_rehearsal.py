@@ -4,6 +4,9 @@
 account without posting. If a change ever makes that flag tap the share button anyway, the bench
 would publish for real — so the guarantee is pinned here rather than left to review.
 """
+from taktik.core.social_media.instagram.actions.atomic.interaction.information_window import (
+    InformationWindows,
+)
 from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
     InstagramPostWorkflow,
 )
@@ -29,11 +32,17 @@ class SpyWorkflow(InstagramPostWorkflow):
         self.publish_commit_waited = False
         self.back_presses = 0
         self.language_detections = 0
+        self.information_windows_acknowledged = 0
+        self.window_checks = 0
 
     # --- screen interactions, all recorded -------------------------------
     def _tap(self, selectors, timeout: float = 4.0) -> bool:
         self.taps.append(selectors)
         return True
+
+    def _acknowledge_information_windows(self, unless_on_screen=(), wait_s: float = 6.0):
+        self.window_checks += 1
+        return InformationWindows()
 
     def _present(self, selectors, timeout: float = 4.0) -> bool:
         self.presence_checks.append(selectors)
@@ -108,6 +117,8 @@ def test_story_rehearsal_does_not_publish_either():
     assert result["success"] is True
     assert "not published" in result["message"]
     assert workflow.publish_commit_waited is False
+    # The editor's information windows are looked for before "Your story", rehearsal included.
+    assert workflow.window_checks == 1
 
 
 def test_normal_run_still_publishes():

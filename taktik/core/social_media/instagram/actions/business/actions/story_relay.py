@@ -14,6 +14,7 @@ distinct outcome is what lets one real run settle the question.
 from typing import Any, Dict
 
 from ....actions.atomic.interaction.bottom_sheet import dismiss_share_sheet
+from ....actions.atomic.interaction.information_window import acknowledge_information_windows
 from ...core.base_business import BaseBusinessAction
 
 
@@ -112,12 +113,21 @@ class StoryRelayBusiness(BaseBusinessAction):
             CONTENT_CREATION_SELECTORS as CC,
         )
 
+        # The editor can open under an information window that covers "Your story", the one the
+        # publish workflow acknowledges too.
+        windows = acknowledge_information_windows(
+            self.click_actions.device, unless_on_screen=CC.story_publish_xpaths(), log=self._log_window)
+        if not windows.ok:
+            return False
         if not self.click_actions._find_and_click(CC.story_publish_xpaths(), timeout=6):
             return False
         self._human_like_delay('story_load')
-        # One-time promo Instagram shows after the first story-to-story share; harmless absent.
-        self.click_actions._find_and_click(CC.story_share_promo_dismiss_xpaths(), timeout=2)
+        # The same kind of window can follow the share; harmless absent.
+        acknowledge_information_windows(self.click_actions.device, wait_s=2.0, log=self._log_window)
         return True
+
+    def _log_window(self, level: str, message: str) -> None:
+        getattr(self.logger, level, self.logger.info)(message)
 
     def leave_story_viewer(self) -> bool:
         """Close the viewer if it is still up, through the production conditional close."""

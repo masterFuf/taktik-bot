@@ -135,6 +135,7 @@ class StoryRun(InstagramPostWorkflow):
         self.post_type = "story"
         self.story_via_feed = story_via_feed
         self.permission_prompts_answered = 0
+        self.information_windows_acknowledged = 0
         self._a = {"click": Click(phone)}
 
     def _push_all(self, media_paths) -> bool:

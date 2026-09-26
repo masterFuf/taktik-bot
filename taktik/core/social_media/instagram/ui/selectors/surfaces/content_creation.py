@@ -37,9 +37,7 @@ class ContentCreationSelectors:
     primary_button: str = 'com.instagram.android:id/primary_button'
     auxiliary_button: str = 'com.instagram.android:id/auxiliary_button'
     bb_primary_action: str = 'com.instagram.android:id/bb_primary_action'
-    # Primary button of the headline dialogs (e.g. the one-shot promo shown AFTER
-    # publishing a story).
-    igds_headline_primary_action_button: str = 'com.instagram.android:id/igds_headline_primary_action_button'
+    # Information windows over the story editor: `POPUP_SELECTORS.information_window*`.
 
     # === Feed story tray (second way to post a story: from the feed) ===
     # The first bubble of the tray is our own story; when the ring is empty the badge
@@ -267,13 +265,6 @@ class ContentCreationSelectors:
     def story_publish_xpaths(self) -> List[str]:
         """'Your story' / Share button to publish a story."""
         return self._text_xpaths(self.story_publish_texts)
-
-    def story_share_promo_dismiss_xpaths(self) -> List[str]:
-        """One-time 'story-to-story sharing' promo shown after publishing a story.
-
-        Dismiss via the igds headline primary action (content-desc 'OK'). Called
-        non-blocking after publish; the promo only appears the first time."""
-        return [self._rid_xpath(self.igds_headline_primary_action_button)] + self._text_xpaths(["OK"])
 
     def feed_story_tray_add_xpaths(self) -> List[str]:
         """2nd story-entry method: add a story directly from the feed reels tray.

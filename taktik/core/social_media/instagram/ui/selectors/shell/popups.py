@@ -282,4 +282,43 @@ class PopupSelectors:
         the alert on screen really is the contacts-access request."""
         return L("popup.contacts_access_headline_texts")
 
+    # === Information window (Instagram promo dialog) ===
+    # Real dump, IG 410.0.0.53.71 in English, story editor: "Your stories can now reach more
+    # people", primary "OK", secondary "View settings". The `igds_headline_*` ids are a generic
+    # chassis: the whole promo structure is required, and only a primary action that
+    # acknowledges is a target. The secondary action never is.
+    _information_window_root: str = (
+        '//*[contains(@resource-id, "igds_promo_dialog_headline")]'
+        '[.//*[contains(@resource-id, "igds_headline_headline")]]'
+        '[.//*[contains(@resource-id, "igds_headline_body")]]'
+        '[.//*[contains(@resource-id, "igds_headline_primary_action_button")]]'
+    )
+    _information_window_primary_action: str = (
+        '//*[contains(@resource-id, "igds_headline_primary_action_button")]'
+    )
+    # "OK" reads the same in both languages: neutral. The label sits on the button's content-desc,
+    # and on its child TextView.
+    information_window_acknowledgement_labels: List[str] = field(default_factory=lambda: [
+        "OK",
+    ])
+
+    @property
+    def information_window(self) -> str:
+        """An information window on screen, whatever its primary action."""
+        return self._information_window_root
+
+    @property
+    def information_window_headline(self) -> str:
+        """Its headline, for the logs."""
+        return f'{self._information_window_root}//*[contains(@resource-id, "igds_headline_headline")]'
+
+    @property
+    def information_window_acknowledgement(self) -> List[str]:
+        """Its primary action, only when that action is an acknowledgement."""
+        return [
+            f'{self._information_window_root}{self._information_window_primary_action}'
+            f'[@content-desc="{label}" or .//*[@text="{label}"]]'
+            for label in self.information_window_acknowledgement_labels
+        ]
+
 POPUP_SELECTORS = PopupSelectors()
