@@ -14,10 +14,9 @@ The run is `run_tiktok_inbox` (core, flow `new_followers`), the launcher the Age
 desktop: the startup that prints on stdout, its IPC, the stop signal, the AI verdicts printed on
 stdout and the permission to send the welcome DM.
 
-The desktop side does not read everything the pass prints yet:
-`TikTokNewFollowersStdoutService.handleScrapeOutput` routes `new_follower`/`status`/`error` only,
-so the `ai_relevance`, `follow_back_result` and `dm_result` lines are dropped by the front until it
-is taught to read them.
+The welcome DM prints the cold DM's lines (`progress`, `dm_result` with `skipped`/`reason` for a
+follower with no message entry, `stats`) through `BridgeNotifier`; the desktop reads its
+`dm_result` and `stats` (`TikTokNewFollowersStdoutService.handleScrapeOutput`).
 """
 
 from typing import Any, Dict

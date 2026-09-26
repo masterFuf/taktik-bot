@@ -2297,6 +2297,417 @@
     ],
     "exit": 0
   },
+  "new_followers_welcome_no_message_entry": {
+    "ai_services": [
+      {
+        "api_key": "test-openrouter-key",
+        "has_ipc": true
+      }
+    ],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "read_new_followers 30",
+      "open_follower_profile fan_one",
+      "screenshot",
+      "ai_classify fan_one",
+      "open_follower_profile Fan Two",
+      "screenshot",
+      "ai_classify fan_two",
+      "open_follower_profile Emile B",
+      "follow_back ['fan_one', 'fan_two']",
+      "outreach_connect",
+      "stop tiktok",
+      "sleep 1",
+      "launch tiktok",
+      "sleep 4",
+      "open_profile fan_one",
+      "tap message_button",
+      "sleep 2",
+      "privacy_blocked?",
+      "privacy_blocked?",
+      "in_conversation?",
+      "send_text fan_one 'Bienvenue !'",
+      "navigate_home",
+      "sleep 1",
+      "pick_delay 30-70",
+      "sleep 30",
+      "open_profile fan_two",
+      "tap message_button",
+      "on_profile?",
+      "navigate_home",
+      "sleep 1",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1.0,
+        "mark_as_read": true,
+        "max_conversations": 20,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          },
+          {
+            "label": "Fan Two",
+            "time": "1 sem.",
+            "type": "new_follower",
+            "username": "fan_two"
+          }
+        ],
+        "platform": "tiktok"
+      },
+      {
+        "account": "acting_account"
+      },
+      {
+        "sent_dm": {
+          "account_id": 42,
+          "error_message": null,
+          "message": "Bienvenue !",
+          "platform": "tiktok",
+          "recipient": "fan_one",
+          "session_id": "emulator-5554",
+          "success": true
+        }
+      },
+      {
+        "profile": "fan_one"
+      },
+      {
+        "dm_sent_message": {
+          "account_id": 42,
+          "partner_profile_id": 7,
+          "partner_username": "fan_one",
+          "platform": "tiktok",
+          "text": "Bienvenue !"
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "new_follower",
+        {
+          "follower": {
+            "activity": "2 j",
+            "can_follow_back": true,
+            "username": "fan_one"
+          }
+        }
+      ],
+      [
+        "new_follower",
+        {
+          "follower": {
+            "activity": "1 sem.",
+            "can_follow_back": false,
+            "username": "Fan Two"
+          }
+        }
+      ],
+      [
+        "new_follower",
+        {
+          "follower": {
+            "activity": "3 sem.",
+            "can_follow_back": true,
+            "username": "Emile B"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Qualifying 3 new follower(s)",
+          "status": "running"
+        }
+      ],
+      [
+        "ai_profile_done",
+        {
+          "classification": {
+            "engagement": {
+              "comment": false,
+              "follow": true,
+              "like": true,
+              "reason": "fits",
+              "relevant": true,
+              "score": 0.9
+            },
+            "niche": "running",
+            "niche_category": "sport"
+          },
+          "persist_only": true,
+          "platform": "tiktok",
+          "result": "[sport] running",
+          "target_username": "fan_one",
+          "username": "fan_one",
+          "workflow_type": "automation"
+        }
+      ],
+      [
+        "ai_relevance",
+        {
+          "comment": false,
+          "follow": true,
+          "like": true,
+          "reason": "fits",
+          "relevant": true,
+          "score": 0.9,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "ai_profile_done",
+        {
+          "classification": {
+            "engagement": {
+              "comment": false,
+              "follow": true,
+              "like": false,
+              "reason": "close niche",
+              "relevant": true,
+              "score": 0.8
+            },
+            "niche": "running",
+            "niche_category": "sport"
+          },
+          "persist_only": true,
+          "platform": "tiktok",
+          "result": "[sport] running",
+          "target_username": "fan_two",
+          "username": "fan_two",
+          "workflow_type": "automation"
+        }
+      ],
+      [
+        "ai_relevance",
+        {
+          "comment": false,
+          "follow": true,
+          "like": false,
+          "reason": "close niche",
+          "relevant": true,
+          "score": 0.8,
+          "username": "fan_two"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "AI welcome pass: {'reasons': {'ai_relevant': 2, 'profile_unreachable': 1}, 'follow_back': 2, 'welcome_dm': 2}"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Following back 2 follower(s)",
+          "status": "running"
+        }
+      ],
+      [
+        "follow_back_result",
+        {
+          "result": {
+            "success": true,
+            "username": "fan_one"
+          }
+        }
+      ],
+      [
+        "follow_back_result",
+        {
+          "result": {
+            "success": true,
+            "username": "fan_two"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Welcoming 2 new follower(s)",
+          "status": "running"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "restarting"
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 1,
+          "total": 2,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing @fan_one",
+          "status": "processing"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": null,
+          "success": true,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "failed": 0,
+            "no_message_entry": 0,
+            "not_found": 0,
+            "privacy_blocked": 0,
+            "sent": 1,
+            "success": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Waiting 30s...",
+          "status": "waiting"
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 2,
+          "total": 2,
+          "username": "fan_two"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing @fan_two",
+          "status": "processing"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": "No message entry on profile",
+          "reason": "no_message_entry",
+          "skipped": true,
+          "success": false,
+          "username": "fan_two"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "failed": 0,
+            "no_message_entry": 1,
+            "not_found": 0,
+            "privacy_blocked": 0,
+            "sent": 1,
+            "success": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Listed 3 new followers",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
   "new_followers_welcome_send_fails": {
     "ai_services": [
       {

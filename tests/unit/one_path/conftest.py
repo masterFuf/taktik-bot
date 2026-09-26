@@ -147,11 +147,23 @@ class Rig:
         class FakeTikTokManager:
             def __init__(self, device_id=None):
                 rig.calls.append(f"manager {device_id}")
-                self.device_manager = SimpleNamespace(device=rig.device, device_id=device_id)
+                self.device_manager = SimpleNamespace(
+                    device=rig.device, device_id=device_id, connect=self._connect)
 
             def restart(self):
                 rig.calls.append("restart")
                 return rig.restart_ok
+
+            # What the production cold-DM workflow asks of the session the welcome pass hands it.
+            def _connect(self):
+                rig.calls.append("outreach_connect")
+                return rig.outreach_connects
+
+            def stop(self):
+                rig.calls.append("stop tiktok")
+
+            def launch(self):
+                rig.calls.append("launch tiktok")
 
         mp.setattr("taktik.core.social_media.tiktok.TikTokManager", FakeTikTokManager)
 
