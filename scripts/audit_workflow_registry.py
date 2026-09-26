@@ -3,12 +3,17 @@
 The JSON manifest is the cross-project documentation source. The Electron
 registry is the typed runtime source that handlers can import progressively.
 This audit catches drift between the two before we migrate more code.
+
+It is also the gate of "one launcher per workflow" (anti-drift rule 1), whose checks
+live in `workflow_launchers.py`. `--self-test` proves those checks still turn red on a
+fake second launcher; `npm run workflow:launchers` runs this script from the app.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 
@@ -125,6 +130,10 @@ def main() -> int:
             f"expected={expected_instagram_scraping}, actual={actual_instagram_scraping}"
         )
 
+    import workflow_launchers
+
+    errors += workflow_launchers.run_checks(workflow_launchers.collect_inputs())
+
     if errors:
         print("Workflow registry audit failed:")
         for error in errors:
@@ -132,9 +141,24 @@ def main() -> int:
         return 1
 
     total = sum(len(ts_arrays[name]) for name in CHECKS if name in ts_arrays)
-    print(f"Workflow registry OK ({total} typed entries checked)")
+    print(f"Workflow registry OK ({total} typed entries checked, one launcher per workflow)")
+    return 0
+
+
+def self_test() -> int:
+    import workflow_launchers
+
+    inputs = workflow_launchers.collect_inputs()
+    missed = workflow_launchers.self_test(inputs)
+    if missed:
+        print("One-launcher self-test FAILED, these fakes did not turn the gate red:")
+        for name in missed:
+            print(f" - {name}")
+        return 1
+    count = len(workflow_launchers.self_test_cases(inputs))
+    print(f"One-launcher self-test OK ({count} fake second launchers all caught)")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(self_test() if "--self-test" in sys.argv else main())

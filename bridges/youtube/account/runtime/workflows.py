@@ -1,7 +1,11 @@
-"""Workflow adapters for the YouTube account bridge."""
+"""Workflow adapters for the YouTube account bridge (the run is the core's `run_youtube_account`)."""
 
 from bridges.youtube.base import _ipc, send_error, send_log, send_message, send_status
-from taktik.core.social_media.youtube.workflows.account import YouTubeAccountWorkflow
+from taktik.core.social_media.youtube.workflows.account.agent_handler import (
+    YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID,
+    YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID,
+    run_youtube_account,
+)
 
 
 def run_youtube_account_login(config: dict, *, device, device_id: str) -> int:
@@ -11,10 +15,12 @@ def run_youtube_account_login(config: dict, *, device, device_id: str) -> int:
         send_error("email is required for YouTube login")
         return 1
 
-    workflow = YouTubeAccountWorkflow(device, device_id, notifier=_ipc)
-    result = workflow.login(
-        email=email,
-        password=(config.get("password") or ""),
+    result = run_youtube_account(
+        YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID,
+        {"email": email, "password": (config.get("password") or "")},
+        device=device,
+        device_id=device_id,
+        notifier=_ipc,
     )
     return finish_youtube_account_result(result, workflow_type="login", email=email)
 
@@ -22,8 +28,13 @@ def run_youtube_account_login(config: dict, *, device, device_id: str) -> int:
 def run_youtube_account_logout(config: dict, *, device, device_id: str) -> int:
     """Run YouTube account logout and emit the historical bridge result."""
     email = (config.get("email") or "").strip()
-    workflow = YouTubeAccountWorkflow(device, device_id, notifier=_ipc)
-    result = workflow.logout(email=email)
+    result = run_youtube_account(
+        YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID,
+        {"email": email},
+        device=device,
+        device_id=device_id,
+        notifier=_ipc,
+    )
     return finish_youtube_account_result(result, workflow_type="logout", email=email)
 
 

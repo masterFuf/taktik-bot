@@ -1,10 +1,13 @@
-"""Gmail login workflow runner for the account bridge."""
+"""Gmail login runner for the account bridge (the run is the core's `run_gmail_account`)."""
 
 from typing import Any, Callable
 
 from bridges.gmail.account.runtime.persistence import persist_gmail_account
 from bridges.gmail.account.runtime.workflow_result import finish_account_result
-from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+from taktik.core.app.email.gmail.workflows.agent_handler import (
+    GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
+    run_gmail_account,
+)
 
 
 def run_gmail_login(
@@ -29,10 +32,14 @@ def run_gmail_login(
     send_log("info", f"Gmail login workflow - {email}")
 
     try:
-        workflow = GmailWorkflow(device, device_id, notifier=notifier)
-        result = workflow.ensure_account_added(email, password)
-        if result.get("success"):
-            persist_gmail_account(email, device_id, send_log)
+        result = run_gmail_account(
+            GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
+            {"email": email, "password": password},
+            device=device,
+            device_id=device_id,
+            notifier=notifier,
+            account_persister=lambda added: persist_gmail_account(added, device_id, send_log),
+        )
         return finish_account_result(
             result,
             workflow_type="login",

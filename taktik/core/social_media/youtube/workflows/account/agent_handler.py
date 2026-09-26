@@ -1,4 +1,8 @@
-"""Agent runtime handlers for YouTube account workflows."""
+"""The one launcher of the YouTube account workflows, and their Agent handlers.
+
+`run_youtube_account` is what the account bridge and the handlers registered as
+`youtube.account.*` (the CLI) call, once each has read its payload.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +24,33 @@ YOUTUBE_ACCOUNT_WORKFLOW_IDS = (
 YouTubeAccountWorkflowFactory = Callable[..., Any]
 
 
+def run_youtube_account(
+    workflow_id: str,
+    params: Mapping[str, Any],
+    *,
+    device,
+    device_id: str,
+    notifier=None,
+    account_repository=None,
+    workflow_factory: YouTubeAccountWorkflowFactory = YouTubeAccountWorkflow,
+) -> dict[str, Any]:
+    """Log in or out of YouTube with already-read params."""
+    workflow = workflow_factory(
+        device,
+        device_id,
+        notifier=notifier,
+        account_repository=account_repository,
+    )
+    if workflow_id == YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID:
+        return workflow.login(
+            email=params["email"],
+            password=params.get("password", ""),
+        )
+    if workflow_id == YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID:
+        return workflow.logout(email=params.get("email", ""))
+    raise ValueError(f"Unsupported YouTube account workflow id: {workflow_id}")
+
+
 def build_youtube_account_handler(
     *,
     device,
@@ -31,23 +62,15 @@ def build_youtube_account_handler(
     """Build an injectable YouTube account handler without bridge startup."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        params = _account_params(invocation, payload)
-        workflow = workflow_factory(
-            device,
-            device_id,
+        return run_youtube_account(
+            invocation.workflow_id,
+            _account_params(invocation, payload),
+            device=device,
+            device_id=device_id,
             notifier=notifier,
             account_repository=account_repository,
+            workflow_factory=workflow_factory,
         )
-
-        if invocation.workflow_id == YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID:
-            return workflow.login(
-                email=params["email"],
-                password=params.get("password", ""),
-            )
-        if invocation.workflow_id == YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID:
-            return workflow.logout(email=params.get("email", ""))
-
-        raise ValueError(f"Unsupported YouTube account workflow id: {invocation.workflow_id}")
 
     return handler
 

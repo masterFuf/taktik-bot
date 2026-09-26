@@ -1,9 +1,12 @@
-"""Gmail account scanning workflow runner for the account bridge."""
+"""Gmail account scan runner for the account bridge (the run is the core's `run_gmail_account`)."""
 
 from typing import Any, Callable
 
 from bridges.gmail.account.runtime.persistence import persist_gmail_account
-from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+from taktik.core.app.email.gmail.workflows.agent_handler import (
+    GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
+    run_gmail_account,
+)
 
 
 def run_gmail_scan_accounts(
@@ -21,13 +24,14 @@ def run_gmail_scan_accounts(
     send_log("info", "Gmail scan_accounts workflow")
 
     try:
-        workflow = GmailWorkflow(device, device_id, notifier=notifier)
-        result = workflow.scan_accounts()
-        if result.get("success"):
-            for account in result.get("accounts", []):
-                email = account.get("email") if isinstance(account, dict) else None
-                if email:
-                    persist_gmail_account(email, device_id, send_log)
+        result = run_gmail_account(
+            GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
+            {},
+            device=device,
+            device_id=device_id,
+            notifier=notifier,
+            account_persister=lambda found: persist_gmail_account(found, device_id, send_log),
+        )
         success = bool(result.get("success"))
         send_status("success" if success else "error", result.get("message", ""))
         send_message(

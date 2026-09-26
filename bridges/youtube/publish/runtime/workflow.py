@@ -16,21 +16,21 @@ def run_youtube_upload_workflow(
     """Run the YouTube upload workflow and emit the historical upload_result payload."""
     send_status("running", "Starting YouTube upload workflow...")
     try:
-        from taktik.core.social_media.youtube.workflows.publish.upload_workflow import (
-            YouTubeUploadWorkflow,
-            set_callbacks as set_upload_callbacks,
-        )
+        from taktik.core.social_media.youtube.workflows.publish.agent_handler import run_youtube_upload
 
-        # Keep core workflow bridge-agnostic by injecting stdout callbacks here.
-        set_upload_callbacks(log=send_log, status=send_status)
-
-        workflow = YouTubeUploadWorkflow(device, device_id)
-        result = workflow.execute(
-            local_path=request.local_path,
-            title=request.title,
-            description=request.description,
-            upload_type=request.upload_type,
-            visibility=request.visibility,
+        # The core launcher; the bridge injects its stdout callbacks.
+        result = run_youtube_upload(
+            {
+                "local_path": request.local_path,
+                "title": request.title,
+                "description": request.description,
+                "upload_type": request.upload_type,
+                "visibility": request.visibility,
+            },
+            device=device,
+            device_id=device_id,
+            log=send_log,
+            status=send_status,
         )
 
         success = bool(result.get("success", False))

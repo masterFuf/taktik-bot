@@ -1,9 +1,12 @@
-"""Gmail OTP workflow runner for the account bridge."""
+"""Gmail OTP runner for the account bridge (the run is the core's `run_gmail_account`)."""
 
 from typing import Any, Callable
 
 from bridges.gmail.account.runtime.workflow_result import finish_account_result
-from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+from taktik.core.app.email.gmail.workflows.agent_handler import (
+    GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
+    run_gmail_account,
+)
 
 
 def run_gmail_read_otp(
@@ -30,12 +33,17 @@ def run_gmail_read_otp(
     send_log("info", f"Gmail OTP workflow - {email} (sender={sender_filter})")
 
     try:
-        workflow = GmailWorkflow(device, device_id, notifier=notifier)
-        result = workflow.get_latest_verification_code(
-            email=email,
-            sender_filter=sender_filter,
-            subject_filter=subject_filter,
-            timeout=timeout,
+        result = run_gmail_account(
+            GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
+            {
+                "email": email,
+                "sender_filter": sender_filter,
+                "subject_filter": subject_filter,
+                "timeout": timeout,
+            },
+            device=device,
+            device_id=device_id,
+            notifier=notifier,
         )
         return finish_account_result(
             result,

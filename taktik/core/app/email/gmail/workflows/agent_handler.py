@@ -1,4 +1,8 @@
-"""Agent runtime handlers for Gmail account workflows."""
+"""The one launcher of the Gmail account workflows, and their Agent handlers.
+
+`run_gmail_account` is what the Gmail account bridge and the handlers registered as
+`gmail.account.*` (the CLI) call, once each has read its payload. Persistence is injected.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +32,47 @@ GmailWorkflowFactory = Callable[..., Any]
 AccountPersister = Callable[[str], None]
 
 
+def run_gmail_account(
+    workflow_id: str,
+    params: Mapping[str, Any],
+    *,
+    device,
+    device_id: str,
+    notifier=None,
+    account_persister: AccountPersister | None = None,
+    account_unpersister: AccountPersister | None = None,
+    workflow_factory: GmailWorkflowFactory = GmailWorkflow,
+) -> dict[str, Any]:
+    """Run one Gmail account workflow with already-read params, then persist its outcome."""
+    workflow = workflow_factory(device, device_id, notifier=notifier)
+
+    if workflow_id == GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID:
+        result = workflow.ensure_account_added(**params)
+        if result.get("success") and account_persister is not None:
+            account_persister(params["email"])
+        return result
+
+    if workflow_id == GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID:
+        result = workflow.open_account_removal_settings(**params)
+        if result.get("success") and account_unpersister is not None:
+            account_unpersister(params["email"])
+        return result
+
+    if workflow_id == GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID:
+        return workflow.get_latest_verification_code(**params)
+
+    if workflow_id == GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID:
+        result = workflow.scan_accounts()
+        if result.get("success") and account_persister is not None:
+            for account in result.get("accounts", []):
+                email = account.get("email") if isinstance(account, Mapping) else None
+                if email:
+                    account_persister(str(email))
+        return result
+
+    raise ValueError(f"Unsupported Gmail account workflow id: {workflow_id}")
+
+
 def build_gmail_account_handler(
     *,
     device,
@@ -39,41 +84,27 @@ def build_gmail_account_handler(
 ) -> WorkflowHandler:
     """Build an injectable Gmail account handler without bridge DB ownership."""
 
+    readers = {
+        GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID: _login_params,
+        GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID: _logout_params,
+        GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID: _read_otp_params,
+        GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID: lambda _payload: {},
+    }
+
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        merged = merge_invocation_payload(invocation, payload)
-
-        if invocation.workflow_id == GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID:
-            params = _login_params(merged)
-            workflow = workflow_factory(device, device_id, notifier=notifier)
-            result = workflow.ensure_account_added(**params)
-            if result.get("success") and account_persister is not None:
-                account_persister(params["email"])
-            return result
-
-        if invocation.workflow_id == GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID:
-            params = _logout_params(merged)
-            workflow = workflow_factory(device, device_id, notifier=notifier)
-            result = workflow.open_account_removal_settings(**params)
-            if result.get("success") and account_unpersister is not None:
-                account_unpersister(params["email"])
-            return result
-
-        if invocation.workflow_id == GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID:
-            params = _read_otp_params(merged)
-            workflow = workflow_factory(device, device_id, notifier=notifier)
-            return workflow.get_latest_verification_code(**params)
-
-        if invocation.workflow_id == GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID:
-            workflow = workflow_factory(device, device_id, notifier=notifier)
-            result = workflow.scan_accounts()
-            if result.get("success") and account_persister is not None:
-                for account in result.get("accounts", []):
-                    email = account.get("email") if isinstance(account, Mapping) else None
-                    if email:
-                        account_persister(str(email))
-            return result
-
-        raise ValueError(f"Unsupported Gmail account workflow id: {invocation.workflow_id}")
+        read = readers.get(invocation.workflow_id)
+        if read is None:
+            raise ValueError(f"Unsupported Gmail account workflow id: {invocation.workflow_id}")
+        return run_gmail_account(
+            invocation.workflow_id,
+            read(merge_invocation_payload(invocation, payload)),
+            device=device,
+            device_id=device_id,
+            notifier=notifier,
+            account_persister=account_persister,
+            account_unpersister=account_unpersister,
+            workflow_factory=workflow_factory,
+        )
 
     return handler
 
