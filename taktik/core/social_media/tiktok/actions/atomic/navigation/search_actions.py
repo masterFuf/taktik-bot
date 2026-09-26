@@ -9,7 +9,11 @@ search hashtag.
 from loguru import logger
 
 from ...core.base_action import BaseAction
-from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
+from taktik.core.social_media.tiktok.services.navigation.reset import (
+    is_home_tab_selected,
+    return_to_tiktok_home,
+    return_to_tiktok_shell,
+)
 from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ....ui.selectors.surfaces.search import SEARCH_SELECTORS
 
@@ -26,14 +30,22 @@ class SearchActions(BaseAction):
     # === Search Opening ===
 
     def open_search(self) -> bool:
-        """Open search page from For You page.
-        
-        Clicks on the search icon (magnifying glass) in the header.
-        Uses resource-id irz with content-desc "Search".
+        """Open the general search from the magnifier of the Home feed's header.
+
+        Only the Home tab reaches the general search: the inbox, the Friends tab, a comment sheet
+        and the sticker panel carry magnifiers of their own that search elsewhere (from the inbox,
+        the tap opened the conversation search). Off the Home tab this goes back there first,
+        through the reset every workflow uses, and refuses when it cannot.
         """
         self.logger.info("🔍 Opening search")
-        
+
         try:
+            if not is_home_tab_selected(self.device) and not return_to_tiktok_home(
+                self.device, logger=self.logger
+            ):
+                self.logger.warning("❌ Not on the Home tab and could not get back to it: search not opened")
+                return False
+
             # Try navigation selectors first
             if self._find_and_click(self.navigation_selectors.search_button, timeout=3):
                 self._human_like_delay('navigation')

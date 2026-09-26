@@ -461,8 +461,12 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.profile_tab": [
         "//android.widget.FrameLayout[contains(@content-desc, \"Profil\")]",
     ],
+    # The Home feed's magnifier only: its parent also holds the `Pour toi` tab. The inbox (43.1.4
+    # `j6u`, 46.6.3 `kiq`, 46.9.3 `kos`), the Friends tab, a comment sheet, the sticker panel and
+    # the keyboard's search key are labelled `Rechercher` too and search elsewhere. Measured on
+    # 441 TikTok dumps (43.1.4 to 47.0.3): 120/120 feed magnifiers, no other node.
     "navigation.search_button": [
-        "//*[contains(@content-desc, \"Rechercher\")][@clickable=\"true\"]",
+        "//*[contains(@content-desc, \"Rechercher\")][@clickable=\"true\"][ancestor::*[1][.//*[@content-desc=\"Pour toi\"]]]",
     ],
     # L'onglet du fil, situe par sa voisine « Pour toi » : les resultats de recherche ont aussi un
     # onglet « Boutique ».
@@ -921,8 +925,9 @@ STRINGS: Dict[str, List[str]] = {
     "search.search_button": [
         "//android.widget.Button[contains(@content-desc, \"Rechercher\")]",
     ],
+    # Same bound as `navigation.search_button`.
     "search.search_icon": [
-        "//*[contains(@content-desc, \"Rechercher\")]",
+        "//*[contains(@content-desc, \"Rechercher\")][ancestor::*[1][.//*[@content-desc=\"Pour toi\"]]]",
     ],
     "search.search_input": [
         "//android.widget.EditText[contains(@hint, \"Rechercher\")]",

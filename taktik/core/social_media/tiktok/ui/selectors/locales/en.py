@@ -354,10 +354,12 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.profile_tab": [
         "//android.widget.FrameLayout[@content-desc=\"Profile\"]",
     ],
+    # The Home feed's magnifier only: its parent also holds the `For You` tab. The inbox's own
+    # magnifier (43.1.4 `j6u`) is labelled `Search` too and searches the conversations.
     "navigation.search_button": [
         "//*[contains(@resource-id, \":id/irz\")][@content-desc=\"Search\"]",
-        "//android.widget.ImageView[@content-desc=\"Search\"]",
-        "//*[@content-desc=\"Search\"][@clickable=\"true\"]",
+        "//android.widget.ImageView[@content-desc=\"Search\"][ancestor::*[1][.//*[@content-desc=\"For You\"]]]",
+        "//*[@content-desc=\"Search\"][@clickable=\"true\"][ancestor::*[1][.//*[@content-desc=\"For You\"]]]",
     ],
     "navigation.shop_tab": [
         "//*[@content-desc=\"Shop\"]",
@@ -804,9 +806,10 @@ STRINGS: Dict[str, List[str]] = {
     "search.search_button": [
         "//android.widget.Button[contains(@content-desc, \"Search\")]",
     ],
+    # Same bound as `navigation.search_button`.
     "search.search_icon": [
-        "//android.widget.ImageView[@content-desc=\"Search\"]",
-        "//*[@content-desc=\"Search\"]",
+        "//android.widget.ImageView[@content-desc=\"Search\"][ancestor::*[1][.//*[@content-desc=\"For You\"]]]",
+        "//*[@content-desc=\"Search\"][ancestor::*[1][.//*[@content-desc=\"For You\"]]]",
     ],
     "search.search_input": [
         "//android.widget.EditText[contains(@hint, \"Search\")]",

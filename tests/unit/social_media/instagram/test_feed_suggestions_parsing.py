@@ -278,6 +278,45 @@ def test_a_see_all_heading_another_section_is_not_the_carousel():
     assert carousel["cta_bounds"] is None
 
 
+@pytest.fixture
+def app_language():
+    from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+
+    yield set_active_locale
+    set_active_locale(None)
+
+
+# The carousel's words come from the server, not from the app's language: an English app
+# (Pixel 3a, IG 410) showed "Suggestions pour vous" / "Voir tout", and 31 carousels of French
+# apps read "Suggested for you" / "See all". On 410 the CTA's id finds it whatever the words;
+# on 442 the words are all there is.
+ENGLISH_COMPOSE_CAROUSEL = (COMPOSE_CAROUSEL.replace("Suggestions pour vous", "Suggested for you")
+                            .replace("Voir tout", "See all"))
+
+
+@pytest.mark.parametrize("language, xml", [
+    ("en", COMPOSE_CAROUSEL),
+    ("fr", ENGLISH_COMPOSE_CAROUSEL),
+], ids=["french-words-english-app", "english-words-french-app"])
+def test_the_compose_carousel_is_found_in_the_other_language(app_language, language, xml):
+    app_language(language)
+    root = parse_ui_dump(xml)
+
+    carousel = parse_feed_suggestions_carousel(root, FEED_SUGGESTIONS_SELECTORS)
+
+    assert carousel["cta_bounds"] == (790, 1604, 963, 1655)
+    assert any(root.xpath(selector) for selector in FEED_SUGGESTIONS_SELECTORS.carousel_see_all)
+
+
+@pytest.mark.parametrize("language", ["en", "fr"])
+def test_a_see_all_heading_another_section_is_not_the_carousel_in_either_language(app_language, language):
+    app_language(language)
+    carousel = parse_feed_suggestions_carousel(
+        parse_ui_dump(COMPOSE_OTHER_SECTION), FEED_SUGGESTIONS_SELECTORS
+    )
+    assert carousel["cta_bounds"] is None
+
+
 def test_a_cta_left_of_its_header_is_not_paired():
     # Guards the geometry rather than the labels: the CTA sits at the right end of the row.
     mirrored = COMPOSE_CAROUSEL.replace('bounds="[790,1604][963,1655]"', 'bounds="[10,1604][40,1655]"')

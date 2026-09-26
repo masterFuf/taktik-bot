@@ -53,6 +53,21 @@ def _key(selector: dict) -> tuple:
     return ("other", json.dumps(selector, sort_keys=True))
 
 
+# An xpath on an id alone, as written or as the clone proxy rewrites it.
+_XPATH_ID = re.compile(
+    r'^//\*\[(?:\(substring-after\(@resource-id,":id/"\)="(\w+)" or @resource-id="\1"\)'
+    r'|@resource-id="[^"]*:id/(\w+)")\]$'
+)
+
+
+def _xpath_key(selector: str) -> tuple:
+    """An xpath on an id alone asks what `d(resourceId=...)` asks; any other is its own query."""
+    match = _XPATH_ID.match(selector)
+    if match:
+        return ("id", match.group(1) or match.group(2))
+    return ("xpath", selector)
+
+
 class _Element:
     def __init__(self, phone, key, index=0):
         self.phone = phone
@@ -126,6 +141,9 @@ class FakePhone:
 
     def __call__(self, **selector):
         return _Element(self, _key(selector))
+
+    def xpath(self, selector):
+        return _Element(self, _xpath_key(selector))
 
     # --- what the screen shows ------------------------------------------------------------------
 
@@ -320,6 +338,12 @@ class InstagramColdDmRig:
             return rig.profile(rig.phone.user).get("verified", False)
 
         mp.setattr(DetectionActions, "is_verified_account", fake_is_verified)
+
+        def fake_wait_for_profile(_self, *a, **k):
+            rig.calls.append("read_profile_screen")
+            return rig.phone.state == "profile"
+
+        mp.setattr(DetectionActions, "wait_for_profile_screen", fake_wait_for_profile)
 
         from bridges.common.input import keyboard as keyboard_module
 

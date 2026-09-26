@@ -52,16 +52,27 @@ def test_a_public_profile_without_message_button_stays_a_failure_for_the_caller(
 # ------------------------------------------------------------------------- bridge: the screen
 
 class _Node:
+    """A uiautomator2 selection of at most one node."""
+
     def __init__(self, exists):
         self.exists = exists
         self.clicks = 0
+        self.info = {"resourceName": ""}
+
+    @property
+    def count(self):
+        return 1 if self.exists else 0
+
+    def __getitem__(self, _index):
+        return self
 
     def click(self):
         self.clicks += 1
 
 
 class _Device:
-    """Answers `device(text=/description=/resourceId=/textContains=)` from a fixed screen."""
+    """Answers `device(text=/description=/resourceId=/textContains=)` and the profile header's
+    Message button xpaths from a fixed screen."""
 
     def __init__(self, *, private=False, message=True):
         self.private = private
@@ -75,7 +86,12 @@ class _Device:
             return _Node(self.private)
         if "textContains" in kwargs:
             return _Node(False)
-        if self.message and (kwargs.get("text") in PROFILE_SELECTORS.message_button_text_labels):
+        return _Node(False)
+
+    def xpath(self, selector):
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
+        if self.message and selector in PROFILE_SELECTORS.header_message_button:
             return self.message_node
         return _Node(False)
 
@@ -90,7 +106,8 @@ def _runtime(*, private=False, message=True, verified=False):
             self.device = _Device(private=private, message=message)
 
         def _cold_dm_detection(self):
-            return SimpleNamespace(is_verified_account=lambda: reads.append("badge") or verified)
+            return SimpleNamespace(is_verified_account=lambda: reads.append("badge") or verified,
+                                   wait_for_profile_screen=lambda **_: True)
 
     return _Runtime(), reads
 
@@ -159,7 +176,8 @@ def test_the_lab_check_runs_the_bridge_evaluation_without_tapping():
 
     device = _Device(private=True)
     bundle = SimpleNamespace(device=SimpleNamespace(device=device),
-                             detection=SimpleNamespace(is_verified_account=lambda: False))
+                             detection=SimpleNamespace(is_verified_account=lambda: False,
+                                                       wait_for_profile_screen=lambda **_: True))
 
     skipped = cold_dm_check_profile(bundle, {})
     tried = cold_dm_check_profile(bundle, {"skipPrivate": "false"})
@@ -180,7 +198,8 @@ def _lab_send(monkeypatch, device, params):
     monkeypatch.setattr(ColdDMWorkflow, "search_user", lambda self, username: True)
     monkeypatch.setattr(ColdDMWorkflow, "send_message", lambda self, message: sent.append(message) or True)
     bundle = SimpleNamespace(device=SimpleNamespace(device=device),
-                             detection=SimpleNamespace(is_verified_account=lambda: False))
+                             detection=SimpleNamespace(is_verified_account=lambda: False,
+                                                       wait_for_profile_screen=lambda **_: True))
     return send_cold_dm(bundle, params), sent
 
 

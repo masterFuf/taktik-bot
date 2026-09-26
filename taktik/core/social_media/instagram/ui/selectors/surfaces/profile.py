@@ -186,6 +186,19 @@ class ProfileSelectors:
     def message_button_text_labels(self) -> List[str]:
         return self._message_button_text_labels_base + L("profile.message_button_text_labels")
 
+    profile_header_container: str = '//*[@resource-id="com.instagram.android:id/profile_header_container"]'
+
+    @property
+    def header_message_button(self) -> List[str]:
+        """The Message button of an open profile: its exact label inside the profile header, or
+        its id. The tab bar's Direct tab carries the same label as content-desc on every screen
+        with the bar, own profile included, and a DM composer shows it as text (410 and 447
+        corpus: on a profile, the button always sits under `profile_header_container`)."""
+        return [
+            f'{self.profile_header_container}//*[@text="{label}" or @content-desc="{label}"]'
+            for label in self.message_button_text_labels
+        ] + [f'//*[@resource-id="{self.message_button_resource_id}"]']
+
     # === Profile tabs ===
     # Inline bilingual OR-combo (plain str, never filtered by language today)
     # -> overlay migration later; left as is, no behaviour change.
