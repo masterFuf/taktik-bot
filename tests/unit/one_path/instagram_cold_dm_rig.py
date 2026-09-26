@@ -410,11 +410,18 @@ class InstagramColdDmRig:
             self.monkeypatch.setattr(sys, "stdout", sys.__stdout__)
         for line in out.getvalue().splitlines():
             line = line.strip()
-            if line:
-                try:
-                    self.stdout_lines.append(json.loads(line))
-                except json.JSONDecodeError:
-                    self.stdout_lines.append(line)
+            if not line:
+                continue
+            try:
+                parsed = json.loads(line)
+            except json.JSONDecodeError:
+                self.stdout_lines.append(line)
+                continue
+            # Step telemetry is timestamped, and reaches stdout only when the global sink was wired
+            # by a bridge IPC module imported earlier in the session: left out, as from `events`.
+            if isinstance(parsed, dict) and parsed.get("type") == "step_metric":
+                continue
+            self.stdout_lines.append(parsed)
         return code
 
     def run_cli(self, payload: dict, env: dict | None = None, workflow_id: str = "instagram.engagement.coldDm"):
