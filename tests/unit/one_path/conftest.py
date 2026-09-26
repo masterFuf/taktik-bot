@@ -108,6 +108,8 @@ class Rig:
         self.upload_raises = False
         self.text_post_outcome = None
         self.text_post_raises = False
+        #: The text post goes through, then TikTok's refusal is on screen.
+        self.text_post_refused = False
         self.clone_patch_raises = False
         self._install()
 
@@ -507,11 +509,20 @@ class Rig:
             rig.calls.append(f"text_post {device_id} {text!r} to_story={to_story}")
             if rig.text_post_raises:
                 raise RuntimeError("the composer vanished")
+            if rig.text_post_refused:
+                rig.refusal_on_screen = True
             return dict(rig.text_post_outcome or {"success": True, "step": "published", "typed": text,
                                                   "destination": "story" if to_story else "feed",
                                                   "error": None})
 
         mp.setattr(text_post, "publish_text_post", fake_publish_text_post)
+
+        # The account's health entry a refusal leaves (written through the repository in the
+        # real run): recorded, not written.
+        from taktik.core.database import account_health
+
+        mp.setattr(account_health, "record_action_block", lambda halt, **kw: rig.calls.append(
+            f"health {kw['platform']} {kw['account_username']} {halt.get('code')} {kw.get('source_type')}"))
 
         import taktik.core.clone as clone
 
@@ -1532,7 +1543,7 @@ def publish_payload():
 def _publish_payload(post_type: str = "video", **overrides) -> dict:
     """What `TikTokUploadWorkflowService.writeConfig` writes, key for key: a video with its
     sanitised caption and hashtags, or a text post (no file)."""
-    payload = {"workflowType": "upload_post", "deviceId": DEVICE_ID,
+    payload = {"workflowType": "upload_post", "deviceId": DEVICE_ID, "botUsername": "my_account",
                "localPath": "C:/media/clip.mp4", "caption": "Morning run", "hashtags": ["running", "trail"]}
     if post_type == "text":
         # No file: `localPath` is undefined, so JSON drops it.

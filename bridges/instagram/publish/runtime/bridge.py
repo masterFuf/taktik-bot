@@ -42,6 +42,8 @@ class InstagramPublishBridge:
         if self.post_type == "post" and len(self.media_paths) > 1:
             self.post_type = "carousel"
         self.package_name = config.get("packageName")
+        # The operated account (`botUsername`, the key the other config bridges read).
+        self.account_username = config.get("botUsername")
         self._connection = None
         self._stop_requested = False
 
@@ -118,6 +120,7 @@ class InstagramPublishBridge:
             status=send_status,
             package_name=self.package_name,
             post_type=post_type,
+            account_username=self.account_username,
         )
         result = workflow.execute(
             caption=self.caption,

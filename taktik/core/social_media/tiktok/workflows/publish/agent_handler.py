@@ -18,6 +18,9 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
+from taktik.core.database.account_health import witness_for
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
     merge_invocation_payload,
@@ -75,6 +78,19 @@ def _fail(notifier: Any, message: str) -> dict[str, Any]:
     return {"success": False, "message": message, "error_type": "exception"}
 
 
+def _refused(device) -> bool:
+    """Is TikTok refusing the publication? The one look, on the production detector."""
+    from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import (
+        DetectionActions,
+    )
+
+    try:
+        detector = DetectionActions(device)
+    except Exception:  # noqa: BLE001 - no detector is not a refusal
+        return False
+    return look_for_action_block(detector, after="text post")
+
+
 def _publish_text(request: PublishRequest, device, device_id: str, notifier: Any,
                   step_hook: Optional[StepHook]) -> dict[str, Any]:
     """The TEXT format: no file, no gallery, no upload -- just the composer."""
@@ -87,6 +103,14 @@ def _publish_text(request: PublishRequest, device, device_id: str, notifier: Any
         _step(step_hook, "99_after")
     except Exception as exc:
         return _fail(notifier, f"Text post failed: {exc}")
+
+    # The one look after a write: a refused text post is not a published one.
+    if _refused(device):
+        message = "TikTok refuses the publication (Too many requests)"
+        _emit(notifier, "status", "error", message)
+        notify(notifier, "upload_result", success=False, workflow="text_post", message=message,
+               error_type="action_blocked")
+        return {**result, "success": False, "message": message, "error_type": "action_blocked"}
 
     success = bool(result.get("success"))
     message = result.get("error") or f"text post published to {result.get('destination')}"
@@ -143,6 +167,9 @@ def run_tiktok_publish(
 
     notifier = notifier if notifier is not None else LoggingWorkflowNotifier()
     request = publish_request_from_payload(payload)
+    # A refused publication becomes one entry of the account's health history, as in every run.
+    run_halt.configurer_temoin(witness_for(
+        "tiktok", lambda: request.bot_username, source_type=lambda: "PUBLISH"))
     _patch_clone_selectors(request.package_name, notifier)
     if request.post_type == "text":
         return _publish_text(request, device, device_id, notifier, step_hook)

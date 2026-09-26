@@ -6,6 +6,9 @@ the choice between a video upload and a text post still lived in the bridge, bef
 into the core launcher (`run_tiktok_publish`). The upload workflow, the text post, the connection
 and the clone patch are fakes; the bridge's screenshots are recorded, not written. Same device
 calls, same stdout events in the same order, same exit code.
+
+`text_refused` was recorded on both codes (TikTok's refusal on screen after the text post); its old
+values stay beside the new ones. The payload carries `botUsername`, as the app writes it.
 """
 import json
 from pathlib import Path
@@ -45,6 +48,9 @@ def scenario(name, rig, publish_payload):
                                  "destination": "feed",
                                  "error": "the TEXT mode is not offered on this creation screen"}
         return publish_payload("text")
+    if name == "text_refused":
+        rig.text_post_refused = True
+        return publish_payload("text")
     if name == "text_raises":
         rig.text_post_raises = True
         return publish_payload("text")
@@ -70,7 +76,8 @@ def scenario(name, rig, publish_payload):
 
 SCENARIOS = (
     "video", "video_clone_package", "video_official_package", "video_clone_patch_fails",
-    "video_fails", "video_raises", "text", "text_to_story_on_clone", "text_fails", "text_raises",
+    "video_fails", "video_raises", "text", "text_to_story_on_clone", "text_fails", "text_refused",
+    "text_raises",
     "connect_fails", "no_device", "video_without_file", "text_without_text", "no_config_argument",
     "unreadable_config",
 )
@@ -103,3 +110,16 @@ def test_the_bridge_runs_exactly_as_recorded(rig, publish_payload, name):
 
 def test_every_recording_is_a_scenario():
     assert sorted(SNAPSHOT) == sorted(SCENARIOS)
+
+
+def test_a_refused_text_post_is_reported_and_filed_under_the_account():
+    """`text_refused`: TikTok refuses the text post. The old code reported it published; now the
+    run fails on `action_blocked` and the refusal is one health entry of the account the app
+    names (`botUsername`), which then rests."""
+    record = SNAPSHOT["text_refused"]
+    assert record["events_old_code"][-1][1]["success"] is True
+    assert record["events"][-1] == ["upload_result", {
+        "success": False, "workflow": "text_post",
+        "message": "TikTok refuses the publication (Too many requests)", "error_type": "action_blocked"}]
+    assert record["calls"][-1] == "health tiktok my_account action_blocked PUBLISH"
+    assert record["exit"] == 1 and record["exit_old_code"] == 0

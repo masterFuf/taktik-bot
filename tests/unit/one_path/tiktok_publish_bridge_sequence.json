@@ -160,6 +160,89 @@
   ],
   "exit": 1
  },
+ "text_refused": {
+  "calls": [
+   "connection emulator-5554",
+   "connect",
+   "capture 00_before",
+   "text_post emulator-5554 'Five kilometres before breakfast' to_story=False",
+   "capture 99_after",
+   "health tiktok my_account action_blocked PUBLISH"
+  ],
+  "calls_old_code": [
+   "connection emulator-5554",
+   "connect",
+   "capture 00_before",
+   "text_post emulator-5554 'Five kilometres before breakfast' to_story=False",
+   "capture 99_after"
+  ],
+  "events": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Publishing a TikTok text post...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "TikTok refuses the publication (Too many requests)",
+     "status": "error"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": "action_blocked",
+     "message": "TikTok refuses the publication (Too many requests)",
+     "success": false,
+     "workflow": "text_post"
+    }
+   ]
+  ],
+  "events_old_code": [
+   [
+    "status",
+    {
+     "message": "Connecting to device emulator-5554...",
+     "status": "connecting"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "Publishing a TikTok text post...",
+     "status": "running"
+    }
+   ],
+   [
+    "status",
+    {
+     "message": "text post published to feed",
+     "status": "success"
+    }
+   ],
+   [
+    "upload_result",
+    {
+     "error_type": null,
+     "message": "text post published to feed",
+     "success": true,
+     "workflow": "text_post"
+    }
+   ]
+  ],
+  "exit": 1,
+  "exit_old_code": 0
+ },
  "text_to_story_on_clone": {
   "calls": [
    "connection emulator-5554",
