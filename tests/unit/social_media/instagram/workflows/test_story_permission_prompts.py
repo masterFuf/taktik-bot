@@ -25,12 +25,9 @@ from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
 FIXTURES = Path(__file__).parents[3] / "shared" / "device" / "fixtures"
 CAMERA = (FIXTURES / "android12_fr_permission_camera.xml").read_text(encoding="utf-8")
 MICROPHONE = (FIXTURES / "android12_fr_permission_microphone.xml").read_text(encoding="utf-8")
-APP = (
-    '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-    '<node index="0" text="" resource-id="com.instagram.android:id/quick_capture_root_container" '
-    'class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" '
-    'clickable="false" enabled="true" bounds="[0,0][1080,2220]" /></hierarchy>'
-)
+#: Instagram's own creation screen (the reel editor under `quick_capture_root_container`), a real
+#: dump of 410, anonymized: what the app shows while no prompt is up.
+APP = (Path(__file__).parents[1] / "fixtures" / "ig410_en_reel_editor.xml").read_text(encoding="utf-8")
 ONE_TIME = "permission_allow_one_time_button"
 
 
