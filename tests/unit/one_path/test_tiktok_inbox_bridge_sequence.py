@@ -11,6 +11,10 @@ the refusal now comes first, with the same error and the same exit code, and the
 touched. The old code's values stay in the snapshot (`calls_old_code`, `events_old_code`,
 `configs_old_code`). The app never sends either request: both buttons are disabled on an empty
 selection.
+
+Every welcome scenario but one sends through a stand-in of the cold-DM workflow.
+`new_followers_welcome_no_message_entry` runs the production one: a follower whose profile offers
+no message entry is skipped, and the bridge prints what the cold DM prints for it.
 """
 import dataclasses
 import json
@@ -68,6 +72,10 @@ def scenario(name, rig, inbox_payload, welcome_ai):
     if name == "new_followers_welcome_send_fails":
         rig.welcome_send_failures = {"fan_one"}
         return _welcome(rig, inbox_payload, welcome_ai)
+    if name == "new_followers_welcome_no_message_entry":
+        rig.use_real_outreach()
+        rig.no_message_button = {"fan_two"}
+        return _welcome(rig, inbox_payload, welcome_ai)
     if name == "new_followers_welcome_without_follow_back":
         return _welcome(rig, inbox_payload, welcome_ai, followBack=False)
     if name == "new_followers_welcome_follow_back_only":
@@ -115,7 +123,8 @@ SCENARIOS = (
     "new_followers_welcome_no_ai_key", "new_followers_welcome", "new_followers_welcome_thread_exists",
     "new_followers_welcome_guard_broken", "new_followers_welcome_no_message",
     "new_followers_welcome_account_unread", "new_followers_welcome_send_fails",
-    "new_followers_welcome_without_follow_back", "new_followers_welcome_follow_back_only",
+    "new_followers_welcome_no_message_entry", "new_followers_welcome_without_follow_back",
+    "new_followers_welcome_follow_back_only",
     "new_followers_follow_back_page", "new_followers_follow_back_empty", "new_followers_no_device",
     "new_followers_start_fails", "unreplied_page", "unreplied_every_conversation", "unreplied_no_device",
     "unreplied_start_fails", "requests_scrape_page", "requests_execute_page", "requests_execute_empty",
@@ -162,3 +171,19 @@ def test_a_request_with_nothing_to_act_on_is_refused_before_the_phone_is_touched
         assert record["events"] == [record["events_old_code"][-1]], name
         assert record["events"][-1][0] == "error", name
         assert record["exit"] == 1, name
+
+
+def test_the_welcome_dm_skips_a_follower_without_message_entry_as_the_cold_dm_does():
+    record = SNAPSHOT["new_followers_welcome_no_message_entry"]
+    results = {event["username"]: event for kind, event in record["events"] if kind == "dm_result"}
+    assert results["fan_one"] == {"error": None, "success": True, "username": "fan_one"}
+    assert results["fan_two"] == {
+        "error": "No message entry on profile", "reason": "no_message_entry", "skipped": True,
+        "success": False, "username": "fan_two",
+    }
+    stats = [event["stats"] for kind, event in record["events"] if kind == "stats"]
+    assert stats[-1] == {"failed": 0, "no_message_entry": 1, "not_found": 0, "privacy_blocked": 0,
+                         "sent": 1, "success": 1}
+    # Not marked: the entry comes back once we follow them.
+    marked = [write["sent_dm"]["recipient"] for write in record["db_writes"] if "sent_dm" in write]
+    assert marked == ["fan_one"]
