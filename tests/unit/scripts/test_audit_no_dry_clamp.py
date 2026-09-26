@@ -25,6 +25,13 @@ def _sources(source: str) -> list:
      ["np.clip(np.random.normal(0, 1), 0, 1)"]),
     ("def f():\n    ms = sample_tap_down_ms()\n    return max(ms, 40)",
      ["max(ms, 40)"]),
+    # The same clamp spelled out.
+    ("import random\ndef f(lo):\n    x = random.gauss(0, 1)\n    if x < lo:\n        x = lo\n    return x",
+     ["if x < lo: x = lo"]),
+    ("def f(rng):\n    ms = rng.gauss(68, 18)\n    if 120 < ms:\n        ms = 120\n    return ms",
+     ["if 120 < ms: ms = 120"]),
+    ("def f(rng):\n    d = rng.uniform(0, 2)\n    return d if d > 0.5 else 0.5",
+     ["d if d > 0.5 else 0.5"]),
 ])
 def test_a_clamped_draw_is_found(source, expected):
     assert _sources(source) == expected
@@ -40,6 +47,11 @@ def test_a_clamped_draw_is_found(source, expected):
     "    return sample_within(lambda: rng.gauss(0, 1), max(-cap, rng.random() - sx), cap)",
     # The redraw itself.
     "def f(rng):\n    return sample_within(lambda: rng.gauss(0, 1), -1, 1)",
+    # Drawing again when out of range is a redraw, and a reflection is no clamp.
+    "def f(rng):\n    x = rng.gauss(0, 1)\n    while x < -1:\n        x = rng.gauss(0, 1)\n    return x",
+    "def f(rng):\n    x = rng.gauss(0, 1)\n    if x < 0:\n        x = -x\n    return x",
+    # A parameter kept in range is not a draw.
+    "def f(x, lo):\n    if x < lo:\n        x = lo\n    return x",
 ])
 def test_what_is_not_a_clamped_draw_is_left_alone(source):
     assert _sources(source) == []

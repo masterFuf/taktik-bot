@@ -20,6 +20,7 @@ import os
 import time
 
 from taktik.core.shared.device.media_store import (
+    purge_pushed_media,
     push_media,
     trigger_media_scan,
     scan_wait_for,
@@ -156,6 +157,13 @@ class TikTokUploadWorkflow:
             # 1. Check the file exists
             if not os.path.isfile(local_path):
                 return self._error("file_not_found", f"File not found: {local_path}")
+
+            # Reclaim what earlier runs pushed, as the Instagram post does: a phone that only
+            # publishes here would otherwise keep every medium, legacy names included.
+            try:
+                purge_pushed_media(self.device_id, log=_ipc.log)
+            except Exception as e:
+                _ipc.log("warning", f"Media purge skipped: {e}")
 
             # 2-3. Push file + trigger MediaStore indexing (shared service)
             _ipc.log("info", f"📤 Pushing file to device: {os.path.basename(local_path)}")

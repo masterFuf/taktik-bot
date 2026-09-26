@@ -86,6 +86,7 @@ class BaseTikTokWorkflow:
 
         # Pause management (shared by all workflows that need it)
         self._actions_since_pause = 0
+        self._next_pause_after: Optional[int] = None
         self._on_pause_callback: Optional[Callable] = None
 
         # Stats callback
@@ -115,13 +116,22 @@ class BaseTikTokWorkflow:
         """Set callback called when workflow takes a pause."""
         self._on_pause_callback = callback
 
+    def _pause_due_after(self):
+        """Actions before the next break: drawn around ``pause_after_actions`` (its mean), once
+        per break, by the run's behaviour state; the configured count itself without one."""
+        if getattr(self, "_next_pause_after", None) is None:
+            every = self.config.pause_after_actions
+            draw = getattr(getattr(self, "behavior_state", None), "actions_until_break", None)
+            self._next_pause_after = draw(every) if callable(draw) else every
+        return self._next_pause_after
+
     def _check_pause_needed(self):
         """Check if a pause is needed and execute it.
 
         Requires ``self.config`` to expose:
             pause_after_actions, pause_duration_min, pause_duration_max
         """
-        if self._actions_since_pause >= self.config.pause_after_actions:
+        if self._actions_since_pause >= self._pause_due_after():
             pause_duration = random.uniform(
                 self.config.pause_duration_min,
                 self.config.pause_duration_max,
@@ -137,6 +147,7 @@ class BaseTikTokWorkflow:
 
             time.sleep(pause_duration)
             self._actions_since_pause = 0
+            self._next_pause_after = None
 
     # ------------------------------------------------------------------
     # Lifecycle

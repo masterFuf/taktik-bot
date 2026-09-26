@@ -25,7 +25,7 @@ import pytest
 import taktik.core.shared.behavior.gesture_primitives as gp
 from taktik.core.shared.behavior import dwell
 from taktik.core.shared.behavior.gesture import sample_swipe
-from taktik.core.shared.behavior.tap import sample_tap_down_ms, sample_tap_point
+from taktik.core.shared.behavior.tap import MAX_TAP_HOLD_MS, sample_tap_down_ms, sample_tap_point
 
 DRAWS = int(os.environ.get("TAKTIK_DISTRIBUTION_DRAWS", "400000"))
 LIMIT_DRAWS = DRAWS // 4
@@ -85,9 +85,10 @@ def test_tap_point_is_not_glued_to_the_rim_of_its_zone():
     _assert_bounded_without_peak([y for _, y in points], 524, 676)
 
 
-def test_tap_press_time_never_sticks_to_its_minimum():
+def test_tap_press_time_never_sticks_to_its_minimum_nor_to_its_cap():
     rng = random.Random(2)
-    _assert_bounded_without_peak([sample_tap_down_ms(rng=rng) for _ in range(DRAWS)], 30.0, 220.0)
+    values = [sample_tap_down_ms(rng=rng) for _ in range(DRAWS)]
+    _assert_bounded_without_peak(values, 30.0, MAX_TAP_HOLD_MS)
 
 
 # --- TikTok facade -----------------------------------------------------------------------------

@@ -10,7 +10,9 @@ of tries and a uniform fallback).
 What is flagged: a `min(...)` / `max(...)` with two or more arguments, or a `clip(...)` /
 `.clip(...)`, where one argument is a RANDOM value -- a call to the `random` module or to an RNG
 object (`rng.gauss`, `self._rng.uniform`, ...), a `sample_*` helper, or a local name assigned from
-one of those in the same function. A nested `min(max(...))` is reported once.
+one of those in the same function. A nested `min(max(...))` is reported once. The same clamp
+spelled out is flagged too: `if x < lo: x = lo`, and `x if x > lo else lo`, on a random `x`
+(a `while` that draws `x` again is a redraw, and is left alone).
 
 What is not flagged: clamps of parameters and of deterministic values (a point kept on screen after
 a deterministic computation, a ratio derived from the config). The analysis is per function and
@@ -216,6 +218,38 @@ def _clamp_operands(node: ast.Call) -> List[ast.AST]:
     return operands
 
 
+_ORDER_OPS = (ast.Lt, ast.LtE, ast.Gt, ast.GtE)
+
+
+def _compared_draw(test: ast.AST, tainted: Set[str]) -> str:
+    """The random local compared with a limit in `test` (`x < lo`, `hi <= x`), or ''."""
+    if not (isinstance(test, ast.Compare) and len(test.ops) == 1
+            and isinstance(test.ops[0], _ORDER_OPS)):
+        return ""
+    for side in (test.left, test.comparators[0]):
+        if isinstance(side, ast.Name) and side.id in tainted:
+            return side.id
+    return ""
+
+
+def _spelled_out_clamp(node: ast.AST, tainted: Set[str]) -> str:
+    """`if x < lo: x = lo` or `x if x > lo else lo` on a random `x`, as source; '' otherwise."""
+    if isinstance(node, ast.If):
+        name = _compared_draw(node.test, tainted)
+        for stmt in node.body if name else ():
+            if (isinstance(stmt, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == name for t in stmt.targets)
+                    and not _is_random_expr(stmt.value, tainted)):
+                return f"if {ast.unparse(node.test)}: {ast.unparse(stmt)}"
+    elif isinstance(node, ast.IfExp):
+        name = _compared_draw(node.test, tainted)
+        branches = (node.body, node.orelse)
+        if (name and any(isinstance(b, ast.Name) and b.id == name for b in branches)
+                and any(not _is_random_expr(b, tainted) for b in branches)):
+            return ast.unparse(node)
+    return ""
+
+
 def _sample_within_limits(scope: ast.AST) -> Iterable[ast.AST]:
     """The `lo` / `hi` expressions of `sample_within(...)` calls: a min/max there computes a
     limit for the redraw (e.g. the tighter of two caps), it does not clamp a draw."""
@@ -279,6 +313,10 @@ def scan_source(source: str, rel: str = "<source>") -> List[Finding]:
             if id(clamp) in nested:
                 continue
             findings.append(Finding(rel, clamp.lineno, name, ast.unparse(clamp)))
+        for node in _own_nodes(scope):
+            text = _spelled_out_clamp(node, tainted)
+            if text:
+                findings.append(Finding(rel, node.lineno, name, text))
     return findings
 
 

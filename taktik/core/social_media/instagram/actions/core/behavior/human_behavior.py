@@ -4,25 +4,17 @@ import time
 import random
 from typing import Tuple
 
+from taktik.core.shared.behavior.breaks import actions_until_break, break_seconds, session_tempo
 from taktik.core.shared.behavior.sampling import lognormal_with_mean
 
 # Breaks come after a number of REAL interactions and last a number of seconds. The means are the
-# ones of the historical uniform draws (8-15 interactions, 5-15 s); the laws are log-normal, wider,
-# and scaled per session, so the rhythm is no longer the same narrow band in every run. Bounds are
-# wide sanity limits: truncation redraws, and the mean is solved for them.
+# ones of the historical uniform draws (8-15 interactions, 5-15 s); the laws (`shared/behavior/
+# breaks.py`) are log-normal, wider, and scaled per session. Bounds are wide sanity limits:
+# truncation redraws, and the mean is solved for them.
 _SHORT_BREAK_EVERY = (11.5, 4, 28)       # (mean, min, max) interactions
-_BREAK_EVERY_CV = 0.35
 _SHORT_BREAK_S = (10.0, 3.0, 60.0)       # (mean, min, max) seconds
-_BREAK_LENGTH_CV = 0.5
-# One session breaks more often, or longer, than another. Mean 1, so the long-run averages hold.
-_SESSION_TEMPO = (1.0, 0.18, 0.6, 1.6)   # (mean, cv, min, max)
 # Micro-delays: spread of the log-normal relative to the historical gaussian (sd = range / 4).
 _DELAY_SPREAD_GAIN = 1.5
-
-
-def _session_tempo() -> float:
-    mean, cv, lo, hi = _SESSION_TEMPO
-    return lognormal_with_mean(mean, cv, lo, hi)
 
 
 class HumanBehavior:
@@ -50,8 +42,8 @@ class HumanBehavior:
         self.interactions_count = 0  # Real interactions only
         self.last_action_time = time.time()
         self.last_break_at = 0
-        self.break_spacing_tempo = _session_tempo()
-        self.break_length_tempo = _session_tempo()
+        self.break_spacing_tempo = session_tempo()
+        self.break_length_tempo = session_tempo()
         
         # Break configuration, based on the REAL interactions only
         self.interactions_before_short_break = self._break_every(_SHORT_BREAK_EVERY)
@@ -59,12 +51,12 @@ class HumanBehavior:
     def _break_every(self, spec) -> int:
         """Interactions until the next break, for this session's tempo."""
         mean, lo, hi = spec
-        return int(round(lognormal_with_mean(mean * self.break_spacing_tempo, _BREAK_EVERY_CV, lo, hi)))
+        return actions_until_break(mean, lo, hi, tempo=self.break_spacing_tempo)
 
     def _break_length(self, spec) -> float:
         """Length of a break of this kind, in seconds, for this session's tempo."""
         mean, lo, hi = spec
-        return lognormal_with_mean(mean * self.break_length_tempo, _BREAK_LENGTH_CV, lo, hi)
+        return break_seconds(mean, lo, hi, tempo=self.break_length_tempo)
     
     def get_fatigue_multiplier(self) -> float:
         """Multiplier based on the session duration.
