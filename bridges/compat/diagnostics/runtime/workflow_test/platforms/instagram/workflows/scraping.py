@@ -5,7 +5,7 @@ end — but a diagnostic run must not leave a trace either, so it runs with pers
 export OFF and with the AI disabled. The bench measures whether the bot can still reach a list and
 read profiles from it; it is not there to fill the database or to spend on qualification.
 
-`run_scraping_bridge` was named as the entry point, but it is CLI-shaped: it parses argv AND opens
+`run_scraping_bridge` was named as the entry point, but it opens
 its own device connection, which would fight the one the bench already holds. The wiring therefore
 targets `run_scraping_workflow`, the layer just below — the same one the bridge itself calls once
 it has connected, which runs the core launcher `run_instagram_scraping` — and hands it the bench's

@@ -20,11 +20,11 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.instagram.tasks.runtime.bridge import TaskBridge
-from bridges.instagram.tasks.runtime.commands import run_task_bridge
+from bridges.common.runtime.entrypoint import run_bridge_main
 
 
 def main():
-    sys.exit(run_task_bridge(TaskBridge))
+    run_bridge_main(TaskBridge, usage="tasks.py <config_path>", catch_crashes=False)
 
 
 if __name__ == "__main__":

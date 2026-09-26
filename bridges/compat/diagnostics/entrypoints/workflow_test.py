@@ -21,6 +21,7 @@ setup_environment()
 
 from loguru import logger
 
+from bridges.common.runtime.entrypoint import CONFIG_ERROR, MISSING_CONFIG, run_bridge_main
 from bridges.common.runtime.ipc import IPC
 from bridges.compat.diagnostics.runtime.workflow_test.execution.dispatcher import dispatch_workflow
 from bridges.compat.diagnostics.runtime.workflow_test.execution.lifecycle import stop_watchdog
@@ -30,14 +31,32 @@ from bridges.compat.diagnostics.runtime.workflow_test.observability import (
     setup_log_sink,
 )
 from bridges.compat.diagnostics.runtime.workflow_test.reporting.report import build_workflow_report
-from bridges.compat.diagnostics.runtime.workflow_test.config.request import load_workflow_test_request
+from bridges.compat.diagnostics.runtime.workflow_test.config.request import (
+    load_workflow_test_request,
+    report_workflow_test_entry_error,
+)
 from bridges.compat.diagnostics.runtime.workflow_test.execution.session import prepare_workflow_test_session
+
+
+class _WorkflowTestRun:
+    def __init__(self, ipc: IPC, config: dict):
+        self.ipc = ipc
+        self.config = config
+
+    def run(self) -> int:
+        run_workflow_test(self.ipc, self.config)
+        return 0
 
 
 def main():
     ipc = IPC()
+    run_bridge_main(lambda config: _WorkflowTestRun(ipc, config), usage="workflow_test_bridge <config.json>",
+                    report_error=report_workflow_test_entry_error(ipc),
+                    messages={MISSING_CONFIG: "No config file provided", CONFIG_ERROR: "Failed to read config: {error}"}, catch_crashes=False)
 
-    request = load_workflow_test_request(ipc, sys.argv)
+
+def run_workflow_test(ipc: IPC, config: dict) -> None:
+    request = load_workflow_test_request(ipc, config)
     device_id = request.device_id
     app_name = request.app_name
     version = request.version

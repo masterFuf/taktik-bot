@@ -15,7 +15,6 @@ Config JSON:
   }
 """
 
-import json
 import os
 import signal
 import sys
@@ -29,6 +28,7 @@ from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment()
 
+from bridges.common.runtime.entrypoint import CONFIG_ERROR, report_error_message, run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.youtube.publish.runtime.request import build_upload_request
 from bridges.youtube.publish.runtime.workflow import run_youtube_upload_workflow
@@ -82,20 +82,9 @@ class YouTubeUploadBridge:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print(json.dumps({"type": "error", "message": "Usage: youtube_upload_bridge.py <config.json>"}))
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as file:
-            config = json.load(file)
-    except Exception as exc:
-        print(json.dumps({"type": "error", "message": f"Failed to read config: {exc}"}))
-        sys.exit(1)
-
-    bridge = YouTubeUploadBridge(config)
-    sys.exit(bridge.run())
+    run_bridge_main(YouTubeUploadBridge, usage="youtube_upload_bridge.py <config.json>",
+                    report_error=report_error_message, messages={CONFIG_ERROR: "Failed to read config: {error}"},
+                    catch_crashes=False)
 
 
 if __name__ == "__main__":

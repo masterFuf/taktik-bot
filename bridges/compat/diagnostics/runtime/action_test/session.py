@@ -64,9 +64,24 @@ def _begin_action_run() -> None:
         pass
 
 
-def run_action_session_bridge() -> None:
+def report_action_session_entry_error(message: str, _reason: str) -> None:
+    """An entry failure (no file, unreadable file), as the session error."""
+    emit({"type": "error", "success": False, "message": message})
+
+
+class ActionSessionRun:
+    """One Lab session, from its config file (read by `run_bridge_main`)."""
+
+    def __init__(self, config: dict):
+        self.config = config
+
+    def run(self) -> int:
+        run_action_session_bridge(self.config)
+        return 0
+
+
+def run_action_session_bridge(config: dict) -> None:
     """Keep one device connection alive and execute action commands from stdin."""
-    config = _load_config()
     _register_step_telemetry()
     device_id = config.get("device_id", "")
     platform = config.get("platform", "instagram")
@@ -188,19 +203,6 @@ def run_action_session_bridge() -> None:
         )
 
 
-def _load_config() -> dict:
-    if len(sys.argv) < 2:
-        emit({"type": "error", "success": False, "message": "No config file provided"})
-        sys.exit(1)
-
-    try:
-        with open(sys.argv[1], "r", encoding="utf-8-sig") as file_obj:
-            return json.load(file_obj)
-    except Exception as exc:
-        emit({"type": "error", "success": False, "message": f"Failed to read config: {exc}"})
-        sys.exit(1)
-
-
 def _load_platform_runtime(platform: str):
     if platform == "instagram":
         from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
@@ -225,4 +227,4 @@ def _load_platform_runtime(platform: str):
     raise ValueError(platform)
 
 
-__all__ = ["run_action_session_bridge"]
+__all__ = ["ActionSessionRun", "report_action_session_entry_error", "run_action_session_bridge"]

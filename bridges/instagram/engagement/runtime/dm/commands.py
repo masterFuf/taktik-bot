@@ -1,4 +1,4 @@
-"""Entry of the Instagram DM bridge: one config file, one command.
+"""Instagram DM bridge command: one config file, one command.
 
 The desktop writes the command to a JSON file and passes its path (it used to pass positional
 arguments): `{"command": "read" | "read_requests", "deviceId", "limit", "packageName"?}` or
@@ -9,7 +9,6 @@ CLI) call too; the bridge keeps its connection and its stdout (conversation even
 
 from __future__ import annotations
 
-import json
 import sys
 
 from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
@@ -17,29 +16,24 @@ from bridges.instagram.engagement.runtime.dm.events import emit_dm_error, emit_d
 from taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler import run_instagram_dm
 
 
-def load_dm_bridge_config(args: list[str]) -> dict | None:
-    """The command the desktop wrote, or None after saying why on stdout."""
-    if not args:
-        emit_dm_error("Usage: dm_bridge.py <config.json>")
-        return None
-    try:
-        with open(args[0], "r", encoding="utf-8-sig") as handle:
-            config = json.load(handle)
-    except Exception as exc:
-        emit_dm_error(f"Failed to load config: {exc}")
-        return None
-    if not isinstance(config, dict):
-        emit_dm_error("The DM config must be a JSON object")
-        return None
-    return config
+def report_dm_entry_error(message: str, _reason: str) -> None:
+    """An entry failure (no file, unreadable file), in the bridge's own final JSON."""
+    emit_dm_error(message)
 
 
-def run_dm_cli(args: list[str]) -> None:
-    """Load the config file named by `args`, run its command, print the result."""
-    config = load_dm_bridge_config(args)
-    if config is None:
-        sys.exit(1)
+class DMCommand:
+    """One DM command of the desktop, from its config file (read by `run_bridge_main`)."""
 
+    def __init__(self, config: dict):
+        self.config = config
+
+    def run(self) -> int:
+        run_dm_command(self.config)
+        return 0
+
+
+def run_dm_command(config: dict) -> None:
+    """Run the command of `config`, print the result."""
     try:
         device_id = config.get("deviceId")
         if not device_id:

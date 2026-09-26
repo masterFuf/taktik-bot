@@ -1,24 +1,24 @@
 """Schema bridge: report, or bring the local database to, the schema version of this build.
 
-    schema_bridge status  [--db PATH]
-    schema_bridge migrate [--db PATH] [--backup-dir PATH] [--after-legacy-app]
+    schema_bridge <config.json>
 
-`--after-legacy-app` says the 1.9.8 app has just migrated the base: only then may the bot's own
-old steps run on a base that is not the 1.9.8 schema.
+    {"command": "status" | "migrate", "db"?: PATH, "backupDir"?: PATH, "afterLegacyApp"?: bool}
+
+`backupDir` and `afterLegacyApp` apply to `migrate`. `afterLegacyApp` says the 1.9.8 app has just
+migrated the base: only then may the bot's own old steps run on a base that is not the 1.9.8
+schema.
 
 `status` never writes, not even the -wal/-shm side files of a closed base. Events are JSON lines
 on stdout: `schema_status`, `schema_progress`, `schema_result`, and `error` with an
 `error_code`. Logs go to stderr.
 
-The base is `--db`, else TAKTIK_DB_PATH, else the standalone default. When both `--db` and
+The base is `db`, else TAKTIK_DB_PATH, else the standalone default. When both `db` and
 TAKTIK_DB_PATH are given they must name the same file.
 """
 
 from __future__ import annotations
 
-import argparse
 import os
-import sys
 from typing import List, Optional
 
 EXIT_OK = 0
@@ -41,7 +41,7 @@ def resolve_db_path(cli_path: Optional[str], env: Optional[dict] = None) -> str:
     env = os.environ if env is None else env
     env_path = env.get("TAKTIK_DB_PATH")
     if cli_path and env_path and not _same_file(cli_path, env_path):
-        raise DbPathMismatch(f"--db {cli_path} and TAKTIK_DB_PATH {env_path} name different files")
+        raise DbPathMismatch(f"db {cli_path} and TAKTIK_DB_PATH {env_path} name different files")
     if cli_path:
         return cli_path
     if env_path:
@@ -55,30 +55,27 @@ def _trim(differences: List[str]) -> dict:
     return {"differences": differences[:MAX_DIFFERENCES], "difference_count": len(differences)}
 
 
-def run(argv: List[str], ipc=None) -> int:
-    parser = argparse.ArgumentParser(prog="schema_bridge", add_help=False)
-    sub = parser.add_subparsers(dest="command", required=True)
-    status_cmd = sub.add_parser("status", add_help=False)
-    status_cmd.add_argument("--db")
-    migrate_cmd = sub.add_parser("migrate", add_help=False)
-    migrate_cmd.add_argument("--db")
-    migrate_cmd.add_argument("--backup-dir")
-    migrate_cmd.add_argument("--after-legacy-app", action="store_true")
+USAGE = 'schema_bridge <config.json>: {"command": "status"|"migrate", "db"?, "backupDir"?, "afterLegacyApp"?}'
+COMMANDS = ("status", "migrate")
 
+
+def _default_ipc():
+    from bridges.common.runtime.ipc import IPC
+
+    return IPC()
+
+
+def run(config: dict, ipc=None) -> int:
     if ipc is None:
-        from bridges.common.runtime.ipc import IPC
+        ipc = _default_ipc()
 
-        ipc = IPC()
-
-    try:
-        args = parser.parse_args(argv)
-    except SystemExit:
-        ipc.error("usage: schema_bridge status|migrate [--db PATH] [--backup-dir PATH] [--after-legacy-app]",
-                  error_code="SCHEMA_USAGE")
+    command = config.get("command")
+    if command not in COMMANDS:
+        ipc.error(f"usage: {USAGE}", error_code="SCHEMA_USAGE")
         return EXIT_FAILED
 
     try:
-        db_path = resolve_db_path(args.db)
+        db_path = resolve_db_path(config.get("db"))
     except DbPathMismatch as exc:
         ipc.error(str(exc), error_code="SCHEMA_DB_PATH_MISMATCH")
         return EXIT_REFUSED
@@ -89,7 +86,7 @@ def run(argv: List[str], ipc=None) -> int:
     status_payload = status.to_dict()
     status_payload.update(_trim(status.differences))
     ipc.send("schema_status", status=status_payload)
-    if args.command == "status":
+    if command == "status":
         return EXIT_REFUSED if status.state == TOO_NEW else EXIT_OK
 
     def progress(step: str, message: str = "") -> None:
@@ -97,10 +94,10 @@ def run(argv: List[str], ipc=None) -> int:
 
     result = migrate_database(
         db_path,
-        backup_dir=args.backup_dir,
+        backup_dir=config.get("backupDir"),
         applied_by="schema_bridge",
         on_progress=progress,
-        legacy_app_done=args.after_legacy_app,
+        legacy_app_done=bool(config.get("afterLegacyApp")),
     )
     payload = result.to_dict()
     payload.update(_trim(result.differences))
@@ -118,8 +115,24 @@ def run(argv: List[str], ipc=None) -> int:
     return EXIT_FAILED
 
 
+class SchemaRun:
+    """One schema command, from its config file (read by `run_bridge_main`)."""
+
+    def __init__(self, config: dict, ipc=None):
+        self.config = config
+        self.ipc = ipc
+
+    def run(self) -> int:
+        return run(self.config, ipc=self.ipc)
+
+
 def main() -> None:
-    sys.exit(run(sys.argv[1:]))
+    from bridges.common.runtime.entrypoint import run_bridge_main
+
+    ipc = _default_ipc()
+    run_bridge_main(lambda config: SchemaRun(config, ipc), usage=USAGE,
+                    report_error=lambda message, _reason: ipc.error(message, error_code="SCHEMA_USAGE"),
+                    catch_crashes=False)
 
 
 if __name__ == "__main__":

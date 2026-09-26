@@ -124,7 +124,7 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
     },
     "app_extra_launch_module": {
         ("desktop_bridge", "electron/services/tools/debug/bridge/DesktopDebugBridgeService.ts"):
-            "`--debug` screen capture of the desktop bridge, a diagnostic, not a run.",
+            "Debug screen capture of the desktop bridge (`debugMode` config), a diagnostic, not a run.",
     },
 }
 

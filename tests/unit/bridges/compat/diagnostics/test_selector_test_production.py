@@ -259,7 +259,9 @@ def test_the_bridge_output_keeps_its_fields(sample, monkeypatch, tmp_path):
     monkeypatch.setattr(production, "platform_catalogue", lambda app: sample.platform)
     monkeypatch.setattr(bridge.sys, "argv", ["selector_test.py", str(config)])
 
-    bridge.main()
+    with pytest.raises(SystemExit) as exit_info:
+        bridge.main()
+    assert exit_info.value.code == 0
 
     results = [payload for kind, payload in ipc.messages if kind == "test_results"]
     assert len(results) == 1

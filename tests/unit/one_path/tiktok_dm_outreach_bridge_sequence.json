@@ -55,7 +55,7 @@
     ],
     "exit": 1
   },
-  "empty_stdin": {
+  "no_config_file": {
     "ai_services": [],
     "calls": [],
     "db_writes": [],
@@ -63,7 +63,7 @@
       [
         "error",
         {
-          "error": "No config received from stdin"
+          "error": "Usage: dm_outreach_bridge <config_path>"
         }
       ]
     ],
@@ -76,7 +76,15 @@
       ]
     ],
     "exit": 1,
-    "exit_old_code": 1
+    "exit_old_code": 1,
+    "events_stdin_code": [
+      [
+        "error",
+        {
+          "error": "No config received from stdin"
+        }
+      ]
+    ]
   },
   "invalid_json": {
     "ai_services": [],
@@ -86,11 +94,19 @@
       [
         "error",
         {
-          "error": "Invalid JSON config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+          "error": "Failed to load config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
         }
       ]
     ],
-    "exit": 1
+    "exit": 1,
+    "events_stdin_code": [
+      [
+        "error",
+        {
+          "error": "Invalid JSON config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+        }
+      ]
+    ]
   },
   "manual_without_message": {
     "ai_services": [],

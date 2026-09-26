@@ -14,11 +14,11 @@ from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
 from bridges.instagram.account.runtime.bridge import AccountBridge
-from bridges.instagram.account.runtime.commands import run_account_bridge
+from bridges.common.runtime.entrypoint import run_bridge_main
 
 
 def main():
-    sys.exit(run_account_bridge(AccountBridge))
+    run_bridge_main(AccountBridge, usage="account_bridge.py <config_path>", catch_crashes=False)
 
 
 if __name__ == "__main__":

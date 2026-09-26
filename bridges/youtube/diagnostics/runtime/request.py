@@ -1,7 +1,6 @@
 """Request loading and validation for the YouTube action-test bridge."""
 
 from dataclasses import dataclass
-import json
 
 from bridges.youtube.diagnostics.runtime.events import emit
 from bridges.youtube.diagnostics.runtime.registry import ACTION_REGISTRY
@@ -12,11 +11,6 @@ class YouTubeActionTestRequest:
     device_id: str
     action_id: str
     params: dict
-
-
-def load_youtube_action_test_config(config_path: str) -> dict:
-    with open(config_path, "r", encoding="utf-8-sig") as file_obj:
-        return json.load(file_obj)
 
 
 def validate_youtube_action_test_config(config: dict) -> YouTubeActionTestRequest | None:
@@ -47,6 +41,5 @@ def validate_youtube_action_test_config(config: dict) -> YouTubeActionTestReques
 
 __all__ = [
     "YouTubeActionTestRequest",
-    "load_youtube_action_test_config",
     "validate_youtube_action_test_config",
 ]

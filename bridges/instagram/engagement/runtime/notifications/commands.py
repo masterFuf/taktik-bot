@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 
 from bridges.instagram.engagement.runtime.notifications.ai import install_notifications_ai_hooks
@@ -601,21 +600,20 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     }, flush=True)
 
 
-def load_notifications_bridge_config(args: list[str]) -> dict | None:
-    """The command the desktop wrote, or None after saying why on stdout."""
-    if not args:
-        emit_notif_error("Usage: notifications_bridge <config.json>")
-        return None
-    try:
-        with open(args[0], "r", encoding="utf-8-sig") as handle:
-            config = json.load(handle)
-    except Exception as exc:
-        emit_notif_error(f"Failed to load config: {exc}")
-        return None
-    if not isinstance(config, dict):
-        emit_notif_error("The notifications config must be a JSON object")
-        return None
-    return config
+def report_notifications_entry_error(message: str, _reason: str) -> None:
+    """An entry failure (no file, unreadable file), in the bridge's own final JSON."""
+    emit_notif_error(message)
+
+
+class NotificationsCommand:
+    """One notifications command of the desktop, from its config file (read by `run_bridge_main`)."""
+
+    def __init__(self, config: dict):
+        self.config = config
+
+    def run(self) -> int:
+        run_notifications_command(self.config)
+        return 0
 
 
 def _count(value, default):
@@ -636,8 +634,8 @@ def _fail(message: str) -> None:
     sys.exit(1)
 
 
-def run_notifications_cli(args: list[str]) -> None:
-    """Load the config file named by `args` and run its command; the result goes to stdout.
+def run_notifications_command(config: dict) -> None:
+    """Run the command of `config`; the result goes to stdout.
 
     The desktop writes one command per file (it used to pass positional arguments and flags):
     `{"command", "deviceId", "packageName"?, "accountUsername"?}` plus, per command, `scroll`,
@@ -645,10 +643,6 @@ def run_notifications_cli(args: list[str]) -> None:
     `username` (accept, ignore, like, follow_back, reply), `text` (reply), and `actions`,
     `source`, `followBackDailyCap`, `welcomeDmDailyCap`, `followActorDailyCap` (batch).
     """
-    config = load_notifications_bridge_config(args)
-    if config is None:
-        sys.exit(1)
-
     try:
         command = config.get("command")
         device_id = config.get("deviceId")
@@ -731,4 +725,4 @@ _NEEDS_USERNAME = (*_ROW_ACTIONS, "reply")
 _COMMANDS = ("scan", "list_requests", "accept_all", "reply", "batch", *_ROW_ACTIONS)
 
 
-__all__ = ["load_notifications_bridge_config", "run_notifications_cli"]
+__all__ = ["NotificationsCommand", "report_notifications_entry_error", "run_notifications_command"]

@@ -1431,13 +1431,17 @@ class Rig:
             publish.main()
         return exit_info.value.code
 
-    def run_stdin_bridge(self, module_path: str, stdin_text: str) -> int:
-        """A stdin bridge process (cold DM, unfollow), from its stdin line to its exit code."""
+    def run_config_bridge(self, module_path: str, config_text: str | None) -> int:
+        """A dedicated bridge process (DM outreach, unfollow, scraping), from its config file to its
+        exit code (None: no file named)."""
         import importlib
-        import io
 
-        self.monkeypatch.setattr(sys, "stdin", io.StringIO(stdin_text))
-        self.monkeypatch.setattr(sys, "argv", [module_path.rsplit(".", 1)[-1]])
+        argv = [module_path.rsplit(".", 1)[-1]]
+        if config_text is not None:
+            config_path = self.tmp_path / f"{argv[0]}_config.json"
+            config_path.write_text(config_text, encoding="utf-8")
+            argv.append(str(config_path))
+        self.monkeypatch.setattr(sys, "argv", argv)
         module = importlib.import_module(module_path)
         try:
             module.main()
@@ -1449,21 +1453,24 @@ class Rig:
         # An entrypoint that returns without exiting ends its process with 0.
         return 0
 
+    @staticmethod
+    def _config_text(payload) -> str | None:
+        """The config file the desktop writes: a payload, raw text as is, or None (no file)."""
+        if payload is None or isinstance(payload, str):
+            return payload
+        return json.dumps(payload)
+
     def run_outreach_bridge(self, payload) -> int:
-        """The desktop's cold DM: `dm_outreach_bridge`, one JSON line on stdin (raw text as is)."""
-        text = payload if isinstance(payload, str) else json.dumps(payload) + "\n"
-        return self.run_stdin_bridge("bridges.tiktok.engagement.dm_outreach", text)
+        """The desktop's cold DM: `dm_outreach_bridge`, its config file."""
+        return self.run_config_bridge("bridges.tiktok.engagement.dm_outreach", self._config_text(payload))
 
     def run_unfollow_bridge(self, payload) -> int:
-        """The desktop's unfollow: `tiktok_unfollow_bridge`, one JSON line on stdin (raw text as is)."""
-        text = payload if isinstance(payload, str) else json.dumps(payload) + "\n"
-        return self.run_stdin_bridge("bridges.tiktok.automation.unfollow", text)
+        """The desktop's unfollow: `tiktok_unfollow_bridge`, its config file."""
+        return self.run_config_bridge("bridges.tiktok.automation.unfollow", self._config_text(payload))
 
     def run_scraping_bridge(self, payload) -> int:
-        """The desktop's TikTok scraping: `tiktok_scraping_bridge`, one JSON line on stdin (raw text
-        as is)."""
-        text = payload if isinstance(payload, str) else json.dumps(payload) + "\n"
-        return self.run_stdin_bridge("bridges.tiktok.scraping.scraping", text)
+        """The desktop's TikTok scraping: `tiktok_scraping_bridge`, its config file."""
+        return self.run_config_bridge("bridges.tiktok.scraping.scraping", self._config_text(payload))
 
     def show_notifications(self) -> None:
         """Three new followers (a handle, a name that resolves, one that does not) and two
@@ -1584,7 +1591,7 @@ def _publish_payload(post_type: str = "video", **overrides) -> dict:
 
 
 def _scraping_payload(mode: str = "target", **overrides) -> dict:
-    """What reaches the bridge's stdin: the page's start (TikTokScraping.tsx), or the scheduler
+    """What reaches the bridge's config file: the page's start (TikTokScraping.tsx), or the scheduler
     node's (`createTikTokScrapingPayload`), both through `buildScrapingPayload`, which fills every
     key it names and drops the others (`exportCsv`). `overrides` go on top."""
     payload = {

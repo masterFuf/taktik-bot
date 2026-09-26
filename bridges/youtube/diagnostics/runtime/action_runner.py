@@ -4,26 +4,29 @@ import sys
 import traceback
 
 from bridges.youtube.diagnostics.runtime.events import emit, log
-from bridges.youtube.diagnostics.runtime.request import (
-    load_youtube_action_test_config,
-    validate_youtube_action_test_config,
-)
+from bridges.youtube.diagnostics.runtime.request import validate_youtube_action_test_config
 from bridges.youtube.diagnostics.runtime.registry import ACTION_REGISTRY
 from bridges.youtube.diagnostics.runtime.tracing import SelectorTracer, TracedSelector
 
 
-def run_youtube_action_test(argv: list[str]) -> None:
+def report_youtube_action_entry_error(message: str, _reason: str) -> None:
+    """An entry failure (no file, unreadable file), as the action result."""
+    emit({"type": "result", "success": False, "message": message})
+
+
+class YouTubeActionTestRun:
+    """One manual YouTube action, from its config file (read by `run_bridge_main`)."""
+
+    def __init__(self, config: dict):
+        self.config = config
+
+    def run(self) -> int:
+        run_youtube_action_test(self.config)
+        return 0
+
+
+def run_youtube_action_test(config: dict) -> None:
     _bootstrap_bot_path()
-
-    if len(argv) < 2:
-        emit({"type": "result", "success": False, "message": "No config file provided"})
-        sys.exit(1)
-
-    try:
-        config = load_youtube_action_test_config(argv[1])
-    except Exception as exc:
-        emit({"type": "result", "success": False, "message": f"Failed to read config: {exc}"})
-        sys.exit(1)
 
     request = validate_youtube_action_test_config(config)
     if request is None:
@@ -115,4 +118,4 @@ def _run_action(raw_device, selectors, action_id: str, params: dict, tracer: Sel
         sys.exit(1)
 
 
-__all__ = ["run_youtube_action_test"]
+__all__ = ["YouTubeActionTestRun", "report_youtube_action_entry_error", "run_youtube_action_test"]

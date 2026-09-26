@@ -102,7 +102,9 @@ def test_a_refused_start_reports_the_same_error(ig_rig, name, overrides):
     _check(name, ig_rig, ig_rig.run_bridge(feed_payload(**overrides)))
 
 
-def test_the_debug_mode_still_runs_the_desktop_debug_tool(ig_rig, monkeypatch):
+def test_the_debug_mode_still_runs_the_desktop_debug_tool(ig_rig, monkeypatch, tmp_path):
+    """The desktop's debug capture: the same config file entry, `debugMode` picks the tool."""
+    import json
     import sys
 
     from bridges.instagram.automation import desktop
@@ -111,7 +113,10 @@ def test_the_debug_mode_still_runs_the_desktop_debug_tool(ig_rig, monkeypatch):
     seen = []
     monkeypatch.setattr(DebugBridge, "run", lambda self: seen.append(dict(self.config)) or 0)
     monkeypatch.setattr(desktop, "setup_stats_callback", lambda: None)
-    monkeypatch.setattr(sys, "argv", ["desktop_bridge", "--debug", "--mode", "detect", "--device", "emulator-5554"])
+    config_path = tmp_path / "debug.json"
+    config_path.write_text(json.dumps({"debugMode": True, "mode": "detect", "deviceId": "emulator-5554"}),
+                           encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["desktop_bridge", str(config_path)])
 
     with pytest.raises(SystemExit) as exit_info:
         desktop.main()

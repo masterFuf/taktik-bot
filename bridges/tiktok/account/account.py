@@ -13,12 +13,12 @@ from bridges.common.runtime.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.tiktok.account.runtime.account_commands import run_account_bridge_cli
+from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.tiktok.account.runtime.bridge import TikTokAccountBridge
 
 
 def main():
-    sys.exit(run_account_bridge_cli(sys.argv[1:]))
+    run_bridge_main(TikTokAccountBridge, usage="tiktok_account_bridge.py <config_path>", catch_crashes=False)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ Mirrors the TikTok dispatcher pattern. Workflows are added incrementally as
 UI selectors are captured from real devices.
 """
 
-import json
 import os
 import signal
 import sys
@@ -16,30 +15,38 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
+from bridges.common.runtime.entrypoint import MISSING_CONFIG, run_bridge_main
 from bridges.threads.base import logger, send_error, signal_handler
 from bridges.threads.workflows.runtime.feed import run_feed
 from bridges.threads.workflows.runtime.search import run_follow
+
+
+def _report_entry_error(message: str, _reason: str) -> None:
+    send_error(message)
+
+
+class ThreadsDispatch:
+    """One Threads run, routed by the `workflowType` of its config file."""
+
+    def __init__(self, config: dict):
+        self.config = config
+
+    def run(self) -> int:
+        dispatch(self.config)
+        return 0
 
 
 def main() -> None:
     """Dispatch to the appropriate Threads workflow."""
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    run_bridge_main(ThreadsDispatch, usage="threads_bridge <config_path>",
+                    report_error=_report_entry_error, messages={MISSING_CONFIG: "No config file provided"},
+                    catch_crashes=False)
 
-    if len(sys.argv) < 2:
-        send_error("No config file provided")
-        logger.error("No config file provided")
-        sys.exit(1)
 
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as file_obj:
-            config = json.load(file_obj)
-    except Exception as exc:
-        send_error(f"Failed to load config: {exc}")
-        logger.error(f"Failed to load config from {config_path}: {exc}")
-        sys.exit(1)
-
+def dispatch(config: dict) -> None:
+    """Run the workflow of `config` and exit with its outcome."""
     workflow_type = config.get("workflowType", "follow")
     device_id = config.get("deviceId", "unknown")
     logger.info(f"Threads bridge starting - workflow={workflow_type} device={device_id}")

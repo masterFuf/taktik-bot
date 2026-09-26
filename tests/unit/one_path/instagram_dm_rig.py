@@ -396,7 +396,7 @@ class InstagramDmRig:
     def _config_file_bridge() -> bool:
         from bridges.instagram.engagement.runtime.dm import commands
 
-        return hasattr(commands, "load_dm_bridge_config")
+        return hasattr(commands, "DMCommand")
 
     def bridge_argv(self, spec: dict) -> list[str]:
         """How the desktop starts the bridge for `spec`: a config file, or (before) positional args."""

@@ -63,7 +63,7 @@ def test_cli_path_and_env_path_must_name_the_same_file(tmp_path):
 def test_mismatched_paths_are_refused_before_anything_is_opened(tmp_path, monkeypatch):
     monkeypatch.setenv("TAKTIK_DB_PATH", str(tmp_path / "other.db"))
     ipc = FakeIpc()
-    code = schema_bridge.run(["migrate", "--db", str(tmp_path / "taktik-data.db")], ipc=ipc)
+    code = schema_bridge.run({"command": "migrate", "db": str(tmp_path / "taktik-data.db")}, ipc=ipc)
     assert code == schema_bridge.EXIT_REFUSED
     assert ipc.of("error")[0]["error_code"] == "SCHEMA_DB_PATH_MISMATCH"
     assert list(tmp_path.iterdir()) == []
@@ -73,7 +73,7 @@ def test_status_reports_and_writes_nothing(tmp_path, no_env_db):
     path = legacy_base(tmp_path / "taktik-data.db")
     before = sha256(path)
     ipc = FakeIpc()
-    code = schema_bridge.run(["status", "--db", str(path)], ipc=ipc)
+    code = schema_bridge.run({"command": "status", "db": str(path)}, ipc=ipc)
     assert code == schema_bridge.EXIT_OK
     status = ipc.of("schema_status")[0]["status"]
     assert status["state"] == "legacy_recognized" and status["target_version"] == TARGET
@@ -83,7 +83,7 @@ def test_status_reports_and_writes_nothing(tmp_path, no_env_db):
 
 def test_status_of_an_absent_base_does_not_create_it(tmp_path, no_env_db):
     ipc = FakeIpc()
-    code = schema_bridge.run(["status", "--db", str(tmp_path / "taktik-data.db")], ipc=ipc)
+    code = schema_bridge.run({"command": "status", "db": str(tmp_path / "taktik-data.db")}, ipc=ipc)
     assert code == schema_bridge.EXIT_OK
     assert ipc.of("schema_status")[0]["status"]["state"] == "absent"
     assert list(tmp_path.iterdir()) == []
@@ -92,7 +92,7 @@ def test_status_of_an_absent_base_does_not_create_it(tmp_path, no_env_db):
 def test_migrate_stamps_and_reports_progress_and_backup(tmp_path, no_env_db):
     path = legacy_base(tmp_path / "taktik-data.db")
     ipc = FakeIpc()
-    code = schema_bridge.run(["migrate", "--db", str(path), "--backup-dir", str(tmp_path / "backups")], ipc=ipc)
+    code = schema_bridge.run({"command": "migrate", "db": str(path), "backupDir": str(tmp_path / "backups")}, ipc=ipc)
     assert code == schema_bridge.EXIT_OK
     steps = [e["step"] for e in ipc.of("schema_progress")]
     assert steps[:2] == ["backup", "apply"]
@@ -108,8 +108,8 @@ def test_a_base_newer_than_the_build_is_refused(tmp_path, no_env_db):
     conn.close()
     before = sha256(path)
     ipc = FakeIpc()
-    assert schema_bridge.run(["status", "--db", str(path)], ipc=ipc) == schema_bridge.EXIT_REFUSED
-    assert schema_bridge.run(["migrate", "--db", str(path)], ipc=ipc) == schema_bridge.EXIT_REFUSED
+    assert schema_bridge.run({"command": "status", "db": str(path)}, ipc=ipc) == schema_bridge.EXIT_REFUSED
+    assert schema_bridge.run({"command": "migrate", "db": str(path)}, ipc=ipc) == schema_bridge.EXIT_REFUSED
     assert ipc.of("schema_result")[0]["action"] == "refused"
     assert sha256(path) == before
 
@@ -120,26 +120,42 @@ def test_after_legacy_app_lets_the_bot_steps_run(tmp_path, no_env_db):
 
     run_bot_legacy_steps(path)
     ipc = FakeIpc()
-    args = ["migrate", "--db", str(path), "--backup-dir", str(tmp_path / "backups")]
-    assert schema_bridge.run(args, ipc=ipc) == schema_bridge.EXIT_NEEDS_LEGACY_APP
+    config = {"command": "migrate", "db": str(path), "backupDir": str(tmp_path / "backups")}
+    assert schema_bridge.run(config, ipc=ipc) == schema_bridge.EXIT_NEEDS_LEGACY_APP
     assert not ipc.of("schema_result")[0]["legacy_steps_ran"]
     ipc = FakeIpc()
-    assert schema_bridge.run(args + ["--after-legacy-app"], ipc=ipc) == schema_bridge.EXIT_NEEDS_LEGACY_APP
+    assert schema_bridge.run({**config, "afterLegacyApp": True}, ipc=ipc) == schema_bridge.EXIT_NEEDS_LEGACY_APP
     result = ipc.of("schema_result")[0]
     assert result["legacy_steps_ran"] and result["difference_count"] > 0
 
 
 def test_bad_usage_is_an_error_event(tmp_path, no_env_db):
     ipc = FakeIpc()
-    assert schema_bridge.run(["explode"], ipc=ipc) == schema_bridge.EXIT_FAILED
+    assert schema_bridge.run({"command": "explode"}, ipc=ipc) == schema_bridge.EXIT_FAILED
     assert ipc.of("error")[0]["error_code"] == "SCHEMA_USAGE"
+    assert schema_bridge.run({}, ipc=ipc) == schema_bridge.EXIT_FAILED
 
 
-def _launch(args, env_extra):
+def test_no_config_file_is_a_usage_error_through_the_launcher(tmp_path):
+    env = {key: os.environ[key] for key in ("PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE") if key in os.environ}
+    env.update({"PYTHONIOENCODING": "utf-8", "TAKTIK_DB_PATH": str(tmp_path / "taktik-data.db")})
+    proc = subprocess.run(
+        [sys.executable, str(CORE_ROOT / "bridges" / "launcher.py"), "schema_bridge"],
+        cwd=str(CORE_ROOT), env=env, capture_output=True, timeout=180,
+    )
+    events = [json.loads(line) for line in proc.stdout.decode("utf-8").splitlines() if line.strip()]
+    assert proc.returncode == 1
+    assert [(e["type"], e.get("error_code")) for e in events] == [("error", "SCHEMA_USAGE")]
+    assert not (tmp_path / "taktik-data.db").exists()
+
+
+def _launch(config, env_extra, tmp_path):
+    config_path = tmp_path / f"schema_{config['command']}.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
     env = {key: os.environ[key] for key in ("PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE") if key in os.environ}
     env.update({"PYTHONIOENCODING": "utf-8", **env_extra})
     proc = subprocess.run(
-        [sys.executable, str(CORE_ROOT / "bridges" / "launcher.py"), "schema_bridge", *args],
+        [sys.executable, str(CORE_ROOT / "bridges" / "launcher.py"), "schema_bridge", str(config_path)],
         cwd=str(CORE_ROOT), env=env, capture_output=True, timeout=180,
     )
     lines = [line for line in proc.stdout.decode("utf-8").splitlines() if line.strip()]
@@ -149,12 +165,13 @@ def _launch(args, env_extra):
 def test_through_the_launcher_with_the_allowlisted_environment(tmp_path):
     """The way the desktop app will run it: launcher, TAKTIK_DB_PATH, JSON lines only on stdout."""
     path = tmp_path / "taktik-data.db"
-    code, events = _launch(["migrate", "--backup-dir", str(tmp_path / "backups")], {"TAKTIK_DB_PATH": str(path)})
+    code, events = _launch({"command": "migrate", "backupDir": str(tmp_path / "backups")},
+                           {"TAKTIK_DB_PATH": str(path)}, tmp_path)
     assert code == 0, events
     assert [e["type"] for e in events][0] == "schema_status"
     result = [e for e in events if e["type"] == "schema_result"][0]
     assert result["action"] == "created" and result["db_path"] == str(path)
 
-    code, events = _launch(["status"], {"TAKTIK_DB_PATH": str(path)})
+    code, events = _launch({"command": "status"}, {"TAKTIK_DB_PATH": str(path)}, tmp_path)
     assert code == 0 and events == [e for e in events if e["type"] == "schema_status"]
     assert events[0]["status"]["state"] == "current"

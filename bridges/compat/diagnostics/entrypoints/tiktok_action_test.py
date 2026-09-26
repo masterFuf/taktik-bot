@@ -10,7 +10,8 @@ from bridges.compat.diagnostics.actions.tiktok import (
     ACTION_REGISTRY,
     register_actions,
 )
-from bridges.compat.diagnostics.runtime.action_test.runner import run_action_test_bridge
+from bridges.common.runtime.entrypoint import CONFIG_ERROR, MISSING_CONFIG, run_bridge_main
+from bridges.compat.diagnostics.runtime.action_test.runner import action_test_run, report_action_test_entry_error
 from bridges.compat.diagnostics.runtime.action_test.bundles import (
     build_tiktok_action_bundle,
     create_tiktok_device_facade,
@@ -27,10 +28,12 @@ register_actions()
 
 
 def main():
-    run_action_test_bridge(
-        ACTION_REGISTRY,
-        create_tiktok_device_facade,
-        build_tiktok_action_bundle,
+    run_bridge_main(
+        action_test_run(ACTION_REGISTRY, create_tiktok_device_facade, build_tiktok_action_bundle),
+        usage="tiktok_action_test_bridge <config.json>",
+        report_error=report_action_test_entry_error,
+        messages={MISSING_CONFIG: "No config file provided", CONFIG_ERROR: "Failed to read config: {error}"},
+        catch_crashes=False,
     )
 
 

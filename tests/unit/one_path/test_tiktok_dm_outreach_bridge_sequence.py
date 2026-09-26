@@ -3,7 +3,8 @@ calls it makes and what it writes.
 
 The snapshot beside this file was recorded from `dm_outreach_bridge` while the reading of the
 payload, the duplicate guard, the sent-DM recorder, the AI generation and the stdin entry still
-lived in the bridge, before they moved into the core and onto `run_bridge_main`. The cold-DM
+lived in the bridge, before they moved into the core and onto `run_bridge_main`, which then moved
+the entry from stdin to a config file, like every bridge. The cold-DM
 workflow is the real one; only its phone (TikTok manager, navigation, Message button, privacy
 probes, composer), its pauses and its random picks are fakes. Same device calls, same stdout
 events in the same order, same AI calls, same rows handed to the database.
@@ -11,7 +12,8 @@ events in the same order, same AI calls, same rows handed to the database.
 Three recordings changed on purpose, and keep the old code's values beside the new ones
 (`calls_old_code`, `events_old_code`): a run without a recipient and a manual run without a
 message are refused before the phone is touched (the old bridge connected, then the workflow
-refused), and an empty stdin reports the shared entrypoint's words. The app sends none of the
+refused), and a missing config file reports the shared entrypoint's words (`no_config_file` and
+`invalid_json` keep the stdin era's events, `events_stdin_code`). The app sends none of the
 three: the page and the scheduler refuse an empty recipient list and a manual run without a
 message, and the main process always writes the payload.
 
@@ -40,7 +42,8 @@ def _without(payload, *keys):
 
 
 def scenario(name, rig, outreach_payload):
-    """The stdin of one recorded run; the phone and the database are set on `rig`."""
+    """The config file of one recorded run (None: no file named); the phone and the database are
+    set on `rig`."""
     rig.install_dm_database()
     rig.use_real_outreach()
     if name == "page_manual":
@@ -81,8 +84,8 @@ def scenario(name, rig, outreach_payload):
         return outreach_payload(recipients=[])
     if name == "manual_without_message":
         return outreach_payload(messages=[])
-    if name == "empty_stdin":
-        return ""
+    if name == "no_config_file":
+        return None
     if name == "invalid_json":
         return "{not json\n"
     raise KeyError(name)
@@ -91,7 +94,7 @@ def scenario(name, rig, outreach_payload):
 SCENARIOS = (
     "page_manual", "page_ai", "page_ai_generation_fails", "page_ai_without_key", "scheduler_node",
     "all_already_sent", "recipient_failures", "no_message_entry", "refused_send", "connect_fails", "no_device",
-    "no_recipients", "manual_without_message", "empty_stdin", "invalid_json",
+    "no_recipients", "manual_without_message", "no_config_file", "invalid_json",
 )
 
 
@@ -167,10 +170,11 @@ def test_no_message_entry_on_an_unexpected_screen_stays_a_failure():
     assert new_calls == record["calls_old_code"]
 
 
-def test_an_empty_stdin_reports_the_shared_entrypoint_words():
-    record = SNAPSHOT["empty_stdin"]
+def test_no_config_file_reports_the_shared_entrypoint_words():
+    record = SNAPSHOT["no_config_file"]
     assert record["events_old_code"] == [["error", {"error": "No configuration received"}]]
-    assert record["events"] == [["error", {"error": "No config received from stdin"}]]
+    assert record["events_stdin_code"] == [["error", {"error": "No config received from stdin"}]]
+    assert record["events"] == [["error", {"error": "Usage: dm_outreach_bridge <config_path>"}]]
     assert record["calls"] == [] and record["exit"] == 1
 
 

@@ -14,7 +14,7 @@ SCRAPING_ID = "tiktok.automation.scraping"
 
 
 def _run_both(rig, payload, set_phone=lambda: None):
-    """The bridge gets the app's stdin line; the CLI gets the same keys, as a terminal user writes
+    """The bridge gets the app's config file; the CLI gets the same keys, as a terminal user writes
     them (the serial comes from `--device`)."""
     rig.install_scraping_database()
     set_phone()

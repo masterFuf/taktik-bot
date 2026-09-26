@@ -16,9 +16,11 @@ from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
 
 
 def main():
-    from bridges.instagram.engagement.runtime.dm.commands import run_dm_cli
+    from bridges.common.runtime.entrypoint import NOT_AN_OBJECT, run_bridge_main
+    from bridges.instagram.engagement.runtime.dm.commands import DMCommand, report_dm_entry_error
 
-    run_dm_cli(sys.argv[1:])
+    run_bridge_main(DMCommand, usage="dm_bridge.py <config.json>", report_error=report_dm_entry_error,
+                    messages={NOT_AN_OBJECT: "The DM config must be a JSON object"}, catch_crashes=False)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 The run is `run_instagram_cold_dm`, the launcher the Agent handler `instagram.engagement.coldDm` (and
 so the CLI) calls too, called by name so the app's config contract test can follow the payload. The
-bridge keeps its entry (config file, IP rotation, the final JSON), its connection (the bridges'
+bridge keeps its IP rotation and the final JSON, its connection (the bridges'
 clone-aware, facade-wrapped device) and its stdout, `session_start` included.
 """
 
@@ -12,24 +12,35 @@ import json
 import sys
 
 from bridges.common.device.network import enforce_pre_session_ip_rotation
+from bridges.common.runtime.entrypoint import MISSING_CONFIG
 from bridges.common.input.keyboard import KeyboardService
 from bridges.instagram.engagement.runtime.cold_dm.progress import emit_cold_dm_progress
 from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import _ipc, logger
 
 
-def run_cold_dm_cli(args: list[str]) -> None:
-    """Load Cold DM config from file and run the workflow."""
-    if len(args) < 1:
-        logger.error("Usage: cold_dm_bridge.py <config_file>")
-        sys.exit(1)
+def report_cold_dm_entry_error(message: str, reason: str) -> None:
+    """An entry failure: a missing file is logged, an unreadable one ends in the final JSON."""
+    if reason == MISSING_CONFIG:
+        logger.error(message)
+        return
+    print(json.dumps({"success": False, "error": message}))
 
-    config_file = args[0]
 
+class ColdDmRun:
+    """One Cold DM run, from its config file (read by `run_bridge_main`)."""
+
+    def __init__(self, config: dict):
+        self.config = config
+
+    def run(self) -> int:
+        run_cold_dm(self.config)
+        return 0
+
+
+def run_cold_dm(config: dict) -> None:
+    """Run the Cold DM workflow of `config` and print its final JSON."""
     try:
-        with open(config_file, "r", encoding="utf-8") as f:
-            config = json.load(f)
-
         device_id = config["deviceId"]
         package_name = config.get("packageName")
         logger.info(

@@ -16,9 +16,15 @@ from bridges.instagram.engagement.runtime.notifications.bridge import Notificati
 
 
 def main():
-    from bridges.instagram.engagement.runtime.notifications.commands import run_notifications_cli
+    from bridges.common.runtime.entrypoint import NOT_AN_OBJECT, run_bridge_main
+    from bridges.instagram.engagement.runtime.notifications.commands import (
+        NotificationsCommand,
+        report_notifications_entry_error,
+    )
 
-    run_notifications_cli(sys.argv[1:])
+    run_bridge_main(NotificationsCommand, usage="notifications_bridge <config.json>",
+                    report_error=report_notifications_entry_error,
+                    messages={NOT_AN_OBJECT: "The notifications config must be a JSON object"}, catch_crashes=False)
 
 
 if __name__ == "__main__":

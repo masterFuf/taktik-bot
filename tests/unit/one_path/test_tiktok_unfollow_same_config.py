@@ -12,7 +12,7 @@ UNFOLLOW_ID = "tiktok.standalone.tiktok_unfollow"
 
 
 def _run_both(rig, payload, set_phone=lambda: None):
-    """The bridge gets the app's stdin payload; the CLI gets its `config`, as a terminal user
+    """The bridge gets the app's config file; the CLI gets its `config`, as a terminal user
     writes it."""
     set_phone()
     bridge_exit = rig.run_unfollow_bridge(payload)

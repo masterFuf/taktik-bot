@@ -249,7 +249,7 @@ class InstagramNotificationsRig:
     def _config_file_bridge(self) -> bool:
         import importlib
 
-        return hasattr(importlib.import_module(_COMMANDS), "load_notifications_bridge_config")
+        return hasattr(importlib.import_module(_COMMANDS), "NotificationsCommand")
 
     def bridge_argv(self, spec: dict) -> list[str]:
         """How the desktop starts the bridge for `spec`: a config file, or (before) positional args."""

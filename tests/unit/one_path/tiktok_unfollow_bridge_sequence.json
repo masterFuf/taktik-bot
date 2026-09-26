@@ -794,18 +794,26 @@
       ]
     ]
   },
-  "empty_stdin": {
+  "no_config_file": {
     "calls": [],
     "configs": [],
     "events": [
       [
         "error",
         {
-          "error": "No config received from stdin"
+          "error": "Usage: tiktok_unfollow_bridge <config_path>"
         }
       ]
     ],
-    "exit": 1
+    "exit": 1,
+    "events_stdin_code": [
+      [
+        "error",
+        {
+          "error": "No config received from stdin"
+        }
+      ]
+    ]
   },
   "invalid_json": {
     "calls": [],
@@ -814,11 +822,19 @@
       [
         "error",
         {
-          "error": "Invalid JSON config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+          "error": "Failed to load config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
         }
       ]
     ],
-    "exit": 1
+    "exit": 1,
+    "events_stdin_code": [
+      [
+        "error",
+        {
+          "error": "Invalid JSON config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+        }
+      ]
+    ]
   },
   "no_device": {
     "calls": [],

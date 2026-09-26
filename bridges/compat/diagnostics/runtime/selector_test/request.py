@@ -1,8 +1,9 @@
-"""Config loading and validation for compat selector diagnostics."""
+"""Config validation for compat selector diagnostics."""
 
 from dataclasses import dataclass
-import json
 import sys
+
+from bridges.common.runtime.entrypoint import MISSING_CONFIG
 
 
 @dataclass
@@ -13,20 +14,18 @@ class SelectorTestRequest:
     domain_filter: list
 
 
-def load_selector_test_request(ipc, argv: list[str]) -> SelectorTestRequest:
-    """Load a selector-test config file and emit legacy IPC errors on failure."""
-    if len(argv) < 2:
-        ipc.send("error", error="No config file provided", error_code="MISSING_CONFIG")
-        sys.exit(1)
+def report_selector_test_entry_error(ipc):
+    """Entry failures (no file, unreadable file) as the Lab's error events."""
 
-    config_path = argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as file_obj:
-            config = json.load(file_obj)
-    except Exception as exc:
-        ipc.send("error", error=f"Failed to read config: {exc}", error_code="CONFIG_ERROR")
-        sys.exit(1)
+    def report(message: str, reason: str) -> None:
+        code = "MISSING_CONFIG" if reason == MISSING_CONFIG else "CONFIG_ERROR"
+        ipc.send("error", error=message, error_code=code)
 
+    return report
+
+
+def load_selector_test_request(ipc, config: dict) -> SelectorTestRequest:
+    """Validate a selector-test config and emit legacy IPC errors on failure."""
     device_id = config.get("device_id", "")
     if not device_id:
         ipc.send("error", error="No device_id provided", error_code="MISSING_DEVICE")
@@ -40,5 +39,5 @@ def load_selector_test_request(ipc, argv: list[str]) -> SelectorTestRequest:
     )
 
 
-__all__ = ["SelectorTestRequest", "load_selector_test_request"]
+__all__ = ["SelectorTestRequest", "load_selector_test_request", "report_selector_test_entry_error"]
 

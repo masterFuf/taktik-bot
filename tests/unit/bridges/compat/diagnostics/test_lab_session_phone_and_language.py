@@ -202,8 +202,8 @@ def test_the_session_reports_the_language_from_the_app_launch_result_on(monkeypa
 
     emitted = []
     monkeypatch.setattr(device_manager_module, "DeviceManager", _DeviceManager)
-    monkeypatch.setattr(session, "_load_config", lambda: {"device_id": "6A-SERIAL", "platform": "tiktok",
-                                                           "capture_artifacts": False})
+    config = {"device_id": "6A-SERIAL", "platform": "tiktok",
+                                                           "capture_artifacts": False}
     monkeypatch.setattr(session, "_load_platform_runtime", lambda platform: (
         {"app.launch": _launch, "tt.detection.is_for_you": lambda b, p: True},
         _Facade,
@@ -219,7 +219,7 @@ def test_the_session_reports_the_language_from_the_app_launch_result_on(monkeypa
     ]
     monkeypatch.setattr(session.sys, "stdin", io.StringIO("".join(json.dumps(c) + "\n" for c in commands)))
 
-    session.run_action_session_bridge()
+    session.run_action_session_bridge(config)
 
     ready = next(e for e in emitted if e["type"] == "session_ready")
     results = {e["request_id"]: e for e in emitted if e["type"] == "result"}

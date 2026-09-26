@@ -13,6 +13,7 @@ import sys
 import pytest
 
 import bridges.instagram.engagement.runtime.notifications.commands as commands
+import bridges.instagram.engagement.notifications as entry
 
 
 @pytest.fixture
@@ -34,8 +35,9 @@ def run(monkeypatch, tmp_path):
         out = io.StringIO()
         monkeypatch.setattr(sys, "stdout", out)
         code = 0
+        monkeypatch.setattr(sys, "argv", ["notifications_bridge", *args])
         try:
-            commands.run_notifications_cli(args)
+            entry.main()
         except SystemExit as exit_info:
             code = exit_info.code
         finally:

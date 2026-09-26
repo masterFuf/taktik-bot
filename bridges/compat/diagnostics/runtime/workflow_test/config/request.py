@@ -1,8 +1,9 @@
-﻿"""Config loading and validation for compat workflow diagnostics."""
+﻿"""Config validation for compat workflow diagnostics."""
 
 from dataclasses import dataclass
-import json
 import sys
+
+from bridges.common.runtime.entrypoint import MISSING_CONFIG
 
 from bridges.compat.diagnostics.runtime.workflow_test.config.catalog import DEFAULT_CONFIGS, NEEDS_TARGET
 
@@ -32,20 +33,18 @@ class WorkflowTestRequest:
     options: dict | None = None
 
 
-def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
-    """Load a workflow-test config file and emit legacy IPC errors on failure."""
-    if len(argv) < 2:
-        ipc.send("error", error="No config file provided", error_code="MISSING_CONFIG")
-        sys.exit(1)
+def report_workflow_test_entry_error(ipc):
+    """Entry failures (no file, unreadable file) as the Lab's error events."""
 
-    config_path = argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8") as file_obj:
-            config = json.load(file_obj)
-    except Exception as exc:
-        ipc.send("error", error=f"Failed to read config: {exc}", error_code="CONFIG_ERROR")
-        sys.exit(1)
+    def report(message: str, reason: str) -> None:
+        code = "MISSING_CONFIG" if reason == MISSING_CONFIG else "CONFIG_ERROR"
+        ipc.send("error", error=message, error_code=code)
 
+    return report
+
+
+def load_workflow_test_request(ipc, config: dict) -> WorkflowTestRequest:
+    """Validate a workflow-test config and emit legacy IPC errors on failure."""
     device_id = config.get("device_id", "")
     app_name = config.get("app", "instagram")
     version = config.get("version", "")
@@ -86,4 +85,4 @@ def load_workflow_test_request(ipc, argv: list[str]) -> WorkflowTestRequest:
     )
 
 
-__all__ = ["WorkflowTestRequest", "load_workflow_test_request"]
+__all__ = ["WorkflowTestRequest", "load_workflow_test_request", "report_workflow_test_entry_error"]

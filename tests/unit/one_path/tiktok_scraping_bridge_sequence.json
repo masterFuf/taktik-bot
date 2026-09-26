@@ -582,32 +582,6 @@
   "exit_old_code": 0,
   "signals": []
  },
- "empty_stdin": {
-  "calls": [],
-  "configs": [],
-  "db_writes": [],
-  "events": [
-   [
-    "error",
-    {
-     "error": "No config received from stdin"
-    }
-   ]
-  ],
-  "events_old_code": [
-   [
-    "error",
-    {
-     "error": "No configuration received"
-    }
-   ]
-  ],
-  "exit": 1,
-  "signals": [
-   "SIGINT",
-   "SIGTERM"
-  ]
- },
  "hashtag_without_name": {
   "calls": [],
   "calls_old_code": [
@@ -827,6 +801,14 @@
    [
     "error",
     {
+     "error": "Failed to load config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+    }
+   ]
+  ],
+  "events_stdin_code": [
+   [
+    "error",
+    {
      "error": "Invalid JSON config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
     }
    ]
@@ -1027,6 +1009,40 @@
    ]
   ],
   "exit": 0,
+  "signals": [
+   "SIGINT",
+   "SIGTERM"
+  ]
+ },
+ "no_config_file": {
+  "calls": [],
+  "configs": [],
+  "db_writes": [],
+  "events": [
+   [
+    "error",
+    {
+     "error": "Usage: tiktok_scraping_bridge <config_path>"
+    }
+   ]
+  ],
+  "events_old_code": [
+   [
+    "error",
+    {
+     "error": "No configuration received"
+    }
+   ]
+  ],
+  "events_stdin_code": [
+   [
+    "error",
+    {
+     "error": "No config received from stdin"
+    }
+   ]
+  ],
+  "exit": 1,
   "signals": [
    "SIGINT",
    "SIGTERM"

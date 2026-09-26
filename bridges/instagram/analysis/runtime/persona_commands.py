@@ -1,4 +1,4 @@
-"""CLI command handling for the Instagram Persona Analysis bridge."""
+"""Run of the Instagram Persona Analysis bridge, from the config `run_bridge_main` read."""
 
 from __future__ import annotations
 
@@ -9,20 +9,24 @@ import traceback
 from bridges.instagram.runtime.ipc import logger
 
 
-def run_persona_analysis_cli(args: list[str]) -> None:
-    """Load config, connect the bridge and emit the final JSON result."""
-    if len(args) < 1:
-        print(json.dumps({"success": False, "error": "Usage: persona_analysis_bridge.py <config.json>"}))
-        sys.exit(1)
+def report_persona_entry_error(message: str, _reason: str) -> None:
+    """An entry failure (no file, unreadable file), in the bridge's own final JSON."""
+    print(json.dumps({"success": False, "error": message}))
 
-    config_path = args[0]
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
-    except Exception as e:
-        print(json.dumps({"success": False, "error": f"Failed to read config: {e}"}))
-        sys.exit(1)
 
+class PersonaAnalysisRun:
+    """One persona analysis, from its config file (read by `run_bridge_main`)."""
+
+    def __init__(self, config: dict):
+        self.config = config
+
+    def run(self) -> int:
+        run_persona_analysis(self.config)
+        return 0
+
+
+def run_persona_analysis(config: dict) -> None:
+    """Connect the bridge and emit the final JSON result."""
     device_id = config.get("deviceId")
     package_name = config.get("packageName")
 

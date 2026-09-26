@@ -3,7 +3,9 @@ config it builds.
 
 The snapshot beside this file was recorded from `tiktok_unfollow_bridge` while the startup, the
 choice of the acting account and the live callbacks still lived in the bridge, and while it read
-its own stdin, before they moved into the core launcher and onto `run_bridge_main`. Same device
+its own stdin, before they moved into the core launcher and onto `run_bridge_main`, which then
+moved it to a config file, like every bridge (`no_config_file` and `invalid_json` keep the stdin
+era's events beside the new ones). Same device
 calls, same stdout events in the same order, same workflow config, same exit code.
 
 `blocked` was recorded on both codes (a run that stopped on `action_blocked`); its old events stay
@@ -21,7 +23,7 @@ SNAPSHOT = json.loads(
 
 
 def scenario(name, rig, unfollow_payload):
-    """The stdin of one recorded run; the phone is set on `rig`."""
+    """The config file of one recorded run (None: no file named); the phone is set on `rig`."""
     if name == "page":
         return unfollow_payload()
     if name == "scheduler_node":
@@ -44,8 +46,8 @@ def scenario(name, rig, unfollow_payload):
         payload = unfollow_payload()
         payload.pop("device_id")
         return payload
-    if name == "empty_stdin":
-        return ""
+    if name == "no_config_file":
+        return None
     if name == "invalid_json":
         return "{not json\n"
     raise KeyError(name)
@@ -53,7 +55,7 @@ def scenario(name, rig, unfollow_payload):
 
 SCENARIOS = (
     "page", "scheduler_node", "account_unread", "account_named_in_payload", "blocked", "start_fails",
-    "workflow_fails", "no_device", "empty_stdin", "invalid_json",
+    "workflow_fails", "no_device", "no_config_file", "invalid_json",
 )
 
 

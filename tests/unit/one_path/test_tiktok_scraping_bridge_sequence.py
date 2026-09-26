@@ -1,18 +1,20 @@
 """The desktop's TikTok scraping, frozen: what its two bridges ask of the phone, what they print,
 the config they build and what they write.
 
-The app starts a scraping run through `tiktok_scraping_bridge` (one JSON line on stdin); the
+The app starts a scraping run through `tiktok_scraping_bridge` (its config file); the
 `tiktok_bridge` dispatcher also routes `workflowType: scraping` to the same runner. The snapshot
 beside this file was recorded from both while the reading of the payload, the session start, the
 live events and the scraping session rows still lived in the bridge, before they moved into the
-core launcher (`run_tiktok_scraping`) and the stdin bridge onto `run_bridge_main`. Same device
+core launcher (`run_tiktok_scraping`) and the bridge onto `run_bridge_main`, then from stdin to
+a config file like every bridge. Same device
 calls, same stdout events in the same order, same workflow config, same rows handed to the
 database, same stop handlers, same exit code.
 
 Recordings that changed on purpose keep the old code's values beside the new ones
 (`*_old_code`): a target run without an account and a hashtag run without a hashtag are refused
 before the phone is touched (the old bridge restarted TikTok, then scraped nothing and called it
-a success), and an empty stdin reports the shared entrypoint's words. The app sends none of them:
+a success), and a missing config file reports the shared entrypoint's words (`no_config_file`
+and `invalid_json` keep the stdin era's events, `events_stdin_code`). The app sends none of them:
 the page and the scheduler refuse both runs, and the main process always writes the payload.
 """
 import dataclasses
@@ -32,45 +34,45 @@ NOW = "<now>"
 
 def scenario(name, rig, scraping_payload):
     """What one recorded run is given: the phone and the database are set on `rig`; returns the
-    stdin (a payload, or raw text) and which bridge receives it."""
+    config file (a payload, raw text, or None: no file) and which bridge receives it."""
     rig.install_scraping_database()
-    stdin = "stdin"
+    own = "own"
     if name.startswith("dispatcher_"):
-        stdin, name = "dispatcher", name[len("dispatcher_"):]
+        own, name = "dispatcher", name[len("dispatcher_"):]
 
     if name in ("page_target", "page_hashtag", "page_post_url", "page_sound", "page_account_posts"):
-        return scraping_payload(name[len("page_"):]), stdin
+        return scraping_payload(name[len("page_"):]), own
     if name == "scheduler_node":
-        return scraping_payload("scheduler_node"), stdin
+        return scraping_payload("scheduler_node"), own
     if name == "without_saving":
-        return scraping_payload(saveToDb=False), stdin
+        return scraping_payload(saveToDb=False), own
     if name == "session_not_created":
         rig.scraping_session_id = None
-        return scraping_payload(), stdin
+        return scraping_payload(), own
     if name in ("max_duration_reached", "stopped_by_user"):
         rig.scraping_reason = name
-        return scraping_payload(sessionDurationMinutes=20), stdin
+        return scraping_payload(sessionDurationMinutes=20), own
     if name == "source_error":
         rig.scraping_error = "Could not open https://vm.tiktok.com/ZNexample/"
-        return scraping_payload("post_url"), stdin
+        return scraping_payload("post_url"), own
     if name == "workflow_raises":
         rig.scraping_raises = True
-        return scraping_payload(), stdin
+        return scraping_payload(), own
     if name == "start_fails":
         rig.restart_ok = False
-        return scraping_payload(), stdin
+        return scraping_payload(), own
     if name == "target_without_accounts":
-        return scraping_payload(targetUsernames=[]), stdin
+        return scraping_payload(targetUsernames=[]), own
     if name == "hashtag_without_name":
-        return scraping_payload("hashtag", hashtag=""), stdin
+        return scraping_payload("hashtag", hashtag=""), own
     if name == "no_device":
         payload = scraping_payload()
         payload.pop("deviceId")
-        return payload, stdin
-    if name == "empty_stdin":
-        return "", stdin
+        return payload, own
+    if name == "no_config_file":
+        return None, own
     if name == "invalid_json":
-        return "{not json\n", stdin
+        return "{not json\n", own
     raise KeyError(name)
 
 
@@ -78,7 +80,7 @@ SCENARIOS = (
     "page_target", "page_hashtag", "page_post_url", "page_sound", "page_account_posts",
     "scheduler_node", "without_saving", "session_not_created", "max_duration_reached",
     "stopped_by_user", "source_error", "workflow_raises", "start_fails", "target_without_accounts",
-    "hashtag_without_name", "no_device", "empty_stdin", "invalid_json",
+    "hashtag_without_name", "no_device", "no_config_file", "invalid_json",
     "dispatcher_page_target", "dispatcher_page_post_url", "dispatcher_start_fails",
     "dispatcher_target_without_accounts",
 )
@@ -142,15 +144,16 @@ def test_a_run_with_nothing_to_scrape_is_refused_before_the_phone_is_touched():
         assert record["db_writes"] == [] and record["configs"] == [], name
 
 
-def test_an_empty_stdin_reports_the_shared_entrypoint_words():
-    record = SNAPSHOT["empty_stdin"]
+def test_no_config_file_reports_the_shared_entrypoint_words():
+    record = SNAPSHOT["no_config_file"]
     assert record["events_old_code"] == [["error", {"error": "No configuration received"}]]
-    assert record["events"] == [["error", {"error": "No config received from stdin"}]]
+    assert record["events_stdin_code"] == [["error", {"error": "No config received from stdin"}]]
+    assert record["events"] == [["error", {"error": "Usage: tiktok_scraping_bridge <config_path>"}]]
     assert record["calls"] == [] and record["exit"] == 1
 
 
 def test_a_stop_signal_stops_the_run_and_exits_cleanly(rig, scraping_payload):
-    """The stdin bridge's SIGTERM: the registered workflow is asked to stop, the process exits 0."""
+    """The bridge's SIGTERM: the registered workflow is asked to stop, the process exits 0."""
     from bridges.common.runtime import bridge_base
 
     rig.install_scraping_database()

@@ -31,7 +31,7 @@ def test_each_action_of_a_session_starts_without_the_previous_stop(monkeypatch):
         run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page")
 
     monkeypatch.setattr(manager, "DeviceManager", _DeviceManager)
-    monkeypatch.setattr(session, "_load_config", lambda: {"device_id": "fake", "platform": "instagram"})
+    config = {"device_id": "fake", "platform": "instagram"}
     monkeypatch.setattr(session, "_load_platform_runtime",
                         lambda platform: ({"detection.dump_xml": None}, lambda d: d, lambda f: {}))
     monkeypatch.setattr(session, "_detect_and_optimize_selectors", lambda *a, **k: {})
@@ -43,7 +43,7 @@ def test_each_action_of_a_session_starts_without_the_previous_stop(monkeypatch):
     monkeypatch.setattr(session.sys, "stdin", io.StringIO(f"{command}\n{command}\n" + '{"type": "close"}\n'))
 
     try:
-        session.run_action_session_bridge()
+        session.run_action_session_bridge(config)
     finally:
         run_halt.reinitialiser()
 

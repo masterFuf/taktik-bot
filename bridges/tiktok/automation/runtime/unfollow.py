@@ -2,7 +2,7 @@
 
 The run is `run_tiktok_unfollow` (core), the launcher the Agent handler
 `tiktok.standalone.tiktok_unfollow` (and so the CLI) calls too: start TikTok, read the acting
-account on the phone, unfollow as that account. This bridge unwraps the app's stdin payload
+account on the phone, unfollow as that account. This bridge unwraps the app's config payload
 (`{device_id, config}`), rotates the IP when the page asks for it, and injects what is specific to
 the desktop: the startup that prints on stdout, its IPC for the live events, the stop signal.
 """

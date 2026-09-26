@@ -1,6 +1,5 @@
 """Shared action-test runner for compat diagnostics bridges."""
 
-import json
 import re
 import sys
 import time
@@ -32,20 +31,27 @@ from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTrace
 _BOT_ROOT = Path(__file__).resolve().parents[5]
 
 
-def run_action_test_bridge(action_registry: dict, create_device_facade, build_action_bundle) -> None:
+def report_action_test_entry_error(message: str, _reason: str) -> None:
+    """An entry failure (no file, unreadable file), as the action result."""
+    emit({"type": "result", "success": False, "message": message})
+
+
+def action_test_run(action_registry: dict, create_device_facade, build_action_bundle):
+    """The bridge factory `run_bridge_main` calls with the config of one manual action."""
+
+    class _ActionTestRun:
+        def __init__(self, config: dict):
+            self.config = config
+
+        def run(self) -> int:
+            run_action_test_bridge(self.config, action_registry, create_device_facade, build_action_bundle)
+            return 0
+
+    return _ActionTestRun
+
+
+def run_action_test_bridge(config: dict, action_registry: dict, create_device_facade, build_action_bundle) -> None:
     """Run one compat diagnostics action while preserving the JSON stdout protocol."""
-    if len(sys.argv) < 2:
-        emit({"type": "result", "success": False, "message": "No config file provided"})
-        sys.exit(1)
-
-    config_path = sys.argv[1]
-    try:
-        with open(config_path, "r", encoding="utf-8-sig") as file_obj:
-            config = json.load(file_obj)
-    except Exception as exc:
-        emit({"type": "result", "success": False, "message": f"Failed to read config: {exc}"})
-        sys.exit(1)
-
     device_id = config.get("device_id", "")
     action_id = config.get("action_id", "")
     params = config.get("params", {})
@@ -615,4 +621,4 @@ def _get_current_app(bundle) -> dict | None:
     return None
 
 
-__all__ = ["run_action_test_bridge"]
+__all__ = ["action_test_run", "report_action_test_entry_error", "run_action_test_bridge"]

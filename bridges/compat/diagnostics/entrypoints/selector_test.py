@@ -7,7 +7,7 @@ version overrides of the installed app (every version <= it), language detected 
 catalogues read back with their properties. Each xpath is evaluated as `d.xpath()` evaluates it,
 on one dump of the screen (`runtime/selector_test/runner.py`).
 
-Config JSON (passed as argv[1] temp file):
+Config JSON (its config file, read by `run_bridge_main`):
   {
     "device_id": "emulator-5554",
     "app": "instagram",
@@ -30,9 +30,13 @@ if bot_dir not in sys.path:
 from bridges.common.runtime.bootstrap import setup_environment
 setup_environment()
 
+from bridges.common.runtime.entrypoint import CONFIG_ERROR, MISSING_CONFIG, run_bridge_main
 from bridges.common.runtime.ipc import IPC
 from bridges.common.device.connection import ConnectionService
-from bridges.compat.diagnostics.runtime.selector_test.request import load_selector_test_request
+from bridges.compat.diagnostics.runtime.selector_test.request import (
+    load_selector_test_request,
+    report_selector_test_entry_error,
+)
 from bridges.compat.diagnostics.runtime.selector_test.runner import (
     filter_selectors_by_domain,
     run_selector_tests,
@@ -41,10 +45,25 @@ from bridges.compat.diagnostics.runtime.selector_test.runner import (
 from loguru import logger
 
 
+class _SelectorTestRun:
+    def __init__(self, ipc: IPC, config: dict):
+        self.ipc = ipc
+        self.config = config
+
+    def run(self) -> int:
+        run_selector_test(self.ipc, self.config)
+        return 0
+
+
 def main():
     ipc = IPC()
+    run_bridge_main(lambda config: _SelectorTestRun(ipc, config), usage="selector_test_bridge <config.json>",
+                    report_error=report_selector_test_entry_error(ipc),
+                    messages={MISSING_CONFIG: "No config file provided", CONFIG_ERROR: "Failed to read config: {error}"}, catch_crashes=False)
 
-    request = load_selector_test_request(ipc, sys.argv)
+
+def run_selector_test(ipc: IPC, config: dict) -> None:
+    request = load_selector_test_request(ipc, config)
     device_id = request.device_id
     app_name = request.app_name
     domain_filter = request.domain_filter

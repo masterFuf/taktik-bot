@@ -6,7 +6,6 @@ import json
 
 from loguru import logger
 
-from bridges.instagram.scraping.runtime.commands import load_scraping_bridge_config
 from bridges.instagram.scraping.runtime.session import (
     configure_scraping_database,
     connect_scraping_device,
@@ -17,10 +16,25 @@ from bridges.instagram.scraping.runtime.session import (
 from bridges.instagram.scraping.runtime.workflow import run_scraping_workflow
 
 
-def run_scraping_bridge(argv: list[str]) -> int:
+def report_scraping_entry_error(message: str, _reason: str) -> None:
+    """An entry failure (no file, unreadable file), in the bridge's own final JSON."""
+    print(json.dumps({"success": False, "error": message}))
+
+
+class ScrapingRun:
+    """One Instagram scraping run, from its config file (read by `run_bridge_main`)."""
+
+    def __init__(self, config: dict):
+        self.config = config
+
+    def run(self) -> int:
+        return run_scraping_bridge(self.config)
+
+
+def run_scraping_bridge(config: dict) -> int:
     """Run the Instagram scraping bridge and emit its terminal JSON payload."""
-    config = load_scraping_bridge_config(argv)
-    if config is None:
+    if not config.get('deviceId'):
+        print(json.dumps({"success": False, "error": "No deviceId provided"}))
         return 1
 
     device_id = config.get("deviceId")
@@ -47,4 +61,4 @@ def run_scraping_bridge(argv: list[str]) -> int:
         disconnect_scraping_connection(connection)
 
 
-__all__ = ["run_scraping_bridge"]
+__all__ = ["ScrapingRun", "report_scraping_entry_error", "run_scraping_bridge"]
