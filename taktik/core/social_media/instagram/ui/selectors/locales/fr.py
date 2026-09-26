@@ -394,7 +394,9 @@ STRINGS: Dict[str, List[str]] = {
     # son pseudo. Le hashtag s'ouvre depuis la recherche, jamais depuis l'onglet Accueil.
     "hashtag.reel_author_container": [
         "//*[contains(@content-desc, \"Reel de\")]"
-        "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\" and @selected=\"true\"])]",
+        # Accueil = feed_tab selectionne, ou son icone seule (IG 410).
+        "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\"][@selected=\"true\""
+        " or .//*[@resource-id=\"com.instagram.android:id/tab_icon\" and @selected=\"true\"]])]",
     ],
     # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
     # labels, not xpaths: the fields of that surface carry no resource-id, so the text

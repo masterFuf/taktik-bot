@@ -417,7 +417,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[starts-with(@content-desc, \"Reel by \")]"
         "[not(contains(@content-desc, \" at row \") or contains(@content-desc, \" at Row \")"
         " or contains(@content-desc, \"View Count\"))]"
-        "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\" and @selected=\"true\"])]",
+        # Home = feed_tab selected, or its icon only (IG 410).
+        "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\"][@selected=\"true\""
+        " or .//*[@resource-id=\"com.instagram.android:id/tab_icon\" and @selected=\"true\"]])]",
     ],
     # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
     # labels, not xpaths: the fields of that surface carry no resource-id, so the text
