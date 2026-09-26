@@ -107,11 +107,10 @@ class ProfileQualification:
         Deliberately not the Instagram query: that one reads the `instagram_profiles` view and
         would answer for a namesake. The column names are aliased to the shape `_is_classified`
         and `_decode` already expect, so the rest of this facade does not fork per platform.
+        Same `_db()` seam as the Instagram reader: a test that stubs it stubs both.
         """
-        from taktik.core.database.local.service import get_local_database
-
         placeholders = ",".join("?" * len(usernames))
-        rows = get_local_database().profiles.query(
+        rows = ProfileQualification._db().profiles.query(
             f"""
             SELECT username,
                    ai_niche          AS niche_category,

@@ -86,6 +86,25 @@ def test_the_lookup_is_case_insensitive(qualification_db):
     assert ProfileQualification.load_many([SHARED_HANDLE.upper()], "tiktok")
 
 
+def test_the_tiktok_reader_goes_through_the_facade_seam(monkeypatch):
+    """Stubbing `_db` covers TikTok too. The reader used to call the singleton directly, so a
+    test that stubbed the seam still opened the default base, the operator's own."""
+    asked = []
+
+    class _Profiles:
+        @staticmethod
+        def query(sql, params=()):
+            asked.append(params)
+            return [{"username": SHARED_HANDLE, "niche_category": "Cuisine", "niche": "patisserie"}]
+
+    class _Stub:
+        profiles = _Profiles()
+
+    monkeypatch.setattr(ProfileQualification, "_db", staticmethod(lambda: _Stub))
+    assert ProfileQualification.load(SHARED_HANDLE, platform="tiktok")["niche"] == "patisserie"
+    assert asked == [(SHARED_HANDLE,)]
+
+
 def test_an_unknown_platform_answers_nothing(qualification_db):
     assert ProfileQualification.load_many([SHARED_HANDLE], "threads") == {}
 

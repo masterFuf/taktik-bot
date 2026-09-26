@@ -1,4 +1,13 @@
+import pytest
+
+from taktik.core.social_media.instagram.workflows.scraping import scraping_workflow
 from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
+
+
+@pytest.fixture(autouse=True)
+def _no_database(monkeypatch):
+    """The workflow takes its base at construction; these tests only look at the AI wiring."""
+    monkeypatch.setattr(scraping_workflow, "get_local_database", lambda: object())
 
 
 class _DummyDeviceManager:
