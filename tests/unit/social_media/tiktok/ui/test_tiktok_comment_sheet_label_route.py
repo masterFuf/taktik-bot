@@ -28,6 +28,7 @@ from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.tiktok.actions.core.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
+from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
 
 ID = "com.zhiliaoapp.musically:id/"
@@ -169,6 +170,17 @@ def test_the_47_0_3_sheet_is_open(french):
     through its U+200E, with the sheet's composer clickable on screen."""
     found = first_matching(_Device(SHEET_4703), COMMENT_SELECTORS.sheet_indicator)
     assert found and found[0].attrib.get("resource-id") == ID + "wk7"
+
+
+@pytest.mark.parametrize("selectors", [
+    lambda: POPUP_SELECTORS.comments_close_button,
+    lambda: COMMENT_SELECTORS.close_button,
+], ids=["popup.comments_close_button", "comment.close_button"])
+def test_the_47_0_3_close_control_is_found_without_a_label(french, selectors):
+    """47.0.3 labels its close control with nothing: the clickable ImageView of the row that
+    follows the count header's row. Both closers must reach it, not fall back on Back."""
+    found = first_matching(_Device(SHEET_4703), selectors())
+    assert [el.attrib.get("resource-id") for el in found] == [ID + "bs4"]
 
 
 def test_the_47_0_3_screen_without_a_clickable_composer_is_not_a_sheet(french):

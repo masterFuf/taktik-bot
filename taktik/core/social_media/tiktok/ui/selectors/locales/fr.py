@@ -101,8 +101,16 @@ STRINGS: Dict[str, List[str]] = {
     # recherche) — c'est justement pourquoi la fermeture de conversation est cadree ailleurs. Ici
     # la feuille EST la surface visee, et cette entree ne sert qu'une fois `sheet_indicator`
     # positif.
+    # Second entry: 47.0.3 labels its close control with nothing (`bs4`). It is the clickable
+    # ImageView of the row that follows the count header's own row (46.6.3 and 47.0.3); 43.1.4
+    # lays the header out elsewhere and keeps the label.
     "comment.close_button": [
         "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
+        "//android.widget.TextView[contains(@text, \" commentaire\")]"
+        "[string-length(translate(@text, \"‎‏\", \"\")) < 24]"
+        "[contains(\"0123456789\", substring(translate(@text, \"‎‏\", \"\"), 1, 1))]"
+        "/ancestor::*[@clickable=\"true\"][1]/following-sibling::*"
+        "//android.widget.ImageView[@clickable=\"true\"]",
     ],
     "comment.comment_count_header": [
         "//android.widget.TextView[contains(@text, \"commentaire\")]",
@@ -509,9 +517,17 @@ STRINGS: Dict[str, List[str]] = {
     "popup.comment_input_area": [],
     # « Fermer » nu repond aussi sur les listes d'abonnes, la recherche et l'inbox ; le composeur de
     # commentaires le cantonne a la feuille.
+    # Second entry, same as `comment.close_button`: the unlabelled close control of 47.0.3, found
+    # beside the count header. Measured on 408 captures: the 7 sheets of 46.6.3 and 47.0.3 (the
+    # labelled one on 46.6.3), nothing else.
     "popup.comments_close_button": [
         "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]"
         "[ancestor::*[.//android.widget.EditText[contains(@hint, \"Ajouter un commentaire\")]]]",
+        "//android.widget.TextView[contains(@text, \" commentaire\")]"
+        "[string-length(translate(@text, \"‎‏\", \"\")) < 24]"
+        "[contains(\"0123456789\", substring(translate(@text, \"‎‏\", \"\"), 1, 1))]"
+        "/ancestor::*[@clickable=\"true\"][1]/following-sibling::*"
+        "//android.widget.ImageView[@clickable=\"true\"]",
     ],
     # `J'ai compris` was missing, and it is the button of an interstitial TikTok raises INSIDE
     # a conversation ("Recommandations de stickers personnalisées"). It covers the composer, so
@@ -538,8 +554,17 @@ STRINGS: Dict[str, List[str]] = {
     "popup.link_email_not_now": [
         "//*[@text=\"Pas maintenant\"][@clickable=\"true\"]",
     ],
+    # The message banner TikTok drops over the top of the screen: one row holding the sender's
+    # text (« t'ont envoyé de nouveaux messages. », « a envoyé un sticker ») and, apart from it, a
+    # « Répondre » label (a TextView in a clickable frame). The row is the innermost element with
+    # both halves in different children. The former entry, any clickable « Répondre », answered
+    # on the comment sheets' and conversations' reply buttons and on no banner. Measured on 408
+    # captures: the 2 banners (46.6.3), nothing else. The caller also requires the top quarter.
     "popup.notification_banner": [
-        "//*[contains(@text, \"Répondre\")][@clickable=\"true\"]",
+        "//*[*[.//android.widget.TextView[@text=\"Répondre\"]]"
+        "[not(.//android.widget.TextView[contains(@text, \"envoyé\")])]"
+        " and *[.//android.widget.TextView[contains(@text, \"envoyé\")]]"
+        "[not(.//android.widget.TextView[@text=\"Répondre\"])]]",
     ],
     "popup.notification_popup": [
         "//*[contains(@text, \"Autoriser\")]",
