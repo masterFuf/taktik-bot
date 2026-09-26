@@ -415,6 +415,10 @@ class FollowersWorkflow(
             # target-profiles workflow runs, kept in one place on purpose.
             self._process_current_profile()
 
+            # Refused: the dialog stays on screen; the loop reads the latch and stops.
+            if self._halted():
+                return True
+
             # Safe return to followers list with verification
             if not self._safe_return_to_followers_list():
                 self.logger.warning("⚠️ Failed to return to followers list, attempting recovery...")

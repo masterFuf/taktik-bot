@@ -159,6 +159,11 @@ class SearchWorkflow(BaseVideoWorkflow):
                           duration_ms=int((time.time() - _t0) * 1000),
                           outcome="interacted" if _acted else "watched")
 
+                # A refusal or a cap met during the video ends the run here, before any swipe.
+                if not self._running or self._check_limits_reached():
+                    self.logger.info("📊 Session limits reached")
+                    break
+
                 # Check if pause needed
                 self._check_pause_needed()
                 

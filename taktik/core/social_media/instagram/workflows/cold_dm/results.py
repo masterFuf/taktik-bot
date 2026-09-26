@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.cold_dm.persistence import record_sent_dm
 from loguru import logger
 
@@ -29,8 +30,12 @@ def build_all_recipients_processed_result() -> dict:
 
 
 def build_cold_dm_summary(workflow) -> dict:
-    """Build the final Cold DM result payload from workflow counters."""
-    return {
+    """Build the final Cold DM result payload from workflow counters.
+
+    A run stopped by the halt latch says why (`stop_reason`: `action_blocked` when Instagram
+    refused a send), so it does not read as a run that went through its list.
+    """
+    summary = {
         "success": True,
         "dms_sent": workflow.dms_sent,
         "dms_success": workflow.dms_success,
@@ -38,6 +43,10 @@ def build_cold_dm_summary(workflow) -> dict:
         "private_profiles": workflow.private_profiles,
         "verified_profiles": getattr(workflow, "verified_profiles", 0),
     }
+    halt = run_halt.arret_demande()
+    if halt:
+        summary["stop_reason"] = halt.get("code")
+    return summary
 
 
 def apply_cold_dm_send_result(

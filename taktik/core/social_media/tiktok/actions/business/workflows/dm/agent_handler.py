@@ -274,6 +274,11 @@ def run_tiktok_dm_outreach(
     completed = f"Completed: {result.get('dms_success', 0)} sent, {result.get('dms_failed', 0)} failed"
     if result.get("no_message_entry"):
         completed += f", {result['no_message_entry']} skipped (no message entry)"
+    if result.get("stop_reason"):
+        completed += f", stopped: {result['stop_reason']}"
+        notify(notifier, "status", status="completed", message=completed,
+               completion_reason=result["stop_reason"])
+        return result
     notify(notifier, "status", status="completed", message=completed)
     return result
 

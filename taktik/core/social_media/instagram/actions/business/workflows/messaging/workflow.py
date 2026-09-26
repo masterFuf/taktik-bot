@@ -9,6 +9,8 @@ from loguru import logger
 
 from ....core.base_action import BaseAction
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
     BUTTON_SELECTORS,
     NAVIGATION_SELECTORS,
@@ -129,6 +131,9 @@ def send_dm(device_manager, username: str, message: str, navigate_to_profile: bo
             time.sleep(1.5)
         
         success = messaging.send_dm_from_profile(message)
+        # The one look after a write: a refused send is not a sent DM, and the run stops.
+        if look_for_action_block(ProblematicPageDetector(device_manager), after='dm', target=username):
+            return False
         
         if success:
             logger.info(f"✅ DM sent to @{username}")

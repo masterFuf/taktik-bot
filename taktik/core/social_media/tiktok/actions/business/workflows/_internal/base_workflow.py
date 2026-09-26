@@ -19,6 +19,8 @@ from taktik.core.shared.behavior.session_state import (
     BehaviorSessionState,
     reading_scale_of,
 )
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
 
 from ....atomic.interaction.click_actions import ClickActions
 from ....atomic.navigation.navigation_actions import NavigationActions
@@ -173,6 +175,24 @@ class BaseTikTokWorkflow:
         while self._paused and self._running:
             time.sleep(1)
         return self._running
+
+    # ------------------------------------------------------------------
+    # Block after a gesture
+    # ------------------------------------------------------------------
+
+    def _stop_if_action_blocked(self, target: str, action: str) -> bool:
+        """After a gesture that writes: is TikTok refusing it? True means stop acting now.
+
+        The one look of every writing path (`look_for_action_block` on the production detector);
+        seeing the refusal sets the run's latch, which every loop reads through its limits check.
+        """
+        return look_for_action_block(getattr(self, 'detection', None), after=action,
+                                     target=target or '')
+
+    @staticmethod
+    def _halted() -> bool:
+        """Is the run's stop latch set? Then no way back either: Back would close the dialog."""
+        return run_halt.arret_demande() is not None
 
     # ------------------------------------------------------------------
     # Popup handling

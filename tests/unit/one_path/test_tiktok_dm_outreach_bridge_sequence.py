@@ -19,6 +19,9 @@ A profile without any message entry is skipped, not failed (`no_message_entry`):
 whether the screen is still a profile (`on_profile?`) once the Message button is not found. So
 `recipient_failures` keeps its old calls beside the new ones, its fan_two now on a screen that
 is no longer a profile, and every `stats` event counts `no_message_entry`.
+
+`refused_send` was recorded on both codes: TikTok refuses the first DM (its refusal is then on
+the rig's screen, read by the production detector). Its old values stay beside the new ones.
 """
 import json
 from pathlib import Path
@@ -66,6 +69,9 @@ def scenario(name, rig, outreach_payload):
     if name == "no_message_entry":
         rig.no_message_button = {"fan_two"}
         return outreach_payload()
+    if name == "refused_send":
+        rig.refused_sends = {"fan_one"}
+        return outreach_payload()
     if name == "connect_fails":
         rig.outreach_connects = False
         return outreach_payload()
@@ -84,7 +90,7 @@ def scenario(name, rig, outreach_payload):
 
 SCENARIOS = (
     "page_manual", "page_ai", "page_ai_generation_fails", "page_ai_without_key", "scheduler_node",
-    "all_already_sent", "recipient_failures", "no_message_entry", "connect_fails", "no_device",
+    "all_already_sent", "recipient_failures", "no_message_entry", "refused_send", "connect_fails", "no_device",
     "no_recipients", "manual_without_message", "empty_stdin", "invalid_json",
 )
 
@@ -120,7 +126,8 @@ def test_every_recording_is_a_scenario():
 
 def test_a_request_with_nothing_to_send_is_refused_before_the_phone_is_touched():
     changed = {name: record for name, record in SNAPSHOT.items() if "calls_old_code" in record}
-    assert sorted(changed) == ["manual_without_message", "no_recipients", "recipient_failures"]
+    assert sorted(changed) == ["manual_without_message", "no_recipients", "recipient_failures",
+                               "refused_send"]
     for name in ("manual_without_message", "no_recipients"):
         record = changed[name]
         assert record["calls"] == [], name
@@ -165,3 +172,22 @@ def test_an_empty_stdin_reports_the_shared_entrypoint_words():
     assert record["events_old_code"] == [["error", {"error": "No configuration received"}]]
     assert record["events"] == [["error", {"error": "No config received from stdin"}]]
     assert record["calls"] == [] and record["exit"] == 1
+
+
+def test_a_refused_send_ends_the_run_where_the_old_code_wrote_on():
+    """`refused_send`: TikTok refuses the first DM. The old code counted it as sent, wrote it to
+    `sent_dms`, went home (closing the refusal) and wrote to the two next recipients."""
+    record = SNAPSHOT["refused_send"]
+    assert record["calls"] == record["calls_old_code"][:len(record["calls"])]
+    assert record["calls"][-1].startswith("send_text fan_one")
+    assert "navigate_home" not in record["calls"]
+    assert [call for call in record["calls_old_code"] if call.startswith("send_text")] == [
+        "send_text fan_one 'Salut, ton contenu est top !'",
+        "send_text fan_two 'Salut, ton contenu est top !'",
+        "send_text fan_three 'Salut, ton contenu est top !'",
+    ]
+    assert record["db_writes"] == [] and len(record["db_writes_old_code"]) == 3
+    assert _results(record)["fan_one"]["success"] is False
+    assert record["events"][-1] == ["status", {
+        "status": "completed", "message": "Completed: 0 sent, 1 failed, stopped: action_blocked",
+        "completion_reason": "action_blocked"}]

@@ -26,9 +26,12 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from taktik.core.database.content_relays import ContentRelayService
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.instagram.actions.business.actions.story_relay import (
     StoryRelayBusiness,
 )
+from taktik.core.social_media.instagram.ui.detectors.action_block import detector_of
 from taktik.core.social_media.instagram.ui.language import detect_and_optimize
 
 log = logger.bind(module="instagram-story-relay")
@@ -91,6 +94,10 @@ def relay_source_stories(
             return report
 
         for index in range(max_stories):
+            halt = run_halt.arret_demande()
+            if halt:
+                report["reason"] = halt.get("code")
+                break
             identity = relay.current_story_identity()
             if not identity["is_open"]:
                 break
@@ -132,6 +139,13 @@ def relay_source_stories(
                 continue
 
             outcome = relay.push_current_story_to_mine()
+            if look_for_action_block(detector_of(relay), after='story relay', target=source_username):
+                # Refused: not recorded as handled, so a later pass may relay it.
+                report["failed"] += 1
+                report["reason"] = (run_halt.arret_demande() or {}).get("code") or "action_blocked"
+                report["outcomes"].append({"index": position, "signature": signature,
+                                           "status": "failed", "reason": report["reason"]})
+                break
             status = outcome["status"]
             report[status if status in ("relayed", "unavailable") else "failed"] += 1
             report["outcomes"].append({
@@ -162,7 +176,7 @@ def relay_source_stories(
             if not relay.advance_to_next_story():
                 break
 
-        report["success"] = True
+        report["success"] = report["reason"] is None
         return report
 
     except Exception as exc:  # noqa: BLE001 - a relay must never take the session down
@@ -171,9 +185,11 @@ def relay_source_stories(
         return report
     finally:
         # Whatever happened, the phone must not be left sitting in a fullscreen viewer: the
-        # next task would open onto a screen it did not expect.
+        # next task would open onto a screen it did not expect. Except after a block: leaving
+        # would close the dialog, which is acting again.
         try:
-            relay.leave_story_viewer()
+            if not run_halt.arret_demande():
+                relay.leave_story_viewer()
         except Exception as exc:  # noqa: BLE001
             log.debug(f"Could not leave the story viewer: {exc}")
 

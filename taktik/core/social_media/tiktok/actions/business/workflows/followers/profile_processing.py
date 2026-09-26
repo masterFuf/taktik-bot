@@ -57,8 +57,8 @@ class ProfileProcessingMixin:
                 # Interact with posts on this profile
                 self._interact_with_profile_posts()
 
-                # Optionally follow this user
-                if random.random() < self.config.follow_probability:
+                # Optionally follow this user (never after a refusal)
+                if not self._halted() and random.random() < self.config.follow_probability:
                     if self.stats.follows < self.config.max_follows_per_session:
                         self._try_follow_current_profile()
         finally:

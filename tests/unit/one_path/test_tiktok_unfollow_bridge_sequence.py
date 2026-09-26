@@ -5,6 +5,9 @@ The snapshot beside this file was recorded from `tiktok_unfollow_bridge` while t
 choice of the acting account and the live callbacks still lived in the bridge, and while it read
 its own stdin, before they moved into the core launcher and onto `run_bridge_main`. Same device
 calls, same stdout events in the same order, same workflow config, same exit code.
+
+`blocked` was recorded on both codes (a run that stopped on `action_blocked`); its old events stay
+beside the new ones.
 """
 import dataclasses
 import json
@@ -28,6 +31,9 @@ def scenario(name, rig, unfollow_payload):
         return unfollow_payload("scheduler_node")
     if name == "account_named_in_payload":
         return unfollow_payload(botUsername="@other_account")
+    if name == "blocked":
+        rig.unfollow_stop_reason = "action_blocked"
+        return unfollow_payload()
     if name == "start_fails":
         rig.restart_ok = False
         return unfollow_payload()
@@ -46,7 +52,7 @@ def scenario(name, rig, unfollow_payload):
 
 
 SCENARIOS = (
-    "page", "scheduler_node", "account_unread", "account_named_in_payload", "start_fails",
+    "page", "scheduler_node", "account_unread", "account_named_in_payload", "blocked", "start_fails",
     "workflow_fails", "no_device", "empty_stdin", "invalid_json",
 )
 
@@ -76,3 +82,15 @@ def test_the_bridge_runs_exactly_as_recorded(rig, unfollow_payload, name):
 
 def test_every_recording_is_a_scenario():
     assert sorted(SNAPSHOT) == sorted(SCENARIOS)
+
+
+def test_a_run_stopped_by_itself_says_why_to_the_desktop():
+    """`blocked`: the run stops on `action_blocked`. The old final status said nothing, so the
+    history filed the run as a normal end; it now carries `completion_reason`, as the other
+    TikTok workflows do."""
+    record = SNAPSHOT["blocked"]
+    assert record["calls"] == SNAPSHOT["page"]["calls"]
+    assert record["events_old_code"][-1] == ["status", {"status": "completed",
+                                                        "message": "Unfollowed 1 users"}]
+    assert record["events"][-1] == ["status", {"status": "completed", "message": "Unfollowed 1 users",
+                                               "completion_reason": "action_blocked"}]

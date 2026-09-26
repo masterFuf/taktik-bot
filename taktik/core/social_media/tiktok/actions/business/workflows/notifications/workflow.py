@@ -30,6 +30,9 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
+
 from .payload import NotificationsSettings
 
 
@@ -50,6 +53,15 @@ def new_pass_stats() -> Dict[str, Any]:
     }
 
 
+def _refused(device, action: str, target: str) -> bool:
+    """After a gesture that writes: is TikTok refusing it? The one look (production detector)."""
+    from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import (
+        DetectionActions,
+    )
+
+    return look_for_action_block(DetectionActions(device), after=action, target=target)
+
+
 def run_notifications_pass(
     device: Any,
     settings: NotificationsSettings,
@@ -60,16 +72,30 @@ def run_notifications_pass(
     """Run the four steps in order. A step that raises ends the pass, reported as failed."""
     stats = new_pass_stats()
     try:
-        _scan_followers(device, settings, bot_username, stats, notifier)
-        _read_activity(device, settings, stats, notifier)
-        _say_hello(device, settings, stats, notifier)
-        _follow_suggested(device, settings, stats, notifier)
+        # Each step that writes stops at the first refusal; the next steps do not start.
+        steps = (
+            lambda: _scan_followers(device, settings, bot_username, stats, notifier),
+            lambda: _read_activity(device, settings, stats, notifier),
+            lambda: _say_hello(device, settings, stats, notifier),
+            lambda: _follow_suggested(device, settings, stats, notifier),
+        )
+        for step in steps:
+            if run_halt.arret_demande():
+                break
+            step()
     except Exception as exc:
         logger.error(f"Notifications workflow failed: {exc}")
         _emit(notifier, "status", "error", str(exc))
         _emit(notifier, "send", "notifications_result", success=False, stats=stats, error=str(exc))
         return {"success": False, "stats": stats, "error": str(exc)}
 
+    halt = run_halt.arret_demande()
+    if halt:
+        reason = halt.get("code")
+        _emit(notifier, "status", "error", f"Notifications pass stopped: {reason}")
+        _emit(notifier, "send", "notifications_result", success=False, stats=stats,
+              stop_reason=reason)
+        return {"success": False, "stats": stats, "stop_reason": reason}
     _emit(notifier, "status", "success", "Notifications pass finished")
     _emit(notifier, "send", "notifications_result", success=True, stats=stats)
     logger.info(f"🔔 {stats}")
@@ -146,6 +172,8 @@ def _say_hello(device, settings: NotificationsSettings, stats, notifier) -> None
 
     for name in dm.say_hello_candidates()[:budget]:
         if dm.say_hello(name):
+            if _refused(device, "hello", name):
+                return
             stats["hello_sent"] += 1
             _emit(notifier, "send", "hello_sent", name=name)
 
@@ -175,6 +203,8 @@ def _follow_suggested(device, settings: NotificationsSettings, stats, notifier) 
 
     for suggestion in suggestions[:budget]:
         if activity.follow_suggested_account(suggestion["name"]):
+            if _refused(device, "follow", suggestion["name"]):
+                return
             stats["suggested_followed"] += 1
             _emit(notifier, "send", "suggested_followed", name=suggestion["name"])
 

@@ -2,7 +2,9 @@
 
 import time
 import json
-from taktik.core.shared.diagnostics import capture_screen_snapshot
+from taktik.core.shared.diagnostics import capture_screen_snapshot, run_halt
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.social_media.instagram.ui.detectors.action_block import detector_of
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from typing import Dict, Any, Optional
 
@@ -261,28 +263,12 @@ class DirectNavigationMixin:
         one. Five stops filed as `navigation_lost` were this dialog, kept on disk the whole time
         by the screen captures nobody could find.
         """
-        detector = getattr(getattr(self, 'nav_actions', None), 'problematic_page_detector', None)
-        if detector is None or not hasattr(detector, 'is_action_blocked'):
+        if run_halt.arret_demande():
+            return stop_reasons.for_halt(run_halt.arret_demande())
+        if not look_for_action_block(detector_of(self), after='list navigation',
+                                     target=account_username or ''):
             return stop_reasons.navigation_lost()
-        try:
-            blocked = detector.is_action_blocked()
-        except Exception as exc:  # noqa: BLE001 — a diagnosis must never end a run itself
-            self.logger.debug(f"Could not read the screen for a block: {exc}")
-            return stop_reasons.navigation_lost()
-        if not blocked:
-            return stop_reasons.navigation_lost()
-
-        self.logger.error(
-            "🛑 Instagram is rate-limiting this account (\"Try again later\") — stopping instead "
-            "of retrying"
-        )
-        emit_step('account_restriction', action='action_blocked', target=account_username or '')
-        self._record_restriction_signal(
-            account_username=account_username, source_name=source_name,
-            source_followers=source_followers, streak=None,
-            encounter_order=encounter_order, jump_index=None, gestures=None,
-            signal="action_blocked",
-        )
+        # The account's health history is written by the latch's witness, not here.
         return stop_reasons.action_blocked()
 
     def _restart_app_and_reopen(self, target_username, stats, config, deep_link_percentage,

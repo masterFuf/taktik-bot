@@ -49,6 +49,8 @@ class FeedInterruptionsMixin:
         if follow_back:
             self.logger.info("👤 Following back suggested user")
             if self.click.click_follow_back():
+                if self._stop_if_action_blocked('', 'follow back'):
+                    return True
                 self.stats.suggestions_handled += 1
                 self.stats.users_followed += 1
                 self._send_stats_update()

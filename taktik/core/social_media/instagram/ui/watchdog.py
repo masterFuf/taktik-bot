@@ -124,6 +124,11 @@ class WorkflowWatchdog:
                                    data={"recoveries": self._recovery_count})
                     continue
 
+                # A block is never "recovered": its OK is acting again. The production detector
+                # decides, sets the run's latch, and the workflow stops at its next check.
+                if self._block_on_screen():
+                    continue
+
                 # ── Perform UI dump & analysis ──
                 analysis = self._analyze_current_screen()
                 if analysis:
@@ -138,6 +143,21 @@ class WorkflowWatchdog:
 
             except Exception as e:
                 log.error(f"🐕 Watchdog error: {e}")
+
+    def _block_on_screen(self) -> bool:
+        """Is Instagram refusing actions ("Try again later")? Reads only, never raises."""
+        try:
+            from .detectors.problematic_page import ProblematicPageDetector
+
+            blocked = bool(ProblematicPageDetector(self.device).is_action_blocked())
+        except Exception as exc:  # noqa: BLE001
+            log.debug(f"🐕 Block check failed: {exc}")
+            return False
+        if blocked:
+            log.error("🐕 Rate-limit dialog on screen: left open, the run stops")
+            self._send_ipc("action_event", action="action_blocked", username="", success=False,
+                           data={})
+        return blocked
 
     def _analyze_current_screen(self) -> Optional[Dict[str, Any]]:
         """Dump UI hierarchy and analyze what's on screen."""

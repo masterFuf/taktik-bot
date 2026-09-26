@@ -11,7 +11,11 @@ from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 # The popup families and the unlabelled dialog belong to the detection layer, which also reads
 # them on a screen photo (`read_screen`); `unlabelled_overlay_region` stays importable from here.
-from ....atomic.detection.screen_reading import popup_families, unlabelled_overlay_region
+from ....atomic.detection.screen_reading import (
+    note_action_block,
+    popup_families,
+    unlabelled_overlay_region,
+)
 
 # The OCR behind an unlabelled dialog costs a screenshot and a Tesseract pass: at most one try in
 # this window, however often the chain runs.
@@ -74,6 +78,11 @@ class PopupHandler:
 
         _note_screen(xml)
 
+        # A refusal is never a popup to close: closing it is acting again. Seeing it sets the
+        # run's stop latch; the handler leaves it on screen.
+        if note_action_block(tree):
+            return {'action_blocked'}
+
         def hit(selectors):
             for xp in (selectors if isinstance(selectors, list) else [selectors]):
                 try:
@@ -127,6 +136,10 @@ class PopupHandler:
 
         # ── Fast exit: screen is clean ────────────────────────────────
         if not detected:
+            return False
+
+        if 'action_blocked' in detected:
+            self.logger.error("🛑 TikTok refuses the account's actions: left on screen, the run stops")
             return False
 
         # ── Handle in priority order ──────────────────────────────────

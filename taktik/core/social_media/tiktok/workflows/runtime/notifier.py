@@ -28,8 +28,9 @@ class LoggingWorkflowNotifier:
     def log(self, level: str, message: str) -> None:
         logger.info(message)
 
-    def status(self, status: str, message: str = "") -> None:
-        logger.info(f"[{status}] {message}")
+    def status(self, status: str, message: str = "", **extra: Any) -> None:
+        reason = extra.get("completion_reason")
+        logger.info(f"[{status}] {message}" + (f" ({reason})" if reason else ""))
 
 
 class WorkflowNotifierProxy:

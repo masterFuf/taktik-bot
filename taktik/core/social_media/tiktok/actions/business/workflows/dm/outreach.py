@@ -12,6 +12,8 @@ from typing import Any, Callable, Optional
 
 from loguru import logger
 
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.tiktok import TikTokManager
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
@@ -29,6 +31,10 @@ CONVERSATION_OPENED = "opened"
 NO_MESSAGE_ENTRY = "no_message_entry"
 #: Failure: no Message entry, and the screen is no longer a profile.
 UNEXPECTED_SCREEN = "unexpected_screen"
+
+
+#: TikTok refused the send: the run stops, the refusal stays on screen.
+ACTION_BLOCKED = "action_blocked"
 
 
 class TikTokDMOutreachWorkflow:
@@ -172,11 +178,24 @@ class TikTokDMOutreachWorkflow:
             return False
 
         if self.dm_actions.send_text_message(message):
+            # The one look after a write: a refused send is not a sent DM, and the run stops.
+            if look_for_action_block(self._block_detector(), after="dm"):
+                return ACTION_BLOCKED
             logger.info("DM sent successfully")
             return True
 
         logger.warning("Failed to send DM")
         return False
+
+    def _block_detector(self):
+        """The production block detector on this run's device (None before `connect`)."""
+        if self.device is None:
+            return None
+        from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import (
+            DetectionActions,
+        )
+
+        return DetectionActions(self.device)
 
     def go_home(self) -> None:
         logger.info("Navigating to home...")
@@ -241,6 +260,9 @@ class TikTokDMOutreachWorkflow:
         total_to_process = min(len(filtered_recipients), max_dms)
 
         for index, recipient in enumerate(filtered_recipients[:max_dms]):
+            if run_halt.arret_demande():
+                logger.warning(f"Run stop requested ({run_halt.arret_demande().get('code')}): no more DMs")
+                break
             if self.dms_sent >= max_dms:
                 logger.info(f"Reached max DMs limit: {max_dms}")
                 break
@@ -258,6 +280,9 @@ class TikTokDMOutreachWorkflow:
             try:
                 should_delay = self._process_recipient(recipient, messages, account_id, session_id, message_provider)
                 self._send_stats()
+                if run_halt.arret_demande():
+                    # No way home: its Back would close the dialog, which is acting again.
+                    break
                 self.go_home()
 
                 if should_delay and index < total_to_process - 1:
@@ -276,8 +301,10 @@ class TikTokDMOutreachWorkflow:
                 _notify(self.notifier, "dm_result", username=recipient, success=False, error=str(exc))
                 self.go_home()
 
+        halt = run_halt.arret_demande()
         return {
             "success": True,
+            **({"stop_reason": halt.get("code")} if halt else {}),
             "dms_sent": self.dms_sent,
             "dms_success": self.dms_success,
             "dms_failed": self.dms_failed,
@@ -360,6 +387,11 @@ class TikTokDMOutreachWorkflow:
 
         send_result = self.send_dm(message)
 
+        if send_result == ACTION_BLOCKED:
+            self.dms_failed += 1
+            _notify(self.notifier, "dm_result", username=recipient, success=False,
+                    error="TikTok refuses the message", stop_reason=ACTION_BLOCKED)
+            return False
         if send_result == "privacy_blocked":
             logger.warning(f"Privacy blocked for @{recipient}")
             self.privacy_blocked += 1

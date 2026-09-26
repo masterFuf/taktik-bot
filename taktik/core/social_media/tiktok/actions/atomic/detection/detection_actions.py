@@ -11,7 +11,8 @@ from loguru import logger
 
 from .video_detector import VideoDetector
 from .popup_detector import PopupDetector
-from .screen_reading import ScreenReading
+from .screen_reading import ScreenReading, note_action_block
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
@@ -49,6 +50,19 @@ class DetectionActions(ScreenReading, VideoDetector, PopupDetector):
         # Fallback: check for home tab selected
         return self._element_exists(self.navigation_selectors.home_tab_selected, timeout=1,
                                     screen=screen)
+
+    def is_action_blocked(self) -> bool:
+        """Is TikTok refusing the account's actions right now? One dump, closes nothing.
+
+        Seeing it sets the run's stop latch (`run_halt.ACTION_BLOCKED`), whoever asked: every
+        loop that decides to continue reads it. A screen that cannot be read is not a block.
+        """
+        try:
+            tree = parse_ui_dump(self.device.dump_hierarchy(compressed=False))
+        except Exception as exc:  # noqa: BLE001
+            self.logger.debug(f"Block check: no dump ({exc})")
+            return False
+        return note_action_block(tree)
 
     def is_on_inbox_page(self, screen=None) -> bool:
         """Check if currently on Inbox page.

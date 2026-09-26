@@ -35,6 +35,7 @@ from typing import Callable, List, Optional
 from loguru import logger
 
 from taktik.core.clone import get_active_package
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.shared.device.media_store import (
     purge_pushed_media,
     push_media,
@@ -340,7 +341,11 @@ class InstagramPostWorkflow:
             if not self._tap(CC.share_button_xpaths(), timeout=6):
                 return self._error("share_not_found", "Share button not found")
 
-        if not self._wait_for_publish_commit():
+        committed = self._wait_for_publish_commit()
+        # The one look after a write: a refused publication is not a timeout.
+        if look_for_action_block(self._block_detector(), after="publish"):
+            return self._error("action_blocked", "Instagram refuses the publication (Try again later)")
+        if not committed:
             return self._error(
                 "publish_not_committed",
                 "Instagram did not appear to finish publishing before timeout",
@@ -385,7 +390,10 @@ class InstagramPostWorkflow:
                 return self._error("share_not_found", "'Your story' button not found")
         # The same kind of window can also follow the share.
         self._acknowledge_information_windows(wait_s=4.0)
-        if not self._wait_for_publish_commit():
+        committed = self._wait_for_publish_commit()
+        if look_for_action_block(self._block_detector(), after="story publish"):
+            return self._error("action_blocked", "Instagram refuses the story (Try again later)")
+        if not committed:
             return self._error("publish_not_committed", "Story publish did not confirm before timeout")
         self._status("success", "Story published successfully")
         self._log("info", "Instagram story published")
@@ -558,6 +566,10 @@ class InstagramPostWorkflow:
         if tags:
             parts.append(" ".join(tags))
         return "\n".join(parts)
+
+    def _block_detector(self):
+        """The production block detector the navigation actions carry (None without them)."""
+        return getattr(self._a.get("nav"), "problematic_page_detector", None)
 
     def _error(self, error_type: str, message: str) -> dict:
         self._log("error", message)

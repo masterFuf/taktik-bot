@@ -17,6 +17,15 @@ def read_screen(a, p):
     return {"success": screen.recognised, "message": screen.kind, "details": details}
 
 
+@action("tt.detection.is_action_blocked")
+def is_action_blocked(a, p):
+    """Is TikTok refusing the account's actions now? Reads only (production
+    `DetectionActions.is_action_blocked`, the look every TikTok writing path makes)."""
+    blocked = bool(a.detection.is_action_blocked())
+    logger.info(f"Action blocked: {blocked}")
+    return {"success": True, "message": f"blocked={blocked}", "details": {"blocked": blocked}}
+
+
 @action("tt.detection.is_for_you")
 def is_for_you(a, p):
     result = a.detection.is_on_for_you_page()

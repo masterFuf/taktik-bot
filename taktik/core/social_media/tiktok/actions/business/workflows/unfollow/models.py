@@ -14,6 +14,8 @@ SKIP_FOLLOW_DATE_UNKNOWN = "follow_date_unknown"
 #: A tap the row did not confirm, and the run stop it leads to when it repeats.
 NOT_CONFIRMED = "not_confirmed"
 STOP_UNFOLLOW_UNCONFIRMED = "unfollow_unconfirmed"
+#: TikTok refused the unfollow: the run stops at the first refusal.
+STOP_ACTION_BLOCKED = "action_blocked"
 
 
 @dataclass

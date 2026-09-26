@@ -81,6 +81,11 @@ class ForYouWorkflow(FeedInterruptionsMixin, BaseVideoWorkflow):
                 if self._handle_popups(screen):
                     screen = self.detection.read_screen()
 
+                # A refusal seen last turn: stop before the sheets and suggestions are touched.
+                if self._halted():
+                    self._check_limits_reached()
+                    break
+
                 # Check for comments section accidentally opened
                 if self._handle_comments_section(screen):
                     decision.finish(kind="comments")

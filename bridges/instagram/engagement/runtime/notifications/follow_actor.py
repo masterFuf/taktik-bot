@@ -23,6 +23,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.diagnostics import run_halt
 
 FOLLOW_ACTOR_ACTION = "follow_actor"
 
@@ -48,6 +49,10 @@ def follow_actor(device, username: str) -> Dict[str, Any]:
 
     from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
     from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+    from taktik.core.shared.diagnostics.action_block import look_for_action_block
+    from taktik.core.social_media.instagram.ui.detectors.problematic_page import (
+        ProblematicPageDetector,
+    )
 
     nav = NavigationActions(device)
     clicks = ClickActions(device)
@@ -69,13 +74,18 @@ def follow_actor(device, username: str) -> Dict[str, Any]:
                     "state": state, "message": f"@{handle} — relationship unreadable, left alone"}
 
         followed = bool(clicks.follow_user(handle))
+        if look_for_action_block(ProblematicPageDetector(device), after="follow", target=handle):
+            return {"success": False, "state": state, "stop_reason": "action_blocked",
+                    "error": f"Instagram refuses the follow of @{handle} (Try again later)"}
         return ({"success": True, "state": state, "message": f"followed @{handle}"} if followed
                 else {"success": False, "state": state, "error": f"Could not follow @{handle}"})
     except Exception as exc:  # noqa: BLE001
         logger.error(f"[NOTIF] follow_actor @{handle} failed: {exc}")
         return {"success": False, "error": str(exc)}
     finally:
-        _return_home(device, nav)
+        # After a block the dialog stays: Back would close it, which is acting again.
+        if not run_halt.arret_demande():
+            _return_home(device, nav)
 
 
 def _return_home(device, nav) -> None:

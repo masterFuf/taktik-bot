@@ -23,6 +23,7 @@ from bridges.instagram.engagement.runtime.notifications.persistence import (
     dm_conversation_exists,
 )
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.diagnostics import run_halt
 
 WELCOME_DM_ACTION = "welcome_dm"
 
@@ -100,6 +101,9 @@ def send_welcome_dm(device, recipient: str, message: str) -> Dict[str, Any]:
         result = ({"success": True, "message": f"welcome DM sent to @{recipient}"} if sent
                   else {"success": False, "error": "Could not send the DM (private profile, "
                                                   "no Message button, or composer not found)"})
+    # `send_dm` looks for the block after its send; the dialog then stays (Back would close it).
+    if run_halt.arret_demande():
+        return result
     _return_home(device)
     return result
 

@@ -20,6 +20,8 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.dm_inbox.persistence import (
     account_id_for_send,
@@ -164,7 +166,15 @@ def _send(runtime, username: str, message: str) -> dict[str, Any]:
         if not runtime.open_conversation(username):
             return _failure(f"Cannot find conversation with {username}")
 
-    if not runtime.send_message(message):
+    sent = runtime.send_message(message)
+    # The one look after a write. Refused, nothing is recorded and the dialog stays on screen
+    # (the way back to the inbox would close it, which is acting again).
+    device = getattr(runtime, "device", None)
+    if device is not None and look_for_action_block(ProblematicPageDetector(device), after="dm",
+                                                    target=username):
+        return {**_failure("Instagram refuses the message (Try again later)"),
+                "stop_reason": "action_blocked"}
+    if not sent:
         return _failure("Failed to send message")
 
     return_to_inbox(runtime)

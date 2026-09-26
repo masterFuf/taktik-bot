@@ -18,6 +18,8 @@ from taktik.core.shared.behavior.interaction_plan import (
 )
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from ....ui.detectors.action_block import detector_of
 from taktik.core.shared.behavior.dwell import story_dwell
 from ...atomic.story_state import compare_slides, observe_slide
 
@@ -419,27 +421,10 @@ class InteractionEngineMixin:
     def _stop_if_action_blocked(self, username: str, action: str) -> bool:
         """After a write: is Instagram refusing it ("Try again later")? True means stop acting.
 
-        The detector sets the run's lock itself (`run_halt.ACTION_BLOCKED`), so every loop stops
-        at its next `should_continue`; this answer lets the current profile stop at once instead of
-        trying its next action. One dump per call, none when the lock is already set. Never
-        raises: a check that cannot read the screen is not a block.
+        The one look (`ui/detectors/action_block.py`); the detector sets the run's lock itself,
+        so every loop stops at its next `should_continue`.
         """
-        if run_halt.arret_demande():
-            # Already seen (inside the like loop, by the comment action, during navigation):
-            # no second dump for the same answer.
-            return True
-        detector = getattr(getattr(self, 'nav_actions', None), 'problematic_page_detector', None)
-        if detector is None or not hasattr(detector, 'is_action_blocked'):
-            return False
-        try:
-            blocked = bool(detector.is_action_blocked())
-        except Exception as exc:  # noqa: BLE001
-            self.logger.debug(f"Block check after {action} failed: {exc}")
-            return False
-        if blocked:
-            self.logger.error(f"🛑 Instagram refuses the {action} on @{username} (\"Try again later\") — stopping")
-            emit_step('account_restriction', action='action_blocked', target=username, after=action)
-        return blocked
+        return look_for_action_block(detector_of(self), after=action, target=username)
 
     def _profile_header_actions_visible(
         self,

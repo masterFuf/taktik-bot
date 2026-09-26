@@ -25,7 +25,10 @@ from loguru import logger
 from ....core.base_business import BaseBusinessAction
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.social_media.instagram.ui.detectors.action_block import detector_of
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
@@ -415,49 +418,18 @@ class UnfollowBusiness(
         time.sleep(delay)
 
     def _action_blocked_reason(self):
-        """The stop reason when Instagram shows its rate-limit dialog now, else None.
+        """The stop reason when the run must stop acting now, else None.
 
-        The same read and the same reason as the followers workflow when it loses its list
-        (`is_action_blocked`, `stop_reasons.action_blocked`): one detection, one rule, the first
-        sign stops the session. The signal is also stored with the account's restriction
-        history. Reading only: the dialog is left on screen, closing it would be acting again.
+        The one look after a write (`look_for_action_block`, the same detector as every other
+        writing path): the first "Try again later" stops the session. The dialog is left on
+        screen, closing it would be acting again. The account's health history is written by the
+        latch's witness, not here. A halt already set for another cause keeps its own motive.
         """
-        detector = getattr(getattr(self, 'nav_actions', None), 'problematic_page_detector', None)
-        if detector is None or not hasattr(detector, 'is_action_blocked'):
-            return None
-        try:
-            if not detector.is_action_blocked():
-                return None
-        except Exception as exc:  # noqa: BLE001 - a diagnosis must never end a run itself
-            self.logger.debug(f"Could not read the screen for a block: {exc}")
-            return None
-
         account_username = getattr(getattr(self, 'automation', None), 'active_username', None)
-        self.logger.error(
-            "🛑 Instagram is rate-limiting this account (\"Try again later\") after an unfollow — "
-            "stopping the session"
-        )
-        emit_step('account_restriction', action='action_blocked', target=account_username or '')
-        if account_username and account_username != 'unknown':
-            try:
-                from taktik.core.database.local.service import get_local_database
-
-                get_local_database().account_restrictions.record_signal(
-                    account_username,
-                    platform="instagram",
-                    signal="action_blocked",
-                    source_type="UNFOLLOW",
-                    source_name=None,
-                    source_followers=None,
-                    streak=None,
-                    encounter_order=None,
-                    jump_index=None,
-                    gestures=None,
-                    session_id=self._get_session_id(),
-                )
-            except Exception as exc:  # noqa: BLE001 - losing a measurement must not lose the run
-                self.logger.debug(f"Could not persist the restriction signal: {exc}")
-        return stop_reasons.action_blocked()
+        if not look_for_action_block(detector_of(self), after='unfollow', target=account_username or ''):
+            return None
+        halt = run_halt.arret_demande()
+        return stop_reasons.for_halt(halt) if halt else stop_reasons.action_blocked()
 
     def _wait_row_unfollowed(self, username: str, timeout: Optional[float] = None) -> str:
         """The row state of @username, read until it offers to follow or `timeout` elapses.

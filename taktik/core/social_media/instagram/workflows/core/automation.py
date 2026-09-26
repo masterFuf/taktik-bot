@@ -10,6 +10,8 @@ from pathlib import Path
 from loguru import logger
 
 from .....database import InstagramProfile, get_db_service
+from .....database.account_health import witness_for
+from taktik.core.shared.diagnostics import run_halt
 from ..management.session import stop_reasons
 from ..management.session import SessionManager
 from ...actions.core.base_action import BaseAction
@@ -306,6 +308,18 @@ class InstagramAutomation:
             return {}
         return get_db_service().get_today_totals(account_id)
 
+    def _install_health_witness(self) -> None:
+        """A block seen anywhere in this run becomes one entry of the account's health history.
+
+        Readers, not values: the account and the session are resolved after this point.
+        """
+        run_halt.configurer_temoin(witness_for(
+            'instagram',
+            lambda: self.active_username,
+            source_type=lambda: str((self.config.get('session_settings') or {}).get('workflow_type') or '').upper() or None,
+            session_id=lambda: getattr(self, 'current_session_id', None),
+        ))
+
     def _create_workflow_session(self, action_override: Dict[str, Any] = None) -> Optional[int]:
         return self.helpers.create_workflow_session(action_override)
 
@@ -328,6 +342,7 @@ class InstagramAutomation:
             
         self.update_session_manager_config()
         self.session_finalized = False  # Reset flag at start
+        self._install_health_witness()
         self.logger.info("=== Starting Instagram automation session ===")
         
         session_id = self.helpers.initialize_session()

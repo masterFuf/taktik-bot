@@ -25,6 +25,7 @@ from taktik.core.app.ai.spend import AI_SPEND_HASHTAGS
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.database import get_db_service
+from taktik.core.database.account_health import witness_for
 from taktik.core.app.ai.comments.comment_ai import UserProfile
 from taktik.core.agent.decision.agent_ai import AgentAI
 from taktik.core.agent.io.manifest import load_workflow_manifest
@@ -131,6 +132,9 @@ class TaktikAgentWorkflow:
     def run(self) -> Dict[str, Any]:
         """Run the Taktik Agent session. Returns final stats."""
         self._session_start = time.time()
+        # A block seen anywhere in this run becomes one entry of the account's health history.
+        run_halt.configurer_temoin(witness_for(
+            "instagram", lambda: self._bot_username, source_type=lambda: "AGENT"))
 
         try:
             # Step 0: the app's language, before any localized selector (AGENTS.md invariant).
@@ -958,22 +962,14 @@ class TaktikAgentWorkflow:
     def _block_seen(self, action: str) -> bool:
         """After a write: is Instagram refusing it ("Try again later")? One dump, never raises.
 
-        The detector sets the run's lock itself (`run_halt.ACTION_BLOCKED`), which
-        `_should_stop` reads: one sighting ends the session (2026-09-24).
+        The one look of every Instagram writing path (`look_for_action_block`); the detector sets
+        the run's lock, which `_should_stop` reads: one sighting ends the session.
         """
-        if run_halt.arret_demande():
-            return True  # already seen (inside a like loop, a comment, a navigation): no dump
-        try:
-            from taktik.core.social_media.instagram.ui.detectors.problematic_page import (
-                ProblematicPageDetector,
-            )
-            blocked = bool(ProblematicPageDetector(self.device).is_action_blocked())
-        except Exception as exc:
-            logger.debug(f"[TaktikAgent] block check after {action} failed: {exc}")
-            return False
-        if blocked:
-            logger.error(f"[TaktikAgent] Instagram refuses the {action} (\"Try again later\") — stopping")
-        return blocked
+        from taktik.core.shared.diagnostics.action_block import look_for_action_block
+        from taktik.core.social_media.instagram.ui.detectors.problematic_page import (
+            ProblematicPageDetector,
+        )
+        return look_for_action_block(ProblematicPageDetector(self.device), after=action)
 
     def _should_stop(self, deadline: float) -> bool:
         if self._stop_requested:
