@@ -1,11 +1,9 @@
 """Instagram publish bridge runtime class.
 
-Scaffold of the Instagram publish bridge (see
-`docs/instagram/publish-electron-to-bot-migration.md`). The bridge contract,
-device connection and per-`postType` dispatch are in place; each flow body
-(post / reel / carousel / story) is ported from the Electron services
-incrementally and validated on device. Until a flow is ported, it returns a
-clear terminal error and the Electron path remains the active publisher.
+The one Instagram publisher of the desktop app: post, reel, carousel and story all go
+through this bridge, which connects the device, delegates to `InstagramPostWorkflow`
+and translates its result into JSON events. The config file carries `deviceId`,
+`mediaPaths` (or `localPath`), `caption`, `hashtags`, `postType` and `packageName`.
 """
 
 from __future__ import annotations
@@ -82,7 +80,7 @@ class InstagramPublishBridge:
             except Exception:
                 pass
 
-    # --- Flow owners (ported incrementally from the Electron publish services) ---
+    # --- Flow owners, one per postType ---
 
     def _run_post(self) -> int:
         return self._publish("post")

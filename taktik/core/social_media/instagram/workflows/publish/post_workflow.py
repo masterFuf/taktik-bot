@@ -17,6 +17,9 @@ The flow reproduces, step by step, the sequence validated through the diagnostic
   8. Tape "Share".
   9. wait for the composer to close, which commits the share
 
+The story has its own tail: the editor's "Your story" button, reached past Instagram's information
+windows (a promo dialog closed with its "OK", never its settings action).
+
 Every selector comes from
 `taktik/core/social_media/instagram/ui/selectors/surfaces/content_creation.py`.
 The publish bridge is only an adapter
@@ -39,6 +42,10 @@ from taktik.core.shared.device.media_store import (
     trigger_media_scan,
 )
 from taktik.core.shared.device.permissions import allow_prompts_this_time_only
+from taktik.core.social_media.instagram.actions.atomic.interaction.information_window import (
+    InformationWindows,
+    acknowledge_information_windows,
+)
 from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation import (
     CONTENT_CREATION_SELECTORS as CC,
 )
@@ -93,6 +100,8 @@ class InstagramPostWorkflow:
         self.story_via_feed = bool(story_via_feed)
         # Android permission prompts answered "Only this time" during this run.
         self.permission_prompts_answered = 0
+        # Instagram information windows closed with their acknowledgement during this run.
+        self.information_windows_acknowledged = 0
         self._a = self._build_actions(device)
 
     # ------------------------------------------------------------------
@@ -344,7 +353,7 @@ class InstagramPostWorkflow:
 
     def _publish_story(self, stop_before_share: bool = False) -> dict:
         """Story flow: enter (create '+' STORY tab OR feed tray) -> gallery -> select ->
-        'Your story' -> dismiss the one-time story-to-story promo modal."""
+        'Your story', each information window acknowledged on the way."""
         if self.story_via_feed:
             err = self._open_story_from_feed_tray()
         else:
@@ -355,6 +364,10 @@ class InstagramPostWorkflow:
         if not self._tap(CC.first_gallery_item_xpath(), timeout=6):
             return self._error("gallery_item_not_found", "Could not select media for story")
         time.sleep(1.0)
+        # The editor can open under an information window that covers "Your story".
+        windows = self._acknowledge_information_windows(CC.story_publish_xpaths())
+        if not windows.ok:
+            return self._information_window_error(windows)
         if stop_before_share:
             if not self._present(CC.story_publish_xpaths(), timeout=6):
                 return self._error("share_not_found", "'Your story' button not found")
@@ -364,10 +377,14 @@ class InstagramPostWorkflow:
 
         self._status("publishing", "Publishing story...")
         if not self._tap(CC.story_publish_xpaths(), timeout=6):
-            return self._error("share_not_found", "'Your story' button not found")
-        # One-time "Introducing story-to-story sharing" promo can appear after publish.
-        if self._tap(CC.story_share_promo_dismiss_xpaths(), timeout=4):
-            self._log("info", "Dismissed story-to-story sharing promo")
+            # A window that came up after the button showed: acknowledged, then one more try.
+            windows = self._acknowledge_information_windows(CC.story_publish_xpaths())
+            if not windows.ok:
+                return self._information_window_error(windows)
+            if not (windows.acknowledged and self._tap(CC.story_publish_xpaths(), timeout=6)):
+                return self._error("share_not_found", "'Your story' button not found")
+        # The same kind of window can also follow the share.
+        self._acknowledge_information_windows(wait_s=4.0)
         if not self._wait_for_publish_commit():
             return self._error("publish_not_committed", "Story publish did not confirm before timeout")
         self._status("success", "Story published successfully")
@@ -402,6 +419,24 @@ class InstagramPostWorkflow:
         return self._error(
             "permission_prompt_unanswered",
             f"Android permission prompt left unanswered ({outcome.unanswered}): {outcome.question}",
+        )
+
+    def _acknowledge_information_windows(self, unless_on_screen=(), wait_s: float = 6.0) -> InformationWindows:
+        """Close Instagram's information windows through their acknowledgement ("OK"), never a
+        settings action. Stops waiting as soon as `unless_on_screen` shows: nothing touched then."""
+        outcome = acknowledge_information_windows(
+            self._a["click"].device,
+            unless_on_screen=unless_on_screen,
+            wait_s=wait_s,
+            log=self._log,
+        )
+        self.information_windows_acknowledged += outcome.acknowledged
+        return outcome
+
+    def _information_window_error(self, windows: InformationWindows) -> dict:
+        return self._error(
+            "information_window_unanswered",
+            f"Instagram window left on screen, its primary action does not acknowledge: {windows.left_on_screen}",
         )
 
     # ------------------------------------------------------------------

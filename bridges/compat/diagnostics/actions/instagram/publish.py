@@ -218,15 +218,6 @@ def publish_tap_your_story(a, p):
     return _result(ok, "Your story clique", "Your story introuvable", selector="your_story")
 
 
-@action("publish.dismiss_story_promo")
-def publish_dismiss_story_promo(a, p):
-    """Dismiss the one-time 'Introducing story-to-story sharing' promo shown after a
-    story is published (igds headline -> OK). Non-blocking: it only appears the first time."""
-    ok = a.click._find_and_click(CC.story_share_promo_dismiss_xpaths(), timeout=4)
-    return {"success": True, "message": "promo story-to-story fermee" if ok else "pas de promo story",
-            "details": {"dismissed": ok}}
-
-
 @action("publish.open_story_from_feed")
 def publish_open_story_from_feed(a, p):
     """2nd story-entry method: tap our own bubble in the feed reels tray ("Add to story")
