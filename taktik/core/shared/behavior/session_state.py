@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import random
 from typing import Any, Deque, Dict, Optional, Sequence
 
+from taktik.core.shared.behavior.breaks import actions_until_break, session_tempo, spacing_bounds
 from taktik.core.shared.behavior.grid_entry import row_weights
 from taktik.core.shared.behavior.sampling import sample_within
 from taktik.core.shared.telemetry import emit_step
@@ -124,6 +125,8 @@ class BehaviorSessionState:
         self._motor_signature = self._sample_motor_signature()
         self._energy = self._sample_energy()
         self._like_appetite: Optional[float] = None
+        self._break_stream: Optional[random.Random] = None
+        self._break_tempo = 1.0
         self._style: Optional[str] = None
         self._burst_remaining = 0
         self._gesture_index = 0
@@ -163,6 +166,7 @@ class BehaviorSessionState:
             self._motor_signature = self._sample_motor_signature()
             self._energy = self._sample_energy()
             self._like_appetite = None
+            self._break_stream = None
         if strict_changed:
             # Preserve the recorded history, but make the next decisions obey the newly selected
             # execution mode immediately. Leaving strict mode starts a fresh natural burst.
@@ -337,6 +341,26 @@ class BehaviorSessionState:
             self._like_appetite = round(0.85 * (2.0 * stream.betavariate(2.0, 2.0) - 1.0), 3)
             emit_step("behavior", action="like_appetite", appetite=self._like_appetite)
         return self._like_appetite
+
+    def actions_until_break(self, every):
+        """Actions before this session's next break, for a configured mean spacing `every`.
+
+        A count drawn around `every` (`breaks.actions_until_break`), scaled by a tempo drawn once
+        per session, instead of a break on every `every`-th action. Its own RNG stream, so a
+        seeded gesture decision is never shifted. Strict regression runs, and a count below 1,
+        keep `every` as given.
+        """
+        if (self.strict_regression or isinstance(every, bool)
+                or not isinstance(every, (int, float)) or every < 1):
+            return every
+        if self._break_stream is None:
+            self._break_stream = random.Random(
+                f"{self.seed}:breaks" if self.seed is not None else None
+            )
+            self._break_tempo = session_tempo(rng=self._break_stream)
+            emit_step("behavior", action="break_tempo", tempo=round(self._break_tempo, 3))
+        lo, hi = spacing_bounds(every)
+        return actions_until_break(every, lo, hi, tempo=self._break_tempo, rng=self._break_stream)
 
     def reading_scale(self, *, context: str) -> float:
         """Return and emit the current correlated dwell multiplier."""

@@ -24,7 +24,7 @@ from typing import Optional
 
 from loguru import logger
 
-from taktik.core.shared.device.media_store import push_and_scan
+from taktik.core.shared.device.media_store import purge_pushed_media, push_and_scan
 from taktik.core.shared.device.permissions import PermissionHandler, ALLOW_SELECTORS, DENY_SELECTORS
 from taktik.core.shared.device.wait import wait_for_any as _wait_for_any_shared, try_tap as _try_tap_shared
 from taktik.core.shared.input.taktik_keyboard import (
@@ -135,6 +135,12 @@ class YouTubeUploadWorkflow:
 
         try:
             # ── Step 1: push media to device ────────────────────────────────
+            # Reclaim what earlier runs pushed, as the Instagram post does.
+            try:
+                purge_pushed_media(self.device_id, log=_log)
+            except Exception as e:
+                _log("warning", f"Media purge skipped: {e}")
+
             _status("running", "Pushing media to device…")
             _log("info", f"📤 Pushing {os.path.basename(local_path)} to device")
             remote_path = push_and_scan(
