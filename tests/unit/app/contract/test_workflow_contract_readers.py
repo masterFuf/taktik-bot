@@ -51,10 +51,12 @@ def test_the_readers_read_the_declared_keys_and_no_other(contract):
     read(contract, payload)
     for item in contract.settings:
         if item.reader:
-            resolve(item.reader)(payload)
+            resolve(item.reader)(payload, **item.reader_kwargs)
 
     read_keys = {path[0] for path in log}
-    assert read_keys == names(contract.settings)
+    assert read_keys <= names(contract.settings), "a key read and not declared"
+    # Every wire key is read; an alias may be skipped once a name before it was given.
+    assert {item.key for item in contract.settings} <= read_keys
 
 
 @pytest.mark.parametrize("contract, item", SETTINGS)
@@ -64,6 +66,8 @@ def test_an_absent_key_takes_the_declared_default(contract, item):
     payload = payload_for(contract, {})
     if any(name in payload for name in item.names):
         pytest.skip("the run needs it here")
+    if item.reader and any(contract.setting(key).reader == item.reader for key in payload):
+        pytest.skip("its reader returns the key the run needs instead")
 
     assert value_of(contract, item, payload) == expected_default(item)
 

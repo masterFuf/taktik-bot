@@ -20,6 +20,7 @@ import pytest
 from contract_probe import DEVICE, Recording, probe
 from taktik.core.app.contract.schema import Field, ListOf, MapOf, OneOf, Shape, WorkflowContract, has_default
 from taktik.core.app.contract.tiktok import TIKTOK_DM_OUTREACH, TIKTOK_SCRAPING, TIKTOK_UNFOLLOW
+from taktik.core.app.contract.tiktok_automation import TIKTOK_FOR_YOU, TIKTOK_SEARCH
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 
@@ -34,13 +35,18 @@ def bridge_file(contract: WorkflowContract, **overrides: Any) -> Dict[str, Any]:
         if not item.app or item.by != "operator":
             continue
         plain = has_default(item) and not isinstance(item.default, tuple)
-        settings[item.key] = item.default if plain else probe(item)
-    settings.update(overrides)
+        settings[item.key] = overrides.pop(item.key, item.default if plain else probe(item))
     root: Dict[str, Any] = {}
     for item in contract.bridge_fields:
-        value = DEVICE if item.key in ("device_id", "deviceId") else {"enabled": True, "method": "data"}
+        if item.key in ("device_id", "deviceId"):
+            value = DEVICE
+        elif isinstance(item.type, OneOf):
+            value = item.type.values[0]
+        else:
+            value = {"enabled": True, "method": "data"}
         target = settings if item.key in contract.beside_settings or not contract.nest else root
-        target[item.key] = value
+        target[item.key] = overrides.pop(item.key, value)
+    assert not overrides, f"not in the declaration: {sorted(overrides)}"
     if contract.nest:
         root[contract.nest] = settings
         return root
@@ -153,8 +159,10 @@ def started(monkeypatch, bridge_module):
 
 
 def assert_reads(contract: WorkflowContract, data: Dict[str, Any], log: set) -> None:
-    unread = file_paths(data) - log
-    undeclared = log - declared_paths(contract)
+    # Below a field declared as an opaque object ("json"), what is read is that object's business.
+    opaque = {(item.key,) for item in contract.settings if item.type == "json"}
+    unread = {p for p in file_paths(data) if not (p[:1] in opaque and len(p) > 1)} - log
+    undeclared = {p for p in log if not (p[:1] in opaque and len(p) > 1)} - declared_paths(contract)
     assert not unread, f"keys of the file nobody reads: {sorted(unread)}"
     assert not undeclared, f"keys read and not declared: {sorted(undeclared)}"
 
@@ -311,3 +319,90 @@ def test_the_scraping_bridge_follows_its_contract(monkeypatch, lines):
     assert_reads(TIKTOK_SCRAPING, data, log)
     check_lines(TIKTOK_SCRAPING, lines)
     assert {line["type"] for line in lines} == {event.type for event in TIKTOK_SCRAPING.events}
+
+
+# ------------------------------------------------------------------ dispatcher: video workflows
+
+
+class _Video:
+    """A video workflow whose screen work answers from a script: each callback fires once."""
+
+    fail = False
+
+    def __init__(self, device, config):
+        self.config = config
+        self.callbacks = {}
+
+    def __getattr__(self, name):
+        if name.startswith("set_on_") and name.endswith("_callback"):
+            return lambda cb: self.callbacks.__setitem__(name[len("set_on_"):-len("_callback")], cb)
+        raise AttributeError(name)
+
+    def run(self):
+        from taktik.core.social_media.tiktok.actions.business.workflows._internal.models import VideoWorkflowStats
+
+        if self.fail:
+            raise RuntimeError("the feed did not open")
+        video = {"author": "alice", "description": "A caption", "like_count": "1.2K", "is_liked": False,
+                 "is_followed": False, "is_ad": False, "hashtags": ["cats"], "sound": "original sound",
+                 "watch_time": 4.2}
+        self.callbacks["video"](video)
+        self.callbacks["like"](video)
+        self.callbacks["follow"](video)
+        self.callbacks["stats"]({"videos_watched": 1, "videos_liked": 1, "users_followed": 1})
+        self.callbacks["pause"](30)
+        return VideoWorkflowStats(videos_watched=1, videos_liked=1, users_followed=1, completion_reason="feed_stuck")
+
+
+def _dispatcher(monkeypatch, runner_module):
+    import bridges.tiktok.workflows.runtime.dispatcher as dispatcher
+    from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+
+    monkeypatch.setattr(dispatcher, "force_stop_tiktok", lambda device_id: None)
+    start = TikTokStartup(device=object(), bot_username="acting")
+    monkeypatch.setattr(runner_module, "_startup", lambda device_id: lambda: start)
+    return dispatcher
+
+
+@pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
+def test_the_for_you_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
+    import bridges.tiktok.workflows.automation.for_you as runner
+    import taktik.core.social_media.tiktok.actions.business.workflows.for_you.workflow as workflow
+
+    dispatcher = _dispatcher(monkeypatch, runner)
+    monkeypatch.setattr(_Video, "fail", fail)
+    monkeypatch.setattr(workflow, "ForYouWorkflow", _Video)
+    data = bridge_file(TIKTOK_FOR_YOU)
+    log: set = set()
+
+    assert dispatcher.TikTokDispatcherBridge(Recording(data, log)).run() == (1 if fail else 0)
+
+    assert_reads(TIKTOK_FOR_YOU, data, log)
+    check_lines(TIKTOK_FOR_YOU, lines)
+    expected = {"status", "error"} if fail else {"status", "stats", "video_info", "action", "pause"}
+    assert {line["type"] for line in lines} == expected
+
+
+@pytest.mark.parametrize("workflow_type", ["search", "hashtag"])
+def test_the_search_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, workflow_type):
+    import bridges.tiktok.workflows.automation.search as runner
+    import taktik.core.social_media.tiktok.actions.business.workflows.search.agent_handler as launcher
+    import taktik.core.social_media.tiktok.actions.business.workflows.search.workflow as workflow
+
+    dispatcher = _dispatcher(monkeypatch, runner)
+    monkeypatch.setattr(_Video, "fail", False)
+    monkeypatch.setattr(workflow, "SearchWorkflow", _Video)
+    monkeypatch.setattr(launcher, "_return_home", lambda device: None)
+    data = bridge_file(TIKTOK_SEARCH, workflowType=workflow_type)
+    log: set = set()
+
+    assert dispatcher.TikTokDispatcherBridge(Recording(data, log)).run() == 0
+    # The hashtag list wins: the other query keys of the file are never reached.
+    later = {("searchQueries",), ("searchQuery",), *((a,) for a in TIKTOK_SEARCH.setting("searchQuery").aliases)}
+    assert_reads(TIKTOK_SEARCH, data, log | later)
+
+    from bridges.tiktok.runtime.ipc import send_error
+
+    send_error("Search workflow error: the search field did not open")
+    check_lines(TIKTOK_SEARCH, lines)
+    assert {line["type"] for line in lines} == {event.type for event in TIKTOK_SEARCH.events}
