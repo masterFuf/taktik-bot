@@ -10,10 +10,10 @@ media for the age purge.
 
 The story used to be declared published once the caption field was gone, a field its editor never
 shows: the verdict held whatever happened. It now reads the tray. The tray fixtures are real IG 410
-dumps (Lab corpus, French, handles replaced): our bubble whole with its badge, and the same bubble
-cut by the scroll, which must not pass for a story of ours. The bubble without its badge is built
-from the first one: the corpus has no dump of it yet (see the changelog for the Lab read that
-proves it on a phone).
+dumps (handles replaced): our bubble whole without a story (Lab corpus, French), the same bubble cut
+by the scroll, and a phone run in English with our story up then deleted. On IG 410 the "Add to
+story" badge stays on our bubble while the story is up: only its ring (`seen_state`) tells, and a
+verdict read on the badge never confirmed a story, so its media were never deleted.
 """
 
 import os
@@ -22,7 +22,6 @@ import types
 from pathlib import Path
 
 import pytest
-from lxml import etree
 
 from taktik.core.shared.device import media_store, pushed_media_registry
 from taktik.core.shared.device.snapshot import ScreenSnapshot
@@ -39,17 +38,9 @@ from taktik.core.social_media.instagram.workflows.publish.post_workflow import I
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 TRAY_EMPTY = (FIXTURES / "ig410_fr_feed_tray_own_story_empty.xml").read_text(encoding="utf-8")
 TRAY_SCROLLED = (FIXTURES / "ig410_fr_feed_tray_scrolled_off.xml").read_text(encoding="utf-8")
-
-
-def _without_badge(xml: str) -> str:
-    root = etree.fromstring(xml.encode("utf-8"))
-    for node in list(root.iter("node")):
-        if node.get("resource-id", "").endswith("reel_empty_badge"):
-            node.getparent().remove(node)
-    return etree.tostring(root, encoding="unicode")
-
-
-TRAY_POSTED = _without_badge(TRAY_EMPTY)
+# Phone run: our story up (badge AND ring), then the same tray once it was deleted (badge, no ring).
+TRAY_POSTED = (FIXTURES / "ig410_en_feed_tray_own_story_up.xml").read_text(encoding="utf-8")
+TRAY_EMPTY_EN = (FIXTURES / "ig410_en_feed_tray_own_story_deleted.xml").read_text(encoding="utf-8")
 
 
 def _screen(*nodes: str) -> str:
@@ -250,15 +241,37 @@ def test_the_tray_reads_our_bubble_on_real_dumps():
     workflow = Run(Phone(FEED))
 
     assert workflow._own_story_state(ScreenSnapshot(TRAY_EMPTY)) == "empty"
+    assert workflow._own_story_state(ScreenSnapshot(TRAY_EMPTY_EN)) == "empty"
     assert workflow._own_story_state(ScreenSnapshot(TRAY_POSTED)) == "posted"
-    # Cut by the scroll, the avatar has no badge either: never taken for a story of ours.
+    # Cut by the scroll, the avatar has no ring either: never read at all.
     assert workflow._own_story_state(ScreenSnapshot(TRAY_SCROLLED)) is None
     assert workflow._own_story_state(ScreenSnapshot(EDITOR)) is None
 
 
+def test_the_badge_stays_while_our_story_is_up():
+    """What the former read missed: the same bubble, badge and content-desc, with and without
+    our story. Only the ring differs."""
+
+    def bubble(xml):
+        [own] = ScreenSnapshot(xml).elements(CC.own_story_bubble_xpath())
+        return {(n.get("resource-id") or "").split("/")[-1]: n.get("content-desc")
+                for n in own.elem.iter()}
+
+    up, deleted = bubble(TRAY_POSTED), bubble(TRAY_EMPTY_EN)
+    assert "reel_empty_badge" in up and "reel_empty_badge" in deleted
+    assert up.pop("seen_state") == ""
+    assert up == deleted
+
+
+def test_other_bubbles_rings_are_not_ours():
+    """Every other bubble of the tray carries a ring: only ours is read."""
+    assert ScreenSnapshot(TRAY_EMPTY_EN).exists('//*[contains(@resource-id, "seen_state")]')
+    assert not ScreenSnapshot(TRAY_EMPTY_EN).exists(CC.own_story_ring_xpath())
+
+
 def test_a_story_is_published_when_our_bubble_turns_to_a_story(deletions):
-    # Before the share, then the feed while it uploads (the badge stays), then our story.
-    workflow, result = _publish(Phone(TRAY_EMPTY, EDITOR, TRAY_EMPTY, TRAY_POSTED), "story")
+    # Before the share, then the feed while it uploads (no ring yet), then our story.
+    workflow, result = _publish(Phone(TRAY_EMPTY_EN, EDITOR, TRAY_EMPTY_EN, TRAY_POSTED), "story")
 
     assert result["success"] is True
     assert result["confirmed"] is True
@@ -388,7 +401,9 @@ class RawPhone:
         return self.xml
 
 
-@pytest.mark.parametrize("xml, state", [(TRAY_EMPTY, "empty"), (TRAY_POSTED, "posted"), (TRAY_SCROLLED, None)])
+@pytest.mark.parametrize("xml, state", [(TRAY_EMPTY, "empty"), (TRAY_EMPTY_EN, "empty"), (TRAY_POSTED, "posted"),
+                                        (TRAY_SCROLLED, None)],
+                         ids=["empty_fr", "empty_en", "posted", "scrolled"])
 def test_the_lab_reads_our_bubble_with_the_production_step(xml, state):
     """Same id in the app's `actionCatalog`; the workflow's own read, no gesture."""
     from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions

@@ -94,8 +94,8 @@ def wait_upload_finished(a, p):
 
 @action("publish.read_own_story")
 def read_own_story(a, p):
-    """Read our own bubble of the feed tray (InstagramPostWorkflow._own_story_state): "empty"
-    (its "Add to story" badge), "posted" (seen whole, no badge), or unread (not on the feed, tray
+    """Read our own bubble of the feed tray (InstagramPostWorkflow._own_story_state): "posted"
+    (seen whole, its ring on), "empty" (seen whole, no ring), or unread (not on the feed, tray
     scrolled). Reads only, no gesture."""
     state = _post_workflow(a)._own_story_state()
     return {"success": state is not None, "message": f"own story: {state or 'not read'}",
@@ -105,7 +105,7 @@ def read_own_story(a, p):
 @action("publish.wait_story_published")
 def wait_story_published(a, p):
     """Publish gate: the story's verdict after "Your story" (InstagramPostWorkflow._wait_for_story_commit):
-    "confirmed" when our bubble goes from `before` ("empty") to a story of ours, "shared" when back
+    "confirmed" when our bubble goes from `before` ("empty") to its ring on, "shared" when back
     on the feed with nothing to compare, "not_committed" when the editor stays open. Reads only,
     except an information window over the feed, closed by its "OK".
     Params: before ("empty" or "posted", from `publish.read_own_story`), timeout (seconds, default 120)."""

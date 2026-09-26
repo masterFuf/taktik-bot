@@ -40,16 +40,19 @@ class ContentCreationSelectors:
     # Information windows over the story editor: `POPUP_SELECTORS.information_window*`.
 
     # === Feed story tray (second way to post a story: from the feed) ===
-    # The first bubble of the tray is our own story; when the ring is empty the badge
-    # `reel_empty_badge` porte content-desc "Add to story" et le label = "Your story".
+    # The first bubble of the tray is our own: label "Your story", badge `reel_empty_badge`
+    # (content-desc "Add to story"). On IG 410 the badge stays while a story of ours is up.
     reels_tray_container: str = 'com.instagram.android:id/reels_tray_container'
     reel_empty_badge: str = 'com.instagram.android:id/reel_empty_badge'
-    # Our own bubble in the tray: the `outer_container` whose label is "Your story", its avatar in
-    # `avatar_view`. Lab corpus IG 410: 407 dumps show it whole with the empty badge (no story up);
-    # the dumps without the badge all show the avatar cut by the scroll (6 px tall or absent), so a
-    # badge is only read on an avatar seen whole.
+    # Our own bubble in the tray: the `outer_container` with that label or badge, its avatar in
+    # `avatar_view`. The dumps without the badge all show the avatar cut by the scroll (6 px tall
+    # or absent), so the bubble is only read on an avatar seen whole.
     tray_item_container: str = 'com.instagram.android:id/outer_container'
     tray_avatar_view: str = 'com.instagram.android:id/avatar_view'
+    # The ring of a bubble: present on every bubble with a story, the only node that tells ours
+    # is up (phone dumps IG 410, story up then deleted: badge and content-desc unchanged). Lab
+    # corpus IG 410: all 917 other bubbles seen whole carry it; ours whole: 394 without, 13 with.
+    tray_story_ring: str = 'com.instagram.android:id/seen_state'
 
     # === Upload in progress, after the share (Lab dumps `publish.tap_share`, IG 410) ===
     # Post and carousel: the pending row at the top of the feed ("Posting to ...", "Keep Instagram
@@ -291,11 +294,12 @@ class ContentCreationSelectors:
         )
 
     def own_story_bubble_xpath(self) -> str:
-        """Our own bubble of the feed tray, found by its "Your story" label."""
-        labels = " or ".join(f'.//*[@text="{t}"]' for t in self.your_story_texts)
+        """Our own bubble of the feed tray, found by its "Your story" label or its badge."""
+        marks = [f'.//*[@text="{t}"]' for t in self.your_story_texts]
+        marks.append(f'.//*[contains(@resource-id, "{self.reel_empty_badge.split("/")[-1]}")]')
         return (
             f'{self._rid_xpath(self.reels_tray_container)}'
-            f'//*[contains(@resource-id, "{self.tray_item_container.split("/")[-1]}")][{labels}]'
+            f'//*[contains(@resource-id, "{self.tray_item_container.split("/")[-1]}")][{" or ".join(marks)}]'
         )
 
     def own_story_avatar_xpath(self) -> str:
@@ -305,11 +309,11 @@ class ContentCreationSelectors:
             f'//*[contains(@resource-id, "{self.tray_avatar_view.split("/")[-1]}")])[1]'
         )
 
-    def own_story_empty_badge_xpath(self) -> str:
-        """The "Add to story" badge of our own bubble: no story of ours is up."""
+    def own_story_ring_xpath(self) -> str:
+        """The ring of our own bubble: a story of ours is up."""
         return (
             f'{self.own_story_bubble_xpath()}'
-            f'//*[contains(@resource-id, "{self.reel_empty_badge.split("/")[-1]}")]'
+            f'//*[contains(@resource-id, "{self.tray_story_ring.split("/")[-1]}")]'
         )
 
     def pending_upload_xpaths(self) -> List[str]:
