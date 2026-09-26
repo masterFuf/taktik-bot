@@ -25,6 +25,20 @@ def advance_to_composer(a, p):
     return {"success": bool(ok), "message": f"advanced to composer={ok}"}
 
 
+@action("publish.answer_permission_prompts")
+def answer_permission_prompts(a, p):
+    """Publish gate: answer Android's camera then microphone prompts "Only this time", never a
+    lasting grant (InstagramPostWorkflow._answer_permission_prompts). No prompt: nothing tapped."""
+    workflow = _post_workflow(a)
+    err = workflow._answer_permission_prompts()
+    answered = workflow.permission_prompts_answered
+    if err:
+        return {"success": False, "message": err["message"],
+                "details": {"answered": answered, "error_type": err["error_type"]}}
+    return {"success": True, "message": f"permission prompts answered only this time: {answered}",
+            "details": {"answered": answered}}
+
+
 @action("publish.ensure_gallery_open")
 def ensure_gallery_open(a, p):
     """Publish gate: ensure the gallery grid is open from the camera/creation screen

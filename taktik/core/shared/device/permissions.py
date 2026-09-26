@@ -29,14 +29,21 @@ dismissed = handler.deny(rounds=2)
 
 # Check if a dialog is currently visible without acting:
 is_visible = handler.is_visible()
+
+# Camera / microphone prompts, answered "Only this time" and never granted for good:
+outcome = allow_prompts_this_time_only(device)
 """
 
 from __future__ import annotations
 
+import random
 import time
-from typing import Optional
+from dataclasses import dataclass
+from typing import Callable, Optional, Sequence
 
 from loguru import logger
+
+from taktik.core.shared.ui.selectors.system.permission_prompt import PERMISSION_PROMPT_SELECTORS
 
 # Reuse the SDK-version helper already present in this package
 from .media_store import get_android_sdk_version
@@ -426,3 +433,104 @@ def grant_permissions(device, device_id: str = "", rounds: int = 3, per_round_wa
 def deny_permissions(device, device_id: str = "", rounds: int = 2, per_round_wait: float = 3.0) -> int:
     """Shorthand: create a PermissionHandler and call deny()."""
     return PermissionHandler(device, device_id).deny(rounds=rounds, per_round_wait=per_round_wait)
+
+
+# ---------------------------------------------------------------------------
+# "Only this time": never a lasting grant
+# ---------------------------------------------------------------------------
+# `PermissionHandler.grant()` taps "While using the app" first, a lasting grant. Camera and
+# microphone prompts are answered here instead, with the one-time choice only.
+
+NO_ONE_TIME_CHOICE = "no_one_time_choice"
+TOO_MANY_PROMPTS = "too_many_prompts"
+TAP_FAILED = "tap_failed"
+
+
+@dataclass(frozen=True)
+class OneTimeAnswer:
+    """What `allow_prompts_this_time_only` did."""
+
+    answered: int = 0
+    # Why a prompt stayed on screen: NO_ONE_TIME_CHOICE, TOO_MANY_PROMPTS, TAP_FAILED; "" if none.
+    unanswered: str = ""
+    # The last question read on a prompt, for the logs.
+    question: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return not self.unanswered
+
+
+def allow_prompts_this_time_only(
+    device,
+    *,
+    max_prompts: int = 3,
+    wait_s: float = 2.0,
+    choice_wait_s: float = 1.5,
+    settle_s: float = 3.0,
+    unless_on_screen: Sequence[str] = (),
+    log: Optional[Callable[[str, str], None]] = None,
+) -> OneTimeAnswer:
+    """Answer Android permission prompts "Only this time", one after the other.
+
+    Never taps "While using the app" nor "Don't allow". A prompt without the one-time choice
+    (Android 10 and older) is left untouched and reported. Nothing is touched when no prompt shows
+    within `wait_s`, or when `unless_on_screen` shows first. At most `max_prompts` taps.
+    `device`: a device facade, or a uiautomator2 device (wrapped in the shared facade).
+    """
+    facade = _as_facade(device)
+    say = log or _log_to_logger
+    sel = PERMISSION_PROMPT_SELECTORS
+    answered, question = 0, ""
+    for _ in range(max_prompts):
+        photo = facade.wait_for_snapshot(
+            lambda p: p.exists(sel.prompt) or bool(unless_on_screen and p.exists(unless_on_screen)),
+            wait_s,
+        )
+        if photo is None or not photo.exists(sel.prompt):
+            return OneTimeAnswer(answered, "", question)
+        question = _question(photo)
+        if not photo.exists(sel.allow_one_time):
+            photo = facade.wait_for_snapshot(lambda p: p.exists(sel.allow_one_time), choice_wait_s)
+            if photo is None:
+                say("warning", f"Permission prompt without 'only this time', left unanswered: {question}")
+                return OneTimeAnswer(answered, NO_ONE_TIME_CHOICE, question)
+        button = photo.first(sel.allow_one_time)
+        _reaction_pause()
+        if button is None or not button.bounds or not facade.human_tap(button.bounds):
+            return OneTimeAnswer(answered, TAP_FAILED, question)
+        answered += 1
+        say("info", f"Permission prompt answered 'only this time': {question}")
+        facade.invalidate_snapshot()
+        # This prompt goes: closed, or replaced by the next question.
+        facade.wait_for_snapshot(
+            lambda p, asked=question: not p.exists(sel.prompt) or _question(p) != asked,
+            settle_s,
+        )
+    still = facade.wait_for_snapshot(lambda p: p.exists(sel.prompt), 0.0)
+    if still is not None:
+        return OneTimeAnswer(answered, TOO_MANY_PROMPTS, _question(still))
+    return OneTimeAnswer(answered, "", question)
+
+
+def _as_facade(device):
+    # Looked up on the class: a mock answering every attribute is not taken for a facade.
+    if callable(getattr(type(device), "wait_for_snapshot", None)):
+        return device
+    from .facade import BaseDeviceFacade
+
+    return BaseDeviceFacade(device)
+
+
+def _question(photo) -> str:
+    node = photo.first(PERMISSION_PROMPT_SELECTORS.message)
+    return node.text if node is not None else ""
+
+
+def _reaction_pause() -> None:
+    # A person reads the prompt before answering it.
+    time.sleep(random.uniform(0.6, 1.5))
+
+
+def _log_to_logger(level: str, message: str) -> None:
+    getattr(logger, level, logger.info)(f"[PermissionPrompt] {message}")
