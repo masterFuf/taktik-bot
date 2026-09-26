@@ -101,9 +101,18 @@ def test_tiny_bounds_do_not_crash():
         assert min(ty, by) <= y <= max(ty, by)
 
 
+# Measured on a Pixel 3 with Instagram 410 (DOWN to UP gap in `dumpsys input`): the app sees the
+# requested hold plus up to 49 ms of injection lag, and the profile grid turns 200 ms of contact
+# into its peek preview, so the post never opens.
+_MEASURED_MAX_LAG_MS = 49.0
+_GRID_PEEK_MS = 200.0
+
+
 def test_down_time_is_a_tap_not_a_long_press():
     rng = random.Random(4)
-    vals = [sample_tap_down_ms(rng=rng) for _ in range(2000)]
-    assert all(30.0 <= v <= 220.0 for v in vals)  # well under the ~400ms long-press threshold
+    vals = [sample_tap_down_ms(rng=rng) for _ in range(20000)]
+    assert min(vals) >= 30.0
+    # What the app sees is hold + lag: it must still be a tap on the grid, with room to spare.
+    assert max(vals) + _MEASURED_MAX_LAG_MS < _GRID_PEEK_MS - 20.0
     assert len(set(int(v) for v in vals)) > 50  # varies
     assert 50.0 < (sum(vals) / len(vals)) < 110.0  # quick-ish median

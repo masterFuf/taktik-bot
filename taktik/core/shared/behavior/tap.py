@@ -23,6 +23,18 @@ _SPREAD = 0.38
 # the padding, or a neighbouring tappable.
 _MARGIN = 0.12
 
+# The app sees the requested hold plus the injection lag: uiautomator2 injects the DOWN
+# synchronously and starts the hold only once the app has handled it (DOWN to UP gap in
+# `dumpsys input`).
+INJECTION_LAG_MAX_MS = 50.0
+# Contact time from which a tap stops being a tap somewhere we drive: Instagram's profile grid
+# opens its peek preview instead of the post.
+PRESS_THRESHOLD_MS = 200.0
+# Room for a lag above the measured one: a busier screen, a slower phone.
+_LAG_HEADROOM_MS = 30.0
+# Longest finger-down ever requested.
+MAX_TAP_HOLD_MS = PRESS_THRESHOLD_MS - INJECTION_LAG_MAX_MS - _LAG_HEADROOM_MS
+
 
 def sample_tap_point(bounds: Bounds, *, rng: Optional[random.Random] = None) -> Tuple[int, int]:
     """Sample a human tap point inside `bounds` (left, top, right, bottom).
@@ -56,17 +68,19 @@ def sample_tap_point(bounds: Bounds, *, rng: Optional[random.Random] = None) -> 
 
 
 def sample_tap_down_ms(*, rng: Optional[random.Random] = None) -> float:
-    """Human finger-down time for a tap, in milliseconds.
+    """Finger-down time to REQUEST for a tap, in milliseconds.
 
-    Mostly quick (~70ms), occasionally a touch longer (a deliberate press), always well
-    under the Android long-press threshold (~400-500ms) so it stays a tap, never a
-    long-press. Varying the press time alone makes the touch trace less mechanical.
+    Mostly quick (~68 ms asked, ~100 ms seen by the app), sometimes a deliberate press, never
+    above `MAX_TAP_HOLD_MS`: with the injection lag on top, the app still sees a tap and never
+    the start of a press-and-hold, which comes well before Android's 400 ms long-press. Varying
+    the press time makes the touch trace less mechanical.
     """
     rng = rng or random
-    ms = rng.gauss(70.0, 22.0)
     if rng.random() < 0.10:
-        ms += rng.uniform(40.0, 110.0)  # occasional deliberate, slightly longer press
-    return float(min(max(ms, 30.0), 220.0))
+        ms = rng.uniform(90.0, MAX_TAP_HOLD_MS)  # occasional deliberate press
+    else:
+        ms = rng.gauss(68.0, 18.0)
+    return float(min(max(ms, 30.0), MAX_TAP_HOLD_MS))
 
 
 def _coerce_bounds(element) -> Optional[Bounds]:
