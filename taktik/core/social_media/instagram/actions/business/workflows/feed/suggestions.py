@@ -25,6 +25,7 @@ import random
 import time
 from typing import Any, Dict, List, Optional
 
+from taktik.core.shared.device.ui_dump import iter_widgets, parse_bounds
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from ....atomic.interaction.profile_interaction import classify_follow_state
@@ -45,6 +46,9 @@ class FeedSuggestionsMixin:
     # considered exhausted (same spirit as the stop policy of the other workflows
     # target : on raisonne en comptes rencontres, pas en nombre de scrolls).
     _SUGGESTIONS_EMPTY_SCROLL_RUNS = 2
+
+    # Framing scrolls allowed before a carousel still cut is reported as such.
+    _CAROUSEL_FRAMING_ATTEMPTS = 2
 
     # ------------------------------------------------------------------
     # Screen reading
@@ -79,6 +83,81 @@ class FeedSuggestionsMixin:
         root = root if root is not None else self._suggestions_dump_root()
         return parse_feed_suggestions_carousel(root, FEED_SUGGESTIONS_SELECTORS)
 
+    def frame_feed_suggestions_carousel(self, max_attempts: Optional[int] = None) -> Dict[str, Any]:
+        """Bring the whole carousel into view, then read it.
+
+        The feed search stops as soon as the carousel's "See all" exists, which can be its header
+        alone above the tab bar: the cards' Follow buttons are then off screen, so absent from the
+        dump, and the carousel reads as cardless. The feed is moved by the distance the parser
+        measured, with the humanized controlled scroll, then read again; bounded, and a carousel
+        still cut after that is reported through its ``framing``.
+
+        Returns the last carousel read plus ``framing_scrolls``.
+        """
+        attempts = (self._CAROUSEL_FRAMING_ATTEMPTS if max_attempts is None
+                    else max(int(max_attempts), 0))
+        root = self._suggestions_dump_root()
+        carousel = self.detect_feed_suggestions_carousel(root)
+        scrolls = 0
+        while scrolls < attempts:
+            framing = carousel.get("framing")
+            if (not carousel.get("present") or not framing
+                    or framing["framed"] or not framing["fits"]):
+                break
+            if not self._scroll_to_frame_carousel(framing["shift_px"], root):
+                break
+            scrolls += 1
+            root = self._suggestions_dump_root()
+            carousel = self.detect_feed_suggestions_carousel(root)
+
+        carousel["framing_scrolls"] = scrolls
+        framing = carousel.get("framing")
+        if framing and not framing["framed"]:
+            self.logger.warning(
+                f"Suggestions carousel not framed after {scrolls} scroll(s): cut {framing['cut']}, "
+                f"{framing['cards_hidden'] + framing['cards_clipped']} card(s) without a visible "
+                f"Follow button"
+            )
+        elif scrolls:
+            self.logger.info(f"Suggestions carousel framed after {scrolls} scroll(s)")
+        return carousel
+
+    def _scroll_to_frame_carousel(self, shift_px: int, root) -> bool:
+        """Move the feed content by about ``shift_px`` (up when positive), humanized."""
+        height = self._suggestions_screen_height(root)
+        if not height or not shift_px:
+            return False
+        # Never the same distance twice; the parser's landing margin absorbs the spread.
+        distance = abs(shift_px) * random.uniform(0.92, 1.08)
+        try:
+            self.device.human_scroll("down" if shift_px > 0 else "up",
+                                     distance_ratio=distance / height)
+        except Exception as exc:
+            self.logger.debug(f"Carousel framing scroll failed: {exc}")
+            return False
+        self._human_like_delay('scroll')
+        return True
+
+    def _suggestions_screen_height(self, root) -> int:
+        """Screen height as the scroll gesture measures it, else the dump's own extent."""
+        try:
+            height = int(self.device.get_screen_size()[1])
+            if height > 0:
+                return height
+        except Exception as exc:
+            self.logger.debug(f"Screen size unavailable: {exc}")
+        if root is None:
+            return 0
+        bottoms = [bounds[3] for bounds in
+                   (parse_bounds(node.get("bounds") or "") for node in iter_widgets(root)) if bounds]
+        return max(bottoms, default=0)
+
+    @staticmethod
+    def _carousel_cta_cut(carousel: Dict[str, Any]) -> bool:
+        """True when the "See all" link is cut by the screen edge: it is then not tapped."""
+        framing = carousel.get("framing")
+        return bool(framing) and not framing.get("cta_in_band")
+
     def is_on_discover_people_screen(self, root=None) -> bool:
         """True when the people discovery screen is shown."""
         from taktik.core.social_media.instagram.ui.selectors import DISCOVER_PEOPLE_SELECTORS
@@ -109,6 +188,9 @@ class FeedSuggestionsMixin:
         carousel = self.detect_feed_suggestions_carousel(root)
         if not carousel.get("cta_bounds"):
             self.logger.debug("Suggestions carousel CTA not visible")
+            return False
+        if self._carousel_cta_cut(carousel):
+            self.logger.info("Suggestions carousel CTA cut by the screen edge - not tapped")
             return False
         if not self.device.human_tap(carousel["cta_bounds"]):
             self.logger.debug("Suggestions CTA tap failed")
@@ -394,20 +476,31 @@ class FeedSuggestionsMixin:
     # Orchestration complete
     # ------------------------------------------------------------------
 
-    def run_feed_suggestions_pass(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def run_feed_suggestions_pass(self, config: Dict[str, Any],
+                                  framing_attempts: Optional[int] = None) -> Dict[str, Any]:
         """Full pass: feed carousel -> discovery screen -> follows -> back to the feed.
 
         Does nothing, and says so, when the carousel is not on screen: the caller — the
-        feed loop — decides when to retry.
+        feed loop — decides when to retry. The carousel is framed first; a caller that just
+        framed it passes ``framing_attempts=0``.
         """
         result = {
             'entered': False, 'follows': 0, 'attempts': 0, 'scrolls': 0,
             'skipped_follow_back': 0, 'contacts_dialog': 'absent',
             'stop_reason': 'carousel_absent', 'returned_to_feed': False,
+            'carousel_framed': None, 'framing_scrolls': 0,
         }
 
-        carousel = self.detect_feed_suggestions_carousel()
+        carousel = self.frame_feed_suggestions_carousel(framing_attempts)
         if not carousel.get('present'):
+            return result
+        framing = carousel.get('framing')
+        result['carousel_framed'] = framing['framed'] if framing else None
+        result['framing_scrolls'] = carousel.get('framing_scrolls', 0)
+        # The follows happen on the list, so a carousel left cut still leads there as long as
+        # its "See all" is whole on screen.
+        if self._carousel_cta_cut(carousel):
+            result['stop_reason'] = 'carousel_not_framed'
             return result
 
         if not self.open_suggestions_see_all():
@@ -452,13 +545,18 @@ class FeedSuggestionsMixin:
         Deliberately a plain humanized scroll rather than the crawl's "advance to the
         next real post": that one skips over non-organic blocks by design, so it would
         skip the very carousel being looked for. Nothing is read or liked here.
+
+        Once found, the carousel is framed whole (``frame_feed_suggestions_carousel``):
+        ``framed`` is True, False when it stayed cut (``framing`` says how), or None when the
+        screen gives no band to judge by. ``framing_scrolls`` are not counted in ``scrolls``.
         """
-        result = {'found': False, 'scrolls': 0}
-        if self.has_feed_suggestions_carousel():
-            result['found'] = True
-            return result
+        result = {'found': False, 'scrolls': 0, 'framed': None, 'framing_scrolls': 0,
+                  'framing': None, 'cards_status': None}
+        result['found'] = self.has_feed_suggestions_carousel()
 
         for _ in range(max(int(max_scrolls), 0)):
+            if result['found']:
+                break
             try:
                 self.device.human_scroll("down", distance_ratio=0.7)
             except Exception as exc:
@@ -466,12 +564,18 @@ class FeedSuggestionsMixin:
                 break
             self._human_like_delay('scroll')
             result['scrolls'] += 1
-            if self.has_feed_suggestions_carousel():
-                result['found'] = True
-                break
+            result['found'] = self.has_feed_suggestions_carousel()
 
         if not result['found']:
             self.logger.info(f"No suggestions carousel after {result['scrolls']} scroll(s)")
+            return result
+
+        carousel = self.frame_feed_suggestions_carousel()
+        framing = carousel.get('framing')
+        result['framed'] = framing['framed'] if framing else None
+        result['framing_scrolls'] = carousel.get('framing_scrolls', 0)
+        result['framing'] = framing
+        result['cards_status'] = carousel.get('cards_status')
         return result
 
     def run_suggestions_only(self, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -483,19 +587,23 @@ class FeedSuggestionsMixin:
         """
         result = {'follows': 0, 'passes': 0, 'carousel_scrolls': 0,
                   'skipped_follow_back': 0, 'stop_reason': 'carousel_not_found',
-                  'returned_to_feed': True}
+                  'returned_to_feed': True, 'carousel_framed': None, 'framing_scrolls': 0}
         passes_left = max(int(config.get('max_suggestion_passes', 1) or 0), 0)
         max_scrolls = int(config.get('max_carousel_scrolls', 12) or 0)
 
         while passes_left > 0:
             search = self.find_feed_suggestions_carousel(max_scrolls)
             result['carousel_scrolls'] += search['scrolls']
+            result['framing_scrolls'] += search.get('framing_scrolls', 0)
             if not search['found']:
                 break
 
-            pass_result = self.run_feed_suggestions_pass(config)
+            # The search has just framed the carousel, or spent its framing budget on it.
+            pass_result = self.run_feed_suggestions_pass(config, framing_attempts=0)
             result['passes'] += 1
             passes_left -= 1
+            result['framing_scrolls'] += pass_result.get('framing_scrolls', 0)
+            result['carousel_framed'] = pass_result.get('carousel_framed')
             result['follows'] += pass_result.get('follows', 0)
             result['skipped_follow_back'] += pass_result.get('skipped_follow_back', 0)
             # The stop reason stays the one from the FOLLOW loop. Do not overwrite

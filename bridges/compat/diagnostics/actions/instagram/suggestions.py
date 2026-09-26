@@ -28,6 +28,7 @@ _STOP_LABELS = {
     "scroll_failed": "scroll impossible",
     "carousel_absent": "carousel absent",
     "carousel_not_found": "carousel jamais apparu",
+    "carousel_not_framed": "carousel non cadre, 'See all' coupe par le bord de l'ecran",
     "cta_tap_failed": "CTA non tape",
     "blocked_by_dialog": "alerte Instagram non reconnue",
     "discover_screen_not_reached": "ecran suggestions jamais atteint",
@@ -37,6 +38,28 @@ _STOP_LABELS = {
     "zone_not_reached": "zone non atteinte",
     "no_pipeline": "pipeline profil absent",
 }
+
+
+# Which edge cuts the carousel, as the production framing reports it.
+_CUT_LABELS = {
+    "bottom": "coupe en bas, sous la barre d'onglets",
+    "top": "en-tete coupe en haut",
+    "both": "plus haut que l'ecran",
+}
+
+
+def _framing_summary(framing):
+    """How the carousel sits on screen, from the production ``framing`` (None: not judged)."""
+    if not framing:
+        return "cadrage non evalue"
+    if framing.get("framed"):
+        return "cadre"
+    cut = _CUT_LABELS.get(framing.get("cut"), framing.get("cut") or "?")
+    # Cards wholly below the edge are not in the dump at all: only the cut ones are counted.
+    cut_cards = framing.get("cards_hidden", 0) + framing.get("cards_clipped", 0)
+    if cut_cards:
+        cut += f", {cut_cards} carte(s) sans bouton Follow visible"
+    return f"NON CADRE ({cut})"
 
 
 def _follow_summary(res, max_follows, suffix=""):
@@ -56,7 +79,11 @@ def _follow_summary(res, max_follows, suffix=""):
 
 @action("suggestions.detect_carousel")
 def detect_carousel(a, p):
-    """Is the suggestions carousel present in the current feed?"""
+    """Is the suggestions carousel present in the current feed, and whole on screen?
+
+    Reads the screen as it is, without moving it: ``details.cards_status`` tells cards cut by
+    the screen edge (``not_framed``) from no card at all (``none``).
+    """
     carousel = a.feed.detect_feed_suggestions_carousel()
     cards = carousel.get("cards", [])
     if not carousel.get("present"):
@@ -65,7 +92,8 @@ def detect_carousel(a, p):
     return {
         "success": True,
         "found": True,
-        "message": (f"Carousel '{carousel.get('title') or '?'}' — {len(cards)} carte(s), "
+        "message": (f"Carousel '{carousel.get('title') or '?'}' — {len(cards)} carte(s) lisible(s), "
+                    f"{_framing_summary(carousel.get('framing'))}, "
                     f"CTA {'trouve' if carousel.get('cta_bounds') else 'absent'}"),
         "details": carousel,
     }
@@ -185,19 +213,31 @@ def back_to_feed(a, p):
 
 @action("suggestions.find_carousel")
 def find_carousel(a, p):
-    """Scroll the feed until the carousel appears, liking nothing.
+    """Scroll the feed until the carousel appears and frame it whole, liking nothing.
 
     A plain humanized scroll rather than the advance to the next real post: that one
-    skips over the non-organic blocks, so over the very target.
+    skips over the non-organic blocks, so over the very target. A carousel found but left
+    cut by the screen edge is a failed search, and the message says which edge.
     """
     max_scrolls = int(p.get("max_scrolls", 12))
     res = a.feed.find_feed_suggestions_carousel(max_scrolls)
+    found = bool(res.get("found"))
+    if not found:
+        message = f"Aucun carousel apres {res.get('scrolls', 0)} scroll(s)"
+    else:
+        framing_scrolls = res.get("framing_scrolls", 0)
+        if res.get("framed") is True:
+            framed = (f"cadre apres {framing_scrolls} rattrapage(s)" if framing_scrolls
+                      else "deja cadre")
+        else:
+            framed = _framing_summary(res.get("framing"))
+            if res.get("framed") is False:
+                framed += f" apres {framing_scrolls} rattrapage(s)"
+        message = f"Carousel trouve apres {res.get('scrolls', 0)} scroll(s), {framed}"
     return {
-        "success": bool(res.get("found")),
-        "found": bool(res.get("found")),
-        "message": (f"Carousel trouve apres {res.get('scrolls', 0)} scroll(s)"
-                    if res.get("found")
-                    else f"Aucun carousel apres {res.get('scrolls', 0)} scroll(s)"),
+        "success": found and res.get("framed") is not False,
+        "found": found,
+        "message": message,
         "details": res,
     }
 
@@ -222,7 +262,8 @@ def run_only(a, p):
     return {
         "success": res.get("follows", 0) > 0,
         "message": _follow_summary(res, max_follows,
-                                   f"apres {res.get('carousel_scrolls', 0)} scroll(s) de recherche"),
+                                   f"apres {res.get('carousel_scrolls', 0)} scroll(s) de recherche"
+                                   f" et {res.get('framing_scrolls', 0)} de cadrage"),
         "details": res,
     }
 
