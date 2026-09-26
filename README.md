@@ -246,19 +246,17 @@ device-specific experiments.
 
 - **Android 10+** device or emulator
 - **ADB** (Android Debug Bridge) installed
-- **Instagram/TikTok app** installed on the device (see recommended versions below)
+- **Instagram/TikTok app** installed on the device (see supported versions below)
 - **Python 3.10+** (for CLI usage)
 
-### Recommended App Versions
+### Supported App Versions
 
-For optimal compatibility and functionality, use these specific app versions:
+The Instagram and TikTok versions TAKTIK supports, per CPU architecture, with a link to download
+the original APK of each, are listed in **[COMPATIBILITY.md](COMPATIBILITY.md)**. That file is
+generated from the bot's own selector data (`python scripts/audit_compatibility_file.py --write`)
+and checked by the same script, so it always matches the code.
 
-| App | Recommended Version | Language |
-|-----|---------------------|----------|
-| **Instagram** | `410.0.0.53.71` | English (required) |
-| **TikTok** | `43.1.4` | English (required) |
-
-> **Important:** Both Instagram and TikTok must be set to **English** for all features to work correctly. These versions have been fully tested and verified.
+> **Important:** Both Instagram and TikTok must be set to **English** for all features to work correctly.
 
 ### Compatible Devices
 
