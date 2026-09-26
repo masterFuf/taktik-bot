@@ -35,14 +35,19 @@ STRINGS: Dict[str, List[str]] = {
     # three phones are fr-FR, so these are the English strings TikTok is expected to use and they
     # carry the same shape (content-desc and hint, never an id) rather than a translation guess at
     # a resource name.
-    # See the French entry: the composer affordance, not a comment's like button, because the
-    # latter answers NO on an open-but-empty sheet.
-    # Vide DELIBEREMENT. Cette entree portait l'affordance du composeur (« Mentionne quelqu'un »
-    # / « Stickers »), qui appartient a l'ecran VIDEO et repond donc oui feuille FERMEE — mesure
-    # sur appareil le 2026-08-30. La gardee en filet ne servirait a rien : n'importe quelle entree
-    # qui matche fait repondre oui a toute la liste, donc un filet ici EST le bug. Le panneau de
-    # la feuille, neutre et mesure sur les deux versions, vit dans la base du catalogue.
-    "comment.sheet_indicator": [],
+    # Same route as the French entry, behind the panel ids of the base: the sheet's clickable
+    # composer, plus its count header (read without U+200E / U+200F) or its labelled close control.
+    # Measured on the English sheet captured on 43.1.4 (« Add comment... », « 1 comment »). Across
+    # 408 captures these entries answer on sheets only (the English one and, by their header, 12
+    # French ones), on none of the 394 other screens.
+    "comment.sheet_indicator": [
+        "//android.widget.TextView[contains(@text, \" comment\")]"
+        "[string-length(translate(@text, \"‎‏\", \"\")) < 24]"
+        "[contains(\"0123456789\", substring(translate(@text, \"‎‏\", \"\"), 1, 1))]"
+        "[//android.widget.EditText[@clickable=\"true\"]]",
+        "//*[@content-desc=\"Close\"][@clickable=\"true\"]"
+        "[//android.widget.EditText[@clickable=\"true\"][contains(@hint, \"Add comment\")]]",
+    ],
     "comment.reply_button": [
         "//android.widget.Button[@text=\"Reply\"]",
     ],
