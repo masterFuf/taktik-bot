@@ -1,8 +1,8 @@
 """The DM generators reach OpenRouter through the provider, never on their own.
 
-Until 2026-09-24 the Instagram Cold DM and the TikTok DM outreach each built their own
+The Instagram Cold DM and the TikTok DM outreach used to build their own
 `urlopen` request. Their cost never reached `ai_spend`, the session's only cost
-ledger, and the rate-limit retry added to the provider on 2026-09-10 did not cover them. They now
+ledger, and the provider's rate-limit retry did not cover them. They now
 call `build_ai_service(...).text_completion`, which goes through `_call_openrouter`. Same prompt, same model,
 same temperature, same token budget, same 30 s socket timeout.
 """
