@@ -49,12 +49,18 @@ STRINGS: Dict[str, List[str]] = {
     # ailleurs la courbe (U+2019) et un selecteur qui n'en nomme qu'une ne matche RIEN, en
     # silence — c'est ainsi que le compteur de likes FR rendait « 0 element » avec le libelle a
     # l'ecran. « Stickers » n'en a pas et couvre les deux cas a lui seul.
-    # Vide DELIBEREMENT. Cette entree portait l'affordance du composeur (« Mentionne quelqu'un »
-    # / « Stickers »), qui appartient a l'ecran VIDEO et repond donc oui feuille FERMEE — mesure
-    # sur appareil le 2026-08-30. La gardee en filet ne servirait a rien : n'importe quelle entree
-    # qui matche fait repondre oui a toute la liste, donc un filet ici EST le bug. Le panneau de
-    # la feuille, neutre et mesure sur les deux versions, vit dans la base du catalogue.
-    "comment.sheet_indicator": [],
+    # Route behind the panel ids of the base (43.1.4 and 46.6.3 only). Any entry here makes the
+    # whole list answer yes, so it must say no on the VIDEO screen: never the composer affordances
+    # (« Mentionne quelqu'un », « Stickers »), which live there. The sheet's close control, on a
+    # screen showing the sheet's composer (clickable, with its hint) or its count header. The
+    # comment bar of a video opened from search is a non-clickable EditText with no header.
+    # Measured on 403 captures (43.1.4 to 47.0.3): the 10 French sheets (full, empty, text typed),
+    # none of the 393 other screens.
+    "comment.sheet_indicator": [
+        "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]"
+        "[//android.widget.EditText[@clickable=\"true\"][contains(@hint, \"Ajouter un commentaire\")]"
+        " or //android.widget.TextView[contains(@text, \" commentaire\")][string-length(@text) < 24]]",
+    ],
     "comment.reply_button": [
         "//android.widget.Button[@text=\"Répondre\"]",
     ],
@@ -831,9 +837,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
     ],
     "profile.unable_to_send_message": [],
-    # Vide a dessein : le profil verifie capture (46.6.3) ne porte ce mot dans aucun attribut, la
-    # base structurelle le lit. « Badge vérifié » n'existe que sur l'onglet Utilisateurs de la
-    # recherche, un autre ecran.
+    # Empty on purpose: the structural base (the ImageView beside the handle) reads the badge on
+    # both versions. 43.1.4 labels that very node « Badge vérifié » (`qh3`), 46.6.3 labels
+    # nothing, so a label entry would give no answer the base does not already give.
     "profile.verified_badge": [],
     "profile.videos_tab": [
         "//*[contains(@content-desc, \"Vidéos\")]",
@@ -963,9 +969,14 @@ STRINGS: Dict[str, List[str]] = {
     "search.videos_tab": [
         "//android.widget.TextView[@text=\"Vidéos\"]",
     ],
-    # Jamais vu sur les resultats. Le « Tout voir » des captures appartient a la page Activite et a
-    # la page Nouveaux followers ; « Voir plus » deplie l'historique de recherche.
-    "search.view_all_button": [],
+    # No caller in the bot. The Users section of the Top results: « Tout voir » beside the
+    # « Utilisateurs » title (43.1.4 `sm6`, same shape on 47.0.3). The label on the Activity page,
+    # the new followers page and a profile's suggested accounts has no such title beside it;
+    # « Voir plus » opens the search history.
+    "search.view_all_button": [
+        "//*[contains(@resource-id, \":id/sm6\")][@text=\"Tout voir\"]",
+        "//android.widget.TextView[@text=\"Tout voir\"][../../*[@text=\"Utilisateurs\"]]",
+    ],
     # --- settings (chemin vers la langue de l'application) ---
     #
     # Chemin parcouru et mesure sur appareil le 2026-08-29, DANS LES DEUX SENS : releve sur un

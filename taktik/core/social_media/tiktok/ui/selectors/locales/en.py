@@ -35,14 +35,15 @@ STRINGS: Dict[str, List[str]] = {
     # three phones are fr-FR, so these are the English strings TikTok is expected to use and they
     # carry the same shape (content-desc and hint, never an id) rather than a translation guess at
     # a resource name.
-    # See the French entry: the composer affordance, not a comment's like button, because the
-    # latter answers NO on an open-but-empty sheet.
-    # Vide DELIBEREMENT. Cette entree portait l'affordance du composeur (« Mentionne quelqu'un »
-    # / « Stickers »), qui appartient a l'ecran VIDEO et repond donc oui feuille FERMEE — mesure
-    # sur appareil le 2026-08-30. La gardee en filet ne servirait a rien : n'importe quelle entree
-    # qui matche fait repondre oui a toute la liste, donc un filet ici EST le bug. Le panneau de
-    # la feuille, neutre et mesure sur les deux versions, vit dans la base du catalogue.
-    "comment.sheet_indicator": [],
+    # Same route as the French entry, behind the panel ids of the base: the sheet's close control
+    # on a screen showing the sheet's composer (clickable, with its hint) or its count header.
+    # Measured on the English sheet captured on 43.1.4 (« Add comment... », « 1 comment »), and
+    # on none of the 402 other captures.
+    "comment.sheet_indicator": [
+        "//*[@content-desc=\"Close\"][@clickable=\"true\"]"
+        "[//android.widget.EditText[@clickable=\"true\"][contains(@hint, \"Add comment\")]"
+        " or //android.widget.TextView[contains(@text, \" comment\")][string-length(@text) < 24]]",
+    ],
     "comment.reply_button": [
         "//android.widget.Button[@text=\"Reply\"]",
     ],

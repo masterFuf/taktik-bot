@@ -26,11 +26,17 @@ def test_the_sheet_announces_itself_before_anything_is_read():
     # `is_comment_sheet_open()` answered True, `read_comments` returned the video's AUTHOR as a
     # commenter, and `open_comments` reported success without opening anything.
     #
-    # The ids are obfuscated and will die on a version bump. That is the accepted trade, because
-    # the failure direction is safe: when they go, the sheet reads as closed and every comment
-    # action refuses — unlike the composer, which failed by saying yes.
-    for selector in COMMENT_SELECTORS.sheet_indicator:
-        assert "resource-id" in selector, selector
+    # The panel ids come first: on the measured versions they answer before anything else. They
+    # are obfuscated and die on a version bump, so the locales add a route behind them — and that
+    # route must keep the safe failure direction: a label shared with the video screen is not
+    # enough, it needs something only the sheet has (its clickable composer or its count header).
+    # Behaviour on real shapes: `test_tiktok_comment_sheet_label_route.py`.
+    selectors = COMMENT_SELECTORS.sheet_indicator
+    panel = [s for s in selectors if "resource-id" in s]
+    assert panel and selectors[:len(panel)] == panel, selectors
+    for selector in selectors[len(panel):]:
+        assert '@clickable="true"' in selector and "EditText" in selector, selector
+        assert "string-length(@text) < 24" in selector, selector
     for label in ("Mention", "Stickers"):
         assert not any(label in s for s in COMMENT_SELECTORS.sheet_indicator), (
             f"{label!r} is on the video screen too — as an indicator it never says no"
@@ -65,8 +71,9 @@ def test_both_languages_are_carried_by_one_field():
     """Splitting an anchor per language does not work here: the resolver stops at the first
     selector that finds anything, and TikTok mixes languages on a French phone. Every localized
     field must offer both spellings at once."""
-    # `sheet_indicator` is deliberately absent: it is language-NEUTRAL now (the sheet panel),
-    # which is stronger than carrying both spellings.
+    # `sheet_indicator` is absent: its panel ids are language-neutral and come first; the locale
+    # route behind them answers a yes/no question, where a missed language reads the sheet
+    # closed (the safe direction), never another field's value.
     for field, fr_words, en_words in (
         (COMMENT_SELECTORS.post_comment_button, ("Mentionne",), ("Mention someone",)),
         (COMMENT_SELECTORS.reply_button, ("Répondre",), ("Reply",)),

@@ -94,6 +94,10 @@ class _Sheet:
         # on a closed sheet; a double that still keyed on it would keep testing the bug.
         if any(f':id/{rid}"' in selector for rid in ("o3y", "ieb", "maf", "h7t")):
             return _Result([_Node()] if self.is_open else [])
+        # The locale route behind the panel ids: the sheet's own close control, which is only
+        # there while the sheet is up (checked on real shapes in test_tiktok_comment_sheet_label_route).
+        if '@content-desc="Fermer"' in selector or '@content-desc="Close"' in selector:
+            return _Result([_Node()] if self.is_open else [])
         if "Mention" in selector or "Stickers" in selector:
             return _Result([_Node()])   # present whether or not the sheet is up
 
