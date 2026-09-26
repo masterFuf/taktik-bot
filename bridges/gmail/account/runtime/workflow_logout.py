@@ -1,10 +1,13 @@
-"""Gmail logout workflow runner for the account bridge."""
+"""Gmail logout runner for the account bridge (the run is the core's `run_gmail_account`)."""
 
 from typing import Any, Callable
 
 from bridges.gmail.account.runtime.persistence import unpersist_gmail_account
 from bridges.gmail.account.runtime.workflow_result import finish_account_result
-from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+from taktik.core.app.email.gmail.workflows.agent_handler import (
+    GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
+    run_gmail_account,
+)
 
 
 def run_gmail_logout(
@@ -28,10 +31,14 @@ def run_gmail_logout(
     send_log("info", f"Gmail logout workflow - {email}")
 
     try:
-        workflow = GmailWorkflow(device, device_id, notifier=notifier)
-        result = workflow.open_account_removal_settings(email=email)
-        if result.get("success"):
-            unpersist_gmail_account(email, send_log)
+        result = run_gmail_account(
+            GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
+            {"email": email},
+            device=device,
+            device_id=device_id,
+            notifier=notifier,
+            account_unpersister=lambda removed: unpersist_gmail_account(removed, send_log),
+        )
         return finish_account_result(
             result,
             workflow_type="logout",

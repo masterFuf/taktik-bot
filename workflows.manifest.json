@@ -16,7 +16,8 @@
       "target",
       "hashtag",
       "post_url",
-      "profile_posts"
+      "profile_posts",
+      "usernames"
     ],
     "account": [
       "login",
@@ -64,7 +65,10 @@
       "dm_unreplied",
       "dm_requests",
       "dm_activity",
-      "scraping"
+      "scraping",
+      "post_url",
+      "notifications",
+      "sync_lists"
     ],
     "account": [
       "login",

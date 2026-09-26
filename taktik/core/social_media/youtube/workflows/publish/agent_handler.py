@@ -1,4 +1,8 @@
-"""Agent runtime handler for the YouTube publish workflow."""
+"""The one launcher of a YouTube upload, and its Agent handler.
+
+`run_youtube_upload` is what the upload bridge and the handler registered as
+`youtube.publish.upload_post` (the CLI) call, once each has read its payload.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +22,21 @@ SHORT_TITLE_MAX_LENGTH = 100
 YouTubeUploadWorkflowFactory = Callable[..., Any]
 
 
+def run_youtube_upload(
+    params: Mapping[str, Any],
+    *,
+    device,
+    device_id: str,
+    log=None,
+    status=None,
+    workflow_factory: YouTubeUploadWorkflowFactory = YouTubeUploadWorkflow,
+) -> dict[str, Any]:
+    """Wire the host's callbacks, then upload with already-read params."""
+    set_callbacks(log=log, status=status)
+    workflow = workflow_factory(device, device_id)
+    return workflow.execute(**params)
+
+
 def build_youtube_upload_post_handler(
     *,
     device,
@@ -28,14 +47,14 @@ def build_youtube_upload_post_handler(
     """Build a WorkflowRegistry handler without owning device connection setup."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        params = _publish_params(invocation, payload)
-        if notifier is not None:
-            set_callbacks(
-                log=getattr(notifier, "log", None),
-                status=getattr(notifier, "status", None),
-            )
-        workflow = workflow_factory(device, device_id)
-        return workflow.execute(**params)
+        return run_youtube_upload(
+            _publish_params(invocation, payload),
+            device=device,
+            device_id=device_id,
+            log=getattr(notifier, "log", None),
+            status=getattr(notifier, "status", None),
+            workflow_factory=workflow_factory,
+        )
 
     return handler
 
