@@ -3,6 +3,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt, Confirm
 
+from taktik.cli.common.ai_key import MissingAIKeyError, ensure_ai_key
+
 console = Console()
 
 def generate_cold_dm_workflow():
@@ -41,7 +43,7 @@ def generate_cold_dm_workflow():
     
     console.print("\n[yellow]💬 Message Configuration[/yellow]")
     console.print("[bold]1.[/bold] 📝 Manual (predefined messages)")
-    console.print("[bold]2.[/bold] 🤖 AI-generated (OpenRouter key from OPENROUTER_API_KEY)")
+    console.print("[bold]2.[/bold] 🤖 AI-generated (asks for the OpenRouter key if none is set)")
     
     mode_choice = click.prompt("\n[bold]Message mode[/bold]", type=click.IntRange(1, 2), default=1, show_choices=False)
     message_mode = "manual" if mode_choice == 1 else "ai"
@@ -118,10 +120,12 @@ def generate_dm_auto_reply_workflow():
     console.print("[dim]Automatically reply to incoming DMs using AI[/dim]\n")
     
     console.print("[yellow]🔑 API Configuration[/yellow]")
-    openrouter_api_key = Prompt.ask("[cyan]OpenRouter API Key[/cyan]", default="")
-    
-    if not openrouter_api_key:
-        console.print("[yellow]⚠️ No API key provided. You can set it later via environment variable OPENROUTER_API_KEY[/yellow]")
+    try:
+        openrouter_api_key = ensure_ai_key("DM Auto-Reply", {}, interactive=True, always=True,
+                                           echo=console.print)
+    except MissingAIKeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        return None
     
     console.print("\n[yellow]👤 Persona Configuration[/yellow]")
     persona_name = Prompt.ask("[cyan]Your name/brand name[/cyan]", default="")

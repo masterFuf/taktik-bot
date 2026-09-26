@@ -22,6 +22,7 @@ import click
 from rich.console import Console
 
 from taktik.cli.commands.workflow_cmds import _coerce
+from taktik.cli.common.ai_key import MissingAIKeyError, ensure_ai_key, is_interactive
 from taktik.cli.common.registry_builder import build_registry
 
 console = Console()
@@ -85,6 +86,13 @@ def run_registry_menu(platform: str, device_manager, device_id: str) -> None:
 
     workflow_id = workflow_ids[choice - 1]
     params = _prompt_params()
+
+    try:
+        ensure_ai_key(workflow_id, params, interactive=is_interactive(), echo=console.print)
+    except MissingAIKeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        input("\nPress Enter to continue...")
+        return
 
     console.print(f"\n[blue]Running[/blue] [bold]{workflow_id}[/bold] on [cyan]{device_id}[/cyan]")
     handler = build.registry.resolve(workflow_id)

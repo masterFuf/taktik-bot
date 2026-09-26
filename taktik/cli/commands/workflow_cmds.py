@@ -13,6 +13,10 @@ exactly why the CLI fell nine months behind.
 Parameters are passed as `--param key=value` rather than guessed. Each workflow reads its own
 config keys, and inventing a prompt per workflow would recreate the drift this replaces. `--json`
 takes a whole config at once, which is what a scripted run wants anyway.
+
+A run that uses AI needs an OpenRouter key before the phone is touched (`ai_key.py`): asked for at
+a terminal, refused with exit code 2 in a scripted run (`--json`, a pipe, CI). A manual run needs
+none and never reaches an AI client.
 """
 from __future__ import annotations
 
@@ -23,6 +27,14 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from taktik.cli.common.ai_key import (
+    MISSING_KEY_EXIT,
+    MissingAIKeyError,
+    ensure_ai_key,
+    is_interactive,
+    resolve_openrouter_key,
+    run_uses_ai,
+)
 from taktik.cli.common.registry_builder import build_registry
 
 console = Console()
@@ -143,7 +155,17 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
             raise SystemExit(1)
         console.print(f"[green]{workflow_id}[/green] resolves.")
         console.print(f"[cyan]params:[/cyan] {json.dumps(resolved_params, indent=2, default=str)}")
+        if run_uses_ai(workflow_id, resolved_params):
+            found = "found" if resolve_openrouter_key() else "missing"
+            console.print(f"[cyan]AI:[/cyan] this run uses AI, OpenRouter key {found}")
         return
+
+    try:
+        ensure_ai_key(workflow_id, resolved_params,
+                      interactive=is_interactive(scripted=json_blob is not None), echo=console.print)
+    except MissingAIKeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(MISSING_KEY_EXIT)
 
     device_manager, device_id = _connect(device_id)
     if device_manager is None:

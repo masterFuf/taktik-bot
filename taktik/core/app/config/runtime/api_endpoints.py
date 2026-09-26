@@ -6,6 +6,8 @@ import time
 from typing import Optional
 from loguru import logger
 
+from taktik.core.app.config.runtime.user_config import read_user_setting, write_user_setting
+
 
 class APIEndpointManager:
 
@@ -69,17 +71,7 @@ class APIEndpointManager:
         return self.get_api_url()
 
     def _load_from_config(self) -> Optional[str]:
-        try:
-            config_path = os.path.expanduser("~/.taktik/api_config.json")
-            if os.path.exists(config_path):
-                import json
-
-                with open(config_path, "r") as f:
-                    config = json.load(f)
-                    return config.get("api_url")
-        except Exception:
-            pass
-        return None
+        return read_user_setting("api_url")
 
     def _test_endpoint(self, url: str) -> bool:
         try:
@@ -91,28 +83,7 @@ class APIEndpointManager:
             return False
 
     def save_api_url(self, api_url: str) -> bool:
-        try:
-            import json
-
-            config_dir = os.path.expanduser("~/.taktik")
-            os.makedirs(config_dir, exist_ok=True)
-
-            config_path = os.path.join(config_dir, "api_config.json")
-            config = {}
-
-            if os.path.exists(config_path):
-                with open(config_path, "r") as f:
-                    config = json.load(f)
-
-            config["api_url"] = api_url.rstrip("/")
-
-            with open(config_path, "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
-
-            return True
-        except Exception as exc:
-            logger.error(f"Erreur lors de la sauvegarde de l'URL API: {exc}")
-            return False
+        return write_user_setting("api_url", api_url.rstrip("/")) is not None
 
 
 api_endpoint_manager = APIEndpointManager()

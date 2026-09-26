@@ -1,0 +1,965 @@
+{
+ "scan": {
+  "exit": 0,
+  "calls": [
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge restart_instagram",
+   "screen own_profile",
+   "screen home",
+   "bridge build_workflow",
+   "db build_known_checker alpha_bot",
+   "workflow scan {\"known_checker\": \"known\", \"max_scrolls\": 3}",
+   "db record_scan_notifications alpha_bot [{'type': 'like', 'actor': 'fan_one', 'text': 'liked your post'}, {'type': 'comment', 'actor': 'fan_two', 'text': 'nice'}]",
+   "bridge stop"
+  ],
+  "stdout": [
+   {
+    "type": "notification_step",
+    "step": "own_profile",
+    "step_status": "running",
+    "message": "Refreshing your account"
+   },
+   {
+    "type": "notification_step",
+    "step": "own_profile",
+    "step_status": "done",
+    "message": "@alpha_bot — 12 followers"
+   },
+   {
+    "type": "notification_step",
+    "step": "result",
+    "step_status": "running",
+    "message": "1 new notification(s)",
+    "new_count": 1
+   },
+   {
+    "type": "notification_step",
+    "step": "session_end",
+    "step_status": "done",
+    "message": "Notifications session complete"
+   },
+   {
+    "type": "result",
+    "command": "scan",
+    "success": true,
+    "count": 2,
+    "by_type": {
+     "like": 2
+    },
+    "items": [
+     {
+      "type": "like",
+      "actor": "fan_one",
+      "text": "liked your post",
+      "is_new": true
+     },
+     {
+      "type": "comment",
+      "actor": "fan_two",
+      "text": "nice",
+      "is_new": false
+     }
+    ],
+    "requests": [
+     "req_one"
+    ],
+    "has_grouped_requests": false,
+    "message": "read",
+    "suggestions": {
+     "visited": 0,
+     "processed": 0,
+     "follows": 0,
+     "filtered": 0,
+     "errors": 0,
+     "profiles": [],
+     "stop_reason": "disabled",
+     "ai_qualification": false
+    }
+   }
+  ]
+ },
+ "scan_no_account": {
+  "exit": 0,
+  "calls": [
+   "bridge init emulator-5554 {\"package_name\": \"com.instagram.android.clone\"}",
+   "bridge connect",
+   "bridge restart_instagram",
+   "screen own_profile",
+   "screen home",
+   "bridge build_workflow",
+   "db build_known_checker alpha_bot",
+   "workflow scan {\"known_checker\": \"known\", \"max_scrolls\": 0}",
+   "db record_scan_notifications alpha_bot [{'type': 'like', 'actor': 'fan_one', 'text': 'liked your post'}, {'type': 'comment', 'actor': 'fan_two', 'text': 'nice'}]",
+   "bridge stop"
+  ],
+  "stdout": [
+   {
+    "type": "notification_step",
+    "step": "own_profile",
+    "step_status": "running",
+    "message": "Refreshing your account"
+   },
+   {
+    "type": "notification_step",
+    "step": "own_profile",
+    "step_status": "done",
+    "message": "@alpha_bot — 12 followers"
+   },
+   {
+    "type": "notification_step",
+    "step": "result",
+    "step_status": "running",
+    "message": "1 new notification(s)",
+    "new_count": 1
+   },
+   {
+    "type": "notification_step",
+    "step": "session_end",
+    "step_status": "done",
+    "message": "Notifications session complete"
+   },
+   {
+    "type": "result",
+    "command": "scan",
+    "success": true,
+    "count": 2,
+    "by_type": {
+     "like": 2
+    },
+    "items": [
+     {
+      "type": "like",
+      "actor": "fan_one",
+      "text": "liked your post",
+      "is_new": true
+     },
+     {
+      "type": "comment",
+      "actor": "fan_two",
+      "text": "nice",
+      "is_new": false
+     }
+    ],
+    "requests": [
+     "req_one"
+    ],
+    "has_grouped_requests": false,
+    "message": "read",
+    "suggestions": {
+     "visited": 0,
+     "processed": 0,
+     "follows": 0,
+     "filtered": 0,
+     "errors": 0,
+     "profiles": [],
+     "stop_reason": "disabled",
+     "ai_qualification": false
+    }
+   }
+  ]
+ },
+ "scan_suggestions": {
+  "exit": 0,
+  "calls": [
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge restart_instagram",
+   "screen own_profile",
+   "screen home",
+   "bridge build_workflow",
+   "db build_known_checker alpha_bot",
+   "workflow scan {\"known_checker\": \"known\", \"max_scrolls\": 2}",
+   "db record_scan_notifications alpha_bot [{'type': 'like', 'actor': 'fan_one', 'text': 'liked your post'}, {'type': 'comment', 'actor': 'fan_two', 'text': 'nice'}]",
+   "db resolve_account_id alpha_bot",
+   "ai install {\"ai\": {\"enabled\": true, \"profileAnalysis\": true}, \"language\": \"fr\"}",
+   "db suggestion_session 7 {\"source\": \"notifications\"}",
+   "bridge build_profile_pipeline {\"account_id\": 7, \"session_id\": \"session-1\"}",
+   "workflow visit_suggestions {\"max_profiles\": 2}",
+   "bridge stop"
+  ],
+  "stdout": [
+   {
+    "type": "notification_step",
+    "step": "own_profile",
+    "step_status": "running",
+    "message": "Refreshing your account"
+   },
+   {
+    "type": "notification_step",
+    "step": "own_profile",
+    "step_status": "done",
+    "message": "@alpha_bot — 12 followers"
+   },
+   {
+    "type": "notification_step",
+    "step": "result",
+    "step_status": "running",
+    "message": "1 new notification(s)",
+    "new_count": 1
+   },
+   {
+    "type": "notification_step",
+    "step": "suggestions",
+    "step_status": "running",
+    "message": "Visite des comptes suggeres"
+   },
+   {
+    "type": "notification_step",
+    "step": "suggestions",
+    "step_status": "done",
+    "message": "1 profil(s) suggere(s) visite(s), 1 follow(s)"
+   },
+   {
+    "type": "notification_step",
+    "step": "session_end",
+    "step_status": "done",
+    "message": "Notifications session complete"
+   },
+   {
+    "type": "result",
+    "command": "scan",
+    "success": true,
+    "count": 2,
+    "by_type": {
+     "like": 2
+    },
+    "items": [
+     {
+      "type": "like",
+      "actor": "fan_one",
+      "text": "liked your post",
+      "is_new": true
+     },
+     {
+      "type": "comment",
+      "actor": "fan_two",
+      "text": "nice",
+      "is_new": false
+     }
+    ],
+    "requests": [
+     "req_one"
+    ],
+    "has_grouped_requests": false,
+    "message": "read",
+    "suggestions": {
+     "visited": 1,
+     "processed": 1,
+     "follows": 1,
+     "filtered": 0,
+     "errors": 0,
+     "profiles": [
+      "suggested_one"
+     ],
+     "stop_reason": "budget",
+     "ai_qualification": true,
+     "session_id": "session-1"
+    }
+   }
+  ]
+ },
+ "scan_raises": {
+  "exit": 1,
+  "calls": [
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge restart_instagram",
+   "screen own_profile",
+   "screen home",
+   "bridge build_workflow",
+   "db build_known_checker alpha_bot",
+   "workflow scan {\"known_checker\": \"known\", \"max_scrolls\": 3}"
+  ],
+  "stdout": [
+   {
+    "type": "notification_step",
+    "step": "own_profile",
+    "step_status": "running",
+    "message": "Refreshing your account"
+   },
+   {
+    "type": "notification_step",
+    "step": "own_profile",
+    "step_status": "done",
+    "message": "@alpha_bot — 12 followers"
+   },
+   {
+    "success": false,
+    "error": "scan broke",
+    "traceback": "<traceback>"
+   }
+  ]
+ },
+ "scan_no_connection": {
+  "exit": 1,
+  "calls": [
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Failed to connect to device"
+   }
+  ]
+ },
+ "list_requests": {
+  "exit": 0,
+  "calls": [
+   "bridge init emulator-5554 {\"package_name\": \"com.instagram.android.clone\"}",
+   "bridge connect",
+   "bridge build_workflow",
+   "workflow list_requests {\"max_requests\": 20}"
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "command": "list_requests",
+    "success": true,
+    "count": 0,
+    "requests": [],
+    "message": ""
+   }
+  ]
+ },
+ "accept": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge build_workflow",
+   "workflow accept_request req_one",
+   "db record_notification_action alpha_bot {\"action\": \"accept\", \"actor_username\": \"req_one\", \"success\": true}"
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "command": "accept",
+    "success": true
+   }
+  ]
+ },
+ "ignore": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": \"com.instagram.android.clone\"}",
+   "bridge connect",
+   "bridge build_workflow",
+   "workflow ignore_request req_two",
+   "db record_notification_action alpha_bot {\"action\": \"ignore\", \"actor_username\": \"req_two\", \"success\": true}"
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "command": "ignore",
+    "success": true
+   }
+  ]
+ },
+ "accept_all": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge build_workflow",
+   "workflow accept_all_requests {\"max_requests\": 10}",
+   "db record_notification_action alpha_bot {\"action\": \"accept\", \"actor_username\": \"req_one\", \"source\": \"batch\", \"success\": true}",
+   "db record_notification_action alpha_bot {\"action\": \"accept\", \"actor_username\": \"req_two\", \"source\": \"batch\", \"success\": true}"
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "command": "accept_all",
+    "success": true,
+    "count": 2,
+    "accepted": [
+     "req_one",
+     "req_two"
+    ],
+    "message": "2 accepted"
+   }
+  ]
+ },
+ "reply": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge build_workflow",
+   "workflow reply_to_comment fan_two Thanks a lot",
+   "db record_notification_action alpha_bot {\"action\": \"reply\", \"actor_username\": \"fan_two\", \"content\": \"Thanks a lot\", \"success\": true}"
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "command": "reply",
+    "success": true
+   }
+  ]
+ },
+ "reply_empty": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge build_workflow",
+   "workflow reply_to_comment fan_two "
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "command": "reply",
+    "success": true
+   }
+  ]
+ },
+ "like": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge build_workflow",
+   "workflow like_comment fan_one",
+   "db record_notification_action alpha_bot {\"action\": \"like\", \"actor_username\": \"fan_one\", \"success\": true}"
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "command": "like",
+    "success": true
+   }
+  ]
+ },
+ "follow_back": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge build_workflow",
+   "workflow follow_back fan_three",
+   "db record_notification_action alpha_bot {\"action\": \"follow_back\", \"actor_username\": \"fan_three\", \"success\": true}"
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "command": "follow_back",
+    "success": true
+   }
+  ]
+ },
+ "batch": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": \"com.instagram.android.clone\"}",
+   "bridge connect",
+   "bridge build_workflow",
+   "db count_actions_today alpha_bot follow_back",
+   "db count_actions_today alpha_bot welcome_dm",
+   "db count_actions_today alpha_bot follow_actor",
+   "db resolve_account_id alpha_bot",
+   "db batch_identity_hash alpha_bot {'ntype': 'comment', 'actor': 'fan_one', 'text': 'nice', 'time': '2h'}",
+   "db load_actioned_hashes alpha_bot like",
+   "workflow like_comment fan_one",
+   "db record_notification_action alpha_bot {\"action\": \"like\", \"actor_username\": \"fan_one\", \"content\": null, \"identity\": {\"actor\": \"fan_one\", \"ntype\": \"comment\", \"text\": \"nice\", \"time\": \"2h\"}, \"source\": \"autopilot\", \"success\": true}",
+   "db batch_identity_hash alpha_bot {'ntype': 'comment', 'actor': 'fan_done', 'text': 'done', 'time': '3h'}",
+   "db batch_identity_hash alpha_bot None",
+   "workflow reply_to_comment fan_two Thanks a lot",
+   "db record_notification_action alpha_bot {\"action\": \"reply\", \"actor_username\": \"fan_two\", \"content\": \"Thanks a lot\", \"identity\": null, \"source\": \"autopilot\", \"success\": true}",
+   "db batch_identity_hash alpha_bot None",
+   "workflow follow_back fan_three",
+   "db record_notification_action alpha_bot {\"action\": \"follow_back\", \"actor_username\": \"fan_three\", \"content\": null, \"identity\": null, \"source\": \"autopilot\", \"success\": true}",
+   "db batch_identity_hash alpha_bot None",
+   "db batch_identity_hash alpha_bot None",
+   "workflow accept_request req_one",
+   "db record_notification_action alpha_bot {\"action\": \"accept\", \"actor_username\": \"req_one\", \"content\": null, \"identity\": null, \"source\": \"autopilot\", \"success\": true}",
+   "db batch_identity_hash alpha_bot None",
+   "workflow ignore_request req_two",
+   "db record_notification_action alpha_bot {\"action\": \"ignore\", \"actor_username\": \"req_two\", \"content\": null, \"identity\": null, \"source\": \"autopilot\", \"success\": true}",
+   "db batch_identity_hash alpha_bot None",
+   "db record_notification_action alpha_bot {\"action\": \"shrug\", \"actor_username\": \"someone\", \"content\": null, \"identity\": null, \"source\": \"autopilot\", \"success\": false}",
+   "db batch_identity_hash alpha_bot None",
+   "screen follow_actor engaged_one",
+   "db record_notification_action alpha_bot {\"action\": \"follow_actor\", \"actor_username\": \"engaged_one\", \"content\": null, \"identity\": null, \"source\": \"autopilot\", \"success\": true}",
+   "pace {\"is_last\": false}",
+   "db batch_identity_hash alpha_bot None",
+   "screen follow_actor already_followed",
+   "db batch_identity_hash alpha_bot None",
+   "db welcome_dm_skip_reason 7 new_fan",
+   "screen send_welcome_dm new_fan Welcome!",
+   "db record_notification_action alpha_bot {\"action\": \"welcome_dm\", \"actor_username\": \"new_fan\", \"content\": \"Welcome!\", \"identity\": null, \"source\": \"autopilot\", \"success\": true}",
+   "db record_welcome_dm 7 new_fan Welcome!",
+   "pace {\"is_last\": false}",
+   "db batch_identity_hash alpha_bot None",
+   "db welcome_dm_skip_reason 7 old_friend"
+  ],
+  "stdout": [
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 0,
+    "total": 12,
+    "action": "like",
+    "username": "fan_one",
+    "message": "[1/12] like @fan_one"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 0,
+    "total": 12,
+    "action": "like",
+    "username": "fan_one",
+    "success": true,
+    "message": "[1/12] like @fan_one ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 1,
+    "total": 12,
+    "action": "like",
+    "username": "fan_done",
+    "success": true,
+    "message": "[2/12] like @fan_done - already done, skipped"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 2,
+    "total": 12,
+    "action": "reply",
+    "username": "fan_two",
+    "message": "[3/12] reply @fan_two"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 2,
+    "total": 12,
+    "action": "reply",
+    "username": "fan_two",
+    "success": true,
+    "message": "[3/12] reply @fan_two ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 3,
+    "total": 12,
+    "action": "follow_back",
+    "username": "fan_three",
+    "message": "[4/12] follow_back @fan_three"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 3,
+    "total": 12,
+    "action": "follow_back",
+    "username": "fan_three",
+    "success": true,
+    "message": "[4/12] follow_back @fan_three ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 4,
+    "total": 12,
+    "action": "follow_back",
+    "username": "fan_four",
+    "success": true,
+    "message": "[5/12] follow_back @fan_four - daily follow_back cap reached (2)"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 5,
+    "total": 12,
+    "action": "accept",
+    "username": "req_one",
+    "message": "[6/12] accept @req_one"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 5,
+    "total": 12,
+    "action": "accept",
+    "username": "req_one",
+    "success": true,
+    "message": "[6/12] accept @req_one ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 6,
+    "total": 12,
+    "action": "ignore",
+    "username": "req_two",
+    "message": "[7/12] ignore @req_two"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 6,
+    "total": 12,
+    "action": "ignore",
+    "username": "req_two",
+    "success": true,
+    "message": "[7/12] ignore @req_two ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 7,
+    "total": 12,
+    "action": "shrug",
+    "username": "someone",
+    "message": "[8/12] shrug @someone"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 7,
+    "total": 12,
+    "action": "shrug",
+    "username": "someone",
+    "success": false,
+    "message": "[8/12] shrug @someone failed"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 8,
+    "total": 12,
+    "action": "follow_actor",
+    "username": "engaged_one",
+    "message": "[9/12] follow_actor @engaged_one"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 8,
+    "total": 12,
+    "action": "follow_actor",
+    "username": "engaged_one",
+    "success": true,
+    "message": "[9/12] follow_actor @engaged_one ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 9,
+    "total": 12,
+    "action": "follow_actor",
+    "username": "already_followed",
+    "message": "[10/12] follow_actor @already_followed"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 9,
+    "total": 12,
+    "action": "follow_actor",
+    "username": "already_followed",
+    "success": true,
+    "message": "[10/12] follow_actor @already_followed ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 10,
+    "total": 12,
+    "action": "welcome_dm",
+    "username": "new_fan",
+    "message": "[11/12] welcome_dm @new_fan"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 10,
+    "total": 12,
+    "action": "welcome_dm",
+    "username": "new_fan",
+    "success": true,
+    "message": "[11/12] welcome_dm @new_fan ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 11,
+    "total": 12,
+    "action": "welcome_dm",
+    "username": "old_friend",
+    "success": true,
+    "message": "[12/12] welcome_dm @old_friend - already messaged"
+   },
+   {
+    "type": "result",
+    "command": "batch",
+    "success": false,
+    "total": 12,
+    "done": 7,
+    "failed": 1,
+    "skipped": 4,
+    "results": [
+     {
+      "action": "like",
+      "username": "fan_one",
+      "success": true
+     },
+     {
+      "action": "like",
+      "username": "fan_done",
+      "success": true,
+      "skipped": true,
+      "reason": "already_done",
+      "message": "already done, skipped"
+     },
+     {
+      "action": "reply",
+      "username": "fan_two",
+      "success": true
+     },
+     {
+      "action": "follow_back",
+      "username": "fan_three",
+      "success": true
+     },
+     {
+      "action": "follow_back",
+      "username": "fan_four",
+      "success": true,
+      "skipped": true,
+      "reason": "daily_cap",
+      "message": "daily follow_back cap reached (2)"
+     },
+     {
+      "action": "accept",
+      "username": "req_one",
+      "success": true
+     },
+     {
+      "action": "ignore",
+      "username": "req_two",
+      "success": true
+     },
+     {
+      "action": "shrug",
+      "username": "someone",
+      "success": false,
+      "error": "Unknown action: shrug"
+     },
+     {
+      "action": "follow_actor",
+      "username": "engaged_one",
+      "success": true,
+      "skipped": false
+     },
+     {
+      "action": "follow_actor",
+      "username": "already_followed",
+      "success": true,
+      "skipped": true
+     },
+     {
+      "action": "welcome_dm",
+      "username": "new_fan",
+      "success": true
+     },
+     {
+      "action": "welcome_dm",
+      "username": "old_friend",
+      "success": true,
+      "skipped": true,
+      "reason": "already_dmed",
+      "message": "already messaged"
+     }
+    ]
+   }
+  ]
+ },
+ "batch_plain": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram None {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge build_workflow",
+   "db batch_identity_hash None None",
+   "workflow like_comment fan_one",
+   "db record_notification_action None {\"action\": \"like\", \"actor_username\": \"fan_one\", \"content\": null, \"identity\": null, \"source\": \"batch\", \"success\": true}",
+   "db batch_identity_hash None None",
+   "workflow reply_to_comment fan_two "
+  ],
+  "stdout": [
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 0,
+    "total": 2,
+    "action": "like",
+    "username": "fan_one",
+    "message": "[1/2] like @fan_one"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 0,
+    "total": 2,
+    "action": "like",
+    "username": "fan_one",
+    "success": true,
+    "message": "[1/2] like @fan_one ok"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 1,
+    "total": 2,
+    "action": "reply",
+    "username": "fan_two",
+    "message": "[2/2] reply @fan_two"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 1,
+    "total": 2,
+    "action": "reply",
+    "username": "fan_two",
+    "success": true,
+    "message": "[2/2] reply @fan_two ok"
+   },
+   {
+    "type": "result",
+    "command": "batch",
+    "success": true,
+    "total": 2,
+    "done": 2,
+    "failed": 0,
+    "skipped": 0,
+    "results": [
+     {
+      "action": "like",
+      "username": "fan_one",
+      "success": true
+     },
+     {
+      "action": "reply",
+      "username": "fan_two",
+      "success": true
+     }
+    ]
+   }
+  ]
+ },
+ "batch_blocked": {
+  "exit": 0,
+  "calls": [
+   "db witness_for instagram alpha_bot {\"source_type\": \"NOTIFICATIONS\"}",
+   "bridge init emulator-5554 {\"package_name\": null}",
+   "bridge connect",
+   "bridge build_workflow",
+   "db batch_identity_hash alpha_bot None",
+   "workflow like_comment fan_one",
+   "db record_notification_action alpha_bot {\"action\": \"like\", \"actor_username\": \"fan_one\", \"content\": null, \"identity\": null, \"source\": \"batch\", \"success\": false}",
+   "db batch_identity_hash alpha_bot None",
+   "db batch_identity_hash alpha_bot None"
+  ],
+  "stdout": [
+   {
+    "type": "notification_step",
+    "step": "batch_action",
+    "index": 0,
+    "total": 3,
+    "action": "like",
+    "username": "fan_one",
+    "message": "[1/3] like @fan_one"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 0,
+    "total": 3,
+    "action": "like",
+    "username": "fan_one",
+    "success": false,
+    "message": "[1/3] like @fan_one failed"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 1,
+    "total": 3,
+    "action": "like",
+    "username": "fan_two",
+    "success": true,
+    "message": "[2/3] like @fan_two - batch stopped: Instagram refuses actions (Try again later)"
+   },
+   {
+    "type": "notification_step",
+    "step": "batch_result",
+    "index": 2,
+    "total": 3,
+    "action": "follow_back",
+    "username": "fan_three",
+    "success": true,
+    "message": "[3/3] follow_back @fan_three - batch stopped: Instagram refuses actions (Try again later)"
+   },
+   {
+    "type": "result",
+    "command": "batch",
+    "stop_reason": "action_blocked",
+    "success": false,
+    "total": 3,
+    "done": 0,
+    "failed": 1,
+    "skipped": 2,
+    "results": [
+     {
+      "action": "like",
+      "username": "fan_one",
+      "success": false,
+      "stop_reason": "action_blocked"
+     },
+     {
+      "action": "like",
+      "username": "fan_two",
+      "success": true,
+      "skipped": true,
+      "reason": "action_blocked",
+      "message": "batch stopped: Instagram refuses actions (Try again later)"
+     },
+     {
+      "action": "follow_back",
+      "username": "fan_three",
+      "success": true,
+      "skipped": true,
+      "reason": "action_blocked",
+      "message": "batch stopped: Instagram refuses actions (Try again later)"
+     }
+    ]
+   }
+  ]
+ },
+ "unknown": {
+  "exit": 1,
+  "calls": [],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Unknown command: dance"
+   }
+  ]
+ }
+}

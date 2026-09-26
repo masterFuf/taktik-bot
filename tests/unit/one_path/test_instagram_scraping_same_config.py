@@ -6,7 +6,6 @@ taxonomy, no `usernames` or `profile_posts` sources, and no AI service at all. T
 Instagram before every scraping run (Electron, before the bridge); the CLI restarted nothing.
 Neither path read the app language at the start, as the automation does (`runtime_setup`).
 """
-from loguru import logger
 
 from instagram_scraping_rig import (
     AI_KEY,
@@ -119,20 +118,27 @@ def test_the_cli_takes_the_openrouter_key_from_the_environment(igs_rig):
     assert [build["api_key"] for build in igs_rig.ai_builds] == [AI_KEY]
 
 
-def test_without_a_key_the_cli_scrapes_without_ai_and_says_why(igs_rig):
+def test_without_a_key_a_scripted_ai_scraping_is_refused_before_the_phone(igs_rig):
     payload = hashtag_payload()
     payload["ai"] = {key: value for key, value in payload["ai"].items() if key != "openrouterApiKey"}
-    warnings = []
-    sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
-    try:
-        result = igs_rig.run_cli(payload, env={"OPENROUTER_API_KEY": ""})
-    finally:
-        logger.remove(sink)
+
+    result = igs_rig.run_cli(payload, env={"OPENROUTER_API_KEY": ""})
+
+    assert result.exit_code == 2, result.output
+    assert "OPENROUTER_API_KEY" in result.output
+    assert igs_rig.ai_builds == []
+    assert "run_scraping" not in igs_rig.calls
+
+
+def test_a_scraping_without_ai_needs_no_key(igs_rig):
+    payload = hashtag_payload()
+    payload["ai"] = {"enabled": False}
+
+    result = igs_rig.run_cli(payload, env={"OPENROUTER_API_KEY": ""})
 
     assert result.exit_code == 0, result.output
-    assert igs_rig.ai_builds == []
     assert "run_scraping" in igs_rig.calls
-    assert any("OPENROUTER_API_KEY" in line for line in warnings)
+    assert igs_rig.ai_builds == []
 
 
 def test_the_cli_refuses_a_target_run_without_targets_before_the_phone(igs_rig):

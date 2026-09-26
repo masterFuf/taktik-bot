@@ -1,17 +1,16 @@
 """What the CLI injects into the TikTok handlers, so a terminal run starts like a desktop run.
 
 Same startup sequence (clean restart, permission prompt, language, account) and same AI hooks as
-the bridges; the events go to the log instead of stdout. The AI key comes from
-`OPENROUTER_API_KEY` when the payload does not carry one.
+the bridges; the events go to the log instead of stdout. When the payload carries no AI key, the
+CLI's own (`ai_key.py`: the environment, the key typed at launch, the saved one).
 """
 from __future__ import annotations
 
-import os
 from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
-OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
+from taktik.cli.common.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
 
 
 def _log(level: str, message: str) -> None:
@@ -39,17 +38,17 @@ def cli_tiktok_startup(device: Any, device_id: str) -> Callable[..., Any]:
 
 
 def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
-    """The run's `ai` block with a key, from the environment if the run brings none; None when AI
-    is off or no key is available."""
+    """The run's `ai` block with a key, the CLI's if the run brings none; None when AI is off or no
+    key is available."""
     ai_config = dict(ai_config or {})
     if not ai_config.get("enabled"):
         return None
 
     if not ai_config.get("openrouterApiKey"):
-        key = os.environ.get(OPENROUTER_KEY_ENV, "").strip()
+        key = resolve_openrouter_key()
         if not key:
             logger.warning(
-                f"AI requested but {OPENROUTER_KEY_ENV} is not set: this run goes on without AI"
+                f"AI requested but no OpenRouter key ({OPENROUTER_KEY_ENV}): this run goes on without AI"
             )
             return None
         ai_config["openrouterApiKey"] = key
@@ -57,7 +56,7 @@ def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
 
 
 def cli_tiktok_ai_hooks(ai_config: Mapping[str, Any], language: str) -> None:
-    """Install the run's AI hooks, with the key from the environment if the run brings none."""
+    """Install the run's AI hooks, with the CLI's key if the run brings none."""
     ai_config = _with_key(ai_config)
     if ai_config is None:
         return
@@ -68,8 +67,8 @@ def cli_tiktok_ai_hooks(ai_config: Mapping[str, Any], language: str) -> None:
 
 
 def cli_tiktok_welcome_qualifier(ai_config: Mapping[str, Any], language: str):
-    """The new-followers welcome pass's AI verdict, with the key from the environment if the run
-    brings none. None when no AI service can be built."""
+    """The new-followers welcome pass's AI verdict, with the CLI's key if the run brings none.
+    None when no AI service can be built."""
     ai_config = _with_key(ai_config)
     if ai_config is None:
         return None
@@ -86,11 +85,11 @@ def cli_tiktok_welcome_qualifier(ai_config: Mapping[str, Any], language: str):
 
 
 def cli_tiktok_outreach_message_generator(ai_prompt: str, api_key: str):
-    """The cold DM's AI message per recipient, with the key from the environment if the run
-    brings none. None without a key: the run falls back on its static messages."""
-    key = (api_key or "").strip() or os.environ.get(OPENROUTER_KEY_ENV, "").strip()
+    """The cold DM's AI message per recipient, with the CLI's key if the run brings none. None
+    without a key: the run falls back on its static messages."""
+    key = (api_key or "").strip() or resolve_openrouter_key()
     if not key:
-        logger.warning(f"AI requested but {OPENROUTER_KEY_ENV} is not set: this run goes on without AI")
+        logger.warning(f"AI requested but no OpenRouter key ({OPENROUTER_KEY_ENV}): this run goes on without AI")
         return None
 
     from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (

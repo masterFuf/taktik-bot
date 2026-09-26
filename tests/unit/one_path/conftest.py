@@ -1871,3 +1871,10 @@ def no_phone(monkeypatch):
     monkeypatch.setattr(socket, "create_connection", refuse)
     monkeypatch.setattr("uiautomator2.connect", refuse)
 
+
+@pytest.fixture
+def ign_rig(monkeypatch, tmp_path):
+    """The Instagram notifications rig (`instagram_notifications_rig.py`): the desktop bridge."""
+    from instagram_notifications_rig import InstagramNotificationsRig
+
+    return InstagramNotificationsRig(monkeypatch, tmp_path)
