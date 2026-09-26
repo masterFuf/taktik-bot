@@ -32,6 +32,9 @@ def bridge_file(contract: WorkflowContract, **overrides: Any) -> Dict[str, Any]:
     """The file the app writes: every app setting under its wire key, the bridge fields."""
     settings = {}
     for item in contract.settings:
+        if item.key in ("device_id", "deviceId"):
+            settings[item.key] = overrides.pop(item.key, DEVICE)
+            continue
         if not item.app or item.by != "operator":
             continue
         plain = has_default(item) and not isinstance(item.default, tuple)
@@ -406,3 +409,94 @@ def test_the_search_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotati
     send_error("Search workflow error: the search field did not open")
     check_lines(TIKTOK_SEARCH, lines)
     assert {line["type"] for line in lines} == {event.type for event in TIKTOK_SEARCH.events}
+
+
+# ---------------------------------------------------- dispatcher: profile-visiting workflows
+
+
+class _Profiles:
+    """A profile-visiting workflow whose screen work answers from a script."""
+
+    fail = False
+
+    def __init__(self, device, config, **kwargs):
+        self.config = config
+        self.callbacks = {}
+
+    def __getattr__(self, name):
+        if name.startswith("set_on_") and name.endswith("_callback"):
+            return lambda cb: self.callbacks.__setitem__(name[len("set_on_"):-len("_callback")], cb)
+        raise AttributeError(name)
+
+    def run(self, bot_username=None):
+        from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersStats
+
+        if self.fail:
+            raise RuntimeError("the list did not open")
+        stats = FollowersStats(followers_seen=3, profiles_visited=1, posts_watched=2, likes=1, follows=1)
+        self.callbacks["action"]({"action": "like", "target": "alice"})
+        self.callbacks["profile"]({"username": "alice", "display_name": "Alice", "followers_count": 12,
+                                   "following_count": 3, "likes_count": 40, "videos_count": 5,
+                                   "biography": "A bio", "is_private": False, "is_verified": False})
+        self.callbacks["stats"](stats.to_dict())
+        self.callbacks["pause"](20)
+        stats.completion_reason = "completed"
+        return stats
+
+
+def _profile_run(monkeypatch, runner_module, workflow_module, class_name, fail=False):
+    monkeypatch.setattr(_Profiles, "fail", fail)
+    monkeypatch.setattr(workflow_module, class_name, _Profiles)
+    return _dispatcher(monkeypatch, runner_module)
+
+
+@pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
+def test_the_followers_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
+    import bridges.tiktok.workflows.automation.followers as runner
+    import taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler as launcher
+    import taktik.core.social_media.tiktok.actions.business.workflows.followers.workflow as workflow
+    from taktik.core.app.contract.tiktok_profiles import TIKTOK_FOLLOWERS
+
+    dispatcher = _profile_run(monkeypatch, runner, workflow, "FollowersWorkflow", fail)
+    monkeypatch.setattr(launcher, "_return_home", lambda device: True)
+    monkeypatch.setattr(launcher.time, "sleep", lambda seconds: None)
+    data = bridge_file(TIKTOK_FOLLOWERS)
+    log: set = set()
+
+    assert dispatcher.TikTokDispatcherBridge(Recording(data, log)).run() == (1 if fail else 0)
+
+    # The target list wins: the single-target keys of the file are never reached.
+    later = {("targets",), ("searchQuery",), *((a,) for a in TIKTOK_FOLLOWERS.setting("searchQuery").aliases)}
+    assert_reads(TIKTOK_FOLLOWERS, data, log | later)
+    check_lines(TIKTOK_FOLLOWERS, lines)
+    printed = {line["type"] for line in lines}
+    if fail:
+        assert printed == {"status", "error", "target_switch", "workflow_start"}
+    else:
+        assert printed == {event.type for event in TIKTOK_FOLLOWERS.events} - {"error"}
+
+
+@pytest.mark.parametrize("name", ["target_profiles", "post_url"])
+def test_the_single_pass_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotation, name):
+    import importlib
+
+    from taktik.core.app.contract import tiktok_profiles
+
+    contract = {"target_profiles": tiktok_profiles.TIKTOK_TARGET_PROFILES,
+                "post_url": tiktok_profiles.TIKTOK_POST_URL}[name]
+    runner = importlib.import_module(f"bridges.tiktok.workflows.automation.{name}")
+    workflow = importlib.import_module(f"{_WORKFLOWS}.{name}.workflow")
+    class_name = {"target_profiles": "TargetProfilesWorkflow", "post_url": "PostUrlWorkflow"}[name]
+    dispatcher = _profile_run(monkeypatch, runner, workflow, class_name)
+    overrides = {"postUrl": "https://www.tiktok.com/@example/video/1"} if name == "post_url" else {}
+    data = bridge_file(contract, **overrides)
+    log: set = set()
+
+    assert dispatcher.TikTokDispatcherBridge(Recording(data, log)).run() == 0
+    assert_reads(contract, data, log)
+
+    from bridges.tiktok.runtime.ipc import send_error
+
+    send_error("Workflow error: the profile did not open")
+    check_lines(contract, lines)
+    assert {line["type"] for line in lines} == {event.type for event in contract.events}

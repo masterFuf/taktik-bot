@@ -50,6 +50,12 @@ class Recording(dict):
         self._written.add(key)
         super().__setitem__(key, value)
 
+    def items(self):
+        # Iterating the payload reads every key of it (the filter criteria merge does).
+        for key in list(super().keys()):
+            self._note(key)
+        return super().items()
+
 
 def probe(item: Field, variant: int = 0) -> Any:
     """A value for `item` that differs from its default, and from the probe of another variant."""
@@ -98,6 +104,18 @@ def _unit(item: Field, value: Any) -> Any:
     return value
 
 
+def matches(item: Field, actual: Any, wanted: Any) -> bool:
+    """`merged`: the value was merged into what the reader keeps, next to other keys."""
+    if item.unit == "merged":
+        return isinstance(actual, Mapping) and all(actual.get(k) == v for k, v in wanted.items())
+    return actual == wanted
+
+
+def by_iteration(item: Field) -> bool:
+    """A filter criterion reaches its reader through the merge of every flat key, not by name."""
+    return bool(item.attr) and (item.attr == "filters" or item.attr.startswith("filters."))
+
+
 def expected_default(item: Field) -> Any:
     default = item.default if has_default(item) else None
     if isinstance(default, tuple):
@@ -130,10 +148,15 @@ def read(contract: WorkflowContract, payload: Dict[str, Any]) -> Any:
 
 
 def value_of(contract: WorkflowContract, item: Field, payload: Dict[str, Any]) -> Any:
-    if item.reader:
-        return resolve(item.reader)(payload, **item.reader_kwargs)
-    result = read(contract, payload)
-    return result[item.attr] if isinstance(result, Mapping) else getattr(result, item.attr)
+    result = resolve(item.reader)(payload, **item.reader_kwargs) if item.reader else read(contract, payload)
+    for part in (item.attr.split(".") if item.attr else ()):
+        if isinstance(result, tuple):
+            result = result[int(part)]
+        elif isinstance(result, Mapping):
+            result = result.get(part)
+        else:
+            result = getattr(result, part)
+    return result
 
 
 def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -> Any:
