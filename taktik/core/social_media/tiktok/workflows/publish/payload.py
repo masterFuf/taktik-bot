@@ -2,7 +2,8 @@
 
 The wire form is what the desktop writes (`TikTokUploadWorkflowService.writeConfig`): a video
 (`localPath`, `caption`, `hashtags`) or a text post (`postType: text`, `text`, `toStory`), with an
-optional `packageName` for a cloned TikTok. The snake_case names an Agent plan or a CLI call
+optional `packageName` for a cloned TikTok and the operated account (`botUsername`, the key the
+followers and unfollow payloads use). The snake_case names an Agent plan or a CLI call
 writes stay accepted. Every key is read by name, so the app's config contract test can see which
 ones the bot reads.
 """
@@ -27,6 +28,8 @@ class PublishRequest:
     text: str = ""
     to_story: bool = False
     package_name: Optional[str] = None
+    #: The operated account: a refused publication is filed in its health history.
+    bot_username: Optional[str] = None
 
 
 def _first_given(*values: Any) -> Any:
@@ -66,6 +69,8 @@ def publish_request_from_payload(payload: Mapping[str, Any]) -> PublishRequest:
         text=str(text),
         to_story=bool(_first_given(payload.get("toStory"), payload.get("to_story")) or False),
         package_name=_first_given(payload.get("packageName"), payload.get("package_name")),
+        bot_username=(str(_first_given(payload.get("botUsername"), payload.get("bot_username")) or "")
+                      .strip().lstrip("@") or None),
     )
 
 

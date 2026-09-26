@@ -37,6 +37,8 @@ from typing import Callable, List, Optional
 from loguru import logger
 
 from taktik.core.clone import get_active_package
+from taktik.core.database.account_health import witness_for
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.shared.device.media_store import (
     delete_pushed_media,
@@ -89,8 +91,11 @@ class InstagramPostWorkflow:
         package_name: Optional[str] = None,
         post_type: str = "post",
         story_via_feed: bool = False,
+        account_username: Optional[str] = None,
     ):
         self.device = device
+        # The operated account: a refused publication is filed in its health history.
+        self.account_username = (account_username or "").strip().lstrip("@") or None
         self.device_id = device_id
         self._log = log or _default_log
         self._status = status or _default_status
@@ -152,6 +157,9 @@ class InstagramPostWorkflow:
         """
         hashtags = hashtags or []
         media_paths = [p for p in (media_paths or []) if p]
+        # A refused publication becomes one entry of the account's health history, as in every run.
+        run_halt.configurer_temoin(witness_for(
+            "instagram", lambda: self.account_username, source_type=lambda: "PUBLISH"))
 
         if not media_paths:
             return self._error("no_media", "At least one media path is required")
