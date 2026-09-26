@@ -51,7 +51,6 @@ TOLERE = {
     "taktik/cli/commands/management_cmds.py::dm_read_all": 9,
     "taktik/core/social_media/instagram/actions/business/workflows/hashtag/mixins/post_finder.py::_extract_current_post_metadata": 9,
     "taktik/core/social_media/instagram/ui/watchdog.py::_attempt_recovery": 9,
-    "taktik/core/social_media/instagram/workflows/post_scraping/engagement_scraping.py::_scrape_comments": 9,
 }
 
 IMBRIQUANTS = (ast.If, ast.For, ast.While, ast.Try, ast.With, ast.AsyncFor, ast.AsyncWith)

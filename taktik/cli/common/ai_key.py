@@ -94,19 +94,17 @@ def ensure_ai_key(
     payload: Mapping[str, Any],
     *,
     interactive: bool,
-    always: bool = False,
     prompt: Optional[Callable[..., str]] = None,
     confirm: Optional[Callable[..., bool]] = None,
     echo: Callable[[str], None] = print,
 ) -> Optional[str]:
     """The key of a run that uses AI, asked for when missing; None for a run without AI.
 
-    `always` is for a run that is AI by nature outside the registry (the DM auto-reply menu).
     Raises `MissingAIKeyError` when the run needs a key, none is known and `interactive` is off
     (or the prompt is left empty).
     """
     global _typed_key
-    if not always and not run_uses_ai(workflow_id, payload):
+    if not run_uses_ai(workflow_id, payload):
         return None
     key = _payload_key(payload) or resolve_openrouter_key()
     if key:

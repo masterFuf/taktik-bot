@@ -43,8 +43,9 @@ def test_a_fake_second_launcher_turns_the_gate_red(inputs, baseline, case):
     assert any(expected in finding for finding in new), new
 
 
-def test_every_exception_is_dated_and_justified():
+def test_every_exception_is_justified():
+    """Each exception says why it holds; its date lives in the governance doc, not in this
+    public source."""
     for kind, entries in workflow_launchers.EXCEPTIONS.items():
         for key, reason in entries.items():
-            assert reason[:10].count("-") == 2 and reason[:4].isdigit(), (kind, key)
-            assert len(reason) > 20, (kind, key)
+            assert len(reason.strip()) >= 10, (kind, key)

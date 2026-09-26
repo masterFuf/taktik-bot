@@ -3,7 +3,6 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt, Confirm
 
-from taktik.cli.common.ai_key import MissingAIKeyError, ensure_ai_key
 
 console = Console()
 
@@ -112,73 +111,3 @@ def generate_cold_dm_workflow():
         return None
     
     return config
-
-
-def generate_dm_auto_reply_workflow():
-    """Generate configuration for DM Auto-Reply workflow."""
-    console.print("\n[bold green]🤖 DM Auto-Reply Workflow Configuration[/bold green]")
-    console.print("[dim]Automatically reply to incoming DMs using AI[/dim]\n")
-    
-    console.print("[yellow]🔑 API Configuration[/yellow]")
-    try:
-        openrouter_api_key = ensure_ai_key("DM Auto-Reply", {}, interactive=True, always=True,
-                                           echo=console.print)
-    except MissingAIKeyError as exc:
-        console.print(f"[red]{exc}[/red]")
-        return None
-    
-    console.print("\n[yellow]👤 Persona Configuration[/yellow]")
-    persona_name = Prompt.ask("[cyan]Your name/brand name[/cyan]", default="")
-    persona_description = Prompt.ask("[cyan]Brief description of who you are[/cyan]", default="")
-    business_context = Prompt.ask("[cyan]What is your business/service about?[/cyan]", default="")
-    
-    console.print("\n[yellow]⚙️ Behavior Settings[/yellow]")
-    check_interval_min = int(Prompt.ask("[cyan]Min interval to check new messages (seconds)[/cyan]", default="30"))
-    check_interval_max = int(Prompt.ask("[cyan]Max interval to check new messages (seconds)[/cyan]", default="120"))
-    reply_delay_min = int(Prompt.ask("[cyan]Min delay before replying (seconds)[/cyan]", default="5"))
-    reply_delay_max = int(Prompt.ask("[cyan]Max delay before replying (seconds)[/cyan]", default="30"))
-    max_replies = int(Prompt.ask("[cyan]Maximum replies per session[/cyan]", default="50"))
-    
-    console.print("\n[yellow]🚫 Filters[/yellow]")
-    ignore_input = Prompt.ask("[cyan]Usernames to ignore (comma-separated)[/cyan]", default="")
-    ignore_usernames = [u.strip().lstrip('@') for u in ignore_input.split(',') if u.strip()] if ignore_input else []
-    
-    console.print("\n[yellow]⏱️ Session settings[/yellow]")
-    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
-    
-    config = {
-        "openrouter_api_key": openrouter_api_key,
-        "persona_name": persona_name,
-        "persona_description": persona_description,
-        "business_context": business_context,
-        "check_interval_min": check_interval_min,
-        "check_interval_max": check_interval_max,
-        "reply_delay_min": reply_delay_min,
-        "reply_delay_max": reply_delay_max,
-        "max_replies_per_session": max_replies,
-        "ignore_usernames": ignore_usernames,
-        "session_duration_minutes": session_duration
-    }
-    
-    console.print("\n[green]📋 DM Auto-Reply Configuration Summary:[/green]")
-    
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Parameter", style="cyan")
-    table.add_column("Value", style="yellow")
-    
-    table.add_row("API Key", "Configured" if openrouter_api_key else "Not set")
-    table.add_row("Persona", persona_name or "Not set")
-    table.add_row("Check interval", f"{check_interval_min}-{check_interval_max}s")
-    table.add_row("Reply delay", f"{reply_delay_min}-{reply_delay_max}s")
-    table.add_row("Max replies", str(max_replies))
-    table.add_row("Ignored users", str(len(ignore_usernames)))
-    table.add_row("Session duration", f"{session_duration} min")
-    
-    console.print(table)
-    
-    if not Confirm.ask("\n[bold cyan]Start DM Auto-Reply workflow with this configuration?[/bold cyan]", default=True):
-        return None
-    
-    return config
-
-
