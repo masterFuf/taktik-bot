@@ -8,7 +8,7 @@ trace in the database.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from loguru import logger
@@ -45,18 +45,27 @@ def save_scraped_profile(session_id: int, profile: Dict[str, Any]) -> None:
         logger.warning(f"Error saving scraped profile: {e}")
 
 
+#: The terminal statuses of the `scraping_sessions` contract (`scraping_session_repository.py`).
+TERMINAL_STATUSES = ("COMPLETED", "ERROR", "CANCELLED", "INTERRUPTED")
+
+
 def close_scraping_session(session_id: int, total_scraped: int, status: str, duration_seconds: int) -> None:
-    """Close the session row: how many profiles, how it ended, how long it took."""
+    """Close the session row: how many profiles, how it ended, how long it took.
+
+    The end is stored in UTC, in SQLite's `datetime('now')` form, like the start.
+    """
+    if status not in TERMINAL_STATUSES:
+        raise ValueError(f"not a scraping session terminal status: {status!r}")
     try:
         get_repository(SessionRepository).update_scraping(
             scraping_id=session_id,
             total_scraped=total_scraped,
             status=status,
             duration_seconds=duration_seconds,
-            end_time=datetime.now().isoformat(),
+            end_time=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         )
     except Exception as e:
         logger.warning(f"Error updating scraping session: {e}")
 
 
-__all__ = ["close_scraping_session", "open_scraping_session", "save_scraped_profile"]
+__all__ = ["TERMINAL_STATUSES", "close_scraping_session", "open_scraping_session", "save_scraped_profile"]

@@ -135,6 +135,13 @@
     }
    ],
    [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
+    }
+   ],
+   [
     "status",
     {
      "message": "Scraping post_url",
@@ -325,6 +332,13 @@
       "profile_pic_base64": null,
       "username": "acting_account"
      }
+    }
+   ],
+   [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
     }
    ],
    [
@@ -954,6 +968,13 @@
     }
    ],
    [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
+    }
+   ],
+   [
     "status",
     {
      "message": "Scraping target",
@@ -1180,6 +1201,13 @@
     }
    ],
    [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
+    }
+   ],
+   [
     "status",
     {
      "message": "Scraping account_posts",
@@ -1343,6 +1371,13 @@
       "profile_pic_base64": null,
       "username": "acting_account"
      }
+    }
+   ],
+   [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
     }
    ],
    [
@@ -1541,6 +1576,13 @@
     }
    ],
    [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
+    }
+   ],
+   [
     "status",
     {
      "message": "Scraping post_url",
@@ -1730,6 +1772,13 @@
       "profile_pic_base64": null,
       "username": "acting_account"
      }
+    }
+   ],
+   [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
     }
    ],
    [
@@ -1928,6 +1977,13 @@
     }
    ],
    [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
+    }
+   ],
+   [
     "status",
     {
      "message": "Scraping target",
@@ -2119,6 +2175,13 @@
       "profile_pic_base64": null,
       "username": "acting_account"
      }
+    }
+   ],
+   [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
     }
    ],
    [
@@ -2483,6 +2546,13 @@
     }
    ],
    [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
+    }
+   ],
+   [
     "status",
     {
      "message": "Scraping post_url",
@@ -2663,7 +2733,7 @@
      "duration_seconds": 0,
      "has_end_time": true,
      "scraping_id": 42,
-     "status": "STOPPED",
+     "status": "CANCELLED",
      "total_scraped": 2
     }
    }
@@ -2723,6 +2793,13 @@
       "profile_pic_base64": null,
       "username": "acting_account"
      }
+    }
+   ],
+   [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
     }
    ],
    [
@@ -3201,6 +3278,13 @@
       "profile_pic_base64": null,
       "username": "acting_account"
      }
+    }
+   ],
+   [
+    "scraping_session",
+    {
+     "platform": "tiktok",
+     "scraping_id": 42
     }
    ],
    [
