@@ -15,7 +15,7 @@ import taktik.core.shared.behavior.typing as typing_plan
 import taktik.core.shared.device.adb as adb
 import taktik.core.shared.input.taktik_keyboard as kb
 from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.engagement.runtime.dm.sender import DMSenderMixin
+from taktik.core.social_media.instagram.workflows.dm_inbox.sender import DMSenderMixin
 from taktik.core.social_media.instagram.actions.atomic.interaction.story_interaction import (
     StoryInteractionMixin,
 )

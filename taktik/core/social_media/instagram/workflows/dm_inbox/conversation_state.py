@@ -1,11 +1,11 @@
-"""DM conversation state helpers for the Instagram DM bridge."""
+"""DM conversation state helpers for the Instagram DM inbox."""
 
 from __future__ import annotations
 
 import re
 import time
 
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 

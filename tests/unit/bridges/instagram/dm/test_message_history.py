@@ -5,7 +5,7 @@ per-screen capture + the scroll, so we can assert ordering, de-duplication and b
 without a device.
 """
 
-from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
+from taktik.core.social_media.instagram.workflows.dm_inbox.message_extraction import DMMessageExtractionMixin
 
 
 def _msg(idx: int) -> dict:

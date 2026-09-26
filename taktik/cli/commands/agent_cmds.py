@@ -4,10 +4,12 @@ The Agent is the bot's autonomous Instagram path, and it was reachable only from
 its bridge was the single caller, so a standalone user had no way to start it.
 
 Nothing about the workflow required that. `TaktikAgentWorkflow` lives in `taktik/core/agent/`,
-takes its device manager and its config by injection, and treats the notifier as optional. The
-bridge's AI factory is a three-line wrapper around `AIService` from `taktik/core/app/ai/`, so the
-CLI builds the same provider without importing anything from `bridges/` — a module outside
-`bridges/` must not depend on one.
+takes its device manager and its config by injection, and treats the notifier as optional. A run
+goes through `run_instagram_agent`, the launcher the desktop bridge calls: the device is prepared
+the way the bridge prepares it (clone-aware proxy, device facade, selector overrides of the
+installed version) and Instagram gets the same clean restart. It used to be launched hot on the raw
+device, on the official package whatever `packageName` said. The AI factory builds the same
+provider as the bridge's, from `taktik/core/app/ai/`.
 
 The API key is read from the environment rather than a flag: a key on the command line lands in
 the shell history and in the process list. Without a key the Agent still runs, with whatever its
@@ -87,9 +89,9 @@ def show_defaults() -> None:
 def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> None:
     """Start an autonomous Agent session on Instagram."""
     from taktik.cli.commands.workflow_cmds import _coerce
-    from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
+    from taktik.cli.common.instagram_host import CliInstagramHost
     from taktik.core.shared.device.manager import DeviceManager
-    from taktik.core.social_media.instagram.core.manager import InstagramManager
+    from taktik.core.social_media.instagram.workflows.agent.agent_handler import run_instagram_agent
 
     config: dict[str, Any] = {}
     for pair in params:
@@ -110,15 +112,6 @@ def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> No
         device_id = devices[0]["id"]
     if not manager.connect(device_id) or not manager.device:
         console.print(f"[red]Cannot connect to {device_id}.[/red]")
-        raise SystemExit(1)
-
-    instagram = InstagramManager(device_id)
-    if not instagram.is_installed():
-        console.print("[red]Instagram is not installed on this device.[/red]")
-        raise SystemExit(1)
-    console.print("[blue]Launching Instagram...[/blue]")
-    if not instagram.launch():
-        console.print("[red]Failed to launch Instagram.[/red]")
         raise SystemExit(1)
 
     api_key = "" if no_ai else os.environ.get(API_KEY_ENV, "")
@@ -142,17 +135,20 @@ def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> No
         title="[bold]Session quotas[/bold]", border_style="blue",
     ))
 
-    workflow = TaktikAgentWorkflow(
-        manager,
-        config,
-        ipc=_ConsoleNotifier(),
-        ai_service_factory=ai_service_factory,
-    )
-
+    workflows: list = []
     try:
-        result = workflow.run()
+        runtime = CliInstagramHost(manager, device_id).agent_runtime(config.get("packageName"))
+        result = run_instagram_agent(
+            config,
+            device_manager=runtime.device_manager,
+            restart=runtime.restart,
+            ipc=_ConsoleNotifier(),
+            ai_service_factory=ai_service_factory,
+            on_workflow=workflows.append,
+        )
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted; asking the agent to stop.[/yellow]")
+        workflow = workflows[0] if workflows else None
         stop = getattr(workflow, "request_stop", None) or getattr(workflow, "stop", None)
         if callable(stop):
             stop()
@@ -166,7 +162,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> No
         raise SystemExit(1)
 
     console.print("[green]Session finished.[/green]")
-    stats = getattr(workflow, "stats", None)
+    stats = getattr(workflows[0], "stats", None) if workflows else None
     if isinstance(stats, dict):
         for key, value in stats.items():
             console.print(f"  [cyan]{key}:[/cyan] {value}")

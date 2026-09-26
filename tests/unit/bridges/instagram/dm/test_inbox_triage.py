@@ -5,7 +5,7 @@ The inbox row content-desc reveals who sent last: "username, Sent <time>" /
 when they wrote last. We skip re-opening the former.
 """
 
-from bridges.instagram.engagement.runtime.dm.conversation_payload import (
+from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_payload import (
     is_outgoing_last_message,
     build_answered_conversation,
 )

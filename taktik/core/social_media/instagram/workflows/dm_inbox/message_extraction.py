@@ -1,4 +1,4 @@
-"""DM message extraction helpers for the Instagram DM bridge."""
+"""DM message extraction helpers for the Instagram DM inbox."""
 
 from __future__ import annotations
 
@@ -141,7 +141,7 @@ class DMMessageExtractionMixin:
         """
         seps: list[dict] = []
         try:
-            text_views = self.device(className="android.widget.TextView")
+            text_views = self.device(className=DM_SELECTORS.text_view_class_name)
             for j in range(text_views.count):
                 try:
                     element = text_views[j]

@@ -1,11 +1,11 @@
-"""DM inbox reset/top-position helpers for the Instagram DM bridge."""
+"""DM inbox reset/top-position helpers for the Instagram DM inbox."""
 
 from __future__ import annotations
 
 import random
 import time
 
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS

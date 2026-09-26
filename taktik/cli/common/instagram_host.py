@@ -23,6 +23,45 @@ def _log(level: str, message: str) -> None:
     getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
 
 
+class _ConnectedDevice:
+    """The CLI's connected manager, as the connection the bridges' Instagram base expects."""
+
+    def __init__(self, device_manager, device_id):
+        self.device_manager = device_manager
+        self.device_id = device_id
+        self._device = getattr(device_manager, "device", None)
+
+    @property
+    def device(self):
+        return self._device
+
+    @property
+    def screen_size(self):
+        from bridges.common.device.screen import read_screen_size
+
+        return read_screen_size(self._device)
+
+    def connect(self) -> bool:
+        return self._device is not None
+
+
+def _on_connected_device(base, device_manager, device_id: str):
+    """Connect a bridges' Instagram base on the device the CLI already connected: the clone-aware
+    proxy, the device facade and the selector overrides of the installed version, as a bridge."""
+    base._connection = _ConnectedDevice(device_manager, device_id)
+    if not base.connect():
+        raise RuntimeError(f"No connected device for {device_id}")
+    return base
+
+
+def _log_dm_event(payload: Mapping[str, Any]) -> None:
+    # Never the content of a message: the type, the username and the progress only.
+    conversation = payload.get("conversation") or {}
+    username = payload.get("username") or conversation.get("username") or payload.get("account_username") or ""
+    progress = f" {payload.get('current')}/{payload.get('total')}" if payload.get("current") is not None else ""
+    logger.info(f"[DM] {payload.get('type', 'event')} {username}{progress}".rstrip())
+
+
 class CliInstagramHost:
     """The CLI's connected device, as the Instagram launcher's host."""
 
@@ -58,40 +97,40 @@ class CliInstagramHost:
         """The device a cold DM run drives, prepared by the bridges' own Instagram base: the
         clone-aware proxy, the device facade, the selector overrides of the installed version and
         the clean restart through `AppService`, on the device the CLI already connected."""
-        from bridges.common.device.screen import read_screen_size
         from bridges.common.input.keyboard import KeyboardService
         from bridges.instagram.runtime.bridge import InstagramBridgeBase
         from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
 
-        class _ConnectedDevice:
-            """The CLI's connected manager, as the connection the bridge base expects."""
-
-            def __init__(self, device_manager, device_id):
-                self.device_manager = device_manager
-                self.device_id = device_id
-                self._device = getattr(device_manager, "device", None)
-
-            @property
-            def device(self):
-                return self._device
-
-            @property
-            def screen_size(self):
-                return read_screen_size(self._device)
-
-            def connect(self) -> bool:
-                return self._device is not None
-
-        base = InstagramBridgeBase(self.device_id, package_name=package_name)
-        base._connection = _ConnectedDevice(self.device_manager, self.device_id)
-        if not base.connect():
-            raise RuntimeError(f"No connected device for {self.device_id}")
+        base = _on_connected_device(InstagramBridgeBase(self.device_id, package_name=package_name),
+                                    self.device_manager, self.device_id)
         return ColdDmRuntime(
             device=base.device,
             device_manager=base.device_manager,
             keyboard=KeyboardService(self.device_id),
             restart=base.restart,
         )
+
+    def agent_runtime(self, package_name: Optional[str]):
+        """The device a Taktik Agent session drives, prepared by the bridges' own Instagram base,
+        and its clean restart, on the device the CLI already connected."""
+        from bridges.instagram.runtime.bridge import InstagramBridgeBase
+        from taktik.core.social_media.instagram.workflows.agent.agent_handler import AgentRuntime
+
+        base = _on_connected_device(InstagramBridgeBase(self.device_id, package_name=package_name),
+                                    self.device_manager, self.device_id)
+        # The app service's restart, which says whether Instagram came back, as the bridge uses it.
+        return AgentRuntime(device_manager=base.device_manager, restart=base._app.restart)
+
+    def dm_runtime(self, package_name: Optional[str]):
+        """The DM inbox runtime of the desktop's DM bridge (`DMBridge`: the core runtime on the
+        bridges' Instagram device, with the Taktik Keyboard and the clean restart), on the device
+        the CLI already connected. A read's events go to the log."""
+        from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
+
+        runtime = _on_connected_device(DMBridge(self.device_id, package_name=package_name),
+                                       self.device_manager, self.device_id)
+        runtime.dm_events = _log_dm_event
+        return runtime
 
 
 def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
@@ -125,6 +164,15 @@ def cli_instagram_scraping_ai_service(*, api_key: str, ipc=None, vision_model: s
 
     return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model,
                             text_model=text_model, niche_taxonomy=niche_taxonomy)
+
+
+def cli_instagram_agent_ai_service_factory(*, api_key: str, ipc=None, vision_model: str = None,
+                                            text_model: str = None):
+    """The AI service a Taktik Agent session builds (its key: the config's or the environment's):
+    the core's, as the bridge's factory builds it; no premium taxonomy in standalone."""
+    from taktik.core.app.ai.factory import build_ai_service
+
+    return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
 
 
 def cli_instagram_ai_service(ai_config: Mapping[str, Any]):
@@ -178,6 +226,12 @@ def run_instagram_scraping_payload(device_manager: Any, device_id: str, payload:
     return _run_through_handler(device_manager, device_id, f"instagram.scraping.{payload.get('type')}", payload)
 
 
+def run_instagram_dm_payload(device_manager: Any, device_id: str, workflow_id: str,
+                             payload: Mapping[str, Any]) -> dict:
+    """Run a DM command (`instagram.engagement.dm_read` or `dm_send`)."""
+    return _run_through_handler(device_manager, device_id, workflow_id, payload)
+
+
 def run_instagram_cold_dm_payload(device_manager: Any, device_id: str, payload: Mapping[str, Any]) -> dict:
     """Run a Cold DM page payload (`instagram.engagement.coldDm`)."""
     return _run_through_handler(device_manager, device_id, "instagram.engagement.coldDm", payload)
@@ -186,11 +240,13 @@ def run_instagram_cold_dm_payload(device_manager: Any, device_id: str, payload: 
 __all__ = [
     "CliInstagramHost",
     "OPENROUTER_KEY_ENV",
+    "cli_instagram_agent_ai_service_factory",
     "cli_instagram_ai_service",
     "cli_instagram_scraping_ai_service",
     "cli_openrouter_key",
     "is_internal_workflow_format",
     "run_instagram_cold_dm_payload",
+    "run_instagram_dm_payload",
     "run_instagram_payload",
     "run_instagram_scraping_payload",
 ]
