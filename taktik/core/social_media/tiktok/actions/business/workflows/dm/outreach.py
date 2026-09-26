@@ -1,4 +1,8 @@
-"""TikTok cold DM outreach workflow."""
+"""TikTok cold DM outreach workflow.
+
+A recipient whose profile opens but offers no message entry is skipped (`no_message_entry`),
+counted apart from the sent and the failed ones.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +21,14 @@ from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFIL
 
 DuplicateChecker = Callable[[int, str, str], bool]
 SentDMRecorder = Callable[[int, str, str, bool, Optional[str], Optional[str], str], None]
+
+# The answers of the profile step (`open_conversation_from_profile`).
+#: The Message entry was tapped.
+CONVERSATION_OPENED = "opened"
+#: Skip reason: the profile is open and recognised but offers no way into a conversation.
+NO_MESSAGE_ENTRY = "no_message_entry"
+#: Failure: no Message entry, and the screen is no longer a profile.
+UNEXPECTED_SCREEN = "unexpected_screen"
 
 
 class TikTokDMOutreachWorkflow:
@@ -57,6 +69,7 @@ class TikTokDMOutreachWorkflow:
         self.dms_failed = 0
         self.privacy_blocked = 0
         self.not_found = 0
+        self.no_message_entry = 0
 
     def connect(self) -> bool:
         """Connect to the device and initialize TikTok actions."""
@@ -114,6 +127,22 @@ class TikTokDMOutreachWorkflow:
 
         logger.warning("Message button not found on profile")
         return False
+
+    def open_conversation_from_profile(self) -> str:
+        """Tap the open profile's Message entry: `CONVERSATION_OPENED`, `NO_MESSAGE_ENTRY` or
+        `UNEXPECTED_SCREEN`.
+
+        No entry on a screen that is still a profile is the profile's own answer, not a miss:
+        on 47.0.3 an account that follows us without being followed back shows only « Suivre en
+        retour » and the suggested-accounts icon, and its « ... » menu has no message item.
+        """
+        if self.click_message_button():
+            return CONVERSATION_OPENED
+        if self.base_action._element_exists(PROFILE_SELECTORS.profile_page_indicator, timeout=2):
+            logger.info("Profile open, but it offers no message entry")
+            return NO_MESSAGE_ENTRY
+        logger.warning("No Message entry and the screen is no longer a profile")
+        return UNEXPECTED_SCREEN
 
     def is_privacy_blocked(self) -> bool:
         """Check if the conversation is blocked due to privacy settings."""
@@ -254,6 +283,7 @@ class TikTokDMOutreachWorkflow:
             "dms_failed": self.dms_failed,
             "privacy_blocked": self.privacy_blocked,
             "not_found": self.not_found,
+            "no_message_entry": self.no_message_entry,
         }
 
     def _process_recipient(
@@ -277,7 +307,24 @@ class TikTokDMOutreachWorkflow:
             )
             return False
 
-        if not self.click_message_button():
+        entry = self.open_conversation_from_profile()
+        if entry == NO_MESSAGE_ENTRY:
+            # Neither sent nor failed, and not marked in `sent_dms`: that row would lock the
+            # recipient out of every later cold and welcome DM, while the entry appears once
+            # we follow them back.
+            logger.info(f"Skipping @{recipient}: no message entry on the profile")
+            self.no_message_entry += 1
+            _notify(
+                self.notifier,
+                "dm_result",
+                username=recipient,
+                success=False,
+                error="No message entry on profile",
+                skipped=True,
+                reason=NO_MESSAGE_ENTRY,
+            )
+            return False
+        if entry != CONVERSATION_OPENED:
             logger.warning(f"Could not click Message button for @{recipient}")
             self.dms_failed += 1
             _notify(
@@ -350,6 +397,7 @@ class TikTokDMOutreachWorkflow:
                 "failed": self.dms_failed,
                 "privacy_blocked": self.privacy_blocked,
                 "not_found": self.not_found,
+                "no_message_entry": self.no_message_entry,
             },
         )
 

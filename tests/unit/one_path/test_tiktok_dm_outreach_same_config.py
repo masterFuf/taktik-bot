@@ -1,5 +1,5 @@
-"""One cold-DM config, one run: the desktop bridge and the CLI message the same people the same way
-and leave the same marks in the database.
+"""One cold-DM config, one run: the desktop bridge and the CLI message the same people the same way,
+skip the same ones and leave the same marks in the database.
 
 The CLI's handler was registered without a duplicate guard nor a recorder, so every run from the
 terminal could message the same people again, and none of its DMs protected a later run. It also
@@ -22,7 +22,7 @@ def _run_both(rig, payload, env=None, set_phone=lambda: None):
     set_phone()
     bridge_exit = rig.run_outreach_bridge(payload)
     bridge = {"exit": bridge_exit, "calls": list(rig.calls), "rows": rig.sent_dm_rows(bridge_db),
-              "ai": [service["api_key"] for service in rig.ai_services]}
+              "ai": [service["api_key"] for service in rig.ai_services], "events": list(rig.events)}
     rig.forget_run()
 
     cli_db = rig.tmp_path / "cli_cold_dm.db"
@@ -31,7 +31,8 @@ def _run_both(rig, payload, env=None, set_phone=lambda: None):
     set_phone()
     result = rig.run_cli(payload, env=env, workflow_id=OUTREACH_ID)
     cli = {"exit": result.exit_code, "calls": list(rig.calls), "rows": rig.sent_dm_rows(cli_db),
-           "ai": [service["api_key"] for service in rig.ai_services], "output": result.output}
+           "ai": [service["api_key"] for service in rig.ai_services], "output": result.output,
+           "result": rig.cli_results[-1] if rig.cli_results else None}
     return bridge, cli
 
 
@@ -68,6 +69,27 @@ def test_the_cli_leaves_the_rows_the_bridge_leaves(rig, outreach_payload):
     # The privacy-blocked recipient is marked too, as the app marks it: not tried again.
     assert [(row["recipient_username"], row["success"]) for row in cli["rows"]] == [
         ("fan_one", 1), ("fan_two", 1), ("fan_three", 0)]
+
+
+def test_a_profile_without_message_entry_is_skipped_the_same_way_by_both_paths(rig, outreach_payload):
+    def set_phone():
+        rig.no_message_button = {"fan_two"}
+
+    bridge, cli = _run_both(rig, outreach_payload(), set_phone=set_phone)
+
+    assert cli["exit"] == bridge["exit"] == 0, cli["output"]
+    assert cli["calls"] == bridge["calls"]
+    assert cli["rows"] == bridge["rows"]
+    # Neither sent nor failed, and no row: a later run, once we follow them, may write to them.
+    assert [(row["recipient_username"], row["success"]) for row in cli["rows"]] == [
+        ("fan_one", 1), ("fan_three", 1)]
+    last_stats = [event["stats"] for kind, event in bridge["events"] if kind == "stats"][-1]
+    assert (last_stats["success"], last_stats["failed"], last_stats["no_message_entry"]) == (2, 0, 1)
+    result = cli["result"]
+    assert (result["dms_success"], result["dms_failed"], result["no_message_entry"]) == (2, 0, 1)
+    skipped = [event for kind, event in bridge["events"] if kind == "dm_result" and event.get("skipped")]
+    assert skipped == [{"username": "fan_two", "success": False, "error": "No message entry on profile",
+                        "skipped": True, "reason": "no_message_entry"}]
 
 
 def test_an_ai_run_writes_one_message_per_recipient_from_both_paths(rig, outreach_payload):

@@ -74,11 +74,13 @@ class Rig:
         self.welcome_send_failures: set[str] = set()
         self.outreaches: list = []
         #: The cold-DM phone: whether the workflow's own connection succeeds, the profiles that do
-        #: not open, that show no Message button, that are privacy-blocked, the sends that fail,
-        #: and whether the AI text call fails. `on_profile` is the profile the run stands on.
+        #: not open, that show no Message button, those where the screen is then no longer a
+        #: profile, that are privacy-blocked, the sends that fail, and whether the AI text call
+        #: fails. `on_profile` is the profile the run stands on.
         self.outreach_connects = True
         self.unreachable_profiles: set[str] = set()
         self.no_message_button: set[str] = set()
+        self.unexpected_screen: set[str] = set()
         self.privacy_blocked: set[str] = set()
         self.cold_send_failures: set[str] = set()
         self.ai_text_fails = False
@@ -1080,6 +1082,7 @@ class Rig:
         mp = self.monkeypatch
 
         from taktik.core.social_media.tiktok.actions.business.workflows.dm import outreach as outreach_module
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
         real = self._real_outreach
         mp.setattr(outreach_module, "TikTokDMOutreachWorkflow", real)
@@ -1136,6 +1139,9 @@ class Rig:
                 return rig.on_profile not in rig.no_message_button
 
             def _element_exists(self, selectors, timeout=2):
+                if selectors == PROFILE_SELECTORS.profile_page_indicator:
+                    rig.calls.append("on_profile?")
+                    return rig.on_profile is not None and rig.on_profile not in rig.unexpected_screen
                 rig.calls.append("privacy_blocked?")
                 return rig.on_profile in rig.privacy_blocked
 

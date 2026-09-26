@@ -1,8 +1,11 @@
 """Search actions for TikTok compat diagnostics."""
 
+from types import SimpleNamespace
+
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action
+from bridges.compat.diagnostics.runtime.action_test.action_bundle import bundle_device_id
 
 
 @action("tt.search.open")
@@ -48,8 +51,21 @@ def open_user_profile(a, p):
 
 @action("tt.profile.click_message")
 def click_message(a, p):
-    """Tap the Message button on the open profile (1st step of cold DM; selector +
-    privacy-blocked aware)."""
-    ok = a.click.click_message_button()
-    return {"success": bool(ok), "message": f"message button tapped={ok}"}
+    """Open the conversation from the open profile: the cold DM's own step
+    (`open_conversation_from_profile`). A recognised profile without any message entry answers
+    `no_message_entry`, the recipient a run skips; `unexpected_screen` is a failure."""
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm import outreach
+
+    # The session's device, not a second connection.
+    session = SimpleNamespace(device_manager=SimpleNamespace(connect=lambda: True, device=a.device))
+    workflow = outreach.TikTokDMOutreachWorkflow(
+        bundle_device_id(a) or "", manager_factory=lambda device_id=None: session
+    )
+    workflow.connect()
+    outcome = workflow.open_conversation_from_profile()
+    return {
+        "success": outcome == outreach.CONVERSATION_OPENED,
+        "message": f"message entry: {outcome}",
+        "details": {"outcome": outcome},
+    }
 
