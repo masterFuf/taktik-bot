@@ -128,7 +128,8 @@ def test_tiktok_dm_outreach_runs_with_injected_notifier_and_dedup():
     ) in notifier.calls
     assert (
         "stats",
-        {"stats": {"sent": 1, "success": 1, "failed": 0, "privacy_blocked": 0, "not_found": 0}},
+        {"stats": {"sent": 1, "success": 1, "failed": 0, "privacy_blocked": 0, "not_found": 0,
+                   "no_message_entry": 0}},
     ) in notifier.calls
 
 

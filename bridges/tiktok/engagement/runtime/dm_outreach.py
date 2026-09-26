@@ -29,11 +29,14 @@ class BridgeNotifier:
                 username=payload.get("username"),
             )
         elif event_type == "dm_result":
+            # A skipped recipient also carries `skipped` and its `reason`.
+            skip = {key: payload[key] for key in ("skipped", "reason") if key in payload}
             send_message(
                 "dm_result",
                 username=payload.get("username"),
                 success=payload.get("success", False),
                 error=payload.get("error"),
+                **skip,
             )
         elif event_type == "stats":
             send_message("stats", stats=payload.get("stats", {}))

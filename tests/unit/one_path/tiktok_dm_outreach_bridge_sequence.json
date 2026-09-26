@@ -148,6 +148,207 @@
     ],
     "exit": 1
   },
+  "no_message_entry": {
+    "ai_services": [],
+    "calls": [
+      "outreach_manager emulator-5554",
+      "outreach_connect",
+      "stop tiktok",
+      "sleep 1",
+      "launch tiktok",
+      "sleep 4",
+      "open_profile fan_one",
+      "tap message_button",
+      "sleep 2",
+      "privacy_blocked?",
+      "privacy_blocked?",
+      "in_conversation?",
+      "send_text fan_one 'Salut, ton contenu est top !'",
+      "navigate_home",
+      "sleep 1",
+      "pick_delay 30-60",
+      "sleep 30",
+      "open_profile fan_two",
+      "tap message_button",
+      "on_profile?",
+      "navigate_home",
+      "sleep 1",
+      "open_profile fan_three",
+      "tap message_button",
+      "sleep 2",
+      "privacy_blocked?",
+      "privacy_blocked?",
+      "in_conversation?",
+      "send_text fan_three 'Salut, ton contenu est top !'",
+      "navigate_home",
+      "sleep 1"
+    ],
+    "db_writes": [
+      {
+        "sent_dm": {
+          "account_id": 3,
+          "error_message": null,
+          "message": "Salut, ton contenu est top !",
+          "platform": "tiktok",
+          "recipient": "fan_one",
+          "session_id": "dm_outreach_emulator-5554_1",
+          "success": true
+        }
+      },
+      {
+        "sent_dm": {
+          "account_id": 3,
+          "error_message": null,
+          "message": "Salut, ton contenu est top !",
+          "platform": "tiktok",
+          "recipient": "fan_three",
+          "session_id": "dm_outreach_emulator-5554_1",
+          "success": true
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Initializing DM Outreach workflow",
+          "status": "starting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "restarting"
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 1,
+          "total": 3,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing @fan_one",
+          "status": "processing"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": null,
+          "success": true,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "failed": 0,
+            "no_message_entry": 0,
+            "not_found": 0,
+            "privacy_blocked": 0,
+            "sent": 1,
+            "success": 1
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Waiting 30s...",
+          "status": "waiting"
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 2,
+          "total": 3,
+          "username": "fan_two"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing @fan_two",
+          "status": "processing"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": "No message entry on profile",
+          "reason": "no_message_entry",
+          "skipped": true,
+          "success": false,
+          "username": "fan_two"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "failed": 0,
+            "no_message_entry": 1,
+            "not_found": 0,
+            "privacy_blocked": 0,
+            "sent": 1,
+            "success": 1
+          }
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 3,
+          "total": 3,
+          "username": "fan_three"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Processing @fan_three",
+          "status": "processing"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": null,
+          "success": true,
+          "username": "fan_three"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "failed": 0,
+            "no_message_entry": 1,
+            "not_found": 0,
+            "privacy_blocked": 0,
+            "sent": 2,
+            "success": 2
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Completed: 2 sent, 0 failed, 1 skipped (no message entry)",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
   "no_recipients": {
     "ai_services": [],
     "calls": [],
@@ -298,6 +499,7 @@
         {
           "stats": {
             "failed": 0,
+            "no_message_entry": 0,
             "not_found": 0,
             "privacy_blocked": 0,
             "sent": 1,
@@ -340,6 +542,7 @@
         {
           "stats": {
             "failed": 0,
+            "no_message_entry": 0,
             "not_found": 0,
             "privacy_blocked": 0,
             "sent": 2,
@@ -422,6 +625,7 @@
         {
           "stats": {
             "failed": 1,
+            "no_message_entry": 0,
             "not_found": 0,
             "privacy_blocked": 0,
             "sent": 0,
@@ -565,6 +769,7 @@
         {
           "stats": {
             "failed": 0,
+            "no_message_entry": 0,
             "not_found": 0,
             "privacy_blocked": 0,
             "sent": 1,
@@ -607,6 +812,7 @@
         {
           "stats": {
             "failed": 1,
+            "no_message_entry": 0,
             "not_found": 0,
             "privacy_blocked": 1,
             "sent": 1,
@@ -627,6 +833,31 @@
   "recipient_failures": {
     "ai_services": [],
     "calls": [
+      "outreach_manager emulator-5554",
+      "outreach_connect",
+      "stop tiktok",
+      "sleep 1",
+      "launch tiktok",
+      "sleep 4",
+      "open_profile fan_one",
+      "navigate_home",
+      "sleep 1",
+      "open_profile fan_two",
+      "tap message_button",
+      "on_profile?",
+      "navigate_home",
+      "sleep 1",
+      "open_profile fan_three",
+      "tap message_button",
+      "sleep 2",
+      "privacy_blocked?",
+      "privacy_blocked?",
+      "in_conversation?",
+      "send_text fan_three 'Salut, ton contenu est top !'",
+      "navigate_home",
+      "sleep 1"
+    ],
+    "calls_old_code": [
       "outreach_manager emulator-5554",
       "outreach_connect",
       "stop tiktok",
@@ -694,6 +925,7 @@
         {
           "stats": {
             "failed": 1,
+            "no_message_entry": 0,
             "not_found": 1,
             "privacy_blocked": 0,
             "sent": 0,
@@ -729,6 +961,7 @@
         {
           "stats": {
             "failed": 2,
+            "no_message_entry": 0,
             "not_found": 1,
             "privacy_blocked": 0,
             "sent": 0,
@@ -764,6 +997,7 @@
         {
           "stats": {
             "failed": 3,
+            "no_message_entry": 0,
             "not_found": 1,
             "privacy_blocked": 0,
             "sent": 0,
@@ -856,6 +1090,7 @@
         {
           "stats": {
             "failed": 0,
+            "no_message_entry": 0,
             "not_found": 0,
             "privacy_blocked": 0,
             "sent": 1,

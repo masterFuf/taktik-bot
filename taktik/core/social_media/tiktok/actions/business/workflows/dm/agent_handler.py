@@ -13,7 +13,8 @@ every key the bot reads.
 
 `run_tiktok_dm_outreach` is the one launcher of a cold DM, for the desktop bridge and the handler
 registered as `tiktok.standalone.tiktok_dm_outreach` (the CLI): skip who was already written to,
-message the others, mark each attempt in `sent_dms` (`taktik/core/database/tiktok_dm.py`). Its
+message the others, mark each attempt in `sent_dms` (`taktik/core/database/tiktok_dm.py`). A
+profile with no message entry is skipped (`no_message_entry`), not marked. Its
 AI message generator is injected: the bridge reports the cost on stdout, the CLI takes the key
 from the environment when the payload has none.
 """
@@ -270,12 +271,10 @@ def run_tiktok_dm_outreach(
         session_id=request.session_id,
         message_provider=message_provider,
     )
-    notify(
-        notifier,
-        "status",
-        status="completed",
-        message=f"Completed: {result.get('dms_success', 0)} sent, {result.get('dms_failed', 0)} failed",
-    )
+    completed = f"Completed: {result.get('dms_success', 0)} sent, {result.get('dms_failed', 0)} failed"
+    if result.get("no_message_entry"):
+        completed += f", {result['no_message_entry']} skipped (no message entry)"
+    notify(notifier, "status", status="completed", message=completed)
     return result
 
 
