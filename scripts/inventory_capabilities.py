@@ -51,7 +51,9 @@ WORKFLOW_TYPES_PATH = APP / "src" / "app" / "types" / "workflow.types.ts"
 #: unclassified family is a gap in the manifest, and silently defaulting it would hide that.
 UNKNOWN_KIND = "?"
 
-ACTION_RE = re.compile(r'^@action\("([^"]+)"\)', re.M)
+#: `@action("id")` on a function, or `action("id")(fn)` registering a shared one under a
+#: platform's registry. The app gate `check-cartography-contracts.cjs` reads the same two forms.
+ACTION_RE = re.compile(r'^[ \t]*@?action\(\s*["\']([^"\']+)["\']\s*\)', re.M)
 TS_ARRAY_RE = re.compile(r"export const (?P<name>[A-Z0-9_]+)[^=]*= \[(?P<body>.*?)\]", re.S)
 TS_UNION_RE = re.compile(r"export type GlobalPage = (?P<body>[^\n]+)")
 TS_STRING_RE = re.compile(r"'([^']+)'")
