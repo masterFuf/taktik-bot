@@ -2,10 +2,12 @@
 
 `run_instagram_scraping` is what the desktop bridge (`scraping_bridge`) calls and what the handlers
 registered as `instagram.scraping.<type>` (the CLI) call: read the payload (`payload.py`), start
-Instagram when the host asks, then run `ScrapingWorkflow`. What differs between the hosts is
-injected:
+Instagram when the host asks, match the selectors to the phone (installed version, app language:
+`runtime_setup.prepare_instagram_selectors`, the automation launcher's), then run
+`ScrapingWorkflow`. What differs between the hosts is injected:
 - `instagram_start(package_name) -> bool`: a clean restart before the run. The desktop restarts
   Instagram itself before it launches the bridge, so the bridge injects none.
+- `instagram_installed_version() -> str | None`: the version the selector overrides are chosen for.
 - `ai_notifier`: where the AI qualification reports (the bridge's stdout IPC).
 - `instagram_scraping_ai_service(**kwargs)`: builds the AI service the run asks for.
 - `instagram_ai_key() -> str | None`: the OpenRouter key when the payload brings none (the CLI's
@@ -40,6 +42,7 @@ ScrapingWorkflowFactory = Callable[..., Any]
 InstagramStart = Callable[[Optional[str]], bool]
 AIServiceFactory = Callable[..., Any]
 AIKeyProvider = Callable[[], Optional[str]]
+VersionProvider = Callable[[], Optional[str]]
 
 
 def _default_workflow_factory() -> ScrapingWorkflowFactory:
@@ -57,10 +60,17 @@ def run_instagram_scraping(
     ai_notifier=None,
     instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
     instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_installed_version: Optional[VersionProvider] = None,
     workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> dict[str, Any]:
-    """Start Instagram when the host asks, then scrape the source a payload names."""
-    from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
+    """Start Instagram when the host asks, match the selectors to the phone, then scrape the source
+    a payload names."""
+    # Resolved at call time, so a run gets the modules' current objects.
+    from taktik.core.social_media.instagram.workflows.core import runtime_setup
+    from taktik.core.social_media.instagram.workflows.core.agent_handler import (
+        InstagramStartError,
+        _log_to_logger,
+    )
 
     if instagram_start is not None and not instagram_start(payload.get("packageName")):
         raise InstagramStartError("Instagram did not start cleanly; the scraping was not started")
@@ -86,6 +96,14 @@ def run_instagram_scraping(
             f"enrichProfiles={payload.get('enrichProfiles')!r}"
         )
 
+    # Before the workflow is built: a phone in another language or on another version must not
+    # be read with the baseline's selectors.
+    runtime_setup.prepare_instagram_selectors(
+        device=getattr(device_manager, "device", None),
+        installed_version_provider=instagram_installed_version,
+        log=_log_to_logger,
+    )
+
     workflow = (workflow_factory or _default_workflow_factory())(
         device_manager,
         scraping_config,
@@ -110,6 +128,7 @@ def build_instagram_scraping_handler(
     instagram_start: Optional[InstagramStart] = None,
     instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
     instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_installed_version: Optional[VersionProvider] = None,
     workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> WorkflowHandler:
     """Build an injectable scraping handler: the launcher, on the injected host."""
@@ -127,6 +146,7 @@ def build_instagram_scraping_handler(
             ai_notifier=ai_notifier,
             instagram_scraping_ai_service=instagram_scraping_ai_service,
             instagram_ai_key=instagram_ai_key,
+            instagram_installed_version=instagram_installed_version,
             workflow_factory=workflow_factory,
         )
 
@@ -141,6 +161,7 @@ def register_instagram_scraping_handlers(
     instagram_start: Optional[InstagramStart] = None,
     instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
     instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_installed_version: Optional[VersionProvider] = None,
     workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> WorkflowRegistry:
     """Register Instagram scraping handlers into an injected Agent registry."""
@@ -150,6 +171,7 @@ def register_instagram_scraping_handlers(
         instagram_start=instagram_start,
         instagram_scraping_ai_service=instagram_scraping_ai_service,
         instagram_ai_key=instagram_ai_key,
+        instagram_installed_version=instagram_installed_version,
         workflow_factory=workflow_factory,
     )
     for workflow_id in INSTAGRAM_SCRAPING_WORKFLOW_IDS:

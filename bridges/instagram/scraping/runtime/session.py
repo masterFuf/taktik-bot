@@ -6,6 +6,7 @@ import json
 
 from loguru import logger
 
+from bridges.common.device.app_manager import AppService
 from bridges.common.device.connection import ConnectionService
 from taktik.core.database import configure_db_service
 
@@ -28,6 +29,11 @@ def connect_scraping_device(connection: ConnectionService):
         return None
 
     return connection.device_manager
+
+
+def scraping_installed_version(connection: ConnectionService, package_name: str | None = None):
+    """The installed Instagram version reader, as the automation bridge's, for the selector overrides."""
+    return AppService(connection, platform="instagram", package_override=package_name).get_installed_version
 
 
 def disconnect_scraping_connection(connection: ConnectionService) -> None:

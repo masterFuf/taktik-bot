@@ -273,6 +273,11 @@ class InstagramDmRig:
         mp.setattr(compat_setup, "apply_version_overrides",
                    lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
         mp.setattr("taktik.core.clone.set_active_package", lambda package: rig.calls.append(f"active_package {package}"))
+        # The app language read at the start of a run, recorded instead of applied.
+        from taktik.core.social_media.instagram.workflows.core import runtime_setup
+
+        mp.setattr(runtime_setup, "detect_and_optimize",
+                   lambda device, *a, **k: rig.calls.append("detect_language") or "en")
 
         # The deep screen helpers of the DM runtime: recorded stand-ins.
         from bridges.instagram.engagement.runtime.dm.bridge import DMBridge

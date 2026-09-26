@@ -12,7 +12,7 @@ from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
 class SpyWorkflow(InstagramPostWorkflow):
     """Replaces every screen interaction with a recorder, keeping the real orchestration."""
 
-    def __init__(self, post_type: str, share_button_present: bool = True):
+    def __init__(self, post_type: str, share_button_present=True):
         # Bypass __init__: it builds action facades against a live device.
         self.device = None
         self.device_id = "test-device"
@@ -24,8 +24,11 @@ class SpyWorkflow(InstagramPostWorkflow):
         self._a = {}
         self.taps = []
         self.presence_checks = []
-        self._share_button_present = share_button_present
+        # One answer per presence check, the last one repeated; a bool answers them all.
+        self._share_answers = [share_button_present] if isinstance(share_button_present, bool)             else list(share_button_present)
         self.publish_commit_waited = False
+        self.back_presses = 0
+        self.language_detections = 0
 
     # --- screen interactions, all recorded -------------------------------
     def _tap(self, selectors, timeout: float = 4.0) -> bool:
@@ -34,13 +37,17 @@ class SpyWorkflow(InstagramPostWorkflow):
 
     def _present(self, selectors, timeout: float = 4.0) -> bool:
         self.presence_checks.append(selectors)
-        return self._share_button_present
+        answers = self._share_answers
+        return answers.pop(0) if len(answers) > 1 else answers[0]
 
     def _push_all(self, media_paths) -> bool:
         return True
 
     def _launch_and_home(self) -> None:
         pass
+
+    def _detect_app_language(self) -> None:
+        self.language_detections += 1
 
     def _open_creation_and_gallery(self):
         return None
@@ -55,7 +62,7 @@ class SpyWorkflow(InstagramPostWorkflow):
         return True
 
     def _dismiss_keyboard(self) -> None:
-        pass
+        self.back_presses += 1
 
     def _wait_for_publish_commit(self, timeout: float = 120.0) -> bool:
         self.publish_commit_waited = True
@@ -110,3 +117,21 @@ def test_normal_run_still_publishes():
     assert result["success"] is True
     assert workflow.publish_commit_waited is True
     assert workflow.presence_checks == []
+
+
+def test_rehearsal_does_not_press_back_on_the_share_screen():
+    """The caption editor is closed with OK, which returns to the composer. Back there leaves the
+    composer, and the share button with it: the rehearsal failed on share_not_found (Pixel 3a,
+    Instagram 410) while a real publish, which only presses Back when the button is hidden, went on."""
+    workflow, result = _run("post", stop_before_share=True)
+
+    assert result["success"] is True
+    assert workflow.back_presses == 0
+
+
+def test_rehearsal_presses_back_once_when_the_keyboard_hides_the_share_button():
+    workflow, result = _run("post", stop_before_share=True, share_button_present=[False, True])
+
+    assert result["success"] is True
+    assert workflow.back_presses == 1
+    assert len(workflow.presence_checks) == 2
