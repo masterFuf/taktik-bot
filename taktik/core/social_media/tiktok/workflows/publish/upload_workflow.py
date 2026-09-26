@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import time
 
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.shared.device.media_store import (
     push_media,
     trigger_media_scan,
@@ -246,6 +247,8 @@ class TikTokUploadWorkflow:
                 self._recover_from_video_edit_screen()
                 if tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=3.0):
                     time.sleep(3.0)
+                    if self._refused():
+                        return self._refused_error()
                     dismiss_post_popups(self.device, log=_ipc.log)
                     _ipc.status("success", "Post published successfully!")
                     _ipc.log("info", "✅ TikTok post published")
@@ -255,6 +258,9 @@ class TikTokUploadWorkflow:
                 return self._error("post_btn_not_found", "Post button not found")
 
             time.sleep(1.8)
+            # The one look after a write, before any popup is dismissed: a refusal is no timeout.
+            if self._refused():
+                return self._refused_error()
 
             # TikTok can ask for an extra confirmation before the real publication.
             if handle_publish_confirmation_dialog(self.device, log=_ipc.log):
@@ -262,7 +268,10 @@ class TikTokUploadWorkflow:
 
             # 11. Dismiss any system dialogs that may appear after posting
             # (e.g. Android "Add to Home Screen" / widget install prompt from TikTok)
-            if not self._wait_for_publish_commit():
+            committed = self._wait_for_publish_commit()
+            if self._refused():
+                return self._refused_error()
+            if not committed:
                 return self._error(
                     "publish_not_committed",
                     "TikTok did not appear to finish publishing before timeout",
@@ -384,6 +393,21 @@ class TikTokUploadWorkflow:
     # ------------------------------------------------------------------
     # Misc helpers
     # ------------------------------------------------------------------
+
+    def _refused(self) -> bool:
+        """Is TikTok refusing the publication? The one look (production detector)."""
+        from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import (
+            DetectionActions,
+        )
+
+        try:
+            detector = DetectionActions(self.device)
+        except Exception:  # noqa: BLE001 - no detector is not a refusal
+            return False
+        return look_for_action_block(detector, after="publish")
+
+    def _refused_error(self) -> dict:
+        return self._error("action_blocked", "TikTok refuses the publication (Too many requests)")
 
     def _error(self, error_type: str, message: str) -> dict:
         # Capture the failing screen — the most useful artifact to see WHERE it broke.
