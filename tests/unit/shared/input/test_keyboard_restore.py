@@ -89,11 +89,27 @@ def test_the_first_switch_registers_the_exit_hook(monkeypatch):
     adb = FakeAdb(default=SAMSUNG, enabled=(SAMSUNG, ADB))
     monkeypatch.setattr(kb, "run_adb_shell", adb)
     monkeypatch.setattr(kb, "_atexit_registered", False)
+    monkeypatch.delenv(kb.DESKTOP_OWNER_ENV, raising=False)
     hooks = []
     monkeypatch.setattr(kb.atexit, "register", hooks.append)
     kb.activate_taktik_keyboard("phone")
     kb.activate_taktik_keyboard("other")
     assert hooks == [kb.restore_all_keyboards]
+
+
+def test_a_bridge_started_by_the_desktop_leaves_the_give_back_to_it(monkeypatch):
+    """The desktop gives the keyboard back once no other run is on the phone; the bridge must not."""
+    adb = FakeAdb(default=SAMSUNG, enabled=(SAMSUNG, ADB))
+    monkeypatch.setattr(kb, "run_adb_shell", adb)
+    monkeypatch.setattr(kb, "_atexit_registered", False)
+    monkeypatch.setenv(kb.DESKTOP_OWNER_ENV, "4242")
+    hooks = []
+    monkeypatch.setattr(kb.atexit, "register", hooks.append)
+
+    assert kb.activate_taktik_keyboard("phone") is True
+
+    assert hooks == []
+    assert kb._original_ime == {"phone": SAMSUNG}   # still read before the switch
 
 
 def test_the_instagram_typing_path_switches_through_the_shared_owner(monkeypatch):
