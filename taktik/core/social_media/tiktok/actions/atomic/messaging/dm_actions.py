@@ -20,6 +20,7 @@ from taktik.core.shared.input.taktik_keyboard import (
 )
 from taktik.core.shared.text import fold_for_match
 from ....services.notifications.activity import clean_row_text
+from ....services.profile.username import read_open_profile_handle
 from ...core.base_action import BaseAction
 from ...core.utils import extract_resource_id, first_matching, first_text
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
@@ -482,7 +483,7 @@ class DMActions(BaseAction):
             if header != name:
                 self.logger.warning(f"Conversation ouverte ({header!r}) ≠ {name!r} — pseudo non lu")
                 return None
-            handle = self.read_conversation_handle()
+            handle = self.read_conversation_handle() or self._read_handle_from_header_profile(name)
             if not handle:
                 self.logger.warning(f"Pas de pseudo lisible dans la conversation de {name!r}")
                 return None
@@ -490,6 +491,27 @@ class DMActions(BaseAction):
             return handle
         finally:
             self.go_back_to_inbox()
+
+    def _read_handle_from_header_profile(self, name: str) -> str:
+        """The handle off the correspondent's profile, opened from the thread header, then back.
+
+        The card at the top of a thread scrolls away once the conversation outgrows the screen
+        (measured on 43.1.4: five messages were enough), and the card reader then finds nothing.
+        The header avatar opens the same person's profile whatever the thread's length. "" unless
+        a profile was read AND the thread is back on screen: a caller going on to the inbox from
+        a profile would tap whatever sits there.
+        """
+        if not self._find_and_click(self.conversation_selectors.conversation_avatar, timeout=2):
+            return ""
+        self._human_like_delay('navigation')
+        handle = read_open_profile_handle(self.device, label=name, timeout=6)
+        # Back only when the tap left the thread: a back from the thread would close it instead.
+        if not self.is_in_conversation():
+            self._press_back()
+        if not self.is_in_conversation():
+            self.logger.warning(f"Pas de retour dans la conversation de {name!r}")
+            return ""
+        return handle
 
     def follow_back(self, username: str) -> bool:
         """Tap the follow-back button on the item of `username`.

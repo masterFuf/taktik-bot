@@ -228,3 +228,87 @@ def test_the_thread_of_the_row_gives_its_handle_and_goes_back(monkeypatch):
 
     assert dm.resolve_conversation_handle("‎Ana B") == "ana.b"
     assert back == [True]
+
+
+def _tab_bar():
+    return (
+        f'<node class="android.widget.FrameLayout" resource-id="{TT}/mkr" content-desc="Messages" '
+        'clickable="true" bounds="[864,2604][1152,2784]"/>'
+        f'<node class="android.widget.FrameLayout" resource-id="{TT}/mks" content-desc="Profil" '
+        'clickable="true" bounds="[1152,2604][1440,2784]"/>'
+    )
+
+
+FEED = _screen(
+    f'<node class="android.widget.TextView" resource-id="{TT}/title" text="Bowper" bounds="[44,2330][272,2412]"/>'
+    + _tab_bar()
+)
+
+INBOX = _screen(
+    f'<node class="android.widget.TextView" resource-id="{TT}/title" text="Messages" bounds="[514,143][813,224]"/>'
+    f'<node class="android.widget.Button" resource-id="{TT}/s28" clickable="true" bounds="[0,1110][1440,1374]">'
+    f'<node class="android.widget.TextView" resource-id="{TT}/b8h" text="Activité" bounds="[308,1169][504,1238]"/>'
+    '</node>'
+    + _tab_bar()
+)
+
+
+def test_the_activity_page_opens_from_the_feed_through_the_inbox(monkeypatch):
+    import taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions as activity_module
+
+    monkeypatch.setattr(activity_module.time, "sleep", lambda *_a, **_k: None)
+    phone = _Phone(FEED, opens={f"{TT}/mkr": INBOX, "Activité": ACTIVITY})
+
+    assert _activity(phone).open_activity(expand=False) is True
+    assert phone.screen == ACTIVITY
+    assert phone.taps == [f"{TT}/mkr", "Activité"]
+
+
+def test_the_activity_page_opens_from_the_inbox_without_touching_the_tab(monkeypatch):
+    import taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions as activity_module
+
+    monkeypatch.setattr(activity_module.time, "sleep", lambda *_a, **_k: None)
+    phone = _Phone(INBOX, opens={"Activité": ACTIVITY})
+
+    assert _activity(phone).open_activity(expand=False) is True
+    assert phone.taps == ["Activité"]
+
+
+def _long_thread(header):
+    """A thread scrolled to its last messages: the header and the composer, no profile card."""
+    return _screen(
+        f'<node class="android.widget.ImageView" resource-id="{TT}/lep" content-desc="Retour" '
+        'clickable="true" bounds="[0,150][120,250]"/>'
+        f'<node class="android.widget.RelativeLayout" resource-id="{TT}/k9u" content-desc="{header}" '
+        'clickable="true" bounds="[190,110][375,295]"/>'
+        f'<node class="android.widget.TextView" resource-id="{TT}/h4a" text="‎{header}" '
+        'bounds="[392,165][700,247]"/>'
+        f'<node class="android.widget.TextView" resource-id="{TT}/jay" text="Hello again" '
+        'bounds="[227,2100][1100,2250]"/>'
+        '<node class="android.widget.EditText" text="Message…" clickable="true" bounds="[190,2593][955,2755]"/>'
+    )
+
+
+def test_a_thread_longer_than_the_screen_reads_the_handle_on_the_header_profile(monkeypatch):
+    thread = _long_thread("Ana B")
+    profile = _profile("ana.b")
+    phone = _Phone(thread, opens={f"{TT}/k9u": profile}, back={profile: thread})
+    dm = _dm(phone)
+    monkeypatch.setattr(dm, "click_conversation", lambda name: True)
+    back = []
+    monkeypatch.setattr(dm, "go_back_to_inbox", lambda: back.append(phone.screen is thread) or True)
+
+    assert dm.resolve_conversation_handle("Ana B") == "ana.b"
+    assert phone.taps == [f"{TT}/k9u", "back"]
+    assert back == [True]
+
+
+def test_a_header_profile_that_does_not_come_back_to_the_thread_gives_no_handle(monkeypatch):
+    thread = _long_thread("Ana B")
+    profile = _profile("ana.b")
+    phone = _Phone(thread, opens={f"{TT}/k9u": profile})
+    dm = _dm(phone)
+    monkeypatch.setattr(dm, "click_conversation", lambda name: True)
+    monkeypatch.setattr(dm, "go_back_to_inbox", lambda: True)
+
+    assert dm.resolve_conversation_handle("Ana B") is None
