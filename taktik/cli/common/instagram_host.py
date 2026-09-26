@@ -159,20 +159,23 @@ def cli_openrouter_key() -> Optional[str]:
 
 def cli_instagram_scraping_ai_service(*, api_key: str, ipc=None, vision_model: str = None,
                                       text_model: str = None, niche_taxonomy: dict = None):
-    """The AI service a scraping run builds: the core's, as the bridge's factory builds it."""
+    """The AI service a scraping run builds: the core's, as the bridge's factory builds it
+    (no `ai_spend`: nothing reads it for this run)."""
     from taktik.core.app.ai.factory import build_ai_service
 
     return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model,
-                            text_model=text_model, niche_taxonomy=niche_taxonomy)
+                            text_model=text_model, niche_taxonomy=niche_taxonomy,
+                            report_spend=False)
 
 
 def cli_instagram_agent_ai_service_factory(*, api_key: str, ipc=None, vision_model: str = None,
                                             text_model: str = None):
     """The AI service a Taktik Agent session builds (its key: the config's or the environment's):
-    the core's, as the bridge's factory builds it; no premium taxonomy in standalone."""
+    the core's, as the bridge's factory builds it; no premium taxonomy in standalone, no `ai_spend`."""
     from taktik.core.app.ai.factory import build_ai_service
 
-    return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
+    return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model,
+                            report_spend=False)
 
 
 def cli_instagram_ai_service(ai_config: Mapping[str, Any]):

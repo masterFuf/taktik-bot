@@ -121,7 +121,8 @@ def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> No
 
         def ai_service_factory(*, api_key: str, ipc=None, vision_model=None, text_model=None):  # noqa: F811
             # Standalone CLI: no premium taxonomy to inject, the classifier stays free-form.
-            return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
+            return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model,
+                                    report_spend=False)
 
         config.setdefault("openrouter_api_key", api_key)
     else:

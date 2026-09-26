@@ -44,7 +44,9 @@ def install_notifications_ai_hooks(*, ai_config: dict | None, device: Any,
         logger.warning("[NOTIF-AI] Pas de device: qualification IA desactivee")
         return False
 
-    enabled, service = create_instagram_ai_service(ai_config=ai_config, ipc=_ipc, log=_log)
+    # No `ai_spend`: nothing on the desktop side reads it for this pass.
+    enabled, service = create_instagram_ai_service(ai_config=ai_config, ipc=_ipc, log=_log,
+                                                   report_spend=False)
     decision_mode = (ai_config.get("decision") or {}).get("mode") == "decide"
     if not ((enabled and service) or decision_mode):
         logger.info("[NOTIF-AI] IA non activee dans la config: profils visites non qualifies")

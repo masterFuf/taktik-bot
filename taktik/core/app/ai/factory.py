@@ -40,12 +40,16 @@ def build_ai_service(
     vision_model: Optional[str] = None,
     text_model: Optional[str] = None,
     niche_taxonomy: Optional[Dict[str, list]] = None,
+    report_spend: bool = True,
 ) -> Any:
     """Construct the service. Every AIService in the product goes through here.
 
     `niche_taxonomy` (slug -> [sub-niche labels]) is the premium classification taxonomy
     injected by the desktop app through the session config. The open-source bot does not own
     it; when it is absent the classifier stays free-form rather than failing.
+
+    `report_spend=False` keeps the IPC (Agent cards) but emits no `ai_spend`: for a run whose
+    session does not read it.
     """
     from taktik.core.app.ai.providers.openrouter import AIService
 
@@ -55,6 +59,7 @@ def build_ai_service(
         vision_model=vision_model,
         text_model=text_model,
         niche_taxonomy=niche_taxonomy,
+        report_spend=report_spend,
     )
 
 
@@ -64,6 +69,7 @@ def create_ai_service(
     ipc: Any = None,
     log: LogCallback = _noop_log,
     ready_message: str = "AI mode enabled",
+    report_spend: bool = True,
 ) -> Tuple[bool, Any]:
     """Build the optional AI service from a run's `ai` config block.
 
@@ -89,6 +95,7 @@ def create_ai_service(
         vision_model=ai_config.get("visionModel") or None,
         text_model=ai_config.get("textModel") or None,
         niche_taxonomy=taxonomy,
+        report_spend=report_spend,
     )
 
     # Say whether the taxonomy arrived. A run classifying against a free-form taxonomy is a

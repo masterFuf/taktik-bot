@@ -233,9 +233,10 @@ class InstagramScrapingRig:
         mp.setattr(compat_setup, "apply_version_overrides",
                    lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
 
-        def fake_build_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None, niche_taxonomy=None):
+        def fake_build_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None, niche_taxonomy=None,
+                                  report_spend=True):
             rig.ai_builds.append({"api_key": api_key, "ipc": ipc is not None, "vision_model": vision_model,
-                                  "niche_taxonomy": niche_taxonomy})
+                                  "niche_taxonomy": niche_taxonomy, "report_spend": report_spend})
             return {"ai": len(rig.ai_builds)}
 
         mp.setattr("taktik.core.app.ai.factory.build_ai_service", fake_build_ai_service)

@@ -25,12 +25,16 @@ def create_instagram_ai_service(
     ai_config: dict,
     ipc: Any,
     log: LogCallback,
+    report_spend: bool = True,
 ) -> tuple[bool, Any | None]:
-    """Create the optional OpenRouter AI service used by Instagram flows."""
+    """Create the optional OpenRouter AI service used by Instagram flows.
+
+    `report_spend=False` for a flow whose session does not read `ai_spend` (notifications)."""
     return create_ai_service(
         ai_config=ai_config,
         ipc=ipc,
         log=log,
+        report_spend=report_spend,
         ready_message="AI mode enabled - Smart Comments / Profile Analysis / Post Analysis",
     )
 

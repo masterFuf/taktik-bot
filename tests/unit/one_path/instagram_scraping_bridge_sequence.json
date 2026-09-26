@@ -117,7 +117,8 @@
      "food": [
       "baking"
      ]
-    }
+    },
+    "report_spend": false
    }
   ]
  },
