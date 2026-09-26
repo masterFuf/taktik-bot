@@ -29,6 +29,10 @@ console = Console()
 # could not be opened at all. Named once so the workflow and the marker cannot drift apart.
 UNREACHABLE_REASON = 'profile unreachable (deleted, renamed or banned)'
 
+# The profile on screen is not the one the row named: the tap landed on another row. Its numbers
+# belong to that other account and are neither filtered nor saved under this name.
+OTHER_PROFILE_REASON = 'another profile on screen (tap landed on another row)'
+
 
 def _read_nothing(profile_data: Dict[str, Any]) -> bool:
     """True when the profile page yielded no fact at all — the screen was not there to be read.
@@ -95,6 +99,11 @@ class ScrapingListMixin(DeepQualifyMixin):
             emit_ipc=False,
             save_to_db=False
         )
+
+        shown = (enriched_data or {}).get('username')
+        if shown and shown.lower() != username.lower():
+            self.logger.warning(f"⏭ @{username}: the profile on screen is @{shown} — nothing recorded under @{username}")
+            return OTHER_PROFILE_REASON
 
         if enriched_data:
             profile_data['followers_count'] = enriched_data.get('followers_count', 0)
@@ -567,7 +576,9 @@ class ScrapingListMixin(DeepQualifyMixin):
                                 self.logger.info(f"⏭️  @{username} — skipped ({filter_reason})")
                                 IPCEmitter.emit_profile_skipped(username, filter_reason)
                                 self._back_to_list(strategy)
-                                continue
+                                # The rows were read before the visit: the list may have moved
+                                # since, so read it again rather than tap the next stale row.
+                                break
 
                             self._back_to_list(strategy)
 

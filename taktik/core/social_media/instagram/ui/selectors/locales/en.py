@@ -454,7 +454,11 @@ STRINGS: Dict[str, List[str]] = {
         "Search",
     ],
     "navigation.home_tab": [
-        "//*[contains(@content-desc, \"Home\") and @package=\"com.instagram.android\"]",
+        # Inside Instagram's tab bar only. Outside it, "Home" is the Android navigation bar's
+        # home button, a launcher's home screen, and Instagram's own "Back to Home" camera
+        # buttons and any name holding the word (a "Follow ... Home & Office" button).
+        # The proxy makes the tab_bar id match any package's, hence @package too.
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.home_tab_description_contains": [
         "Home",
@@ -476,7 +480,10 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Recent\")]",
     ],
     "navigation.search_tab": [
-        "//*[contains(@content-desc, \"Search\") and @package=\"com.instagram.android\"]",
+        # Inside Instagram's tab bar only: outside it, "Search" is a launcher's search bar and
+        # Instagram's own search fields (search_bar_glyph, search_edit_text).
+        # The proxy makes the tab_bar id match any package's, hence @package too.
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Search\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.search_tab_description_contains": [
         "Search",

@@ -232,7 +232,10 @@ class FeedScrollSelectors:
                               ' or @content-desc="Revenir en arrière")'
                               ' and @package="com.instagram.android"]')
     feed_tab_xpath: str = '//*[contains(@resource-id,"feed_tab")]'
-    home_tab_xpath: str = ('//*[(@content-desc="Accueil" or @content-desc="Home")'
+    # Inside the tab bar (the Pixel launcher's full-screen node is also "Accueil") and in
+    # Instagram's package (the proxy makes the tab_bar id match any package's).
+    home_tab_xpath: str = ('//*[@resource-id="com.instagram.android:id/tab_bar"]'
+                           '//*[(@content-desc="Accueil" or @content-desc="Home")'
                            ' and @package="com.instagram.android"]')
 
     # --- Légende (v410 : IgTextLayoutView resource-id vide, extenseur = Button enfant content-desc exact) ---
