@@ -252,8 +252,9 @@ class SearchSelectors:
         reach the expression below.
 
         The expressions resolve to the HANDLE, not to its clickable row. The row spans the full
-        width and holds the Follow / Following button (x 807-1038 of 1080 on 46.6.3 and 47.0.3);
-        a human tap sampled over the row lands on that button about once in fourteen, which
+        width and holds the Follow / Following button (x 794-1036 of 1080 on 43.1.4, where the
+        handle is `ye2`; 807-1038 on 46.6.3 and 47.0.3, where it is `tv_username`); a human tap
+        sampled over the row lands on that button about once in twelve to fourteen, which
         follows or unfollows the account and leaves the search page on screen. The handle sits
         left of the button and the row under it takes the tap.
         """

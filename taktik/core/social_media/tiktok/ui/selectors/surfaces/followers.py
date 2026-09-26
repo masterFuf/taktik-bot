@@ -34,31 +34,29 @@ class FollowersSelectors:
     ])
 
     # === User item in search results (clickable to go to profile) ===
-    user_search_item: List[str] = field(default_factory=lambda: [
-        '//android.widget.Button[@clickable="true"][.//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")]]',
-        '//android.widget.Button[@clickable="true"][.//android.widget.TextView[contains(@resource-id, ":id/ye2")]]',
-        '//android.widget.Button[@clickable="true"][.//android.widget.Button[contains(@resource-id, ":id/rdh")]]',
-    # A2: the readable ids of a search result row. Measured on a real Users tab (46.6.3,
-    # 2026-08-29), where EVERY selector above scored zero — all four are 43.1.4 ids, and the
-    # workflow died on "Failed to click on target user" with a list of ten results on screen.
-    # `tv_username` is a name a developer wrote: ten rows on the tab, nothing anywhere else across
-    # 28 captured screens.
     #
     # The HANDLE is what gets tapped, not the row. The row spans the full width and holds the
-    # Follow / Following button (x 807-1038 of 1080 on 46.6.3 and 47.0.3), and a human tap
-    # sampled over the row lands on that button about once in fourteen: a follow or an unfollow
-    # nobody asked for, and no profile opened. The handle sits left of the button, and the
-    # clickable row under it takes the tap.
+    # Follow / Following button (x 794-1036 of 1080 on 43.1.4, 807-1038 on 46.6.3 and 47.0.3), and
+    # a human tap sampled over the row lands on that button about once in twelve (43.1.4) to
+    # fourteen (47.0.3): a follow or an unfollow nobody asked for, and no profile opened. The
+    # handle sits left of the button, and the clickable row under it takes the tap.
+    #
+    # 43.1.4 names the handle `ye2` (its row: a Button over `sh2`, with the `rdh` button inside).
+    # On the Users tab and the Top page of that version, one `ye2` per row, and none on the 422
+    # other TikTok screens of the corpus. The former row entries (`lnp`, `sh2`, `ye2`, `rdh`
+    # ancestors) all resolved to that full-width row.
+    user_search_item: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/ye2")]',
+    # A2: the readable ids of a search result row. Measured on a real Users tab (46.6.3,
+    # 2026-08-29), where every 43.1.4 id scored zero, and the workflow died on "Failed to click on
+    # target user" with a list of ten results on screen. `tv_username` is a name a developer
+    # wrote: ten rows on the tab, nothing anywhere else across 28 captured screens.
         '//*[contains(@resource-id, ":id/tv_username")]',
     ])
 
-    # First user in search results (Users tab)
+    # First user in search results (Users tab): the first row's handle, see `user_search_item`.
     first_user_result: List[str] = field(default_factory=lambda: [
-        '(//androidx.recyclerview.widget.RecyclerView[contains(@resource-id, ":id/lnp")]//android.widget.Button[@clickable="true"])[1]',
-        '(//android.widget.Button[@clickable="true"][.//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")]])[1]',
-        '(//android.widget.Button[@clickable="true"][.//android.widget.TextView[contains(@resource-id, ":id/ye2")]])[1]',
-        '(//android.widget.RelativeLayout[contains(@resource-id, ":id/sh2")][@clickable="true"])[1]',
-        # Same anchor as `user_search_item`, taking the first row's handle (not the row: see there).
+        '(//*[contains(@resource-id, ":id/ye2")])[1]',
         '(//*[contains(@resource-id, ":id/tv_username")])[1]',
     ])
 
