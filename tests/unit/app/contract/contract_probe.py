@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
-from typing import Any, Dict, Iterable, Set, Tuple
+from typing import Any, Dict, Iterable, Mapping, Set, Tuple
 
 from taktik.core.app.contract.schema import Field, ListOf, OneOf, WorkflowContract, has_default
 
@@ -69,6 +69,8 @@ def probe(item: Field, variant: int = 0) -> Any:
         return others[variant % len(others)]
     if isinstance(spec, ListOf) and spec.item == "string":
         return [f"alpha{variant}", f"beta{variant}"]
+    if spec == "json":
+        return {"probe": variant}
     raise AssertionError(f"no probe for {item.key}: {spec!r}")
 
 
@@ -85,14 +87,24 @@ def expected(item: Field, value: Any) -> Any:
         out = list(value)
     else:
         out = value
-    return (not out) if item.negate else out
+    return _unit(item, (not out) if item.negate else out)
+
+
+def _unit(item: Field, value: Any) -> Any:
+    if item.unit == "percent":
+        return float(value) / 100.0
+    if item.unit == "in_list":
+        return [value]
+    return value
 
 
 def expected_default(item: Field) -> Any:
     default = item.default if has_default(item) else None
     if isinstance(default, tuple):
         default = list(default)
-    return (not default) if item.negate else default
+    if default is None:
+        return None
+    return _unit(item, (not default) if item.negate else default)
 
 
 def payload_for(contract: WorkflowContract, extra: Dict[str, Any]) -> Dict[str, Any]:
@@ -119,8 +131,9 @@ def read(contract: WorkflowContract, payload: Dict[str, Any]) -> Any:
 
 def value_of(contract: WorkflowContract, item: Field, payload: Dict[str, Any]) -> Any:
     if item.reader:
-        return resolve(item.reader)(payload)
-    return getattr(read(contract, payload), item.attr)
+        return resolve(item.reader)(payload, **item.reader_kwargs)
+    result = read(contract, payload)
+    return result[item.attr] if isinstance(result, Mapping) else getattr(result, item.attr)
 
 
 def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -> Any:
