@@ -465,8 +465,9 @@ class BaseDeviceFacade:
             else:
                 down_s = sample_tap_down_ms(rng=rng) / 1000.0
                 self.logger.debug(f"👆 Human tap ({x}, {y}) down={down_s:.3f}s in {tuple(bounds)}")
-                # A short, sub-threshold press (touch-down → wait → up) varies the contact
-                # time vs an instant click, while staying a tap (never a long-press).
+                # A short press (touch-down → wait → up) varies the contact time vs an instant
+                # click. The app sees this hold plus the injection lag; `sample_tap_down_ms`
+                # keeps the sum under the shortest press-and-hold threshold (behavior/tap.py).
                 self._device.long_click(x, y, down_s)
             emit_step(
                 "tap", action="quick" if quick else "press",
