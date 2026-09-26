@@ -7,7 +7,6 @@ operator allows was skipped, one without a Message button counted as a failure),
 what was sent (a second run wrote to the same people again) and answered the AI mode with a
 placeholder. The bridge's engine is now the only one, in the core, and the CLI runs it.
 """
-from loguru import logger
 
 from instagram_cold_dm_rig import AI_KEY, INSTAGRAM, cold_dm_payload
 
@@ -99,17 +98,12 @@ def test_the_cli_writes_ai_messages_with_the_key_of_the_environment(igc_rig):
     assert igc_rig.typed == ["AI note for open_one"]
 
 
-def test_without_a_key_an_ai_run_says_why(igc_rig):
+def test_without_a_key_a_scripted_ai_run_is_refused_before_the_phone(igc_rig):
     payload = cold_dm_payload(messageMode="ai", aiPrompt="Invite them", messages=[], recipients=["open_one"])
-    warnings = []
-    sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
-    try:
-        result = igc_rig.run_cli(payload, env={"OPENROUTER_API_KEY": ""})
-    finally:
-        logger.remove(sink)
 
-    # Nothing to send without a message or a key: the run reports it and fails.
-    assert result.exit_code == 1, result.output
-    assert "No messages provided and AI mode not configured" in result.output
+    result = igc_rig.run_cli(payload, env={"OPENROUTER_API_KEY": ""})
+
+    assert result.exit_code == 2, result.output
+    assert "OPENROUTER_API_KEY" in result.output
     assert igc_rig.sent == []
-    assert any("OPENROUTER_API_KEY" in line for line in warnings)
+    assert igc_rig.ai_calls == []

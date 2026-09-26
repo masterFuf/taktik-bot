@@ -3,20 +3,20 @@ desktop run.
 
 Same clean restart as the desktop bridge (`start_instagram_session` on the bridges' `AppService`,
 the one app lifecycle of the bot), same selector version overrides, same AI hooks; the events go to
-the log instead of stdout. The AI key comes from `OPENROUTER_API_KEY` when the payload brings none.
+the log instead of stdout. When the payload brings no AI key, the CLI's own (`ai_key.py`: the
+environment, the key typed at launch, the saved one), which the launch already made sure of.
 What stays with the desktop process: the uiautomator2 repair, the IP rotation, the media capture,
 the per-profile decision round trip. A scraping run is restarted the same way: the desktop restarts
 Instagram before it launches its scraping bridge.
 """
 from __future__ import annotations
 
-import os
 from types import SimpleNamespace
 from typing import Any, Mapping, Optional
 
 from loguru import logger
 
-OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
+from taktik.cli.common.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
 
 
 def _log(level: str, message: str) -> None:
@@ -134,8 +134,8 @@ class CliInstagramHost:
 
 
 def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
-    """The run's `ai` block with a key, from the environment if the run brings none; None when AI
-    is off or no key is available."""
+    """The run's `ai` block with a key, the CLI's if the run brings none; None when AI is off or no
+    key is available."""
     ai_config = dict(ai_config or {})
     if not ai_config.get("enabled"):
         return None
@@ -149,10 +149,10 @@ def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
 
 
 def cli_openrouter_key() -> Optional[str]:
-    """The OpenRouter key of the environment, for a run that asks for AI without bringing one."""
-    key = os.environ.get(OPENROUTER_KEY_ENV, "").strip()
+    """The CLI's OpenRouter key, for a run that asks for AI without bringing one."""
+    key = resolve_openrouter_key()
     if not key:
-        logger.warning(f"AI requested but {OPENROUTER_KEY_ENV} is not set: this run goes on without AI")
+        logger.warning(f"AI requested but no OpenRouter key ({OPENROUTER_KEY_ENV}): this run goes on without AI")
         return None
     return key
 
@@ -176,8 +176,8 @@ def cli_instagram_agent_ai_service_factory(*, api_key: str, ipc=None, vision_mod
 
 
 def cli_instagram_ai_service(ai_config: Mapping[str, Any]):
-    """The AI service a run asks for, with the key from the environment if the run brings none.
-    None when no service can be built: the run goes on without AI."""
+    """The AI service a run asks for, with the CLI's key if the run brings none. None when no
+    service can be built: the run goes on without AI."""
     ai_config = _with_key(ai_config)
     if ai_config is None:
         return None
@@ -204,9 +204,13 @@ def is_internal_workflow_format(config: Mapping[str, Any]) -> bool:
 def _run_through_handler(device_manager: Any, device_id: str, workflow_id: str,
                          payload: Mapping[str, Any]) -> dict:
     """Run a page payload through the handler registered as `workflow_id`: the same path as
-    `taktik workflows run <workflow_id>` and as the desktop bridge's launcher."""
+    `taktik workflows run <workflow_id>` and as the desktop bridge's launcher. A run that uses AI
+    gets its key first (asked for at a terminal, `MissingAIKeyError` otherwise)."""
+    from taktik.cli.common.ai_key import ensure_ai_key, is_interactive
     from taktik.cli.common.registry_builder import build_registry
     from taktik.core.agent.kernel.contracts import WorkflowInvocation
+
+    ensure_ai_key(workflow_id, payload, interactive=is_interactive())
 
     build = build_registry(device=getattr(device_manager, "device", None), device_id=device_id,
                            device_manager=device_manager)

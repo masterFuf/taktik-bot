@@ -11,6 +11,8 @@ between the hosts is injected:
 - `ai_service_factory(*, api_key, ipc, vision_model, text_model)`: how the AI service is built.
 - `on_workflow(workflow)`: told the workflow once built (the bridge registers it for its stop
   signal).
+- `instagram_ai_key() -> str | None` (handler only): the OpenRouter key when the payload brings
+  none (the CLI's; the desktop puts it in the payload).
 The CLI used to launch Instagram hot on the raw device: no restart, no clone package, the baseline
 selectors whatever the installed version.
 """
@@ -37,6 +39,7 @@ class AgentRuntime:
 
 RuntimeProvider = Callable[[Optional[str]], AgentRuntime]
 AIServiceFactory = Callable[..., Any]
+AIKeyProvider = Callable[[], Optional[str]]
 
 
 def run_instagram_agent(
@@ -77,6 +80,7 @@ def build_instagram_agent_handler(
     *,
     instagram_agent_runtime: Optional[RuntimeProvider] = None,
     instagram_agent_ai_service_factory: Optional[AIServiceFactory] = None,
+    instagram_ai_key: Optional[AIKeyProvider] = None,
     notifier=None,
 ) -> WorkflowHandler:
     """Build an injectable Taktik Agent handler: the launcher, on the runtime the host prepares."""
@@ -86,6 +90,10 @@ def build_instagram_agent_handler(
             raise RuntimeError("Taktik Agent needs a connected device")
         config = dict(payload)
         config.update(invocation.params)
+        if not config.get("openrouter_api_key") and instagram_ai_key is not None:
+            key = instagram_ai_key()
+            if key:
+                config["openrouter_api_key"] = key
         runtime = instagram_agent_runtime(config.get("packageName"))
         return run_instagram_agent(
             config,
@@ -103,6 +111,7 @@ def register_instagram_agent_handlers(
     *,
     instagram_agent_runtime: Optional[RuntimeProvider] = None,
     instagram_agent_ai_service_factory: Optional[AIServiceFactory] = None,
+    instagram_ai_key: Optional[AIKeyProvider] = None,
     notifier=None,
 ) -> WorkflowRegistry:
     """Register the Taktik Agent handler into an injected Agent registry."""
@@ -111,6 +120,7 @@ def register_instagram_agent_handlers(
         build_instagram_agent_handler(
             instagram_agent_runtime=instagram_agent_runtime,
             instagram_agent_ai_service_factory=instagram_agent_ai_service_factory,
+            instagram_ai_key=instagram_ai_key,
             notifier=notifier,
         ),
     )

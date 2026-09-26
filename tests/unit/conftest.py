@@ -223,6 +223,22 @@ def _no_keyboard_given_back_at_exit(monkeypatch):
     monkeypatch.setattr(taktik_keyboard, "_atexit_registered", True)
 
 
+@pytest.fixture(autouse=True)
+def _no_operator_settings_file(monkeypatch, tmp_path_factory):
+    """No test reads or writes the operator's `~/.taktik/api_config.json` (a saved OpenRouter key
+    there would turn every "no key" test green or red depending on the machine), and no key typed
+    in one test serves the next."""
+    from taktik.cli.common import ai_key
+    from taktik.core.app.config.runtime import user_config
+
+    path = str(tmp_path_factory.mktemp("taktik_home") / "api_config.json")
+    monkeypatch.setattr(user_config, "user_config_path", lambda: path)
+    monkeypatch.setattr(ai_key, "user_config_path", lambda: path)
+    ai_key.forget_typed_key()
+    yield
+    ai_key.forget_typed_key()
+
+
 # Class attributes `install_instagram_ai_hooks` rewrites for the whole process. A test that
 # installed the hooks left them installed: the interaction-engine tests collected after it ran
 # the AI wrapper instead of the engine and made no gesture (13 failures in reverse order, found

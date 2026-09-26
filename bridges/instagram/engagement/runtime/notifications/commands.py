@@ -1,4 +1,4 @@
-"""CLI command handling for the Instagram notifications engagement bridge."""
+"""Command handling for the Instagram notifications engagement bridge: one config file, one command."""
 
 from __future__ import annotations
 
@@ -601,207 +601,114 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     }, flush=True)
 
 
-def run_notifications_cli(args: list[str]) -> None:
-    """Parse notifications bridge CLI args and dispatch the selected command."""
-    package_name = None
-    if "--package" in args:
-        idx = args.index("--package")
-        if idx + 1 < len(args):
-            package_name = args[idx + 1]
-            args = args[:idx] + args[idx + 2:]
-
-    # The owning account (the front resolves it via getLatestDeviceAccounts) — used by
-    # `scan` to persist + dedup notifications (the activity screen has no header), and by
-    # every ACTION command to record what was done (audit + budget interactions).
-    account_username = None
-    if "--account" in args:
-        idx = args.index("--account")
-        if idx + 1 < len(args):
-            account_username = args[idx + 1]
-            args = args[:idx] + args[idx + 2:]
-
-    # Who triggered a batch: 'batch' (operator selection, default) or 'autopilot'
-    # (policy-driven, e.g. auto-like after a scan). Recorded in notification_actions.
-    batch_source = "batch"
-    if "--source" in args:
-        idx = args.index("--source")
-        if idx + 1 < len(args):
-            batch_source = (args[idx + 1] or "batch").strip() or "batch"
-            args = args[:idx] + args[idx + 2:]
-
-    # Dedicated daily cap for follow_back inside a batch (autopilot tier 2). Absent = no
-    # dedicated cap (the operator's manual selection is not capped by the autopilot's knob).
-    follow_back_daily_cap = None
-    if "--follow-back-daily-cap" in args:
-        idx = args.index("--follow-back-daily-cap")
-        if idx + 1 < len(args):
-            try:
-                follow_back_daily_cap = max(0, int(args[idx + 1]))
-            except ValueError:
-                follow_back_daily_cap = None
-            args = args[:idx] + args[idx + 2:]
-
-    # Dedicated daily cap for welcome_dm inside a batch. Same contract as the follow-back
-    # cap: absent = uncapped, which is what an operator sending one message by hand is.
-    welcome_dm_daily_cap = None
-    if "--welcome-dm-daily-cap" in args:
-        idx = args.index("--welcome-dm-daily-cap")
-        if idx + 1 < len(args):
-            try:
-                welcome_dm_daily_cap = max(0, int(args[idx + 1]))
-            except ValueError:
-                welcome_dm_daily_cap = None
-            args = args[:idx] + args[idx + 2:]
-
-    # Dedicated daily cap for follow_actor. A follow is a follow: it also goes through the
-    # warmup budget front-side, this is the per-verb ceiling on top of it.
-    follow_actor_daily_cap = None
-    if "--follow-actor-daily-cap" in args:
-        idx = args.index("--follow-actor-daily-cap")
-        if idx + 1 < len(args):
-            try:
-                follow_actor_daily_cap = max(0, int(args[idx + 1]))
-            except ValueError:
-                follow_actor_daily_cap = None
-            args = args[:idx] + args[idx + 2:]
-
-    # Opt-in: how many suggested accounts to VISIT at the END of a scan, from the block
-    # at the bottom of the activity screen. Absent / 0 = the scan behaves exactly as before.
-    follow_suggestions = 0
-    if "--follow-suggestions" in args:
-        idx = args.index("--follow-suggestions")
-        if idx + 1 < len(args):
-            try:
-                follow_suggestions = max(0, int(args[idx + 1]))
-            except ValueError:
-                follow_suggestions = 0
-            args = args[:idx] + args[idx + 2:]
-
-    # AI qualification for the visited profiles (same shape as the automation bridge's
-    # `ai` config block). Absent = the visit still extracts / persists / follows, but the
-    # profiles are not qualified — and the run log says so rather than staying silent.
-    ai_config = None
-    if "--ai-config" in args:
-        idx = args.index("--ai-config")
-        if idx + 1 < len(args):
-            raw = args[idx + 1]
-            try:
-                ai_config = json.loads(raw)
-            except (TypeError, ValueError) as exc:
-                logger.warning(f"[NOTIF] Unreadable --ai-config ({exc}): AI qualification off")
-                ai_config = None
-            args = args[:idx] + args[idx + 2:]
-
-    # App language: only used to pick the language of the AI's own wording.
-    language = "en"
-    if "--language" in args:
-        idx = args.index("--language")
-        if idx + 1 < len(args):
-            language = args[idx + 1] or "en"
-            args = args[:idx] + args[idx + 2:]
-
+def load_notifications_bridge_config(args: list[str]) -> dict | None:
+    """The command the desktop wrote, or None after saying why on stdout."""
     if not args:
-        emit_notif_error(
-            "Usage: notifications.py <command> [args] [--package <pkg>] [--account <username>]\n"
-            "       [--follow-suggestions <n>] [--ai-config <json>] [--language <code>]\n"
-            "       [--source <batch|autopilot>] [--follow-back-daily-cap <n>]\n"
-            "       [--welcome-dm-daily-cap <n>] [--follow-actor-daily-cap <n>]\n"
-            "  scan <device_id> [scroll]\n"
-            "  list_requests <device_id> [limit]\n"
-            "  accept <device_id> <username>\n"
-            "  ignore <device_id> <username>\n"
-            "  accept_all <device_id> [max]\n"
-            "  reply <device_id> <username> [text]\n"
-            "  like <device_id> <username>\n"
-            "  follow_back <device_id> <username>\n"
-            '  batch <device_id> \'[{"action":"like","username":"x"},...]\''
-        )
+        emit_notif_error("Usage: notifications_bridge <config.json>")
+        return None
+    try:
+        with open(args[0], "r", encoding="utf-8-sig") as handle:
+            config = json.load(handle)
+    except Exception as exc:
+        emit_notif_error(f"Failed to load config: {exc}")
+        return None
+    if not isinstance(config, dict):
+        emit_notif_error("The notifications config must be a JSON object")
+        return None
+    return config
+
+
+def _count(value, default):
+    """A count as written, `default` when absent."""
+    return default if value is None else int(value)
+
+
+def _cap(value):
+    """A daily cap: None (uncapped) when absent or unreadable, never below 0."""
+    try:
+        return None if value is None else max(0, int(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _fail(message: str) -> None:
+    emit_notif_error(message)
+    sys.exit(1)
+
+
+def run_notifications_cli(args: list[str]) -> None:
+    """Load the config file named by `args` and run its command; the result goes to stdout.
+
+    The desktop writes one command per file (it used to pass positional arguments and flags):
+    `{"command", "deviceId", "packageName"?, "accountUsername"?}` plus, per command, `scroll`,
+    `followSuggestions`, `ai` and `language` (scan), `limit` (list_requests), `max` (accept_all),
+    `username` (accept, ignore, like, follow_back, reply), `text` (reply), and `actions`,
+    `source`, `followBackDailyCap`, `welcomeDmDailyCap`, `followActorDailyCap` (batch).
+    """
+    config = load_notifications_bridge_config(args)
+    if config is None:
         sys.exit(1)
 
-    command = args[0]
-
     try:
+        command = config.get("command")
+        device_id = config.get("deviceId")
+        package_name = config.get("packageName")
+        # The owning account (the desktop resolves it from the device): `scan` persists and
+        # dedups under it (the activity screen has no header), every action records under it.
+        account_username = config.get("accountUsername")
+        username = config.get("username")
+
+        if command not in _COMMANDS:
+            _fail(f"Unknown command: {command}")
+        if not device_id:
+            _fail("deviceId is required")
+        if command in _NEEDS_USERNAME and not username:
+            _fail(f"username is required for {command}")
+
         if command == "scan":
-            if len(args) < 2:
-                emit_notif_error("Usage: notifications.py scan <device_id> [scroll] [--account <username>]")
-                sys.exit(1)
-            cmd_scan(args[1], int(args[2]) if len(args) > 2 else 3,
+            # Opt-in suggestions visit at the end of the scan; `ai` qualifies the visited
+            # profiles (same block as the automation's), `language` is the AI's wording.
+            try:
+                follow_suggestions = max(0, int(config.get("followSuggestions") or 0))
+            except (TypeError, ValueError):
+                follow_suggestions = 0
+            ai_config = config.get("ai")
+            if ai_config is not None and not isinstance(ai_config, dict):
+                logger.warning("[NOTIF] Unreadable ai config: AI qualification off")
+                ai_config = None
+            cmd_scan(device_id, _count(config.get("scroll"), 3),
                      follow_suggestions=follow_suggestions,
                      account_username=account_username, package_name=package_name,
-                     ai_config=ai_config, language=language)
+                     ai_config=ai_config, language=config.get("language") or "en")
 
         elif command == "list_requests":
-            if len(args) < 2:
-                emit_notif_error("Usage: notifications.py list_requests <device_id> [limit]")
-                sys.exit(1)
-            cmd_list_requests(args[1], int(args[2]) if len(args) > 2 else 50, package_name=package_name)
-
-        elif command == "accept":
-            if len(args) < 3:
-                emit_notif_error("Usage: notifications.py accept <device_id> <username>")
-                sys.exit(1)
-            cmd_accept(args[1], args[2], package_name=package_name,
-                       account_username=account_username)
-
-        elif command == "ignore":
-            if len(args) < 3:
-                emit_notif_error("Usage: notifications.py ignore <device_id> <username>")
-                sys.exit(1)
-            cmd_ignore(args[1], args[2], package_name=package_name,
-                       account_username=account_username)
+            cmd_list_requests(device_id, _count(config.get("limit"), 50), package_name=package_name)
 
         elif command == "accept_all":
-            if len(args) < 2:
-                emit_notif_error("Usage: notifications.py accept_all <device_id> [max]")
-                sys.exit(1)
-            cmd_accept_all(args[1], int(args[2]) if len(args) > 2 else 50,
+            cmd_accept_all(device_id, _count(config.get("max"), 50),
                            package_name=package_name, account_username=account_username)
 
         elif command == "reply":
-            if len(args) < 3:
-                emit_notif_error("Usage: notifications.py reply <device_id> <username> [text]")
-                sys.exit(1)
-            reply_text = " ".join(args[3:]) if len(args) > 3 else ""
-            cmd_reply(args[1], args[2], reply_text, package_name=package_name,
+            cmd_reply(device_id, username, config.get("text") or "", package_name=package_name,
                       account_username=account_username)
 
-        elif command == "like":
-            if len(args) < 3:
-                emit_notif_error("Usage: notifications.py like <device_id> <username>")
-                sys.exit(1)
-            cmd_like(args[1], args[2], package_name=package_name,
-                     account_username=account_username)
-
-        elif command == "follow_back":
-            if len(args) < 3:
-                emit_notif_error("Usage: notifications.py follow_back <device_id> <username>")
-                sys.exit(1)
-            cmd_follow_back(args[1], args[2], package_name=package_name,
-                            account_username=account_username)
-
         elif command == "batch":
-            # The action list travels as ONE argv element (spawn, no shell), so unicode and spaces
-            # in reply texts survive without quoting rules.
-            if len(args) < 3:
-                emit_notif_error('Usage: notifications.py batch <device_id> <json_actions>')
-                sys.exit(1)
-            try:
-                parsed = json.loads(args[2])
-            except (TypeError, ValueError) as exc:
-                emit_notif_error(f"Unreadable batch actions: {exc}")
-                sys.exit(1)
-            if not isinstance(parsed, list) or not parsed:
-                emit_notif_error("Batch actions must be a non-empty list")
-                sys.exit(1)
-            cmd_batch(args[1], parsed, package_name=package_name,
-                      account_username=account_username, source=batch_source,
-                      follow_back_daily_cap=follow_back_daily_cap,
-                      welcome_dm_daily_cap=welcome_dm_daily_cap,
-                      follow_actor_daily_cap=follow_actor_daily_cap)
+            actions = config.get("actions")
+            if not isinstance(actions, list) or not actions:
+                _fail("Batch actions must be a non-empty list")
+            # 'autopilot' marks a batch a policy triggered, recorded in notification_actions.
+            # The daily caps are enforced here against the audit table; absent = uncapped,
+            # which is what an operator's own selection is.
+            cmd_batch(device_id, actions, package_name=package_name,
+                      account_username=account_username,
+                      source=(config.get("source") or "batch").strip() or "batch",
+                      follow_back_daily_cap=_cap(config.get("followBackDailyCap")),
+                      welcome_dm_daily_cap=_cap(config.get("welcomeDmDailyCap")),
+                      follow_actor_daily_cap=_cap(config.get("followActorDailyCap")))
 
         else:
-            emit_notif_error(f"Unknown command: {command}")
-            sys.exit(1)
+            _ROW_ACTIONS[command](device_id, username, package_name=package_name,
+                                  account_username=account_username)
 
     except SystemExit:
         raise
@@ -813,4 +720,15 @@ def run_notifications_cli(args: list[str]) -> None:
         sys.exit(1)
 
 
-__all__ = ["run_notifications_cli"]
+#: One row, one verb: the commands that act on the row of `username`.
+_ROW_ACTIONS = {
+    "accept": cmd_accept,
+    "ignore": cmd_ignore,
+    "like": cmd_like,
+    "follow_back": cmd_follow_back,
+}
+_NEEDS_USERNAME = (*_ROW_ACTIONS, "reply")
+_COMMANDS = ("scan", "list_requests", "accept_all", "reply", "batch", *_ROW_ACTIONS)
+
+
+__all__ = ["load_notifications_bridge_config", "run_notifications_cli"]

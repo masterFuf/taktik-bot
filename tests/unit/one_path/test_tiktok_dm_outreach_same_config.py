@@ -117,7 +117,9 @@ def test_the_cli_takes_the_openrouter_key_from_the_environment(rig, outreach_pay
     assert _sends(rig.calls) == ["send_text fan_one 'Salut fan_one, on court ensemble ?'"]
 
 
-def test_without_a_key_both_paths_stop_the_same_way_and_the_cli_says_why(rig, outreach_payload):
+def test_without_a_key_the_bridge_stops_and_the_scripted_cli_refuses_before_the_phone(rig, outreach_payload):
+    """The desktop always sends its key; a scripted CLI run without one is refused (exit 2) before
+    the phone, instead of falling back on static messages it did not ask for."""
     payload = outreach_payload("ai")
     payload.pop("openrouterApiKey")
     warnings = []
@@ -128,8 +130,7 @@ def test_without_a_key_both_paths_stop_the_same_way_and_the_cli_says_why(rig, ou
         logger.remove(sink)
 
     assert bridge["exit"] == 1
-    assert cli["exit"] == 1
-    assert cli["calls"] == bridge["calls"]
-    assert _sends(cli["calls"]) == []
+    assert _sends(bridge["calls"]) == []
+    assert cli["exit"] == 2
+    assert cli["calls"] == []
     assert cli["rows"] == bridge["rows"] == []
-    assert any("OPENROUTER_API_KEY" in line for line in warnings)

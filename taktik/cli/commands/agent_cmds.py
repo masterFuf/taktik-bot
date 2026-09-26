@@ -11,19 +11,22 @@ installed version) and Instagram gets the same clean restart. It used to be laun
 device, on the official package whatever `packageName` said. The AI factory builds the same
 provider as the bridge's, from `taktik/core/app/ai/`.
 
-The API key is read from the environment rather than a flag: a key on the command line lands in
-the shell history and in the process list. Without a key the Agent still runs, with whatever its
-own code does when no AI service is injected.
+The Agent is AI by nature: its decisions are the model's. The OpenRouter key is therefore made sure
+of before the phone is touched (`ai_key.py`): the environment, the key typed earlier, the saved
+one, or asked for at a terminal; in a scripted run (a pipe, CI) a missing key stops the command
+with exit code 2. Never from a flag: a key on the command line lands in the shell history and in
+the process list.
 """
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+from taktik.cli.common.ai_key import MISSING_KEY_EXIT, MissingAIKeyError, ensure_ai_key, is_interactive
 
 console = Console()
 
@@ -38,7 +41,8 @@ QUOTA_DEFAULTS: dict[str, int] = {
     "session_duration_min": 25,
 }
 
-API_KEY_ENV = "OPENROUTER_API_KEY"
+#: The Taktik Agent's workflow id, the one its handler is registered under.
+AGENT_WORKFLOW_ID = "instagram.engagement.taktik_agent"
 
 
 class _ConsoleNotifier:
@@ -85,8 +89,7 @@ def show_defaults() -> None:
 @agent.command("run")
 @click.option("--device", "-d", "device_id", help="ADB serial. Omitted: the only connected device.")
 @click.option("--param", "params", multiple=True, help="Config entry, key=value. Repeatable.")
-@click.option("--no-ai", is_flag=True, help="Run without an AI provider even if a key is set.")
-def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> None:
+def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     """Start an autonomous Agent session on Instagram."""
     from taktik.cli.commands.workflow_cmds import _coerce
     from taktik.cli.common.instagram_host import CliInstagramHost
@@ -99,6 +102,12 @@ def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> No
             raise click.BadParameter(f"expected key=value, got '{pair}'")
         key, _, raw = pair.partition("=")
         config[key.strip()] = _coerce(raw.strip())
+
+    try:
+        api_key = ensure_ai_key(AGENT_WORKFLOW_ID, config, interactive=is_interactive(), echo=console.print)
+    except MissingAIKeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(MISSING_KEY_EXIT)
 
     manager = DeviceManager()
     devices = manager.list_devices()
@@ -114,20 +123,13 @@ def run_agent(device_id: str | None, params: tuple[str, ...], no_ai: bool) -> No
         console.print(f"[red]Cannot connect to {device_id}.[/red]")
         raise SystemExit(1)
 
-    api_key = "" if no_ai else os.environ.get(API_KEY_ENV, "")
-    ai_service_factory = None
-    if api_key:
-        from taktik.core.app.ai.factory import build_ai_service
+    from taktik.core.app.ai.factory import build_ai_service
 
-        def ai_service_factory(*, api_key: str, ipc=None, vision_model=None, text_model=None):  # noqa: F811
-            # Standalone CLI: no premium taxonomy to inject, the classifier stays free-form.
-            return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
+    def ai_service_factory(*, api_key: str, ipc=None, vision_model=None, text_model=None):
+        # Standalone CLI: no premium taxonomy to inject, the classifier stays free-form.
+        return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model)
 
-        config.setdefault("openrouter_api_key", api_key)
-    else:
-        console.print(
-            f"[yellow]No {API_KEY_ENV} in the environment: running without an AI provider.[/yellow]"
-        )
+    config.setdefault("openrouter_api_key", api_key)
 
     effective = {**QUOTA_DEFAULTS, **{k: v for k, v in config.items() if k in QUOTA_DEFAULTS}}
     console.print(Panel.fit(

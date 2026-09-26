@@ -7,7 +7,6 @@ no language detection, no account.
 """
 from dataclasses import asdict
 
-from loguru import logger
 
 AI_KEY = "sk-or-v1-" + "a" * 48
 
@@ -67,15 +66,10 @@ def test_the_cli_takes_the_openrouter_key_from_the_environment(rig, page_payload
     assert [install["ai_config"]["openrouterApiKey"] for install in rig.ai_installs] == [AI_KEY]
 
 
-def test_without_a_key_the_cli_runs_without_ai_and_says_why(rig, page_payload):
-    warnings = []
-    sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
-    try:
-        result = rig.run_cli(page_payload(ai={"enabled": True, "profileAnalysis": True}))
-    finally:
-        logger.remove(sink)
+def test_without_a_key_a_scripted_ai_run_is_refused_before_the_phone(rig, page_payload):
+    result = rig.run_cli(page_payload(ai={"enabled": True, "profileAnalysis": True}))
 
-    assert result.exit_code == 0, result.output
-    assert rig.ai_installs == []
-    assert rig.workflows, "the run must go on without AI"
-    assert any("OPENROUTER_API_KEY" in line for line in warnings)
+    assert result.exit_code == 2, result.output
+    assert "OPENROUTER_API_KEY" in result.output
+    assert rig.ai_installs == [] and rig.ai_services == []
+    assert rig.workflows == [] and rig.calls == []

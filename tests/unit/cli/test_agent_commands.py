@@ -63,7 +63,7 @@ def test_no_device_is_reported_not_crashed(monkeypatch):
             return []
 
     with patch("taktik.core.shared.device.manager.DeviceManager", NoDevices):
-        result = CliRunner().invoke(agent_cmds.agent, ["run"])
+        result = CliRunner().invoke(agent_cmds.agent, ["run"], env={"OPENROUTER_API_KEY": "k"})
     assert result.exit_code == 1
     assert "No device connected" in result.output
 
@@ -75,8 +75,25 @@ def test_the_notifier_absorbs_unknown_events():
     notifier.status("running", "ok")
 
 
-def test_the_api_key_is_read_from_the_environment_only():
+def test_the_api_key_never_comes_from_a_flag():
     """A key passed as a flag would land in shell history and in the process list."""
     source = Path("taktik/cli/commands/agent_cmds.py").read_text(encoding="utf-8")
-    assert "os.environ.get(API_KEY_ENV" in source
+    assert "ensure_ai_key(" in source
     assert "--api-key" not in source
+
+
+def test_without_a_key_a_scripted_run_stops_before_the_phone(monkeypatch):
+    """The Agent is AI by nature: no key, no session, and the phone is never looked at."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    looked = []
+
+    class Devices:
+        def list_devices(self):
+            looked.append(True)
+            return []
+
+    with patch("taktik.core.shared.device.manager.DeviceManager", Devices):
+        result = CliRunner().invoke(agent_cmds.agent, ["run"])
+    assert result.exit_code == 2
+    assert "OPENROUTER_API_KEY" in result.output
+    assert looked == []

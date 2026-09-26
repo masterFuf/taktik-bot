@@ -5,7 +5,6 @@ three. The CLI ran the Agent handler, which kept an older subset of the payload 
 the pacing profile, the feed settings, the split between sources were lost) and restarted nothing:
 the workflow config says Instagram was restarted by the host, and in the terminal no host did it.
 """
-from loguru import logger
 
 from instagram_rig import AI_KEY, INSTAGRAM, feed_payload, target_payload
 
@@ -87,19 +86,24 @@ def test_the_cli_takes_the_openrouter_key_from_the_environment(ig_rig):
     assert len(ig_rig.ai_installs) == 1
 
 
-def test_without_a_key_the_cli_runs_without_ai_and_says_why(ig_rig):
-    warnings = []
-    sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
-    try:
-        result = ig_rig.run_cli(target_payload(ai={"enabled": True, "profileAnalysis": True}),
-                                env={"OPENROUTER_API_KEY": ""})
-    finally:
-        logger.remove(sink)
+def test_without_a_key_a_scripted_ai_run_is_refused_before_the_phone(ig_rig):
+    """`--json` is a scripted run: nobody to ask for the key, so the run stops, exit 2, and says
+    how to give it. It used to go on without AI, which is not the run that was asked for."""
+    result = ig_rig.run_cli(target_payload(ai={"enabled": True, "profileAnalysis": True}),
+                            env={"OPENROUTER_API_KEY": ""})
+
+    assert result.exit_code == 2, result.output
+    assert "OPENROUTER_API_KEY" in result.output
+    assert ig_rig.workflows == []
+    assert ig_rig.ai_installs == [] and ig_rig.ai_services == []
+
+
+def test_a_manual_run_needs_no_key(ig_rig):
+    result = ig_rig.run_cli(target_payload(), env={"OPENROUTER_API_KEY": ""})
 
     assert result.exit_code == 0, result.output
-    assert ig_rig.ai_installs == []
-    assert ig_rig.workflows, "the run must go on without AI"
-    assert any("OPENROUTER_API_KEY" in line for line in warnings)
+    assert ig_rig.workflows
+    assert ig_rig.ai_installs == [] and ig_rig.ai_services == []
 
 
 def test_the_cli_does_not_run_when_instagram_is_missing(ig_rig):
