@@ -8,7 +8,8 @@ The flow reproduces, step by step, the sequence validated through the diagnostic
 
   1. push the file and index it in the media store
   2. launch the app, clone-aware, and come back to the feed, where the app language is detected
-  3. open the creation screen
+  3. open the creation screen; when it opens the camera (story), answer Android's camera and
+     microphone prompts "Only this time", never a lasting grant
   4. close the draft modal when present, optional
   5. select the first media of the gallery, the most recent being the pushed one
   6. tap next until the composer screen, recognised by its caption field
@@ -37,6 +38,7 @@ from taktik.core.shared.device.media_store import (
     scan_wait_for,
     trigger_media_scan,
 )
+from taktik.core.shared.device.permissions import allow_prompts_this_time_only
 from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation import (
     CONTENT_CREATION_SELECTORS as CC,
 )
@@ -89,6 +91,8 @@ class InstagramPostWorkflow:
         # Story entry method: False = create "+" then STORY tab; True = tap our own
         # bubble in the feed reels tray ("Add to story"). Both reach the same gallery.
         self.story_via_feed = bool(story_via_feed)
+        # Android permission prompts answered "Only this time" during this run.
+        self.permission_prompts_answered = 0
         self._a = self._build_actions(device)
 
     # ------------------------------------------------------------------
@@ -216,6 +220,10 @@ class InstagramPostWorkflow:
         if not self._tap(CC.create_button_flow_xpaths(), timeout=6):
             return self._error("create_not_found", "Create button not found")
         time.sleep(1.2)
+        # Create reopens the last mode used: the story camera after a story.
+        err = self._answer_permission_prompts()
+        if err:
+            return err
 
         if self._tap(CC.draft_dismiss_xpaths(), timeout=2):
             self._log("info", "Dismissed draft modal (Start new video)")
@@ -227,6 +235,9 @@ class InstagramPostWorkflow:
         if self._tap(CC.destination_tab_xpaths(self.post_type), timeout=3):
             self._log("info", f"Selected destination tab for {self.post_type}")
             time.sleep(0.8)
+            err = self._answer_permission_prompts()
+            if err:
+                return err
 
         # Create can land on the camera instead of the gallery grid; open it if needed.
         self._ensure_gallery_open()
@@ -370,8 +381,28 @@ class InstagramPostWorkflow:
         if not self._tap(CC.feed_story_tray_add_xpaths(), timeout=6):
             return self._error("story_tray_not_found", "Feed 'Add to story' bubble not found")
         time.sleep(1.2)
+        err = self._answer_permission_prompts()
+        if err:
+            return err
         self._ensure_gallery_open()
         return None
+
+    def _answer_permission_prompts(self) -> Optional[dict]:
+        """The camera opening makes Android ask for the camera, then the microphone: answered
+        "Only this time", never a lasting grant. Skipped as soon as the gallery grid shows (no
+        camera). Returns an error dict when a prompt is left on screen, else None."""
+        outcome = allow_prompts_this_time_only(
+            self._a["click"].device,
+            unless_on_screen=CC.gallery_grid_xpaths(),
+            log=self._log,
+        )
+        self.permission_prompts_answered += outcome.answered
+        if outcome.ok:
+            return None
+        return self._error(
+            "permission_prompt_unanswered",
+            f"Android permission prompt left unanswered ({outcome.unanswered}): {outcome.question}",
+        )
 
     # ------------------------------------------------------------------
     # Stage helpers
