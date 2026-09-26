@@ -36,6 +36,22 @@ def _emit(notifier: Any, method: str, *args: Any, **kwargs: Any) -> None:
         target(*args, **kwargs)
 
 
+def patch_clone_selectors(package_name: Optional[str], notifier: Any = None) -> None:
+    """A cloned TikTok names its resource-ids after its own package: patch the catalogue first."""
+    from taktik.core.clone.packages import get_original_package
+
+    if not package_name or package_name == get_original_package("tiktok"):
+        return
+    try:
+        from taktik.core.clone import patch_selectors_for_package, set_active_package
+
+        set_active_package(package_name)
+        patched = patch_selectors_for_package("tiktok", package_name)
+        _emit(notifier, "log", "info", f"🧬 Package override: patched {patched} selector(s) for {package_name}")
+    except Exception as e:
+        _emit(notifier, "log", "warning", f"⚠️ Clone selector patching failed (non-fatal): {e}")
+
+
 def _wait_for_app_surface(device, timeout: float = 4.0) -> bool:
     """Wait until TikTok has drawn its bottom bar, up to `timeout`. True when it has."""
     from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
@@ -155,4 +171,4 @@ def start_tiktok_session(manager, *, notifier: Any = None, fetch_profile: bool =
     return bot_username
 
 
-__all__ = ["TikTokStartup", "start_tiktok_session"]
+__all__ = ["TikTokStartup", "patch_clone_selectors", "start_tiktok_session"]

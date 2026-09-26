@@ -1,26 +1,27 @@
-"""Instagram account registration workflow adapter."""
+"""Instagram account registration adapter (the run is the core's `run_instagram_account`)."""
 
 from __future__ import annotations
 
 from bridges.instagram.runtime.ipc import send_error, send_log, send_message, send_status
+from taktik.core.social_media.instagram.workflows.management.agent_handler import (
+    INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID,
+)
 
 
 class AccountRegisterRunnerMixin:
     """Run Instagram registration and emit bridge JSON events."""
 
     def _run_register(self, device) -> int:
-        method = self.config.get("method", "email")
-        email = self.config.get("email", "")
-        phone = self.config.get("phone", "")
+        params = self._account_params(INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID)
+        if params is None:
+            return 1
+        method = params["method"]
 
         send_status("running", f"Starting register ({method})...")
         send_log("info", f"Register workflow - method={method}")
 
         try:
-            from taktik.core.social_media.instagram.workflows.management.signup.signup_workflow import SignupWorkflow
-
-            workflow = SignupWorkflow(device, self.device_id)
-            result = workflow.execute(method=method, email=email or None, phone=phone or None)
+            result = self._launch_account(device, INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID, params)
             outcome = "success" if result["success"] else "error"
             send_status(outcome, result.get("message", ""))
             send_message(

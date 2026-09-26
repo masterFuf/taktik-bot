@@ -120,6 +120,7 @@ def build_registry(
         cli_openrouter_key,
     )
     from taktik.cli.common.tiktok_host import (
+        cli_tiktok_account_app,
         cli_tiktok_ai_hooks,
         cli_tiktok_outreach_message_generator,
         cli_tiktok_startup,
@@ -141,11 +142,15 @@ def build_registry(
         # TikTok handlers that take these start and hook a run the way the bridges do.
         "tiktok_startup": cli_tiktok_startup(device, device_id) if device is not None else None,
         "tiktok_ai_hooks": cli_tiktok_ai_hooks,
+        # The account flows restart TikTok the way the account bridge does.
+        "tiktok_account_app": cli_tiktok_account_app(manager, device_id) if manager is not None else None,
         "tiktok_welcome_qualifier": cli_tiktok_welcome_qualifier,
         "tiktok_outreach_message_generator": cli_tiktok_outreach_message_generator,
         # The Instagram automation handlers start and hook a run the way the desktop bridge does.
         "instagram_start": instagram_host.start if instagram_host else None,
         "instagram_installed_version": instagram_host.installed_version if instagram_host else None,
+        # The account flows restart Instagram (or keep its screen) the way the account bridge does.
+        "instagram_account_app": instagram_host.account_app if instagram_host else None,
         "instagram_ai_service": cli_instagram_ai_service,
         # The scraping handlers build their AI service from a key, the payload's or the environment's.
         "instagram_scraping_ai_service": cli_instagram_scraping_ai_service,

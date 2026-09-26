@@ -1,27 +1,26 @@
-"""Instagram account switch (multi-account) workflow adapter."""
+"""Instagram account switch (multi-account) adapter (the run is the core's `run_instagram_account`)."""
 
 from __future__ import annotations
 
 from bridges.instagram.runtime.ipc import send_error, send_log, send_message, send_status
+from taktik.core.social_media.instagram.workflows.management.agent_handler import (
+    INSTAGRAM_ACCOUNT_LIST_SAVED_WORKFLOW_ID,
+    INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID,
+    INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID,
+)
 
 
 class AccountSwitchRunnerMixin:
     """Run an Instagram account switch and emit bridge JSON events."""
 
     def _run_switch(self, device) -> int:
-        target = (self.config.get("targetUsername") or "").strip()
-        send_status("running", f"Switching account to @{target}…" if target else "Switching account…")
+        params = self._account_params(INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID)
+        if params is None:
+            return 1
+        send_status("running", f"Switching account to @{params['target_username']}…")
         send_log("info", "Switch-account workflow")
 
-        if not target:
-            send_error("targetUsername is required for switch_account")
-            return 1
-
         try:
-            from taktik.core.social_media.instagram.workflows.management.switch import (
-                SwitchAccountWorkflow,
-            )
-
             # Forward live progress lines as running status updates.
             def _notify(message: str) -> None:
                 send_status("running", message)
@@ -36,11 +35,10 @@ class AccountSwitchRunnerMixin:
             def _emit_step(step: str, data: dict) -> None:
                 send_message("account_step", step=step, workflow="switch_account", **data)
 
-            workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify,
-                on_active_account=_emit_active, on_step=_emit_step,
+            result = self._launch_account(
+                device, INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID, params,
+                notifier=_notify, on_active_account=_emit_active, on_step=_emit_step,
             )
-            result = workflow.execute(target)
 
             outcome = "success" if result["success"] else "error"
             send_status(outcome, result.get("message", ""))
@@ -74,10 +72,6 @@ class AccountSwitchRunnerMixin:
         send_status("running", "Reading connected accounts…")
         send_log("info", "List-accounts workflow")
         try:
-            from taktik.core.social_media.instagram.workflows.management.switch import (
-                SwitchAccountWorkflow,
-            )
-
             def _notify(message: str) -> None:
                 send_status("running", message)
 
@@ -89,11 +83,10 @@ class AccountSwitchRunnerMixin:
             def _emit_step(step: str, data: dict) -> None:
                 send_message("account_step", step=step, workflow="list_accounts", **data)
 
-            workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify,
-                on_active_account=_emit_active, on_step=_emit_step,
+            result = self._launch_account(
+                device, INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID, {},
+                notifier=_notify, on_active_account=_emit_active, on_step=_emit_step,
             )
-            result = workflow.list_accounts()
 
             accounts = result.get("accounts") or []
             send_message("accounts_detected", accounts=accounts)
@@ -117,10 +110,6 @@ class AccountSwitchRunnerMixin:
         send_status("running", "Listing all saved accounts (logging out to open the picker)…")
         send_log("info", "List-saved-accounts workflow")
         try:
-            from taktik.core.social_media.instagram.workflows.management.switch import (
-                SwitchAccountWorkflow,
-            )
-
             def _notify(message: str) -> None:
                 send_status("running", message)
 
@@ -131,11 +120,10 @@ class AccountSwitchRunnerMixin:
             def _emit_step(step: str, data: dict) -> None:
                 send_message("account_step", step=step, workflow="list_saved_accounts", **data)
 
-            workflow = SwitchAccountWorkflow(
-                device, self.device_id, notifier=_notify,
-                on_active_account=_emit_active, on_step=_emit_step,
+            result = self._launch_account(
+                device, INSTAGRAM_ACCOUNT_LIST_SAVED_WORKFLOW_ID, {},
+                notifier=_notify, on_active_account=_emit_active, on_step=_emit_step,
             )
-            result = workflow.list_saved_accounts()
 
             accounts = result.get("accounts") or []
             send_message("accounts_detected", accounts=accounts)

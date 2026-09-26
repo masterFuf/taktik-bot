@@ -277,9 +277,9 @@ def cli(ctx, lang=None):
                         continue
                     
                     elif mgmt_choice == 1:
-                        # Login interactif
-                        from taktik.core.social_media.instagram.workflows.management.login.login_workflow import LoginWorkflow
-                        import uiautomator2 as u2
+                        # Login through the desktop's account launcher (clean restart, then login).
+                        from taktik.cli.common.device_selector import connect_device
+                        from taktik.cli.common.instagram_host import run_instagram_account_payload
                         from getpass import getpass
                         
                         console.print("\n[bold green]🔐 Instagram Login[/bold green]")
@@ -294,32 +294,34 @@ def cli(ctx, lang=None):
                         save_session = Confirm.ask("[cyan]💾 Save session (Taktik)?[/cyan]", default=True)
                         save_instagram_login = Confirm.ask("[cyan]💾 Save login info (Instagram)?[/cyan]", default=False)
                         
+                        if not connect_device(device_manager, device_id, current_translations):
+                            continue
+
                         try:
-                            device = u2.connect(device_id)
-                            login_workflow = LoginWorkflow(device, device_id)
-                            
                             with console.status("[bold yellow]🔄 Logging in...[/bold yellow]", spinner="dots"):
-                                result = login_workflow.execute(
-                                    username=username,
-                                    password=password,
-                                    max_retries=3,
-                                    save_session=save_session,
-                                    use_saved_session=True,
-                                    save_login_info_instagram=save_instagram_login
+                                result = run_instagram_account_payload(
+                                    device_manager, device_id, "instagram.account.login",
+                                    {
+                                        "username": username,
+                                        "password": password,
+                                        "maxRetries": 3,
+                                        "saveSession": save_session,
+                                        "saveLoginInfoInstagram": save_instagram_login,
+                                    },
                                 )
-                            
-                            if result['success']:
+
+                            if result.get('success'):
                                 console.print(Panel.fit(
                                     f"[bold green]✅ Login successful![/bold green]\n"
-                                    f"[cyan]👤 Username:[/cyan] {result['username']}\n"
-                                    f"[cyan]💾 Session saved:[/cyan] {'Yes' if result['session_saved'] else 'No'}",
+                                    f"[cyan]👤 Username:[/cyan] {result.get('username', username)}\n"
+                                    f"[cyan]💾 Session saved:[/cyan] {'Yes' if result.get('session_saved') else 'No'}",
                                     title="[bold green]Success[/bold green]",
                                     border_style="green"
                                 ))
                             else:
                                 console.print(Panel.fit(
                                     f"[bold red]❌ Login failed[/bold red]\n"
-                                    f"[cyan]❌ Error:[/cyan] {result['message']}",
+                                    f"[cyan]❌ Error:[/cyan] {result.get('message', '')}",
                                     title="[bold red]Failed[/bold red]",
                                     border_style="red"
                                 ))

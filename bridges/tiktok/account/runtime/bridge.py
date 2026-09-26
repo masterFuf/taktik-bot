@@ -19,6 +19,7 @@ class TikTokAccountBridge(TikTokAccountWorkflowMixin, TikTokAccountSessionMixin)
         self.workflow_type = config.get("workflowType")
         self.package_name = config.get("packageName")
         self._connection = None
+        self._app = None
 
         setup_signal_handlers(ipc=_ipc)
         signal.signal(signal.SIGTERM, self._shutdown)
