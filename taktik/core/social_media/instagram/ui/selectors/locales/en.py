@@ -450,11 +450,10 @@ STRINGS: Dict[str, List[str]] = {
         "Search",
     ],
     "navigation.home_tab": [
-        # not(systemui): the Android navigation bar Home button
-        # (com.android.systemui:id/home_button) also has content-desc "Home";
-        # without this guard, in a fullscreen story (no IG bottom bar) the bot
-        # tapped the system Home button -> dropped out to the Android launcher.
-        "//*[contains(@content-desc, \"Home\") and not(@package=\"com.android.systemui\")]",
+        # Inside Instagram's tab bar only. Outside it, "Home" is the Android navigation bar's
+        # home button, a launcher's home screen, and Instagram's own "Back to Home" camera
+        # buttons and any name holding the word (a "Follow ... Home & Office" button).
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\")]",
     ],
     "navigation.home_tab_description_contains": [
         "Home",
@@ -476,7 +475,9 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Recent\")]",
     ],
     "navigation.search_tab": [
-        "//*[contains(@content-desc, \"Search\") and not(@package=\"com.android.systemui\")]",
+        # Inside Instagram's tab bar only: outside it, "Search" is a launcher's search bar and
+        # Instagram's own search fields (search_bar_glyph, search_edit_text).
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Search\")]",
     ],
     "navigation.search_tab_description_contains": [
         "Search",

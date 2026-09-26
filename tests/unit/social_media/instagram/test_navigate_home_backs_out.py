@@ -38,6 +38,7 @@ def _navigation(raw):
     nav.selectors = type("S", (), {"home_tab": []})()
     nav._navigate_to_tab = lambda *a, **k: raw.tab_bar_after is not None and raw.backs >= raw.tab_bar_after
     nav._is_home_screen = lambda: raw.screens_to_home <= 0
+    nav._is_instagram_open = lambda: True
     nav._human_like_delay = lambda *a, **k: None
     return nav
 

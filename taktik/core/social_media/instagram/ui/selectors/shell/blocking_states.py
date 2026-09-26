@@ -76,7 +76,11 @@ class ProblematicPageSelectors:
     # Chaque pattern contient: indicators (textes à chercher), close_methods, et flags optionnels
     detection_patterns: Dict[str, Dict] = field(default_factory=lambda: {
         'qr_code_page': {
-            'indicators': ['Partager le profil', 'QR code', 'Copier le lien'],
+            # The page's own ids (410, 5 real captures of it): its labels are also the own
+            # profile's share button and a row of a profile's options sheet, and one of them was
+            # enough to press Back on a profile.
+            'indicators': ['nametag_container', 'profile_share_card_share_button',
+                           'profile_share_card_copy_link_button'],
             'close_methods': ['back_button', 'x_button', 'tap_outside']
         },
         'story_qr_code_page': {
@@ -91,6 +95,11 @@ class ProblematicPageSelectors:
         },
         'profile_share_page': {
             'indicators': ['WhatsApp', 'Ajouter à la story', 'Partager', 'Texto', 'Threads'],
+            # A sheet must be open (410 share sheet ids): the own profile carries three of these
+            # words (its avatar's story badge, its share button, its Threads badge), the home
+            # feed two, and neither shows a sheet.
+            'surface_ids': ['direct_external_share_container_view',
+                            'direct_private_share_container_view', 'bottom_sheet_container'],
             'close_methods': ['swipe_down_handle', 'swipe_down', 'tap_outside', 'back_button']
         },
         'try_again_later_page': {

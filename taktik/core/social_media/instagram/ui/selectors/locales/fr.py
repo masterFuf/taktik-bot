@@ -427,11 +427,11 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "navigation.explore_search_bar_texts": [],
     "navigation.home_tab": [
-        # not(systemui): the Android navigation bar home button also carries the same
-        # (com.android.systemui:id/home_button) a aussi content-desc "Accueil" ;
-        # content-desc, so without this guard, in a fullscreen story where the Instagram
-        # bar is absent, the bot tapped it and dropped out to the Android launcher.
-        "//*[contains(@content-desc, \"Accueil\") and not(@package=\"com.android.systemui\")]",
+        # Inside Instagram's tab bar only. Outside it, "Accueil" is the Android navigation
+        # bar's home button, the Pixel launcher's full-screen accessibility_action_view (a tap
+        # on it lands on a random point of the home screen) and the Google dialer's tab; no
+        # Instagram node of the corpus carries it (its 410 home tab says "Home").
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Accueil\")]",
     ],
     "navigation.home_tab_description_contains": [],
     "navigation.home_tab_descriptions": [],
@@ -446,7 +446,10 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Récents\")]",
     ],
     "navigation.search_tab": [
-        "//*[contains(@content-desc, \"Rechercher\") and not(@package=\"com.android.systemui\")]",
+        # Inside Instagram's tab bar only: outside it, "Rechercher" is the Pixel launcher's
+        # Google search bar (a Lab go_search ended in the Google app) and Instagram's own
+        # search fields (search_bar_glyph, search_edit_text).
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Rechercher\")]",
     ],
     "navigation.search_tab_description_contains": [],
     "navigation.search_tab_descriptions": [],
