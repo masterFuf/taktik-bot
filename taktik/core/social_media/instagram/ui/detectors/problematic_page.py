@@ -13,6 +13,13 @@ from ..selectors.locales import L_all, active_locale, available_locales
 
 _NODE_TAG = re.compile(r'<node\b[^>]*>')
 _ATTRIBUTE = r'\b{}="([^"]*)"'
+_RESOURCE_ID = re.compile(r'\bresource-id="([^"]*)"')
+
+
+def _has_surface(xml: str, surface_ids) -> bool:
+    """Does a node of the screen carry one of these ids (any package prefix, or none)?"""
+    wanted = set(surface_ids)
+    return any(rid.rsplit(':id/', 1)[-1] in wanted for rid in _RESOURCE_ID.findall(xml or ''))
 
 
 def _alert_dialog_text(xml: str, text_ids) -> Optional[str]:
@@ -137,7 +144,7 @@ class ProblematicPageDetector:
 
             # Vérifier chaque type de page problématique
             for page_type, config in self.detection_patterns.items():
-                if self._is_page_detected(ui_content, config['indicators']):
+                if self._matches(ui_content, config):
                     evidence = None
                     if page_type == 'try_again_later_page':
                         # Its ids are the chassis of EVERY Instagram alert. Taken alone they
@@ -207,6 +214,14 @@ class ProblematicPageDetector:
                 'page_type': None
             }
     
+    def _matches(self, ui_content: str, config: dict) -> bool:
+        """Is this pattern's page on screen? Its surface ids first, when it names some: words
+        found anywhere also sit on a profile or a feed behind no sheet at all."""
+        surface_ids = config.get('surface_ids')
+        if surface_ids and not _has_surface(ui_content, surface_ids):
+            return False
+        return self._is_page_detected(ui_content, config['indicators'])
+
     def _is_page_detected(self, ui_content: str, indicators: list) -> bool:
         """
         Is a page detected, based on its markers?
@@ -224,13 +239,14 @@ class ProblematicPageDetector:
         
         # Generic markers to ignore in some contexts
         generic_indicators = ['Posts', 'Stories', 'Reels', 'Some']
-        
+        content = ui_content.lower()
+
         for indicator in indicators:
-            if indicator.lower() in ui_content.lower():
+            if indicator.lower() in content:
                 # For a generic marker, check the context
                 if indicator in generic_indicators:
                     # Ignorer si on trouve aussi des éléments de navigation normale
-                    if any(nav in ui_content.lower() for nav in ['home', 'search', 'profile', 'following', 'followers']):
+                    if any(nav in content for nav in ['home', 'search', 'profile', 'following', 'followers']):
                         logger.debug(f"Indicateur générique '{indicator}' ignoré (contexte navigation normale)")
                         continue
                 
@@ -454,7 +470,7 @@ class ProblematicPageDetector:
             
             # Verify the markers are gone
             config = self.detection_patterns[page_type]
-            return not self._is_page_detected(ui_content, config['indicators'])
+            return not self._matches(ui_content, config)
             
         except Exception as e:
             logger.error(f"Erreur lors de la vérification de fermeture: {e}")

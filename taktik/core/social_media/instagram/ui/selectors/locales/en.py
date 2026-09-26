@@ -430,12 +430,16 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.activity_tab": [
         "//*[contains(@content-desc, \"Activity\")]",
     ],
+    # Tabs and back arrows: Instagram's own nodes only. Every dump also holds the Android
+    # navigation bar (com.android.systemui:id/back "Back", :id/home_button "Home") and can hold
+    # the launcher (accessibility_action_view "Home"): a tap there leaves Instagram.
+    # A clone's package is swapped in by the clone proxy.
     "navigation.back_button": [
-        "//*[contains(@content-desc, \"Back\")]",
+        "//*[contains(@content-desc, \"Back\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.back_buttons": [
-        "//android.widget.ImageView[@content-desc=\"Back\"]",
-        "//*[@content-desc=\"Back\"]",
+        "//android.widget.ImageView[@content-desc=\"Back\" and @package=\"com.instagram.android\"]",
+        "//*[@content-desc=\"Back\" and @package=\"com.instagram.android\"]",
     ],
     "navigation.close_button": [
         "//*[contains(@content-desc, \"Close\")]",
@@ -450,11 +454,11 @@ STRINGS: Dict[str, List[str]] = {
         "Search",
     ],
     "navigation.home_tab": [
-        # not(systemui): the Android navigation bar Home button
-        # (com.android.systemui:id/home_button) also has content-desc "Home";
-        # without this guard, in a fullscreen story (no IG bottom bar) the bot
-        # tapped the system Home button -> dropped out to the Android launcher.
-        "//*[contains(@content-desc, \"Home\") and not(@package=\"com.android.systemui\")]",
+        # Inside Instagram's tab bar only. Outside it, "Home" is the Android navigation bar's
+        # home button, a launcher's home screen, and Instagram's own "Back to Home" camera
+        # buttons and any name holding the word (a "Follow ... Home & Office" button).
+        # The proxy makes the tab_bar id match any package's, hence @package too.
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.home_tab_description_contains": [
         "Home",
@@ -468,15 +472,18 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.ImageView[@content-desc=\"Grid view\"]",
     ],
     "navigation.profile_tab": [
-        "//*[contains(@content-desc, \"Profile\") and contains(name(), \"ImageView\") and not(@package=\"com.android.systemui\")]",
-        "//*[contains(@content-desc, \"Profile\") and not(@package=\"com.android.systemui\")]",
+        "//*[contains(@content-desc, \"Profile\") and contains(name(), \"ImageView\") and @package=\"com.instagram.android\"]",
+        "//*[contains(@content-desc, \"Profile\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.recent_tab_selectors": [
         "//*[contains(@text, \"Recent\")]",
         "//*[contains(@content-desc, \"Recent\")]",
     ],
     "navigation.search_tab": [
-        "//*[contains(@content-desc, \"Search\") and not(@package=\"com.android.systemui\")]",
+        # Inside Instagram's tab bar only: outside it, "Search" is a launcher's search bar and
+        # Instagram's own search fields (search_bar_glyph, search_edit_text).
+        # The proxy makes the tab_bar id match any package's, hence @package too.
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Search\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.search_tab_description_contains": [
         "Search",

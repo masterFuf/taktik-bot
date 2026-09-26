@@ -370,9 +370,12 @@ class AuthSelectors:
 
     # === Détection de connexion réussie ===
     login_success_indicators: List[str] = field(default_factory=lambda: [
-        # Navigation bar visible (home, search, etc.)
-        '//*[contains(@content-desc, "Home") or contains(@content-desc, "Accueil")]',
-        '//*[contains(@content-desc, "Search") or contains(@content-desc, "Rechercher")]',
+        # Instagram's tab bar visible (home, search). Its own nodes only: the Android navigation
+        # bar's Home button ("Accueil") is in every dump, login screens included.
+        '//*[(contains(@content-desc, "Home") or contains(@content-desc, "Accueil"))'
+        ' and @package="com.instagram.android"]',
+        '//*[(contains(@content-desc, "Search") or contains(@content-desc, "Rechercher"))'
+        ' and @package="com.instagram.android"]',
         # Feed timeline
         '//*[@resource-id="com.instagram.android:id/feed_timeline"]',
         # Profile tab accessible

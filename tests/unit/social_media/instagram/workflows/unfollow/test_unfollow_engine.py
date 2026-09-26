@@ -161,12 +161,11 @@ def test_back_from_a_profile_reaches_the_list_with_a_key_the_device_obeys():
     assert screen.presses == ["back"]
 
 
-def test_the_instagram_facade_press_back_is_ignored_by_the_device():
-    # Documents the facade defect the engine works around: press('back') becomes "KEYCODE_BACK",
-    # a key name the uiautomator2 server does not know. To fix in the facade itself (report).
+def test_the_instagram_facade_press_back_is_obeyed_by_the_device():
+    # The facade sends the key NAME the uiautomator2 server knows, not "KEYCODE_BACK".
     business, screen, _recorded = _business(profile_xml("ghost"), follow_list_xml([]))
     business.device.press("back")
-    assert screen.presses == ["KEYCODE_BACK"] and screen.index == 0
+    assert screen.presses == ["back"] and screen.index == 1
 
 
 def test_an_incomplete_followers_sync_unfollows_nobody_in_non_followers_mode(monkeypatch):

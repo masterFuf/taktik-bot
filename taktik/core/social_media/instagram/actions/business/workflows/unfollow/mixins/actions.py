@@ -340,13 +340,7 @@ class UnfollowActionsMixin:
         return None
 
     def _go_back_to_following_list(self):
-        """Go back to the following list.
-
-        With `press_back()` of the shared facade, which sends uiautomator2 the key NAME 'back'.
-        The Instagram facade's `press('back')` sends 'KEYCODE_BACK', a name the uiautomator2 server
-        does not know: the press is ignored without an error (12 presses out of 12 on the 4 phones
-        of C2, 2026-09-23), and the engine stayed on the profile it had opened.
-        """
+        """Go back to the following list, one verified Back at a time."""
         try:
             # Press back several times if needed
             for _ in range(3):

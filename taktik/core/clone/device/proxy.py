@@ -20,7 +20,8 @@ rows even on the stock app. Same idiom TikTok DM already used
 Three interception points:
 
 1. ``device(resourceId="…")``            → agnostic ``resourceIdMatches`` kwarg
-2. ``device.xpath("…@resource-id=…")``   → agnostic ``substring-after`` predicate
+2. ``device.xpath("…@resource-id=…")``   → agnostic ``substring-after`` predicate;
+   ``@package="com.instagram.android"`` → the driven package (a clone's)
 3. UiObjects returned by ``device(...)`` are wrapped so ``item.child(resourceId=…)``
    and ``item.sibling(…)`` convert their kwargs too.
 
@@ -94,22 +95,30 @@ _XPATH_RID_EQ = re.compile(r'@resource-id\s*=\s*"([^"]+)"')
 
 
 def _rewrite_str(value: Any, official: str, clone: str) -> Any:
-    """Make every ``@resource-id="pkg:id/X"`` equality in an xpath package-agnostic.
+    """Make every ``@resource-id="pkg:id/X"`` equality in an xpath package-agnostic, and point
+    every ``@package="<official>"`` equality at the package actually driven.
 
     Same reasoning as the kwarg path: an exact `@resource-id="com.instagram.android:id/X"`
     misses the bare `X` that Compose exposes on IG 442 (and misses a clone's prefix too).
     Each equality becomes `(substring-after(@resource-id,":id/")="X" or @resource-id="X")`,
-    which matches the id under ANY prefix or none. `official`/`clone` are unused now (the
-    form is prefix-free) but kept for one signature across both call sites.
+    which matches the id under ANY prefix or none.
+
+    `@package` cannot be made agnostic (a clone's package is any name), so it is swapped for
+    the clone's: a selector restricted to Instagram's own nodes, to keep off the Android
+    navigation bar or the launcher, still finds the clone's.
     """
-    if not (isinstance(value, str) and "@resource-id" in value):
+    if not isinstance(value, str):
         return value
 
     def _repl(match: "re.Match") -> str:
         token = match.group(1).rsplit(":id/", 1)[-1]
         return f'(substring-after(@resource-id,":id/")="{token}" or @resource-id="{token}")'
 
-    return _XPATH_RID_EQ.sub(_repl, value)
+    if "@resource-id" in value:
+        value = _XPATH_RID_EQ.sub(_repl, value)
+    if clone and clone != official:
+        value = value.replace(f'@package="{official}"', f'@package="{clone}"')
+    return value
 
 
 class _UiObjectProxy:

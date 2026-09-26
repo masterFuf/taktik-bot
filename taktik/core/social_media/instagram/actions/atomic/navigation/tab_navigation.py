@@ -34,6 +34,15 @@ class TabNavigationMixin(BaseAction):
         if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
             return True
 
+        # Back never leaves the Android launcher or another app: bring Instagram back first.
+        if not self._is_instagram_open():
+            self.logger.warning("🏠 Instagram is not in the foreground — opening it before going home")
+            self._open_instagram()
+            if self._is_home_screen():
+                return True
+            if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
+                return True
+
         # Incremental fallback: press Back ONE at a time and stop the instant we reach the
         # feed. A blind 3× back can close a story → land on the feed → exit the feed → leave
         # Instagram entirely (ending on the Android launcher), from which the home tab is gone.
@@ -123,9 +132,7 @@ class TabNavigationMixin(BaseAction):
         return False
 
     def _back_one_screen(self) -> None:
-        """One real Back. `_press_back` goes through the Instagram facade's `press('back')`, which
-        sends uiautomator2 a key name it ignores without an error (12 Backs out of 12 without effect
-        on 4 phones, 2026-09-23); the shared facade's `press_back()` sends the name it knows."""
+        """One real Back, through the shared facade's `press_back()`."""
         self.device.press_back()
         self._human_like_delay('navigation')
 

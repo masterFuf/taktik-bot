@@ -47,20 +47,11 @@ class TextInputMixin(BaseAction):
     def clear_text_field(self) -> bool:
         self.logger.debug("🗑️ Clearing text field")
         
-        # Primary: select-all + delete (works on autofill-committed fields)
-        try:
-            self.device.press("ctrl+a")
-            time.sleep(0.15)
-            self.device.press("delete")
-            time.sleep(0.1)
-            # Second pass to catch any residual chars
-            self.device.press("ctrl+a")
-            time.sleep(0.1)
-            self.device.press("delete")
+        # Select-all is a key chord the device cannot press, and a lone delete would only eat
+        # the last characters: clear through the keyboard the text is then typed with.
+        if self._clear_text_with_taktik_keyboard():
             return True
-        except Exception as e:
-            self.logger.debug(f"ctrl+a/delete failed: {e}")
-        
+
         # Fallback: uiautomator2 clear
         try:
             self.device.send_keys("", clear=True)

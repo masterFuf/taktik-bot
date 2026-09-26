@@ -226,10 +226,17 @@ class FeedScrollSelectors:
     suggested_label_prefix: str = "suggest"                     # secondary_label "Suggestions"/"Suggested"
 
     # --- Recovery back to the feed (targeted action xpaths) ---
-    back_button_xpath: str = ('//*[@content-desc="Retour" or @content-desc="Back"'
-                              ' or @content-desc="Revenir en arrière"]')
+    # Instagram's own nodes only: the Android navigation bar carries the same labels
+    # (com.android.systemui:id/back, :id/home_button), and its Home leaves Instagram.
+    back_button_xpath: str = ('//*[(@content-desc="Retour" or @content-desc="Back"'
+                              ' or @content-desc="Revenir en arrière")'
+                              ' and @package="com.instagram.android"]')
     feed_tab_xpath: str = '//*[contains(@resource-id,"feed_tab")]'
-    home_tab_xpath: str = '//*[@content-desc="Accueil" or @content-desc="Home"]'
+    # Inside the tab bar (the Pixel launcher's full-screen node is also "Accueil") and in
+    # Instagram's package (the proxy makes the tab_bar id match any package's).
+    home_tab_xpath: str = ('//*[@resource-id="com.instagram.android:id/tab_bar"]'
+                           '//*[(@content-desc="Accueil" or @content-desc="Home")'
+                           ' and @package="com.instagram.android"]')
 
     # --- Légende (v410 : IgTextLayoutView resource-id vide, extenseur = Button enfant content-desc exact) ---
     caption_layout_class: str = "com.instagram.ui.widget.textview.IgTextLayoutView"
