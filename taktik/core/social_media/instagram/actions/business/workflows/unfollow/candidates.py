@@ -18,7 +18,7 @@ Rules, in order (the first that applies wins):
      reach, so nobody qualifies;
    - "mutual": only accounts seen in the followers list;
    - "oldest": every account, oldest follow first;
-   - "all": every account.
+   - "all": every account, walked in the list's own order (the list's sort is left alone).
 In doubt, no unfollow: an unknown date, an unknown reciprocity, an unknown mode.
 The order is the oldest follow first (blacklist first of all). A profile check on screen comes
 afterwards (the "Follows you" badge, verified and business accounts): see the workflow.

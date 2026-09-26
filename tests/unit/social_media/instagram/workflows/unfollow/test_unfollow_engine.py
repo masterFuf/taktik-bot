@@ -213,9 +213,21 @@ def test_the_window_leaves_out_what_an_earlier_batch_handled(monkeypatch):
     business._handled |= {"old1", "old2"}
     monkeypatch.setattr(UnfollowBusiness, "candidate_margin", 0)
 
-    business.run_unfollow_workflow({"unfollow_mode": "all", "max_unfollows": 1})
+    business.run_unfollow_workflow({"unfollow_mode": "oldest", "max_unfollows": 1})
 
     assert calls["walks"] == [["next3"]]
+
+
+def test_the_all_mode_offers_every_candidate_to_the_walk(monkeypatch):
+    # "All" walks the list in its own order: the first candidate on screen may be the newest.
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["old1", "old2", "new3", "new4"])
+    business._handled |= {"old1"}
+    monkeypatch.setattr(UnfollowBusiness, "candidate_margin", 0)
+
+    business.run_unfollow_workflow({"unfollow_mode": "all", "max_unfollows": 1})
+
+    assert calls["walks"] == [["old2", "new3", "new4"]]
 
 
 def test_the_syncs_run_once_per_session(monkeypatch):
@@ -268,6 +280,31 @@ def test_the_walk_sorts_the_list_oldest_first(monkeypatch):
 
     assert business._open_list_and_walk({}, ["a1"], set(), business._new_stats()) is True
     assert orders == ["earliest"]
+
+
+@pytest.mark.parametrize("mode, expected", [("all", []), ("oldest", ["earliest"]),
+                                            ("non-followers", ["earliest"]), ("mutual", ["earliest"])])
+def test_only_the_all_mode_leaves_the_sort_alone(mode, expected):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    business.nav_actions.navigate_to_profile_tab = lambda: True
+    business.nav_actions.open_following_list = lambda: True
+    orders = []
+    business._set_following_list_sort = lambda order: orders.append(order) or True
+    business._unfollow_in_open_list = lambda cfg, targets, forced, stats: None
+
+    business._open_list_and_walk({"unfollow_mode": mode}, ["a1"], set(), business._new_stats())
+
+    assert orders == expected
+
+
+def test_the_all_mode_unfollows_the_first_candidate_rows_of_the_list():
+    # The list's own order: the first two candidate rows on screen, whatever their follow date.
+    business, _screen, recorded = _business(
+        follow_list_xml([("newest", "Suivi(e)"), ("middle", "Suivi(e)"), ("oldest", "Suivi(e)")]),
+        follow_list_xml([("newest", "Suivre"), ("middle", "Suivi(e)"), ("oldest", "Suivi(e)")]),
+        follow_list_xml([("newest", "Suivre"), ("middle", "Suivre"), ("oldest", "Suivi(e)")]))
+    walk_list(business, {"unfollow_mode": "all", "max_unfollows": 2}, names=["oldest", "middle", "newest"])
+    assert recorded == ["newest", "middle"]
 
 
 # ── The badge is read on a loaded profile only (review of 2026-09-24) ───────────
