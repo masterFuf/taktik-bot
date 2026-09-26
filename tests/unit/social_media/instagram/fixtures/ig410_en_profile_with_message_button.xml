@@ -1,0 +1,404 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+<hierarchy rotation="0">
+
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2160]" drawing-order="0" hint="" display-id="0">
+
+    <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2160]" drawing-order="1" hint="" display-id="0">
+
+      <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2160]" drawing-order="2" hint="" display-id="0">
+
+        <node index="0" text="" resource-id="com.instagram.android:id/action_bar_root" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2160]" drawing-order="1" hint="" display-id="0">
+
+          <node index="0" text="" resource-id="android:id/content" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2160]" drawing-order="2" hint="" display-id="0">
+
+            <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2160]" drawing-order="1" hint="" display-id="0">
+
+              <node index="0" text="" resource-id="com.instagram.android:id/swipe_navigation_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2160]" drawing-order="1" hint="" display-id="0">
+
+                <node index="0" text="" resource-id="com.instagram.android:id/bottom_sheet_camera_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2028]" drawing-order="2" hint="" display-id="0"/>
+
+                <node index="1" text="" resource-id="com.instagram.android:id/layout_container_center_right_coordinator_layout" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2028]" drawing-order="3" hint="" display-id="0">
+
+                  <node index="0" text="" resource-id="com.instagram.android:id/layout_container_right" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="2" hint="" display-id="0"/>
+
+                  <node index="1" text="" resource-id="com.instagram.android:id/activity_and_camera_shared_views_main_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="4" hint="" display-id="0"/>
+
+                  <node index="2" text="" resource-id="com.instagram.android:id/layout_container_main_panel" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="1" hint="" display-id="0">
+
+                    <node index="0" text="" resource-id="com.instagram.android:id/layout_container_main_wrapper" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="2" hint="" display-id="0">
+
+                      <node index="0" text="" resource-id="com.instagram.android:id/layout_container_main" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="1" hint="" display-id="0"/>
+
+                      <node index="1" text="" resource-id="com.instagram.android:id/swipeable_tab_view_pager" class="androidx.viewpager.widget.ViewPager" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="2" hint="" display-id="0">
+
+                        <node index="0" text="" resource-id="com.instagram.android:id/swipeable_nav_view_pager_inner_recycler_view" class="androidx.recyclerview.widget.RecyclerView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="true" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="1" hint="" display-id="0">
+
+                          <node index="3" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="4" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="com.instagram.android:id/layout_container_swipeable" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="1" hint="" display-id="0">
+
+                              <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,2028]" drawing-order="1" hint="" display-id="0">
+
+                                <node index="0" text="" resource-id="com.instagram.android:id/profile_action_bar" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,231]" drawing-order="3" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="com.instagram.android:id/action_bar_layout" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1058,231]" drawing-order="1" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="com.instagram.android:id/left_action_bar_buttons" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][132,231]" drawing-order="1" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="" class="android.widget.ImageView" package="com.instagram.android" content-desc="Back" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][132,231]" drawing-order="1" hint="" display-id="0"/>
+
+                                    </node>
+
+                                    <node index="1" text="" resource-id="com.instagram.android:id/action_bar_username_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[176,77][926,231]" drawing-order="2" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[176,77][437,231]" drawing-order="1" hint="" display-id="0">
+
+                                        <node index="0" text="" resource-id="com.instagram.android:id/action_bar_title" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[176,77][376,231]" drawing-order="1" hint="" display-id="0"/>
+
+                                        <node index="1" text="" resource-id="com.instagram.android:id/action_bar_username_buttons_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[376,77][437,231]" drawing-order="2" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="com.instagram.android:id/action_bar_title_verified_badge" class="android.widget.ImageView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[393,132][437,176]" drawing-order="1" hint="" display-id="0"/>
+
+                                        </node>
+
+                                      </node>
+
+                                    </node>
+
+                                    <node index="2" text="" resource-id="com.instagram.android:id/right_action_bar_buttons" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[926,77][1058,231]" drawing-order="3" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="" class="android.widget.ImageView" package="com.instagram.android" content-desc="Options" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[926,77][1058,231]" drawing-order="1" hint="" display-id="0"/>
+
+                                    </node>
+
+                                  </node>
+
+                                </node>
+
+                                <node index="1" text="" resource-id="com.instagram.android:id/coordinator_root_layout" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,231][1080,2028]" drawing-order="1" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,231][1080,2028]" drawing-order="7" hint="" display-id="0"/>
+
+                                  <node index="1" text="" resource-id="com.instagram.android:id/tab_appbar" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,231][1080,1098]" drawing-order="3" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="com.instagram.android:id/profile_header_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,231][1080,1098]" drawing-order="1" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="com.instagram.android:id/profile_header_fixed_list" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,231][1080,965]" drawing-order="1" hint="" display-id="0">
+
+                                        <node index="0" text="" resource-id="com.instagram.android:id/row_profile_header" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,231][1080,877]" drawing-order="1" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="com.instagram.android:id/profile_header_avatar_container_top_left_stub" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,231][307,494]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,231][307,494]" drawing-order="1" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/reel_ring" class="android.view.View" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,231][307,494]" drawing-order="8" hint="" display-id="0"/>
+
+                                              <node index="1" text="" resource-id="com.instagram.android:id/row_profile_header_imageview_frame_layout" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="true" password="false" selected="false" visible-to-user="true" bounds="[65,252][286,473]" drawing-order="3" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="com.instagram.android:id/row_profile_header_imageview" class="android.widget.ImageView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[65,252][286,473]" drawing-order="1" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                          </node>
+
+                                          <node index="1" text="" resource-id="com.instagram.android:id/profile_header_full_name_above_vanity" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[351,276][730,322]" drawing-order="2" hint="" display-id="0"/>
+
+                                          <node index="2" text="" resource-id="com.instagram.android:id/profile_header_metrics_full_width" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[351,322][1036,471]" drawing-order="4" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/profile_header_post_count_front_familiar" class="" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[351,322][532,471]" drawing-order="1" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/profile_header_familiar_post_count_value" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[351,344][432,400]" drawing-order="1" hint="" display-id="0"/>
+
+                                              <node index="1" text="posts" resource-id="com.instagram.android:id/profile_header_familiar_post_count_label" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[351,400][453,449]" drawing-order="2" hint="" display-id="0"/>
+
+                                            </node>
+
+                                            <node index="1" text="" resource-id="com.instagram.android:id/profile_header_followers_stacked_familiar" class="" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[532,322][793,471]" drawing-order="2" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/profile_header_familiar_followers_value" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[549,344][667,400]" drawing-order="1" hint="" display-id="0"/>
+
+                                              <node index="1" text="followers" resource-id="com.instagram.android:id/profile_header_familiar_followers_label" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[549,400][714,449]" drawing-order="2" hint="" display-id="0"/>
+
+                                            </node>
+
+                                            <node index="2" text="" resource-id="com.instagram.android:id/profile_header_following_stacked_familiar" class="" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[793,322][1036,471]" drawing-order="3" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/profile_header_familiar_following_value" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[810,344][881,400]" drawing-order="1" hint="" display-id="0"/>
+
+                                              <node index="1" text="following" resource-id="com.instagram.android:id/profile_header_familiar_following_label" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[810,400][974,449]" drawing-order="2" hint="" display-id="0"/>
+
+                                            </node>
+
+                                          </node>
+
+                                          <node index="4" text="" resource-id="com.instagram.android:id/profile_user_info_compose_view" class="com.facebook.compose.view.MetaComposeView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,494][1036,587]" drawing-order="17" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="" class="android.view.View" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,494][1036,587]" drawing-order="0" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="" class="android.view.View" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,494][1036,587]" drawing-order="0" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,494][1036,587]" drawing-order="0" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                          </node>
+
+                                          <node index="5" text="" resource-id="com.instagram.android:id/profile_links_view" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,587][669,640]" drawing-order="19" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/button_1" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,587][669,640]" drawing-order="1" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/icon_view" class="android.widget.ImageView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,591][88,635]" drawing-order="1" hint="" display-id="0"/>
+
+                                              <node index="1" text="" resource-id="com.instagram.android:id/text_view" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[99,587][669,640]" drawing-order="2" hint="" display-id="0"/>
+
+                                            </node>
+
+                                          </node>
+
+                                          <node index="6" text="" resource-id="com.instagram.android:id/banner_row" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,648][1036,742]" drawing-order="21" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/banner_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,648][1036,742]" drawing-order="1" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,648][373,742]" drawing-order="1" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="com.instagram.android:id/profile_header_banner_item_layout" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,648][373,742]" drawing-order="1" hint="" display-id="0">
+
+                                                  <node index="0" text="" resource-id="com.instagram.android:id/profile_header_banner_item_icon" class="android.widget.ImageView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,662][96,728]" drawing-order="1" hint="" display-id="0"/>
+
+                                                  <node index="1" text="" resource-id="com.instagram.android:id/profile_header_banner_item_title" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[96,648][228,742]" drawing-order="2" hint="" display-id="0"/>
+
+                                                  <node index="2" text="" resource-id="com.instagram.android:id/profile_header_banner_item_subtitle" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[228,648][354,742]" drawing-order="3" hint="" display-id="0"/>
+
+                                                  <node index="3" text="" resource-id="com.instagram.android:id/blue_dot" class="android.view.View" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[362,689][373,700]" drawing-order="4" hint="" display-id="0"/>
+
+                                                </node>
+
+                                              </node>
+
+                                            </node>
+
+                                          </node>
+
+                                          <node index="7" text="" resource-id="com.instagram.android:id/profile_header_follow_context" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,742][1036,844]" drawing-order="23" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/profile_header_follow_context_facepile" class="android.widget.ImageView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[44,753][258,841]" drawing-order="1" hint="" display-id="0"/>
+
+                                            <node index="1" text="" resource-id="com.instagram.android:id/profile_header_follow_context_text" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[280,750][1036,844]" drawing-order="2" hint="" display-id="0"/>
+
+                                          </node>
+
+                                        </node>
+
+                                        <node index="1" text="" resource-id="" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,877][1080,965]" drawing-order="2" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="com.instagram.android:id/profile_header_actions_top_row" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,877][1080,965]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/profile_header_user_action_follow_button" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="true" visible-to-user="true" bounds="[33,877][480,965]" drawing-order="1" hint="" display-id="0">
+
+                                              <node index="0" text="Follow" resource-id="com.instagram.android:id/profile_header_follow_button" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="true" visible-to-user="true" bounds="[33,877][480,965]" drawing-order="1" hint="" display-id="0"/>
+
+                                            </node>
+
+                                            <node index="1" text="" resource-id="" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[496,877][943,965]" drawing-order="2" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/button_container" class="android.widget.Button" package="com.instagram.android" content-desc="Message" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[496,877][943,965]" drawing-order="1" hint="" display-id="0">
+
+                                                <node index="0" text="Message" resource-id="" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[636,896][803,946]" drawing-order="1" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                            <node index="2" text="" resource-id="com.instagram.android:id/row_profile_header_button_chaining" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[959,877][1047,965]" drawing-order="3" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/chaining_button_image" class="android.widget.ImageView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[959,877][1047,965]" drawing-order="1" hint="" display-id="0"/>
+
+                                            </node>
+
+                                          </node>
+
+                                        </node>
+
+                                      </node>
+
+                                      <node index="1" text="" resource-id="com.instagram.android:id/profile_tabs_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,965][1080,1098]" drawing-order="2" hint="" display-id="0">
+
+                                        <node index="0" text="" resource-id="com.instagram.android:id/profile_tab_layout" class="android.widget.HorizontalScrollView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,965][1080,1097]" drawing-order="3" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,965][1080,1097]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="true" visible-to-user="true" bounds="[0,965][270,1097]" drawing-order="1" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="true" visible-to-user="true" bounds="[0,965][270,1097]" drawing-order="3" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="com.instagram.android:id/profile_tab_icon_view" class="android.widget.ImageView" package="com.instagram.android" content-desc="Grid view" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="true" visible-to-user="true" bounds="[0,965][270,1097]" drawing-order="2" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                            <node index="1" text="" resource-id="" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[270,965][540,1097]" drawing-order="2" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[270,965][540,1097]" drawing-order="3" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="com.instagram.android:id/profile_tab_icon_view" class="android.widget.ImageView" package="com.instagram.android" content-desc="Reels" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[270,965][540,1097]" drawing-order="2" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                            <node index="2" text="" resource-id="" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[540,965][810,1097]" drawing-order="3" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[540,965][810,1097]" drawing-order="3" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="com.instagram.android:id/profile_tab_icon_view" class="android.widget.ImageView" package="com.instagram.android" content-desc="Reposted" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[540,965][810,1097]" drawing-order="2" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                            <node index="3" text="" resource-id="" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[810,965][1080,1097]" drawing-order="4" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[810,965][1080,1097]" drawing-order="3" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="com.instagram.android:id/profile_tab_icon_view" class="android.widget.ImageView" package="com.instagram.android" content-desc="Photos of you" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[810,965][1080,1097]" drawing-order="2" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                          </node>
+
+                                        </node>
+
+                                        <node index="1" text="" resource-id="com.instagram.android:id/profile_tabs_bottom_divider" class="android.view.View" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1097][1080,1098]" drawing-order="5" hint="" display-id="0"/>
+
+                                      </node>
+
+                                    </node>
+
+                                  </node>
+
+                                  <node index="2" text="" resource-id="com.instagram.android:id/swipe_refresh_animated_progressbar_container_background" class="android.view.View" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,231][1080,232]" drawing-order="1" hint="" display-id="0"/>
+
+                                  <node index="3" text="" resource-id="com.instagram.android:id/swipe_refresh_animated_progressbar_container" class="android.view.View" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[443,231][636,424]" drawing-order="2" hint="" display-id="0"/>
+
+                                  <node index="4" text="" resource-id="" class="android.widget.ScrollView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1098][1080,2028]" drawing-order="5" hint="" display-id="0"/>
+
+                                  <node index="5" text="" resource-id="com.instagram.android:id/profile_viewpager" class="androidx.viewpager.widget.ViewPager" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="true" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1098][1080,2028]" drawing-order="6" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="android:id/list" class="androidx.recyclerview.widget.RecyclerView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1098][1080,2028]" drawing-order="1" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="com.instagram.android:id/gap_binder_group" class="android.view.View" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1098][1080,1101]" drawing-order="1" hint="" display-id="0"/>
+
+                                      <node index="1" text="" resource-id="com.instagram.android:id/media_set_row_content_identifier" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1101][1080,1581]" drawing-order="2" hint="" display-id="0">
+
+                                        <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1101][358,1578]" drawing-order="1" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1101][358,1578]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/image_button" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="true" password="false" selected="false" visible-to-user="true" bounds="[0,1101][358,1578]" drawing-order="1" hint="" display-id="0"/>
+
+                                          </node>
+
+                                        </node>
+
+                                        <node index="1" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[361,1101][719,1578]" drawing-order="2" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[361,1101][719,1578]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/image_button" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="true" password="false" selected="false" visible-to-user="true" bounds="[361,1101][719,1578]" drawing-order="1" hint="" display-id="0"/>
+
+                                          </node>
+
+                                        </node>
+
+                                        <node index="2" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[722,1101][1080,1578]" drawing-order="3" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[722,1101][1080,1578]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/image_button" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="true" password="false" selected="false" visible-to-user="true" bounds="[722,1101][1080,1578]" drawing-order="1" hint="" display-id="0"/>
+
+                                          </node>
+
+                                        </node>
+
+                                      </node>
+
+                                      <node index="2" text="" resource-id="com.instagram.android:id/media_set_row_content_identifier" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1581][1080,2028]" drawing-order="3" hint="" display-id="0">
+
+                                        <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1581][358,2028]" drawing-order="1" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,1581][358,2028]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/image_button" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="true" password="false" selected="false" visible-to-user="true" bounds="[0,1581][358,2028]" drawing-order="1" hint="" display-id="0"/>
+
+                                          </node>
+
+                                        </node>
+
+                                        <node index="1" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[361,1581][719,2028]" drawing-order="2" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[361,1581][719,2028]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/image_button" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="true" password="false" selected="false" visible-to-user="true" bounds="[361,1581][719,2028]" drawing-order="1" hint="" display-id="0"/>
+
+                                          </node>
+
+                                        </node>
+
+                                        <node index="2" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[722,1581][1080,2028]" drawing-order="3" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[722,1581][1080,2028]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/image_button" class="android.widget.Button" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="true" password="false" selected="false" visible-to-user="true" bounds="[722,1581][1080,2028]" drawing-order="1" hint="" display-id="0"/>
+
+                                          </node>
+
+                                        </node>
+
+                                      </node>
+
+                                    </node>
+
+                                  </node>
+
+                                </node>
+
+                              </node>
+
+                            </node>
+
+                          </node>
+
+                        </node>
+
+                      </node>
+
+                    </node>
+
+                  </node>
+
+                </node>
+
+              </node>
+
+              <node index="1" text="" resource-id="com.instagram.android:id/overlay_layout_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1080,2028]" drawing-order="5" hint="" display-id="0"/>
+
+            </node>
+
+          </node>
+
+        </node>
+
+      </node>
+
+    </node>
+
+  </node>
+
+  </hierarchy>

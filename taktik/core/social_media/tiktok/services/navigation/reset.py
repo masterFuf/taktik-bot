@@ -53,14 +53,14 @@ def return_to_tiktok_home(
                 logger.warning("Could not get back to the TikTok shell — not clicking blindly")
             return False
 
-        if _selected_home(device):
+        if is_home_tab_selected(device):
             return True
 
         for selector in NAVIGATION_SELECTORS.home_tab:
             try:
                 if device.xpath(selector).click_exists(timeout=selector_timeout_seconds):
                     time.sleep(settle_seconds)
-                    if _selected_home(device):
+                    if is_home_tab_selected(device):
                         if logger:
                             logger.info("Back to TikTok home")
                         return True
@@ -77,7 +77,7 @@ def return_to_tiktok_home(
         return False
 
 
-def _selected_home(device: Any) -> bool:
+def is_home_tab_selected(device: Any) -> bool:
     """Is the Home tab the SELECTED one? The outcome, not the tap."""
     try:
         return any(device.xpath(s).exists for s in NAVIGATION_SELECTORS.home_tab_selected)
@@ -149,4 +149,4 @@ def _on_search_results(device: Any) -> bool:
         return False
 
 
-__all__ = ["return_to_tiktok_home", "return_to_tiktok_shell"]
+__all__ = ["is_home_tab_selected", "return_to_tiktok_home", "return_to_tiktok_shell"]

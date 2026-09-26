@@ -14,7 +14,10 @@ from typing import Any, Callable, Optional
 from loguru import logger
 
 from taktik.core.social_media.instagram.workflows.cold_dm.messages import choose_cold_dm_message
-from taktik.core.social_media.instagram.workflows.cold_dm.navigation import ColdDMNavigationMixin
+from taktik.core.social_media.instagram.workflows.cold_dm.navigation import (
+    NOT_ON_PROFILE,
+    ColdDMNavigationMixin,
+)
 from taktik.core.social_media.instagram.workflows.cold_dm.recipients import ColdDMRecipientMixin
 from taktik.core.social_media.instagram.workflows.cold_dm.results import (
     apply_cold_dm_send_result,
@@ -176,8 +179,9 @@ class ColdDMWorkflow(
 
         `compose` is called only once the conversation is open (an AI message costs a call).
         Returns `outcome` (`SENT`, a `recipient_policy.SKIP_*` reason, or one of the
-        `NO_SEARCH`, `NOT_FOUND`, `NO_CONVERSATION`, `NO_MESSAGE` failures), with `message`
-        and `send_result` once sent. Counting and recording are the caller's.
+        `NO_SEARCH`, `NOT_FOUND`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
+        failures), with `message` and `send_result` once sent. Counting and recording are
+        the caller's.
         """
         if not self.navigate_to_search():
             logger.warning(f"Could not navigate to search for {recipient}")
@@ -186,6 +190,9 @@ class ColdDMWorkflow(
             logger.warning(f"Could not find user: {recipient}")
             return {"outcome": NOT_FOUND}
         open_result = self.open_dm_from_profile(policy)
+        if open_result == NOT_ON_PROFILE:
+            logger.warning(f"The search for {recipient} did not open a profile: nothing tapped")
+            return {"outcome": NOT_ON_PROFILE}
         if open_result in PRIVATE_SKIP_REASONS or open_result == SKIP_VERIFIED:
             logger.warning(f"Skipping {recipient} - {open_result}")
             return {"outcome": open_result}

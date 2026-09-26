@@ -6,11 +6,40 @@ import time
 
 from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
     ColdDmRecipientPolicy,
     cold_dm_skip_reason,
 )
+
+#: `open_dm_from_profile` outcome when the screen is no profile: nothing was read nor tapped.
+NOT_ON_PROFILE = "not_on_profile"
+
+#: How long a profile opened from the search may take to draw, as in the other profile flows.
+PROFILE_LOAD_TIMEOUT_S = 8.0
+
+
+def _is_direct_tab(node) -> bool:
+    """Is this uiautomator2 node the tab bar's Direct tab (any package prefix)?"""
+    try:
+        name = (node.info or {}).get("resourceName") or ""
+    except Exception:
+        return False
+    return name.rpartition(":id/")[2] == DM_SELECTORS.direct_tab_resource_id.rpartition(":id/")[2]
+
+
+def _first_outside_tab_bar(found):
+    """The first node of a uiautomator2 selection that is not the Direct tab, or None."""
+    try:
+        count = found.count if found.exists else 0
+    except Exception:
+        return None
+    for index in range(count):
+        node = found[index]
+        if not _is_direct_tab(node):
+            return node
+    return None
 
 
 class ColdDMNavigationMixin:
@@ -38,29 +67,45 @@ class ColdDMNavigationMixin:
         return DetectionActions(self.device_manager)
 
     def find_message_button(self):
-        """The profile's Message button, or None."""
-        msg_btn = None
+        """The profile's Message button, or None.
+
+        Never the tab bar's Direct tab: IG 410 gives it the button's own label as content-desc
+        ("Message", "Envoyer un message"), so a profile without the button (one's own, a private
+        one) answered with the tab, and the tap opened the inbox.
+        """
         for label in PROFILE_SELECTORS.message_button_text_labels:
-            msg_btn = self.device(text=label)
-            if msg_btn.exists:
-                break
-            msg_btn = self.device(description=label)
-            if msg_btn.exists:
-                break
-        if not msg_btn or not msg_btn.exists:
-            msg_btn = self.device(resourceId=PROFILE_SELECTORS.message_button_resource_id)
+            for found in (self.device(text=label), self.device(description=label)):
+                node = _first_outside_tab_bar(found)
+                if node is not None:
+                    return node
+        msg_btn = self.device(resourceId=PROFILE_SELECTORS.message_button_resource_id)
         return msg_btn if msg_btn.exists else None
 
     def evaluate_cold_dm_profile(self, policy: ColdDmRecipientPolicy | None = None) -> dict:
         """Read the open profile and decide, without touching the screen.
+
+        Nothing is read unless the production profile detector sees a profile: any screen with
+        the tab bar shows the Direct tab, and a notification row has a Message button of its
+        own. Off a profile, `on_profile` is False and every read is None.
 
         The certified badge is read only when the operator asked to skip certified accounts:
         a dump per recipient costs nothing next to the pause between two DMs, but a read nobody
         acts on is still a read. The decision itself is `cold_dm_skip_reason`, in the core.
         """
         policy = policy or ColdDmRecipientPolicy()
+        detection = self._cold_dm_detection()
+        if not detection.wait_for_profile_screen(timeout=PROFILE_LOAD_TIMEOUT_S):
+            logger.warning("Not on a profile screen: no cold DM decision taken")
+            return {
+                "on_profile": False,
+                "skip_reason": None,
+                "is_private": None,
+                "is_verified": None,
+                "has_message_button": None,
+                "message_button": None,
+            }
         is_private = self.is_private_profile()
-        is_verified = bool(policy.skip_verified and self._cold_dm_detection().is_verified_account())
+        is_verified = bool(policy.skip_verified and detection.is_verified_account())
         msg_btn = self.find_message_button()
         reason = cold_dm_skip_reason(
             policy,
@@ -69,6 +114,7 @@ class ColdDMNavigationMixin:
             has_message_button=msg_btn is not None,
         )
         return {
+            "on_profile": True,
             "skip_reason": reason,
             "is_private": is_private,
             "is_verified": is_verified,
@@ -79,12 +125,15 @@ class ColdDMNavigationMixin:
     def open_dm_from_profile(self, policy: ColdDmRecipientPolicy | None = None):
         """Open the DM conversation from a user's profile.
 
-        Returns True once the conversation is open, False when it could not be, or the skip
-        reason (`recipient_policy.SKIP_*`) when the operator's settings leave this profile alone.
+        Returns True once the conversation is open, False when it could not be,
+        `NOT_ON_PROFILE` when the screen is no profile (nothing tapped), or the skip reason
+        (`recipient_policy.SKIP_*`) when the operator's settings leave this profile alone.
         """
         logger.info("Opening DM from profile...")
 
         verdict = self.evaluate_cold_dm_profile(policy)
+        if not verdict["on_profile"]:
+            return NOT_ON_PROFILE
         if verdict["skip_reason"]:
             logger.warning(f"Skipping DM - {verdict['skip_reason']}")
             return verdict["skip_reason"]

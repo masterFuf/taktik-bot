@@ -180,9 +180,10 @@ def send_cold_dm(a, p):
 @action("dm.cold_dm_check_profile")
 def cold_dm_check_profile(a, p):
     """Cold DM decision on the OPEN profile, without tapping: the production evaluation of the
-    cold DM bridge (``ColdDMNavigationMixin.evaluate_cold_dm_profile``: private notice, Message
-    button, certified badge, then ``cold_dm_skip_reason``). Params: skipPrivate (default true),
-    skipVerified (default false), as the page sends them. Be on a PROFILE screen."""
+    cold DM bridge (``ColdDMNavigationMixin.evaluate_cold_dm_profile``: the profile detector,
+    then private notice, Message button, certified badge and ``cold_dm_skip_reason``). Params:
+    skipPrivate (default true), skipVerified (default false), as the page sends them. Off a
+    PROFILE screen it fails and reads nothing, as the workflow does."""
     from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
         ColdDmRecipientPolicy,
     )
@@ -191,7 +192,14 @@ def cold_dm_check_profile(a, p):
                                    skip_verified=_flag(p, "skipVerified", False))
     verdict = _cold_dm_runtime(a).evaluate_cold_dm_profile(policy)
     verdict.pop("message_button", None)
+    if not verdict["on_profile"]:
+        return {"success": False, "message": "not on a profile: nothing evaluated",
+                "details": verdict}
     reason = verdict["skip_reason"]
-    return {"success": True,
-            "message": f"skip ({reason})" if reason else "DM would be attempted",
-            "details": verdict}
+    if reason:
+        message = f"skip ({reason})"
+    elif verdict["has_message_button"]:
+        message = "DM would be attempted"
+    else:
+        message = "no Message button: the DM would fail"
+    return {"success": True, "message": message, "details": verdict}

@@ -321,6 +321,12 @@ class InstagramColdDmRig:
 
         mp.setattr(DetectionActions, "is_verified_account", fake_is_verified)
 
+        def fake_wait_for_profile(_self, *a, **k):
+            rig.calls.append("read_profile_screen")
+            return rig.phone.state == "profile"
+
+        mp.setattr(DetectionActions, "wait_for_profile_screen", fake_wait_for_profile)
+
         from bridges.common.input import keyboard as keyboard_module
 
         mp.setattr(keyboard_module, "is_taktik_keyboard_active", lambda device_id: True)

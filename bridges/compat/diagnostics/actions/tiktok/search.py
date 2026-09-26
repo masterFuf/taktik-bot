@@ -7,7 +7,11 @@ from bridges.compat.diagnostics.actions.tiktok import action
 
 @action("tt.search.open")
 def open_search(a, p):
-    return a.search.open_search()
+    """Open the general search (production `open_search`): back to the Home tab first when
+    elsewhere, then the magnifier of the Home header. Fails when Home cannot be reached."""
+    ok = a.search.open_search()
+    return {"success": bool(ok),
+            "message": "search open" if ok else "search not opened: Home tab not reached or no Home magnifier"}
 
 
 @action("tt.search.submit")

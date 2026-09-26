@@ -853,13 +853,18 @@ STRINGS: Dict[str, List[str]] = {
     # IG 442 prefixes the comment body with "<handle> said ". Stripped when reading.
     # IG 442 rebuilt the feed suggestions carousel in Compose: no resource-id survives, so
     # the header/CTA pair is the only handle left. Paired on one row, never alone.
+    # The carousel's labels come from the server, not from the app's language. On 410, 31
+    # carousels of French apps read "Suggested for you" / "See all", and an English app
+    # (Pixel 3a) showed "Suggestions pour vous" / "Voir tout". Both languages on both sides.
     "feed_suggestions.carousel_title_texts": [
         "Suggested for you",
         "Suggestions for you",
+        "Suggestions pour vous",
     ],
     "feed_suggestions.carousel_cta_texts": [
         "See all",
         "See All",
+        "Voir tout",
     ],
     "post_comments.comment_empty_state_texts": [
         "No comments",
