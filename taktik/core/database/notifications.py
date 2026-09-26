@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from taktik.core.database.local.paths import get_default_database_path
+from taktik.core.database.local.versions.opening import open_connection
 from taktik.core.database.repositories.notifications import (
     NotificationActionRepository,
     NotificationRepository,
@@ -29,9 +30,7 @@ class NotificationService:
         if not os.path.exists(db_path):
             logger.warning(f"Database not found at {db_path}")
             return None
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return open_connection(db_path)
 
     @staticmethod
     def known_content_hashes(platform: str, account_id: int) -> set:

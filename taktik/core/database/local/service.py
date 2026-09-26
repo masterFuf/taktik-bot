@@ -41,6 +41,8 @@ _redact_sensitive = BaseRepository._redact_sensitive
 # Schema DDL and incremental migrations live in their own modules
 from .schema import create_schema
 from .migrations import run_migrations
+from .versions.opening import NUMBERED, ensure_schema, stamp_if_recognized
+from .versions.upkeep import run_data_upkeep
 
 
 class LocalDatabaseService:
@@ -100,10 +102,16 @@ class LocalDatabaseService:
             os.makedirs(db_dir, exist_ok=True)
             logger.info(f"Created database directory: {db_dir}")
         
-        # Initialize tables
-        self._create_tables()
-        # Run migrations for existing tables
-        self._run_migrations()
+        # The numbered schema decides: a base at this build's version gets no schema step, only
+        # the data upkeep the old steps did; a base the numbered list does not know yet (bot on
+        # its own) keeps the old un-numbered steps. Raises SchemaNotReady under the desktop app
+        # when the base is not at this version.
+        if ensure_schema(self.db_path) == NUMBERED:
+            run_data_upkeep(self._get_connection())
+        else:
+            self._create_tables()
+            self._run_migrations()
+            stamp_if_recognized(self.db_path)
         # ORM (Vague D): bring up the read-mapping SQLAlchemy engine (fail-safe) BEFORE
         # the repositories, so it can be injected into them for ORM-first reads.
         self._init_orm()

@@ -23,6 +23,11 @@ def run_device_identity_migrations(cursor: sqlite3.Cursor) -> None:
             created_at TEXT DEFAULT (datetime('now'))
         )
     """)
+    ensure_device_identity_row(cursor)
+
+
+def ensure_device_identity_row(cursor: sqlite3.Cursor) -> None:
+    """The one identity row, created once. Also run at every opening of a numbered base."""
     cursor.execute(
         "INSERT OR IGNORE INTO device_identity (id, device_id) VALUES (1, lower(hex(randomblob(8))))"
     )
