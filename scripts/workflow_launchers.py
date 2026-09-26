@@ -93,11 +93,6 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
         # Lab whole-run of Instagram automation: instrumented engine, not the launcher.
         ("bridges/compat/diagnostics/runtime/workflow_test/execution/lifecycle.py", "InstagramAutomation"):
             "Lab automation run instruments the engine; launcher needs a step hook first.",
-        # CLI-only workflows the manifest does not declare: declare them or drop them.
-        ("taktik/cli/main.py", "DMAutoReplyWorkflow"):
-            "CLI-only DM auto-reply, no manifest id; decision pending (autoresponse mode).",
-        ("taktik/cli/main.py", "PostScrapingWorkflow"):
-            "CLI-only full post scraping, no manifest id; decision pending.",
         # TikTok account: handler exists, bridge still builds the workflows.
         ("bridges/tiktok/account/runtime/account_login.py", "TikTokLoginWorkflow"):
             "TikTok account lot: bridge not moved to the handler yet.",

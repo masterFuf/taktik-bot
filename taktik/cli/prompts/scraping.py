@@ -8,9 +8,8 @@ console = Console()
 
 # ==================== SCRAPING WORKFLOW GENERATORS ====================
 #
-# The target, hashtag and post URL prompts describe the run the way the desktop's Scraping page does
-# (camelCase payload): the menu hands it to the scraping handler, the same launcher as the desktop
-# bridge. The full post scraping further down is a CLI-only workflow with its own format.
+# Every prompt describes the run the way the desktop's Scraping page does (camelCase payload): the
+# menu hands it to the scraping handler, the same launcher as the desktop bridge.
 
 def generate_target_scraping_workflow():
     """Generate configuration for target-based scraping (followers/following)."""
@@ -138,128 +137,108 @@ def generate_hashtag_scraping_workflow():
     return scraping_config
 
 
+#: What a post URL run collects, as the Scraping page's two boxes.
+POST_URL_POPULATIONS = {
+    "likers": (True, False),
+    "commenters": (False, True),
+    "both": (True, True),
+}
+
+
 def generate_url_scraping_workflow(population: str = "likers"):
-    """Generate configuration for post URL-based scraping: its likers, or its commenters."""
+    """Generate configuration for post URL-based scraping: its likers, its commenters, or both."""
     console.print("\n[bold green]🔍 Post URL Scraping Configuration[/bold green]")
-    
+
     post_url = Prompt.ask("[cyan]Instagram post URL[/cyan]")
     if not post_url:
         console.print("[red]❌ Post URL required[/red]")
         return None
-    
+
     if not _validate_instagram_url(post_url):
         console.print("[red]❌ Invalid Instagram URL. Must be a post, reel, or IGTV URL.[/red]")
         return None
-    
+
+    scrape_likers, scrape_commenters = POST_URL_POPULATIONS[population]
+    label = "likers and commenters" if population == "both" else population
+
     # Limits
     console.print("\n[yellow]📊 Scraping limits[/yellow]")
-    max_profiles = int(Prompt.ask(f"[cyan]Maximum {population} to scrape[/cyan]", default="200"))
-    
+    max_profiles = int(Prompt.ask(f"[cyan]Maximum {label} to scrape[/cyan]", default="200"))
+    enrich_profiles = Confirm.ask("[cyan]Visit each profile (bio, counters, website)?[/cyan]",
+                                  default=population == "both")
+
     # Session settings
     console.print("\n[yellow]⏱️ Session settings[/yellow]")
     session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
-    
+
     scraping_config = {
         "type": "post_url",
         "postUrls": [post_url],
-        "scrapePostUrlLikers": population == "likers",
-        "scrapePostUrlCommenters": population == "commenters",
+        "scrapePostUrlLikers": scrape_likers,
+        "scrapePostUrlCommenters": scrape_commenters,
         "maxProfiles": max_profiles,
+        "enrichProfiles": enrich_profiles,
         "sessionDurationMinutes": session_duration,
         "saveToDb": True,
         "exportCsv": True
     }
-    
+
     # Summary
     console.print("\n[green]📋 Scraping Configuration Summary:[/green]")
-    
+
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Parameter", style="cyan")
     table.add_column("Value", style="yellow")
-    
+
     table.add_row("Post URL", post_url[:50] + "..." if len(post_url) > 50 else post_url)
     table.add_row("Post ID", _extract_post_id_from_url(post_url) or "Unknown")
-    table.add_row("Scrape type", population.capitalize())
+    table.add_row("Scrape type", label.capitalize())
     table.add_row("Max profiles", str(max_profiles))
+    table.add_row("Profiles visited", "Yes" if enrich_profiles else "No")
     table.add_row("Session duration", f"{session_duration} min")
     table.add_row("Save to database", "Yes")
     table.add_row("Export to CSV", "Yes")
-    
+
     console.print(table)
-    
+
     if not Confirm.ask("\n[bold cyan]Start scraping with this configuration?[/bold cyan]", default=True):
         return None
-    
+
     return scraping_config
 
 
-def generate_post_scraping_workflow():
-    """Generate configuration for full post scraping (stats + likers + comments)."""
-    console.print("\n[bold green]📊 Full Post Scraping Configuration[/bold green]")
-    console.print("[dim]Scrape post stats, likers, and comments with profile enrichment[/dim]\n")
-    
-    post_url = Prompt.ask("[cyan]Instagram post URL[/cyan]")
-    if not post_url:
-        console.print("[red]❌ Post URL required[/red]")
+def generate_profile_posts_scraping_workflow():
+    """Generate configuration for collecting the posts of accounts: link, likes, comments."""
+    console.print("\n[bold green]🗂️ Posts of Accounts Configuration[/bold green]")
+    console.print("[dim]Each post's link and counters are kept; no profile is scraped.[/dim]")
+
+    targets = Prompt.ask("[cyan]Account(s) whose posts to collect[/cyan]")
+    target_usernames = [t.strip().lstrip('@') for t in (targets or "").split(',') if t.strip()]
+    if not target_usernames:
+        console.print("[red]❌ Username required[/red]")
         return None
-    
-    if not _validate_instagram_url(post_url):
-        console.print("[red]❌ Invalid Instagram URL. Must be a post, reel, or IGTV URL.[/red]")
-        return None
-    
-    console.print("\n[yellow]📊 What to scrape[/yellow]")
-    scrape_stats = Confirm.ask("[cyan]Scrape post stats (likes, comments count)?[/cyan]", default=True)
-    scrape_likers = Confirm.ask("[cyan]Scrape likers?[/cyan]", default=True)
-    scrape_comments = Confirm.ask("[cyan]Scrape comments?[/cyan]", default=True)
-    
-    console.print("\n[yellow]📊 Limits[/yellow]")
-    max_likers = int(Prompt.ask("[cyan]Maximum likers to scrape[/cyan]", default="100"))
-    max_comments = int(Prompt.ask("[cyan]Maximum comments to scrape[/cyan]", default="50"))
-    
-    console.print("\n[yellow]🔍 Profile Enrichment[/yellow]")
-    enrich_profiles = Confirm.ask("[cyan]Enrich profiles (visit each profile for bio/stats)?[/cyan]", default=True)
-    max_profiles_to_enrich = int(Prompt.ask("[cyan]Max profiles to enrich[/cyan]", default="30")) if enrich_profiles else 0
-    
-    console.print("\n[yellow]⏱️ Session settings[/yellow]")
+
+    max_posts = int(Prompt.ask("[cyan]Posts per account[/cyan]", default="20"))
     session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
-    
+
     scraping_config = {
-        "type": "post_scraping",
-        "post_url": post_url,
-        "post_id": _extract_post_id_from_url(post_url),
-        "scrape_stats": scrape_stats,
-        "scrape_likers": scrape_likers,
-        "scrape_comments": scrape_comments,
-        "max_likers": max_likers,
-        "max_comments": max_comments,
-        "enrich_profiles": enrich_profiles,
-        "max_profiles_to_enrich": max_profiles_to_enrich,
-        "session_duration_minutes": session_duration,
-        "save_to_db": True,
-        "export_csv": True
+        "type": "profile_posts",
+        "targetUsernames": target_usernames,
+        "maxPostsPerTarget": max_posts,
+        "sessionDurationMinutes": session_duration,
+        "saveToDb": True,
+        "exportCsv": True
     }
-    
-    console.print("\n[green]📋 Post Scraping Configuration Summary:[/green]")
-    
+
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Parameter", style="cyan")
     table.add_column("Value", style="yellow")
-    
-    table.add_row("Post URL", post_url[:50] + "..." if len(post_url) > 50 else post_url)
-    table.add_row("Post ID", scraping_config["post_id"] or "Unknown")
-    table.add_row("Scrape stats", "Yes" if scrape_stats else "No")
-    table.add_row("Scrape likers", f"Yes (max {max_likers})" if scrape_likers else "No")
-    table.add_row("Scrape comments", f"Yes (max {max_comments})" if scrape_comments else "No")
-    table.add_row("Enrich profiles", f"Yes (max {max_profiles_to_enrich})" if enrich_profiles else "No")
+    table.add_row("Accounts", ", ".join('@' + t for t in target_usernames))
+    table.add_row("Posts per account", str(max_posts))
     table.add_row("Session duration", f"{session_duration} min")
-    table.add_row("Save to database", "Yes")
-    table.add_row("Export to CSV", "Yes")
-    
     console.print(table)
-    
-    if not Confirm.ask("\n[bold cyan]Start post scraping with this configuration?[/bold cyan]", default=True):
+
+    if not Confirm.ask("\n[bold cyan]Start collecting with this configuration?[/bold cyan]", default=True):
         return None
-    
+
     return scraping_config
-
-

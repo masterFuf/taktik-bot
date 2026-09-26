@@ -1,4 +1,4 @@
-"""Pure UI detection functions shared across scraping, discovery, and post_scraping workflows.
+"""Pure UI detection functions shared across the scraping and discovery workflows.
 
 All functions take `device` and `logger` as parameters — no class dependency.
 """
