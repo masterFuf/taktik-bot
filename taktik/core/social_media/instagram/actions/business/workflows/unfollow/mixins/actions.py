@@ -197,19 +197,25 @@ class UnfollowActionsMixin:
                 continue
         return min(tops) if tops else None
 
-    def _sync_should_stop(self) -> bool:
-        """The session's limits during a list read: its duration, the run's stop lock. A read of
-        a large list went on past the session's end (a 25-minute session, 2026-09-24)."""
+    def _session_stop_reason(self):
+        """The session's stop reason when one of its limits is reached (its duration, the run's
+        stop lock), else None. None without a session manager (the Lab)."""
         session = getattr(self, 'session_manager', None)
         if session is None or not hasattr(session, 'should_continue'):
-            return False
+            return None
         try:
             keep_going, reason = session.should_continue()
         except Exception:
-            return False
-        if not keep_going:
+            return None
+        return None if keep_going else reason
+
+    def _sync_should_stop(self) -> bool:
+        """The session's limits during a list read. A read of a large list went on past the
+        session's end (a 25-minute session, 2026-09-24)."""
+        reason = self._session_stop_reason()
+        if reason:
             self.logger.warning(f"List read stopped by the session: {reason}")
-        return not keep_going
+        return bool(reason)
 
     def _live_follow_entries(self, username_elements) -> List[tuple]:
         """(index, username, element) of each username element, read one by one: the enriched

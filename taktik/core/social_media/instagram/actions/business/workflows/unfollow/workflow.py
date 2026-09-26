@@ -101,7 +101,7 @@ class UnfollowBusiness(
         `config` carries the whole page (and scheduler) setting: `max_unfollows`, `unfollow_mode`,
         `bot_follows_only`, `min_days_since_follow`, `whitelist`, `blacklist`, `skip_verified`,
         `skip_business`, `unfollow_delay_range`. Returns the statistics, with `stop_reason` set when
-        the run must end the session (a block).
+        the run must end the session (a block, the session's own end reached during the walk).
         """
         cfg = {**self.default_config, **(config or {})}
         mode = cfg.get('unfollow_mode', 'non-followers')
@@ -166,7 +166,11 @@ class UnfollowBusiness(
 
             # 3. On screen: open our following list and act on the candidates it shows.
             max_unfollows = int(cfg.get('max_unfollows') or 0)
-            window = remaining[:max_unfollows + self.candidate_margin] if max_unfollows else remaining
+            if mode == 'all' or not max_unfollows:
+                # "All" takes the rows in the list's own order: any candidate may come first.
+                window = remaining
+            else:
+                window = remaining[:max_unfollows + self.candidate_margin]
             if self._open_list_and_walk(cfg, window, selection.forced, stats):
                 stats['success'] = True
             stats['candidates_left'] = sum(1 for name in selection.candidates
@@ -191,8 +195,8 @@ class UnfollowBusiness(
 
     def _open_list_and_walk(self, cfg: Dict[str, Any], targets: List[str], forced: Set[str],
                             stats: Dict[str, Any]) -> bool:
-        """Step 3 of the engine: open OUR following list on its tab, oldest follows first, and act
-        on the rows of `targets`. Shared by the engine and the Lab's unitary unfollow, so the Lab
+        """Step 3 of the engine: open OUR following list on its tab, oldest follows first (in its
+        own order for the "all" mode), and act on the rows of `targets`. Shared by the engine and the Lab's unitary unfollow, so the Lab
         runs exactly the production step. False (with a failure stop reason) when the list could
         not be opened: that is not "nothing to unfollow"."""
         if not self.nav_actions.navigate_to_profile_tab():
@@ -213,8 +217,11 @@ class UnfollowBusiness(
             return False
         # The candidates come oldest follow first: so should the list, or on a big account the
         # walk stops (its scroll bound) long before the oldest ones. Where the language has no
-        # known sort label (French today), the list stays in its own order.
-        if not self._set_following_list_sort('earliest'):
+        # known sort label (French today), the list stays in its own order. The "all" mode walks
+        # the list in its own order and leaves the sort alone.
+        if cfg.get('unfollow_mode') == 'all':
+            self.logger.info("Unfollow: mode 'all', walking the list in its own order (sort left alone)")
+        elif not self._set_following_list_sort('earliest'):
             self.logger.info("Unfollow: 'earliest' sort not applied, walking the list in its own order")
         self._walk_scroll_limit = scrolls_for(self._list_tab_count('following'), self.max_list_scrolls)
         self._unfollow_in_open_list(cfg, targets, forced, stats)
@@ -274,6 +281,13 @@ class UnfollowBusiness(
 
         while pending and stats['scrolls'] < self._walk_scroll_limit:
             if max_unfollows and stats['unfollows_made'] >= max_unfollows:
+                break
+            # The session's duration (and its stop lock) end the walk too, not only the list reads
+            # and the batches: a batch used to go on to its maximum past the end of the session.
+            session_end = self._session_stop_reason()
+            if session_end:
+                self.logger.info(f"Unfollow walk stopped by the session: {session_end}")
+                stats['stop_reason'] = session_end
                 break
             rows = self._visible_follow_rows()
             new_names = {row['username'].lower() for row in rows} - seen
