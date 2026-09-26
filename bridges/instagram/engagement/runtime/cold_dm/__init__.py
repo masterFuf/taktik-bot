@@ -1,6 +1,4 @@
-"""Instagram Cold DM bridge runtime package."""
+"""Instagram Cold DM bridge runtime package: the entry (`commands`) and its stdout (`progress`).
 
-from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
-
-
-__all__ = ["ColdDMWorkflow"]
+The workflow itself is the core's (`taktik.core.social_media.instagram.workflows.cold_dm`).
+"""

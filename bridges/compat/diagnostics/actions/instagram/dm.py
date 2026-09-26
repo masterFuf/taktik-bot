@@ -132,11 +132,11 @@ def _flag(p, name, default):
 
 
 def _cold_dm_runtime(a):
-    """The production cold DM workflow (`ColdDMWorkflow`) bound to the warm Lab device: the class
-    itself, so a step changed in the bridge reaches the Lab on its own. No second connection, no
-    app restart; the profile reads use the Lab's detection."""
+    """The production cold DM workflow (`ColdDMWorkflow`, the core's one engine) bound to the warm
+    Lab device: the class itself, so a step changed in the workflow reaches the Lab on its own. No
+    second connection, no app restart; the profile reads use the Lab's detection."""
     from bridges.common.input.keyboard import KeyboardService
-    from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
+    from taktik.core.social_media.instagram.workflows.cold_dm.workflow import ColdDMWorkflow
 
     class _LabColdDMWorkflow(ColdDMWorkflow):
         def __init__(self, bundle):
@@ -155,7 +155,7 @@ def _cold_dm_runtime(a):
 
 @action("dm.send_cold_dm")
 def send_cold_dm(a, p):
-    """Cold DM to ONE recipient through the production steps of the cold DM bridge
+    """Cold DM to ONE recipient through the production steps of the cold DM workflow
     (`ColdDMWorkflow.reach_and_send`): search, profile, the recipient policy (skipPrivate default
     true, skipVerified default false, as the page sends them), conversation, send. Params: username
     and text (required). Not written to the base: the Lab has no session."""

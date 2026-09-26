@@ -15,7 +15,6 @@ import taktik.core.shared.behavior.typing as typing_plan
 import taktik.core.shared.device.adb as adb
 import taktik.core.shared.input.taktik_keyboard as kb
 from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.engagement.runtime.cold_dm.sender import ColdDMSenderMixin
 from bridges.instagram.engagement.runtime.dm.sender import DMSenderMixin
 from taktik.core.social_media.instagram.actions.atomic.interaction.story_interaction import (
     StoryInteractionMixin,
@@ -41,9 +40,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation i
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
-from taktik.core.social_media.instagram.workflows.management.content.content_ui_helpers import (
-    ContentUIHelpersMixin,
-)
+from taktik.core.social_media.instagram.workflows.cold_dm.sender import ColdDMSenderMixin
 from taktik.core.social_media.instagram.workflows.management.dm.outreach_actions import (
     OutreachActionsMixin,
 )
@@ -488,30 +485,6 @@ def _post_caption(phone):
     return workflow._fill_caption(TEXT), TEXT
 
 
-def _content_helpers(phone):
-    class _Content(ContentUIHelpersMixin):
-        device = phone
-        device_manager = types.SimpleNamespace(device_id=phone.device_id)
-        content_selectors = CC
-        logger = _Quiet()
-
-        def _dismiss_caption_keyboard(self):
-            return True
-
-    return _Content()
-
-
-def _content_caption(phone):
-    phone._fields.append({"resourceId": CC.caption_text_view})
-    return _content_helpers(phone)._add_caption(TEXT), TEXT
-
-
-def _content_location(phone):
-    phone.add_button({"text": CC.location_button_texts[0]}, phone.focus_with(""))
-    phone.add_button(CC.location_first_result_selector)
-    return _content_helpers(phone)._add_location("Lyon"), "Lyon"
-
-
 def _story_reply(phone):
     story = _action(StoryInteractionMixin, phone)
     phone._fields.append(STORY_SELECTORS.story_message_composer)
@@ -527,10 +500,8 @@ def _text_actions_field(phone):
 
 
 @pytest.mark.parametrize("fill", [
-    _signup_field, _login_password, _post_caption, _content_caption, _content_location,
-    _story_reply, _text_actions_field,
-], ids=["signup", "login_password", "post_caption", "content_caption", "content_location",
-        "story_reply", "text_actions_field"])
+    _signup_field, _login_password, _post_caption, _story_reply, _text_actions_field,
+], ids=["signup", "login_password", "post_caption", "story_reply", "text_actions_field"])
 def test_the_fields_typed_after_their_own_tap_are_tapped_after_the_switch(phone, fill):
     """TextActions and the raw keyboard type into whatever is focused: switched after the
     caller's tap, the text went nowhere and the typing still said it had worked."""

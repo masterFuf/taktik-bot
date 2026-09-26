@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from bridges.instagram.engagement.runtime.cold_dm.timing import wait_before_next_cold_dm
+from taktik.core.social_media.instagram.workflows.cold_dm.timing import wait_before_next_cold_dm
 from bridges.instagram.engagement.runtime.notifications.follow_actor import FOLLOW_ACTOR_ACTION
 from bridges.instagram.engagement.runtime.notifications.persistence import (
     dm_already_sent,

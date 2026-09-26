@@ -6,7 +6,10 @@ from rich.prompt import Prompt, Confirm
 console = Console()
 
 def generate_cold_dm_workflow():
-    """Generate configuration for Cold DM workflow."""
+    """The cold DM run, described the way the desktop's Cold DM page does (camelCase payload).
+
+    The menu hands it to the cold DM handler, the same engine as the desktop bridge.
+    """
     console.print("\n[bold green]💬 Cold DM Workflow Configuration[/bold green]")
     console.print("[dim]Send personalized DMs to a list of recipients[/dim]\n")
     
@@ -38,15 +41,20 @@ def generate_cold_dm_workflow():
     
     console.print("\n[yellow]💬 Message Configuration[/yellow]")
     console.print("[bold]1.[/bold] 📝 Manual (predefined messages)")
-    console.print("[bold]2.[/bold] 🤖 AI-generated (coming soon)")
+    console.print("[bold]2.[/bold] 🤖 AI-generated (OpenRouter key from OPENROUTER_API_KEY)")
     
     mode_choice = click.prompt("\n[bold]Message mode[/bold]", type=click.IntRange(1, 2), default=1, show_choices=False)
     message_mode = "manual" if mode_choice == 1 else "ai"
     
     messages = []
+    ai_prompt = ""
+    if message_mode == "ai":
+        ai_prompt = Prompt.ask("[cyan]What the messages should say (instructions for the AI)[/cyan]")
+        if not ai_prompt.strip():
+            console.print("[red]❌ AI mode needs instructions[/red]")
+            return None
     if message_mode == "manual":
-        console.print("\n[dim]Enter your message templates (one per line, empty line to finish)[/dim]")
-        console.print("[dim]Use {username} for personalization[/dim]")
+        console.print("\n[dim]Enter your messages (one per line, empty line to finish); each is sent as typed[/dim]")
         
         while True:
             msg = Prompt.ask("[cyan]Message template[/cyan]", default="")
@@ -67,20 +75,20 @@ def generate_cold_dm_workflow():
     delay_max = int(Prompt.ask("[cyan]Maximum delay between DMs (seconds)[/cyan]", default="60"))
     max_dms = int(Prompt.ask("[cyan]Maximum DMs to send[/cyan]", default="50"))
     skip_private = Confirm.ask("[cyan]Skip private accounts?[/cyan]", default=True)
-    
-    console.print("\n[yellow]⏱️ Session settings[/yellow]")
-    session_duration = int(Prompt.ask("[cyan]Maximum session duration (minutes)[/cyan]", default="60"))
-    
+    skip_verified = Confirm.ask("[cyan]Skip certified accounts?[/cyan]", default=False)
+
     config = {
         "recipients": recipients,
-        "message_mode": message_mode,
+        "messageMode": message_mode,
         "messages": messages,
-        "delay_min": delay_min,
-        "delay_max": delay_max,
-        "max_dms": max_dms,
-        "skip_private": skip_private,
-        "session_duration_minutes": session_duration
+        "delayMin": delay_min,
+        "delayMax": delay_max,
+        "maxDmsPerSession": max_dms,
+        "skipPrivateAccounts": skip_private,
+        "skipVerifiedAccounts": skip_verified,
     }
+    if ai_prompt:
+        config["aiPrompt"] = ai_prompt
     
     console.print("\n[green]📋 Cold DM Configuration Summary:[/green]")
     
@@ -94,7 +102,7 @@ def generate_cold_dm_workflow():
     table.add_row("Delay", f"{delay_min}-{delay_max}s")
     table.add_row("Max DMs", str(max_dms))
     table.add_row("Skip private", "Yes" if skip_private else "No")
-    table.add_row("Session duration", f"{session_duration} min")
+    table.add_row("Skip certified", "Yes" if skip_verified else "No")
     
     console.print(table)
     

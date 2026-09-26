@@ -54,6 +54,45 @@ class CliInstagramHost:
         app = self.app or self._app_for(None)
         return app.get_installed_version()
 
+    def cold_dm_runtime(self, package_name: Optional[str]):
+        """The device a cold DM run drives, prepared by the bridges' own Instagram base: the
+        clone-aware proxy, the device facade, the selector overrides of the installed version and
+        the clean restart through `AppService`, on the device the CLI already connected."""
+        from bridges.common.device.screen import read_screen_size
+        from bridges.common.input.keyboard import KeyboardService
+        from bridges.instagram.runtime.bridge import InstagramBridgeBase
+        from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
+
+        class _ConnectedDevice:
+            """The CLI's connected manager, as the connection the bridge base expects."""
+
+            def __init__(self, device_manager, device_id):
+                self.device_manager = device_manager
+                self.device_id = device_id
+                self._device = getattr(device_manager, "device", None)
+
+            @property
+            def device(self):
+                return self._device
+
+            @property
+            def screen_size(self):
+                return read_screen_size(self._device)
+
+            def connect(self) -> bool:
+                return self._device is not None
+
+        base = InstagramBridgeBase(self.device_id, package_name=package_name)
+        base._connection = _ConnectedDevice(self.device_manager, self.device_id)
+        if not base.connect():
+            raise RuntimeError(f"No connected device for {self.device_id}")
+        return ColdDmRuntime(
+            device=base.device,
+            device_manager=base.device_manager,
+            keyboard=KeyboardService(self.device_id),
+            restart=base.restart,
+        )
+
 
 def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
     """The run's `ai` block with a key, from the environment if the run brings none; None when AI
@@ -139,6 +178,11 @@ def run_instagram_scraping_payload(device_manager: Any, device_id: str, payload:
     return _run_through_handler(device_manager, device_id, f"instagram.scraping.{payload.get('type')}", payload)
 
 
+def run_instagram_cold_dm_payload(device_manager: Any, device_id: str, payload: Mapping[str, Any]) -> dict:
+    """Run a Cold DM page payload (`instagram.engagement.coldDm`)."""
+    return _run_through_handler(device_manager, device_id, "instagram.engagement.coldDm", payload)
+
+
 __all__ = [
     "CliInstagramHost",
     "OPENROUTER_KEY_ENV",
@@ -146,6 +190,7 @@ __all__ = [
     "cli_instagram_scraping_ai_service",
     "cli_openrouter_key",
     "is_internal_workflow_format",
+    "run_instagram_cold_dm_payload",
     "run_instagram_payload",
     "run_instagram_scraping_payload",
 ]

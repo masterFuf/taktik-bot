@@ -1,14 +1,14 @@
-"""OpenRouter AI message generation for the Instagram Cold DM bridge.
+"""OpenRouter AI message generation for the Instagram Cold DM workflow.
 
 The call goes through the shared provider (`build_ai_service(...).text_completion`, then
 `_call_openrouter`), the single point every paid call passes through: it reports the cost as
-`ai_spend` on the bridge IPC and retries an upstream rate limit. Until 2026-09-24 this module
-built its own request and did neither.
+`ai_spend` on the IPC the host hands over and retries an upstream rate limit. This module used
+to build its own request and did neither.
 """
 
 from __future__ import annotations
 
-from bridges.instagram.runtime.ipc import _ipc, logger
+from loguru import logger
 from taktik.core.app.ai.factory import build_ai_service
 from taktik.core.app.ai.providers.openrouter import MODEL_GENERATION
 from taktik.core.app.ai.spend import AI_SPEND_DM
@@ -17,8 +17,8 @@ from taktik.core.app.ai.spend import AI_SPEND_DM
 def generate_ai_message(username: str, ai_prompt: str, openrouter_api_key: str, ipc=None) -> str:
     """Generate a personalized DM message for a user via OpenRouter.
 
-    Returns an empty string on any failure, so the caller skips the recipient. `ipc` defaults to
-    the bridge's own stdout IPC, which is where `ai_spend` is reported.
+    Returns an empty string on any failure, so the caller skips the recipient. `ipc` is where
+    `ai_spend` is reported (the desktop bridge's stdout); without one the spend is not reported.
     """
     try:
         system_prompt = """Tu es un expert en cold outreach Instagram. Tu génères des messages directs personnalisés, naturels et engageants.
@@ -41,7 +41,7 @@ Le message doit être unique et personnalisé. Réponds uniquement avec le texte
         # The model is read from the shared constant, never hardcoded here: a slug frozen in
         # a bridge survives the migrations and then dies silently, which already happened
         # once when a retired model stayed here while every other call site had moved.
-        result = build_ai_service(api_key=openrouter_api_key, ipc=_ipc if ipc is None else ipc).text_completion(
+        result = build_ai_service(api_key=openrouter_api_key, ipc=ipc).text_completion(
             system_prompt, user_prompt, temperature=0.8, max_tokens=200,
             model=MODEL_GENERATION, label=f"cold_dm @{username}", kind=AI_SPEND_DM,
         )

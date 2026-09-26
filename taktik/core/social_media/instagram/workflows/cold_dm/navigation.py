@@ -1,10 +1,10 @@
-"""Navigation helpers for the Instagram Cold DM bridge."""
+"""Navigation helpers for the Instagram Cold DM workflow."""
 
 from __future__ import annotations
 
 import time
 
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
@@ -32,7 +32,7 @@ class ColdDMNavigationMixin:
         return False
 
     def _cold_dm_detection(self):
-        """The production profile reader, on this bridge's device (the Lab supplies its own)."""
+        """The production profile reader, on this workflow's device (the Lab supplies its own)."""
         from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 
         return DetectionActions(self.device_manager)

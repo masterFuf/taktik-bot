@@ -1,11 +1,11 @@
-"""Message selection helpers for the Instagram Cold DM bridge."""
+"""Message selection helpers for the Instagram Cold DM workflow."""
 
 from __future__ import annotations
 
 import random
 
-from bridges.instagram.engagement.runtime.cold_dm.ai import generate_ai_message
-from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.workflows.cold_dm.ai import generate_ai_message
+from loguru import logger
 
 
 def choose_cold_dm_message(
@@ -15,9 +15,10 @@ def choose_cold_dm_message(
     use_ai: bool,
     ai_prompt: str,
     openrouter_api_key: str,
+    ipc=None,
 ) -> str | None:
     if use_ai:
-        message = generate_ai_message(recipient, ai_prompt, openrouter_api_key)
+        message = generate_ai_message(recipient, ai_prompt, openrouter_api_key, ipc=ipc)
         if not message:
             logger.warning(f"AI generation failed for @{recipient}, skipping")
         return message

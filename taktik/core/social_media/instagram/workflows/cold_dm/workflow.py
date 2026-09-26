@@ -1,22 +1,30 @@
-"""Instagram Cold DM bridge workflow runtime class."""
+"""The Instagram cold DM workflow: the one engine of the desktop bridge, the CLI and the Lab.
+
+It was the cold DM bridge's own class, built on the bridge's device base; the CLI had a second
+engine with other reads and no record of what it sent. The host now hands the workflow what used
+to come from the bridge base: the device (the bridges' clone-aware, facade-wrapped device), its
+manager, the Taktik Keyboard service and the clean restart of Instagram, plus where the progress
+lines and the AI spend go.
+"""
 
 from __future__ import annotations
 
-from bridges.instagram.engagement.runtime.cold_dm.messages import choose_cold_dm_message
-from bridges.instagram.engagement.runtime.cold_dm.navigation import ColdDMNavigationMixin
-from bridges.instagram.engagement.runtime.cold_dm.progress import emit_cold_dm_progress
-from bridges.instagram.engagement.runtime.cold_dm.recipients import ColdDMRecipientMixin
-from bridges.instagram.engagement.runtime.cold_dm.results import (
+from typing import Any, Callable, Optional
+
+from loguru import logger
+
+from taktik.core.social_media.instagram.workflows.cold_dm.messages import choose_cold_dm_message
+from taktik.core.social_media.instagram.workflows.cold_dm.navigation import ColdDMNavigationMixin
+from taktik.core.social_media.instagram.workflows.cold_dm.recipients import ColdDMRecipientMixin
+from taktik.core.social_media.instagram.workflows.cold_dm.results import (
     apply_cold_dm_send_result,
     build_all_recipients_processed_result,
     build_cold_dm_summary,
     validate_cold_dm_inputs,
 )
-from bridges.instagram.engagement.runtime.cold_dm.search import ColdDMSearchMixin
-from bridges.instagram.engagement.runtime.cold_dm.sender import ColdDMSenderMixin
-from bridges.instagram.engagement.runtime.cold_dm.timing import wait_before_next_cold_dm
-from bridges.instagram.runtime.bridge import InstagramBridgeBase
-from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.workflows.cold_dm.search import ColdDMSearchMixin
+from taktik.core.social_media.instagram.workflows.cold_dm.sender import ColdDMSenderMixin
+from taktik.core.social_media.instagram.workflows.cold_dm.timing import wait_before_next_cold_dm
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
     PRIVATE_SKIP_REASONS,
     SKIP_VERIFIED,
@@ -32,18 +40,33 @@ NO_CONVERSATION = "no_conversation"
 NO_MESSAGE = "no_message"
 
 
+ProgressCallback = Callable[..., None]
+
+
 class ColdDMWorkflow(
     ColdDMRecipientMixin,
     ColdDMSearchMixin,
     ColdDMSenderMixin,
     ColdDMNavigationMixin,
-    InstagramBridgeBase,
 ):
     """Cold DM workflow - sends DMs to new users (cold outreach)."""
 
-    def __init__(self, device_id: str, package_name: str = None):
-        super().__init__(device_id, package_name=package_name)
-        self._init_cold_dm_sender(device_id)
+    def __init__(
+        self,
+        device,
+        device_manager,
+        *,
+        keyboard,
+        restart: Optional[Callable[[], Any]] = None,
+        progress: Optional[ProgressCallback] = None,
+        ai_ipc=None,
+    ):
+        self.device = device
+        self.device_manager = device_manager
+        self._restart = restart
+        self._progress = progress
+        self._ai_ipc = ai_ipc
+        self._init_cold_dm_sender(keyboard)
         self.dms_sent = 0
         self.dms_success = 0
         self.dms_failed = 0
@@ -80,7 +103,8 @@ class ColdDMWorkflow(
         if not filtered_recipients:
             return build_all_recipients_processed_result()
 
-        self.restart_instagram()
+        if self._restart is not None:
+            self._restart()
         self._detect_app_language()
 
         for i, recipient in enumerate(filtered_recipients[:max_dms]):
@@ -90,11 +114,12 @@ class ColdDMWorkflow(
 
             logger.info(f"[{i+1}/{min(len(filtered_recipients), max_dms)}] Sending DM to: {recipient}")
 
-            emit_cold_dm_progress(
-                current=i + 1,
-                total=min(len(filtered_recipients), max_dms),
-                username=recipient,
-            )
+            if self._progress is not None:
+                self._progress(
+                    current=i + 1,
+                    total=min(len(filtered_recipients), max_dms),
+                    username=recipient,
+                )
 
             try:
                 reached = self.reach_and_send(
@@ -105,6 +130,7 @@ class ColdDMWorkflow(
                         use_ai=use_ai,
                         ai_prompt=ai_prompt,
                         openrouter_api_key=openrouter_api_key,
+                        ipc=self._ai_ipc,
                     ),
                     recipient_policy,
                 )

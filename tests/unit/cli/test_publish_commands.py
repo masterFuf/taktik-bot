@@ -1,13 +1,10 @@
 """Publishing from the CLI must use the same workflow as the desktop app.
 
-The CLI already had `management content post|post-bulk|story`, built on `ContentWorkflow` — a
-second, older implementation that had drifted from the one the publish bridge runs:
-
-- `post-bulk` publishes N separate posts in a loop, not a carousel, while the group's help claims
-  "posts, stories, carousel". A carousel was simply not reachable from a terminal.
-- Reels were not exposed at all.
-- Fixes landed on the production path never reached it: carousel derivation, slide order, and
-  reclaiming media pushed by earlier runs.
+The CLI had `management content post|post-bulk|story` and two menu entries built on
+`ContentWorkflow`, a second, older implementation that had drifted from the one the publish bridge
+runs (`post-bulk` published N separate posts, not a carousel; no reels; none of the fixes on slide
+order and on reclaiming pushed media). That engine is gone: the commands and the menu call the
+production workflow.
 
 These tests pin that the commands call the production workflow with the right post type and the
 media in the caller's order — the property a user notices immediately when it breaks.
@@ -127,3 +124,30 @@ def test_a_failed_publish_exits_non_zero(wired, monkeypatch):
     result = CliRunner().invoke(publish_cmds.publish, ["post", wired("a.png")])
     assert result.exit_code == 1
     assert "gallery_item_not_found" in result.output
+
+
+def test_the_cli_has_no_second_publishing_engine():
+    """`management content` ran `ContentWorkflow`; publishing goes through `taktik publish` only."""
+    import importlib.util
+
+    from taktik.cli.commands.management_cmds import management
+
+    assert "content" not in management.commands
+    assert importlib.util.find_spec(
+        "taktik.core.social_media.instagram.workflows.management.content") is None
+
+
+def test_the_menu_publishes_through_the_production_workflow(wired, monkeypatch):
+    """The interactive menu's "Post Content" / "Post Story" run the same workflow as the commands,
+    and a failure brings the operator back to the menu instead of closing the terminal."""
+    import taktik.core.social_media.instagram.workflows.publish.post_workflow as prod
+
+    assert publish_cmds.run_publish("story", "dev-1", (wired("s.png"),)) is True
+    assert RecordingWorkflow.last.post_type == "story"
+
+    class Failing(RecordingWorkflow):
+        def execute(self, **kwargs):
+            return {"success": False, "message": "no gallery", "error_type": "gallery_item_not_found"}
+
+    monkeypatch.setattr(prod, "InstagramPostWorkflow", Failing)
+    assert publish_cmds.run_publish("post", "dev-1", (wired("a.png"),), "hello", "#travel") is False

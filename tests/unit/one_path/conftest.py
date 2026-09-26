@@ -1758,3 +1758,11 @@ def igs_rig(monkeypatch, tmp_path):
     from instagram_scraping_rig import InstagramScrapingRig
 
     return InstagramScrapingRig(monkeypatch, tmp_path)
+
+
+@pytest.fixture
+def igc_rig(monkeypatch, tmp_path):
+    """The Instagram cold DM rig (`instagram_cold_dm_rig.py`): desktop bridge and CLI on one phone."""
+    from instagram_cold_dm_rig import InstagramColdDmRig
+
+    return InstagramColdDmRig(monkeypatch, tmp_path)

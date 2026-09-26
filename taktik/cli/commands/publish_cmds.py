@@ -1,19 +1,11 @@
 """Instagram publishing from the terminal, on the production path.
 
-The CLI already had `management content post|post-bulk|story`, built on `ContentWorkflow`. That is
-a second, older implementation of publishing, and it drifted from the one the desktop app drives:
-
-- `post-bulk` is not a carousel. It publishes N separate posts in a loop with a delay between
-  them, while the group's own help says "posts, stories, carousel". There was no way to publish a
-  carousel from the CLI at all.
-- Reels were not exposed.
-- Fixes that landed on the production path never reached it: deriving `carousel` from the media
-  count, tapping the gallery from the oldest pushed medium so the slides come out in the caller's
-  order, and reclaiming media pushed by earlier runs.
-
-These commands call `InstagramPostWorkflow`, the workflow the publish bridge runs, so the CLI and
-the desktop publish through the same code. The older `content` commands are left in place — they
-are referenced elsewhere — but they are no longer the way to publish from a terminal.
+These commands, and the interactive menu's "Post Content" / "Post Story", call
+`InstagramPostWorkflow`, the workflow the publish bridge runs, so the CLI and the desktop publish
+through the same code. It is the only publishing engine: the older `ContentWorkflow` and its
+`management content post|post-bulk|story` commands are gone. That engine had drifted (its
+`post-bulk` published N separate posts, not a carousel; no reels; none of the production fixes on
+slide order and on reclaiming pushed media).
 """
 from __future__ import annotations
 
@@ -105,6 +97,17 @@ def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption:
     raise SystemExit(1)
 
 
+def run_publish(post_type: str, device_id: str | None, media: tuple[str, ...], caption: str = "",
+                hashtags: str = "", *, story_via_feed: bool = False) -> bool:
+    """One publish from the interactive menu: the same run as the commands, reporting a failure
+    instead of leaving the terminal."""
+    try:
+        _run(post_type, device_id, media, caption, hashtags, story_via_feed=story_via_feed)
+    except SystemExit as exc:
+        return exc.code in (0, None)
+    return True
+
+
 _DEVICE = click.option("--device", "-d", "device_id", help="ADB serial. Omitted: the only connected device.")
 _CAPTION = click.option("--caption", "-c", default="", help="Caption text.")
 _HASHTAGS = click.option("--hashtags", "-h", default="", help="Space-separated hashtags.")
@@ -170,4 +173,4 @@ def publish_story(media, device_id, via_feed, rehearse):
     _run("story", device_id, (media,), "", "", story_via_feed=via_feed, rehearse=rehearse)
 
 
-__all__ = ["publish"]
+__all__ = ["publish", "run_publish"]

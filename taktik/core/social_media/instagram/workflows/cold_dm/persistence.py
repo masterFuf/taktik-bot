@@ -1,8 +1,8 @@
-"""Sent-DM persistence adapter for the Instagram Cold DM bridge."""
+"""Sent-DM persistence for the Instagram Cold DM workflow."""
 
 from __future__ import annotations
 
-from bridges.common.persistence.database import SentDMService
+from taktik.core.database.messaging import SentDMService
 
 
 def check_dm_already_sent(account_id: int, recipient_username: str) -> bool:
@@ -18,7 +18,7 @@ def record_sent_dm(
     error_message: str = None,
     session_id: str = None,
 ) -> None:
-    """Record a sent Instagram DM in the bridge persistence facade."""
+    """Record a sent Instagram DM (`sent_dms`)."""
     SentDMService.record(
         account_id,
         recipient_username,

@@ -1,4 +1,10 @@
-"""CLI/config command handling for the Instagram Cold DM bridge."""
+"""CLI/config command handling for the Instagram Cold DM bridge.
+
+The run is `run_instagram_cold_dm`, the launcher the Agent handler `instagram.engagement.coldDm` (and
+so the CLI) calls too, called by name so the app's config contract test can follow the payload. The
+bridge keeps its entry (config file, IP rotation, the final JSON), its connection (the bridges'
+clone-aware, facade-wrapped device) and its stdout.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +12,10 @@ import json
 import sys
 
 from bridges.common.device.network import enforce_pre_session_ip_rotation
+from bridges.common.input.keyboard import KeyboardService
+from bridges.instagram.engagement.runtime.cold_dm.progress import emit_cold_dm_progress
+from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import _ipc, logger
-from bridges.instagram.engagement.runtime.cold_dm.workflow import ColdDMWorkflow
-from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import ColdDmRecipientPolicy
 
 
 def run_cold_dm_cli(args: list[str]) -> None:
@@ -36,47 +43,29 @@ def run_cold_dm_cli(args: list[str]) -> None:
             print(json.dumps({"success": False, "error": "IP rotation failed"}))
             sys.exit(1)
 
-        workflow = ColdDMWorkflow(device_id, package_name=package_name)
+        keyboard = KeyboardService(device_id)
+        connection = InstagramBridgeBase(device_id, package_name=package_name)
 
-        if not workflow.connect():
+        if not connection.connect():
             logger.error(f"Failed to connect to device {device_id}")
             print(json.dumps({"success": False, "error": "Failed to connect to device"}))
             sys.exit(1)
 
-        recipients = config.get("recipients", [])
-        messages = config.get("messages", [])
-        delay_min = config.get("delayMin", 30)
-        delay_max = config.get("delayMax", 60)
-        max_dms = config.get("maxDmsPerSession", 50)
-        account_id = config.get("accountId", 1)
-        session_id = config.get("sessionId", device_id)
-        ai_prompt = config.get("aiPrompt", "")
-        openrouter_api_key = config.get("openrouterApiKey", "")
-
-        # The page's and the scheduler node's « Ignorer les comptes privés / certifiés ». Absent
-        # -> the behaviour this bridge always had: private profiles skipped, certified ones not.
-        recipient_policy = ColdDmRecipientPolicy(
-            skip_private=config.get("skipPrivateAccounts", True) is not False,
-            skip_verified=bool(config.get("skipVerifiedAccounts", False)),
+        from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import (
+            ColdDmRuntime,
+            run_instagram_cold_dm,
         )
 
-        message_mode = config.get("messageMode", "manual")
-        if message_mode == "ai" and not openrouter_api_key:
-            logger.warning("AI mode requested but no OpenRouter API key provided, falling back to manual messages")
-
-        logger.info(f"Cold DM config: {len(recipients)} recipients, {len(messages)} messages, mode: {message_mode}")
-
-        result = workflow.run(
-            recipients,
-            messages,
-            delay_min,
-            delay_max,
-            max_dms,
-            account_id,
-            session_id,
-            ai_prompt,
-            openrouter_api_key,
-            recipient_policy=recipient_policy,
+        result = run_instagram_cold_dm(
+            config,
+            runtime=ColdDmRuntime(
+                device=connection.device,
+                device_manager=connection.device_manager,
+                keyboard=keyboard,
+                restart=connection.restart,
+            ),
+            progress=emit_cold_dm_progress,
+            ai_ipc=_ipc,
         )
 
         print(json.dumps({
