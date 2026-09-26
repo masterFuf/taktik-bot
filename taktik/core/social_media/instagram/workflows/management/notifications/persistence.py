@@ -1,4 +1,4 @@
-"""Notifications persistence wiring for the Instagram notifications bridge.
+"""Notifications persistence of the Instagram notifications run.
 
 Best-effort: persisting must NEVER break the scan flow.
 Source of truth = Bot (records into the ``notifications`` table via NotificationService).
@@ -15,7 +15,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
+
 from taktik.core.database import configure_db_service, get_db_service
 from taktik.core.database.messaging import DmConversationService, SentDMService
 from taktik.core.database.notifications import NotificationService

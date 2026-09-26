@@ -16,7 +16,6 @@ from bridges.compat.diagnostics.runtime.workflow_test.execution.lifecycle import
 class WorkflowTestSession:
     connection: ConnectionService
     tracer: object
-    automation: object | None
     device: object
 
 
@@ -47,7 +46,7 @@ def prepare_workflow_test_session(*, request, ipc) -> WorkflowTestSession:
     ipc.send("step", step="launch", status="done", message=f"{platform_label} launched")
 
     ipc.send("step", step="init_automation", status="running", message="Initializing automation engine...")
-    tracer, automation, device = init_automation(app_name, conn, ipc)
+    tracer, device = init_automation(app_name, conn, ipc)
 
     apply_version_overrides(app_name, version, ipc)
     detect_instagram_language(app_name, device, ipc)
@@ -55,7 +54,6 @@ def prepare_workflow_test_session(*, request, ipc) -> WorkflowTestSession:
     return WorkflowTestSession(
         connection=conn,
         tracer=tracer,
-        automation=automation,
         device=device,
     )
 

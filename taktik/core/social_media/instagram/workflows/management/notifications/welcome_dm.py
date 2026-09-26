@@ -3,7 +3,7 @@
 Sending a welcome message to a brand-new follower is not a new workflow: it is the
 canonical ``send_dm`` production path, triggered by a notification row. This module holds
 the three things the batch needs that the tap-a-row verbs do not — the ordering rule, the
-private-writing guards, and the pacing — so ``cmd_batch`` keeps reading as a dispatcher.
+private-writing guards, and the pacing — so the batch command keeps reading as a dispatcher.
 
 The message text itself is written upstream (the app generates it with the account's
 persona); the bot receives it and types it. Nothing here composes a message: a canned
@@ -16,14 +16,17 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from loguru import logger
+
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.cold_dm.timing import wait_before_next_cold_dm
-from bridges.instagram.engagement.runtime.notifications.follow_actor import FOLLOW_ACTOR_ACTION
-from bridges.instagram.engagement.runtime.notifications.persistence import (
+from taktik.core.social_media.instagram.workflows.management.notifications.follow_actor import (
+    FOLLOW_ACTOR_ACTION,
+)
+from taktik.core.social_media.instagram.workflows.management.notifications.persistence import (
     dm_already_sent,
     dm_conversation_exists,
 )
-from bridges.instagram.runtime.ipc import logger
-from taktik.core.shared.diagnostics import run_halt
 
 WELCOME_DM_ACTION = "welcome_dm"
 

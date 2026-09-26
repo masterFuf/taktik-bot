@@ -54,15 +54,8 @@ ENGINE_SLOT_SUFFIX = "_runner"
 # Every exception says why it holds and what removes it.
 EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
     "manifest_without_launcher": {
-        ("instagram.engagement.notifications",):
-            "notifications family (Q5) is being moved to a launcher in its own lot.",
-        ("instagram.engagement.smart_comment",):
-            "declared for the panel, runs inside the automation launcher; no own entry.",
     },
     "entry_point_engine": {
-        # Instagram notifications (Q5, handled in its own lot).
-        ("bridges/instagram/engagement/runtime/notifications/bridge.py", "NotificationsEngagementWorkflow"):
-            "Q5, notifications lot in progress.",
         # Instagram publication (Q4, postponed): no manifest id, three hosts build the engine.
         ("bridges/instagram/publish/runtime/bridge.py", "InstagramPostWorkflow"):
             "Q4 postponed: publication has no manifest id nor launcher.",
@@ -71,21 +64,11 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
         ("bridges/compat/diagnostics/runtime/workflow_test/platforms/instagram/workflows/publish.py",
          "InstagramPostWorkflow"):
             "Q4 postponed: the Lab publish run builds the engine itself.",
-        # Lab whole-run of Instagram automation: instrumented engine, not the launcher.
-        ("bridges/compat/diagnostics/runtime/workflow_test/execution/lifecycle.py", "InstagramAutomation"):
-            "Lab automation run instruments the engine; launcher needs a step hook first.",
-        # Threads: handler exists, the bridge keeps its own config and calls the engine.
-        ("bridges/threads/workflows/runtime/feed.py", "run_feed_and_interact"):
-            "Threads lot: bridge builds its own config and calls the engine.",
-        ("bridges/threads/workflows/runtime/search.py", "run_search_and_interact"):
-            "Threads lot: not on its launcher yet.",
     },
     "bridge_without_launcher": {
-        ("notifications_bridge",): "Q5, notifications lot in progress.",
         ("persona_analysis_bridge",):
             "persona analysis: no manifest id, no CLI; left as is by decision (Q6).",
         ("publish_bridge",): "Q4 postponed: publication stays as is for now.",
-        ("threads_bridge",): "Threads lot: not on its launcher yet.",
     },
     "app_extra_launch_module": {
         ("desktop_bridge", "electron/services/tools/debug/bridge/DesktopDebugBridgeService.ts"):

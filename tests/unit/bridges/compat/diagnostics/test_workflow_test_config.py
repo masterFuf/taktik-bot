@@ -1,13 +1,22 @@
-"""Workflow-test config builder honours the real prod config surface.
+"""Workflow-test payload honours the real prod config surface.
 
 The Cartography Lab workflow test must mirror the real workflows: when the front
-sends profile filters / likes / consecutive-known, the harness must apply them
+sends profile filters / likes / consecutive-known, the harness must pass them
 verbatim (not a permissive stub), so a test run selects the same profiles as prod.
+The bench builds the page payload only; the production launcher builds the config,
+so these tests read it through the same production builder.
 """
 
 from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.automation_config import (
-    build_workflow_config,
+    build_workflow_payload,
 )
+from taktik.core.social_media.instagram.workflows.core.config_builder import (
+    build_instagram_automation_config,
+)
+
+
+def build_workflow_config(*args, **kwargs):
+    return build_instagram_automation_config(build_workflow_payload(*args, **kwargs))
 
 
 def _base_limits():
@@ -38,11 +47,11 @@ def test_filters_are_applied_verbatim():
     assert f["max_followers"] == 50000
     assert f["min_posts"] == 3
     assert f["max_followings"] == 7500
-    # allowPrivate False → public-only relation + allow flag preserved for criteria.
-    assert f["privacy_relation"] == "public"
-    assert f["allow_private"] is False
-    assert f["allow_verified"] is True
-    assert f["allow_business"] is False
+    # The allow flags reach the action's criteria, the block the filters are read from.
+    criteria = cfg["actions"][0]["filters"]
+    assert criteria["allow_private"] is False
+    assert criteria["allow_verified"] is True
+    assert criteria["allow_business"] is False
 
 
 def test_session_carries_likes_and_consecutive_known():

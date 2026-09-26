@@ -40,20 +40,14 @@ def init_automation(app_name: str, conn, ipc):
 
         configure_db_service()
 
-        automation = None
-        if app_name == "instagram":
-            from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-
-            automation = InstagramAutomation(conn.device_manager)
-            device = automation.device
-        else:
-            device = conn.device_manager
+        # The engine itself is built by the production launcher, on this same device.
+        device = conn.device_manager.device if app_name == "instagram" else conn.device_manager
 
         tracer.attach(device)
         set_active_tracer(tracer)
 
         ipc.send("step", step="init_automation", status="done", message="Automation ready, tracer attached")
-        return tracer, automation, device
+        return tracer, device
     except Exception as exc:
         ipc.send("error", error=f"Automation init failed: {exc}", error_code="AUTOMATION_INIT_ERROR")
         logger.exception("Automation init failed")

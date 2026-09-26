@@ -136,6 +136,18 @@ class CliInstagramHost:
         runtime.dm_events = _log_dm_event
         return runtime
 
+    def notifications_runtime(self, package_name: Optional[str], restart: bool):
+        """The notifications bridge's runtime (`NotificationsBridge`: the bridges' Instagram
+        device, clone-aware, and its clean restart), on the device the CLI already connected;
+        Instagram restarted first when the command asks for it (a scan)."""
+        from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
+
+        runtime = _on_connected_device(NotificationsBridge(self.device_id, package_name=package_name),
+                                       self.device_manager, self.device_id)
+        if restart:
+            runtime.restart_instagram()
+        return runtime
+
 
 def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
     """The run's `ai` block with a key, the CLI's if the run brings none; None when AI is off or no

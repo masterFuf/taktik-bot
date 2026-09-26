@@ -15,10 +15,14 @@ import types
 
 import pytest
 
-import bridges.instagram.engagement.runtime.notifications.commands as commands
+import bridges.instagram.engagement.runtime.notifications.commands as bridge_commands
+import taktik.core.social_media.instagram.workflows.management.notifications.commands as commands
 
 
 class _Bridge:
+    device = object()
+    device_id = "device-1"
+
     def __init__(self):
         self.restarted = 0
         self.stopped = 0
@@ -33,9 +37,6 @@ class _Bridge:
     def stop(self):
         self.stopped += 1
         return True
-
-    def build_workflow(self):
-        return self.workflow
 
 
 class _Workflow:
@@ -52,17 +53,24 @@ class _Workflow:
 @pytest.fixture
 def bridge(monkeypatch):
     created = _Bridge()
-    monkeypatch.setattr(commands, "NotificationsBridge", lambda *a, **k: created)
+    monkeypatch.setattr(bridge_commands, "NotificationsBridge", lambda *a, **k: created)
+    monkeypatch.setattr(commands, "NotificationsEngagementWorkflow", lambda *a, **k: created.workflow)
     # Keep the test silent and free of persistence side effects.
-    monkeypatch.setattr(commands, "emit_notif_json", lambda *a, **k: None)
-    monkeypatch.setattr(commands, "emit_notif_step", lambda *a, **k: None)
     monkeypatch.setattr(commands, "build_known_checker", lambda *a, **k: None)
     monkeypatch.setattr(commands, "record_scan_notifications", lambda *a, **k: [])
     return created
 
 
+def _host():
+    """The bridge's own connection: the restart is its `_connect`, as in production."""
+    return commands.NotificationsHost(
+        connect=lambda restart: bridge_commands._connect("device-1", restart=restart),
+        emit=lambda payload: None,
+    )
+
+
 def test_scan_restarts_then_closes_instagram(bridge):
-    commands.cmd_scan("device-1", 3)
+    commands.cmd_scan(_host(), 3)
 
     assert bridge.restarted == 1  # opened to a known state
     assert bridge.stopped == 1    # and closed once the feed was read
@@ -71,13 +79,13 @@ def test_scan_restarts_then_closes_instagram(bridge):
 def test_per_row_action_leaves_instagram_open(bridge):
     # The operator is working through the scanned rows; closing the app between two taps
     # would force a full restart for every single accept.
-    commands.cmd_accept("device-1", "someone")
+    commands.cmd_accept(_host(), "someone")
 
     assert bridge.restarted == 0
     assert bridge.stopped == 0
 
 
 def test_list_requests_leaves_instagram_open(bridge):
-    commands.cmd_list_requests("device-1", 50)
+    commands.cmd_list_requests(_host(), 50)
 
     assert bridge.stopped == 0

@@ -2,8 +2,11 @@
 
 The desktop starts `notifications_bridge` for nine commands (scan, list_requests, accept, ignore,
 accept_all, reply, like, follow_back, batch). The bridge's device, the notifications workflow and
-the database helpers are fakes that record what they are asked; the bridge's own command code runs
-for real: which command runs, with which values, what is recorded, what is printed, the exit code.
+the database helpers are fakes that record what they are asked; the command code runs for real
+(the bridge's entry, then `run_instagram_notifications` in the core): which command runs, with
+which values, what is recorded, what is printed, the exit code. The workflow and the per-profile
+pipeline are built by the core launcher now; their fakes keep the labels the sequence was frozen
+with (`bridge build_workflow`, `bridge build_profile_pipeline`), so the snapshot is unchanged.
 Nothing here reaches adb or the database.
 """
 from __future__ import annotations
@@ -18,6 +21,7 @@ CLONE = "com.instagram.android.clone"
 BOT = "alpha_bot"
 
 _COMMANDS = "bridges.instagram.engagement.runtime.notifications.commands"
+_CORE_COMMANDS = "taktik.core.social_media.instagram.workflows.management.notifications.commands"
 
 
 def notif_command(command: str, **fields) -> dict:
@@ -132,14 +136,6 @@ class _Bridge:
         self.rig.record("bridge", "stop")
         return True
 
-    def build_workflow(self):
-        self.rig.record("bridge", "build_workflow")
-        return _Workflow(self.rig)
-
-    def build_profile_pipeline(self, *, account_id, **kwargs):
-        self.rig.record("bridge", "build_profile_pipeline", account_id=account_id, **kwargs)
-        return "pipeline"
-
 
 class InstagramNotificationsRig:
     def __init__(self, monkeypatch, tmp_path):
@@ -168,14 +164,26 @@ class InstagramNotificationsRig:
 
         from taktik.core.shared.diagnostics import run_halt
 
-        commands = importlib.import_module(_COMMANDS)
+        bridge_commands = importlib.import_module(_COMMANDS)
+        commands = importlib.import_module(_CORE_COMMANDS)
         rig = self
         run_halt.reinitialiser()
         self.monkeypatch.setattr(run_halt, "_temoin", None)
         self.monkeypatch.setattr(run_halt, "_arret", None)
 
-        self.monkeypatch.setattr(commands, "NotificationsBridge",
+        self.monkeypatch.setattr(bridge_commands, "NotificationsBridge",
                                  lambda device_id, package_name=None: _Bridge(rig, device_id, package_name))
+
+        def build_workflow(device, device_id, **_kwargs):
+            rig.record("bridge", "build_workflow")
+            return _Workflow(rig)
+
+        def build_profile_pipeline(device, *, account_id, **kwargs):
+            rig.record("bridge", "build_profile_pipeline", account_id=account_id, **kwargs)
+            return "pipeline"
+
+        self.monkeypatch.setattr(commands, "NotificationsEngagementWorkflow", build_workflow)
+        self.monkeypatch.setattr(commands, "build_notifications_profile_pipeline", build_profile_pipeline)
 
         def recorder(name, value=None):
             def fn(*args, **kwargs):
@@ -215,9 +223,9 @@ class InstagramNotificationsRig:
         self.monkeypatch.setattr(commands, "wait_before_next_off_screen_action",
                                  lambda *, is_last: rig.record("pace", is_last=is_last))
         self.monkeypatch.setattr(commands, "install_notifications_ai_hooks",
-                                 lambda *, ai_config, device, language: (rig.record("ai", "install", ai=ai_config,
-                                                                                    language=language)
-                                                                         or bool(ai_config)))
+                                 lambda *, ai_config, device, language, **_kwargs: (
+                                     rig.record("ai", "install", ai=ai_config, language=language)
+                                     or bool(ai_config)))
 
         @contextlib.contextmanager
         def session(account_id, source):

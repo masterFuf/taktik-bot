@@ -81,7 +81,6 @@ def main():
         options=options,
         conn=session.connection,
         device=session.device,
-        automation=session.automation,
         tracer=session.tracer,
         ipc=ipc,
     )
