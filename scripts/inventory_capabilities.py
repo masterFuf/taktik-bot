@@ -149,6 +149,8 @@ def report_runs(manifest: dict, registry_ids: list[str]) -> list[str]:
         if kind == UNKNOWN_KIND:
             findings.append(f"{label}: famille non classee dans manifest.kinds.families")
 
+        # A workflow the manifest re-classes as display only (`kinds.overrides`) runs nothing.
+        declared = [w for w in declared if kind_of(manifest, platform, family, w) not in ("ui", "planned")]
         has_handler = [w for w in declared if f"{platform}.{family}.{w}" in registered]
         missing = [w for w in declared if w not in has_handler]
         note = "" if not missing else "sans handler: " + ", ".join(missing)

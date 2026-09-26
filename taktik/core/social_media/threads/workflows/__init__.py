@@ -20,7 +20,10 @@ from .agent_handler import (
     THREADS_FEED_WORKFLOW_ID,
     THREADS_FOLLOW_WORKFLOW_ID,
     THREADS_TARGET_WORKFLOW_ID,
+    ThreadsSearchQueryMissing,
     register_threads_automation_handlers,
+    run_threads_feed,
+    run_threads_search,
 )
 
 __all__ = [
@@ -33,7 +36,10 @@ __all__ = [
     "THREADS_FEED_WORKFLOW_ID",
     "THREADS_FOLLOW_WORKFLOW_ID",
     "THREADS_TARGET_WORKFLOW_ID",
+    "ThreadsSearchQueryMissing",
     "register_threads_automation_handlers",
     "run_feed_and_interact",
     "run_search_and_interact",
+    "run_threads_feed",
+    "run_threads_search",
 ]

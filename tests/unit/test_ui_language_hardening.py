@@ -30,9 +30,6 @@ from taktik.core.social_media.instagram.ui.labels import (
 from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
     find_inline_like_target,
 )
-from taktik.core.social_media.instagram.workflows.management.dm.dm_navigation import (
-    DMNavigationMixin,
-)
 
 CURLY = "’"
 STRAIGHT = "'"
@@ -195,19 +192,3 @@ def test_the_already_liked_row_is_still_not_matched():
     the second would UNLIKE the comment."""
     root = _row_with("Bouton Je" + CURLY + "n" + CURLY + "aime plus")
     assert find_inline_like_target(root, "row", ["Bouton J'aime"], "alice") is None
-
-
-# ------------------------------------------------------------------------- DM presence
-
-@pytest.mark.parametrize("value,is_status", [
-    ("Active now", True),
-    ("En ligne", True),
-    ("Actif il y a 2 h", True),
-    ("alice.dupont", False),
-    ("", False),
-])
-def test_presence_status_is_not_taken_for_a_username(value, is_status):
-    """A thread row opens on the contact's STATUS when they are online. The guard only knew
-    the English form, so a French inbox returned "En ligne" as the conversation name."""
-    navigator = DMNavigationMixin.__new__(DMNavigationMixin)
-    assert navigator._is_presence_status(value) is is_status

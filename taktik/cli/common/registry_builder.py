@@ -37,6 +37,9 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
      "register_instagram_cold_dm_handlers"),
     ("Instagram DM", "taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler",
      "register_instagram_dm_handlers"),
+    ("Instagram notifications",
+     "taktik.core.social_media.instagram.workflows.management.notifications.agent_handler",
+     "register_instagram_notifications_handlers"),
     ("Taktik Agent (Instagram)", "taktik.core.social_media.instagram.workflows.agent.agent_handler",
      "register_instagram_agent_handlers"),
     ("Instagram tasks", "taktik.core.social_media.instagram.workflows.tasks.agent_handler",
@@ -120,6 +123,7 @@ def build_registry(
         cli_openrouter_key,
     )
     from taktik.cli.common.tiktok_host import (
+        cli_tiktok_account_app,
         cli_tiktok_ai_hooks,
         cli_tiktok_outreach_message_generator,
         cli_tiktok_startup,
@@ -141,11 +145,15 @@ def build_registry(
         # TikTok handlers that take these start and hook a run the way the bridges do.
         "tiktok_startup": cli_tiktok_startup(device, device_id) if device is not None else None,
         "tiktok_ai_hooks": cli_tiktok_ai_hooks,
+        # The account flows restart TikTok the way the account bridge does.
+        "tiktok_account_app": cli_tiktok_account_app(manager, device_id) if manager is not None else None,
         "tiktok_welcome_qualifier": cli_tiktok_welcome_qualifier,
         "tiktok_outreach_message_generator": cli_tiktok_outreach_message_generator,
         # The Instagram automation handlers start and hook a run the way the desktop bridge does.
         "instagram_start": instagram_host.start if instagram_host else None,
         "instagram_installed_version": instagram_host.installed_version if instagram_host else None,
+        # The account flows restart Instagram (or keep its screen) the way the account bridge does.
+        "instagram_account_app": instagram_host.account_app if instagram_host else None,
         "instagram_ai_service": cli_instagram_ai_service,
         # The scraping handlers build their AI service from a key, the payload's or the environment's.
         "instagram_scraping_ai_service": cli_instagram_scraping_ai_service,
@@ -154,6 +162,8 @@ def build_registry(
         "instagram_cold_dm_runtime": instagram_host.cold_dm_runtime if instagram_host else None,
         # The DM inbox runs on the DM bridge's own runtime.
         "instagram_dm_runtime": instagram_host.dm_runtime if instagram_host else None,
+        # The notifications run connects the way its bridge connects.
+        "instagram_notifications_runtime": instagram_host.notifications_runtime if instagram_host else None,
         # The Taktik Agent session starts the way its bridge starts it.
         "instagram_agent_runtime": instagram_host.agent_runtime if instagram_host else None,
         "instagram_agent_ai_service_factory": cli_instagram_agent_ai_service_factory,

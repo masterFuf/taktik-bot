@@ -14,7 +14,6 @@ for _stream in (sys.stdout, sys.stderr):
 
 import click
 import logging
-import time
 import json
 import math
 from rich.console import Console
@@ -38,11 +37,9 @@ from taktik.cli.prompts.instagram import (
 )
 from taktik.cli.prompts.scraping import (
     generate_target_scraping_workflow, generate_hashtag_scraping_workflow,
-    generate_url_scraping_workflow, generate_post_scraping_workflow,
+    generate_url_scraping_workflow, generate_profile_posts_scraping_workflow,
 )
-from taktik.cli.prompts.outreach import (
-    generate_cold_dm_workflow, generate_dm_auto_reply_workflow,
-)
+from taktik.cli.prompts.outreach import generate_cold_dm_workflow
 from taktik.cli.commands.management_cmds import management
 
 device_manager = DeviceManager()
@@ -267,7 +264,7 @@ def cli(ctx, lang=None):
                     console.print("[bold]2.[/bold] 📸 Post Content")
                     console.print("[bold]3.[/bold] 📱 Post Story")
                     console.print("[bold]4.[/bold] 💬 Cold DM (Send DMs to list)")
-                    console.print("[bold]5.[/bold] 🤖 DM Auto-Reply (AI-powered)")
+                    console.print("[bold]5.[/bold] 💬 DM Replies (read the inbox, answer)")
                     console.print("[bold]6.[/bold] 📥 View DM Inbox")
                     console.print("[bold]7.[/bold] ← Back")
                     
@@ -277,9 +274,9 @@ def cli(ctx, lang=None):
                         continue
                     
                     elif mgmt_choice == 1:
-                        # Login interactif
-                        from taktik.core.social_media.instagram.workflows.management.login.login_workflow import LoginWorkflow
-                        import uiautomator2 as u2
+                        # Login through the desktop's account launcher (clean restart, then login).
+                        from taktik.cli.common.device_selector import connect_device
+                        from taktik.cli.common.instagram_host import run_instagram_account_payload
                         from getpass import getpass
                         
                         console.print("\n[bold green]🔐 Instagram Login[/bold green]")
@@ -294,32 +291,34 @@ def cli(ctx, lang=None):
                         save_session = Confirm.ask("[cyan]💾 Save session (Taktik)?[/cyan]", default=True)
                         save_instagram_login = Confirm.ask("[cyan]💾 Save login info (Instagram)?[/cyan]", default=False)
                         
+                        if not connect_device(device_manager, device_id, current_translations):
+                            continue
+
                         try:
-                            device = u2.connect(device_id)
-                            login_workflow = LoginWorkflow(device, device_id)
-                            
                             with console.status("[bold yellow]🔄 Logging in...[/bold yellow]", spinner="dots"):
-                                result = login_workflow.execute(
-                                    username=username,
-                                    password=password,
-                                    max_retries=3,
-                                    save_session=save_session,
-                                    use_saved_session=True,
-                                    save_login_info_instagram=save_instagram_login
+                                result = run_instagram_account_payload(
+                                    device_manager, device_id, "instagram.account.login",
+                                    {
+                                        "username": username,
+                                        "password": password,
+                                        "maxRetries": 3,
+                                        "saveSession": save_session,
+                                        "saveLoginInfoInstagram": save_instagram_login,
+                                    },
                                 )
-                            
-                            if result['success']:
+
+                            if result.get('success'):
                                 console.print(Panel.fit(
                                     f"[bold green]✅ Login successful![/bold green]\n"
-                                    f"[cyan]👤 Username:[/cyan] {result['username']}\n"
-                                    f"[cyan]💾 Session saved:[/cyan] {'Yes' if result['session_saved'] else 'No'}",
+                                    f"[cyan]👤 Username:[/cyan] {result.get('username', username)}\n"
+                                    f"[cyan]💾 Session saved:[/cyan] {'Yes' if result.get('session_saved') else 'No'}",
                                     title="[bold green]Success[/bold green]",
                                     border_style="green"
                                 ))
                             else:
                                 console.print(Panel.fit(
                                     f"[bold red]❌ Login failed[/bold red]\n"
-                                    f"[cyan]❌ Error:[/cyan] {result['message']}",
+                                    f"[cyan]❌ Error:[/cyan] {result.get('message', '')}",
                                     title="[bold red]Failed[/bold red]",
                                     border_style="red"
                                 ))
@@ -376,80 +375,37 @@ def cli(ctx, lang=None):
                         console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
                         sys.exit(0)
                     
-                    elif mgmt_choice == 5:
-                        # DM Auto-Reply Workflow
-                        auto_reply_config = generate_dm_auto_reply_workflow()
-                        if not auto_reply_config:
-                            console.print("[red]❌ DM Auto-Reply configuration cancelled.[/red]")
-                            input("\nPress Enter to continue...")
-                            continue
-                        
+                    elif mgmt_choice in (5, 6):
+                        # The DM Responses page's launchers: read the inbox (`dm_read`), then one
+                        # `dm_send` per reply, typed here; writing replies with AI is the app's.
                         from taktik.cli.common.device_selector import connect_device as _connect
                         if not _connect(device_manager, device_id, current_translations):
                             continue
-                        
-                        from taktik.core.social_media.instagram.workflows.management.dm.auto_reply_workflow import DMAutoReplyWorkflow, DMAutoReplyConfig
-                        
-                        console.print("[blue]🤖 Initializing DM Auto-Reply workflow...[/blue]")
-                        
-                        # Convert dict config to DMAutoReplyConfig
-                        dm_config = DMAutoReplyConfig(
-                            openrouter_api_key=auto_reply_config.get('openrouter_api_key', ''),
-                            persona_name=auto_reply_config.get('persona_name', ''),
-                            persona_description=auto_reply_config.get('persona_description', ''),
-                            business_context=auto_reply_config.get('business_context', ''),
-                            check_interval_min=auto_reply_config.get('check_interval_min', 30),
-                            check_interval_max=auto_reply_config.get('check_interval_max', 120),
-                            reply_delay_min=auto_reply_config.get('reply_delay_min', 5),
-                            reply_delay_max=auto_reply_config.get('reply_delay_max', 30),
-                            max_replies_per_session=auto_reply_config.get('max_replies_per_session', 50),
-                            ignore_usernames=auto_reply_config.get('ignore_usernames', []),
-                            session_duration_minutes=auto_reply_config.get('session_duration_minutes', 60)
-                        )
-                        
-                        import uiautomator2 as u2
-                        device = u2.connect(device_id)
-                        auto_reply_workflow = DMAutoReplyWorkflow(device, dm_config)
-                        auto_reply_workflow.run()
-                        
-                        console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
-                        sys.exit(0)
-                    
-                    elif mgmt_choice == 6:
-                        # View DM Inbox - redirect to existing dm inbox command logic
-                        from taktik.core.social_media.instagram.ui.selectors import DM_SELECTORS
-                        import uiautomator2 as u2
-                        
-                        console.print("\n[bold green]📥 DM Inbox[/bold green]")
-                        
+
+                        from taktik.cli.common import dm_menu
+                        limit = int(Prompt.ask("[cyan]Conversations to read (0: the whole inbox)[/cyan]",
+                                               default="10"))
                         try:
-                            device = u2.connect(device_id)
-                            
-                            console.print("[yellow]📥 Navigating to DM inbox...[/yellow]")
-                            
-                            dm_tab = device.xpath(DM_SELECTORS.direct_tab)
-                            if dm_tab.exists:
-                                dm_tab.click()
-                                time.sleep(2)
-                                console.print("[green]✅ Navigated to DMs[/green]")
+                            if mgmt_choice == 5:
+                                outcome = dm_menu.reply_to_inbox(device_manager, device_id, limit,
+                                                                 ask=Prompt.ask, show=console.print)
+                                read = outcome["read"]
+                                sent = outcome["sent"]
+                                console.print(f"[green]{sum(1 for s in sent if s['success'])} reply(ies) sent[/green]"
+                                              f" / {len(sent)}")
                             else:
-                                for selector in DM_SELECTORS.direct_tab_content_desc:
-                                    dm_btn = device.xpath(selector)
-                                    if dm_btn.exists:
-                                        dm_btn.click()
-                                        time.sleep(2)
-                                        console.print("[green]✅ Navigated to DMs[/green]")
-                                        break
-                            
-                            console.print("[cyan]📬 DM inbox is now visible on device.[/cyan]")
-                            console.print("[dim]Use CLI commands 'taktik management dm inbox' for detailed listing.[/dim]")
-                            
-                        except Exception as e:
-                            console.print(f"[bold red]❌ Error: {e}[/bold red]")
-                        
+                                read = dm_menu.read_inbox(device_manager, device_id, limit)
+                                for conv in read.get("conversations") or []:
+                                    waiting = " (awaits a reply)" if dm_menu.replyable([conv]) else ""
+                                    console.print(f"@{conv.get('username')}{waiting}")
+                            if not read.get("success"):
+                                console.print(f"[red]❌ {read.get('error') or 'DM inbox read failed'}[/red]")
+                        except Exception as exc:  # noqa: BLE001 - a failed run reports, not tracebacks
+                            console.print(f"[red]DM failed:[/red] {type(exc).__name__}: {exc}")
+
                         input("\nPress Enter to continue...")
                         continue
-                
+
                 elif mode_choice == 2:
                     # Mode Automation: the prompts describe the run the way a desktop page does,
                     # and the run goes through the automation handler, the desktop's launcher
@@ -484,7 +440,7 @@ def cli(ctx, lang=None):
                     console.print("\n[bold cyan]🔍 Scraping Mode[/bold cyan]")
                     console.print("[bold]1.[/bold] 👥 Target Scraping (Followers/Following)")
                     console.print("[bold]2.[/bold] #️⃣ Hashtag Scraping (Authors/Likers)")
-                    console.print("[bold]3.[/bold] 🔗 Post URL Scraping (Likers/Comments)")
+                    console.print("[bold]3.[/bold] 🔗 Post Scraping (a post's likers/commenters, posts of accounts)")
                     console.print("[bold]4.[/bold] ← Back")
                     
                     scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 4), show_choices=False)
@@ -500,43 +456,26 @@ def cli(ctx, lang=None):
                     elif scraping_choice == 2:
                         scraping_config = generate_hashtag_scraping_workflow()
                     elif scraping_choice == 3:
-                        # Post URL Scraping with enhanced options
+                        # Post scraping: the Scraping page's post URL and posts-of-accounts sources.
                         console.print("\n[bold cyan]🔗 Post Scraping Options[/bold cyan]")
-                        console.print("[bold]1.[/bold] ❤️ Scrape Likers only")
-                        console.print("[bold]2.[/bold] 💬 Scrape Comments only")
-                        console.print("[bold]3.[/bold] 📊 Full Post Scraping (Stats + Likers + Comments)")
-                        console.print("[bold]4.[/bold] ← Back")
+                        console.print("[bold]1.[/bold] ❤️ Likers of a post")
+                        console.print("[bold]2.[/bold] 💬 Commenters of a post")
+                        console.print("[bold]3.[/bold] 📊 Likers + commenters of a post, profiles visited")
+                        console.print("[bold]4.[/bold] 🗂️ Posts of accounts (link, likes, comments)")
+                        console.print("[bold]5.[/bold] ← Back")
                         
-                        post_scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 4), show_choices=False)
+                        post_scraping_choice = click.prompt("\n[bold]Your choice[/bold]", type=click.IntRange(1, 5), show_choices=False)
                         
+                        if post_scraping_choice == 5:
+                            continue
                         if post_scraping_choice == 4:
-                            continue
-                        
-                        if post_scraping_choice == 3:
-                            # Full Post Scraping Workflow (CLI only): it starts from Instagram open.
-                            scraping_config = generate_post_scraping_workflow()
-                            if scraping_config:
-                                from taktik.cli.common.device_selector import connect_device as _cd
-                                if not _cd(device_manager, device_id, current_translations):
-                                    continue
-                                if not _launch_instagram():
-                                    continue
-                                
-                                from taktik.core.social_media.instagram.workflows.post_scraping import PostScrapingWorkflow
-                                
-                                console.print("[blue]📊 Initializing post scraping workflow...[/blue]")
-                                post_workflow = PostScrapingWorkflow(device_manager, scraping_config)
-                                post_workflow.run()
-                                
-                                console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
-                                sys.exit(0)
-                            continue
+                            scraping_config = generate_profile_posts_scraping_workflow()
                         else:
                             scraping_config = generate_url_scraping_workflow(
-                                "likers" if post_scraping_choice == 1 else "commenters"
+                                ("likers", "commenters", "both")[post_scraping_choice - 1]
                             )
                     
-                    if scraping_choice in [1, 2] or (scraping_choice == 3 and scraping_config):
+                    if scraping_choice in (1, 2, 3):
                         if not scraping_config:
                             console.print("[red]❌ Scraping configuration cancelled.[/red]")
                             continue

@@ -1,7 +1,9 @@
 """Instagram automation config for compat workflow diagnostics.
 
 The bench does NOT build this config itself any more. It assembles the same camelCase payload
-the desktop bridge sends and hands it to the PRODUCTION builder.
+the desktop bridge sends and hands it to the PRODUCTION launcher, `run_instagram_automation`,
+which builds the config and the engine exactly as for a page run. The profile-filter toggles
+(`allowPrivate`, `allowVerified`, `allowBusiness`) travel in that payload like the page's.
 
 It used to keep a parallel builder, and every setting added to a workflow page had to be
 re-declared here. None ever was, so the bench quietly drifted behind production:
@@ -17,11 +19,6 @@ A green run on a divergent config proves nothing about production, which is the 
 this bench exists to do.
 """
 
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
-    build_instagram_automation_config,
-)
-
-
 # Bench workflow value -> the vocabulary the production builder speaks. Explicit rather than a
 # pass-through because that builder fails loudly on an unknown type instead of guessing, and
 # because the two vocabularies genuinely differ (`hashtag` here, `hashtags` there).
@@ -36,7 +33,7 @@ _PROD_WORKFLOW_TYPES = {
 }
 
 
-def build_workflow_config(
+def build_workflow_payload(
     workflow_type: str,
     target: str,
     limits: dict,
@@ -48,7 +45,7 @@ def build_workflow_config(
     behavior_policy: dict | None = None,
     options: dict | None = None,
 ) -> dict:
-    """Build the workflow config for a bench run, through the production builder.
+    """The page payload of a bench run, for the production launcher to build and run.
 
     ``options`` carries the page-level settings verbatim (`engagePosts`, `walkLikers`,
     `feed: {...}`, …). It is deliberately opaque here: the production builder owns their
@@ -57,7 +54,7 @@ def build_workflow_config(
     """
     prod_type = _PROD_WORKFLOW_TYPES.get(workflow_type)
     if prod_type is None:
-        return _notifications_config(workflow_type, limits, probs, session_duration, filters)
+        raise ValueError(f"Unknown bench automation workflow type {workflow_type!r}")
 
     raw_config: dict = {
         "target": target,
@@ -85,10 +82,7 @@ def build_workflow_config(
         raw_config[key] = value
     if prod_type == "hashtags":
         _seed_legacy_hashtag_plan(raw_config, raw_config["limits"]["maxProfiles"])
-
-    built = build_instagram_automation_config(raw_config)
-    _apply_bench_profile_filters(built, filters or {})
-    return built
+    return raw_config
 
 
 def _seed_legacy_hashtag_plan(raw_config: dict, max_interactions: int) -> None:
@@ -131,64 +125,4 @@ def _session_payload(session_duration: int, delays: dict | None, max_consecutive
     return payload
 
 
-def _apply_bench_profile_filters(built: dict, f: dict) -> None:
-    """Re-apply the bench's profile-filter card on top of the production filters.
-
-    The production builder pins ``privacy_relation`` and emits no ``allow_*`` flags, so these
-    three toggles would become decorative the moment the bench delegates. They stay local on
-    purpose: the real pages send them too, so whether production should carry them is its own
-    question — not something to settle as a side effect of this refactor.
-    """
-    allow_private = f.get("allowPrivate", True)
-    built["filters"].update({
-        "privacy_relation": "public_and_private" if allow_private else "public",
-        "allow_private": allow_private,
-        "allow_verified": f.get("allowVerified", True),
-        "allow_business": f.get("allowBusiness", True),
-    })
-
-
-def _notifications_config(workflow_type: str, limits: dict, probs: dict, session_duration: int,
-                          filters: dict | None) -> dict:
-    """Local shape for `notifications`, which the production builder refuses by design.
-
-    Reading the activity feed belongs to the notifications ENGAGEMENT bridge, which owns its
-    own persistence and app lifecycle; `build_instagram_automation_config` raises rather than
-    turn it into a follower run. The bench still lists it as a workflow, so it keeps a config
-    of its own here instead of crashing on that guard.
-    """
-    if workflow_type != "notifications":
-        raise ValueError(f"Unknown bench workflow type {workflow_type!r}")
-
-    f = filters or {}
-    max_interactions = limits.get("maxInteractions", limits.get("maxProfiles", 3))
-    built = {
-        # Consumed shape is snake_case, like the production builder's output — `_filters_payload`
-        # above produces the camelCase INPUT and would not be read here.
-        "filters": {
-            "min_followers": f.get("minFollowers", 0),
-            "max_followers": f.get("maxFollowers", 999999999),
-            "min_followings": 0,
-            "max_followings": f.get("maxFollowing", 999999999),
-            "min_posts": f.get("minPosts", 0),
-            "blacklist_words": [],
-        },
-        "session_settings": {
-            "workflow_type": "notifications",
-            "total_profiles_limit": max_interactions,
-            "session_duration_minutes": session_duration,
-            "randomize_actions": False,
-        },
-        "actions": [{
-            "type": "notifications",
-            "max_interactions": max_interactions,
-            "like_percentage": probs.get("like", 80),
-            "follow_percentage": probs.get("follow", 0),
-            "comment_percentage": probs.get("comment", 0),
-        }],
-    }
-    _apply_bench_profile_filters(built, filters or {})
-    return built
-
-
-__all__ = ["build_workflow_config"]
+__all__ = ["build_workflow_payload"]

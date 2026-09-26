@@ -23,7 +23,10 @@
       "login",
       "register",
       "logout",
-      "change_language"
+      "change_language",
+      "switch_account",
+      "list_accounts",
+      "list_saved_accounts"
     ],
     "engagement": [
       "dm_read",
@@ -137,8 +140,9 @@
       "planned": "planned"
     },
     "overrides": {
-      "tiktok.standalone.upload_post": "task"
+      "tiktok.standalone.upload_post": "task",
+      "instagram.engagement.smart_comment": "ui"
     },
-    "_overrides_comment": "'standalone' is not a way of running, it is a leftover label: three of its four entries are runs and upload_post is a publish, i.e. a one-shot. Per-workflow overrides say so without pretending the family is homogeneous."
+    "_overrides_comment": "'standalone' is not a way of running, it is a leftover label: three of its four entries are runs and upload_post is a publish, i.e. a one-shot. Per-workflow overrides say so without pretending the family is homogeneous. instagram.engagement.smart_comment is not a run either: the standalone Smart Comment workflow was folded into Post URL, and what remains is the AI comment option (ai.smartComments) of every automation run, shown by the smartComment panel; nothing launches it on its own."
   }
 }

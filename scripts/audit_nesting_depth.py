@@ -39,19 +39,15 @@ TOLERE = {
     # Les trois que l'audit G-04 a nommees : un menu interactif, une machine a etats, un workflow
     # d'inscription. Chacune attend son filet — leurs tests couvrent les sous-commandes ou les
     # handlers, jamais les transitions elles-memes.
-    "taktik/cli/main.py::cli": 15,
+    "taktik/cli/main.py::cli": 12,
     "taktik/core/app/email/gmail/workflows/account.py::ensure_account_added": 17,
     "taktik/core/social_media/tiktok/workflows/management/signup/signup_workflow.py::execute": 12,
-    # Les sept autres au-dessus du seuil le jour ou ce garde-fou a ete pose. Les nommer plutot que
+    # Les autres au-dessus du seuil le jour ou ce garde-fou a ete pose (et pas encore redescendues). Les nommer plutot que
     # de relever le seuil : un plafond global assez haut pour les couvrir laisserait passer une
     # nouvelle fonction profonde sans rien dire.
     "taktik/core/social_media/instagram/workflows/core/config_builder.py::build_instagram_automation_config": 11,
     "taktik/core/social_media/instagram/workflows/core/workflow_runner.py::_dispatch_workflow_step": 11,
-    "taktik/core/social_media/instagram/actions/business/workflows/unfollow/workflow.py::run_unfollow_workflow": 10,
-    "taktik/cli/commands/management_cmds.py::dm_read_all": 9,
-    "taktik/core/social_media/instagram/actions/business/workflows/hashtag/mixins/post_finder.py::_extract_current_post_metadata": 9,
     "taktik/core/social_media/instagram/ui/watchdog.py::_attempt_recovery": 9,
-    "taktik/core/social_media/instagram/workflows/post_scraping/engagement_scraping.py::_scrape_comments": 9,
 }
 
 IMBRIQUANTS = (ast.If, ast.For, ast.While, ast.Try, ast.With, ast.AsyncFor, ast.AsyncWith)

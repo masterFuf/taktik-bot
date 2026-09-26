@@ -4,7 +4,9 @@ It used to take positional arguments plus eight flags (`--account`, `--package`,
 caps, `--follow-suggestions`, `--ai-config`, `--language`), parsed by hand: a value the desktop
 sent that the bridge did not know was silently dropped, and the app's config contract test could
 not follow the settings to the bot. The frozen sequence (`one_path/`) proves no gesture moved; these
-tests pin how the file is read and refused.
+tests pin how the file is read and refused. The command is read by the core launcher,
+`run_instagram_notifications`, which hands each command the host (connection, events) first;
+the package is the bridge's own, read when it connects.
 """
 import io
 import json
@@ -12,8 +14,8 @@ import sys
 
 import pytest
 
-import bridges.instagram.engagement.runtime.notifications.commands as commands
 import bridges.instagram.engagement.notifications as entry
+import taktik.core.social_media.instagram.workflows.management.notifications.commands as commands
 
 
 @pytest.fixture
@@ -21,11 +23,11 @@ def run(monkeypatch, tmp_path):
     calls = []
     for name in ("cmd_scan", "cmd_list_requests", "cmd_accept_all", "cmd_reply", "cmd_batch",
                  "cmd_accept", "cmd_ignore", "cmd_like", "cmd_follow_back"):
-        monkeypatch.setattr(commands, name, lambda *a, _n=name, **k: calls.append((_n, a, k)))
-    monkeypatch.setitem(commands._ROW_ACTIONS, "accept", commands.cmd_accept)
-    monkeypatch.setitem(commands._ROW_ACTIONS, "ignore", commands.cmd_ignore)
-    monkeypatch.setitem(commands._ROW_ACTIONS, "like", commands.cmd_like)
-    monkeypatch.setitem(commands._ROW_ACTIONS, "follow_back", commands.cmd_follow_back)
+        monkeypatch.setattr(commands, name, lambda _host, *a, _n=name, **k: calls.append((_n, a, k)))
+    monkeypatch.setitem(commands.ROW_ACTIONS, "accept", commands.cmd_accept)
+    monkeypatch.setitem(commands.ROW_ACTIONS, "ignore", commands.cmd_ignore)
+    monkeypatch.setitem(commands.ROW_ACTIONS, "like", commands.cmd_like)
+    monkeypatch.setitem(commands.ROW_ACTIONS, "follow_back", commands.cmd_follow_back)
 
     def _run(config=None, *, raw=None, args=None):
         if args is None:
@@ -53,15 +55,15 @@ def test_a_scan_takes_every_setting_from_the_file(run):
                           "packageName": "clone.pkg", "followSuggestions": 4,
                           "ai": {"enabled": True}, "language": "fr"})
     assert code == 0
-    assert calls == [("cmd_scan", ("dev", 2), {
-        "follow_suggestions": 4, "account_username": "me", "package_name": "clone.pkg",
+    assert calls == [("cmd_scan", (2,), {
+        "follow_suggestions": 4, "account_username": "me",
         "ai_config": {"enabled": True}, "language": "fr"})]
 
 
 def test_a_scan_without_settings_keeps_the_defaults(run):
     _, _, calls = run({"command": "scan", "deviceId": "dev"})
-    assert calls == [("cmd_scan", ("dev", 3), {
-        "follow_suggestions": 0, "account_username": None, "package_name": None,
+    assert calls == [("cmd_scan", (3,), {
+        "follow_suggestions": 0, "account_username": None,
         "ai_config": None, "language": "en"})]
 
 
@@ -69,8 +71,8 @@ def test_a_batch_reads_its_caps_and_its_source(run):
     actions = [{"action": "like", "username": "a"}]
     _, _, calls = run({"command": "batch", "deviceId": "dev", "actions": actions, "source": "autopilot",
                        "followBackDailyCap": -3, "welcomeDmDailyCap": "x", "followActorDailyCap": 2})
-    assert calls == [("cmd_batch", ("dev", actions), {
-        "package_name": None, "account_username": None, "source": "autopilot",
+    assert calls == [("cmd_batch", (actions,), {
+        "account_username": None, "source": "autopilot",
         "follow_back_daily_cap": 0, "welcome_dm_daily_cap": None, "follow_actor_daily_cap": 2})]
 
 
@@ -79,14 +81,14 @@ def test_a_batch_reads_its_caps_and_its_source(run):
 ])
 def test_a_row_action_goes_to_its_verb(run, command, target):
     _, _, calls = run({"command": command, "deviceId": "dev", "username": "u", "accountUsername": "me"})
-    assert calls == [(target, ("dev", "u"), {"package_name": None, "account_username": "me"})]
+    assert calls == [(target, ("u",), {"account_username": "me"})]
 
 
 def test_the_counts_of_list_requests_and_accept_all(run):
     run({"command": "list_requests", "deviceId": "dev", "limit": 20})
     _, _, calls = run({"command": "accept_all", "deviceId": "dev", "max": 7})
-    assert calls[0] == ("cmd_list_requests", ("dev", 20), {"package_name": None})
-    assert calls[1][0:2] == ("cmd_accept_all", ("dev", 7))
+    assert calls[0] == ("cmd_list_requests", (20,), {})
+    assert calls[1][0:2] == ("cmd_accept_all", (7,))
 
 
 @pytest.mark.parametrize("config,error", [

@@ -1,34 +1,25 @@
-"""TikTok account login workflow adapter."""
+"""TikTok account login adapter (the run is the core's `run_tiktok_account`)."""
 
-from bridges.tiktok.runtime.ipc import _ipc, send_error, send_log, send_message, send_status
+from bridges.tiktok.runtime.ipc import send_error, send_log, send_message, send_status
+from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+    TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID,
+)
 
 
 class TikTokAccountLoginMixin:
     """Run TikTok account login from the bridge payload."""
 
     def _run_login(self, device) -> int:
-        username = self.config.get("username", "")
-        password = self.config.get("password", "")
-        save_session = self.config.get("saveSession", True)
-        max_retries = self.config.get("maxRetries", 3)
-
-        if not username or not password:
-            send_error("username and password are required for login")
+        params = self._account_params(TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID)
+        if params is None:
             return 1
+        username = params["username"]
 
         send_status("running", f"Starting login for @{username}...")
         send_log("info", f"Login workflow - @{username}")
 
         try:
-            from taktik.core.social_media.tiktok.workflows.management.login.login_workflow import TikTokLoginWorkflow
-
-            workflow = TikTokLoginWorkflow(device, self.device_id, notifier=_ipc)
-            result = workflow.execute(
-                username=username,
-                password=password,
-                max_retries=max_retries,
-                save_session=save_session,
-            )
+            result = self._launch_account(device, TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID, params)
             outcome = "success" if result["success"] else "error"
             send_status(outcome, result.get("message", ""))
             send_message(

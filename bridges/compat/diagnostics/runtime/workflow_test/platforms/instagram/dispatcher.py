@@ -3,8 +3,8 @@
 from loguru import logger
 
 from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.automation import (
-    build_workflow_config,
-    instrument_workflow_runner,
+    build_workflow_payload,
+    trace_workflow_steps,
 )
 from bridges.compat.diagnostics.runtime.workflow_test.config.catalog import (
     INSTAGRAM_AUTOMATION_WF,
@@ -13,6 +13,7 @@ from bridges.compat.diagnostics.runtime.workflow_test.config.catalog import (
     INSTAGRAM_SCRAPING_WF,
 )
 from bridges.compat.diagnostics.runtime.workflow_test.contracts.dispatch import WorkflowDispatchResult
+from bridges.compat.diagnostics.runtime.workflow_test.execution.not_wired import not_wired
 from bridges.compat.diagnostics.runtime.workflow_test.observability import set_active_watchdog
 from bridges.compat.diagnostics.runtime.workflow_test.execution.runners import (
     run_instagram_dm,
@@ -31,7 +32,6 @@ def dispatch_instagram_workflow(
     delays: dict | None,
     conn,
     device,
-    automation,
     tracer,
     ipc,
     filters: dict | None = None,
@@ -41,6 +41,13 @@ def dispatch_instagram_workflow(
 ) -> WorkflowDispatchResult:
     """Dispatch an Instagram workflow family while preserving compat IPC events."""
     result = WorkflowDispatchResult()
+
+    if workflow_type == "notifications":
+        # Not an automation step (the engine has none): the notifications run has its own
+        # launcher, whose connection is the notifications bridge's.
+        result.success = not_wired(ipc, "notifications",
+                                   "run_instagram_notifications (instagram.engagement.notifications)")
+        return result
 
     if workflow_type in INSTAGRAM_AUTOMATION_WF:
         result.watchdog = _run_instagram_automation(
@@ -54,7 +61,7 @@ def dispatch_instagram_workflow(
             max_consecutive_known=max_consecutive_known,
             behavior_policy=behavior_policy,
             options=options,
-            automation=automation,
+            conn=conn,
             device=device,
             tracer=tracer,
             ipc=ipc,
@@ -92,7 +99,7 @@ def _run_instagram_automation(
     probabilities: dict,
     session_duration: int,
     delays: dict | None,
-    automation,
+    conn,
     device,
     tracer,
     ipc,
@@ -101,12 +108,13 @@ def _run_instagram_automation(
     behavior_policy: dict | None = None,
     options: dict | None = None,
 ):
-    workflow_config = build_workflow_config(
+    from taktik.core.social_media.instagram.workflows.core.agent_handler import run_instagram_automation
+
+    payload = build_workflow_payload(
         workflow_type, target, limits, probabilities, session_duration, delays,
         filters=filters, max_consecutive_known=max_consecutive_known,
         behavior_policy=behavior_policy, options=options,
     )
-    automation.config = workflow_config
 
     watchdog = None
     try:
@@ -125,8 +133,12 @@ def _run_instagram_automation(
     except Exception as exc:
         logger.warning(f"[WorkflowTest] Could not start watchdog (non-fatal): {exc}")
 
-    instrument_workflow_runner(automation, tracer, ipc)
-    automation.run_workflow()
+    # The production launcher, as a page run calls it; the session already restarted the app.
+    run_instagram_automation(
+        payload,
+        device_manager=conn.device_manager,
+        step_hook=trace_workflow_steps(tracer, ipc),
+    )
     return watchdog
 
 

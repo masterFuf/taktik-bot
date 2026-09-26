@@ -37,6 +37,25 @@ def cli_tiktok_startup(device: Any, device_id: str) -> Callable[..., Any]:
     return start
 
 
+def cli_tiktok_account_app(device_manager: Any, device_id: str) -> Callable[[Optional[str]], Any]:
+    """App provider of the account flows: the bridges' app service, on the CLI's connected device,
+    so the clean restart is the account bridge's."""
+
+    def app_for(package_name: Optional[str]):
+        from types import SimpleNamespace
+
+        from bridges.common.device.app_manager import AppService
+
+        connection = SimpleNamespace(
+            device_manager=device_manager,
+            device=getattr(device_manager, "device", None),
+            device_id=device_id,
+        )
+        return AppService(connection, platform="tiktok", package_override=package_name)
+
+    return app_for
+
+
 def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
     """The run's `ai` block with a key, the CLI's if the run brings none; None when AI is off or no
     key is available."""
@@ -101,6 +120,7 @@ def cli_tiktok_outreach_message_generator(ai_prompt: str, api_key: str):
 
 __all__ = [
     "OPENROUTER_KEY_ENV",
+    "cli_tiktok_account_app",
     "cli_tiktok_ai_hooks",
     "cli_tiktok_outreach_message_generator",
     "cli_tiktok_startup",

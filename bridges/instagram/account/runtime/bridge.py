@@ -11,7 +11,7 @@ from bridges.instagram.runtime.ipc import _ipc, send_error, send_status
 
 
 class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
-    """Bridge for Instagram account management (login / register / logout)."""
+    """Bridge for Instagram account management; each flow runs through `run_instagram_account`."""
 
     def __init__(self, config: dict):
         self.config = config
@@ -19,6 +19,7 @@ class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
         self.workflow_type = config.get("workflowType")
         self.package_name = config.get("packageName")
         self._connection = None
+        self._app = None
 
         setup_signal_handlers(ipc=_ipc)
         signal.signal(signal.SIGTERM, self._shutdown)

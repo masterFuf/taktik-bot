@@ -13,7 +13,9 @@ a relaunch every single time.
 
 import pytest
 
-from bridges.instagram.engagement.runtime.notifications import commands
+from taktik.core.social_media.instagram.workflows.management.notifications import commands
+
+HOST = commands.NotificationsHost(connect=lambda restart: None, emit=lambda payload: None)
 
 
 class _Bridge:
@@ -46,7 +48,6 @@ def _spy(monkeypatch):
     import taktik.core.social_media.instagram.actions.atomic.navigation as nav_mod
     monkeypatch.setattr(profile_mod, 'ProfileBusiness', _Profile)
     monkeypatch.setattr(nav_mod, 'NavigationActions', _Nav)
-    monkeypatch.setattr(commands, 'emit_notif_step', lambda **kw: None)
     return calls
 
 
@@ -55,7 +56,7 @@ _spy.profile = {'username': 'own.account', 'followers_count': 648}
 
 def test_the_own_profile_is_read_then_the_feed_is_handed_back(_spy):
     """`username=None` is what makes it the OWN profile tab rather than a search."""
-    commands._refresh_own_account(_Bridge(), None)
+    commands._refresh_own_account(HOST, _Bridge(), None)
     assert _spy == [
         'ProfileBusiness',
         'own_profile(username=None, navigate=True)',
@@ -64,12 +65,12 @@ def test_the_own_profile_is_read_then_the_feed_is_handed_back(_spy):
 
 
 def test_the_account_read_on_screen_is_used_when_the_front_sent_none(_spy):
-    assert commands._refresh_own_account(_Bridge(), None) == 'own.account'
+    assert commands._refresh_own_account(HOST, _Bridge(), None) == 'own.account'
 
 
 def test_the_front_keeps_deciding_when_it_knows_the_account(_spy):
     """Pure addition: a caller that already knows the account is not overruled."""
-    assert commands._refresh_own_account(_Bridge(), 'cca_gzk') == 'cca_gzk'
+    assert commands._refresh_own_account(HOST, _Bridge(), 'cca_gzk') == 'cca_gzk'
 
 
 def test_a_failed_profile_read_still_hands_the_feed_back(monkeypatch, _spy):
@@ -86,7 +87,7 @@ def test_a_failed_profile_read_still_hands_the_feed_back(monkeypatch, _spy):
 
     monkeypatch.setattr(profile_mod, 'ProfileBusiness', _Broken)
 
-    assert commands._refresh_own_account(_Bridge(), 'cca_gzk') == 'cca_gzk'
+    assert commands._refresh_own_account(HOST, _Bridge(), 'cca_gzk') == 'cca_gzk'
     assert 'navigate_to_home' in _spy
 
 
@@ -101,4 +102,4 @@ def test_an_unreadable_profile_does_not_invent_an_account(monkeypatch, _spy):
             return None
 
     monkeypatch.setattr(profile_mod, 'ProfileBusiness', _Empty)
-    assert commands._refresh_own_account(_Bridge(), None) is None
+    assert commands._refresh_own_account(HOST, _Bridge(), None) is None

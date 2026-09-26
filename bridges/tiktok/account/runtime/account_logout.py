@@ -1,6 +1,9 @@
-"""TikTok account logout workflow adapter."""
+"""TikTok account logout adapter (the run is the core's `run_tiktok_account`)."""
 
-from bridges.tiktok.runtime.ipc import _ipc, send_error, send_log, send_message, send_status
+from bridges.tiktok.runtime.ipc import send_error, send_log, send_message, send_status
+from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+    TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID,
+)
 
 
 class TikTokAccountLogoutMixin:
@@ -11,10 +14,7 @@ class TikTokAccountLogoutMixin:
         send_log("info", "Logout workflow")
 
         try:
-            from taktik.core.social_media.tiktok.workflows.management.logout.logout_workflow import TikTokLogoutWorkflow
-
-            workflow = TikTokLogoutWorkflow(device, self.device_id, notifier=_ipc)
-            result = workflow.execute()
+            result = self._launch_account(device, TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID, {})
             outcome = "success" if result["success"] else "error"
             send_status(outcome, result.get("message", ""))
             send_message(

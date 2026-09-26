@@ -1,73 +1,30 @@
-"""AI qualification for the notifications bridge.
+"""The AI service the desktop's notifications pass qualifies its visited profiles with.
 
-Qualification is not an explicit call in the per-profile pipeline: it is installed
-by ``install_instagram_ai_hooks``, which patches
-``InteractionEngineMixin._perform_interactions_on_profile``. Walking the pipeline
-is therefore enough to trigger it, provided a service was injected.
-
-Without an AI config the visit still extracts, persists and follows, but profiles
-are not qualified — and this module says so in the logs, because a missing
-qualification is indistinguishable from an empty one once stored.
+The qualification itself (hooks, decision mode, fallbacks) is the core's
+(`management/notifications/ai.py`); the bridge only builds the service, without spend
+reporting: nothing on the desktop side reads it for this pass.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from bridges.instagram.runtime.ai import create_instagram_ai_service
 from bridges.instagram.runtime.ipc import _ipc, logger
 
 
 def _log(level: str, message: str) -> None:
-    """Log adapter for the core: stderr/loguru, never stdout.
-
-    stdout carries the bridge's JSON contract (``notification_step`` / ``result``);
-    adding narration there would corrupt it.
-    """
+    """Log adapter: stderr/loguru, never stdout (the bridge's JSON contract)."""
     getattr(logger, level if level in ("info", "warning", "error", "debug") else "info")(
         f"[NOTIF-AI] {message}"
     )
 
 
-def install_notifications_ai_hooks(*, ai_config: dict | None, device: Any,
-                                   language: str = "en") -> bool:
-    """Install the per-profile pipeline's AI qualification. True when active.
-
-    Best-effort: an unavailable service must never fail the pass — it is announced
-    and the run continues without qualification.
-    """
-    ai_config = ai_config or {}
-    if not ai_config:
-        logger.info("[NOTIF-AI] Aucune config IA fournie: les profils visites ne seront pas qualifies")
-        return False
-    if device is None:
-        logger.warning("[NOTIF-AI] Pas de device: qualification IA desactivee")
-        return False
-
-    # No `ai_spend`: nothing on the desktop side reads it for this pass.
-    enabled, service = create_instagram_ai_service(ai_config=ai_config, ipc=_ipc, log=_log,
+def notifications_ai_service(ai_config: Mapping[str, Any]):
+    """The service the pass asks for, or None when AI is off or unavailable."""
+    enabled, service = create_instagram_ai_service(ai_config=dict(ai_config), ipc=_ipc, log=_log,
                                                    report_spend=False)
-    decision_mode = (ai_config.get("decision") or {}).get("mode") == "decide"
-    if not ((enabled and service) or decision_mode):
-        logger.info("[NOTIF-AI] IA non activee dans la config: profils visites non qualifies")
-        return False
-
-    try:
-        from taktik.core.social_media.instagram.workflows.core.ai_hooks import (
-            install_instagram_ai_hooks,
-        )
-
-        install_instagram_ai_hooks(
-            ai=service,
-            ai_config=ai_config,
-            device=device,
-            language=language,
-            log=_log,
-        )
-        return True
-    except Exception as exc:  # noqa: BLE001 — never fatal
-        logger.warning(f"[NOTIF-AI] Installation des hooks IA impossible: {exc}")
-        return False
+    return service if enabled else None
 
 
-__all__ = ["install_notifications_ai_hooks"]
+__all__ = ["notifications_ai_service"]

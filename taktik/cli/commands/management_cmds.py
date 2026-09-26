@@ -1,5 +1,4 @@
 import click
-import time
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -27,105 +26,75 @@ def auth():
 @click.option('--save-session/--no-save-session', default=True, help="Sauvegarder la session après connexion (système Taktik)")
 @click.option('--save-instagram-login/--no-save-instagram-login', default=False, help="Sauvegarder les infos de login dans Instagram")
 def login_instagram(device_id, username, password, save_session, save_instagram_login):
-    """Log in to an Instagram account."""
-    from taktik.core.social_media.instagram.workflows.management.login.login_workflow import LoginWorkflow
-    import uiautomator2 as u2
+    """Log in to an Instagram account, as the desktop does (`instagram.account.login`)."""
     from getpass import getpass
-    
+    from taktik.cli.common.instagram_host import run_instagram_account_payload
+
     console.print(Panel.fit("[bold green]🔐 Connexion à Instagram[/bold green]"))
-    
-    # Pick the device
-    if not device_id:
-        devices = DeviceManager.list_devices()
-        if not devices:
-            console.print("[red]❌ Aucun appareil connecté.[/red]")
-            console.print("[blue]💡 Assurez-vous que l'appareil est connecté et que ADB est configuré.[/blue]")
-            return
-        device_id = devices[0]['id']
-        console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
-    
-    # Ask for the username when not provided
+
+    manager, device_id = _dm_device(device_id)
+    if not InstagramManager(device_id).is_installed():
+        console.print("[red]❌ Instagram n'est pas installé sur cet appareil.[/red]")
+        return
+
     if not username:
         username = Prompt.ask("[cyan]👤 Nom d'utilisateur, email ou numéro de téléphone[/cyan]")
-    
-    # Ask for the password securely when not provided
     if not password:
         password = getpass("🔑 Mot de passe: ")
-    
     if not username or not password:
         console.print("[red]❌ Username et password requis.[/red]")
         return
-    
+
+    console.print(f"\n[cyan]👤 Username:[/cyan] {username}")
+    console.print(f"[cyan]💾 Save session (Taktik):[/cyan] {'Yes' if save_session else 'No'}")
+    console.print(f"[cyan]💾 Save login info (Instagram):[/cyan] {'Yes' if save_instagram_login else 'No'}\n")
+
+    payload = {
+        "username": username,
+        "password": password,
+        "maxRetries": 3,
+        "saveSession": save_session,
+        "saveLoginInfoInstagram": save_instagram_login,
+    }
     try:
-        # Connect to the device
-        console.print(f"[blue]📱 Connexion au device {device_id}...[/blue]")
-        device = u2.connect(device_id)
-        
-        # Check Instagram is installed
-        instagram_manager = InstagramManager(device_id)
-        if not instagram_manager.is_installed():
-            console.print("[red]❌ Instagram n'est pas installé sur cet appareil.[/red]")
-            return
-        
-        # Launch Instagram when not already running
-        console.print("[blue]📱 Lancement d'Instagram...[/blue]")
-        instagram_manager.launch()
-        time.sleep(3)  # Wait for the app to start
-        
-        # Build the login workflow
-        login_workflow = LoginWorkflow(device, device_id)
-        
-        # Show the information
-        console.print(f"\n[cyan]👤 Username:[/cyan] {username}")
-        console.print(f"[cyan]💾 Save session (Taktik):[/cyan] {'Yes' if save_session else 'No'}")
-        console.print(f"[cyan]💾 Save login info (Instagram):[/cyan] {'Yes' if save_instagram_login else 'No'}\n")
-        
-        # Run the login
+        # Clean restart, then the login: the desktop's account launcher.
         with console.status("[bold yellow]🔄 Connexion en cours...[/bold yellow]", spinner="dots"):
-            result = login_workflow.execute(
-                username=username,
-                password=password,
-                max_retries=3,
-                save_session=save_session,
-                use_saved_session=True,
-                save_login_info_instagram=save_instagram_login
-            )
-        
-        # Show the result
-        console.print()
-        if result['success']:
-            console.print(Panel.fit(
-                f"[bold green]✅ Connexion réussie ![/bold green]\n\n"
-                f"[cyan]👤 Username:[/cyan] {result['username']}\n"
-                f"[cyan]🔄 Tentatives:[/cyan] {result['attempts']}\n"
-                f"[cyan]💾 Session sauvegardée:[/cyan] {'Oui' if result['session_saved'] else 'Non'}",
-                title="[bold green]Succès[/bold green]",
-                border_style="green"
-            ))
-        else:
-            console.print(Panel.fit(
-                f"[bold red]❌ Échec de la connexion[/bold red]\n\n"
-                f"[cyan]👤 Username:[/cyan] {result['username']}\n"
-                f"[cyan]🔄 Tentatives:[/cyan] {result['attempts']}\n"
-                f"[cyan]❌ Erreur:[/cyan] {result['message']}\n"
-                f"[cyan]🏷️ Type d'erreur:[/cyan] {result['error_type'] or 'unknown'}",
-                title="[bold red]Échec[/bold red]",
-                border_style="red"
-            ))
-            
-            # Hints depending on the error type
-            if result['error_type'] == 'credentials_error':
-                console.print("\n[yellow]💡 Vérifiez vos identifiants et réessayez.[/yellow]")
-            elif result['error_type'] == '2fa_required':
-                console.print("\n[yellow]💡 2FA requis - Cette fonctionnalité sera bientôt disponible.[/yellow]")
-            elif result['error_type'] == 'suspicious_login':
-                console.print("\n[yellow]💡 Instagram a détecté une connexion inhabituelle.[/yellow]")
-                console.print("[yellow]   Essayez de vous connecter manuellement d'abord.[/yellow]")
-    
-    except Exception as e:
-        console.print(f"\n[bold red]❌ Erreur inattendue: {e}[/bold red]")
-        import traceback
-        console.print(f"[dim]{traceback.format_exc()}[/dim]")
+            result = run_instagram_account_payload(manager, device_id, "instagram.account.login", payload)
+    except Exception as e:  # noqa: BLE001 - a failed run reports, not tracebacks
+        console.print(f"\n[bold red]❌ Erreur inattendue: {type(e).__name__}: {e}[/bold red]")
+        return
+
+    console.print()
+    if result.get('success'):
+        console.print(Panel.fit(
+            f"[bold green]✅ Connexion réussie ![/bold green]\n\n"
+            f"[cyan]👤 Username:[/cyan] {result.get('username', username)}\n"
+            f"[cyan]🔄 Tentatives:[/cyan] {result.get('attempts', '?')}\n"
+            f"[cyan]💾 Session sauvegardée:[/cyan] {'Oui' if result.get('session_saved') else 'Non'}",
+            title="[bold green]Succès[/bold green]",
+            border_style="green"
+        ))
+        return
+
+    console.print(Panel.fit(
+        f"[bold red]❌ Échec de la connexion[/bold red]\n\n"
+        f"[cyan]👤 Username:[/cyan] {result.get('username', username)}\n"
+        f"[cyan]🔄 Tentatives:[/cyan] {result.get('attempts', '?')}\n"
+        f"[cyan]❌ Erreur:[/cyan] {result.get('message', '')}\n"
+        f"[cyan]🏷️ Type d'erreur:[/cyan] {result.get('error_type') or 'unknown'}",
+        title="[bold red]Échec[/bold red]",
+        border_style="red"
+    ))
+
+    # Hints depending on the error type
+    error_type = result.get('error_type')
+    if error_type == 'credentials_error':
+        console.print("\n[yellow]💡 Vérifiez vos identifiants et réessayez.[/yellow]")
+    elif error_type == '2fa_required':
+        console.print("\n[yellow]💡 2FA requis - Cette fonctionnalité sera bientôt disponible.[/yellow]")
+    elif error_type == 'suspicious_login':
+        console.print("\n[yellow]💡 Instagram a détecté une connexion inhabituelle.[/yellow]")
+        console.print("[yellow]   Essayez de vous connecter manuellement d'abord.[/yellow]")
 
 # ==================== DM GROUP ====================
 

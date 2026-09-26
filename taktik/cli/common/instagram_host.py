@@ -88,6 +88,10 @@ class CliInstagramHost:
         self.app = self._app_for(package_name)
         return start_instagram_session(self.app)
 
+    def account_app(self, package_name: Optional[str]):
+        """The app lifecycle an account flow restarts, or keeps on its current screen."""
+        return self._app_for(package_name)
+
     def installed_version(self) -> Optional[str]:
         """The installed Instagram version, for the selector overrides."""
         app = self.app or self._app_for(None)
@@ -130,6 +134,18 @@ class CliInstagramHost:
         runtime = _on_connected_device(DMBridge(self.device_id, package_name=package_name),
                                        self.device_manager, self.device_id)
         runtime.dm_events = _log_dm_event
+        return runtime
+
+    def notifications_runtime(self, package_name: Optional[str], restart: bool):
+        """The notifications bridge's runtime (`NotificationsBridge`: the bridges' Instagram
+        device, clone-aware, and its clean restart), on the device the CLI already connected;
+        Instagram restarted first when the command asks for it (a scan)."""
+        from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
+
+        runtime = _on_connected_device(NotificationsBridge(self.device_id, package_name=package_name),
+                                       self.device_manager, self.device_id)
+        if restart:
+            runtime.restart_instagram()
         return runtime
 
 
@@ -239,6 +255,12 @@ def run_instagram_dm_payload(device_manager: Any, device_id: str, workflow_id: s
     return _run_through_handler(device_manager, device_id, workflow_id, payload)
 
 
+def run_instagram_account_payload(device_manager: Any, device_id: str, workflow_id: str,
+                                  payload: Mapping[str, Any]) -> dict:
+    """Run an account flow (`instagram.account.login`, `logout`, `change_language`...)."""
+    return _run_through_handler(device_manager, device_id, workflow_id, payload)
+
+
 def run_instagram_cold_dm_payload(device_manager: Any, device_id: str, payload: Mapping[str, Any]) -> dict:
     """Run a Cold DM page payload (`instagram.engagement.coldDm`)."""
     return _run_through_handler(device_manager, device_id, "instagram.engagement.coldDm", payload)
@@ -252,6 +274,7 @@ __all__ = [
     "cli_instagram_scraping_ai_service",
     "cli_openrouter_key",
     "is_internal_workflow_format",
+    "run_instagram_account_payload",
     "run_instagram_cold_dm_payload",
     "run_instagram_dm_payload",
     "run_instagram_payload",
