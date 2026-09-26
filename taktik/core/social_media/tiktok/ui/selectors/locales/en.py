@@ -63,8 +63,15 @@ STRINGS: Dict[str, List[str]] = {
         "/following::android.widget.Button[starts-with(@content-desc, \"@\")][1]",
         "//android.widget.Button[contains(@content-desc, \"Post\")]",
     ],
+    # Second entry mirrors the French one (unlabelled close control beside the count header);
+    # no English sheet of 46.6.3 or later is captured.
     "comment.close_button": [
         "//*[@content-desc=\"Close\"][@clickable=\"true\"]",
+        "//android.widget.TextView[contains(@text, \" comment\")]"
+        "[string-length(translate(@text, \"‎‏\", \"\")) < 24]"
+        "[contains(\"0123456789\", substring(translate(@text, \"‎‏\", \"\"), 1, 1))]"
+        "/ancestor::*[@clickable=\"true\"][1]/following-sibling::*"
+        "//android.widget.ImageView[@clickable=\"true\"]",
     ],
     "comment.comment_count_header": [
         "//android.widget.TextView[contains(@text, \"comment\")]",
@@ -396,6 +403,11 @@ STRINGS: Dict[str, List[str]] = {
     "popup.comments_close_button": [
         "//*[contains(@resource-id, \":id/dqh\")][@content-desc=\"Close\"]",
         "//android.widget.ImageView[@content-desc=\"Close\"]",
+        "//android.widget.TextView[contains(@text, \" comment\")]"
+        "[string-length(translate(@text, \"‎‏\", \"\")) < 24]"
+        "[contains(\"0123456789\", substring(translate(@text, \"‎‏\", \"\"), 1, 1))]"
+        "/ancestor::*[@clickable=\"true\"][1]/following-sibling::*"
+        "//android.widget.ImageView[@clickable=\"true\"]",
     ],
     # "Got it" closes the in-conversation sticker interstitial; see the note in fr.py.
     "popup.dismiss_button": [
@@ -425,8 +437,14 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.Button[@text=\"Not now\"]",
         "//*[@text=\"Not now\"][@clickable=\"true\"]",
     ],
+    # Same shape as the French entry (sender's text and « Reply » label in different children of
+    # one row). No English banner is captured: « sent you » is the wording the catalogue already
+    # carried. The former entry, any clickable « Reply », answered on the English comment sheet.
     "popup.notification_banner": [
-        "//*[contains(@text, \"Reply\")][@clickable=\"true\"]",
+        "//*[*[.//android.widget.TextView[@text=\"Reply\"]]"
+        "[not(.//android.widget.TextView[contains(@text, \"sent you\")])]"
+        " and *[.//android.widget.TextView[contains(@text, \"sent you\")]]"
+        "[not(.//android.widget.TextView[@text=\"Reply\"])]]",
     ],
     "popup.notification_popup": [
         "//*[contains(@text, \"Allow\")]",

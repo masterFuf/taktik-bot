@@ -5,12 +5,18 @@ Extracted from click_actions.py — contains only popup-related actions
 
 """
 
+import time
+
 from loguru import logger
 
 from ...core.base_action import BaseAction
+from ...core.utils import first_matching
 from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from ....ui.selectors.shell.popups import POPUP_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
+
+#: The message banner sits at the top (measured bottom edge: 15 % of the screen height).
+_BANNER_MAX_BOTTOM_RATIO = 0.25
 
 
 class PopupActions(BaseAction):
@@ -115,38 +121,35 @@ class PopupActions(BaseAction):
         # Fallback to generic close
         return self.close_popup()
     
-    def dismiss_notification_banner(self, force_swipe: bool = False) -> bool:
-        """Dismiss notification banner by swiping it away.
-        
-        This banner appears at top: "X sent you new messages" with Reply button.
-        We need to dismiss it to avoid accidentally clicking on it.
-        
-        Args:
-            force_swipe: If True, swipe the top area even if banner is not detected
-                         (useful as a preventive measure before critical clicks).
+    def dismiss_notification_banner(self) -> bool:
+        """Swipe away the in-app message banner ("X t'a envoyé ..." beside its « Répondre »).
+
+        Only a banner the catalogue recognises, lying in the top quarter of the screen: the
+        gesture is a swipe up from its middle, and made over anything else it drags a list or a
+        sheet. Returns True only when that banner was there and the swipe was made.
         """
-        self.logger.debug("🔔 Trying to dismiss notification banner")
-        
-        detected = self._element_exists(self.popup_selectors.notification_banner, timeout=0.5)
-        
-        if detected or force_swipe:
-            if detected:
-                self.logger.warning("⚠️ Notification banner detected, swiping away...")
-            else:
-                self.logger.debug("🔔 Preventive swipe on notification area")
-            
-            # Swipe the banner upward to dismiss it
-            try:
-                w, h = self.device.get_screen_size()
-                # Swipe from top area upward to dismiss the banner
-                self.device.swipe_coordinates(w // 2, int(h * 0.08), w // 2, 0, duration=0.15)
-                import time
-                time.sleep(0.5)
-            except Exception as e:
-                self.logger.debug(f"Swipe dismiss failed: {e}")
-            return True
-        
-        return False
+        found = first_matching(self.device, self.popup_selectors.notification_banner)
+        if not found:
+            return False
+        try:
+            left, top, right, bottom = (int(value) for value in found[0].bounds)
+            _width, height = self.device.get_screen_size()
+        except Exception as e:
+            self.logger.debug(f"Banner position unreadable, not swiped: {e}")
+            return False
+        if not height or bottom > height * _BANNER_MAX_BOTTOM_RATIO:
+            self.logger.debug("Banner candidate is not at the top of the screen, not swiped")
+            return False
+
+        self.logger.warning("⚠️ Notification banner detected, swiping away...")
+        x, y = (left + right) // 2, (top + bottom) // 2
+        try:
+            self.device.swipe_coordinates(x, y, x, 0, duration=0.15)
+        except Exception as e:
+            self.logger.debug(f"Swipe dismiss failed: {e}")
+            return False
+        time.sleep(0.5)
+        return True
     
     def escape_inbox_page(self) -> bool:
         """Escape from Inbox page back to the For You feed.

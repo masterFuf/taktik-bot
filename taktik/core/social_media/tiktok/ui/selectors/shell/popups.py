@@ -101,15 +101,12 @@ class PopupSelectors:
         return self._promo_close_button_base + L("popup.promo_close_button")
 
     # === Notification banner (messages from users) ===
-    _notification_banner_base: List[str] = field(default_factory=lambda: [
-        '//*[contains(@text, "sent you new messages")]',
-        '//*[contains(@text, "sent you a message")]',
-        '//*[contains(@text, "vous a envoyé")]',
-    ])
-
+    # Language-specific shape, in the locales only. The three texts this held (« sent you new
+    # messages », « sent you a message », « vous a envoyé ») matched none of the captures, the
+    # real French banners included (« t'ont envoyé de nouveaux messages. »).
     @property
     def notification_banner(self) -> List[str]:
-        return self._notification_banner_base + L("popup.notification_banner")
+        return L("popup.notification_banner")
 
     # === Inbox page detection ===
     _inbox_page_indicator_base: List[str] = field(default_factory=lambda: [
