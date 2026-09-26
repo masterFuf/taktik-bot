@@ -294,42 +294,50 @@ class StoryBusiness(BaseBusinessAction):
 
                     # Like this slide if it's one of the planned (varied) positions.
                     if current_username and story_index in like_slots:
-                        if self.click_actions.like_story():
-                            likes_done += 1
-                            stats['stories_liked'] += 1
-                            self._record_action(current_username, 'STORY_LIKE', 1)
-                        # "Try again later" right after the like, before the next tap: the
+                        liked = self.click_actions.like_story()
+                        # "Try again later" right after the like, before it is counted: the
                         # first refusal ends the tray (same look as the profile story loop).
                         if self._stop_if_action_blocked(current_username, 'story like'):
                             refused = True
                             break
+                        if liked:
+                            likes_done += 1
+                            stats['stories_liked'] += 1
+                            self._record_action(current_username, 'STORY_LIKE', 1)
 
                     # One reaction, on the planned slide only.
                     if (current_username and react_slots and not reacted_this
                             and story_index in react_slots):
-                        if self.click_actions.react_to_story(
+                        reacted = self.click_actions.react_to_story(
                             reaction=config.get('reaction'),
                             emoji_index=config.get('reaction_index'),
-                        ):
-                            reacted_this = True
-                            stats['stories_reacted'] += 1
-                            self._record_action(current_username, 'STORY_REACTION', 1)
+                        )
                         if self._stop_if_action_blocked(current_username, 'story reaction'):
                             refused = True
                             break
+                        if reacted:
+                            reacted_this = True
+                            stats['stories_reacted'] += 1
+                            self._record_action(current_username, 'STORY_REACTION', 1)
 
                     if story_index < max_stories - 1:
                         if not self.nav_actions.navigate_to_next_story(settle=False):
                             # Last slide early: if likes were planned but none landed, leave one.
                             if current_username and like_slots and likes_done == 0:
-                                if self.click_actions.like_story():
+                                liked = self.click_actions.like_story()
+                                if self._stop_if_action_blocked(current_username, 'story like'):
+                                    refused = True
+                                elif liked:
                                     likes_done += 1
                                     stats['stories_liked'] += 1
                                     self._record_action(current_username, 'STORY_LIKE', 1)
-                                if self._stop_if_action_blocked(current_username, 'story like'):
-                                    refused = True
                             break
                         self._wait_after_story_advance(config)
+
+                if refused:
+                    # The dialog stays: closing the viewer would close it, which is acting again.
+                    stats['stop_reason'] = 'action_blocked'
+                    break
 
                 # Robust close: swipe-down (a back press is unreliable / can be swallowed by
                 # an overlay); fall back to back only if the viewer is still open.

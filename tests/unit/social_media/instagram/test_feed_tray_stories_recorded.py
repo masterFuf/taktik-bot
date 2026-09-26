@@ -104,3 +104,27 @@ def test_the_tray_reads_a_lock_set_elsewhere():
     story.view_feed_stories()
 
     assert story.opened == [] and story.gestures == []
+
+
+def test_a_refused_like_is_not_filed_and_the_viewer_stays_open():
+    """The like was filed before the look, and the viewer closed after it: a refused gesture
+    counted, then a swipe that closes the dialog, which is acting again."""
+    story = _story(['alice', 'bob'], blocked_after=1)
+    closed = []
+    story.click_actions.close_story = lambda: closed.append(True)
+
+    stats = story.view_feed_stories()
+
+    assert ('alice', 'STORY_LIKE') not in story.rows
+    assert stats['stories_liked'] == 0
+    assert closed == []
+    assert stats['stop_reason'] == 'action_blocked'
+
+
+def test_a_refused_reaction_is_not_filed():
+    story = _story(['alice'], blocked_after=2)
+
+    stats = story.view_feed_stories()
+
+    assert story.gestures == ['like', 'react']
+    assert ('alice', 'STORY_REACTION') not in story.rows and stats['stories_reacted'] == 0
