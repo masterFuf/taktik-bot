@@ -13,11 +13,15 @@ hint but is not clickable.
 Screens: extracts of captures (43.1.4 and 46.6.3 sheets, full, empty and with typed text; the
 English sheet of 43.1.4; the video page of 47.0.3), anonymized: structure, ids and bounds of the
 capture, comment rows left out. `_next_build` renames the build ids the way a version bump does.
+And one whole dump: the 47.0.3 sheet as a phone showed it (`fixtures/tt4703_fr_comment_sheet.xml`,
+anonymized: invented names, comments and counts, no system bar). Its close control carries no
+label at all and its header reads « ‎N commentaires ».
 Evaluated by uiautomator2's own `d.xpath()` engine through `first_matching`, as
 `CommentActions.is_comment_sheet_open` reads it.
 """
 
 import re
+from pathlib import Path
 
 import pytest
 from uiautomator2.xpath import XPathEntry
@@ -154,6 +158,26 @@ def test_a_sheet_whose_build_ids_moved_is_still_open(french, xml):
     """Panel ids gone: the full sheet, the empty one (no count header) and the one with typed text
     (the hint is gone) are each seen by one half of the route."""
     assert _open(_next_build(xml))
+
+
+SHEET_4703 = (Path(__file__).parents[1] / "fixtures" / "tt4703_fr_comment_sheet.xml").read_text(
+    encoding="utf-8")
+
+
+def test_the_47_0_3_sheet_is_open(french):
+    """No panel id of the base, no labelled close control: the count header answers, read
+    through its U+200E, with the sheet's composer clickable on screen."""
+    found = first_matching(_Device(SHEET_4703), COMMENT_SELECTORS.sheet_indicator)
+    assert found and found[0].attrib.get("resource-id") == ID + "wk7"
+
+
+def test_the_47_0_3_screen_without_a_clickable_composer_is_not_a_sheet(french):
+    """The same screen with its composer in the state of the video page's bar (same id `ejs`,
+    not clickable): the header alone does not make it a sheet."""
+    bar = re.sub(r'(resource-id="[^"]*:id/ejs"[^>]*?)clickable="true"', r'\1clickable="false"',
+                 SHEET_4703)
+    assert bar != SHEET_4703
+    assert not _open(bar)
 
 
 def test_the_english_sheet_is_seen_too(english):

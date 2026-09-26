@@ -51,15 +51,24 @@ STRINGS: Dict[str, List[str]] = {
     # l'ecran. « Stickers » n'en a pas et couvre les deux cas a lui seul.
     # Route behind the panel ids of the base (43.1.4 and 46.6.3 only). Any entry here makes the
     # whole list answer yes, so it must say no on the VIDEO screen: never the composer affordances
-    # (« Mentionne quelqu'un », « Stickers »), which live there. The sheet's close control, on a
-    # screen showing the sheet's composer (clickable, with its hint) or its count header. The
-    # comment bar of a video opened from search is a non-clickable EditText with no header.
-    # Measured on 403 captures (43.1.4 to 47.0.3): the 10 French sheets (full, empty, text typed),
-    # none of the 393 other screens.
+    # (« Mentionne quelqu'un », « Stickers »), which live there, and never the composer alone: the
+    # comment bar of a video opened from search carries the same hint (47.0.3: same id `ejs`), only
+    # it is not clickable. Every entry therefore needs the sheet's clickable composer, plus:
+    # 1. the count header « N commentaires », read without its U+200E / U+200F marks (full or
+    #    typed sheets; 47.0.3 labels no close control at all);
+    # 2. the labelled close control (empty sheets, 43.1.4 and 46.6.3);
+    # 3. the empty sheet's placeholder (46.6.3).
+    # Measured on 408 captures (43.1.4 to 47.0.3): the 13 French sheets, none of the 394 screens
+    # that are not a sheet.
     "comment.sheet_indicator": [
+        "//android.widget.TextView[contains(@text, \" commentaire\")]"
+        "[string-length(translate(@text, \"‎‏\", \"\")) < 24]"
+        "[contains(\"0123456789\", substring(translate(@text, \"‎‏\", \"\"), 1, 1))]"
+        "[//android.widget.EditText[@clickable=\"true\"]]",
         "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]"
-        "[//android.widget.EditText[@clickable=\"true\"][contains(@hint, \"Ajouter un commentaire\")]"
-        " or //android.widget.TextView[contains(@text, \" commentaire\")][string-length(@text) < 24]]",
+        "[//android.widget.EditText[@clickable=\"true\"][contains(@hint, \"Ajouter un commentaire\")]]",
+        "//*[@text=\"Les commentaires apparaissent ici\"]"
+        "[//android.widget.EditText[@clickable=\"true\"][contains(@hint, \"Ajouter un commentaire\")]]",
     ],
     "comment.reply_button": [
         "//android.widget.Button[@text=\"Répondre\"]",

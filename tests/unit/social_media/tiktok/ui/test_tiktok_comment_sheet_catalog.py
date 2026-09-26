@@ -29,14 +29,14 @@ def test_the_sheet_announces_itself_before_anything_is_read():
     # The panel ids come first: on the measured versions they answer before anything else. They
     # are obfuscated and die on a version bump, so the locales add a route behind them — and that
     # route must keep the safe failure direction: a label shared with the video screen is not
-    # enough, it needs something only the sheet has (its clickable composer or its count header).
+    # enough. Every entry needs the sheet's CLICKABLE composer (the video page's comment bar has
+    # the same hint but is not clickable), plus a second mark of the sheet.
     # Behaviour on real shapes: `test_tiktok_comment_sheet_label_route.py`.
     selectors = COMMENT_SELECTORS.sheet_indicator
     panel = [s for s in selectors if "resource-id" in s]
     assert panel and selectors[:len(panel)] == panel, selectors
     for selector in selectors[len(panel):]:
-        assert '@clickable="true"' in selector and "EditText" in selector, selector
-        assert "string-length(@text) < 24" in selector, selector
+        assert '//android.widget.EditText[@clickable="true"]' in selector, selector
     for label in ("Mention", "Stickers"):
         assert not any(label in s for s in COMMENT_SELECTORS.sheet_indicator), (
             f"{label!r} is on the video screen too — as an indicator it never says no"
