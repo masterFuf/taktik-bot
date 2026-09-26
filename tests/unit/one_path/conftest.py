@@ -1766,3 +1766,35 @@ def igc_rig(monkeypatch, tmp_path):
     from instagram_cold_dm_rig import InstagramColdDmRig
 
     return InstagramColdDmRig(monkeypatch, tmp_path)
+
+
+@pytest.fixture
+def igd_rig(monkeypatch, tmp_path):
+    """The Instagram DM rig (`instagram_dm_rig.py`): desktop bridge and CLI on one inbox."""
+    from instagram_dm_rig import InstagramDmRig
+
+    return InstagramDmRig(monkeypatch, tmp_path)
+
+
+@pytest.fixture
+def iga_rig(monkeypatch, tmp_path):
+    """The Taktik Agent rig (`instagram_agent_rig.py`): desktop bridge and CLI on one phone."""
+    from instagram_agent_rig import InstagramAgentRig
+
+    return InstagramAgentRig(monkeypatch, tmp_path)
+
+
+@pytest.fixture
+def no_phone(monkeypatch):
+    """No way out to a phone: no process, no socket (adb server), no uiautomator2 connection."""
+    import socket
+    import subprocess
+
+    def refuse(*_a, **_k):
+        raise RuntimeError("no phone in tests")
+
+    for name in ("run", "Popen", "call", "check_call", "check_output"):
+        monkeypatch.setattr(subprocess, name, refuse)
+    monkeypatch.setattr(socket, "create_connection", refuse)
+    monkeypatch.setattr("uiautomator2.connect", refuse)
+

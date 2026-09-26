@@ -7,4 +7,4 @@ from bridges.compat.diagnostics.runtime.workflow_test.execution.not_wired import
 
 
 def run_instagram_dm(conn, device, ipc, workflow_type, limits, delays):
-    return not_wired(ipc, workflow_type, "bridges.instagram.engagement.runtime.dm.bridge.DMBridge (reader/sender mixins)")
+    return not_wired(ipc, workflow_type, "taktik.core.social_media.instagram.workflows.dm_inbox.runtime.DMRuntime (reader/sender mixins)")

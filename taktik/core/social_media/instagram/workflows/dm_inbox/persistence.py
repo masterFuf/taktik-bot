@@ -1,4 +1,4 @@
-"""DM persistence wiring for the Instagram DM bridge.
+"""DM persistence wiring for the Instagram DM inbox.
 
 Best-effort: persisting conversations/replies must NEVER break the read/send flow.
 Source of truth = Bot (records into dm_threads / dm_messages via DmConversationService).
@@ -11,7 +11,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
 from taktik.core.database import configure_db_service, get_db_service
 from taktik.core.database.messaging import DmConversationService
 

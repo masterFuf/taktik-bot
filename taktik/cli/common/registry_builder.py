@@ -35,6 +35,10 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
      "register_instagram_scraping_handlers"),
     ("Instagram cold DM", "taktik.core.social_media.instagram.workflows.cold_dm.agent_handler",
      "register_instagram_cold_dm_handlers"),
+    ("Instagram DM", "taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler",
+     "register_instagram_dm_handlers"),
+    ("Taktik Agent (Instagram)", "taktik.core.social_media.instagram.workflows.agent.agent_handler",
+     "register_instagram_agent_handlers"),
     ("Instagram tasks", "taktik.core.social_media.instagram.workflows.tasks.agent_handler",
      "register_instagram_task_handlers"),
     ("TikTok For You", "taktik.core.social_media.tiktok.actions.business.workflows.for_you.agent_handler",
@@ -110,6 +114,7 @@ def build_registry(
     """Register every available handler, returning the registry and any registrar failures."""
     from taktik.cli.common.instagram_host import (
         CliInstagramHost,
+        cli_instagram_agent_ai_service_factory,
         cli_instagram_ai_service,
         cli_instagram_scraping_ai_service,
         cli_openrouter_key,
@@ -147,6 +152,11 @@ def build_registry(
         "instagram_ai_key": cli_openrouter_key,
         # The cold DM run drives the device the way the cold DM bridge prepares it.
         "instagram_cold_dm_runtime": instagram_host.cold_dm_runtime if instagram_host else None,
+        # The DM inbox runs on the DM bridge's own runtime.
+        "instagram_dm_runtime": instagram_host.dm_runtime if instagram_host else None,
+        # The Taktik Agent session starts the way its bridge starts it.
+        "instagram_agent_runtime": instagram_host.agent_runtime if instagram_host else None,
+        "instagram_agent_ai_service_factory": cli_instagram_agent_ai_service_factory,
     }
 
     for label, module_path, func_name in REGISTRARS:

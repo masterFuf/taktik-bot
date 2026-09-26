@@ -1,10 +1,10 @@
-"""DM conversation reading and message extraction for the Instagram DM bridge."""
+"""DM conversation reading and message extraction for the Instagram DM inbox."""
 
 from __future__ import annotations
 
 import time
 
-from bridges.instagram.engagement.runtime.dm.conversation_payload import (
+from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_payload import (
     build_answered_conversation,
     build_conversation_payload,
     build_up_to_date_conversation,
@@ -17,14 +17,13 @@ from bridges.instagram.engagement.runtime.dm.conversation_payload import (
     normalize_inbox_username,
     sort_threads_by_top,
 )
-from bridges.instagram.engagement.runtime.dm.conversation_state import DMConversationStateMixin
-from bridges.instagram.engagement.runtime.dm.events import emit_dm_json
-from bridges.instagram.engagement.runtime.dm.message_extraction import DMMessageExtractionMixin
-from bridges.instagram.engagement.runtime.dm.persistence import (
+from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_state import DMConversationStateMixin
+from taktik.core.social_media.instagram.workflows.dm_inbox.message_extraction import DMMessageExtractionMixin
+from taktik.core.social_media.instagram.workflows.dm_inbox.persistence import (
     mark_thread_answered,
     thread_answer_state,
 )
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
@@ -78,7 +77,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         conversations.append(conv)
                         conversations_read += 1
                         new_conversations_in_scroll += 1
-                        emit_dm_json(
+                        self._emit_dm_event(
                             {
                                 "type": "conversation",
                                 "current": conversations_read,
@@ -127,7 +126,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         conversations.append(conv)
                         conversations_read += 1
                         new_conversations_in_scroll += 1
-                        emit_dm_json(
+                        self._emit_dm_event(
                             {
                                 "type": "conversation",
                                 "current": conversations_read,
@@ -136,7 +135,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                             },
                             flush=True,
                         )
-                        emit_dm_json(
+                        self._emit_dm_event(
                             {
                                 "type": "conversation_skipped",
                                 "reason": "up_to_date",
@@ -210,7 +209,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     conversations_read += 1
                     new_conversations_in_scroll += 1
 
-                    emit_dm_json(
+                    self._emit_dm_event(
                         {
                             "type": "conversation",
                             "current": conversations_read,

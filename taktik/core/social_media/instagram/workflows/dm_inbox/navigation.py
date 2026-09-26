@@ -1,12 +1,12 @@
-"""DM inbox and conversation navigation for the Instagram DM bridge."""
+"""DM inbox and conversation navigation for the Instagram DM inbox."""
 
 from __future__ import annotations
 
 import time
 
-from bridges.instagram.engagement.runtime.dm.conversation_navigation import DMConversationNavigationMixin
-from bridges.instagram.engagement.runtime.dm.inbox_reset import DMInboxResetMixin
-from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_navigation import DMConversationNavigationMixin
+from taktik.core.social_media.instagram.workflows.dm_inbox.inbox_reset import DMInboxResetMixin
+from loguru import logger
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 

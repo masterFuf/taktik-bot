@@ -1,7 +1,7 @@
 """DM engagement actions for Instagram compat diagnostics (Cartography Lab).
 
 These actions drive the **real production DM runtime** — the same reader / navigation / sender
-mixins under ``bridges/instagram/engagement/runtime/dm/**`` that the desktop front pilots — bound
+mixins under ``taktik/core/social_media/instagram/workflows/dm_inbox/**`` that the desktop front pilots — bound
 to the warm Lab device, so the Lab tests the EXACT prod code path step by step. (It previously
 drove ``DMAutoReplyWorkflow``, which the front no longer uses and is dead outside the Lab — so the
 the probes were validating non-production code. Rule: reuse the real production function.)
@@ -17,7 +17,7 @@ from bridges.compat.diagnostics.actions.instagram import action
 
 
 def _dm_runtime(a):
-    """Bind the production DM runtime (engagement/runtime/dm) to the warm Lab device.
+    """Bind the production DM runtime (workflows/dm_inbox) to the warm Lab device.
 
     Extends ``DMRuntime`` — the very composition ``DMBridge`` is built on — rather than
     re-listing its mixins here: a mixin added to the prod runtime then reaches the Lab
@@ -28,7 +28,7 @@ def _dm_runtime(a):
     ``_keyboard``), so we bind the raw uiautomator2 device the Lab facade exposes and
     supply the rest. Every method runs the exact prod code on the warm device — no
     second connection, no app restart."""
-    from bridges.instagram.engagement.runtime.dm.bridge import DMRuntime
+    from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import DMRuntime
     from bridges.common.input.keyboard import KeyboardService
 
     class _LabDMRuntime(DMRuntime):

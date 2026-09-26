@@ -1,0 +1,195 @@
+{
+ "default": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop_listener",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "agent_workflow",
+   "agent_run"
+  ],
+  "stdout": [],
+  "events": [
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram…"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "instagram_ready",
+     "message": "Instagram launched successfully"
+    }
+   ]
+  ],
+  "workflows": [
+   {
+    "config": {
+     "deviceId": "emulator-5554",
+     "max_likes": 5,
+     "max_follows": 0,
+     "session_duration_min": 10,
+     "language": "fr",
+     "openrouter_api_key": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "device_is_phone": true,
+    "ipc": true,
+    "ai_factory": true
+   }
+  ]
+ },
+ "clone": {
+  "exit": 0,
+  "calls": [
+   "configure_db",
+   "connect",
+   "active_package com.instagram.android.clone",
+   "version_overrides 410.0.0.53.71",
+   "stop_listener",
+   "stop com.instagram.android.clone",
+   "launch com.instagram.android.clone",
+   "agent_workflow",
+   "agent_run"
+  ],
+  "stdout": [],
+  "events": [
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram…"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "instagram_ready",
+     "message": "Instagram launched successfully"
+    }
+   ]
+  ],
+  "workflows": [
+   {
+    "config": {
+     "deviceId": "emulator-5554",
+     "max_likes": 5,
+     "max_follows": 0,
+     "session_duration_min": 10,
+     "language": "fr",
+     "openrouter_api_key": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "packageName": "com.instagram.android.clone"
+    },
+    "device_is_phone": true,
+    "ipc": true,
+    "ai_factory": true
+   }
+  ]
+ },
+ "failed": {
+  "exit": 1,
+  "calls": [
+   "configure_db",
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop_listener",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "agent_workflow",
+   "agent_run"
+  ],
+  "stdout": [],
+  "events": [
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram…"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "instagram_ready",
+     "message": "Instagram launched successfully"
+    }
+   ]
+  ],
+  "workflows": [
+   {
+    "config": {
+     "deviceId": "emulator-5554",
+     "max_likes": 5,
+     "max_follows": 0,
+     "session_duration_min": 10,
+     "language": "fr",
+     "openrouter_api_key": "sk-or-v1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "device_is_phone": true,
+    "ipc": true,
+    "ai_factory": true
+   }
+  ]
+ },
+ "no_launch": {
+  "exit": 1,
+  "calls": [
+   "configure_db",
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop_listener",
+   "stop com.instagram.android",
+   "launch com.instagram.android failed"
+  ],
+  "stdout": [],
+  "events": [
+   [
+    "status",
+    {
+     "status": "launching",
+     "message": "Restarting Instagram…"
+    }
+   ],
+   [
+    "error",
+    {
+     "error": "Failed to launch Instagram",
+     "error_code": "INSTAGRAM_LAUNCH_FAILED"
+    }
+   ]
+  ],
+  "workflows": []
+ },
+ "no_connection": {
+  "exit": 1,
+  "calls": [
+   "configure_db",
+   "connect"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Failed to connect to device"
+   }
+  ],
+  "events": [],
+  "workflows": []
+ },
+ "no_argument": {
+  "exit": 1,
+  "calls": [],
+  "stdout": [
+   {
+    "success": false,
+    "error": "No config file provided"
+   }
+  ],
+  "events": [],
+  "workflows": []
+ }
+}

@@ -1,7 +1,7 @@
 """Unit tests for the Instagram DM early-exit helpers (no device / no real DB needed for the
 pure matcher; a temp SQLite connection covers the thread last-message lookup)."""
 
-from bridges.instagram.engagement.runtime.dm.conversation_payload import (
+from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_payload import (
     build_up_to_date_conversation,
     has_unseen_incoming,
     inbox_preview_matches_known,

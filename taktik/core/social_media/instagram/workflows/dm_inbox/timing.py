@@ -1,4 +1,4 @@
-"""Timing helpers for Instagram DM bridge interactions."""
+"""Timing helpers for Instagram DM inbox interactions."""
 
 import random
 

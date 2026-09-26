@@ -1,12 +1,12 @@
-"""DM composer and send-button handling for the Instagram DM bridge."""
+"""DM composer and send-button handling for the Instagram DM inbox."""
 
 from __future__ import annotations
 
 import random
 import time
 
-from bridges.instagram.engagement.runtime.dm.timing import calculate_dm_typing_delay
-from bridges.instagram.runtime.ipc import logger
+from taktik.core.social_media.instagram.workflows.dm_inbox.timing import calculate_dm_typing_delay
+from loguru import logger
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
     find_message_input,

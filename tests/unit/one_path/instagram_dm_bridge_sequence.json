@@ -1,0 +1,889 @@
+{
+ "read": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "navigate_to_dm_inbox",
+   "found id:igds_action_bar_title",
+   "db_account alpha_bot",
+   "tap row dave",
+   "found id:header_title",
+   "detect_reply_state dave",
+   "collect_messages",
+   "go_back_from_conversation",
+   "reset_inbox_to_top strategy=auto"
+  ],
+  "stdout": [
+   {
+    "type": "account_detected",
+    "account_username": "alpha_bot"
+   },
+   {
+    "type": "conversation",
+    "current": 1,
+    "total": 5,
+    "conversation": {
+     "username": "bob",
+     "inbox_username": "bob",
+     "messages": [],
+     "is_group": false,
+     "can_reply": false,
+     "last_message_is_ours": true
+    }
+   },
+   {
+    "type": "conversation",
+    "current": 2,
+    "total": 5,
+    "conversation": {
+     "username": "carol",
+     "inbox_username": "carol",
+     "messages": [],
+     "is_group": false,
+     "can_reply": true,
+     "last_message_is_ours": false,
+     "up_to_date": true
+    }
+   },
+   {
+    "type": "conversation_skipped",
+    "reason": "up_to_date",
+    "username": "carol",
+    "last_message_is_ours": false,
+    "current": 2,
+    "total": 5
+   },
+   {
+    "type": "conversation",
+    "current": 3,
+    "total": 5,
+    "conversation": {
+     "username": "dave",
+     "inbox_username": "dave",
+     "messages": [
+      {
+       "text": "Is the shop open on sunday",
+       "is_sent": false,
+       "type": "text",
+       "timestamp": "Jun 12"
+      }
+     ],
+     "is_group": false,
+     "can_reply": true,
+     "last_message_is_ours": false
+    }
+   },
+   {
+    "type": "result",
+    "success": true,
+    "conversations": [
+     {
+      "username": "bob",
+      "inbox_username": "bob",
+      "messages": [],
+      "is_group": false,
+      "can_reply": false,
+      "last_message_is_ours": true
+     },
+     {
+      "username": "carol",
+      "inbox_username": "carol",
+      "messages": [],
+      "is_group": false,
+      "can_reply": true,
+      "last_message_is_ours": false,
+      "up_to_date": true
+     },
+     {
+      "username": "dave",
+      "inbox_username": "dave",
+      "messages": [
+       {
+        "text": "Is the shop open on sunday",
+        "is_sent": false,
+        "type": "text",
+        "timestamp": "Jun 12"
+       }
+      ],
+      "is_group": false,
+      "can_reply": true,
+      "last_message_is_ours": false
+     }
+    ],
+    "total": 3,
+    "account_username": "alpha_bot"
+   }
+  ],
+  "db": [
+   {
+    "write": "conversation",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "dave",
+    "messages": [
+     {
+      "direction": "received",
+      "text": "Is the shop open on sunday",
+      "msg_type": "text",
+      "displayed_at": "Jun 12",
+      "reaction": null
+     }
+    ],
+    "partner_profile_id": 104,
+    "external_thread_id": "dave",
+    "is_group": false,
+    "can_reply": true,
+    "last_message_is_ours": false
+   }
+  ]
+ },
+ "read_profile_fallback": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "navigate_to_dm_inbox",
+   "tap row carol",
+   "found id:header_title",
+   "detect_reply_state carol",
+   "collect_messages",
+   "go_back_from_conversation",
+   "tap row dave",
+   "found id:header_title",
+   "detect_reply_state dave",
+   "collect_messages",
+   "go_back_from_conversation",
+   "reset_inbox_to_top strategy=auto",
+   "navigate_to_profile_tab",
+   "read_own_profile",
+   "db_account alpha_bot"
+  ],
+  "stdout": [
+   {
+    "type": "conversation",
+    "current": 1,
+    "total": 5,
+    "conversation": {
+     "username": "bob",
+     "inbox_username": "bob",
+     "messages": [],
+     "is_group": false,
+     "can_reply": false,
+     "last_message_is_ours": true
+    }
+   },
+   {
+    "type": "conversation",
+    "current": 2,
+    "total": 5,
+    "conversation": {
+     "username": "carol",
+     "inbox_username": "carol",
+     "messages": [],
+     "is_group": false,
+     "can_reply": true,
+     "last_message_is_ours": false
+    }
+   },
+   {
+    "type": "conversation",
+    "current": 3,
+    "total": 5,
+    "conversation": {
+     "username": "dave",
+     "inbox_username": "dave",
+     "messages": [
+      {
+       "text": "Is the shop open on sunday",
+       "is_sent": false,
+       "type": "text",
+       "timestamp": "Jun 12"
+      }
+     ],
+     "is_group": false,
+     "can_reply": true,
+     "last_message_is_ours": false
+    }
+   },
+   {
+    "type": "result",
+    "success": true,
+    "conversations": [
+     {
+      "username": "bob",
+      "inbox_username": "bob",
+      "messages": [],
+      "is_group": false,
+      "can_reply": false,
+      "last_message_is_ours": true
+     },
+     {
+      "username": "carol",
+      "inbox_username": "carol",
+      "messages": [],
+      "is_group": false,
+      "can_reply": true,
+      "last_message_is_ours": false
+     },
+     {
+      "username": "dave",
+      "inbox_username": "dave",
+      "messages": [
+       {
+        "text": "Is the shop open on sunday",
+        "is_sent": false,
+        "type": "text",
+        "timestamp": "Jun 12"
+       }
+      ],
+      "is_group": false,
+      "can_reply": true,
+      "last_message_is_ours": false
+     }
+    ],
+    "total": 3,
+    "account_username": "alpha_bot"
+   }
+  ],
+  "db": [
+   {
+    "write": "conversation",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "dave",
+    "messages": [
+     {
+      "direction": "received",
+      "text": "Is the shop open on sunday",
+      "msg_type": "text",
+      "displayed_at": "Jun 12",
+      "reaction": null
+     }
+    ],
+    "partner_profile_id": 104,
+    "external_thread_id": "dave",
+    "is_group": false,
+    "can_reply": true,
+    "last_message_is_ours": false
+   }
+  ]
+ },
+ "read_limit": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "navigate_to_dm_inbox",
+   "found id:igds_action_bar_title",
+   "db_account alpha_bot",
+   "reset_inbox_to_top strategy=auto"
+  ],
+  "stdout": [
+   {
+    "type": "account_detected",
+    "account_username": "alpha_bot"
+   },
+   {
+    "type": "conversation",
+    "current": 1,
+    "total": 1,
+    "conversation": {
+     "username": "bob",
+     "inbox_username": "bob",
+     "messages": [],
+     "is_group": false,
+     "can_reply": false,
+     "last_message_is_ours": true
+    }
+   },
+   {
+    "type": "result",
+    "success": true,
+    "conversations": [
+     {
+      "username": "bob",
+      "inbox_username": "bob",
+      "messages": [],
+      "is_group": false,
+      "can_reply": false,
+      "last_message_is_ours": true
+     }
+    ],
+    "total": 1,
+    "account_username": "alpha_bot"
+   }
+  ],
+  "db": []
+ },
+ "read_clone": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "active_package com.instagram.android.clone",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android.clone",
+   "launch com.instagram.android.clone",
+   "navigate_to_dm_inbox",
+   "found id:igds_action_bar_title",
+   "db_account alpha_bot",
+   "tap row dave",
+   "found id:header_title",
+   "detect_reply_state dave",
+   "collect_messages",
+   "go_back_from_conversation",
+   "reset_inbox_to_top strategy=auto"
+  ],
+  "stdout": [
+   {
+    "type": "account_detected",
+    "account_username": "alpha_bot"
+   },
+   {
+    "type": "conversation",
+    "current": 1,
+    "total": 5,
+    "conversation": {
+     "username": "bob",
+     "inbox_username": "bob",
+     "messages": [],
+     "is_group": false,
+     "can_reply": false,
+     "last_message_is_ours": true
+    }
+   },
+   {
+    "type": "conversation",
+    "current": 2,
+    "total": 5,
+    "conversation": {
+     "username": "carol",
+     "inbox_username": "carol",
+     "messages": [],
+     "is_group": false,
+     "can_reply": true,
+     "last_message_is_ours": false,
+     "up_to_date": true
+    }
+   },
+   {
+    "type": "conversation_skipped",
+    "reason": "up_to_date",
+    "username": "carol",
+    "last_message_is_ours": false,
+    "current": 2,
+    "total": 5
+   },
+   {
+    "type": "conversation",
+    "current": 3,
+    "total": 5,
+    "conversation": {
+     "username": "dave",
+     "inbox_username": "dave",
+     "messages": [
+      {
+       "text": "Is the shop open on sunday",
+       "is_sent": false,
+       "type": "text",
+       "timestamp": "Jun 12"
+      }
+     ],
+     "is_group": false,
+     "can_reply": true,
+     "last_message_is_ours": false
+    }
+   },
+   {
+    "type": "result",
+    "success": true,
+    "conversations": [
+     {
+      "username": "bob",
+      "inbox_username": "bob",
+      "messages": [],
+      "is_group": false,
+      "can_reply": false,
+      "last_message_is_ours": true
+     },
+     {
+      "username": "carol",
+      "inbox_username": "carol",
+      "messages": [],
+      "is_group": false,
+      "can_reply": true,
+      "last_message_is_ours": false,
+      "up_to_date": true
+     },
+     {
+      "username": "dave",
+      "inbox_username": "dave",
+      "messages": [
+       {
+        "text": "Is the shop open on sunday",
+        "is_sent": false,
+        "type": "text",
+        "timestamp": "Jun 12"
+       }
+      ],
+      "is_group": false,
+      "can_reply": true,
+      "last_message_is_ours": false
+     }
+    ],
+    "total": 3,
+    "account_username": "alpha_bot"
+   }
+  ],
+  "db": [
+   {
+    "write": "conversation",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "dave",
+    "messages": [
+     {
+      "direction": "received",
+      "text": "Is the shop open on sunday",
+      "msg_type": "text",
+      "displayed_at": "Jun 12",
+      "reaction": null
+     }
+    ],
+    "partner_profile_id": 104,
+    "external_thread_id": "dave",
+    "is_group": false,
+    "can_reply": true,
+    "last_message_is_ours": false
+   }
+  ]
+ },
+ "read_no_inbox": {
+  "exit": 1,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "navigate_to_dm_inbox"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Cannot navigate to DM inbox"
+   }
+  ],
+  "db": []
+ },
+ "read_raises": {
+  "exit": 1,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "navigate_to_dm_inbox"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "inbox exploded",
+    "traceback": "<traceback>"
+   }
+  ],
+  "db": []
+ },
+ "read_no_connection": {
+  "exit": 1,
+  "calls": [
+   "connect"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Failed to connect to device"
+   }
+  ],
+  "db": []
+ },
+ "requests": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "navigate_to_dm_inbox",
+   "found id:igds_action_bar_title",
+   "db_account alpha_bot",
+   "open_requests_folder",
+   "tap row dave",
+   "found id:header_title",
+   "detect_reply_state dave",
+   "collect_messages",
+   "go_back_from_conversation"
+  ],
+  "stdout": [
+   {
+    "type": "conversation",
+    "current": 1,
+    "total": 5,
+    "conversation": {
+     "username": "bob",
+     "inbox_username": "bob",
+     "messages": [],
+     "is_group": false,
+     "can_reply": false,
+     "last_message_is_ours": true
+    }
+   },
+   {
+    "type": "conversation",
+    "current": 2,
+    "total": 5,
+    "conversation": {
+     "username": "carol",
+     "inbox_username": "carol",
+     "messages": [],
+     "is_group": false,
+     "can_reply": true,
+     "last_message_is_ours": false,
+     "up_to_date": true
+    }
+   },
+   {
+    "type": "conversation_skipped",
+    "reason": "up_to_date",
+    "username": "carol",
+    "last_message_is_ours": false,
+    "current": 2,
+    "total": 5
+   },
+   {
+    "type": "conversation",
+    "current": 3,
+    "total": 5,
+    "conversation": {
+     "username": "dave",
+     "inbox_username": "dave",
+     "messages": [
+      {
+       "text": "Is the shop open on sunday",
+       "is_sent": false,
+       "type": "text",
+       "timestamp": "Jun 12"
+      }
+     ],
+     "is_group": false,
+     "can_reply": true,
+     "last_message_is_ours": false
+    }
+   },
+   {
+    "type": "result",
+    "success": true,
+    "conversations": [
+     {
+      "username": "bob",
+      "inbox_username": "bob",
+      "messages": [],
+      "is_group": false,
+      "can_reply": false,
+      "last_message_is_ours": true
+     },
+     {
+      "username": "carol",
+      "inbox_username": "carol",
+      "messages": [],
+      "is_group": false,
+      "can_reply": true,
+      "last_message_is_ours": false,
+      "up_to_date": true
+     },
+     {
+      "username": "dave",
+      "inbox_username": "dave",
+      "messages": [
+       {
+        "text": "Is the shop open on sunday",
+        "is_sent": false,
+        "type": "text",
+        "timestamp": "Jun 12"
+       }
+      ],
+      "is_group": false,
+      "can_reply": true,
+      "last_message_is_ours": false
+     }
+    ],
+    "total": 3,
+    "is_requests": true,
+    "account_username": "alpha_bot"
+   }
+  ],
+  "db": []
+ },
+ "requests_none": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "navigate_to_dm_inbox",
+   "found id:igds_action_bar_title",
+   "db_account alpha_bot",
+   "open_requests_folder"
+  ],
+  "stdout": [
+   {
+    "type": "result",
+    "success": true,
+    "conversations": [],
+    "total": 0,
+    "is_requests": true,
+    "account_username": "alpha_bot"
+   }
+  ],
+  "db": []
+ },
+ "send": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "found id:inbox_refreshable_thread_list_recyclerview",
+   "ensure_primary_tab",
+   "open_conversation dave",
+   "send_message Yes, from ten",
+   "found id:header_left_button",
+   "click id:header_left_button"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "username": "dave",
+    "message": "Yes, from ten"
+   }
+  ],
+  "db": [
+   {
+    "write": "sent",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "dave",
+    "text": "Yes, from ten",
+    "partner_profile_id": 104
+   }
+  ]
+ },
+ "send_retry": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "found id:inbox_refreshable_thread_list_recyclerview",
+   "ensure_primary_tab",
+   "open_conversation dave",
+   "ensure_primary_tab",
+   "reset_inbox_to_top strategy=scroll",
+   "open_conversation dave",
+   "send_message Yes",
+   "found id:header_left_button",
+   "click id:header_left_button"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "username": "dave",
+    "message": "Yes"
+   }
+  ],
+  "db": [
+   {
+    "write": "sent",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "dave",
+    "text": "Yes",
+    "partner_profile_id": 104
+   }
+  ]
+ },
+ "send_from_home": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "found id:action_bar_container",
+   "navigate_to_dm_inbox",
+   "ensure_primary_tab",
+   "scroll_to_top_of_inbox",
+   "open_conversation dave",
+   "send_message Yes",
+   "found id:header_left_button",
+   "click id:header_left_button"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "username": "dave",
+    "message": "Yes"
+   }
+  ],
+  "db": [
+   {
+    "write": "sent",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "dave",
+    "text": "Yes",
+    "partner_profile_id": 104
+   }
+  ]
+ },
+ "send_restart": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android",
+   "launch com.instagram.android",
+   "navigate_to_dm_inbox",
+   "ensure_primary_tab",
+   "scroll_to_top_of_inbox",
+   "open_conversation dave",
+   "send_message Yes",
+   "found id:header_left_button",
+   "click id:header_left_button"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "username": "dave",
+    "message": "Yes"
+   }
+  ],
+  "db": [
+   {
+    "write": "sent",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "dave",
+    "text": "Yes",
+    "partner_profile_id": 104
+   }
+  ]
+ },
+ "send_unknown_thread": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "found id:inbox_refreshable_thread_list_recyclerview",
+   "ensure_primary_tab",
+   "open_conversation erin",
+   "send_message Hi",
+   "found id:header_left_button",
+   "click id:header_left_button",
+   "navigate_to_profile_tab",
+   "read_own_profile",
+   "db_account alpha_bot"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "username": "erin",
+    "message": "Hi"
+   }
+  ],
+  "db": [
+   {
+    "write": "sent",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "erin",
+    "text": "Hi",
+    "partner_profile_id": 104
+   }
+  ]
+ },
+ "send_not_found": {
+  "exit": 1,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "found id:inbox_refreshable_thread_list_recyclerview",
+   "ensure_primary_tab",
+   "open_conversation nobody",
+   "ensure_primary_tab",
+   "reset_inbox_to_top strategy=scroll",
+   "open_conversation nobody"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Cannot find conversation with nobody"
+   }
+  ],
+  "db": []
+ },
+ "send_fails": {
+  "exit": 1,
+  "calls": [
+   "connect",
+   "version_overrides 410.0.0.53.71",
+   "found id:inbox_refreshable_thread_list_recyclerview",
+   "ensure_primary_tab",
+   "open_conversation dave",
+   "send_message Yes"
+  ],
+  "stdout": [
+   {
+    "success": false,
+    "error": "Failed to send message"
+   }
+  ],
+  "db": []
+ },
+ "send_clone": {
+  "exit": 0,
+  "calls": [
+   "connect",
+   "active_package com.instagram.android.clone",
+   "version_overrides 410.0.0.53.71",
+   "stop com.instagram.android.clone",
+   "launch com.instagram.android.clone",
+   "navigate_to_dm_inbox",
+   "ensure_primary_tab",
+   "scroll_to_top_of_inbox",
+   "open_conversation dave",
+   "send_message Yes",
+   "found id:header_left_button",
+   "click id:header_left_button"
+  ],
+  "stdout": [
+   {
+    "success": true,
+    "username": "dave",
+    "message": "Yes"
+   }
+  ],
+  "db": [
+   {
+    "write": "sent",
+    "platform": "instagram",
+    "account_id": 7,
+    "partner_username": "dave",
+    "text": "Yes",
+    "partner_profile_id": 104
+   }
+  ]
+ }
+}
