@@ -3,7 +3,7 @@
 The run is `run_instagram_cold_dm`, the launcher the Agent handler `instagram.engagement.coldDm` (and
 so the CLI) calls too, called by name so the app's config contract test can follow the payload. The
 bridge keeps its entry (config file, IP rotation, the final JSON), its connection (the bridges'
-clone-aware, facade-wrapped device) and its stdout.
+clone-aware, facade-wrapped device) and its stdout, `session_start` included.
 """
 
 from __future__ import annotations
@@ -66,6 +66,7 @@ def run_cold_dm_cli(args: list[str]) -> None:
             ),
             progress=emit_cold_dm_progress,
             ai_ipc=_ipc,
+            on_session_start=_ipc.session_start,
         )
 
         print(json.dumps({

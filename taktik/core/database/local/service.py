@@ -518,14 +518,20 @@ class LocalDatabaseService:
     # ============================================
     
     def create_session(self, account_id: int, session_name: str, target_type: str,
-                       target: str, config_used: Optional[Dict] = None) -> Optional[int]:
-        """Create a new automation session."""
+                       target: str, config_used: Optional[Dict] = None,
+                       workflow_type: Optional[str] = None) -> Optional[int]:
+        """Create a new automation session.
+
+        `workflow_type` is for a run whose config does not name its workflow
+        (`session_settings.workflow_type`), such as a cold DM run.
+        """
         session_id = self.sessions.create(
             account_id=account_id,
             session_name=session_name,
             target_type=target_type,
             target=target,
-            config_used=config_used
+            config_used=config_used,
+            workflow_type=workflow_type,
         )
         if session_id:
             self.stats.increment_session_count(account_id)
