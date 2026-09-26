@@ -89,3 +89,15 @@ def test_following_a_suggestion_from_the_lab_reports_its_outcome(monkeypatch):
     result = ACTION_REGISTRY["tt.activity.suggested.follow"](SimpleNamespace(device=None), {"name": "Jo Doe"})
 
     assert result == {"success": True, "message": "followed Jo Doe"}
+
+
+@pytest.mark.parametrize("params, expand", [({}, True), ({"expand": False}, False), ({"expand": "false"}, False)])
+def test_the_activity_open_can_stay_on_the_summary_the_suggestions_live_on(monkeypatch, params, expand):
+    seen = []
+    monkeypatch.setattr(ActivityActions, "__init__", lambda self, device: None)
+    monkeypatch.setattr(ActivityActions, "open_activity", lambda self, expand=True: seen.append(expand) or True)
+
+    result = ACTION_REGISTRY["tt.activity.open"](SimpleNamespace(device=None), params)
+
+    assert seen == [expand]
+    assert result["success"] is True

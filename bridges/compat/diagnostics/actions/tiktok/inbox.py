@@ -146,14 +146,18 @@ def send_message(a, p):
 
 @action("tt.activity.open")
 def open_activity(a, p):
-    """Open the Activity page from the inbox. READS ONLY.
+    """Open the Activity page, through the inbox from anywhere else. READS ONLY.
 
     Separate from reading it so the two failures stay apart: "the page would not open" and "the
     page is empty" need opposite responses, and one action reporting both as zero hides that.
+
+    Params: expand (default true). `false` stays on the summary, the only place the suggested
+    accounts exist -- what `tt.activity.suggested.*` read, as the production follow pass opens it.
     """
     from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
 
-    opened = ActivityActions(a.device).open_activity()
+    expand = str((p or {}).get("expand", True)).strip().lower() not in ("false", "0", "no")
+    opened = ActivityActions(a.device).open_activity(expand=expand)
     return {"success": opened, "message": "activity page open" if opened else "could not open it"}
 
 

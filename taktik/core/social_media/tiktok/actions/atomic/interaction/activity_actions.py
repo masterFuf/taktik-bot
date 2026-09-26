@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from ...core.base_action import BaseAction
 from ...core.utils import first_matching
+from ..messaging.dm_actions import DMActions
 from ....ui.selectors.surfaces.activity import ACTIVITY_SELECTORS
 from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
 from ....services.notifications.activity import ActivityRow, parse_activity_row
@@ -42,8 +43,15 @@ class ActivityActions(BaseAction):
 
         `expand` taps "Tout voir" when it is offered. Without it the page shows a handful of rows
         and stops, which reads exactly like an account nobody has interacted with.
+
+        The entry row exists only in the inbox, so the inbox is reached first from anywhere else:
+        called from the feed, the page never opened and the caller read "could not open it".
         """
         if not self.is_on_activity_page():
+            if not self._element_exists(self.activity_selectors.activity_entry, timeout=1) \
+                    and not DMActions(self.device).navigate_to_inbox():
+                self.logger.warning("open_activity: the inbox could not be reached")
+                return False
             if not self._find_and_click(self.activity_selectors.activity_entry, timeout=5):
                 self.logger.debug("open_activity: no Activity row in the inbox")
                 return False
