@@ -90,6 +90,9 @@ def run_tiktok_scraping(
         workflow_hook(workflow)
 
     session_id = tiktok_scraping.open_scraping_session(*scraping_source(config)) if save_to_db else None
+    if session_id:
+        # A killed bridge never closes its row: the desktop closes it by this id.
+        notify(notifier, "scraping_session", scraping_id=session_id, platform="tiktok")
     _attach_callbacks(workflow, notifier)
     if session_id:
         workflow.set_on_save_profile_callback(
@@ -105,7 +108,7 @@ def run_tiktok_scraping(
     reason = workflow.completion_reason or "completed"
     if session_id:
         tiktok_scraping.close_scraping_session(
-            session_id, len(profiles), "STOPPED" if reason == "stopped_by_user" else "COMPLETED", duration
+            session_id, len(profiles), "CANCELLED" if reason == "stopped_by_user" else "COMPLETED", duration
         )
 
     notify(notifier, "scraping_completed", totalScraped=len(profiles))

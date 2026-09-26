@@ -86,14 +86,14 @@ def test_a_run_told_not_to_save_writes_nothing_on_either_path(rig, scraping_payl
     assert bridge["db_writes"] == cli["db_writes"] == []
 
 
-def test_a_stopped_run_is_filed_stopped_on_both_paths(rig, scraping_payload):
+def test_a_stopped_run_is_filed_cancelled_on_both_paths(rig, scraping_payload):
     def set_phone():
         rig.scraping_reason = "stopped_by_user"
 
     bridge, cli = _run_both(rig, scraping_payload(), set_phone=set_phone)
 
     assert cli["db_writes"] == bridge["db_writes"]
-    assert cli["db_writes"][-1]["scraping_session_end"]["status"] == "STOPPED"
+    assert cli["db_writes"][-1]["scraping_session_end"]["status"] == "CANCELLED"
 
 
 def test_a_target_run_without_an_account_is_refused_before_the_phone_on_both_paths(rig, scraping_payload):

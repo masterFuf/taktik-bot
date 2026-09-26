@@ -199,6 +199,10 @@ TIKTOK_SCRAPING = WorkflowContract(
     events=(
         STATUS_EVENT,
         ERROR_EVENT,
+        Event("scraping_session", doc="The run's `scraping_sessions` row, as soon as it is written.", fields=(
+            Field("scraping_id", "int", "The row's id: the desktop closes it if the bridge is killed."),
+            Field("platform", OneOf(("tiktok",)), "The platform of the row."),
+        )),
         Event("scraping_progress", doc="Profiles collected so far.", fields=(
             Field("scraped", "int", "Profiles collected."),
             Field("total", "int", "The run's budget."),

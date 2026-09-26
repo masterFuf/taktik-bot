@@ -16,6 +16,11 @@ before the phone is touched (the old bridge restarted TikTok, then scraped nothi
 a success), and a missing config file reports the shared entrypoint's words (`no_config_file`
 and `invalid_json` keep the stdin era's events, `events_stdin_code`). The app sends none of them:
 the page and the scheduler refuse both runs, and the main process always writes the payload.
+
+Two changes on purpose, rewritten in place: a run that opens its row prints its id
+(`scraping_session`) right after, since a bridge the app kills never closes that row and the app
+closes it by this id; and a stop by the operator files the row `CANCELLED`, the contract's word,
+where it said `STOPPED`, a status nothing reads.
 """
 import dataclasses
 import json
@@ -142,6 +147,25 @@ def test_a_run_with_nothing_to_scrape_is_refused_before_the_phone_is_touched():
         assert record["events"][-1][0] == "error", name
         assert record["exit"] == 1 and record["exit_old_code"] == 0, name
         assert record["db_writes"] == [] and record["configs"] == [], name
+
+
+def test_a_run_that_opens_its_row_announces_it_once_before_any_profile():
+    for name, record in SNAPSHOT.items():
+        opened = any("scraping_session" in write for write in record["db_writes"])
+        kinds = [kind for kind, _ in record["events"]]
+        announced = [event for kind, event in record["events"] if kind == "scraping_session"]
+        if opened and name != "session_not_created":
+            assert announced == [{"platform": "tiktok", "scraping_id": 42}], name
+            first_profile = kinds.index("scraping_profile") if "scraping_profile" in kinds else len(kinds)
+            assert kinds.index("scraping_session") < first_profile, name
+        else:
+            assert announced == [], name
+
+
+def test_a_stop_by_the_operator_files_a_cancelled_row():
+    ends = [write["scraping_session_end"] for write in SNAPSHOT["stopped_by_user"]["db_writes"]
+            if "scraping_session_end" in write]
+    assert [end["status"] for end in ends] == ["CANCELLED"]
 
 
 def test_no_config_file_reports_the_shared_entrypoint_words():
