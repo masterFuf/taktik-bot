@@ -1,12 +1,14 @@
-"""Instagram automation runner instrumentation for compat workflow diagnostics."""
+"""Instagram automation step tracing for compat workflow diagnostics.
+
+The Lab no longer patches an engine it built itself: it hands this step hook to the production
+launcher (`run_instagram_automation(step_hook=...)`), which wraps each workflow step with it.
+"""
 
 
-def instrument_workflow_runner(automation, tracer, ipc) -> None:
-    """Monkey-patch WorkflowRunner.run_workflow_step to track steps in the tracer."""
-    runner = automation.workflow_runner
-    original_run_step = runner.run_workflow_step
+def trace_workflow_steps(tracer, ipc):
+    """Step hook tracking each workflow step in the tracer and on the Lab's IPC."""
 
-    def instrumented_run_step(action):
+    def step_hook(action, run_step):
         action_type = action.get("type", "unknown")
         step_name = action.get("id", action_type)
 
@@ -14,7 +16,7 @@ def instrument_workflow_runner(automation, tracer, ipc) -> None:
         ipc.send("workflow_step", step=step_name, status="running")
 
         try:
-            result = original_run_step(action)
+            result = run_step(action)
             tracer.end_step(success=result)
             ipc.send("workflow_step", step=step_name, status="done" if result else "failed")
             return result
@@ -23,7 +25,7 @@ def instrument_workflow_runner(automation, tracer, ipc) -> None:
             ipc.send("workflow_step", step=step_name, status="error", error=str(exc))
             raise
 
-    runner.run_workflow_step = instrumented_run_step
+    return step_hook
 
 
-__all__ = ["instrument_workflow_runner"]
+__all__ = ["trace_workflow_steps"]

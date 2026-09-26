@@ -22,7 +22,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from bridges.instagram.runtime.ipc import logger
+from loguru import logger
+
 from taktik.core.shared.diagnostics import run_halt
 
 FOLLOW_ACTOR_ACTION = "follow_actor"

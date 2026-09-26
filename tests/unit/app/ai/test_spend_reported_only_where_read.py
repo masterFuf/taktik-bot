@@ -80,10 +80,10 @@ def _capture_create(monkeypatch, module):
 
 def test_the_instagram_notifications_pass_reports_no_spend(monkeypatch):
     import bridges.instagram.runtime.ai as instagram_ai
-    from bridges.instagram.engagement.runtime.notifications.ai import install_notifications_ai_hooks
+    from bridges.instagram.engagement.runtime.notifications.ai import notifications_ai_service
 
     seen = _capture_create(monkeypatch, instagram_ai)
-    install_notifications_ai_hooks(ai_config={"enabled": True}, device=object())
+    notifications_ai_service({"enabled": True})
 
     assert seen["report_spend"] is False
 

@@ -14,8 +14,8 @@ visible by reading a happy path:
 
 import pytest
 
-import bridges.instagram.engagement.runtime.notifications.commands as commands
-import bridges.instagram.engagement.runtime.notifications.welcome_dm as welcome_dm
+import taktik.core.social_media.instagram.workflows.management.notifications.commands as commands
+import taktik.core.social_media.instagram.workflows.management.notifications.welcome_dm as welcome_dm
 
 
 class _Workflow:
@@ -42,8 +42,7 @@ class _Bridge:
     def restart_instagram(self):
         pass
 
-    def build_workflow(self):
-        return self.workflow
+    device_id = "device-1"
 
 
 @pytest.fixture
@@ -54,8 +53,7 @@ def harness(monkeypatch):
     recorded = []
     audit = []
 
-    monkeypatch.setattr(commands, "NotificationsBridge", lambda *a, **k: bridge)
-    monkeypatch.setattr(commands, "emit_notif_json", lambda *a, **k: None)
+    monkeypatch.setattr(commands, "NotificationsEngagementWorkflow", lambda *a, **k: bridge.workflow)
     monkeypatch.setattr(commands, "load_actioned_hashes", lambda *a, **k: set())
     monkeypatch.setattr(commands, "batch_identity_hash", lambda *a, **k: None)
     monkeypatch.setattr(commands, "count_actions_today", lambda *a, **k: 0)
@@ -76,7 +74,8 @@ def harness(monkeypatch):
     monkeypatch.setattr(commands, "send_welcome_dm", _send)
     monkeypatch.setattr(commands, "welcome_dm_skip_reason", lambda *a, **k: None)
 
-    return {"bridge": bridge, "sent": sent, "recorded": recorded, "audit": audit}
+    host = commands.NotificationsHost(connect=lambda restart: bridge, emit=lambda payload: None)
+    return {"bridge": bridge, "host": host, "sent": sent, "recorded": recorded, "audit": audit}
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +101,7 @@ def test_screen_leaving_verbs_are_moved_to_the_end_order_preserved():
 
 
 def test_batch_runs_taps_before_any_dm(harness):
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(harness["host"], [
         {"action": "welcome_dm", "username": "newbie", "text": "hey"},
         {"action": "like", "username": "commenter"},
     ], account_username="me")
@@ -121,7 +120,7 @@ def test_batch_runs_taps_before_any_dm(harness):
 def test_a_guarded_recipient_is_never_written_to(harness, monkeypatch, reason):
     monkeypatch.setattr(commands, "welcome_dm_skip_reason", lambda *a, **k: reason)
 
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(harness["host"], [
         {"action": "welcome_dm", "username": "newbie", "text": "hey"},
     ], account_username="me")
 
@@ -132,7 +131,7 @@ def test_a_guarded_recipient_is_never_written_to(harness, monkeypatch, reason):
 def test_daily_cap_stops_the_dms_and_reports_them_as_skipped(harness, monkeypatch):
     monkeypatch.setattr(commands, "count_actions_today", lambda *a, **k: 2)
 
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(harness["host"], [
         {"action": "welcome_dm", "username": "a", "text": "hey"},
         {"action": "welcome_dm", "username": "b", "text": "hey"},
     ], account_username="me", welcome_dm_daily_cap=2)
@@ -141,7 +140,7 @@ def test_daily_cap_stops_the_dms_and_reports_them_as_skipped(harness, monkeypatc
 
 
 def test_the_cap_counts_what_this_batch_lands(harness):
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(harness["host"], [
         {"action": "welcome_dm", "username": "a", "text": "hey"},
         {"action": "welcome_dm", "username": "b", "text": "hey"},
         {"action": "welcome_dm", "username": "c", "text": "hey"},
@@ -152,7 +151,7 @@ def test_the_cap_counts_what_this_batch_lands(harness):
 
 
 def test_no_cap_flag_means_no_cap(harness):
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(harness["host"], [
         {"action": "welcome_dm", "username": "a", "text": "hey"},
         {"action": "welcome_dm", "username": "b", "text": "hey"},
     ], account_username="me")
@@ -165,7 +164,7 @@ def test_no_cap_flag_means_no_cap(harness):
 # ---------------------------------------------------------------------------
 
 def test_a_sent_dm_is_recorded_with_its_body(harness):
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(harness["host"], [
         {"action": "welcome_dm", "username": "newbie", "text": "welcome aboard"},
     ], account_username="me")
 
@@ -179,7 +178,7 @@ def test_a_failed_send_leaves_no_duplicate_marker(harness, monkeypatch):
     monkeypatch.setattr(commands, "send_welcome_dm",
                         lambda *a, **k: {"success": False, "error": "private profile"})
 
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(harness["host"], [
         {"action": "welcome_dm", "username": "newbie", "text": "hey"},
     ], account_username="me")
 

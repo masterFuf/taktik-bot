@@ -8,6 +8,7 @@
 - `decision_provider`: the desktop's per-profile decision round trip, when the run asks for it.
 - `instagram_installed_version() -> str | None`: the version the selector overrides are chosen for.
 - `reporter`: the host's live events (`config_built`, `running`, `finished`), all optional.
+- `step_hook(step, run_step)`: wraps each workflow step; the Lab traces steps with it.
 No injected callable receives the whole payload, so the app's config contract test can still see
 every key the bot reads.
 """
@@ -47,6 +48,8 @@ AIServiceFactory = Callable[[Mapping[str, Any]], Any]
 DecisionProvider = Callable[[Mapping[str, Any]], dict]
 VersionProvider = Callable[[], Optional[str]]
 LogCallback = Callable[[str, str], None]
+StepRunner = Callable[[Mapping[str, Any]], Any]
+StepHook = Callable[[Mapping[str, Any], StepRunner], Any]
 
 
 class InstagramStartError(RuntimeError):
@@ -65,6 +68,12 @@ def _emit(reporter: Any, method: str, *args: Any) -> None:
         target(*args)
 
 
+def _hook_steps(run: Any, step_hook: StepHook) -> None:
+    runner = run.workflow_runner
+    run_step = runner.run_workflow_step
+    runner.run_workflow_step = lambda step: step_hook(step, run_step)
+
+
 def run_instagram_automation(
     payload: Mapping[str, Any],
     *,
@@ -75,6 +84,7 @@ def run_instagram_automation(
     instagram_installed_version: Optional[VersionProvider] = None,
     reporter: Any = None,
     log: Optional[LogCallback] = None,
+    step_hook: Optional[StepHook] = None,
     workflow_factory: Optional[InstagramAutomationFactory] = None,
     runtime_setup: Optional[RuntimeSetup] = None,
     ai_hook_installer: Optional[AIHookInstaller] = None,
@@ -119,6 +129,9 @@ def run_instagram_automation(
             log=log,
             decision_provider=decision_provider,
         )
+
+    if step_hook is not None:
+        _hook_steps(run, step_hook)
 
     _emit(reporter, "running")
     run.run_workflow()

@@ -15,8 +15,8 @@ follow, aimed at someone we have never checked, from a row that offers no inline
 
 import pytest
 
-import bridges.instagram.engagement.runtime.notifications.commands as commands
-import bridges.instagram.engagement.runtime.notifications.follow_actor as follow_actor
+import taktik.core.social_media.instagram.workflows.management.notifications.commands as commands
+import taktik.core.social_media.instagram.workflows.management.notifications.follow_actor as follow_actor
 
 
 class _Clicks:
@@ -141,15 +141,13 @@ class _Bridge:
     def restart_instagram(self):
         pass
 
-    def build_workflow(self):
-        return object()
+    device_id = "device-1"
 
 
 @pytest.fixture
 def batch(monkeypatch):
     audit = []
-    monkeypatch.setattr(commands, "NotificationsBridge", lambda *a, **k: _Bridge())
-    monkeypatch.setattr(commands, "emit_notif_json", lambda *a, **k: None)
+    monkeypatch.setattr(commands, "NotificationsEngagementWorkflow", lambda *a, **k: object())
     monkeypatch.setattr(commands, "load_actioned_hashes", lambda *a, **k: set())
     monkeypatch.setattr(commands, "batch_identity_hash", lambda *a, **k: None)
     monkeypatch.setattr(commands, "count_actions_today", lambda *a, **k: 0)
@@ -158,7 +156,8 @@ def batch(monkeypatch):
     monkeypatch.setattr(
         commands, "record_notification_action",
         lambda account, **kwargs: audit.append((kwargs.get("action"), kwargs.get("actor_username"))))
-    return {"audit": audit}
+    host = commands.NotificationsHost(connect=lambda restart: _Bridge(), emit=lambda payload: None)
+    return {"audit": audit, "host": host}
 
 
 def test_a_step_back_is_not_recorded_and_does_not_spend_the_cap(batch, monkeypatch):
@@ -174,7 +173,7 @@ def test_a_step_back_is_not_recorded_and_does_not_spend_the_cap(batch, monkeypat
 
     monkeypatch.setattr(commands, "follow_actor", _follow)
 
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(batch["host"], [
         {"action": "follow_actor", "username": "related"},
         {"action": "follow_actor", "username": "fresh"},
     ], account_username="me", follow_actor_daily_cap=1)
@@ -187,7 +186,7 @@ def test_a_step_back_is_not_recorded_and_does_not_spend_the_cap(batch, monkeypat
 def test_the_daily_cap_bites_on_the_follows_that_land(batch, monkeypatch):
     monkeypatch.setattr(commands, "follow_actor", lambda device, username: {"success": True})
 
-    commands.cmd_batch("device-1", [
+    commands.cmd_batch(batch["host"], [
         {"action": "follow_actor", "username": "a"},
         {"action": "follow_actor", "username": "b"},
         {"action": "follow_actor", "username": "c"},

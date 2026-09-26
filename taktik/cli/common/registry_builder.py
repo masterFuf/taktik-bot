@@ -37,6 +37,9 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
      "register_instagram_cold_dm_handlers"),
     ("Instagram DM", "taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler",
      "register_instagram_dm_handlers"),
+    ("Instagram notifications",
+     "taktik.core.social_media.instagram.workflows.management.notifications.agent_handler",
+     "register_instagram_notifications_handlers"),
     ("Taktik Agent (Instagram)", "taktik.core.social_media.instagram.workflows.agent.agent_handler",
      "register_instagram_agent_handlers"),
     ("Instagram tasks", "taktik.core.social_media.instagram.workflows.tasks.agent_handler",
@@ -154,6 +157,8 @@ def build_registry(
         "instagram_cold_dm_runtime": instagram_host.cold_dm_runtime if instagram_host else None,
         # The DM inbox runs on the DM bridge's own runtime.
         "instagram_dm_runtime": instagram_host.dm_runtime if instagram_host else None,
+        # The notifications run connects the way its bridge connects.
+        "instagram_notifications_runtime": instagram_host.notifications_runtime if instagram_host else None,
         # The Taktik Agent session starts the way its bridge starts it.
         "instagram_agent_runtime": instagram_host.agent_runtime if instagram_host else None,
         "instagram_agent_ai_service_factory": cli_instagram_agent_ai_service_factory,

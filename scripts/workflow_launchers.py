@@ -58,10 +58,6 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
             "account family not unified yet (Q3): the bridge runs it, no handler.",
         ("tiktok.account.change_language",):
             "same as Instagram: the account bridge runs it, no handler yet.",
-        ("instagram.engagement.notifications",):
-            "notifications family (Q5) is being moved to a launcher in its own lot.",
-        ("instagram.engagement.smart_comment",):
-            "declared for the panel, runs inside the automation launcher; no own entry.",
     },
     "entry_point_engine": {
         # Instagram account (Q3): the bridge and the CLI build the workflows themselves.
@@ -79,9 +75,6 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
             "Q3, account lot: `auth login` bypasses the handler (no clean restart).",
         ("taktik/cli/main.py", "LoginWorkflow"):
             "Q3, account lot: CLI menu login bypasses the handler.",
-        # Instagram notifications (Q5, handled in its own lot).
-        ("bridges/instagram/engagement/runtime/notifications/bridge.py", "NotificationsEngagementWorkflow"):
-            "Q5, notifications lot in progress.",
         # Instagram publication (Q4, postponed): no manifest id, three hosts build the engine.
         ("bridges/instagram/publish/runtime/bridge.py", "InstagramPostWorkflow"):
             "Q4 postponed: publication has no manifest id nor launcher.",
@@ -90,9 +83,6 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
         ("bridges/compat/diagnostics/runtime/workflow_test/platforms/instagram/workflows/publish.py",
          "InstagramPostWorkflow"):
             "Q4 postponed: the Lab publish run builds the engine itself.",
-        # Lab whole-run of Instagram automation: instrumented engine, not the launcher.
-        ("bridges/compat/diagnostics/runtime/workflow_test/execution/lifecycle.py", "InstagramAutomation"):
-            "Lab automation run instruments the engine; launcher needs a step hook first.",
         # CLI-only workflows the manifest does not declare: declare them or drop them.
         ("taktik/cli/main.py", "DMAutoReplyWorkflow"):
             "CLI-only DM auto-reply, no manifest id; decision pending (autoresponse mode).",
@@ -107,20 +97,13 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
             "TikTok account lot: not on its launcher yet.",
         ("bridges/tiktok/account/runtime/account_language.py", "TikTokChangeLanguageWorkflow"):
             "TikTok account lot (change_language has no handler yet).",
-        # Threads: handler exists, the bridge keeps its own config and calls the engine.
-        ("bridges/threads/workflows/runtime/feed.py", "run_feed_and_interact"):
-            "Threads lot: bridge builds its own config and calls the engine.",
-        ("bridges/threads/workflows/runtime/search.py", "run_search_and_interact"):
-            "Threads lot: not on its launcher yet.",
     },
     "bridge_without_launcher": {
         ("account_bridge",): "Q3, account lot: the bridge still builds its workflow itself.",
-        ("notifications_bridge",): "Q5, notifications lot in progress.",
         ("persona_analysis_bridge",):
             "persona analysis: no manifest id, no CLI; left as is by decision (Q6).",
         ("publish_bridge",): "Q4 postponed: publication stays as is for now.",
         ("tiktok_account_bridge",): "TikTok account lot: not on its launcher yet.",
-        ("threads_bridge",): "Threads lot: not on its launcher yet.",
     },
     "app_extra_launch_module": {
         ("desktop_bridge", "electron/services/tools/debug/bridge/DesktopDebugBridgeService.ts"):
