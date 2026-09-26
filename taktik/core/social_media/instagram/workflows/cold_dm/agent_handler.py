@@ -9,12 +9,15 @@ run `ColdDMWorkflow`, the only cold DM engine. What differs between the hosts is
 - `ai_ipc`: where the AI spend is reported (the bridge's stdout IPC).
 - `instagram_ai_key() -> str | None`: the OpenRouter key when the payload brings none (the CLI's
   environment).
+- `on_session_start(session_id)`: where the id of the run's session goes (the bridge's
+  `session_start`, which the desktop needs to write the run's AI spend into the session).
 No injected callable receives the whole payload, so the app's config contract test can still see
 every key the bot reads.
 """
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
@@ -23,6 +26,11 @@ from loguru import logger
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import ColdDmRecipientPolicy
+from taktik.core.social_media.instagram.workflows.cold_dm.session import (
+    close_cold_dm_session,
+    open_cold_dm_session,
+    session_account_id,
+)
 
 
 INSTAGRAM_COLD_DM_WORKFLOW_ID = "instagram.engagement.coldDm"
@@ -42,6 +50,7 @@ RuntimeProvider = Callable[[Optional[str]], ColdDmRuntime]
 ProgressCallback = Callable[..., None]
 AIKeyProvider = Callable[[], Optional[str]]
 WorkflowFactory = Callable[..., Any]
+SessionStartCallback = Callable[[int], None]
 
 
 def _default_workflow_factory() -> WorkflowFactory:
@@ -59,8 +68,9 @@ def run_instagram_cold_dm(
     ai_ipc=None,
     instagram_ai_key: Optional[AIKeyProvider] = None,
     workflow_factory: Optional[WorkflowFactory] = None,
+    on_session_start: Optional[SessionStartCallback] = None,
 ) -> dict[str, Any]:
-    """Send the cold DMs a Cold DM page payload describes."""
+    """Send the cold DMs a Cold DM page payload describes, as one session."""
     device_id = config.get("deviceId")
     recipients = config.get("recipients", [])
     messages = config.get("messages", [])
@@ -95,18 +105,29 @@ def run_instagram_cold_dm(
         progress=progress,
         ai_ipc=ai_ipc,
     )
-    return workflow.run(
-        recipients,
-        messages,
-        delay_min,
-        delay_max,
-        max_dms,
-        account_id,
-        session_id,
-        ai_prompt,
-        openrouter_api_key,
-        recipient_policy=recipient_policy,
-    )
+
+    run_session_id = open_cold_dm_session(session_account_id(config), recipients=recipients, config=config)
+    if run_session_id is not None and on_session_start is not None:
+        on_session_start(run_session_id)
+    started = time.monotonic()
+    try:
+        result = workflow.run(
+            recipients,
+            messages,
+            delay_min,
+            delay_max,
+            max_dms,
+            account_id,
+            session_id,
+            ai_prompt,
+            openrouter_api_key,
+            recipient_policy=recipient_policy,
+        )
+    except BaseException as exc:
+        close_cold_dm_session(run_session_id, duration_seconds=int(time.monotonic() - started), error=exc)
+        raise
+    close_cold_dm_session(run_session_id, duration_seconds=int(time.monotonic() - started), result=result)
+    return result
 
 
 def build_instagram_cold_dm_handler(

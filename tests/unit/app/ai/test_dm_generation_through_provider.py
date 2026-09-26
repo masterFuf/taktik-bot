@@ -190,6 +190,22 @@ def test_tiktok_outreach_goes_through_the_provider_and_reports_its_cost(http):
     assert ipc.spend[0]["label"] == "tiktok_dm_outreach @tom"
 
 
+def test_tiktok_outreach_retries_a_rate_limit_instead_of_falling_back(http):
+    """A 429 used to send the recipient the static list instead of the AI message."""
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (
+        generate_outreach_message,
+    )
+
+    calls, answers = http
+    answers.extend([_rate_limited(), _answer("Hello again")])
+    ipc = _RecordingIpc()
+
+    assert generate_outreach_message("tom", "x", "key", ipc=ipc) == "Hello again"
+    assert len(calls) == 2
+    # Only the answered call was billed, so only it is reported.
+    assert [entry["label"] for entry in ipc.spend] == ["tiktok_dm_outreach @tom"]
+
+
 def test_tiktok_outreach_returns_empty_on_failure(http):
     from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (
         generate_outreach_message,
@@ -244,6 +260,17 @@ def test_auto_reply_goes_through_the_provider_with_its_configured_model(http):
         {"role": "user", "content": "ctx\n\nUser message: Coucou\n\nYour reply (keep it natural and concise):"},
     ]
     assert ipc.spend[0]["kind"] == "dm"
+
+
+def test_auto_reply_retries_a_rate_limit_instead_of_dropping_the_reply(http):
+    calls, answers = http
+    answers.extend([_rate_limited(), _answer("Merci !")])
+    ipc = _RecordingIpc()
+    workflow, config = _auto_reply(ipc)
+
+    assert asyncio.run(workflow._generate_reply_with_llm("Coucou", "ctx", config)) == "Merci !"
+    assert len(calls) == 2
+    assert [entry["label"] for entry in ipc.spend] == ["dm_auto_reply"]
 
 
 def test_auto_reply_without_an_ipc_still_answers(http):

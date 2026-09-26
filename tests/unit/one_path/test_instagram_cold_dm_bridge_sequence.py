@@ -27,6 +27,7 @@ def _observed(rig, code) -> dict:
         "stdout": rig.stdout_lines,
         "events": [[kind, payload] for kind, payload in rig.events],
         "db": rig.db,
+        "sessions": rig.sessions,
         "ai": rig.ai_calls,
     }
     text = json.dumps(observed, default=str).replace(json.dumps(config_path)[1:-1], "<config>")
@@ -43,6 +44,7 @@ def _check(name, rig, code) -> None:
     expected = SNAPSHOT[name]
     assert observed["calls"] == expected["calls"]
     assert observed["db"] == expected["db"]
+    assert observed["sessions"] == expected["sessions"]
     assert observed["ai"] == expected["ai"]
     assert observed["stdout"] == expected["stdout"]
     assert observed["events"] == expected["events"]

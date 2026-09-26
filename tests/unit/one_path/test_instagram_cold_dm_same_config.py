@@ -23,12 +23,13 @@ def _run_both(rig, payload, env=None):
     code = rig.run_bridge(payload)
     assert code == 0, rig.stdout_lines
     bridge = {"steps": _steps(rig.calls), "db": list(rig.db), "sent": list(rig.sent),
-              "final": rig.stdout_lines[-1]}
+              "sessions": list(rig.sessions), "final": rig.stdout_lines[-1]}
     rig.reset()
 
     result = rig.run_cli(payload, env=env)
     assert result.exit_code == 0, result.output
-    cli = {"steps": _steps(rig.calls), "db": list(rig.db), "sent": list(rig.sent), "result": rig.cli_results[-1]}
+    cli = {"steps": _steps(rig.calls), "db": list(rig.db), "sent": list(rig.sent),
+           "sessions": list(rig.sessions), "result": rig.cli_results[-1]}
     return bridge, cli
 
 
@@ -67,6 +68,17 @@ def test_the_cli_records_what_it_sent_and_does_not_send_it_twice(igc_rig):
     result = igc_rig.run_cli(cold_dm_payload())
     assert result.exit_code == 0, result.output
     assert igc_rig.sent == []
+
+
+def test_the_cli_files_the_run_as_one_session_like_the_bridge(igc_rig):
+    bridge, cli = _run_both(igc_rig, cold_dm_payload())
+    # The CLI's invocation adds `device_id` to the stored config; the session itself is the same.
+    same = lambda rows: [{k: v for k, v in row.items() if k != "config_keys"} for row in rows]
+
+    assert same(cli["sessions"]) == same(bridge["sessions"])
+    assert [row["op"] for row in cli["sessions"]] == ["create", "finalize"]
+    assert cli["sessions"][0]["workflow_type"] == "cold_dm"
+    assert cli["sessions"][1]["status"] == "COMPLETED"
 
 
 def test_the_cli_restarts_instagram_before_the_first_dm_like_the_bridge(igc_rig):

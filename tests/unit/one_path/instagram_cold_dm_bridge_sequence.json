@@ -76,7 +76,14 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [
    {
     "account_id": 7,
@@ -86,6 +93,37 @@
     "error": null,
     "session_id": "session-1",
     "platform": "instagram"
+   }
+  ],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one (+1)",
+    "target_type": "DM",
+    "target": "@open_one (+1)",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
    }
   ],
   "ai": []
@@ -179,7 +217,14 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [
    {
     "account_id": 7,
@@ -198,6 +243,37 @@
     "error": null,
     "session_id": "session-1",
     "platform": "instagram"
+   }
+  ],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one (+1)",
+    "target_type": "DM",
+    "target": "@open_one (+1)",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
    }
   ],
   "ai": []
@@ -279,7 +355,14 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [
    {
     "account_id": 7,
@@ -289,6 +372,37 @@
     "error": null,
     "session_id": "session-1",
     "platform": "instagram"
+   }
+  ],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one (+1)",
+    "target_type": "DM",
+    "target": "@open_one (+1)",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
    }
   ],
   "ai": []
@@ -361,8 +475,46 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one (+1)",
+    "target_type": "DM",
+    "target": "@open_one (+1)",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
+   }
+  ],
   "ai": []
  },
  "all_done": {
@@ -382,8 +534,46 @@
     "error": "All recipients already received a DM"
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one (+1)",
+    "target_type": "DM",
+    "target": "@open_one (+1)",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
+   }
+  ],
   "ai": []
  },
  "ai": {
@@ -439,7 +629,14 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [
    {
     "account_id": 7,
@@ -449,6 +646,39 @@
     "error": null,
     "session_id": "session-1",
     "platform": "instagram"
+   }
+  ],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one",
+    "target_type": "DM",
+    "target": "@open_one",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "aiPrompt",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "openrouterApiKey",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
    }
   ],
   "ai": [
@@ -496,8 +726,46 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one",
+    "target_type": "DM",
+    "target": "@open_one",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
+   }
+  ],
   "ai": []
  },
  "no_button": {
@@ -541,8 +809,46 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one",
+    "target_type": "DM",
+    "target": "@open_one",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
+   }
+  ],
   "ai": []
  },
  "invite_sent": {
@@ -589,7 +895,14 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [
    {
     "account_id": 7,
@@ -599,6 +912,37 @@
     "error": "Invite already sent",
     "session_id": "session-1",
     "platform": "instagram"
+   }
+  ],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one",
+    "target_type": "DM",
+    "target": "@open_one",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
    }
   ],
   "ai": []
@@ -657,7 +1001,14 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [
    {
     "account_id": 7,
@@ -667,6 +1018,38 @@
     "error": null,
     "session_id": "session-1",
     "platform": "instagram"
+   }
+  ],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one",
+    "target_type": "DM",
+    "target": "@open_one",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "packageName",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
    }
   ],
   "ai": []
@@ -725,7 +1108,14 @@
     "error": null
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [
    {
     "account_id": 7,
@@ -735,6 +1125,37 @@
     "error": null,
     "session_id": "session-1",
     "platform": "instagram"
+   }
+  ],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one (+1)",
+    "target_type": "DM",
+    "target": "@open_one (+1)",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "COMPLETED",
+    "duration_is_int": true,
+    "error": null,
+    "stop_reason": "completed"
    }
   ],
   "ai": []
@@ -754,8 +1175,46 @@
     "error": "No recipients provided"
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm",
+    "target_type": "DM",
+    "target": "",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "ERROR",
+    "duration_is_int": true,
+    "error": "No recipients provided",
+    "stop_reason": null
+   }
+  ],
   "ai": []
  },
  "no_messages": {
@@ -773,8 +1232,46 @@
     "error": "No messages provided and AI mode not configured"
    }
   ],
-  "events": [],
+  "events": [
+   [
+    "session_start",
+    {
+     "session_id": 41
+    }
+   ]
+  ],
   "db": [],
+  "sessions": [
+   {
+    "op": "create",
+    "account_id": 7,
+    "name": "cold_dm - @open_one (+1)",
+    "target_type": "DM",
+    "target": "@open_one (+1)",
+    "workflow_type": "cold_dm",
+    "config_keys": [
+     "accountId",
+     "delayMax",
+     "delayMin",
+     "deviceId",
+     "maxDmsPerSession",
+     "messageMode",
+     "messages",
+     "recipients",
+     "sessionId",
+     "skipPrivateAccounts",
+     "skipVerifiedAccounts"
+    ]
+   },
+   {
+    "op": "finalize",
+    "session_id": 41,
+    "status": "ERROR",
+    "duration_is_int": true,
+    "error": "No messages provided and AI mode not configured",
+    "stop_reason": null
+   }
+  ],
   "ai": []
  },
  "no_connection": {
@@ -790,6 +1287,7 @@
   ],
   "events": [],
   "db": [],
+  "sessions": [],
   "ai": []
  },
  "no_device": {
@@ -803,6 +1301,7 @@
   ],
   "events": [],
   "db": [],
+  "sessions": [],
   "ai": []
  },
  "no_argument": {
@@ -811,6 +1310,7 @@
   "stdout": [],
   "events": [],
   "db": [],
+  "sessions": [],
   "ai": []
  },
  "unreadable": {
@@ -824,6 +1324,7 @@
   ],
   "events": [],
   "db": [],
+  "sessions": [],
   "ai": []
  }
 }

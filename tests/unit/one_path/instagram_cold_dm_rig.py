@@ -3,8 +3,9 @@
 The same cold DM payload goes through the desktop bridge (`cold_dm_bridge <config.json>`) and
 through the CLI (`taktik workflows run instagram.engagement.coldDm`). The phone below answers the
 selectors of the flow (search tab, search bar, result rows, profile, conversation, send button)
-from a small screen state, and records every selector query that finds something and every gesture.
-Nothing here reaches adb, the network, the AI or the database.
+from a small screen state, and records every selector query that finds something and every gesture,
+the `sent_dms` rows and the session the run opens and closes. Nothing here reaches adb, the network,
+the AI or the database.
 """
 from __future__ import annotations
 
@@ -237,6 +238,8 @@ class InstagramColdDmRig:
         self.sent: list[str] = []
         self.typed: list[str] = []
         self.db: list[dict] = []
+        #: The run's session, as the database service is asked to open and close it.
+        self.sessions: list[dict] = []
         self.ai_calls: list[dict] = []
         self.cli_results: list = []
         #: username -> what its profile shows; absent fields take the defaults of `profile`.
@@ -390,6 +393,27 @@ class InstagramColdDmRig:
         mp.setattr(SentDMService, "check_already_sent", staticmethod(fake_check))
         mp.setattr(SentDMService, "record", staticmethod(fake_record))
 
+        class FakeSessionDatabase:
+            """The two session calls of the run; any other use of the base is a failure."""
+
+            def create_session(self, account_id, session_name, target_type, target, config_used=None,
+                               workflow_type=None):
+                rig.sessions.append({"op": "create", "account_id": account_id, "name": session_name,
+                                     "target_type": target_type, "target": target,
+                                     "workflow_type": workflow_type,
+                                     "config_keys": sorted(config_used or {})})
+                return 41
+
+            def finalize_session(self, session_id, status, duration_seconds=None, error_message=None,
+                                 posts_engaged=None, stop_reason=None):
+                rig.sessions.append({"op": "finalize", "session_id": session_id, "status": status,
+                                     "duration_is_int": isinstance(duration_seconds, int),
+                                     "error": error_message,
+                                     "stop_reason": getattr(stop_reason, "code", stop_reason)})
+                return True
+
+        mp.setattr("taktik.core.database.local.service.get_local_database", lambda: FakeSessionDatabase())
+
         class FakeAI:
             def __init__(self, api_key, ipc):
                 self.api_key = api_key
@@ -469,7 +493,8 @@ class InstagramColdDmRig:
         )
 
     def reset(self) -> None:
-        for bucket in (self.calls, self.events, self.stdout_lines, self.sent, self.typed, self.db, self.ai_calls):
+        for bucket in (self.calls, self.events, self.stdout_lines, self.sent, self.typed, self.db, self.sessions,
+                       self.ai_calls):
             bucket.clear()
         self.phone.state = "home"
         self.phone.user = None
