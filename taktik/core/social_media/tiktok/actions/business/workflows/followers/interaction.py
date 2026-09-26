@@ -85,6 +85,11 @@ class VideoInteractionMixin(VideoCommentMixin):
             self._interact_with_current_video()
             
             self._actions_since_pause += 1
+
+            # Refused: the dialog stays on screen, no swipe and no way back.
+            if self._halted():
+                self._send_stats_update()
+                return
             
             # Swipe up to next video (except for last one)
             if i < posts_to_interact - 1:
@@ -204,24 +209,31 @@ class VideoInteractionMixin(VideoCommentMixin):
             # Like - use probability to distribute likes randomly across posts
             if random.random() < self.config.like_probability:
                 if self.stats.likes < self.config.max_likes_per_session:
-                    if self._try_like_video():
+                    if (self._try_like_video()
+                            and not self._stop_if_action_blocked(self._current_profile_username, 'like')):
                         self.stats.likes += 1
                         emit_step("like", action="button", target=self._current_profile_username)
                         self._send_action('like', self._current_profile_username)
                         self._record_interaction('LIKE', self._current_profile_username)
 
-        # Favorite
+        # Favorite. From here on, the first refusal ends the video's gestures.
+        if self._halted():
+            return
         if random.random() < self.config.favorite_probability:
-            if self._try_favorite_video():
+            if (self._try_favorite_video()
+                    and not self._stop_if_action_blocked(self._current_profile_username, 'favorite')):
                 self.stats.favorites += 1
                 emit_step("favorite", action="button", target=self._current_profile_username)
                 self._send_action('favorite', self._current_profile_username)
                 self._record_interaction('FAVORITE', self._current_profile_username)
         
         # Comment (less frequent)
+        if self._halted():
+            return
         if random.random() < self.config.comment_probability:
             if self.stats.comments < self.config.max_comments_per_session:
-                if self._try_comment_video():
+                if (self._try_comment_video()
+                        and not self._stop_if_action_blocked(self._current_profile_username, 'comment')):
                     self.stats.comments += 1
                     emit_step("comment", action="sheet", target=self._current_profile_username)
                     self._send_action('comment', self._current_profile_username)
@@ -277,6 +289,8 @@ class VideoInteractionMixin(VideoCommentMixin):
             # Look for Follow button on profile
             selectors = self.followers_selectors.profile_follow_button
             if self.click._find_and_click(selectors, timeout=2):
+                if self._stop_if_action_blocked(self._current_profile_username, 'follow'):
+                    return False
                 self.stats.follows += 1
                 emit_step("follow", action="button", target=self._current_profile_username)
                 self.logger.info(f"👤 Followed user ({self.stats.follows}/{self.config.max_follows_per_session})")

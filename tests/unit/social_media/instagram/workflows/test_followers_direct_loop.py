@@ -965,20 +965,34 @@ def test_a_rate_limited_run_says_so_instead_of_blaming_navigation():
     lost navigation is worth retrying, a block is worth stopping on, because acting again right
     after one is what turns a temporary limit into a lasting one.
     """
+    from taktik.core.shared.diagnostics import run_halt
+
     class _Blocked:
-        def is_action_blocked(self): return True
+        """Like the real detector: seeing the dialog sets the run's latch."""
+        def is_action_blocked(self):
+            run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page (words)")
+            return True
 
-    runner = Runner(pages=[["alice"]], process_results=[None])
-    runner.nav_actions = type('_N', (), {'problematic_page_detector': _Blocked()})()
+    told = []
+    run_halt.reinitialiser()
+    run_halt.configurer_temoin(told.append)
+    try:
+        runner = Runner(pages=[["alice"]], process_results=[None])
+        runner.nav_actions = type('_N', (), {'problematic_page_detector': _Blocked()})()
 
-    runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+        runner.interact_with_followers_direct("target", max_interactions=5, finalize=True)
+    finally:
+        run_halt.reinitialiser()
 
     status, reason = runner.automation.helpers.finalized[-1]
     assert getattr(reason, 'code', None) == 'action_blocked'
     assert status == "INTERRUPTED"
-    assert [s['signal'] for s in runner.recorded_signals] == ['action_blocked'], (
+    # The account's history is written once, by the latch's witness (the loop no longer writes
+    # it itself: every path that sees a block now reaches the same record).
+    assert [halt['code'] for halt in told] == ['action_blocked'], (
         "the block was not written down, so nothing counts how often this account is limited"
     )
+    assert runner.recorded_signals == []
 
 
 def test_a_genuinely_lost_navigation_is_still_a_lost_navigation():

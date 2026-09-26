@@ -403,6 +403,397 @@
     ],
     "exit": 0
   },
+  "blocked": {
+    "exit": 0,
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "unfollow_workflow_built",
+      "unfollow_run as acting_account"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "status": "starting",
+          "message": "Initializing TikTok Unfollow workflow on emulator-5554"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "connecting",
+          "message": "Connecting to device"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "launching",
+          "message": "Restarting TikTok app"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "fetching_profile",
+          "message": "Fetching your TikTok profile info"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "username": "acting_account",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "bio": "bio",
+            "profile_pic_base64": null
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "running",
+          "message": "Unfollowing users (0/12)"
+        }
+      ],
+      [
+        "unfollow_event",
+        {
+          "event": "skipped",
+          "reason": "friends",
+          "username": "fan_two"
+        }
+      ],
+      [
+        "unfollow_stats",
+        {
+          "stats": {
+            "unfollowed": 0,
+            "skipped": 1,
+            "skipped_friends": 1,
+            "skipped_handle_unknown": 0,
+            "skipped_recent_follows": 0,
+            "skipped_follow_date_unknown": 0,
+            "unconfirmed": 0,
+            "recorded": 0,
+            "errors": 0,
+            "stop_reason": "",
+            "refusals": {
+              "friends": 1
+            },
+            "target": 12
+          }
+        }
+      ],
+      [
+        "unfollow_event",
+        {
+          "event": "unfollowed",
+          "username": "fan_one",
+          "count": 1
+        }
+      ],
+      [
+        "unfollow_stats",
+        {
+          "stats": {
+            "unfollowed": 1,
+            "skipped": 1,
+            "skipped_friends": 1,
+            "skipped_handle_unknown": 0,
+            "skipped_recent_follows": 0,
+            "skipped_follow_date_unknown": 0,
+            "unconfirmed": 0,
+            "recorded": 1,
+            "errors": 0,
+            "stop_reason": "",
+            "refusals": {
+              "friends": 1
+            },
+            "target": 12
+          }
+        }
+      ],
+      [
+        "unfollow_event",
+        {
+          "event": "not_confirmed",
+          "reason": "not_confirmed",
+          "state": "following",
+          "username": "fan_three"
+        }
+      ],
+      [
+        "unfollow_stats",
+        {
+          "stats": {
+            "unfollowed": 1,
+            "skipped": 1,
+            "skipped_friends": 1,
+            "skipped_handle_unknown": 0,
+            "skipped_recent_follows": 0,
+            "skipped_follow_date_unknown": 0,
+            "unconfirmed": 1,
+            "recorded": 1,
+            "errors": 0,
+            "stop_reason": "action_blocked",
+            "refusals": {
+              "friends": 1
+            },
+            "target": 12
+          }
+        }
+      ],
+      [
+        "unfollow_stats",
+        {
+          "stats": {
+            "unfollowed": 1,
+            "skipped": 1,
+            "skipped_friends": 1,
+            "skipped_handle_unknown": 0,
+            "skipped_recent_follows": 0,
+            "skipped_follow_date_unknown": 0,
+            "unconfirmed": 1,
+            "recorded": 1,
+            "errors": 0,
+            "stop_reason": "action_blocked",
+            "refusals": {
+              "friends": 1
+            },
+            "target": 12
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "completed",
+          "message": "Unfollowed 1 users",
+          "completion_reason": "action_blocked"
+        }
+      ]
+    ],
+    "configs": [
+      {
+        "max_unfollows": 12,
+        "include_friends": false,
+        "min_delay": 7.0,
+        "max_delay": 15.0,
+        "max_scroll_attempts": 10,
+        "min_follow_age_days": 0,
+        "bot_username": "acting_account",
+        "confirm_timeout": 3.0,
+        "max_unconfirmed_in_a_row": 3
+      }
+    ],
+    "events_old_code": [
+      [
+        "status",
+        {
+          "status": "starting",
+          "message": "Initializing TikTok Unfollow workflow on emulator-5554"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "connecting",
+          "message": "Connecting to device"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "launching",
+          "message": "Restarting TikTok app"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "fetching_profile",
+          "message": "Fetching your TikTok profile info"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "username": "acting_account",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "bio": "bio",
+            "profile_pic_base64": null
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "running",
+          "message": "Unfollowing users (0/12)"
+        }
+      ],
+      [
+        "unfollow_event",
+        {
+          "event": "skipped",
+          "reason": "friends",
+          "username": "fan_two"
+        }
+      ],
+      [
+        "unfollow_stats",
+        {
+          "stats": {
+            "unfollowed": 0,
+            "skipped": 1,
+            "skipped_friends": 1,
+            "skipped_handle_unknown": 0,
+            "skipped_recent_follows": 0,
+            "skipped_follow_date_unknown": 0,
+            "unconfirmed": 0,
+            "recorded": 0,
+            "errors": 0,
+            "stop_reason": "",
+            "refusals": {
+              "friends": 1
+            },
+            "target": 12
+          }
+        }
+      ],
+      [
+        "unfollow_event",
+        {
+          "event": "unfollowed",
+          "username": "fan_one",
+          "count": 1
+        }
+      ],
+      [
+        "unfollow_stats",
+        {
+          "stats": {
+            "unfollowed": 1,
+            "skipped": 1,
+            "skipped_friends": 1,
+            "skipped_handle_unknown": 0,
+            "skipped_recent_follows": 0,
+            "skipped_follow_date_unknown": 0,
+            "unconfirmed": 0,
+            "recorded": 1,
+            "errors": 0,
+            "stop_reason": "",
+            "refusals": {
+              "friends": 1
+            },
+            "target": 12
+          }
+        }
+      ],
+      [
+        "unfollow_event",
+        {
+          "event": "not_confirmed",
+          "reason": "not_confirmed",
+          "state": "following",
+          "username": "fan_three"
+        }
+      ],
+      [
+        "unfollow_stats",
+        {
+          "stats": {
+            "unfollowed": 1,
+            "skipped": 1,
+            "skipped_friends": 1,
+            "skipped_handle_unknown": 0,
+            "skipped_recent_follows": 0,
+            "skipped_follow_date_unknown": 0,
+            "unconfirmed": 1,
+            "recorded": 1,
+            "errors": 0,
+            "stop_reason": "action_blocked",
+            "refusals": {
+              "friends": 1
+            },
+            "target": 12
+          }
+        }
+      ],
+      [
+        "unfollow_stats",
+        {
+          "stats": {
+            "unfollowed": 1,
+            "skipped": 1,
+            "skipped_friends": 1,
+            "skipped_handle_unknown": 0,
+            "skipped_recent_follows": 0,
+            "skipped_follow_date_unknown": 0,
+            "unconfirmed": 1,
+            "recorded": 1,
+            "errors": 0,
+            "stop_reason": "action_blocked",
+            "refusals": {
+              "friends": 1
+            },
+            "target": 12
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "completed",
+          "message": "Unfollowed 1 users"
+        }
+      ]
+    ]
+  },
   "empty_stdin": {
     "calls": [],
     "configs": [],

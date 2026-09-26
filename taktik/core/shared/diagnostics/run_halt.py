@@ -30,6 +30,10 @@ plus personne ne lit les evenements du pont ni ne peut l'arreter : plantage de l
 fermeture brutale. Pose par le chien de garde du lanceur (`bridges/common/runtime/owner_watchdog.py`),
 lu aux memes endroits que les autres, pour que le run finisse par son chemin normal.
 
+**The witness.** The runtime that knows the operated account installs a listener
+(`configurer_temoin`), told once when the latch is set: that is where a block becomes one entry
+of the account's health history, whoever saw it. This module stays blind to accounts and SQLite.
+
 Un processus de pont sert un run : le verrou y part leve. `run_bridge_main` le remet aussi a zero
 au demarrage, comme les autres compteurs partages, pour les ponts qui passent par lui (pas les
 ponts Instagram, qui ont leur propre point d'entree). La session persistante du Cartography Lab,
@@ -40,7 +44,7 @@ une action entrerait avec le verrou de la precedente et s'arreterait d'emblee.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from loguru import logger
 
@@ -59,11 +63,22 @@ DESKTOP_GONE = "desktop_gone"
 
 _arret: Optional[Dict[str, Any]] = None
 
+#: Told once, when the latch is set: the platform runtime that knows the operated account installs
+#: it (the account's health record). Same shape as the telemetry sink; None = nobody listens.
+_temoin: Optional[Callable[[Dict[str, Any]], None]] = None
+
 
 def reinitialiser() -> None:
     """Lever le verrou. Appele au demarrage d'un run par `run_bridge_main`."""
-    global _arret
+    global _arret, _temoin
     _arret = None
+    _temoin = None
+
+
+def configurer_temoin(temoin: Optional[Callable[[Dict[str, Any]], None]]) -> None:
+    """Install the listener told of the first halt of the run (replaces any previous one)."""
+    global _temoin
+    _temoin = temoin
 
 
 def demander_arret(code: str, detail: Optional[str] = None, **contexte: Any) -> None:
@@ -77,6 +92,12 @@ def demander_arret(code: str, detail: Optional[str] = None, **contexte: Any) -> 
         return
     _arret = {"code": code, "detail": detail, "at": time.time(), **contexte}
     logger.warning(f"⛔ Arret demande : {code}" + (f" — {detail}" if detail else ""))
+    temoin = _temoin
+    if temoin is not None:
+        try:
+            temoin(dict(_arret))
+        except Exception as exc:  # noqa: BLE001 - a listener must never undo the stop
+            logger.debug(f"Halt listener failed: {exc}")
 
 
 def arret_demande() -> Optional[Dict[str, Any]]:
@@ -85,6 +106,6 @@ def arret_demande() -> Optional[Dict[str, Any]]:
 
 
 __all__ = [
-    "demander_arret", "arret_demande", "reinitialiser",
+    "demander_arret", "arret_demande", "reinitialiser", "configurer_temoin",
     "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE",
 ]

@@ -31,6 +31,8 @@ from bridges.instagram.engagement.runtime.notifications.welcome_dm import (
     welcome_dm_skip_reason,
 )
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.database.account_health import witness_for
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_session import suggestion_session
 
 
@@ -45,6 +47,12 @@ def _connect(device_id: str, package_name: str = None, *, restart: bool = True) 
     if restart:
         bridge.restart_instagram()
     return bridge
+
+
+def _watch_account_health(account_username: str | None) -> None:
+    """A block seen during this command becomes one entry of the account's health history."""
+    run_halt.configurer_temoin(witness_for(
+        "instagram", lambda: account_username, source_type=lambda: "NOTIFICATIONS"))
 
 
 def _refresh_own_account(bridge: NotificationsBridge, account_username: str | None) -> str | None:
@@ -297,6 +305,7 @@ def cmd_list_requests(device_id: str, limit: int, package_name: str = None) -> N
 
 def cmd_accept(device_id: str, username: str, package_name: str = None,
                account_username: str = None) -> None:
+    _watch_account_health(account_username)
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().accept_request(username)
     record_notification_action(account_username, action="accept", actor_username=username,
@@ -306,6 +315,7 @@ def cmd_accept(device_id: str, username: str, package_name: str = None,
 
 def cmd_ignore(device_id: str, username: str, package_name: str = None,
                account_username: str = None) -> None:
+    _watch_account_health(account_username)
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().ignore_request(username)
     record_notification_action(account_username, action="ignore", actor_username=username,
@@ -315,6 +325,7 @@ def cmd_ignore(device_id: str, username: str, package_name: str = None,
 
 def cmd_accept_all(device_id: str, limit: int, package_name: str = None,
                    account_username: str = None) -> None:
+    _watch_account_health(account_username)
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().accept_all_requests(max_requests=limit if limit > 0 else 50)
     for accepted in result.get("accepted", []):
@@ -327,6 +338,7 @@ def cmd_accept_all(device_id: str, limit: int, package_name: str = None,
         "count": result.get("count", 0),
         "accepted": result.get("accepted", []),
         "message": result.get("message", ""),
+        **({"stop_reason": result["stop_reason"]} if result.get("stop_reason") else {}),
     }, flush=True)
 
 
@@ -337,6 +349,7 @@ def cmd_reply(device_id: str, username: str, text: str = "", package_name: str =
     Empty ``text`` opens the reply UI only (operator types by hand on the device) —
     nothing is sent by our hand, so nothing is recorded.
     """
+    _watch_account_health(account_username)
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().reply_to_comment(username, text)
     if text.strip():
@@ -348,6 +361,7 @@ def cmd_reply(device_id: str, username: str, text: str = "", package_name: str =
 def cmd_like(device_id: str, username: str, package_name: str = None,
              account_username: str = None) -> None:
     """Like the comment / mention of ``username`` inline from the feed."""
+    _watch_account_health(account_username)
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().like_comment(username)
     record_notification_action(account_username, action="like", actor_username=username,
@@ -358,6 +372,7 @@ def cmd_like(device_id: str, username: str, package_name: str = None,
 def cmd_follow_back(device_id: str, username: str, package_name: str = None,
                     account_username: str = None) -> None:
     """Follow ``username`` back inline from their "started following you" row."""
+    _watch_account_health(account_username)
     bridge = _connect(device_id, package_name, restart=False)
     result = bridge.build_workflow().follow_back(username)
     record_notification_action(account_username, action="follow_back", actor_username=username,
@@ -402,6 +417,7 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
     One failing action does not abort the rest — a comment whose row scrolled out of reach must not
     cancel the nine others.
     """
+    _watch_account_health(account_username)
     bridge = _connect(device_id, package_name, restart=False)
     workflow = bridge.build_workflow()
 
@@ -451,6 +467,15 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
                 "username": username, "success": True,
                 "message": f"[{index + 1}/{total}] {action} @{username} - {why}",
             }, flush=True)
+
+        # The first refusal ends the batch: every entry left is reported, none is tapped.
+        halt = run_halt.arret_demande()
+        if halt:
+            skipped += 1
+            _skip(halt.get("code") or "halted", "batch stopped: "
+                  + ("Instagram refuses actions (Try again later)"
+                     if halt.get("code") == "action_blocked" else str(halt.get("code"))))
+            continue
 
         cap = daily_caps.get(action)
         if cap is not None and used_today.get(action, 0) >= cap:
@@ -507,6 +532,9 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
                 result = follow_actor(bridge.device, username)
             else:
                 result = {"success": False, "error": f"Unknown action: {action}"}
+            # Every verb looks for the block after its own gesture (the one look).
+            if (run_halt.arret_demande() or {}).get("code") == "action_blocked":
+                result = {**result, "success": False, "stop_reason": "action_blocked"}
         except Exception as exc:  # noqa: BLE001
             # Isolated per action, on purpose: see the docstring.
             logger.error(f"[NOTIF] batch {action} @{username} failed: {exc}")
@@ -559,9 +587,11 @@ def cmd_batch(device_id: str, actions: list[dict], package_name: str = None,
             # nowhere worth pausing for.
             wait_before_next_off_screen_action(is_last=index >= total - 1)
 
+    halt = run_halt.arret_demande()
     emit_notif_json({
         "type": "result",
         "command": "batch",
+        **({"stop_reason": halt.get("code")} if halt else {}),
         "success": failed == 0,
         "total": total,
         "done": done,

@@ -339,6 +339,9 @@ class DMWorkflow(BaseTikTokWorkflow):
             if not self.dm.send_text_message(message):
                 self.logger.warning(f"Failed to send message to {conversation_name}")
                 return False
+            # Refused: not a sent message, and no way back to the inbox (it would close the dialog).
+            if self._stop_if_action_blocked(conversation_name, 'dm'):
+                return False
             
             self.stats.messages_sent += 1
             self._send_stats_update()
@@ -368,7 +371,8 @@ class DMWorkflow(BaseTikTokWorkflow):
             
             # Try to go back to inbox
             try:
-                self.dm.go_back_to_inbox()
+                if not self._halted():
+                    self.dm.go_back_to_inbox()
             except Exception:
                 pass
             
@@ -392,6 +396,9 @@ class DMWorkflow(BaseTikTokWorkflow):
         self.logger.info(f"📤 Sending {total} messages")
         
         for idx, msg_data in enumerate(messages):
+            if self._halted():
+                self.logger.warning("Run stop requested: no more messages")
+                break
             conversation = msg_data.get('conversation', '')
             message = msg_data.get('message', '')
             
@@ -531,13 +538,15 @@ class DMWorkflow(BaseTikTokWorkflow):
                 return results
 
             for name in usernames:
-                if not self._running:
+                if not self._running or self._halted():
                     break
                 ok = False
                 try:
                     ok = self.dm.follow_back(name)
                 except Exception as e:
                     self.logger.warning(f"Follow-back {name} erreur: {e}")
+                if ok and self._stop_if_action_blocked(name, 'follow back'):
+                    ok = False
                 res = {'username': name, 'success': bool(ok)}
                 results.append(res)
                 self._emit_follow_back_result(res)

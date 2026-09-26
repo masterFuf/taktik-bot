@@ -13,6 +13,9 @@ from typing import Any, Callable, Optional
 
 from loguru import logger
 
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.workflows.cold_dm.messages import choose_cold_dm_message
 from taktik.core.social_media.instagram.workflows.cold_dm.navigation import (
     NOT_ON_PROFILE,
@@ -41,6 +44,8 @@ NO_SEARCH = "no_search"
 NOT_FOUND = "not_found"
 NO_CONVERSATION = "no_conversation"
 NO_MESSAGE = "no_message"
+#: Instagram refused the send ("Try again later"): the run stops, the dialog stays on screen.
+ACTION_BLOCKED = "action_blocked"
 
 
 ProgressCallback = Callable[..., None]
@@ -111,6 +116,9 @@ class ColdDMWorkflow(
         self._detect_app_language()
 
         for i, recipient in enumerate(filtered_recipients[:max_dms]):
+            if run_halt.arret_demande():
+                logger.warning(f"Run stop requested ({run_halt.arret_demande().get('code')}): no more DMs")
+                break
             if self.dms_sent >= max_dms:
                 logger.info(f"Reached max DMs limit: {max_dms}")
                 break
@@ -153,6 +161,9 @@ class ColdDMWorkflow(
                     )
                 else:
                     self.dms_failed += 1
+                if outcome == ACTION_BLOCKED:
+                    # No way back home: its Back would close the dialog, which is acting again.
+                    break
                 if outcome != SENT:
                     self.go_home()
                     continue
@@ -202,7 +213,10 @@ class ColdDMWorkflow(
         message = compose()
         if not message:
             return {"outcome": NO_MESSAGE}
-        return {"outcome": SENT, "message": message, "send_result": self.send_message(message)}
+        send_result = self.send_message(message)
+        if look_for_action_block(ProblematicPageDetector(self.device), after='dm', target=recipient):
+            return {"outcome": ACTION_BLOCKED, "message": message, "send_result": False}
+        return {"outcome": SENT, "message": message, "send_result": send_result}
 
     def _detect_app_language(self) -> None:
         """Pick the selector language once, on the app's first screen (best effort).

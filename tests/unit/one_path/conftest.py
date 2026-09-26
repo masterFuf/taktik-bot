@@ -83,10 +83,15 @@ class Rig:
         self.unexpected_screen: set[str] = set()
         self.privacy_blocked: set[str] = set()
         self.cold_send_failures: set[str] = set()
+        #: Sends TikTok refuses: its refusal is then on screen, read by the production detector.
+        self.refused_sends: set[str] = set()
+        self.refusal_on_screen = False
         self.ai_text_fails = False
         self.on_profile = None
         #: The unfollow run raises (a screen it cannot reach).
         self.unfollow_fails = False
+        #: Why the unfollow run stopped by itself (`action_blocked`, `unfollow_unconfirmed`).
+        self.unfollow_stop_reason = ""
         #: The scraping source: the handles it gives, how the run ends, an error it reports on the
         #: way, whether it raises, and the id the database gives the session (None: not created).
         self.scraped_usernames: list[str] = ["fan_one", "fan_two"]
@@ -141,6 +146,12 @@ class Rig:
             def xpath(self, _selector):
                 rig.calls.append("wait_app_surface")
                 return SimpleNamespace(exists=True)
+
+            def dump_hierarchy(self, *_args, **_kwargs):
+                toast = ('<node class="android.widget.TextView" text="Too many requests. Try again later." '
+                         'resource-id="com.zhiliaoapp.musically:id/toast" bounds="[40,1000][1040,1080]"/>'
+                         if rig.refusal_on_screen else "")
+                return f'<hierarchy rotation="0"><node class="android.widget.FrameLayout">{toast}</node></hierarchy>'
 
         self.device = FakeDevice()
 
@@ -1076,6 +1087,7 @@ class Rig:
                 self._fire("stats", stats.to_dict())
                 stats.unconfirmed = 1
                 self._fire("unconfirmed", "fan_three", "following")
+                stats.stop_reason = rig.unfollow_stop_reason
                 self._fire("stats", stats.to_dict())
                 return stats
 
@@ -1167,6 +1179,8 @@ class Rig:
 
             def send_text_message(self, message):
                 rig.calls.append(f"send_text {rig.on_profile} {message!r}")
+                if rig.on_profile in rig.refused_sends:
+                    rig.refusal_on_screen = True
                 return rig.on_profile not in rig.cold_send_failures
 
         class FakeRng:

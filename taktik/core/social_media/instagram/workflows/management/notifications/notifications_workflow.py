@@ -35,8 +35,11 @@ from taktik.core.shared.input.taktik_keyboard import (
     read_focused_text,
     type_text_checked,
 )
+from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.vision import locate_text_on_screen
 
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from ....ui.detectors.problematic_page import ProblematicPageDetector
 from ....ui.language import detect_and_optimize
 from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
 from ....ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
@@ -257,6 +260,25 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
     # ------------------------------------------------------------------
     # Navigation
     # ------------------------------------------------------------------
+    def _block_detector(self):
+        """The production block detector on this workflow's device (None without one)."""
+        device = getattr(self, "device", None)
+        return ProblematicPageDetector(device) if device is not None else None
+
+    def _refused(self, action: str, username: str, result: Dict[str, Any]) -> bool:
+        """After a tap that writes: is Instagram refusing it ("Try again later")?
+
+        The one look of every Instagram writing path; the dialog is left on screen (closing it
+        would be acting again) and the result says why nothing was done.
+        """
+        if not look_for_action_block(self._block_detector(), after=action, target=username):
+            return False
+        result["success"] = False
+        result["stop_reason"] = "action_blocked"
+        result["message"] = f"Instagram refuses the {action} (Try again later)"
+        self._notify(action, "failed", result["message"], username=username)
+        return True
+
     def _on_notifications_screen(self) -> bool:
         return self._element_exists(self.selectors.notifications_screen_indicators)
 
@@ -696,6 +718,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             self._notify(action, "failed", result["message"], username=username)
             return result
         time.sleep(1.0)
+        if self._refused(action, username, result):
+            return result
         result["success"] = True
         result["message"] = f"{action} {username}"
         self._notify(action, "done", result["message"], username=username)
@@ -722,7 +746,11 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         accepted: List[str] = []
         accepted_seen: set = set()  # lowercased usernames already tapped this batch
         self._notify("accept_all", "running", "Confirming follow requests")
+        stop_reason = None
         for _ in range(max_requests):
+            if run_halt.arret_demande():
+                stop_reason = run_halt.arret_demande().get("code")
+                break
             # A just-accepted row can still linger on screen for a moment (Instagram hasn't removed
             # it from the list yet) or, worse, its slot may now host a DIFFERENT actionable element
             # our accept selector also matches (e.g. a post-accept "Message"/"Follow back" CTA in
@@ -743,6 +771,9 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             username = row["username"]
             if not self._tap_point(row["accept"], f"accept {username}"):
                 break
+            if look_for_action_block(self._block_detector(), after="accept", target=username):
+                stop_reason = "action_blocked"
+                break
             accepted.append(username)
             accepted_seen.add(username.strip().lower())
             self._notify("accept_all", "running", username, username=username,
@@ -750,6 +781,12 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             time.sleep(random.uniform(*delay_range))
 
         msg = f"Confirmed {len(accepted)} follow request(s)"
+        if stop_reason:
+            msg += f", stopped: {stop_reason}"
+            self.logger.error(f"accept_all_requests: {msg}")
+            self._notify("accept_all", "failed", msg, accepted_count=len(accepted))
+            return {"success": False, "count": len(accepted), "accepted": accepted,
+                    "message": msg, "stop_reason": stop_reason}
         self.logger.success(f"accept_all_requests: {msg}")
         self._notify("accept_all", "done", msg, accepted_count=len(accepted))
         return {"success": True, "count": len(accepted), "accepted": accepted, "message": msg}
@@ -803,6 +840,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             self._notify("like", "failed", result["message"], username=username)
             return result
         time.sleep(0.8)
+        if self._refused("like", username, result):
+            return result
         result["success"] = True
         result["message"] = (f"Liked {username}" if username else "Liked comment")
         self._notify("like", "done", result["message"], username=username)
@@ -857,6 +896,8 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             self._notify("follow_back", "failed", result["message"], username=username)
             return result
         time.sleep(0.8)
+        if self._refused("follow_back", username, result):
+            return result
         result["success"] = True
         result["message"] = (f"Followed back {username}" if username else "Followed back")
         self._notify("follow_back", "done", result["message"], username=username)
@@ -1030,6 +1071,9 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             self._return_to_notifications()
             return result
         time.sleep(1.2)
+        # Before the way back: its Back would close the dialog, which is acting again.
+        if self._refused("reply", username, result):
+            return result
 
         # Best-effort verification: the composer cleared (our text is no longer in it).
         sent = True

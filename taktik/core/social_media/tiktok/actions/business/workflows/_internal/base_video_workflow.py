@@ -83,6 +83,8 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         self.logger.info(f"❤️ Liking video by @{video_info.get('author')}")
 
         if self.click.click_like_button():
+            if self._stop_if_action_blocked(video_info.get('author'), 'like'):
+                return False
             self.stats.videos_liked += 1
             emit_step("like", action="button", target=video_info.get('author'))
             self._send_stats_update()
@@ -100,6 +102,8 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         self.logger.info(f"👤 Following @{video_info.get('author')}")
 
         if self.click.click_video_follow_button():
+            if self._stop_if_action_blocked(video_info.get('author'), 'follow'):
+                return False
             self.stats.users_followed += 1
             emit_step("follow", action="button", target=video_info.get('author'))
             self._send_stats_update()
@@ -117,6 +121,8 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         self.logger.info(f"⭐ Adding to favorites: @{video_info.get('author')}")
 
         if self.click.click_favorite_button():
+            if self._stop_if_action_blocked(video_info.get('author'), 'favorite'):
+                return False
             self.stats.videos_favorited += 1
             emit_step("favorite", action="button", target=video_info.get('author'))
             self._send_stats_update()
@@ -146,13 +152,17 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
             if self._like_video(video_info):
                 self._actions_since_pause += 1
 
-        # Follow
+        # Follow. From here on, the first refusal ends the video's gestures.
+        if self._halted():
+            return
         if (self.stats.users_followed < cfg.max_follows_per_session
                 and random.random() < cfg.follow_probability):
             if self._follow_user(video_info):
                 self._actions_since_pause += 1
 
         # Favorite
+        if self._halted():
+            return
         if (random.random() < cfg.favorite_probability
                 and not video_info.get('is_favorited')):
             if self._favorite_video(video_info):
@@ -161,12 +171,15 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         # Comment. Read with getattr because the two configs that reach here gained these knobs
         # later than the rest — a run whose payload predates them must behave exactly as before,
         # which means a probability of zero and no comment.
+        if self._halted():
+            return
         comment_probability = getattr(cfg, 'comment_probability', 0.0) or 0.0
         max_comments = getattr(cfg, 'max_comments_per_session', 0) or 0
         commented = getattr(self.stats, 'videos_commented', 0)
         if (comment_probability > 0 and commented < max_comments
                 and random.random() < comment_probability):
-            if self._try_comment_video():
+            if self._try_comment_video() and not self._stop_if_action_blocked(
+                    video_info.get('author'), 'comment'):
                 if hasattr(self.stats, 'videos_commented'):
                     self.stats.videos_commented += 1
                 emit_step("comment", action="sheet", target=video_info.get('author'))
@@ -174,12 +187,15 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
 
         # Repost. Same shape as the comment branch and the same getattr caution: a payload that
         # predates the knob must behave exactly as it did, which means never reposting.
+        if self._halted():
+            return
         repost_probability = getattr(cfg, 'repost_probability', 0.0) or 0.0
         max_reposts = getattr(cfg, 'max_reposts_per_session', 0) or 0
         reposted = getattr(self.stats, 'videos_reposted', 0)
         if (repost_probability > 0 and reposted < max_reposts
                 and random.random() < repost_probability):
-            if self._try_repost_video():
+            if self._try_repost_video() and not self._stop_if_action_blocked(
+                    video_info.get('author'), 'repost'):
                 if hasattr(self.stats, 'videos_reposted'):
                     self.stats.videos_reposted += 1
                 emit_step("repost", action="share_sheet", target=video_info.get('author'))
@@ -239,6 +255,9 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         arret = arret_demande()
         if arret:
             self.logger.warning(f"⛔ Arret : {arret['code']} — {arret.get('detail') or ''}")
+            # The run says why it stopped (`action_blocked`, `device_disconnected`...).
+            if not self.stats.completion_reason:
+                self.stats.completion_reason = arret['code']
             return True
 
         # A cap of 0 means "never this action", not "already reached": `0 >= 0` ended the whole

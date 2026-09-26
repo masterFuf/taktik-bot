@@ -1015,6 +1015,305 @@
     ],
     "exit": 0
   },
+  "refused_send": {
+    "exit": 0,
+    "calls": [
+      "outreach_manager emulator-5554",
+      "outreach_connect",
+      "stop tiktok",
+      "sleep 1",
+      "launch tiktok",
+      "sleep 4",
+      "open_profile fan_one",
+      "tap message_button",
+      "sleep 2",
+      "privacy_blocked?",
+      "privacy_blocked?",
+      "in_conversation?",
+      "send_text fan_one 'Salut, ton contenu est top !'"
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "status": "starting",
+          "message": "Initializing DM Outreach workflow"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "restarting",
+          "message": "Restarting TikTok app"
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 1,
+          "total": 3,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "processing",
+          "message": "Processing @fan_one"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "username": "fan_one",
+          "success": false,
+          "error": "TikTok refuses the message"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "sent": 0,
+            "success": 0,
+            "failed": 1,
+            "privacy_blocked": 0,
+            "not_found": 0,
+            "no_message_entry": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "completed",
+          "message": "Completed: 0 sent, 1 failed, stopped: action_blocked",
+          "completion_reason": "action_blocked"
+        }
+      ]
+    ],
+    "ai_services": [],
+    "db_writes": [],
+    "calls_old_code": [
+      "outreach_manager emulator-5554",
+      "outreach_connect",
+      "stop tiktok",
+      "sleep 1",
+      "launch tiktok",
+      "sleep 4",
+      "open_profile fan_one",
+      "tap message_button",
+      "sleep 2",
+      "privacy_blocked?",
+      "privacy_blocked?",
+      "in_conversation?",
+      "send_text fan_one 'Salut, ton contenu est top !'",
+      "navigate_home",
+      "sleep 1",
+      "pick_delay 30-60",
+      "sleep 30",
+      "open_profile fan_two",
+      "tap message_button",
+      "sleep 2",
+      "privacy_blocked?",
+      "privacy_blocked?",
+      "in_conversation?",
+      "send_text fan_two 'Salut, ton contenu est top !'",
+      "navigate_home",
+      "sleep 1",
+      "pick_delay 30-60",
+      "sleep 30",
+      "open_profile fan_three",
+      "tap message_button",
+      "sleep 2",
+      "privacy_blocked?",
+      "privacy_blocked?",
+      "in_conversation?",
+      "send_text fan_three 'Salut, ton contenu est top !'",
+      "navigate_home",
+      "sleep 1"
+    ],
+    "events_old_code": [
+      [
+        "status",
+        {
+          "status": "starting",
+          "message": "Initializing DM Outreach workflow"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "restarting",
+          "message": "Restarting TikTok app"
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 1,
+          "total": 3,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "processing",
+          "message": "Processing @fan_one"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "username": "fan_one",
+          "success": true,
+          "error": null
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "sent": 1,
+            "success": 1,
+            "failed": 0,
+            "privacy_blocked": 0,
+            "not_found": 0,
+            "no_message_entry": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "waiting",
+          "message": "Waiting 30s..."
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 2,
+          "total": 3,
+          "username": "fan_two"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "processing",
+          "message": "Processing @fan_two"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "username": "fan_two",
+          "success": true,
+          "error": null
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "sent": 2,
+            "success": 2,
+            "failed": 0,
+            "privacy_blocked": 0,
+            "not_found": 0,
+            "no_message_entry": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "waiting",
+          "message": "Waiting 30s..."
+        }
+      ],
+      [
+        "progress",
+        {
+          "current": 3,
+          "total": 3,
+          "username": "fan_three"
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "processing",
+          "message": "Processing @fan_three"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "username": "fan_three",
+          "success": true,
+          "error": null
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "sent": 3,
+            "success": 3,
+            "failed": 0,
+            "privacy_blocked": 0,
+            "not_found": 0,
+            "no_message_entry": 0
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "status": "completed",
+          "message": "Completed: 3 sent, 0 failed"
+        }
+      ]
+    ],
+    "db_writes_old_code": [
+      {
+        "sent_dm": {
+          "account_id": 3,
+          "recipient": "fan_one",
+          "message": "Salut, ton contenu est top !",
+          "success": true,
+          "error_message": null,
+          "session_id": "dm_outreach_emulator-5554_1",
+          "platform": "tiktok"
+        }
+      },
+      {
+        "sent_dm": {
+          "account_id": 3,
+          "recipient": "fan_two",
+          "message": "Salut, ton contenu est top !",
+          "success": true,
+          "error_message": null,
+          "session_id": "dm_outreach_emulator-5554_1",
+          "platform": "tiktok"
+        }
+      },
+      {
+        "sent_dm": {
+          "account_id": 3,
+          "recipient": "fan_three",
+          "message": "Salut, ton contenu est top !",
+          "success": true,
+          "error_message": null,
+          "session_id": "dm_outreach_emulator-5554_1",
+          "platform": "tiktok"
+        }
+      }
+    ]
+  },
   "scheduler_node": {
     "ai_services": [],
     "calls": [

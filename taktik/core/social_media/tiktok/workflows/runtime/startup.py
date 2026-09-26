@@ -147,6 +147,11 @@ def start_tiktok_session(manager, *, notifier: Any = None, fetch_profile: bool =
             logger.error(f"❌ Error fetching profile info: {e}")
             logger.error(traceback.format_exc())
 
+    # A block seen anywhere in this run becomes one entry of the account's health history.
+    from taktik.core.database.account_health import witness_for
+    from taktik.core.shared.diagnostics import run_halt
+
+    run_halt.configurer_temoin(witness_for("tiktok", lambda: bot_username))
     return bot_username
 
 

@@ -120,9 +120,13 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.TextView[contains(@text, \"network\")]",
         "//android.widget.TextView[contains(@text, \"No internet\")]",
     ],
-    "detection.rate_limit": [
-        "//android.widget.TextView[contains(@text, \"too many\")]",
-        "//android.widget.TextView[contains(@text, \"Try again later\")]",
+    # TikTok refusing the account's actions. Whole phrases, never a word ("too many" sits in
+    # captions), and not "Try again later" alone (a network error says it too). TikTok's public
+    # wording: no capture of a real block yet, to check on one.
+    "detection.rate_limit_texts": [
+        "tapping too fast",
+        "Too many attempts",
+        "Too many requests",
     ],
     # --- followers ---
     # === A2 anchors for the follower list ===

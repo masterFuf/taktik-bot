@@ -20,7 +20,13 @@ class BridgeNotifier:
 
     def send(self, event_type: str, **payload: Any) -> None:
         if event_type == "status":
-            send_status(payload.get("status", ""), payload.get("message", ""))
+            # A run that stopped on its own says why (`action_blocked`), as the other workflows.
+            reason = payload.get("completion_reason")
+            if reason:
+                send_message("status", status=payload.get("status", ""),
+                             message=payload.get("message", ""), completion_reason=reason)
+            else:
+                send_status(payload.get("status", ""), payload.get("message", ""))
         elif event_type == "progress":
             send_message(
                 "progress",

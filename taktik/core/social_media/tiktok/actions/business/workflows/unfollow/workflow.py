@@ -30,11 +30,14 @@ from .....services.followers.listing import (
 )
 from .....services.followers.stop_policy import normalize_username
 from taktik.core.database.tiktok_follow_graph import TikTokFollowGraphService
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from .models import (
     SKIP_FOLLOW_DATE_UNKNOWN,
     SKIP_FOLLOWED_TOO_RECENTLY,
     SKIP_FRIENDS,
     SKIP_HANDLE_UNKNOWN,
+    STOP_ACTION_BLOCKED,
     STOP_UNFOLLOW_UNCONFIRMED,
     UnfollowConfig,
     UnfollowStats,
@@ -206,6 +209,11 @@ class UnfollowWorkflow:
 
         state = self._wait_row_unfollowed(bounds)
         handle = f"@{username}" if username else "(row without a handle)"
+        # The one look after a write: refused, nothing is counted and the run stops here.
+        if look_for_action_block(self._block_detector(), after="unfollow", target=username or ""):
+            self.stats.stop_reason = STOP_ACTION_BLOCKED
+            self._emit_stats()
+            return False
         if state == "follow":
             self._unconfirmed_in_a_row = 0
             self.stats.unfollowed += 1
@@ -238,9 +246,20 @@ class UnfollowWorkflow:
         time.sleep(1)
 
     def _may_continue(self) -> bool:
+        halt = run_halt.arret_demande()
+        if halt and not self.stats.stop_reason:
+            self.stats.stop_reason = halt.get("code") or STOP_ACTION_BLOCKED
         return (self.stats.unfollowed < self.config.max_unfollows
                 and not self.stopped
                 and not self.stats.stop_reason)
+
+    def _block_detector(self):
+        """The production block detector on this run's device, built once."""
+        if getattr(self, "_detection", None) is None:
+            from ....atomic.detection.detection_actions import DetectionActions
+
+            self._detection = DetectionActions(self.device)
+        return self._detection
 
     def _wait_row_unfollowed(self, row_bounds: Dict[str, int]) -> str:
         """The tapped row's state, read until it offers to follow or the wait runs out.

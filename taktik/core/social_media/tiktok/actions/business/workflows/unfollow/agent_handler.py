@@ -94,7 +94,13 @@ def run_tiktok_unfollow(
         f"{stats.unconfirmed} tap(s) not confirmed, kept: {stats.refusals or 'none'}"
         + (f", stopped: {stats.stop_reason}" if stats.stop_reason else "")
     )
-    _emit(notifier, "status", "completed", f"Unfollowed {stats.unfollowed} users")
+    done = f"Unfollowed {stats.unfollowed} users"
+    if stats.stop_reason and callable(getattr(notifier, "send", None)):
+        # The run says why it stopped (`action_blocked`, `unfollow_unconfirmed`), as the others.
+        _emit(notifier, "send", "status", status="completed", message=done,
+              completion_reason=stats.stop_reason)
+    else:
+        _emit(notifier, "status", "completed", done)
     return {"success": True, "stats": stats.to_dict()}
 
 

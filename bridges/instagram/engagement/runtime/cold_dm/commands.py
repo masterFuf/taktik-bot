@@ -74,6 +74,7 @@ def run_cold_dm_cli(args: list[str]) -> None:
             "dmsSuccess": result.get("dms_success", 0),
             "dmsFailed": result.get("dms_failed", 0),
             "error": result.get("error"),
+            **({"stopReason": result["stop_reason"]} if result.get("stop_reason") else {}),
         }))
 
     except Exception as e:

@@ -155,8 +155,13 @@ STRINGS: Dict[str, List[str]] = {
     "detection.network_error": [
         "//android.widget.TextView[contains(@text, \"réseau\")]",
     ],
-    "detection.rate_limit": [
-        "//android.widget.TextView[contains(@text, \"trop de\")]",
+    # TikTok refusing the account's actions. Whole phrases, never a word ("trop de" sits in
+    # half the captions), and not "Réessayez plus tard" alone (a network error says it too).
+    # TikTok's public wording: no capture of a real block yet, to check on one.
+    "detection.rate_limit_texts": [
+        "appuyez trop vite",
+        "Trop de tentatives",
+        "Trop de requêtes",
     ],
     # --- followers ---
     # === A2 anchors for the follower list ===

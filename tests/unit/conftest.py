@@ -203,6 +203,17 @@ from taktik.core.database.local.migrations import run_migrations, _validate_sql_
 
 
 @pytest.fixture(autouse=True)
+def _run_halt_starts_clear():
+    """Each test starts with the run's stop latch lowered and no witness: a halt left by an
+    earlier test stopped the loops of the next one before their first gesture."""
+    from taktik.core.shared.diagnostics import run_halt
+
+    run_halt.reinitialiser()
+    yield
+    run_halt.reinitialiser()
+
+
+@pytest.fixture(autouse=True)
 def _no_keyboard_given_back_at_exit(monkeypatch):
     """No test leaves a phone whose keyboard `atexit` would "give back" with the real adb at the
     end of pytest (the keyboard switch remembers the phone's own keyboard since 2026-09-24)."""

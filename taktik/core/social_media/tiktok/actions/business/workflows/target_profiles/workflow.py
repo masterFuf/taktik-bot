@@ -119,6 +119,9 @@ class TargetProfilesWorkflow(FollowersWorkflow):
                     continue
 
                 self._process_current_profile()
+                if self._halted():
+                    # Refused: the dialog stays on screen; the next turn reads the latch.
+                    continue
                 self._recover_to_home()
                 self._human_delay()
                 self._check_pause_needed()

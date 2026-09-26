@@ -104,6 +104,45 @@ def popup_families(present: Callable) -> Set[str]:
     return {family for family, fields in table if any(present(selectors) for selectors in fields)}
 
 
+def action_block_evidence(tree) -> Optional[str]:
+    """The phrase by which TikTok refuses the account's actions on this screen, or None.
+
+    Read on the dump tree (`parse_ui_dump`), so the popup handler asks it of the photo it already
+    took. A phrase inside what people wrote (caption, comment, message, bio) proves nothing.
+    """
+    from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+
+    if tree is None:
+        return None
+
+    def nodes(selectors):
+        found = []
+        for xpath in selectors:
+            try:
+                found.extend(tree.xpath(xpath))
+            except Exception:  # noqa: BLE001 - a selector this tree cannot read proves nothing
+                continue
+        return found
+
+    written = set(nodes(DETECTION_SELECTORS.user_written_text))
+    for node in nodes(DETECTION_SELECTORS.rate_limit):
+        if node in written or any(ancestor in written for ancestor in node.iterancestors()):
+            continue
+        return (node.get('text') or '').strip()[:120] or None
+    return None
+
+
+def note_action_block(tree) -> bool:
+    """Is TikTok refusing actions on this screen? Seeing it sets the run's stop latch."""
+    evidence = action_block_evidence(tree)
+    if not evidence:
+        return False
+    from taktik.core.shared.diagnostics import run_halt
+
+    run_halt.demander_arret(run_halt.ACTION_BLOCKED, f"tiktok ({evidence})", evidence=evidence)
+    return True
+
+
 def unlabelled_overlay_region(tree):
     """The frame of an app dialog that exposes no readable node, or None.
 
@@ -157,6 +196,8 @@ class ScreenReading:
         from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
         popups = popup_families(lambda selectors: self._element_exists(selectors, screen=photo))
+        if note_action_block(getattr(getattr(photo, 'source', None), 'root', None)):
+            popups.add('action_blocked')
         overlay = None
         if not popups:
             overlay = unlabelled_overlay_region(photo.source.root)
