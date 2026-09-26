@@ -42,7 +42,7 @@ class Rig:
         self.inbox_opens = True
         self.new_followers_page_opens = True
         self.new_follower_rows: list[dict] = []
-        #: Display name -> the handle its profile shows (absent: unreadable).
+        #: Display name -> the handle its profile (or its thread's card) shows (absent: unreadable).
         self.profile_handles: dict[str, str] = {}
         self.activity_opens = True
         self.activity_rows: list[dict] = []
@@ -758,6 +758,13 @@ class Rig:
                 rig.calls.append(f"say_hello {name}")
                 return True
 
+            def resolve_conversation_handle(self, shown):
+                rig.calls.append(f"read_thread_handle {shown}")
+                return rig.profile_handles.get(shown)
+
+            def is_on_inbox_page(self):
+                return rig.inbox_opens
+
         mp.setattr("taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions.DMActions",
                    FakeDMActions)
 
@@ -781,6 +788,13 @@ class Rig:
 
             def _scroll_down(self, scale=1.0):
                 rig.calls.append(f"scroll {scale}")
+
+            def resolve_suggested_account_handle(self, name):
+                rig.calls.append(f"read_profile_handle {name}")
+                return rig.profile_handles.get(name)
+
+            def is_on_activity_page(self):
+                return rig.activity_opens
 
             def follow_suggested_account(self, name):
                 rig.calls.append(f"follow_suggested {name}")
@@ -810,6 +824,21 @@ class Rig:
             return [True] * len(items)
 
         mp.setattr(NotificationService, "record_notifications", staticmethod(record_notifications))
+
+        # The two gestures of the pass, filed under a handle (their SQL is tested on a real base).
+        from taktik.core.database import tiktok_dm
+        from taktik.core.database.tiktok_follow_graph import TikTokFollowGraphService
+
+        def record_follow(username, account_id, session_id=None):
+            rig.db_writes.append({"follow": {"account_id": account_id, "username": username}})
+            return True
+
+        def record_say_hello(account_id, handle):
+            rig.db_writes.append({"hello": {"account_id": account_id, "recipient": handle}})
+            return True
+
+        mp.setattr(TikTokFollowGraphService, "record_follow", staticmethod(record_follow), raising=False)
+        mp.setattr(tiktok_dm, "record_say_hello", record_say_hello, raising=False)
 
     def _install_dm_fakes(self) -> None:
         rig = self

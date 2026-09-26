@@ -55,6 +55,9 @@ class Visit(interaction.VideoInteractionMixin):
     def _check_limits_reached(self):
         return False
 
+    def _halted(self):
+        return False
+
     def _behavior_reading_scale(self, _context):
         return 1.0
 

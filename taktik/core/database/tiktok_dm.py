@@ -6,8 +6,9 @@ Best-effort: persisting conversations must NEVER break the read or the send. Sou
 Security (AGENTS): never logs DM content, only usernames and counts.
 
 Written by the DM read and send (`tiktok/.../workflows/dm/agent_handler.py`), by the welcome
-pass of the new-followers flow (`dm/welcome_pass.py`) and by the cold DM (its duplicate guard and
-its `sent_dms` markers), from the desktop bridge and the CLI alike.
+pass of the new-followers flow (`dm/welcome_pass.py`), by the cold DM (its duplicate guard and
+its `sent_dms` markers) and by the notifications pass (the "say hello" wave), from the desktop
+bridge and the CLI alike.
 
 TikTok read nothing into those tables. The schema was written cross-platform from the start
 (`platform` column, an `unread_count` comment that names TikTok), and the service is fully
@@ -302,6 +303,27 @@ def record_welcome_dm(
     record_sent(account_id, recipient, message)
 
 
+def record_say_hello(account_id: Optional[int], handle: str) -> bool:
+    """Record a wave the inbox CONFIRMED as sent, in `sent_dms`, under a handle. Best-effort.
+
+    The marker the welcome DM and the cold DM both ask ("have we already written to this
+    person?"): a wave is us writing. Only the marker: the wave is TikTok's own sticker, not a
+    text we composed, so there is no message to put in the conversation and its hash stays empty.
+    An existing marker is left as it is -- `record` replaces the row, and the first DM's date and
+    hash are the ones worth keeping. Returns whether a marker was written.
+    """
+    recipient = (handle or "").strip().lower().lstrip("@")
+    if not account_id or not _looks_like_handle(recipient):
+        return False
+
+    from taktik.core.database.messaging import SentDMService
+
+    if SentDMService.check_already_sent(account_id, recipient, platform=_PLATFORM):
+        return False
+    SentDMService.record(account_id, recipient, "", True, platform=_PLATFORM)
+    return True
+
+
 # ---------------------------------------------------------------------------
 # The cold DM's duplicate guard and markers
 # ---------------------------------------------------------------------------
@@ -337,6 +359,7 @@ __all__ = [
     "cold_dm_already_sent",
     "record_cold_dm",
     "record_conversations",
+    "record_say_hello",
     "record_sent",
     "record_sent_results",
     "record_welcome_dm",

@@ -20,6 +20,7 @@ from ...core.utils import first_matching
 from ....ui.selectors.surfaces.activity import ACTIVITY_SELECTORS
 from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
 from ....services.notifications.activity import ActivityRow, parse_activity_row
+from ....services.profile.username import read_open_profile_handle
 from taktik.core.shared.behavior.tap import tap_element_human
 
 
@@ -147,6 +148,42 @@ class ActivityActions(BaseAction):
 
         self.logger.warning(f"follow_suggested_account: {name!r} propose toujours « Suivre »")
         return False
+
+    def resolve_suggested_account_handle(self, shown_name: str) -> Optional[str]:
+        """Open ONE suggested account's profile, read its HANDLE, and come back to the summary.
+
+        The row shows a display name and nothing else, and a follow filed under a display name
+        joins to nothing: neither the day's follow count nor the unfollow would ever see it. The
+        handle is read where it is printed, on the profile, by the same arrival-checked reader as
+        every other "display name -> handle" road.
+
+        None whenever the round trip failed, INCLUDING failing to get back to the Activity page:
+        a caller that kept walking the list on another screen would tap whatever sits there.
+        """
+        name = (shown_name or "").strip()
+        if not name:
+            return None
+
+        selectors = self.activity_selectors.suggested_account_profile_link_for_name(name)
+        if not self._find_and_click(selectors, timeout=4):
+            self.logger.warning(f"Profil du compte suggéré introuvable : {name!r}")
+            return None
+        self._human_like_delay('navigation')
+
+        handle = read_open_profile_handle(self.device, label=name, timeout=6)
+        # Back only when the tap left the page: a tap that opened nothing leaves us on it, and a
+        # back from there would close the Activity page instead.
+        if not self.is_on_activity_page():
+            self._press_back()
+        if not self.is_on_activity_page():
+            self.logger.warning("resolve_suggested_account_handle: pas de retour sur la page Activité")
+            return None
+        if not handle:
+            self.logger.warning(f"Le tap sur {name!r} n'a pas ouvert un profil lisible")
+            return None
+
+        self.logger.info(f"👤 {name!r} → @{handle}")
+        return handle
 
     @staticmethod
     def _name_in_remove_label(description: str) -> str:

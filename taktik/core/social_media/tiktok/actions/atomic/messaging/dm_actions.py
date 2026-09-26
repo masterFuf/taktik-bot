@@ -450,6 +450,47 @@ class DMActions(BaseAction):
         self.logger.warning(f"say_hello: {name!r} attend toujours un bonjour — rien n'est parti")
         return False
 
+    def read_conversation_handle(self) -> str:
+        """The correspondent's HANDLE, read off the profile card at the top of the open thread.
+
+        "" unless exactly one handle is on screen. Measured on 43.1.4, with no message and with
+        two: the card (`profile_username`) prints `@handle`, the header only the display name. A
+        message that happens to start with "@" would be a second match, and a guess between two
+        is how a DM ends up filed under someone else.
+        """
+        handles = set()
+        for element in first_matching(self.device, self.conversation_selectors.profile_username):
+            value = (getattr(element, "text", "") or "").strip().lstrip("@").strip()
+            if value:
+                handles.add(value)
+        return handles.pop() if len(handles) == 1 else ""
+
+    def resolve_conversation_handle(self, shown_name: str) -> Optional[str]:
+        """Open the thread of `shown_name`, read the handle, and come back to the inbox.
+
+        The inbox row shows a display name only. `click_conversation` matches it loosely (one
+        name inside another counts), so the thread that opened must carry that exact name in its
+        header before anything read in it is believed.
+        """
+        name = clean_row_text(shown_name or "")
+        if not name:
+            return None
+        if not self.click_conversation(name):
+            return None
+        try:
+            header = clean_row_text(self.get_conversation_info().get("name") or "")
+            if header != name:
+                self.logger.warning(f"Conversation ouverte ({header!r}) ≠ {name!r} — pseudo non lu")
+                return None
+            handle = self.read_conversation_handle()
+            if not handle:
+                self.logger.warning(f"Pas de pseudo lisible dans la conversation de {name!r}")
+                return None
+            self.logger.info(f"👤 {name!r} → @{handle}")
+            return handle
+        finally:
+            self.go_back_to_inbox()
+
     def follow_back(self, username: str) -> bool:
         """Tap the follow-back button on the item of `username`.
 

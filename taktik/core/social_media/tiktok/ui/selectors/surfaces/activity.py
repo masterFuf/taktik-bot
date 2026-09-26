@@ -108,6 +108,28 @@ class ActivitySelectors:
             f'{row}//*[@text="Suivre en retour" or @text="Follow back"]',
         ]
 
+    def suggested_account_profile_link_for_name(self, shown_name: str) -> List[str]:
+        """What opens the profile of ONE suggested account: its name, then its avatar.
+
+        The row never shows the handle. Measured on 43.1.4 (Activity summary and inbox, same row):
+        the row is the remove button's parent and holds a clickable Button whose text is the
+        display name (`:id/ntx`), a clickable avatar (`:id/b7o`, content-desc an unresolved
+        resource), the follow button and the remove button -- no `@handle` anywhere. The handle is
+        read on the profile this opens. Same row scoping as the follow button, same reason.
+        """
+        safe = (shown_name or "").replace('"', "")
+        if not safe:
+            return []
+        row = (
+            f'//*[starts-with(@content-desc, "Supprimer {safe} ") '
+            f'or starts-with(@content-desc, "Remove {safe} ")]/..'
+        )
+        return [
+            f'{row}//*[@clickable="true"][@text="{safe}"]',
+            f'{row}//*[contains(@resource-id, ":id/ntx")]',
+            f'{row}//*[contains(@resource-id, ":id/b7o")]',
+        ]
+
     #: The section headers, useful only to tell priority rows from the rest.
     section_header: List[str] = field(default_factory=lambda: [
         '//*[@text="Priorité" or @text="Priority" or @text="Autres" or @text="Others"]',

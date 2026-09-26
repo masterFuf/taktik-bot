@@ -76,6 +76,28 @@ class TikTokFollowGraphService:
         return min(known) if known else None
 
     @classmethod
+    def record_follow(cls, username: str, account_id: int, session_id: Optional[int] = None) -> bool:
+        """File one follow the screen CONFIRMED, under a handle: the interaction and the day's total.
+
+        A `FOLLOW` interaction, which also counts in the day's `total_follows` -- the figure the
+        daily follow limit reads -- and is what the unfollow looks for when it asks whether the bot
+        followed someone and since when. Returns whether it was written. Never raises.
+        """
+        if not account_id or not username:
+            return False
+        try:
+            return bool(get_local_database().record_tiktok_interaction(
+                account_id=account_id,
+                target_username=username,
+                interaction_type="FOLLOW",
+                success=True,
+                session_id=session_id,
+            ))
+        except Exception as exc:
+            log.debug(f"Error recording the follow of @{username}: {exc}")
+            return False
+
+    @classmethod
     def record_unfollow(cls, username: str, account_id: int, session_id: Optional[int] = None) -> bool:
         """File one unfollow the screen CONFIRMED: the interaction, the day's total, the graph.
 
