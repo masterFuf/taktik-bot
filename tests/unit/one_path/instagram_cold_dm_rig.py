@@ -79,6 +79,10 @@ class _Element:
     def get_text(self):
         return self.phone.text_of(self.key)
 
+    @property
+    def info(self):
+        return self.phone.info_of(self.key)
+
     def click(self):
         self.phone.rig.calls.append(f"click {self.key[0]}:{self.key[1]}")
         self.phone.clicked(self.key)
@@ -102,6 +106,9 @@ class FakePhone:
         self.rig = rig
         self.state = "home"
         self.user = None
+        #: What the conversation composer holds: the typing reads it back before the send.
+        self.composer = ""
+        self.edit_text_class = DM_SELECTORS.edit_text_class_name
         suffix = lambda rid: rid.split(":id/")[-1]
         self.ids = {
             "search_tab": suffix(NAVIGATION_SELECTORS.search_tab_resource_id),
@@ -154,6 +161,13 @@ class FakePhone:
     def text_of(self, key) -> str:
         return self.user or ""
 
+    def info_of(self, key) -> dict:
+        """The focused field, as the typing reads it back: the open composer, nothing else."""
+        focused = key in (("class", self.edit_text_class), ("other", json.dumps({"focused": True})))
+        if focused and self.exists(("id", self.ids["composer"])):
+            return {"text": self.composer, "focused": True, "className": self.edit_text_class}
+        raise LookupError(f"no element {key}")
+
     # --- what a gesture does --------------------------------------------------------------------
 
     def clicked(self, key) -> None:
@@ -164,8 +178,10 @@ class FakePhone:
             self.state = "profile"
         elif key == ("id", ids["message_button"]):
             self.state = "conversation"
+            self.composer = ""
         elif key == ("id", ids["send"]):
             self.rig.sent.append(self.user)
+            self.composer = ""
         elif key == ("id", ids["home_tab"]):
             self.state = "home"
 
@@ -173,6 +189,16 @@ class FakePhone:
         if key == ("id", self.ids["search_bar"]):
             self.state = "typed"
             self.user = text
+        elif key == ("id", self.ids["composer"]):
+            self.composer = text
+
+    def keyboard_typed(self, text) -> None:
+        """The Taktik Keyboard types into the focused field: the composer when it is open."""
+        if self.exists(("id", self.ids["composer"])):
+            self.composer += text
+
+    def keyboard_cleared(self) -> None:
+        self.composer = ""
 
     def press(self, button):
         self.rig.calls.append(f"press {button}")
@@ -306,6 +332,25 @@ class InstagramColdDmRig:
 
         mp.setattr(keyboard_module, "type_with_taktik_keyboard", fake_type)
 
+        # The typing of the send path: the Taktik Keyboard is switched before the tap, types into
+        # the focused composer, and the composer is read back before the send.
+        from taktik.core.shared.input import taktik_keyboard as shared_keyboard
+
+        def fake_shared_type(device_id, text, *_args, **_kwargs):
+            rig.calls.append(f"type {text}")
+            rig.typed.append(text)
+            rig.phone.keyboard_typed(text)
+            return True
+
+        def fake_clear(device_id):
+            rig.calls.append("clear_field")
+            rig.phone.keyboard_cleared()
+            return True
+
+        mp.setattr(shared_keyboard, "is_taktik_keyboard_active", lambda device_id: True)
+        mp.setattr(shared_keyboard, "type_with_taktik_keyboard", fake_shared_type)
+        mp.setattr(shared_keyboard, "clear_text_with_taktik_keyboard", fake_clear)
+
         from taktik.core.database.messaging import SentDMService
 
         def fake_check(account_id, recipient, platform="instagram"):
@@ -397,6 +442,7 @@ class InstagramColdDmRig:
             bucket.clear()
         self.phone.state = "home"
         self.phone.user = None
+        self.phone.composer = ""
 
 
 __all__ = ["AI_KEY", "DEVICE_ID", "INSTAGRAM", "InstagramColdDmRig", "cold_dm_payload"]
