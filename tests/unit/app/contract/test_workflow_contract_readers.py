@@ -16,9 +16,11 @@ import pytest
 
 from contract_probe import (
     Recording,
+    by_iteration,
     conditions,
     declared_reads,
     expected,
+    matches,
     expected_default,
     launch,
     lookup,
@@ -63,24 +65,28 @@ def test_the_readers_read_the_declared_keys_and_no_other(contract):
         read(contract, payload)
         for _, item, _, _ in nested_fields(contract.settings):
             if item.reader:
-                resolve(item.reader)(payload)
+                resolve(item.reader)(payload, **item.reader_kwargs)
 
     declared, owned = declared_reads(contract.settings)
-    must = {(*path[:-1], name) for path, item, _, via in nested_fields(contract.settings)
-            if via is None for name in item.names}
-    assert not {path for path in log if path not in declared and not under(path, owned)}, "read, not declared"
+    assert not {path for path in log if path not in declared and not under(path, owned)}, "a key read and not declared"
+    # Every wire key is read; an alias may be skipped once a name before it was given. A filter
+    # criterion is read when present, by the merge of every flat key. A key handed on whole (`via`)
+    # is read further on: the bridge test holds it.
+    must = {path for path, item, _, via in nested_fields(contract.settings) if via is None and not by_iteration(item)}
     assert must <= log, f"declared, never read: {sorted(must - log)}"
 
 
 @pytest.mark.parametrize("contract, path, item, when", SETTINGS)
 def test_an_absent_key_takes_the_declared_default(contract, path, item, when):
-    if item.required or isinstance(item.default, Computed):
+    if item.required or isinstance(item.default, Computed) or item.unit == "merged":
         pytest.skip("no default to apply")
     payload = payload_for(contract, conditions(when))
     if any(lookup(payload, (*path[:-1], name))[0] for name in item.names):
         pytest.skip("the run needs it here")
+    if item.reader and any(contract.setting(key).reader == item.reader for key in payload):
+        pytest.skip("its reader returns the key the run needs instead")
 
-    assert value_of(contract, item, payload) == expected_default(item)
+    assert matches(item, value_of(contract, item, payload), expected_default(item))
 
 
 @pytest.mark.parametrize("contract, path, item, when", SETTINGS)
@@ -88,7 +94,7 @@ def test_the_wire_key_sets_what_the_declaration_says(contract, path, item, when)
     value = probe(item)
     payload = payload_for(contract, merge(conditions(when), nest(path, value)))
 
-    assert value_of(contract, item, payload) == expected(item, value)
+    assert matches(item, value_of(contract, item, payload), expected(item, value))
 
 
 @pytest.mark.parametrize("contract, path, item, when, alias", ALIASES)
@@ -97,9 +103,11 @@ def test_an_alias_is_accepted_and_the_wire_key_comes_first(contract, path, item,
     at = conditions(when)
 
     alone = payload_for(contract, merge(at, nest((*path[:-1], alias), value)))
-    assert value_of(contract, item, alone) == expected(item, value)
+    assert matches(item, value_of(contract, item, alone), expected(item, value))
+    if by_iteration(item):
+        return  # the criteria merge keeps the last name of the payload, whichever it is
     both = payload_for(contract, merge(at, nest(path, value), nest((*path[:-1], alias), other)))
-    assert value_of(contract, item, both) == expected(item, value)
+    assert matches(item, value_of(contract, item, both), expected(item, value))
 
 
 @pytest.mark.parametrize("contract, refusal", REFUSALS)

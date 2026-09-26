@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
-from typing import Any, Dict, Iterable, Set, Tuple
+from typing import Any, Dict, Iterable, Mapping, Set, Tuple
 
 from taktik.core.app.contract.schema import Field, ListOf, OneOf, Shape, WorkflowContract, has_default, nested_fields
 
@@ -50,6 +50,12 @@ class Recording(dict):
         self._written.add(key)
         super().__setitem__(key, value)
 
+    def items(self):
+        # Iterating the payload reads every key of it (the filter criteria merge does).
+        for key in list(super().keys()):
+            self._note(key)
+        return super().items()
+
 
 def probe(item: Field, variant: int = 0) -> Any:
     """A value for `item` that differs from its default, and from the probe of another variant."""
@@ -69,6 +75,8 @@ def probe(item: Field, variant: int = 0) -> Any:
         return others[variant % len(others)]
     if isinstance(spec, ListOf) and spec.item == "string":
         return [f"alpha{variant}", f"beta{variant}"]
+    if spec == "json":
+        return {"probe": variant}
     raise AssertionError(f"no probe for {item.key}: {spec!r}")
 
 
@@ -85,14 +93,36 @@ def expected(item: Field, value: Any) -> Any:
         out = list(value)
     else:
         out = value
-    return (not out) if item.negate else out
+    return _unit(item, (not out) if item.negate else out)
+
+
+def _unit(item: Field, value: Any) -> Any:
+    if item.unit == "percent":
+        return float(value) / 100.0
+    if item.unit == "in_list":
+        return [value]
+    return value
+
+
+def matches(item: Field, actual: Any, wanted: Any) -> bool:
+    """`merged`: the value was merged into what the reader keeps, next to other keys."""
+    if item.unit == "merged":
+        return isinstance(actual, Mapping) and all(actual.get(k) == v for k, v in wanted.items())
+    return actual == wanted
+
+
+def by_iteration(item: Field) -> bool:
+    """A filter criterion reaches its reader through the merge of every flat key, not by name."""
+    return bool(item.attr) and (item.attr == "filters" or item.attr.startswith("filters."))
 
 
 def expected_default(item: Field) -> Any:
     default = item.default if has_default(item) else None
     if isinstance(default, tuple):
         default = list(default)
-    return (not default) if item.negate else default
+    if default is None:
+        return None
+    return _unit(item, (not default) if item.negate else default)
 
 
 def payload_for(contract: WorkflowContract, extra: Dict[str, Any]) -> Dict[str, Any]:
@@ -118,20 +148,23 @@ def read(contract: WorkflowContract, payload: Dict[str, Any]) -> Any:
 
 
 def value_of(contract: WorkflowContract, item: Field, payload: Dict[str, Any]) -> Any:
-    result = resolve(item.reader)(payload) if item.reader else read(contract, payload)
+    result = resolve(item.reader)(payload, **item.reader_kwargs) if item.reader else read(contract, payload)
     return walk(result, item.attr) if item.attr else result
 
 
 def walk(result: Any, attr: str) -> Any:
-    """`attr` of the reader's result: an attribute, or a dotted path into the config it builds.
+    """`attr` of the reader's result: an attribute, an index, or a dotted path into what it builds.
 
-    A key missing from a built dict is None (the reader left it unset); a missing attribute fails.
+    A key missing from a built dict or list is None (the reader left it unset); a missing
+    attribute or tuple index fails.
     """
     for part in attr.split("."):
-        if isinstance(result, dict):
-            result = result.get(part)
+        if isinstance(result, tuple):
+            result = result[int(part)]
         elif isinstance(result, list):
             result = result[int(part)] if int(part) < len(result) else None
+        elif isinstance(result, Mapping):
+            result = result.get(part)
         else:
             result = getattr(result, part)
         if result is None:

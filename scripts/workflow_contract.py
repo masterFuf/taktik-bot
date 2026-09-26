@@ -38,7 +38,7 @@ from taktik.core.app.contract.schema import (  # noqa: E402
     OneOf,
     Shape,
     WorkflowContract,
-    has_default,
+    scalar_default,
 )
 from taktik.core.app.contract.shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT  # noqa: E402
 
@@ -53,8 +53,8 @@ HEADER = """/**
  * GENERATED from the bot - do not edit: `npm run workflow:contract -- --write`.
  *
  * The bot/app contract as the bot declares it (`core/taktik/core/app/contract/`): for each declared
- * workflow, the settings its launcher reads (`<Name>Settings`, the defaults the bot applies when a
- * key is absent), the file its bridge reads (`<Name>BridgePayload`) and the stdout lines the app
+ * workflow, the settings its launcher reads (`<Name>Settings`, `<NAME>_BOT_DEFAULTS` the defaults the
+ * bot applies when a key is absent), the file its bridge reads (`<Name>BridgePayload`) and the stdout lines the app
  * reads (`<Name>BridgeLine`). Rendered by `core/scripts/workflow_contract.py`;
  * `npm run workflow:contract` fails when this file and the bot disagree.
  */
@@ -99,12 +99,14 @@ def constant_name(name: str) -> str:
 
 
 def served(contract: WorkflowContract) -> str:
-    return ", ".join(f"`{workflow_id}`" for workflow_id in contract.serves)
+    """The ids a CLI run takes: all of a family picked by a setting, the declared id otherwise."""
+    ids = contract.serves if contract.selector else (contract.workflow_id,)
+    return ", ".join(f"`{workflow_id}`" for workflow_id in ids)
 
 
 def doc_line(item: Field) -> str:
     text = item.doc.strip()
-    if has_default(item) and not isinstance(item.default, (tuple, list)):
+    if scalar_default(item):
         text += f" Default {literal(item.default)}."
     elif isinstance(item.default, Computed):
         text += f" Default: {item.default.description}."
@@ -160,12 +162,12 @@ def render_shape(shape: Shape, setting: bool) -> List[str]:
 def shape_defaults(shape: Shape) -> List[str]:
     """What the bot applies when a key of a nested setting is absent."""
     defaults = [item for item in shape.fields
-                if item.app and has_default(item) and not isinstance(item.default, (tuple, list))]
+                if item.app and scalar_default(item)]
     if not defaults:
         return []
     keys = " | ".join(f"'{item.key}'" for item in defaults)
     out = ["", "/** What the bot applies when a key is absent. */",
-           f"export const {constant_name(shape.name)}_DEFAULTS: Readonly<Required<Pick<{shape.name}, {keys}>>> = {{"]
+           f"export const {constant_name(shape.name)}_BOT_DEFAULTS: Readonly<Required<Pick<{shape.name}, {keys}>>> = {{"]
     out += [f"  {item.key}: {literal(item.default)}," for item in defaults]
     out.append("}")
     return out
@@ -198,11 +200,10 @@ def render_contract(contract: WorkflowContract) -> Tuple[List[str], List[str]]:
     out.append("}")
     exported.append(f"{name}Settings")
 
-    defaults = [item for item in app_settings(contract)
-                if has_default(item) and not isinstance(item.default, (tuple, list))]
+    defaults = [item for item in app_settings(contract) if scalar_default(item)]
     if defaults:
         keys = " | ".join(f"'{item.key}'" for item in defaults)
-        const = f"{constant_name(name)}_DEFAULTS"
+        const = f"{constant_name(name)}_BOT_DEFAULTS"
         out += [
             "",
             "/** What the bot applies when a key is absent. */",
@@ -279,7 +280,7 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Tupl
             defaults = shape_defaults(shape)
             lines += defaults
             if defaults:
-                exported.append(f"{constant_name(shape.name)}_DEFAULTS")
+                exported.append(f"{constant_name(shape.name)}_BOT_DEFAULTS")
         lines.append("")
         exported.append(shape.name)
     used = {event.type for contract in contracts for event in contract.events}
@@ -323,11 +324,15 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dic
             "serves": list(contract.serves),
             "selector": contract.selector,
             "bridge": contract.bridge,
+            "also": list(contract.also),
             "launcher": contract.launcher,
             "reader": contract.reader,
             "nest": contract.nest,
             "launcherReads": launcher,
             "bridgeReads": bridge,
+            # Objects the bot reads as a whole ("json"): what lies below them is not declared yet.
+            "opaque": [[*nest, name] for item in contract.settings if item.type == "json" for name in item.names],
+            "launcherOpaque": [[name] for item in contract.settings if item.type == "json" for name in item.names],
             "settings": [
                 {"key": item.key, "aliases": list(item.aliases), "app": item.app, "by": item.by,
                  "required": item.required}
@@ -340,6 +345,10 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dic
             ],
             "events": {event.type: [item.key for item in event.fields] for event in contract.events},
         }
+    # An id that shares a declaration (`also`) reads the same file: the gates look it up by id.
+    for contract in contracts:
+        for workflow_id in contract.also:
+            workflows[workflow_id] = {**workflows[contract.workflow_id], "sameAs": contract.workflow_id}
     return {"workflows": workflows, "exports": exported}
 
 

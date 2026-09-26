@@ -317,8 +317,8 @@ AI = Shape(
 )
 
 INSTAGRAM_AUTOMATION = WorkflowContract(
-    workflow_id="instagram.automation",
-    workflow_ids=tuple(f"instagram.automation.{workflow_type}" for workflow_type in WORKFLOW_TYPES),
+    workflow_id=f"instagram.automation.{WORKFLOW_TYPES[0]}",
+    also=tuple(f"instagram.automation.{workflow_type}" for workflow_type in WORKFLOW_TYPES[1:]),
     selector="workflowType",
     name="InstagramAutomation",
     bridge="desktop_bridge",

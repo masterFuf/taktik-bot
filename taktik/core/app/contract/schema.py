@@ -82,6 +82,9 @@ class Field:
     attr      the attribute of the reader's result that the key sets (conformance test)
     negate    the attribute holds the opposite of the key (`skip_friends` sets `include_friends`)
     reader    "module:function" reading this key alone, when the contract's reader does not
+    reader_kwargs  keyword arguments of that reader besides the payload
+    unit      how the reader turns the wire value into what it keeps: "percent" (divided by 100),
+              "in_list" (a single value kept as a one-item list)
     by        OPERATOR or HOST
     app       False: accepted from the CLI or an Agent plan only, never sent by the app
     nullable  the value may be null (events)
@@ -102,6 +105,8 @@ class Field:
     attr: Optional[str] = None
     negate: bool = False
     reader: Optional[str] = None
+    reader_kwargs: Mapping[str, Any] = field(default_factory=dict)
+    unit: Optional[str] = None
     by: str = OPERATOR
     app: bool = True
     nullable: bool = False
@@ -137,6 +142,7 @@ class WorkflowContract:
     """What one workflow of the manifest reads, and what its bridge prints.
 
     workflow_id     the id of `workflows.manifest.json`
+    also            other ids of the manifest the same launcher runs with this payload
     name            the prefix of the generated TypeScript names
     bridge          the name in `bridges/bridges.manifest.json`
     launcher        "module:function" of the one launcher (`run_*`) the CLI and the bridge call
@@ -149,9 +155,8 @@ class WorkflowContract:
     beside_settings bridge fields that travel under `nest`, next to the settings
     events          the lines of the bridge's stdout the app reads
     refusals        what the launcher refuses before the phone is touched
-    workflow_ids    the manifest ids the declaration serves, when several workflows share one
-                    launcher and one bridge (`workflow_id` is then the family's name)
-    selector        the setting that picks the workflow among `workflow_ids`
+    selector        the setting that picks the workflow among `workflow_id` and `also`, when
+                    they read the same file for different runs
     """
 
     workflow_id: str
@@ -161,19 +166,19 @@ class WorkflowContract:
     reader: str
     settings: Tuple[Field, ...]
     doc: str = ""
+    also: Tuple[str, ...] = ()
     reader_kwargs: Mapping[str, Any] = field(default_factory=dict)
     bridge_fields: Tuple[Field, ...] = ()
     nest: Optional[str] = None
     beside_settings: Tuple[str, ...] = ()
     events: Tuple[Event, ...] = ()
     refusals: Tuple[Refusal, ...] = ()
-    workflow_ids: Tuple[str, ...] = ()
     selector: Optional[str] = None
 
     @property
     def serves(self) -> Tuple[str, ...]:
         """The manifest ids this declaration stands for."""
-        return self.workflow_ids or (self.workflow_id,)
+        return (self.workflow_id, *self.also)
 
     def setting(self, key: str) -> Field:
         for item in self.settings:
@@ -208,6 +213,11 @@ def nested_fields(
             yield from nested_fields(item.type.fields, path, inherited, owner)
 
 
+def scalar_default(item: Field) -> bool:
+    """A default the app can hold as a constant (not a list nor an object)."""
+    return has_default(item) and isinstance(item.default, (bool, int, float, str))
+
+
 __all__ = [
     "Computed",
     "Event",
@@ -225,4 +235,5 @@ __all__ = [
     "WorkflowContract",
     "has_default",
     "nested_fields",
+    "scalar_default",
 ]

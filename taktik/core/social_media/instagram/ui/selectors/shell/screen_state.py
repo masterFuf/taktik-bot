@@ -21,6 +21,11 @@ class DetectionSelectors:
         # Neutral and resilient across mixed-language dumps (observed on IG 410:
         # FR app can still expose the bottom feed tab as content-desc="Home").
         '//*[@resource-id="com.instagram.android:id/feed_tab" and @selected="true"]',
+        # IG 410: the selection can sit on the tab's icon, feed_tab itself staying
+        # selected="false", with no feed_timeline in the tree (home feed "Pour vous",
+        # FR; fixture ig410_fr_home_feed_tab_icon_selected.xml).
+        '//*[@resource-id="com.instagram.android:id/feed_tab"]'
+        '[.//*[@resource-id="com.instagram.android:id/tab_icon" and @selected="true"]]',
         '//*[contains(@resource-id, "feed_timeline")]'
     ])
 
@@ -34,6 +39,10 @@ class DetectionSelectors:
         # Explore page specific indicators
         '//*[@resource-id="com.instagram.android:id/clips_tab" and @selected="true"]',
         '//*[@resource-id="com.instagram.android:id/search_tab" and @selected="true"]',
+        # Same IG 410 tab bar as the home feed, selection on the tab's icon. Not yet seen on a
+        # search screen of the 410 corpus (all 52 carry it on search_tab): to prove on a phone.
+        '//*[@resource-id="com.instagram.android:id/search_tab"]'
+        '[.//*[@resource-id="com.instagram.android:id/tab_icon" and @selected="true"]]',
     ])
 
     @property
