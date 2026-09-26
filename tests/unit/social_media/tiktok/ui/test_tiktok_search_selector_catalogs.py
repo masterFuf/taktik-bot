@@ -97,7 +97,14 @@ def test_the_isolates_are_what_makes_the_match_exact():
     selector = SEARCH_SELECTORS.user_result_selectors_for_username("creator")[0]
 
     assert f'"{FSI}creator{PDI}"' in selector
-    assert 'ancestor::*[@clickable="true"][1]' in selector
+
+
+def test_the_tap_lands_on_the_handle_not_on_its_row():
+    """La rangée fait toute la largeur et porte le bouton Suivre / Suivis : c'est le pseudo qu'on
+    tape, la rangée cliquable dessous reçoit le tap (écran réel : test_tiktok_47_0_3_screens)."""
+    for selector in SEARCH_SELECTORS.user_result_selectors_for_username("creator"):
+        assert "ancestor::" not in selector
+        assert selector.startswith("//android.widget.TextView[")
 
 
 def test_no_loose_containment_survives_in_the_list():

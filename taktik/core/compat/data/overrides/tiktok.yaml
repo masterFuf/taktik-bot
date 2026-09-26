@@ -41,3 +41,14 @@ versions:
       - '//*[contains(@resource-id, ":id/jt8")]'
       - '//android.widget.Button[@content-desc="Send"]'
       - '//android.widget.EditText[string-length(@text)>0][not(@text=@hint)]/../following-sibling::*[1]/*[last()][preceding-sibling::*[1]/android.widget.Button[@clickable="true"]]/android.widget.ImageView[@clickable="true"]'
+  "47.0.3":
+    # Profile stats row (Pixel 6a, two profiles: a followed media account and an account that
+    # follows us): values `t8_`, labels `t89`, three of each, in the same order (following,
+    # followers, likes). The baseline ids `qfw` / `qfv` resolve nothing on 47.0.3, so the row
+    # was read only through the locale text anchors. Baseline entries carried along.
+    profile._stat_value_base:
+      - '//*[contains(@resource-id, ":id/t8_")]'
+      - '//*[contains(@resource-id, ":id/qfw")]'
+    profile._stat_label_base:
+      - '//*[contains(@resource-id, ":id/t89")]'
+      - '//*[contains(@resource-id, ":id/qfv")]'

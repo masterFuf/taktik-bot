@@ -258,17 +258,23 @@ class SearchSelectors:
 
         TikTok handles are `[a-zA-Z0-9._]` (`ActionUtils.is_valid_username`), so no quote can
         reach the expression below.
+
+        The expressions resolve to the HANDLE, not to its clickable row. The row spans the full
+        width and holds the Follow / Following button (x 794-1036 of 1080 on 43.1.4, where the
+        handle is `ye2`; 807-1038 on 46.6.3 and 47.0.3, where it is `tv_username`); a human tap
+        sampled over the row lands on that button about once in twelve to fourteen, which
+        follows or unfollows the account and leaves the search page on screen. The handle sits
+        left of the button and the row under it takes the tap.
         """
         # U+2068 FIRST STRONG ISOLATE / U+2069 POP DIRECTIONAL ISOLATE, written by name because
         # they are invisible in an editor and a stripped copy-paste would silently loosen this
         # back into a prefix match.
         isolated = f"⁨{username}⁩"
         return [
-            f'//android.widget.TextView[contains(@text, "{isolated}")]'
-            '/ancestor::*[@clickable="true"][1]',
+            f'//android.widget.TextView[contains(@text, "{isolated}")]',
             # Should a version ever drop the isolates, the handle stands alone in its own node.
-            f'//android.widget.TextView[@text="{username}"]/ancestor::*[@clickable="true"][1]',
-            f'//android.widget.TextView[@text="@{username}"]/ancestor::*[@clickable="true"][1]',
+            f'//android.widget.TextView[@text="{username}"]',
+            f'//android.widget.TextView[@text="@{username}"]',
         ]
 
 
