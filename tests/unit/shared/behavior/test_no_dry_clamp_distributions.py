@@ -224,7 +224,7 @@ def test_shared_human_like_delay():
 
 @pytest.mark.parametrize("chars, draws", [(120, DRAWS), (400, LIMIT_DRAWS)])
 def test_dm_typing_delay_is_not_five_seconds_flat(chars, draws):
-    from bridges.instagram.engagement.runtime.dm.timing import calculate_dm_typing_delay
+    from taktik.core.shared.behavior.typing import calculate_dm_typing_delay
 
     values = [calculate_dm_typing_delay("x" * chars) for _ in range(draws)]
     _assert_bounded_without_peak(values, 0.0, 5.0)

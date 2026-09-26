@@ -5,9 +5,9 @@ from __future__ import annotations
 import random
 import time
 
-from bridges.instagram.engagement.runtime.dm.timing import calculate_dm_typing_delay
 from bridges.instagram.runtime.ipc import logger
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.behavior.typing import calculate_dm_typing_delay
 from taktik.core.shared.input.taktik_keyboard import ensure_taktik_keyboard
 from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
     find_message_input,

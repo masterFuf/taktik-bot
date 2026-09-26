@@ -5,8 +5,8 @@ from __future__ import annotations
 import time
 
 from bridges.common.input.keyboard import KeyboardService
-from bridges.instagram.engagement.runtime.dm.timing import calculate_dm_typing_delay
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.shared.behavior.typing import calculate_dm_typing_delay
 from taktik.core.shared.input.taktik_keyboard import ensure_taktik_keyboard
 from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
     resolve_device_id,
