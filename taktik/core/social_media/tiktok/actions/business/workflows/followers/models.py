@@ -15,8 +15,9 @@ class FollowersConfig:
     # Nombre de followers à traiter
     max_followers: int = 50
     
-    # Posts to watch per profile
-    posts_per_profile: int = 2
+    # Videos to watch per profile: a range, each profile draws its own count in it
+    min_posts_per_profile: int = 1
+    max_posts_per_profile: int = 3
     
     # Watch time per video (seconds)
     min_watch_time: float = 5.0

@@ -30,6 +30,7 @@ class SpyWorkflow(InstagramPostWorkflow):
         # One answer per presence check, the last one repeated; a bool answers them all.
         self._share_answers = [share_button_present] if isinstance(share_button_present, bool)             else list(share_button_present)
         self.publish_commit_waited = False
+        self.upload_end_waited = False
         self.back_presses = 0
         self.language_detections = 0
         self.information_windows_acknowledged = 0
@@ -77,6 +78,10 @@ class SpyWorkflow(InstagramPostWorkflow):
         self.publish_commit_waited = True
         return True
 
+    def _wait_for_upload_confirmation(self, *args, **kwargs) -> bool:
+        self.upload_end_waited = True
+        return False
+
     def _select_carousel(self, count: int) -> bool:
         return True
 
@@ -100,6 +105,7 @@ def test_rehearsal_reports_success_without_publishing():
     # The share button was looked for, never tapped, and no publish commit was awaited.
     assert workflow.presence_checks, "the share button should have been checked for presence"
     assert workflow.publish_commit_waited is False
+    assert workflow.upload_end_waited is False
 
 
 def test_rehearsal_fails_when_the_share_screen_was_not_reached():
@@ -127,6 +133,7 @@ def test_normal_run_still_publishes():
 
     assert result["success"] is True
     assert workflow.publish_commit_waited is True
+    assert workflow.upload_end_waited is True
     assert workflow.presence_checks == []
 
 

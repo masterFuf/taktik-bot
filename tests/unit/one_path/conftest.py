@@ -1658,7 +1658,7 @@ def _post_url_payload(**overrides) -> dict:
     payload = {
         "deviceId": DEVICE_ID, "allowRouterDevice": False, "workflowType": "post_url",
         "postUrl": "https://www.tiktok.com/@creator/video/1", "maxCommenters": 12, "maxProfiles": 5,
-        "maxVideos": 5, "maxLikesPerSession": 30, "maxFollowsPerSession": 10, "postsPerProfile": 1,
+        "maxVideos": 5, "maxLikesPerSession": 30, "maxFollowsPerSession": 10, "minPostsPerProfile": 1, "maxPostsPerProfile": 1,
         "minWatchTime": 2, "maxWatchTime": 6, "likeProbability": 1, "followProbability": 5,
         "favoriteProbability": 0, "pauseAfterActions": 8, "pauseDurationMin": 20,
         "pauseDurationMax": 40, "requiredHashtags": [], "excludedHashtags": [], "minLikes": None,
@@ -1705,7 +1705,8 @@ def _followers_payload(**overrides) -> dict:
         "targets": ["alpha", "@beta"],
         "maxFollowers": 3,
         "maxConsecutiveKnownUsernames": 150,
-        "postsPerProfile": 2,
+        "minPostsPerProfile": 1,
+        "maxPostsPerProfile": 2,
         "maxLikesPerSession": 40,
         "maxFollowsPerSession": 15,
         "minWatchTime": 5,

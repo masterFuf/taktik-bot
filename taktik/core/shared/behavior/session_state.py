@@ -15,6 +15,7 @@ from typing import Any, Deque, Dict, Optional, Sequence
 
 from taktik.core.shared.behavior.breaks import actions_until_break, session_tempo, spacing_bounds
 from taktik.core.shared.behavior.grid_entry import row_weights
+from taktik.core.shared.behavior.interaction_plan import sample_like_target
 from taktik.core.shared.behavior.sampling import sample_within
 from taktik.core.shared.telemetry import emit_step
 
@@ -127,6 +128,7 @@ class BehaviorSessionState:
         self._like_appetite: Optional[float] = None
         self._break_stream: Optional[random.Random] = None
         self._break_tempo = 1.0
+        self._posts_stream: Optional[random.Random] = None
         self._style: Optional[str] = None
         self._burst_remaining = 0
         self._gesture_index = 0
@@ -167,6 +169,7 @@ class BehaviorSessionState:
             self._energy = self._sample_energy()
             self._like_appetite = None
             self._break_stream = None
+            self._posts_stream = None
         if strict_changed:
             # Preserve the recorded history, but make the next decisions obey the newly selected
             # execution mode immediately. Leaving strict mode starts a fresh natural burst.
@@ -361,6 +364,24 @@ class BehaviorSessionState:
             emit_step("behavior", action="break_tempo", tempo=round(self._break_tempo, 3))
         lo, hi = spacing_bounds(every)
         return actions_until_break(every, lo, hi, tempo=self._break_tempo, rng=self._break_stream)
+
+    def posts_to_view(self, lo, hi) -> int:
+        """How many posts of one profile to view, in the operator's range [lo, hi].
+
+        The per-profile count law of the like target (`interaction_plan.sample_like_target`: uniform
+        over the range, leaning with this session's `like_appetite`), on its own RNG stream, so a
+        seeded gesture decision is never shifted. Strict regression runs keep `hi`, the former
+        fixed count.
+        """
+        hi = max(0, int(hi))
+        lo = min(max(0, int(lo)), hi)
+        if self.strict_regression or lo == hi:
+            return hi
+        if self._posts_stream is None:
+            self._posts_stream = random.Random(
+                f"{self.seed}:posts_to_view" if self.seed is not None else None
+            )
+        return sample_like_target(lo, hi, rng=self._posts_stream, appetite=self.like_appetite)
 
     def reading_scale(self, *, context: str) -> float:
         """Return and emit the current correlated dwell multiplier."""

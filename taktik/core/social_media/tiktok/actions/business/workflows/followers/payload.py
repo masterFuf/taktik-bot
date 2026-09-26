@@ -108,7 +108,19 @@ def followers_settings_from_payload(payload: Mapping[str, Any]) -> dict[str, Any
     `filters` carries.
     """
     return {
-        "posts_per_profile": as_int(first_given(payload.get("postsPerProfile"), payload.get("posts_per_profile")), 2),
+        # A range since the counts were drawn; the single value of older payloads is its top.
+        "min_posts_per_profile": as_int(
+            first_given(payload.get("minPostsPerProfile"), payload.get("min_posts_per_profile")), 1
+        ),
+        "max_posts_per_profile": as_int(
+            first_given(
+                payload.get("maxPostsPerProfile"),
+                payload.get("max_posts_per_profile"),
+                payload.get("postsPerProfile"),
+                payload.get("posts_per_profile"),
+            ),
+            3,
+        ),
         "min_watch_time": as_float(first_given(payload.get("minWatchTime"), payload.get("min_watch_time")), 5.0),
         "max_watch_time": as_float(first_given(payload.get("maxWatchTime"), payload.get("max_watch_time")), 15.0),
         "like_probability": probability(payload.get("likeProbability"), payload.get("like_probability"), 70),

@@ -104,7 +104,7 @@ def test_register_tiktok_followers_handler_executes_a_single_target_run():
     assert workflow.bot_username == "bot_account"
     assert workflow.config.search_query == "target"
     assert workflow.config.max_followers == 12
-    assert workflow.config.posts_per_profile == 3
+    assert workflow.config.max_posts_per_profile == 3
     assert workflow.config.min_watch_time == 4.5
     assert workflow.config.max_watch_time == 9.5
     assert workflow.config.like_probability == 0.75
