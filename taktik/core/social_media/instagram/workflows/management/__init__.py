@@ -11,7 +11,6 @@ from .session import SessionManager
 from .config import WorkflowConfigBuilder, ActionProbabilities, FilterCriteria
 from .login import LoginWorkflow
 from .logout import LogoutWorkflow
-from .dm import DMOutreachWorkflow, DMOutreachConfig, DMOutreachResult
 from .dm import DMAutoReplyWorkflow, DMAutoReplyConfig, AutoReplyResult
 
 __all__ = [
@@ -27,9 +26,6 @@ __all__ = [
     'LogoutWorkflow',
     'register_instagram_account_handlers',
     # DM Workflows
-    'DMOutreachWorkflow',
-    'DMOutreachConfig',
-    'DMOutreachResult',
     'DMAutoReplyWorkflow',
     'DMAutoReplyConfig',
     'AutoReplyResult',

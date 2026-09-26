@@ -290,18 +290,11 @@ class DirectMessageSelectors:
     thread_item: str = '//*[@resource-id="com.instagram.android:id/row_inbox_container"]'
 
     @property
-    def message_input_class_selector(self) -> Dict[str, str]:
-        return {"className": self.edit_text_class_name}
-
-    @property
     def text_view_class_selector(self) -> Dict[str, str]:
         return {"className": self.text_view_class_name}
 
     def thread_selector_for_username(self, username: str) -> Dict[str, str]:
         return {"textContains": username}
-
-    def account_result_selector_for_username(self, username: str) -> Dict[str, str]:
-        return {"textContains": username, "className": self.text_view_class_name}
 
     def send_button_selector_for_description(self, description: str) -> Dict[str, str]:
         return {"contentDescription": description}
