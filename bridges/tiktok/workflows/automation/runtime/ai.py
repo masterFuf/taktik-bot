@@ -18,12 +18,14 @@ def create_tiktok_ai_service(
     ai_config: dict,
     ipc: Any = None,
     log: LogCallback = lambda level, msg: None,
+    report_spend: bool = True,
 ) -> tuple[bool, Any | None]:
     """Create the optional OpenRouter AI service used by TikTok automation.
 
     Without an IPC the provider reports no `ai_spend`: every TikTok qualification and comment
     was paid and never reached the cost ledger, both callers passing `ipc=None`. The bridge's
-    own IPC is the default, as in the TikTok DM outreach."""
+    own IPC is the default, as in the TikTok DM outreach. `report_spend=False` for a run whose
+    session does not read `ai_spend` (the welcome pass)."""
     if ipc is None:
         from bridges.tiktok.runtime.ipc import _ipc as ipc
     return create_ai_service(
@@ -31,6 +33,7 @@ def create_tiktok_ai_service(
         ipc=ipc,
         log=log,
         ready_message="TikTok AI mode enabled - Profile relevance verdict",
+        report_spend=report_spend,
     )
 
 
@@ -89,7 +92,9 @@ def build_welcome_qualifier(ai_config: dict, language: str, *, log: LogCallback 
     from bridges.tiktok.runtime.ipc import send_profile_classification, send_relevance
     from taktik.core.social_media.tiktok.workflows.core.ai_hooks import build_tiktok_profile_qualifier
 
-    ai_enabled, ai_service = create_tiktok_ai_service(ai_config=ai_config, ipc=None, log=log)
+    # No `ai_spend`: the new-followers stdout reader does not store it.
+    ai_enabled, ai_service = create_tiktok_ai_service(ai_config=ai_config, ipc=None, log=log,
+                                                      report_spend=False)
     if not ai_enabled or ai_service is None:
         return None
 

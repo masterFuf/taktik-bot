@@ -32,11 +32,22 @@ from ..spend import (
     normalize_spend_kind,
 )
 from ..comments.generation import CommentGenerationMixin
+# Models, retry schedule, reasoning and routing: declared once in `openrouter_policy.py`, which
+# the desktop app's copy is generated from.
+from ..openrouter_policy import (
+    MODEL_ANALYSIS,
+    MODEL_CLASSIFICATION,
+    MODEL_GENERATION,
+    PROVIDER_PREFERENCE,
+    RATE_LIMIT_BACKOFF_SECONDS,
+    REASONING_MINIMAL,
+    REASONING_OFF,
+    RETRYABLE_HTTP_STATUSES,
+)
 
-# Two fixed models by task nature (both multimodal). Single source of truth for every LLM call.
-MODEL_ANALYSIS = "google/gemini-3.1-flash-lite"     # analyse / describe / text (post analysis)
-
-# The profile classifier, and ONLY it. A third constant is a deliberate exception to the
+# MODEL_ANALYSIS: analyse / describe / text (post analysis).
+#
+# MODEL_CLASSIFICATION: the profile classifier, and ONLY it. A third constant is a deliberate exception to the
 # two-fixed-models rule, and it exists because the two tasks stopped having the same evidence
 # behind them on 2026-09-09:
 #
@@ -50,9 +61,10 @@ MODEL_ANALYSIS = "google/gemini-3.1-flash-lite"     # analyse / describe / text 
 #     the product where being wrong is visible to a real person.
 #
 # So the classifier moves and the describer stays, until a bench says otherwise. Collapse this
-# back into MODEL_ANALYSIS the day post analysis is measured too.
-MODEL_CLASSIFICATION = "qwen/qwen3.7-flash"        # classify a profile from its screenshot
-MODEL_GENERATION = "qwen/qwen3.7-flash"            # comment / DM / persona / scheduler
+# back into MODEL_ANALYSIS the day post analysis is measured too. It was measured on
+# 2026-09-10 and refused (language contract broken on 20 posts out of 30).
+#
+# MODEL_GENERATION: comment / DM / persona / scheduler.
 # Switched from gemini-3-flash on 2026-09-10, after the determiner check made it safe.
 # The measurement, on 1 370 generated comments: 477 -> 28 uSD each, and the ONE class of
 # mistake this model makes that the other did not -- a determiner disagreeing with its
@@ -79,7 +91,8 @@ OPENROUTER_TOTAL_TIMEOUT_SECONDS = 45.0
 # TEXT separately (scraped, not OCR'd). Re-validate before going lower.
 VISION_IMAGE_MAX_EDGE = 768
 
-# Which upstream backend OpenRouter should route to, and why it is a PREFERENCE and not a pin.
+# PROVIDER_PREFERENCE: which upstream backend OpenRouter should route to, and why it is a
+# PREFERENCE and not a pin.
 #
 # The prompt cache only pays off when consecutive calls land on the same warm instance, which is
 # why this preference exists. It WORKS — do not tighten it further.
@@ -96,15 +109,9 @@ VISION_IMAGE_MAX_EDGE = 768
 # `allow_fallbacks` stays TRUE on purpose, and the measurement above is the argument FOR leaving it
 # alone rather than against: a hard pin to a slug that is renamed, saturated or down fails EVERY
 # call in a run, and we are already getting the routing we want without paying that risk.
-# Waits before retrying a rate-limited call. Two, growing: the upstream says "retry shortly",
-# and a burst typically clears within seconds. A third wait would only stall a run on an
-# upstream that is saturated for longer than a burst.
-RATE_LIMIT_BACKOFF_SECONDS = (2.0, 6.0)
-
-PROVIDER_PREFERENCE = {
-    "order": ["google-ai-studio", "google-vertex"],
-    "allow_fallbacks": True,
-}
+#
+# RATE_LIMIT_BACKOFF_SECONDS: waits before retrying a transient failure. Two, growing: the
+# upstream says "retry shortly", and a burst typically clears within seconds.
 
 # Platform display label for prompts (so the provider is reusable across platforms,
 # not hardcoded to Instagram). Defaults keep the Instagram wording byte-equivalent.
@@ -149,9 +156,12 @@ class AIService(CommentGenerationMixin):
     """Lightweight OpenRouter client for Bot AI operations."""
 
     def __init__(self, api_key: str, ipc=None, text_model: str = None, vision_model: str = None,
-                 niche_taxonomy: Dict[str, list] = None):
+                 niche_taxonomy: Dict[str, list] = None, report_spend: bool = True):
         self.api_key = api_key
         self.ipc = ipc
+        # `ai_spend` is emitted only for runs whose session reads it; the others keep their IPC
+        # for the Agent cards and pass False.
+        self.report_spend = report_spend
         # Two fixed models by task. The desktop app no longer injects models; the text_model/
         # vision_model params remain for signature compatibility but are ignored.
         self.model_analysis = MODEL_ANALYSIS
@@ -229,8 +239,7 @@ class AIService(CommentGenerationMixin):
         # were verified INERT on the two production models (gemini-3.1-flash-lite and
         # gemini-3-flash-preview answer the same tokens at the same cost with or without),
         # so this changes nothing today and makes a model swap safe by construction.
-        REASONING_OFF = {"enabled": False}
-        REASONING_MINIMAL = {"effort": "minimal"}
+        # Both forms are declared in `openrouter_policy.py`.
 
         # Remembered per model for the life of the service: the endpoint's answer does not
         # change between two calls, and without this the 400 is re-provoked on EVERY call --
@@ -353,11 +362,17 @@ class AIService(CommentGenerationMixin):
                 # the moment calls were fired back to back, which is what 200 accounts in
                 # parallel will look like. Two waits, growing, then give up: a third would only
                 # hold a run hostage to an upstream that is not coming back.
-                if exc.code == 429 and len(rate_limit_waits) < len(RATE_LIMIT_BACKOFF_SECONDS):
+                # 502 and 503 (bad upstream answer, no provider available) are not billed and
+                # clear the same way, so they get the same waits (RETRYABLE_HTTP_STATUSES).
+                if (
+                    exc.code in RETRYABLE_HTTP_STATUSES
+                    and len(rate_limit_waits) < len(RATE_LIMIT_BACKOFF_SECONDS)
+                ):
                     wait = RATE_LIMIT_BACKOFF_SECONDS[len(rate_limit_waits)]
                     rate_limit_waits.append(wait)
+                    reason = "rate-limited upstream" if exc.code == 429 else f"HTTP {exc.code} upstream"
                     logger.warning(
-                        f"[AIService] {model} rate-limited upstream — waiting {wait:.0f}s "
+                        f"[AIService] {model} {reason} — waiting {wait:.0f}s "
                         f"before retry {len(rate_limit_waits)}/{len(RATE_LIMIT_BACKOFF_SECONDS)}"
                     )
                     time.sleep(wait)
@@ -442,7 +457,8 @@ class AIService(CommentGenerationMixin):
             # only fire on paths that produce a card, and a declined comment, a declined
             # reply, a batch username classification or an agent decision produce none while
             # costing real money. Best effort — accounting must never break a run.
-            if self.ipc is not None and isinstance(cost, (int, float)):
+            reports = getattr(self, "report_spend", True)
+            if self.ipc is not None and reports and isinstance(cost, (int, float)):
                 try:
                     self.ipc.ai_spend(cost, model=served, label=label,
                                       kind=normalize_spend_kind(kind))

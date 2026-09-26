@@ -80,6 +80,21 @@ def test_the_waits_grow_and_are_bounded(monkeypatch):
     assert waits == sorted(waits)
 
 
+def test_a_transient_gateway_error_is_retried_like_a_rate_limit(monkeypatch):
+    """503 (no provider available) and 502 (bad upstream answer) are not billed and clear
+    like a burst; they get the same two waits."""
+    result, waits = _run(monkeypatch, [_http_error(503, "no provider available"), _Ok()])
+
+    assert result["success"] is True
+    assert waits == [openrouter.RATE_LIMIT_BACKOFF_SECONDS[0]]
+
+    result, waits = _run(monkeypatch, [_http_error(502, "bad gateway")] * 5)
+
+    assert result["success"] is False
+    assert result["rate_limited"] is False
+    assert waits == list(openrouter.RATE_LIMIT_BACKOFF_SECONDS)
+
+
 def test_another_http_error_is_never_retried(monkeypatch):
     """A quota or a malformed request must stay one call: retrying only doubles the wait."""
     result, waits = _run(monkeypatch, [_http_error(402, "insufficient credits"), _Ok()])
