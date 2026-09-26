@@ -141,7 +141,7 @@ class FollowersWorkflow(
         self._known_stop_requested = False
         
         self.logger.info(f"🚀 Starting Followers workflow for: {self.config.search_query}")
-        self.logger.info(f"📊 Config: max_followers={self.config.max_followers}, posts_per_profile={self.config.posts_per_profile}")
+        self.logger.info(f"📊 Config: max_followers={self.config.max_followers}, posts_per_profile={self.config.min_posts_per_profile}-{self.config.max_posts_per_profile}")
         
         # Initialize database tracking
         if bot_username:

@@ -5,6 +5,9 @@ The snapshot beside this file was recorded from the bridges before the multi-tar
 into the Agent handler; one scenario, marked below, was re-recorded on purpose. Same device calls
 (the return home between two targets, the account each run acts as), same stdout events in the
 same order, same config per target, same exit code.
+
+The fixed `posts_per_profile` became a range in every recording, on purpose: the page sends
+`minPostsPerProfile`/`maxPostsPerProfile`, the config carries `min_`/`max_posts_per_profile`.
 """
 import json
 from dataclasses import asdict
@@ -36,7 +39,7 @@ def scheduler_payload():
         "skipAlreadyLiked": True, "skipAds": True, "pauseAfterActions": 20, "pauseDurationMin": 60,
         "pauseDurationMax": 180, "workflowType": "followers", "searchQuery": "alpha",
         "targets": ["alpha", "beta"], "maxFollowers": 3, "maxConsecutiveKnownUsernames": 150,
-        "postsPerProfile": 3, "storyLikeProbability": 50, "minDelay": 3, "maxDelay": 8,
+        "minPostsPerProfile": 1, "maxPostsPerProfile": 3, "storyLikeProbability": 50, "minDelay": 3, "maxDelay": 8,
         "includeFriends": False,
     }
 
@@ -45,7 +48,8 @@ def qualify_payload():
     """What QualifyProfilesDialog.tsx sends: read and classify four handles, touch nothing."""
     return {
         "deviceId": "emulator-5554", "workflowType": "target_profiles",
-        "profiles": ["a", "b", "c", "d"], "maxProfiles": 4, "language": "fr", "postsPerProfile": 0,
+        "profiles": ["a", "b", "c", "d"], "maxProfiles": 4, "language": "fr", "minPostsPerProfile": 0,
+        "maxPostsPerProfile": 0,
         "likeProbability": 0, "followProbability": 0, "favoriteProbability": 0,
         "maxLikesPerSession": 50, "maxFollowsPerSession": 20, "minWatchTime": 1, "maxWatchTime": 3,
         "minDelay": 2, "maxDelay": 5, "pauseAfterActions": 20, "pauseDurationMin": 20,
@@ -58,7 +62,7 @@ def post_url_payload():
     return {
         "deviceId": "emulator-5554", "allowRouterDevice": False, "workflowType": "post_url",
         "postUrl": "https://www.tiktok.com/@creator/video/1", "maxCommenters": 12, "maxProfiles": 5,
-        "maxVideos": 5, "maxLikesPerSession": 30, "maxFollowsPerSession": 10, "postsPerProfile": 1,
+        "maxVideos": 5, "maxLikesPerSession": 30, "maxFollowsPerSession": 10, "minPostsPerProfile": 1, "maxPostsPerProfile": 1,
         "minWatchTime": 2, "maxWatchTime": 6, "likeProbability": 40, "followProbability": 5,
         "favoriteProbability": 0, "pauseAfterActions": 8, "pauseDurationMin": 20,
         "pauseDurationMax": 40, "requiredHashtags": [], "excludedHashtags": [], "minLikes": None,

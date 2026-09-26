@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hierarchy rotation="0"><node index="0" text="" resource-id="com.instagram.android:id/reels_tray_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,147]" drawing-order="1" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="androidx.recyclerview.widget.RecyclerView" package="com.instagram.android" content-desc="conteneur barre des reels" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="true" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][1080,147]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="" resource-id="com.instagram.android:id/outer_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][294,147]" drawing-order="1" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/avatar_view" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][294,83]" drawing-order="1" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="" class="android.widget.Button" package="com.instagram.android" content-desc="Story de user_1, 0 sur 12, Non vus." checkable="false" checked="false" clickable="true" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][294,83]" drawing-order="1" hint="" display-id="0">
+
+                                                  <node index="0" text="" resource-id="com.instagram.android:id/avatar_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,77][294,83]" drawing-order="1" hint="" display-id="0"/>
+
+                                                </node>
+
+                                              </node>
+
+                                              <node index="1" text="" resource-id="com.instagram.android:id/title_container" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,83][294,125]" drawing-order="2" hint="" display-id="0">
+
+                                                <node index="0" text="Votre story" resource-id="com.instagram.android:id/username" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[60,83][234,125]" drawing-order="1" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                            <node index="1" text="" resource-id="com.instagram.android:id/outer_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[294,77][588,147]" drawing-order="2" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/avatar_view" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[294,77][588,83]" drawing-order="1" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="" class="android.widget.Button" package="com.instagram.android" content-desc="Story de user_2, 1 sur 12, Non vus." checkable="false" checked="false" clickable="true" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[294,77][588,83]" drawing-order="1" hint="" display-id="0">
+
+                                                  <node index="0" text="" resource-id="com.instagram.android:id/avatar_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[294,77][588,83]" drawing-order="1" hint="" display-id="0"/>
+
+                                                </node>
+
+                                              </node>
+
+                                              <node index="1" text="" resource-id="com.instagram.android:id/title_container" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[294,83][588,125]" drawing-order="2" hint="" display-id="0">
+
+                                                <node index="0" text="user_2" resource-id="com.instagram.android:id/username" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[321,83][562,125]" drawing-order="1" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                            <node index="2" text="" resource-id="com.instagram.android:id/outer_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[588,77][882,147]" drawing-order="3" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/avatar_view" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[588,77][882,83]" drawing-order="1" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="" class="android.widget.Button" package="com.instagram.android" content-desc="Story de user_3, 2 sur 12, Non vus." checkable="false" checked="false" clickable="true" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[588,77][882,83]" drawing-order="1" hint="" display-id="0">
+
+                                                  <node index="0" text="" resource-id="com.instagram.android:id/avatar_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[588,77][882,83]" drawing-order="1" hint="" display-id="0"/>
+
+                                                </node>
+
+                                              </node>
+
+                                              <node index="1" text="" resource-id="com.instagram.android:id/title_container" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[588,83][882,125]" drawing-order="2" hint="" display-id="0">
+
+                                                <node index="0" text="user_3" resource-id="com.instagram.android:id/username" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[669,83][802,125]" drawing-order="1" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                            <node index="3" text="" resource-id="com.instagram.android:id/outer_container" class="android.widget.LinearLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[882,77][1080,147]" drawing-order="4" hint="" display-id="0">
+
+                                              <node index="0" text="" resource-id="com.instagram.android:id/avatar_view" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[882,77][1080,83]" drawing-order="1" hint="" display-id="0">
+
+                                                <node index="0" text="" resource-id="" class="android.widget.Button" package="com.instagram.android" content-desc="Story de user_4, 3 sur 12, Non vus." checkable="false" checked="false" clickable="true" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[882,77][1080,83]" drawing-order="1" hint="" display-id="0">
+
+                                                  <node index="0" text="" resource-id="com.instagram.android:id/avatar_container" class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[882,77][1080,83]" drawing-order="1" hint="" display-id="0"/>
+
+                                                </node>
+
+                                              </node>
+
+                                              <node index="1" text="" resource-id="com.instagram.android:id/title_container" class="android.view.ViewGroup" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[882,83][1080,125]" drawing-order="2" hint="" display-id="0">
+
+                                                <node index="0" text="user_4" resource-id="com.instagram.android:id/username" class="android.widget.TextView" package="com.instagram.android" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[959,83][1080,125]" drawing-order="1" hint="" display-id="0"/>
+
+                                              </node>
+
+                                            </node>
+
+                                          </node>
+
+                                        </node>
+
+                                      </hierarchy>

@@ -71,7 +71,7 @@ class TargetProfilesWorkflow(FollowersWorkflow):
         self.logger.info(f"🚀 Starting Target Profiles workflow on {len(targets)} profiles")
         self.logger.info(
             f"📊 Config: max_profiles={self.config.max_followers}, "
-            f"posts_per_profile={self.config.posts_per_profile}"
+            f"posts_per_profile={self.config.min_posts_per_profile}-{self.config.max_posts_per_profile}"
         )
 
         self._open_session(bot_username, targets)

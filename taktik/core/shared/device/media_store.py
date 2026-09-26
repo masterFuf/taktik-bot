@@ -266,12 +266,11 @@ def _still_holds_our_file(device_id: str, entry: dict) -> Optional[bool]:
     return None
 
 
-def _purge_registered(device_id: str, cutoff: float) -> int:
+def _reclaim(device_id: str, entries: Iterable[dict]) -> int:
+    """Delete these registered pushes while they still hold our file; forget the ones gone."""
     forgotten = []
     removed = 0
-    for entry in pushed_media_registry.load(device_id):
-        if entry['pushed_at'] > cutoff:
-            continue
+    for entry in entries:
         ours = _still_holds_our_file(device_id, entry)
         if ours is False:
             forgotten.append(entry['path'])  # gone, or another file under that name: never deleted
@@ -281,6 +280,34 @@ def _purge_registered(device_id: str, cutoff: float) -> int:
         # no answer from the device: kept, retried on the next run
     if forgotten:
         pushed_media_registry.forget(device_id, forgotten)
+    return removed
+
+
+def _purge_registered(device_id: str, cutoff: float) -> int:
+    return _reclaim(device_id, [e for e in pushed_media_registry.load(device_id) if e['pushed_at'] <= cutoff])
+
+
+def delete_pushed_media(
+    device_id: str,
+    remote_paths: Iterable[str],
+    log: Optional[Callable[[str, str], None]] = None,
+) -> int:
+    """Delete media this bot pushed for a publish Instagram has confirmed. Returns the count.
+
+    Called once the publish is confirmed on screen, never after a failure or an unconfirmed
+    verdict: those files wait for `purge_pushed_media`. Only paths of `pushed_media_registry` are
+    touched, and only while they still hold a file of the size we pushed.
+    """
+    wanted = {path for path in remote_paths if path}
+    if not wanted:
+        return 0
+    entries = [e for e in pushed_media_registry.load(device_id) if e['path'] in wanted]
+    removed = _reclaim(device_id, entries)
+    if removed and log is not None:
+        try:
+            log('info', f'[media_store] deleted {removed} pushed media after the confirmed publish')
+        except Exception:
+            pass
     return removed
 
 
@@ -306,9 +333,10 @@ def purge_pushed_media(
     Publishing copies a file into the device gallery and never removes it, so a phone automated
     for months accumulates every medium it ever posted until storage runs out.
 
-    Deleting at the END of a publish would be the obvious place and is the wrong one: Instagram
-    uploads in the background after the composer closes, so the file may still be read. This runs
-    at the START of a run instead and only touches files older than `max_age_hours`, which cannot
+    A publish whose upload Instagram confirmed on screen deletes its own files at once
+    (`delete_pushed_media`); closing the composer is not that confirmation, since Instagram keeps
+    uploading in the background. This purge catches what a failed or unconfirmed publish left: it
+    runs at the START of a publish and only touches files older than `max_age_hours`, which cannot
     belong to a publish still in flight.
 
     What is ours comes from `pushed_media_registry`, the exact paths `push_media` wrote — never

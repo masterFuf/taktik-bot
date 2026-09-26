@@ -16,9 +16,11 @@ The flow reproduces, step by step, the sequence validated through the diagnostic
   7. type the caption and the hashtags
   8. Tape "Share".
   9. wait for the composer to close, which commits the share
+ 10. wait for Instagram to finish uploading; once that is seen on screen, delete the pushed media
 
 The story has its own tail: the editor's "Your story" button, reached past Instagram's information
-windows (a promo dialog closed with its "OK", never its settings action).
+windows (a promo dialog closed with its "OK", never its settings action), then our own bubble of the
+feed tray, read before and after the share.
 
 Every selector comes from
 `taktik/core/social_media/instagram/ui/selectors/surfaces/content_creation.py`.
@@ -37,6 +39,7 @@ from loguru import logger
 from taktik.core.clone import get_active_package
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.shared.device.media_store import (
+    delete_pushed_media,
     purge_pushed_media,
     push_media,
     scan_wait_for,
@@ -103,6 +106,8 @@ class InstagramPostWorkflow:
         self.permission_prompts_answered = 0
         # Instagram information windows closed with their acknowledgement during this run.
         self.information_windows_acknowledged = 0
+        # Device paths of the media this run pushed, deleted once the publish is confirmed.
+        self._pushed_paths: List[str] = []
         self._a = self._build_actions(device)
 
     # ------------------------------------------------------------------
@@ -141,7 +146,9 @@ class InstagramPostWorkflow:
         posting anything publicly. It is a flag on the production path on purpose: a bench that
         reimplements the flow to avoid the last tap would no longer be testing this workflow.
 
-        Returns dict {success: bool, message: str, error_type: str | None}.
+        Returns dict {success: bool, message: str, error_type: str | None, confirmed: bool}.
+        `confirmed` is True only when the screen showed the upload finished; only then are the
+        pushed media deleted from the phone (`media_released`).
         """
         hashtags = hashtags or []
         media_paths = [p for p in (media_paths or []) if p]
@@ -162,7 +169,7 @@ class InstagramPostWorkflow:
 
         # Story has a distinct tail (no Next/caption screen).
         if self.post_type == "story":
-            return self._publish_story(stop_before_share)
+            return self._release_media_if_confirmed(self._publish_story(stop_before_share))
 
         # 3. Open creation + ensure the gallery grid is visible
         err = self._open_creation_and_gallery()
@@ -180,27 +187,28 @@ class InstagramPostWorkflow:
             time.sleep(1.0)
 
         # 5. Compose (Next-loop -> caption) and share
-        return self._compose_and_share(caption, hashtags, stop_before_share)
+        return self._release_media_if_confirmed(self._compose_and_share(caption, hashtags, stop_before_share))
 
     # ------------------------------------------------------------------
     # Shared stages
     # ------------------------------------------------------------------
 
     def _push_all(self, media_paths: List[str]) -> bool:
-        # Reclaim what earlier runs left behind before adding more. Done here, at the start,
-        # rather than after publishing: Instagram keeps uploading in the background once the
-        # composer closes, so a file deleted at the end may still be in use. Only media this bot
-        # pushed more than a few hours ago is touched.
+        # Reclaim what earlier runs left behind (failed or unconfirmed publishes) before adding
+        # more. Only media this bot pushed more than a few hours ago is touched; a confirmed
+        # publish deletes its own media at once (`_release_media_if_confirmed`).
         try:
             purge_pushed_media(self.device_id, log=self._log)
         except Exception as e:
             self._log("warning", f"Media purge skipped: {e}")
 
+        self._pushed_paths = []
         for path in media_paths:
             self._status("uploading", f"Pushing media: {os.path.basename(path)}")
             remote_path = push_media(self.device_id, path)
             if not remote_path:
                 return False
+            self._pushed_paths.append(remote_path)
             trigger_media_scan(self.device_id, remote_path, path, log=self._log)
             time.sleep(scan_wait_for(path))
         return True
@@ -332,7 +340,8 @@ class InstagramPostWorkflow:
                     return self._error("share_not_found", "Share button not found")
             self._status("success", f"{self.post_type} reached the share screen (not published)")
             self._log("info", f"Instagram {self.post_type}: stopped before sharing")
-            return {"success": True, "message": f"{self.post_type} reached the share screen (not published)", "error_type": None}
+            return {"success": True, "message": f"{self.post_type} reached the share screen (not published)",
+                    "error_type": None, "confirmed": False}
 
         # Share (the IME may still cover the footer button: dismiss + retry once)
         self._status("publishing", "Publishing...")
@@ -352,13 +361,19 @@ class InstagramPostWorkflow:
             )
 
         label = self.post_type
+        confirmed = self._wait_for_upload_confirmation()
+        if not confirmed:
+            self._log("warning", f"Instagram {label}: upload end not seen on screen, pushed media kept")
         self._status("success", f"{label} published successfully")
         self._log("info", f"Instagram {label} published")
-        return {"success": True, "message": f"{label} published successfully", "error_type": None}
+        return {"success": True, "message": f"{label} published successfully", "error_type": None,
+                "confirmed": confirmed}
 
     def _publish_story(self, stop_before_share: bool = False) -> dict:
         """Story flow: enter (create '+' STORY tab OR feed tray) -> gallery -> select ->
         'Your story', each information window acknowledged on the way."""
+        # Our own bubble before the share, read on the feed: the verdict compares it after.
+        story_before = self._own_story_state()
         if self.story_via_feed:
             err = self._open_story_from_feed_tray()
         else:
@@ -378,7 +393,8 @@ class InstagramPostWorkflow:
                 return self._error("share_not_found", "'Your story' button not found")
             self._status("success", "story reached the share screen (not published)")
             self._log("info", "Instagram story: stopped before sharing")
-            return {"success": True, "message": "story reached the share screen (not published)", "error_type": None}
+            return {"success": True, "message": "story reached the share screen (not published)",
+                    "error_type": None, "confirmed": False}
 
         self._status("publishing", "Publishing story...")
         if not self._tap(CC.story_publish_xpaths(), timeout=6):
@@ -390,14 +406,20 @@ class InstagramPostWorkflow:
                 return self._error("share_not_found", "'Your story' button not found")
         # The same kind of window can also follow the share.
         self._acknowledge_information_windows(wait_s=4.0)
-        committed = self._wait_for_publish_commit()
+        verdict = self._wait_for_story_commit(story_before)
         if look_for_action_block(self._block_detector(), after="story publish"):
             return self._error("action_blocked", "Instagram refuses the story (Try again later)")
-        if not committed:
-            return self._error("publish_not_committed", "Story publish did not confirm before timeout")
-        self._status("success", "Story published successfully")
-        self._log("info", "Instagram story published")
-        return {"success": True, "message": "story published successfully", "error_type": None}
+        if verdict == "not_committed":
+            return self._error("publish_not_committed", "Story editor still open: the story was not shared")
+        if verdict == "confirmed":
+            self._status("success", "Story published successfully")
+            self._log("info", "Instagram story published")
+            return {"success": True, "message": "story published successfully", "error_type": None,
+                    "confirmed": True}
+        self._log("warning", "Instagram story shared; our story was not seen in the tray, pushed media kept")
+        self._status("success", "Story shared (not confirmed on screen)")
+        return {"success": True, "message": "story shared (not confirmed on screen)", "error_type": None,
+                "confirmed": False}
 
     def _open_story_from_feed_tray(self) -> Optional[dict]:
         """2nd story entry: tap our own bubble in the feed reels tray, then ensure the
@@ -504,7 +526,8 @@ class InstagramPostWorkflow:
             self._log("debug", f"keyboard dismiss skipped: {e}")
 
     def _wait_for_publish_commit(self, timeout: float = 120.0) -> bool:
-        """Publish is committed once the composer (caption field) disappears."""
+        """Post, reel, carousel: the share is committed once the composer (caption field)
+        disappears. Not the story's verdict: its editor has no caption field."""
         composer = CC.composer_xpaths()
         start = time.time()
         while time.time() - start < timeout:
@@ -514,6 +537,99 @@ class InstagramPostWorkflow:
                 return True
             time.sleep(2.0)
         return False
+
+    def _wait_for_upload_confirmation(self, timeout: float = 180.0, poll_s: float = 2.0,
+                                      appear_s: float = 10.0) -> bool:
+        """Post, reel, carousel: True once Instagram's upload indicator (the feed's pending row,
+        the Reels upload snackbar) was seen, then gone. Not seen within `appear_s`, or still up at
+        `timeout`: False, nothing proves the upload ended. Reads only."""
+        polls = max(1, int(timeout / poll_s))
+        appear_polls = max(1, int(appear_s / poll_s))
+        deadline = time.monotonic() + timeout
+        seen = False
+        for index in range(polls):
+            photo = self._photo()
+            if photo is not None and photo.exists(CC.pending_upload_xpaths()):
+                seen = True
+            elif seen and photo is not None:
+                return True
+            elif not seen and index + 1 >= appear_polls:
+                return False
+            if time.monotonic() > deadline:
+                break
+            time.sleep(poll_s)
+        return False
+
+    def _own_story_state(self, photo=None) -> Optional[str]:
+        """Our own bubble of the feed tray: "empty" (its "Add to story" badge), "posted" (seen
+        whole, no badge), None when it is not seen whole (not on the feed, tray scrolled).
+        Reads only."""
+        photo = self._photo() if photo is None else photo
+        if photo is None:
+            return None
+        avatar = photo.first(CC.own_story_avatar_xpath())
+        bounds = getattr(avatar, "bounds", None) if avatar is not None else None
+        if not bounds:
+            return None
+        width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
+        if width <= 0 or height < 0.8 * width:
+            return None
+        return "empty" if photo.exists(CC.own_story_empty_badge_xpath()) else "posted"
+
+    def _wait_for_story_commit(self, story_before: Optional[str], timeout: float = 120.0,
+                               poll_s: float = 2.0) -> str:
+        """The story's verdict, from our own bubble of the feed tray.
+
+        "confirmed": the bubble showed no story before the share and shows ours now. "shared":
+        back on the feed but nothing to compare (a story of ours was already up, or the bubble was
+        not read before), or ours not seen before `timeout`. "not_committed": the editor's "Your
+        story" button is still on screen at `timeout`. A window laid over the feed after the share
+        is acknowledged on the way (never its settings action).
+        """
+        polls = max(1, int(timeout / poll_s))
+        deadline = time.monotonic() + timeout
+        back_on_feed = False
+        photo = None
+        for _ in range(polls):
+            photo = self._photo()
+            state = self._own_story_state(photo)
+            if state is not None:
+                back_on_feed = True
+                if story_before != "empty":
+                    return "shared"
+                if state == "posted":
+                    return "confirmed"
+            else:
+                self._acknowledge_information_windows(CC.own_story_avatar_xpath(), wait_s=poll_s)
+            if time.monotonic() > deadline:
+                break
+            time.sleep(poll_s)
+        # The tray's own label reads "Your story" too: the editor is that button off the tray.
+        editor_open = (photo is not None and photo.exists(CC.story_publish_xpaths())
+                       and not photo.exists(CC.own_story_bubble_xpath()))
+        if not back_on_feed and editor_open:
+            return "not_committed"
+        return "shared"
+
+    def _release_media_if_confirmed(self, result: dict) -> dict:
+        """Delete from the phone the media this run pushed, once the publish is confirmed.
+        A failed, rehearsed or unconfirmed publish keeps them for the age purge."""
+        if not (result.get("success") and result.get("confirmed")):
+            return result
+        try:
+            released = delete_pushed_media(self.device_id, list(getattr(self, "_pushed_paths", [])), log=self._log)
+        except Exception as e:
+            self._log("warning", f"Pushed media not deleted: {e}")
+            released = 0
+        return {**result, "media_released": released}
+
+    def _photo(self):
+        """One read of the screen (the facade's snapshot), or None when it cannot be read."""
+        try:
+            return self._a["click"].device.snapshot()
+        except Exception as e:
+            self._log("debug", f"screen not read: {e}")
+            return None
 
     # ------------------------------------------------------------------
     # Misc helpers

@@ -3,6 +3,9 @@
 The snapshot beside this file was recorded from the bridge while it still read its payload itself,
 before the run moved into the Agent handler. Same device calls, same stdout events in the same
 order, same config, same exit code.
+
+The fixed `posts_per_profile` became a range in every recording, on purpose: the page sends
+`minPostsPerProfile`/`maxPostsPerProfile`, the config carries `min_`/`max_posts_per_profile`.
 """
 import json
 from dataclasses import asdict

@@ -44,7 +44,19 @@ class ContentCreationSelectors:
     # `reel_empty_badge` porte content-desc "Add to story" et le label = "Your story".
     reels_tray_container: str = 'com.instagram.android:id/reels_tray_container'
     reel_empty_badge: str = 'com.instagram.android:id/reel_empty_badge'
-    
+    # Our own bubble in the tray: the `outer_container` whose label is "Your story", its avatar in
+    # `avatar_view`. Lab corpus IG 410: 407 dumps show it whole with the empty badge (no story up);
+    # the dumps without the badge all show the avatar cut by the scroll (6 px tall or absent), so a
+    # badge is only read on an avatar seen whole.
+    tray_item_container: str = 'com.instagram.android:id/outer_container'
+    tray_avatar_view: str = 'com.instagram.android:id/avatar_view'
+
+    # === Upload in progress, after the share (Lab dumps `publish.tap_share`, IG 410) ===
+    # Post and carousel: the pending row at the top of the feed ("Posting to ...", "Keep Instagram
+    # open to finish posting..."). Reel: the upload snackbar of the Reels tab ("Sharing to Reels...").
+    row_pending_container: str = 'com.instagram.android:id/row_pending_container'
+    upload_snackbar_container: str = 'com.instagram.android:id/upload_snackbar_container'
+
     # === Navigation création ===
     next_button: str = 'com.instagram.android:id/next_button_textview'
     creation_next_button: str = 'com.instagram.android:id/creation_next_button'
@@ -277,6 +289,32 @@ class ContentCreationSelectors:
             + self._text_xpaths(self.your_story_texts)
             + [self._rid_xpath(self.reel_empty_badge)]
         )
+
+    def own_story_bubble_xpath(self) -> str:
+        """Our own bubble of the feed tray, found by its "Your story" label."""
+        labels = " or ".join(f'.//*[@text="{t}"]' for t in self.your_story_texts)
+        return (
+            f'{self._rid_xpath(self.reels_tray_container)}'
+            f'//*[contains(@resource-id, "{self.tray_item_container.split("/")[-1]}")][{labels}]'
+        )
+
+    def own_story_avatar_xpath(self) -> str:
+        """The avatar of our own bubble: its bounds tell whether the bubble is seen whole."""
+        return (
+            f'({self.own_story_bubble_xpath()}'
+            f'//*[contains(@resource-id, "{self.tray_avatar_view.split("/")[-1]}")])[1]'
+        )
+
+    def own_story_empty_badge_xpath(self) -> str:
+        """The "Add to story" badge of our own bubble: no story of ours is up."""
+        return (
+            f'{self.own_story_bubble_xpath()}'
+            f'//*[contains(@resource-id, "{self.reel_empty_badge.split("/")[-1]}")]'
+        )
+
+    def pending_upload_xpaths(self) -> List[str]:
+        """What Instagram shows while a post, carousel or reel is still uploading."""
+        return [self._rid_xpath(self.row_pending_container), self._rid_xpath(self.upload_snackbar_container)]
 
     def gallery_open_xpaths(self) -> List[str]:
         """Open the gallery picker from the create camera (bottom-left preview button)."""

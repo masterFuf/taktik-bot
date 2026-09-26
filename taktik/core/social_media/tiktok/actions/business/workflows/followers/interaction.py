@@ -10,6 +10,7 @@ import random
 from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
 
 from taktik.core.shared.behavior.grid_entry import sample_entry_index
+from taktik.core.shared.behavior.interaction_plan import sample_like_target
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.telemetry.sink import emit_step
 
@@ -33,20 +34,24 @@ class VideoInteractionMixin(VideoCommentMixin):
         2. Open ONE cell of the grid, chosen by the session (not always the first)
         3. Watch video, interact (like/favorite/etc)
         4. Swipe up to next video (instead of going back and clicking next post)
-        5. Repeat for min(posts_per_profile, available_posts) times
+        5. Repeat for a count drawn in the configured range, within the posts available
         6. Press back to return to profile page
         """
         # Count available posts before interacting
         available_posts = self._count_visible_posts()
-        
+
         if available_posts == 0:
             self.logger.info(f"⚠️ No posts to interact with on profile @{self._current_profile_username}")
             self._send_action('no_posts', self._current_profile_username)
             return
-        
-        # Limit interactions to available posts
-        posts_to_interact = min(self.config.posts_per_profile, available_posts)
-        self.logger.debug(f"📹 Will interact with {posts_to_interact} posts (available: {available_posts}, config: {self.config.posts_per_profile})")
+
+        posts_to_interact = self._posts_to_view(available_posts)
+        self.logger.debug(
+            f"📹 Will interact with {posts_to_interact} posts (available: {available_posts}, "
+            f"range: {self.config.min_posts_per_profile}-{self.config.max_posts_per_profile})"
+        )
+        if posts_to_interact <= 0:
+            return
         
         # Enter the grid somewhere, not always at the top-left. A profile visited twice used to
         # open the same first post twice; a real visitor's eye lands where the thumbnail catches
@@ -102,6 +107,20 @@ class VideoInteractionMixin(VideoCommentMixin):
         self._go_back()
         time.sleep(0.5)
     
+    def _posts_to_view(self, available_posts: int) -> int:
+        """Videos to watch on this profile: drawn in the configured range, never more than the
+        grid shows. The ceiling is applied to the range before the draw, not to the value drawn."""
+        hi = min(int(self.config.max_posts_per_profile), int(available_posts))
+        lo = min(int(self.config.min_posts_per_profile), hi)
+        state = getattr(self, "behavior_state", None)
+        if state is not None and callable(getattr(state, "posts_to_view", None)):
+            count = state.posts_to_view(lo, hi)
+        else:
+            count = sample_like_target(lo, hi) if hi > 0 else 0
+        emit_step("behavior", action="posts_to_view", target=self._current_profile_username,
+                  count=count, lo=lo, hi=hi)
+        return count
+
     def _choose_grid_entry(self, available_posts: int) -> int:
         """Which cell of the profile grid to open. Weighted, and never the same one twice in a run.
 

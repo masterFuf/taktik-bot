@@ -35,7 +35,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows.followers.filter
 QUALIFICATION_PAYLOAD = {
     'deviceId': 'device', 'workflowType': 'target_profiles',
     'profiles': ['a', 'b', 'c', 'd'], 'maxProfiles': 4,
-    'postsPerProfile': 0, 'likeProbability': 0, 'followProbability': 0, 'favoriteProbability': 0,
+    'minPostsPerProfile': 0, 'maxPostsPerProfile': 0, 'likeProbability': 0, 'followProbability': 0, 'favoriteProbability': 0,
     'ai': {'enabled': True, 'profileAnalysis': True},
 }
 
@@ -44,7 +44,7 @@ QUALIFICATION_PAYLOAD = {
 FOLLOWERS_PAYLOAD = {
     'deviceId': 'test-device', 'workflowType': 'followers',
     'targets': ['adaluz_cabezas1'], 'maxFollowers': 20,
-    'maxLikesPerSession': 50, 'maxFollowsPerSession': 20, 'postsPerProfile': 2,
+    'maxLikesPerSession': 50, 'maxFollowsPerSession': 20, 'minPostsPerProfile': 1, 'maxPostsPerProfile': 2,
     'likeProbability': 30, 'followProbability': 10,
 }
 
