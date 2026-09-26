@@ -1,4 +1,5 @@
 """One launcher per workflow: the gate is green on the tree and red on each fake second launcher."""
+import re
 import sys
 from pathlib import Path
 
@@ -43,8 +44,8 @@ def test_a_fake_second_launcher_turns_the_gate_red(inputs, baseline, case):
     assert any(expected in finding for finding in new), new
 
 
-def test_every_exception_is_dated_and_justified():
+def test_every_exception_is_justified_without_a_date():
     for kind, entries in workflow_launchers.EXCEPTIONS.items():
         for key, reason in entries.items():
-            assert reason[:10].count("-") == 2 and reason[:4].isdigit(), (kind, key)
+            assert not re.search(r"20\d\d-\d\d-\d\d", reason), (kind, key)
             assert len(reason) > 20, (kind, key)
