@@ -285,7 +285,8 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         Returns True when the video is the one just processed (caller should ``continue`` the
         loop): it is neither watched nor counted again, the feed is swiped once more, and from
         the third time a blocking popup is looked for first. Three such recoveries in a row stop
-        the run: a feed that no longer moves would otherwise be swiped forever.
+        the run with the motive `feed_stuck`: a feed that no longer moves would otherwise be swiped
+        forever.
         """
         # A LIVE preview has no author; a swipe that does not leave it must still be caught, or the
         # run skips it forever without ever counting a video.
@@ -311,6 +312,8 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
                 self.stats.errors += 1
                 if self._stuck_recoveries >= 3:
                     self.logger.error("🚨 The feed no longer moves: stopping")
+                    # Reported to the desktop: the run otherwise ended like a normal one.
+                    self.stats.completion_reason = "feed_stuck"
                     self.stop()
             else:
                 self.scroll.scroll_to_next_video()

@@ -157,6 +157,8 @@ def run_tiktok_search(
         stats = workflow.run()
         for counter in _SUMMED_COUNTERS:
             setattr(totals, counter, getattr(totals, counter) + getattr(stats, counter, 0))
+        # The run's motive is its last query's: a feed stuck on an earlier query did not end the run.
+        totals.completion_reason = getattr(stats, "completion_reason", "")
         remaining_likes = max(0, remaining_likes - stats.videos_liked)
         remaining_follows = max(0, remaining_follows - stats.users_followed)
         logger.info(

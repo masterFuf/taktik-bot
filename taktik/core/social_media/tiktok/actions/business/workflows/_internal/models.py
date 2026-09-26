@@ -22,6 +22,8 @@ class VideoWorkflowStats:
     popups_closed: int = 0
     suggestions_handled: int = 0
     errors: int = 0
+    # Why the run stopped on its own, in the desktop's stop vocabulary; empty = no motive to show.
+    completion_reason: str = ''
 
     start_time: float = field(default_factory=time.time)
 
@@ -41,6 +43,7 @@ class VideoWorkflowStats:
             'popups_closed': self.popups_closed,
             'suggestions_handled': self.suggestions_handled,
             'errors': self.errors,
+            'completion_reason': self.completion_reason,
             'elapsed_seconds': elapsed,
             'elapsed_formatted': f"{int(elapsed // 60)}m {int(elapsed % 60)}s",
         }
