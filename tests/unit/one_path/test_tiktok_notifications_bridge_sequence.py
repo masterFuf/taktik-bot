@@ -9,6 +9,12 @@ One field was re-recorded on purpose: `exit`. The old runner returned a process 
 success) where the dispatcher expects a success flag, so a pass that succeeded exited 1 (the app
 closed it as ERROR and filed a crash report) and a pass that failed exited 0. The old code's value
 stays in the snapshot as `exit_old_code`.
+
+Re-recorded on purpose when the pass started filing its gestures: the `activity_row`, `hello_sent`
+and `suggested_followed` events are gone (no reader; their totals are in `notifications_result`),
+each wave is followed by a read of its thread's handle, each suggestion is preceded by a read of
+its profile's handle and is not followed without one, the acting account is resolved when a gesture
+asks for it, and `notifications_gestures_recorded` shows the rows filed under those handles.
 """
 import json
 from pathlib import Path
@@ -35,6 +41,12 @@ def scenario(name, rig, notifications_payload):
         rig.hello_candidates = ["Ana", "Bob", "Cid"]
         rig.suggestion_reads = [[], [], [{"name": "Suggested A"}, {"name": "Suggested B"}]]
         return notifications_payload(maxFollowerResolutions=1, maxActivityRows=1, maxHellos=2,
+                                     maxSuggestedFollows=1)
+    if name == "notifications_gestures_recorded":
+        rig.hello_candidates = ["Ana", "Bob"]
+        rig.suggestion_reads = [[{"name": "Suggested A"}, {"name": "Suggested B"}]]
+        rig.profile_handles.update({"Ana": "ana.handle", "Suggested B": "suggested_b"})
+        return notifications_payload(scanNewFollowers=False, readActivity=False, maxHellos=2,
                                      maxSuggestedFollows=1)
     if name == "notifications_nothing_asked":
         return notifications_payload(scanNewFollowers=False, readActivity=False)
@@ -67,7 +79,8 @@ def scenario(name, rig, notifications_payload):
 
 
 SCENARIOS = (
-    "notifications_page", "notifications_every_step", "notifications_nothing_asked",
+    "notifications_page", "notifications_every_step", "notifications_gestures_recorded",
+    "notifications_nothing_asked",
     "notifications_page_closed", "notifications_no_new_follower", "notifications_inbox_closed",
     "notifications_activity_closed", "notifications_no_suggestion", "notifications_step_fails",
     "notifications_account_unread", "notifications_start_fails", "notifications_device_id_snake",

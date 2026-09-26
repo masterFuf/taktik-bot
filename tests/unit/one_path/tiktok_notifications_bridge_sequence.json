@@ -71,30 +71,6 @@
         }
       ],
       [
-        "activity_row",
-        {
-          "age": "2 j",
-          "kind": "like",
-          "others_count": 3,
-          "post_count": 1,
-          "usernames": [
-            "fan_one"
-          ]
-        }
-      ],
-      [
-        "activity_row",
-        {
-          "age": "1 sem.",
-          "kind": "profile_view",
-          "others_count": 10,
-          "post_count": 0,
-          "usernames": [
-            "Nico Lito"
-          ]
-        }
-      ],
-      [
         "status",
         {
           "message": "Notifications pass finished",
@@ -166,6 +142,9 @@
           }
         ],
         "platform": "tiktok"
+      },
+      {
+        "account": "acting_account"
       }
     ],
     "events": [
@@ -388,30 +367,6 @@
         }
       ],
       [
-        "activity_row",
-        {
-          "age": "2 j",
-          "kind": "like",
-          "others_count": 3,
-          "post_count": 1,
-          "usernames": [
-            "fan_one"
-          ]
-        }
-      ],
-      [
-        "activity_row",
-        {
-          "age": "1 sem.",
-          "kind": "profile_view",
-          "others_count": 10,
-          "post_count": 0,
-          "usernames": [
-            "Nico Lito"
-          ]
-        }
-      ],
-      [
         "status",
         {
           "message": "Notifications pass finished",
@@ -457,7 +412,9 @@
       "open_inbox",
       "hello_candidates",
       "say_hello Ana",
+      "read_thread_handle Ana",
       "say_hello Bob",
+      "read_thread_handle Bob",
       "open_inbox",
       "open_activity expand=False",
       "read_suggestions",
@@ -465,7 +422,8 @@
       "read_suggestions",
       "scroll 0.6",
       "read_suggestions",
-      "follow_suggested Suggested A",
+      "read_profile_handle Suggested A",
+      "read_profile_handle Suggested B",
       "force_stop tiktok"
     ],
     "db_writes": [
@@ -484,6 +442,9 @@
           }
         ],
         "platform": "tiktok"
+      },
+      {
+        "account": "acting_account"
       }
     ],
     "events": [
@@ -558,18 +519,6 @@
         }
       ],
       [
-        "activity_row",
-        {
-          "age": "2 j",
-          "kind": "like",
-          "others_count": 3,
-          "post_count": 1,
-          "usernames": [
-            "fan_one"
-          ]
-        }
-      ],
-      [
         "status",
         {
           "message": "Saying hello",
@@ -577,15 +526,10 @@
         }
       ],
       [
-        "hello_sent",
+        "log",
         {
-          "name": "Ana"
-        }
-      ],
-      [
-        "hello_sent",
-        {
-          "name": "Bob"
+          "level": "warning",
+          "message": "2 hello(s) sent but not recorded (handle unreadable)"
         }
       ],
       [
@@ -596,9 +540,10 @@
         }
       ],
       [
-        "suggested_followed",
+        "log",
         {
-          "name": "Suggested A"
+          "level": "warning",
+          "message": "2 suggested account(s) not followed (handle unreadable)"
         }
       ],
       [
@@ -619,7 +564,7 @@
             "hello_sent": 2,
             "new_followers_listed": 3,
             "new_followers_recorded": 1,
-            "suggested_followed": 1
+            "suggested_followed": 0
           },
           "success": true
         }
@@ -627,6 +572,149 @@
     ],
     "exit": 0,
     "exit_old_code": 1
+  },
+  "notifications_gestures_recorded": {
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "open_inbox",
+      "hello_candidates",
+      "say_hello Ana",
+      "read_thread_handle Ana",
+      "say_hello Bob",
+      "read_thread_handle Bob",
+      "open_inbox",
+      "open_activity expand=False",
+      "read_suggestions",
+      "read_profile_handle Suggested A",
+      "read_profile_handle Suggested B",
+      "follow_suggested Suggested B",
+      "force_stop tiktok"
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "hello": {
+          "account_id": 42,
+          "recipient": "ana.handle"
+        }
+      },
+      {
+        "follow": {
+          "account_id": 42,
+          "username": "suggested_b"
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Saying hello",
+          "status": "running"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "warning",
+          "message": "1 hello(s) sent but not recorded (handle unreadable)"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Following suggested accounts",
+          "status": "running"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "warning",
+          "message": "1 suggested account(s) not followed (handle unreadable)"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Notifications pass finished",
+          "status": "success"
+        }
+      ],
+      [
+        "notifications_result",
+        {
+          "stats": {
+            "activity_by_kind": {},
+            "activity_read": 0,
+            "hello_sent": 2,
+            "new_followers_listed": 0,
+            "new_followers_recorded": 0,
+            "suggested_followed": 1
+          },
+          "success": true
+        }
+      ]
+    ],
+    "exit": 0
   },
   "notifications_inbox_closed": {
     "calls": [
@@ -688,6 +776,9 @@
           }
         ],
         "platform": "tiktok"
+      },
+      {
+        "account": "acting_account"
       }
     ],
     "events": [
@@ -890,30 +981,6 @@
         }
       ],
       [
-        "activity_row",
-        {
-          "age": "2 j",
-          "kind": "like",
-          "others_count": 3,
-          "post_count": 1,
-          "usernames": [
-            "fan_one"
-          ]
-        }
-      ],
-      [
-        "activity_row",
-        {
-          "age": "1 sem.",
-          "kind": "profile_view",
-          "others_count": 10,
-          "post_count": 0,
-          "usernames": [
-            "Nico Lito"
-          ]
-        }
-      ],
-      [
         "status",
         {
           "message": "Notifications pass finished",
@@ -999,6 +1066,9 @@
           }
         ],
         "platform": "tiktok"
+      },
+      {
+        "account": "acting_account"
       }
     ],
     "events": [
@@ -1288,30 +1358,6 @@
         }
       ],
       [
-        "activity_row",
-        {
-          "age": "2 j",
-          "kind": "like",
-          "others_count": 3,
-          "post_count": 1,
-          "usernames": [
-            "fan_one"
-          ]
-        }
-      ],
-      [
-        "activity_row",
-        {
-          "age": "1 sem.",
-          "kind": "profile_view",
-          "others_count": 10,
-          "post_count": 0,
-          "usernames": [
-            "Nico Lito"
-          ]
-        }
-      ],
-      [
         "status",
         {
           "message": "Notifications pass finished",
@@ -1418,30 +1464,6 @@
         {
           "message": "Reading the activity page",
           "status": "running"
-        }
-      ],
-      [
-        "activity_row",
-        {
-          "age": "2 j",
-          "kind": "like",
-          "others_count": 3,
-          "post_count": 1,
-          "usernames": [
-            "fan_one"
-          ]
-        }
-      ],
-      [
-        "activity_row",
-        {
-          "age": "1 sem.",
-          "kind": "profile_view",
-          "others_count": 10,
-          "post_count": 0,
-          "usernames": [
-            "Nico Lito"
-          ]
         }
       ],
       [

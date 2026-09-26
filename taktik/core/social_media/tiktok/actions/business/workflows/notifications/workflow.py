@@ -19,8 +19,16 @@ And it does not re-open profiles the welcome pass has already opened. When that 
 resolves every handle itself and records the notifications from what it already holds; this
 workflow's own scan exists for runs where it does not.
 
-Events go through an injected notifier shaped like the bridge IPC (`status`, `log`, `send`);
-a notifier without `send` (the CLI's) drops the per-row events and keeps the rest.
+The two gestures are FILED, under a handle, like every other follow and DM the bot makes: a
+suggested follow is a `FOLLOW` interaction (the day's follow count, the unfollow), a wave is a
+`sent_dms` marker (the "already written to" guard). Their rows show display names only, so the
+handle is read where it is printed -- the suggestion's profile, the thread's profile card. A
+suggestion whose handle cannot be read is not followed; a wave whose handle cannot be read is sent
+and said to be unrecorded. With no readable account, neither gesture is made.
+
+Events go through an injected notifier shaped like the bridge IPC (`status`, `log`, `send`). The
+only `send` is the closing `notifications_result`, which the page reads; a notifier without `send`
+(the CLI's) drops it and the caller gets the same result as a return value.
 """
 
 from __future__ import annotations
@@ -50,6 +58,23 @@ def new_pass_stats() -> Dict[str, Any]:
     }
 
 
+class _ActingAccount:
+    """The account the gestures are filed under: resolved once, and only when a gesture asks."""
+
+    def __init__(self, username: Optional[str]) -> None:
+        self._username = username
+        self._resolved = False
+        self._id: Optional[int] = None
+
+    def id(self) -> Optional[int]:
+        if not self._resolved:
+            from taktik.core.database.tiktok_account_identity import resolve_tiktok_account_id
+
+            self._id = resolve_tiktok_account_id(self._username, logger=logger)
+            self._resolved = True
+        return self._id
+
+
 def run_notifications_pass(
     device: Any,
     settings: NotificationsSettings,
@@ -59,11 +84,12 @@ def run_notifications_pass(
 ) -> Dict[str, Any]:
     """Run the four steps in order. A step that raises ends the pass, reported as failed."""
     stats = new_pass_stats()
+    account = _ActingAccount(bot_username)
     try:
         _scan_followers(device, settings, bot_username, stats, notifier)
         _read_activity(device, settings, stats, notifier)
-        _say_hello(device, settings, stats, notifier)
-        _follow_suggested(device, settings, stats, notifier)
+        _say_hello(device, settings, account, stats, notifier)
+        _follow_suggested(device, settings, account, stats, notifier)
     except Exception as exc:
         logger.error(f"Notifications workflow failed: {exc}")
         _emit(notifier, "status", "error", str(exc))
@@ -119,23 +145,17 @@ def _read_activity(device, settings: NotificationsSettings, stats, notifier) -> 
     rows = activity.read_activity(max_rows=settings.max_activity_rows)
     stats["activity_read"] = len(rows)
     stats["activity_by_kind"] = dict(collections.Counter(row.kind for row in rows))
-    for row in rows:
-        _emit(
-            notifier,
-            "send",
-            "activity_row",
-            kind=row.kind,
-            usernames=row.usernames,
-            others_count=row.others_count,
-            age=row.age_label,
-            post_count=row.post_count,
-        )
 
 
-def _say_hello(device, settings: NotificationsSettings, stats, notifier) -> None:
+def _say_hello(device, settings: NotificationsSettings, account: _ActingAccount, stats, notifier) -> None:
     budget = settings.max_hellos
     if budget <= 0:
         return
+    account_id = account.id()
+    if account_id is None:
+        _emit(notifier, "log", "warning", "Hellos skipped: the account could not be read, so none could be recorded")
+        return
+    from taktik.core.database.tiktok_dm import record_say_hello
     from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 
     _emit(notifier, "status", "running", "Saying hello")
@@ -144,16 +164,35 @@ def _say_hello(device, settings: NotificationsSettings, stats, notifier) -> None
         _emit(notifier, "log", "warning", "The inbox could not be opened")
         return
 
+    unrecorded = 0
     for name in dm.say_hello_candidates()[:budget]:
-        if dm.say_hello(name):
-            stats["hello_sent"] += 1
-            _emit(notifier, "send", "hello_sent", name=name)
+        if not dm.say_hello(name):
+            continue
+        stats["hello_sent"] += 1
+        # After the wave, not before: opening the thread first could take the offer off the row.
+        handle = dm.resolve_conversation_handle(name)
+        if handle:
+            record_say_hello(account_id, handle)
+        else:
+            unrecorded += 1
+        if not dm.is_on_inbox_page() and not dm.navigate_to_inbox():
+            _emit(notifier, "log", "warning", "The inbox could not be reopened")
+            break
+
+    if unrecorded:
+        _emit(notifier, "log", "warning", f"{unrecorded} hello(s) sent but not recorded (handle unreadable)")
 
 
-def _follow_suggested(device, settings: NotificationsSettings, stats, notifier) -> None:
+def _follow_suggested(device, settings: NotificationsSettings, account: _ActingAccount, stats, notifier) -> None:
     budget = settings.max_suggested_follows
     if budget <= 0:
         return
+    account_id = account.id()
+    if account_id is None:
+        _emit(notifier, "log", "warning",
+              "Suggested follows skipped: the account could not be read, so no follow could be counted")
+        return
+    from taktik.core.database.tiktok_follow_graph import TikTokFollowGraphService
     from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
     from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 
@@ -173,10 +212,26 @@ def _follow_suggested(device, settings: NotificationsSettings, stats, notifier) 
             break
         activity._scroll_down(scale=0.6)
 
-    for suggestion in suggestions[:budget]:
-        if activity.follow_suggested_account(suggestion["name"]):
+    unresolved = 0
+    for suggestion in suggestions:
+        if stats["suggested_followed"] >= budget:
+            break
+        name = suggestion["name"]
+        # Before the follow: a follow nobody can file escapes the day's count and the unfollow.
+        handle = activity.resolve_suggested_account_handle(name)
+        if not handle:
+            unresolved += 1
+            if not activity.is_on_activity_page():
+                _emit(notifier, "log", "warning", "Lost the activity page while reading a suggested account")
+                break
+            continue
+        if activity.follow_suggested_account(name):
             stats["suggested_followed"] += 1
-            _emit(notifier, "send", "suggested_followed", name=suggestion["name"])
+            if not TikTokFollowGraphService.record_follow(handle, account_id):
+                _emit(notifier, "log", "warning", f"The follow of @{handle} could not be recorded")
+
+    if unresolved:
+        _emit(notifier, "log", "warning", f"{unresolved} suggested account(s) not followed (handle unreadable)")
 
 
 __all__ = ["new_pass_stats", "run_notifications_pass"]

@@ -61,6 +61,7 @@ def test_every_step_runs_the_same_from_both_paths(rig, notifications_payload):
         rig.show_notifications()
         rig.hello_candidates = ["Ana", "Bob", "Cid"]
         rig.suggestion_reads = [[], [{"name": "Suggested A"}]]
+        rig.profile_handles.update({"Ana": "ana.handle", "Bob": "bob.handle", "Suggested A": "suggested_a"})
 
     payload = notifications_payload(maxHellos=2, maxSuggestedFollows=1)
     bridge, cli = _run_both(rig, payload, set_phone)
@@ -69,6 +70,9 @@ def test_every_step_runs_the_same_from_both_paths(rig, notifications_payload):
     assert cli["calls"] == bridge["calls"]
     assert (cli["stats"]["hello_sent"], cli["stats"]["suggested_followed"]) == (2, 1)
     assert cli["stats"] == bridge["stats"]
+    assert cli["db_writes"] == bridge["db_writes"]
+    assert {"follow": {"account_id": 42, "username": "suggested_a"}} in cli["db_writes"]
+    assert {"hello": {"account_id": 42, "recipient": "bob.handle"}} in cli["db_writes"]
 
 
 def test_a_failed_step_fails_the_run_on_both_paths(rig, notifications_payload):

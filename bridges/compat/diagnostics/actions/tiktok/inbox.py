@@ -4,6 +4,8 @@ Exposes the atomic actions of the new-followers page to the diagnostics probes,
 and therefore to the scenarios. Built on the DM actions.
 """
 
+from loguru import logger
+
 from bridges.compat.diagnostics.actions.tiktok import action
 
 
@@ -65,6 +67,51 @@ def decline_request(a, p):
 def get_notifications(a, p):
     """Read the activity and system-notification sections, read-only."""
     return a.dm.get_inbox_notifications(int(p.get("max_items", 20)))
+
+
+@action("tt.inbox.hello_candidates")
+def hello_candidates(a, p):
+    """READS ONLY: the display names the inbox offers a one-tap wave to."""
+    names = a.dm.say_hello_candidates()
+    return {"success": bool(names), "message": ", ".join(names[:6]) or "no wave offered on this screen",
+            "details": {"names": names}}
+
+
+@action("tt.inbox.say_hello")
+def say_hello(a, p):
+    """Send the one-tap wave to one row. ACTS: it writes. Param: name (required), the DISPLAY NAME
+    as the row shows it. Judged by the offer leaving the row, never by the tap."""
+    name = str((p or {}).get("name") or "").strip()
+    if not name:
+        return {"success": False, "message": "name is required"}
+    done = a.dm.say_hello(name)
+    return {"success": done, "message": f"hello sent to {name}" if done else f"{name} still offers a wave"}
+
+
+@action("tt.inbox.read_thread_handle")
+def read_thread_handle(a, p):
+    """READS ONLY, no gesture: the correspondent's handle on the profile card of the OPEN thread.
+
+    What the notifications pass files a wave under. Fails when the card shows no handle or two.
+    """
+    handle = a.dm.read_conversation_handle()
+    return {"success": bool(handle), "message": handle or "no single handle on this thread",
+            "details": {"handle": handle}}
+
+
+@action("tt.inbox.resolve_thread_handle")
+def resolve_thread_handle(a, p):
+    """Open the thread of one inbox row, read its handle, come back. No message is sent.
+
+    Param: name (required), the DISPLAY NAME as the row shows it. The production round trip of the
+    notifications pass after a wave; refuses a thread whose header is not that name.
+    """
+    name = str((p or {}).get("name") or "").strip()
+    if not name:
+        return {"success": False, "message": "name is required"}
+    handle = a.dm.resolve_conversation_handle(name)
+    return {"success": bool(handle), "message": f"{name} -> @{handle}" if handle else f"no handle read for {name}",
+            "details": {"name": name, "handle": handle}}
 
 
 @action("tt.inbox.open_conversation")
@@ -181,3 +228,21 @@ def follow_suggested(a, p):
     done = ActivityActions(a.device).follow_suggested_account(name)
     logger.info(f"tt.activity.suggested.follow: {name!r} -> {done}")
     return {"success": done, "message": f"followed {name}" if done else f"{name} still offers Follow"}
+
+
+@action("tt.activity.suggested.read_handle")
+def read_suggested_handle(a, p):
+    """Open one suggested account's profile, read its handle, come back to the summary. No follow.
+
+    Params: name (required) -- the DISPLAY NAME as the row shows it. The production step the
+    notifications pass takes before following: without a handle, it does not follow.
+    """
+    from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
+
+    name = str((p or {}).get("name") or "").strip()
+    if not name:
+        return {"success": False, "message": "name is required"}
+
+    handle = ActivityActions(a.device).resolve_suggested_account_handle(name)
+    return {"success": bool(handle), "message": f"{name} -> @{handle}" if handle else f"no handle read for {name}",
+            "details": {"name": name, "handle": handle}}
