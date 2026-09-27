@@ -5,37 +5,39 @@ from taktik.core.social_media.youtube.workflows.account.agent_handler import (
     YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID,
     YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID,
     run_youtube_account,
+    youtube_account_params,
 )
 
 
 def run_youtube_account_login(config: dict, *, device, device_id: str) -> int:
     """Run YouTube account login and emit the historical bridge result."""
-    email = (config.get("email") or "").strip()
-    if not email:
-        send_error("email is required for YouTube login")
+    try:
+        params = youtube_account_params(YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID, config)
+    except ValueError as exc:
+        send_error(str(exc))
         return 1
 
     result = run_youtube_account(
         YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID,
-        {"email": email, "password": (config.get("password") or "")},
+        params,
         device=device,
         device_id=device_id,
         notifier=_ipc,
     )
-    return finish_youtube_account_result(result, workflow_type="login", email=email)
+    return finish_youtube_account_result(result, workflow_type="login", email=params["email"])
 
 
 def run_youtube_account_logout(config: dict, *, device, device_id: str) -> int:
     """Run YouTube account logout and emit the historical bridge result."""
-    email = (config.get("email") or "").strip()
+    params = youtube_account_params(YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID, config)
     result = run_youtube_account(
         YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID,
-        {"email": email},
+        params,
         device=device,
         device_id=device_id,
         notifier=_ipc,
     )
-    return finish_youtube_account_result(result, workflow_type="logout", email=email)
+    return finish_youtube_account_result(result, workflow_type="logout", email=params["email"])
 
 
 def finish_youtube_account_result(result: dict, *, workflow_type: str, email: str) -> int:

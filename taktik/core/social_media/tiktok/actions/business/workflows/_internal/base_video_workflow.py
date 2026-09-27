@@ -16,6 +16,8 @@ import random
 
 from taktik.core.shared.telemetry.sink import emit_step
 
+from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import video_signature
+
 from .video_comment import VideoCommentMixin
 from ....core.utils import parse_count
 from .base_workflow import BaseTikTokWorkflow
@@ -310,7 +312,7 @@ class BaseVideoWorkflow(VideoCommentMixin, BaseTikTokWorkflow):
         # A LIVE preview has no author; a swipe that does not leave it must still be caught, or the
         # run skips it forever without ever counting a video.
         current_author = video_info.get('author', '') or ('LIVE' if video_info.get('is_live') else '')
-        signature = "_".join(str(video_info.get(key, '')) for key in ('author', 'like_count', 'description'))
+        signature = video_signature(video_info)
 
         if signature == self._last_video_signature and current_author:
             self._same_video_count += 1

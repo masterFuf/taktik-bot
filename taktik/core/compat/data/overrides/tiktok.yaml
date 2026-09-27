@@ -29,6 +29,12 @@ versions:
     search.results_page:
       - '//*[contains(@resource-id, ":id/viewpager_search")]'
       - '//*[contains(@resource-id, ":id/zpl")]'
+    # Upload progress badge (Pixel 6a, an upload in flight): the percent label is now
+    # `tvProgress`, in the floating badge near the top left; the baseline `x44` is absent. Seen on
+    # 46.6.3 (English, "66%") and on 47.0.3 (French, "99%", same id). Baseline entry carried along.
+    publish_progress._publish_progress_rids:
+      - '//*[contains(@resource-id, ":id/tvProgress")]'
+      - '//*[contains(@resource-id, ":id/x44")]'
   "46.9.3":
     # LIVE preview in the For You feed (Pixel 6a, 2 captures): readable ids, no author.
     video_state.live_preview:

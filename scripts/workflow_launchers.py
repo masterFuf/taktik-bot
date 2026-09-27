@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Mapping
 
+from python_imports import import_statements
+
 CORE = Path(__file__).resolve().parents[1]
 ROOT = CORE.parent
 APP = ROOT / "app"
@@ -295,21 +297,7 @@ def workflow_bridges(bridges_manifest: dict) -> dict[str, str]:
 
 
 def _imported_modules(tree: ast.Module, module: str, is_package: bool) -> set[str]:
-    package = module if is_package else module.rpartition(".")[0]
-    found: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            found |= {alias.name for alias in node.names}
-        elif isinstance(node, ast.ImportFrom):
-            if node.level:
-                parts = package.split(".")
-                base = ".".join(parts[: len(parts) - node.level + 1])
-                target = f"{base}.{node.module}" if node.module else base
-            else:
-                target = node.module or ""
-            found.add(target)
-            found |= {f"{target}.{alias.name}" for alias in node.names}
-    return found
+    return {target for statement in import_statements(tree, module, is_package) for target in statement.targets}
 
 
 def _default_read(module: str):

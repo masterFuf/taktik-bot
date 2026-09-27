@@ -3,14 +3,27 @@
 The gesture is the same tap in both directions: Instagram's heart toggles. So the only thing
 standing between "engage a commenter" and "remove a like from their comment" is the state
 check — these tests hold it in place.
+
+The thread a like lands on is real: the comments sheet of a feed post, Instagram 410 in French
+(Pixel 3a; the Lab filed the run under the launcher's version), anonymized, four comments none of
+which we liked. No capture shows a comment WE already liked ("ne plus aimer le commentaire" /
+"to unlike comment"), nor a like control with an unknown label: those two rows are still written
+by hand below, until a phone captures a sheet after a like (Instagram 410, French and English).
 """
 
 import types
+from pathlib import Path
 
 import pytest
 
 from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+
+FIXTURES = Path(__file__).parents[1] / "fixtures"
+#: The third comment of the real sheet, and the heart of its own row.
+SHEET = (FIXTURES / "ig410_fr_comment_sheet.xml").read_text(encoding="utf-8")
+COMMENTER = "user_3"
+HEART = (926, 761, 1080, 926)
 
 THREAD = """
 <hierarchy>
@@ -74,11 +87,12 @@ def _action(xml, comments_open=True, tap_ok=True, session=None):
 
 @pytest.fixture(autouse=True)
 def _english_locale():
+    # The union of the locales: the real sheet is French, the rows written by hand English.
     from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-    set_active_locale("en")
+    set_active_locale(None)
 
 
-NOT_LIKED = THREAD.format(state="Tap to like comment")
+NOT_LIKED = SHEET
 ALREADY_LIKED = THREAD.format(state="1 like. Double tap to unlike comment and press and hold")
 
 
@@ -88,18 +102,18 @@ def test_a_comment_is_liked_and_recorded_as_its_own_interaction_type():
     session = _Session()
     act = _action(NOT_LIKED, session=session)
 
-    result = act.like_comment_in_thread("taktik_r2d2")
+    result = act.like_comment_in_thread(COMMENTER)
 
     assert result["success"] is True
-    assert act.device.taps == [(492, 334, 576, 424)]
+    assert act.device.taps == [HEART]
     # COMMENT_LIKE, not LIKE: a like on a comment is not a like on a post.
-    assert act.recorded == [("taktik_r2d2", "COMMENT_LIKE", 1)]
+    assert act.recorded == [(COMMENTER, "COMMENT_LIKE", 1)]
     assert session.recorded == [("like_comment", True)]
 
 
 def test_the_whole_control_is_handed_to_the_humanised_tap():
     act = _action(NOT_LIKED)
-    act.like_comment_in_thread("taktik_r2d2")
+    act.like_comment_in_thread(COMMENTER)
     left, top, right, bottom = act.device.taps[0]
     assert right > left and bottom > top  # a box, not a fixed point
 
@@ -132,7 +146,7 @@ def test_an_unreadable_control_is_treated_as_untouchable():
 
 def test_nothing_happens_when_the_thread_is_not_open():
     act = _action(NOT_LIKED, comments_open=False)
-    result = act.like_comment_in_thread("taktik_r2d2")
+    result = act.like_comment_in_thread(COMMENTER)
     assert result["success"] is False
     assert act.device.taps == []
 
@@ -154,7 +168,7 @@ def test_a_failed_tap_is_not_recorded_as_a_like():
     session = _Session()
     act = _action(NOT_LIKED, tap_ok=False, session=session)
 
-    result = act.like_comment_in_thread("taktik_r2d2")
+    result = act.like_comment_in_thread(COMMENTER)
 
     assert result["success"] is False
     assert act.recorded == []
@@ -163,4 +177,30 @@ def test_a_failed_tap_is_not_recorded_as_a_like():
 
 def test_a_broken_dump_does_not_raise():
     act = _action("not xml at all")
-    assert act.like_comment_in_thread("taktik_r2d2", max_scrolls=1)["success"] is False
+    assert act.like_comment_in_thread(COMMENTER, max_scrolls=1)["success"] is False
+
+
+def test_a_comment_is_liked_on_a_post_opened_from_a_grid():
+    """Instagram 410.0.0.53.71 in English (Pixel 3), real sheet, anonymized."""
+    sheet = (FIXTURES / "ig410_en_comment_sheet.xml").read_text(encoding="utf-8")
+    act = _action(sheet)
+
+    result = act.like_comment_in_thread("user_2", max_scrolls=1)
+
+    assert result["success"] is True
+    assert act.device.taps == [(926, 947, 1080, 1112)]
+
+
+def test_a_comment_is_liked_on_a_french_post_opened_from_a_grid():
+    """Instagram 410.0.0.53.71 in French (Pixel 3), real sheet, anonymized.
+
+    "Publications" in the action bar, "Suivre" beside it and the sheet title "Commentaires" all
+    have a handle's shape; none of them is taken for an author.
+    """
+    sheet = (FIXTURES / "ig410_fr_comment_sheet_from_grid.xml").read_text(encoding="utf-8")
+    act = _action(sheet)
+
+    result = act.like_comment_in_thread("user_9", max_scrolls=1)
+
+    assert result["success"] is True
+    assert act.device.taps == [(926, 864, 1080, 981)]

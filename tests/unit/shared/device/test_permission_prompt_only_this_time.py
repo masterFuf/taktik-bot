@@ -4,6 +4,7 @@ Dumps: Pixel 3a, Android 12 in French, over Instagram 410.0.0.53.71, when the st
 (camera prompt, then microphone prompt). The window's package is
 `com.google.android.permissioncontroller`, its ids carry `com.android.permissioncontroller`.
 Variants (Google prefix, no one-time button, Android 9 installer) are derived from those dumps.
+The app screens are real dumps of Instagram 410 too (a profile, the reel editor), anonymized.
 """
 
 import time
@@ -30,12 +31,11 @@ INSTAGRAM_PROFILE = (
     Path(__file__).parents[2] / "social_media" / "instagram" / "fixtures"
     / "ig410_fr_profile_opened_from_search.xml"
 ).read_text(encoding="utf-8")
-STORY_CAMERA = (
-    '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-    '<node index="0" text="" resource-id="com.instagram.android:id/quick_capture_root_container" '
-    'class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" '
-    'clickable="false" enabled="true" bounds="[0,0][1080,2220]" /></hierarchy>'
-)
+#: Instagram's own creation screen (the reel editor under `quick_capture_root_container`), the
+#: kind of screen the prompts come over.
+CREATION_SCREEN = (
+    Path(__file__).parents[2] / "social_media" / "instagram" / "fixtures" / "ig410_en_reel_editor.xml"
+).read_text(encoding="utf-8")
 
 ONE_TIME = "permission_allow_one_time_button"
 
@@ -57,7 +57,7 @@ class PromptPhone:
     `human_tap` records the id of the button under the tapped bounds; the one-time button closes
     the prompt shown, unless the prompt ignores taps (`stuck`)."""
 
-    def __init__(self, *prompts, app=STORY_CAMERA, stuck=False):
+    def __init__(self, *prompts, app=CREATION_SCREEN, stuck=False):
         self.prompts = list(prompts)
         self.app = app
         self.stuck = stuck
@@ -99,7 +99,7 @@ def test_the_real_prompts_are_recognised(xml):
     assert photo.exists(PERMISSION_PROMPT_SELECTORS.allow_one_time)
 
 
-@pytest.mark.parametrize("xml", [STORY_CAMERA, INSTAGRAM_PROFILE], ids=["story_camera", "profile"])
+@pytest.mark.parametrize("xml", [CREATION_SCREEN, INSTAGRAM_PROFILE], ids=["creation_screen", "profile"])
 def test_an_app_screen_is_not_a_prompt(xml):
     assert not ScreenSnapshot(xml).exists(PERMISSION_PROMPT_SELECTORS.prompt)
 
@@ -238,7 +238,7 @@ def test_a_raw_device_is_wrapped_in_the_shared_facade(monkeypatch):
 
     class RawDevice:
         def dump_hierarchy(self):
-            return STORY_CAMERA
+            return CREATION_SCREEN
 
     real_facade = permissions._as_facade
 

@@ -1,9 +1,10 @@
 """The one launcher of a Taktik Agent session on Instagram, and its Agent handler.
 
 `run_instagram_agent` is what the desktop bridge (`taktik_agent_bridge`) calls, what `taktik agent
-run` calls and what the handler registered as `instagram.engagement.taktik_agent` calls: restart
-Instagram cleanly, then run `TaktikAgentWorkflow` (which reads its own config). What differs
-between the hosts is injected:
+run` calls and what the handler registered as `instagram.engagement.taktik_agent` calls: read the
+payload (`payload.py`), refuse a session the Agent cannot decide in before the phone is touched,
+restart Instagram cleanly, then run `TaktikAgentWorkflow`. What differs between the hosts is
+injected:
 - `device_manager` and `restart`: the device ready for the flow (the bridges' clone-aware,
   facade-wrapped device, with the selector overrides of the installed version) and its clean
   restart through `AppService`.
@@ -24,9 +25,13 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
 
 
 INSTAGRAM_AGENT_WORKFLOW_ID = "instagram.engagement.taktik_agent"
+
+#: The Agent decides with the model: a session without an OpenRouter key cannot run.
+NO_AI_KEY = "Could not initialize AI service — check API key"
 
 
 @dataclass
@@ -51,7 +56,14 @@ def run_instagram_agent(
     ai_service_factory: Optional[AIServiceFactory] = None,
     on_workflow: Optional[Callable[[Any], None]] = None,
 ) -> dict:
-    """Restart Instagram, then run a Taktik Agent session with `config`."""
+    """Refuse a session without an OpenRouter key, restart Instagram, then run a Taktik Agent session."""
+    request = taktik_agent_request_from_payload(config)
+    if not request.openrouter_api_key:
+        # The status line the workflow printed once Instagram was open, now before it is touched.
+        announce = getattr(ipc, "agent_status", None)
+        if callable(announce):
+            announce("error", NO_AI_KEY, message_key="agentStatusErrNoAi")
+        raise ValueError(NO_AI_KEY)
     if ipc is not None:
         ipc.status("launching", "Restarting Instagram…")
     # Clean restart (force-stop + launch) for a consistent initial state, like every other bridge.
@@ -130,6 +142,7 @@ def register_instagram_agent_handlers(
 __all__ = [
     "AgentRuntime",
     "INSTAGRAM_AGENT_WORKFLOW_ID",
+    "NO_AI_KEY",
     "build_instagram_agent_handler",
     "register_instagram_agent_handlers",
     "run_instagram_agent",

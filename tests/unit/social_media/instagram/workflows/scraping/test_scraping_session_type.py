@@ -29,6 +29,14 @@ class _FakeLogger:
         pass
 
 
+class _Ipc:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, msg_type, **kwargs):
+        self.sent.append((msg_type, kwargs))
+
+
 class _Workflow(ScrapingPersistenceMixin):
     def __init__(self, config):
         self.config = config
@@ -75,3 +83,25 @@ class TestSessionTypePerSource:
     def test_hashtag_and_post_url_are_untouched(self):
         assert _create({'type': 'hashtag', 'hashtag': 'metz'})['source_type'] == 'HASHTAG'
         assert _create({'type': 'post_url', 'post_url': 'https://x'})['source_type'] == 'POST_URL'
+
+
+class TestTheRowIsAnnounced:
+    """A killed bridge never closes its row: the desktop closes it by the id announced here."""
+
+    def test_the_desktop_gets_the_id_of_the_row_just_created(self):
+        workflow = _Workflow({'type': 'target', 'target_usernames': ['a']})
+        workflow._ipc = _Ipc()
+        workflow._create_scraping_session()
+        assert workflow._ipc.sent == [("scraping_session", {"scraping_id": 1, "platform": "instagram"})]
+
+    def test_nothing_is_announced_when_no_row_was_created(self):
+        workflow = _Workflow({'type': 'target', 'target_usernames': ['a']})
+        workflow.db.create_scraping_session = lambda **kwargs: None
+        workflow._ipc = _Ipc()
+        workflow._create_scraping_session()
+        assert workflow._ipc.sent == []
+
+    def test_without_a_desktop_the_run_carries_on(self):
+        workflow = _Workflow({'type': 'target', 'target_usernames': ['a']})
+        workflow._create_scraping_session()
+        assert workflow.scraping_session_id == 1

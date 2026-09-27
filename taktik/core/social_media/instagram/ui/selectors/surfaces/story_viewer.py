@@ -43,15 +43,15 @@ class StorySelectors:
     # text marker no longer exists. We therefore detect the ring structurally via `reel_ring`,
     # scoped to the avatar container so highlights (highlights_reel_tray_recycler_view) and the home
     # feed tray (reels_tray_container) can never match. This is language-independent, and its centre
-    # coincides with the avatar so clicking it opens the story. Note: the a11y tree no longer
-    # exposes seen-vs-unseen, but a freshly-visited profile's ring is unseen in practice, and the
-    # caller verifies the story viewer actually opened (a no-story tap is a harmless no-op).
+    # coincides with the avatar so clicking it opens the story.
     #
-    # The second branch keeps the older-IG path (row_profile_header_imageview + "story"+"non
-    # vue"/"unseen" content-desc) for cross-version coverage.
+    # But 410 also draws `reel_ring` around a SEEN story, next to a `row_profile_header_imageview`
+    # whose content-desc says which ("story de <user> vue" / "non vue"). So the ring counts only
+    # when that image is absent; otherwise the content-desc decides (second branch).
     profile_unseen_story_avatar: str = (
         '//*[contains(@resource-id, "profile_header_avatar_container")]'
         '//*[contains(@resource-id, "reel_ring")]'
+        '[not(//*[contains(@resource-id, "row_profile_header_imageview")])]'
         ' | '
         '//*[contains(@resource-id, "row_profile_header_imageview")'
         ' and contains(translate(@content-desc, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "story")'

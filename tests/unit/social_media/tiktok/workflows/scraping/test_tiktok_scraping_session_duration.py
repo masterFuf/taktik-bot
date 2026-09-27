@@ -8,7 +8,7 @@ contrat des configurations le 2026-09-24.
 L'échéance répond à la question que chaque boucle du workflow pose déjà (`stopped`) : le run
 s'arrête là où un stop l'arrêterait, avant le profil, le défilement ou la vidéo suivants. Le motif
 est `max_duration_reached` (code partagé `duration_cap`) ; la session est rangée COMPLETED, pas
-STOPPED : le run a fait le temps qu'on lui donnait.
+CANCELLED : le run a fait le temps qu'on lui donnait.
 """
 
 import pytest
@@ -178,7 +178,8 @@ def test_a_spent_session_budget_files_a_completed_session_and_says_why(run_bridg
     )
 
 
-def test_a_manual_stop_still_files_a_stopped_session(run_bridge):
+def test_a_manual_stop_files_a_cancelled_session(run_bridge):
+    # CANCELLED is the contract's word for an operator stop; STOPPED is read by nothing.
     calls = run_bridge("stopped_by_user")
 
-    assert calls["session"][-1][2] == "STOPPED"
+    assert calls["session"][-1][2] == "CANCELLED"

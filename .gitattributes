@@ -53,3 +53,6 @@
 *.woff binary
 *.woff2 binary
 *.eot binary
+
+# Leak guard hook (extensionless shell script)
+scripts/hooks/pre-commit text eol=lf

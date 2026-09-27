@@ -69,6 +69,7 @@
     "username": "closed_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
@@ -210,6 +211,7 @@
     "username": "closed_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 2,
     "dmsSuccess": 2,
@@ -348,6 +350,7 @@
     "username": "closed_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
@@ -468,6 +471,7 @@
     "username": "closed_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 0,
     "dmsSuccess": 0,
@@ -527,6 +531,7 @@
   ],
   "stdout": [
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 0,
     "dmsSuccess": 0,
@@ -622,6 +627,7 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
@@ -719,6 +725,7 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 0,
     "dmsSuccess": 0,
@@ -802,6 +809,7 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 0,
     "dmsSuccess": 0,
@@ -888,6 +896,7 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 0,
@@ -994,6 +1003,7 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
@@ -1101,6 +1111,7 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
@@ -1161,117 +1172,39 @@
   "ai": []
  },
  "no_recipients": {
-  "exit": 0,
+  "exit": 1,
   "calls": [
    "connect",
    "version_overrides 410.0.0.53.71"
   ],
   "stdout": [
    {
+    "type": "cold_dm_result",
     "success": false,
-    "dmsSent": 0,
-    "dmsSuccess": 0,
-    "dmsFailed": 0,
     "error": "No recipients provided"
    }
   ],
-  "events": [
-   [
-    "session_start",
-    {
-     "session_id": 41
-    }
-   ]
-  ],
+  "events": [],
   "db": [],
-  "sessions": [
-   {
-    "op": "create",
-    "account_id": 7,
-    "name": "cold_dm",
-    "target_type": "DM",
-    "target": "",
-    "workflow_type": "cold_dm",
-    "config_keys": [
-     "accountId",
-     "delayMax",
-     "delayMin",
-     "deviceId",
-     "maxDmsPerSession",
-     "messageMode",
-     "messages",
-     "recipients",
-     "sessionId",
-     "skipPrivateAccounts",
-     "skipVerifiedAccounts"
-    ]
-   },
-   {
-    "op": "finalize",
-    "session_id": 41,
-    "status": "ERROR",
-    "duration_is_int": true,
-    "error": "No recipients provided",
-    "stop_reason": null
-   }
-  ],
+  "sessions": [],
   "ai": []
  },
  "no_messages": {
-  "exit": 0,
+  "exit": 1,
   "calls": [
    "connect",
    "version_overrides 410.0.0.53.71"
   ],
   "stdout": [
    {
+    "type": "cold_dm_result",
     "success": false,
-    "dmsSent": 0,
-    "dmsSuccess": 0,
-    "dmsFailed": 0,
     "error": "No messages provided and AI mode not configured"
    }
   ],
-  "events": [
-   [
-    "session_start",
-    {
-     "session_id": 41
-    }
-   ]
-  ],
+  "events": [],
   "db": [],
-  "sessions": [
-   {
-    "op": "create",
-    "account_id": 7,
-    "name": "cold_dm - @open_one (+1)",
-    "target_type": "DM",
-    "target": "@open_one (+1)",
-    "workflow_type": "cold_dm",
-    "config_keys": [
-     "accountId",
-     "delayMax",
-     "delayMin",
-     "deviceId",
-     "maxDmsPerSession",
-     "messageMode",
-     "messages",
-     "recipients",
-     "sessionId",
-     "skipPrivateAccounts",
-     "skipVerifiedAccounts"
-    ]
-   },
-   {
-    "op": "finalize",
-    "session_id": 41,
-    "status": "ERROR",
-    "duration_is_int": true,
-    "error": "No messages provided and AI mode not configured",
-    "stop_reason": null
-   }
-  ],
+  "sessions": [],
   "ai": []
  },
  "no_connection": {
@@ -1281,6 +1214,7 @@
   ],
   "stdout": [
    {
+    "type": "cold_dm_result",
     "success": false,
     "error": "Failed to connect to device"
    }
@@ -1295,6 +1229,7 @@
   "calls": [],
   "stdout": [
    {
+    "type": "cold_dm_result",
     "success": false,
     "error": "'deviceId'"
    }
@@ -1318,6 +1253,7 @@
   "calls": [],
   "stdout": [
    {
+    "type": "cold_dm_result",
     "success": false,
     "error": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
    }

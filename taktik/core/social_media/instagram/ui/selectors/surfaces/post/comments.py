@@ -35,6 +35,14 @@ class PostCommentsSelectors:
         '//*[contains(@resource-id, "comment_composer")]',
     ])
 
+    # Labels around a thread that have a handle's shape but are nobody's comment: the screen's
+    # action bar (title "Posts" / "Publications" on a post opened from a grid, "Follow") and the
+    # sheet title. Structural, so every language at once.
+    thread_chrome_labels: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/action_bar"]/descendant-or-self::*',
+        '//*[contains(@resource-id, "id/title_text_view")]',
+    ])
+
     @property
     def comment_composer_indicators(self) -> List[str]:
         return self._comment_composer_indicators_base + L("post_comments.comment_composer_indicators")

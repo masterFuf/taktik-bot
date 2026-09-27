@@ -117,26 +117,82 @@ def instagram_account_params(workflow_id: str, payload: Mapping[str, Any]) -> di
 
     Raises ValueError, before any device work, when a required field is missing.
     """
-    if workflow_id == INSTAGRAM_ACCOUNT_LOGIN_WORKFLOW_ID:
-        return _login_params(payload)
-    if workflow_id == INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID:
-        return _register_params(payload)
-    if workflow_id == INSTAGRAM_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID:
-        return {
-            "language": _required_string(
-                payload, "language", message="language is required for change_language",
-            ),
-        }
-    if workflow_id == INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID:
-        return {
-            "target_username": _required_string(
-                payload, "targetUsername", "target_username",
-                message="targetUsername is required for switch_account",
-            ),
-        }
-    if workflow_id in INSTAGRAM_ACCOUNT_WORKFLOW_IDS:
-        return {}
-    raise ValueError(f"Unsupported Instagram account workflow id: {workflow_id}")
+    reader = _READERS.get(workflow_id)
+    if reader is None:
+        raise ValueError(f"Unsupported Instagram account workflow id: {workflow_id}")
+    return reader(payload)
+
+
+def login_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`instagram.account.login`: the credentials and how the session is kept."""
+    return {
+        "username": _required_string(payload, "username", message="Instagram login requires username"),
+        "password": _required_string(payload, "password", message="Instagram login requires password"),
+        "max_retries": _int_param(payload, "maxRetries", "max_retries", default=3),
+        "save_session": _bool_param(payload, "saveSession", "save_session", default=True),
+        "use_saved_session": _bool_param(payload, "useSavedSession", "use_saved_session", default=True),
+        "save_login_info_instagram": _bool_param(
+            payload, "saveLoginInfoInstagram", "save_login_info_instagram", default=False,
+        ),
+    }
+
+
+def register_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`instagram.account.register`: by email or by phone, the one the method names required."""
+    method = _string_param(payload, "method", default="email").lower()
+    if method not in {"email", "phone"}:
+        raise ValueError("Instagram register method must be 'email' or 'phone'")
+
+    email = _optional_string(payload, "email")
+    phone = _optional_string(payload, "phone")
+    if method == "email" and not email:
+        raise ValueError("Instagram register requires email when method is email")
+    if method == "phone" and not phone:
+        raise ValueError("Instagram register requires phone when method is phone")
+
+    return {
+        "method": method,
+        "email": email,
+        "phone": phone,
+    }
+
+
+def change_language_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`instagram.account.change_language`: the target app language code."""
+    return {
+        "language": _required_string(payload, "language", message="language is required for change_language"),
+    }
+
+
+def switch_account_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`instagram.account.switch_account`: the account to switch to."""
+    return {
+        "target_username": _required_string(
+            payload, "targetUsername", "target_username",
+            message="targetUsername is required for switch_account",
+        ),
+    }
+
+
+def no_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Logout and the account lists take nothing but the package (`package_name_from_payload`)."""
+    return {}
+
+
+def package_name_from_payload(payload: Mapping[str, Any]) -> Optional[str]:
+    """The Instagram package the flow runs on (a clone); None: the default Instagram."""
+    return _optional_string(payload, "packageName", "package_name")
+
+
+_READERS = {
+    INSTAGRAM_ACCOUNT_LOGIN_WORKFLOW_ID: login_params_from_payload,
+    INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID: register_params_from_payload,
+    INSTAGRAM_ACCOUNT_LOGOUT_WORKFLOW_ID: no_params_from_payload,
+    INSTAGRAM_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID: change_language_params_from_payload,
+    INSTAGRAM_ACCOUNT_SWITCH_WORKFLOW_ID: switch_account_params_from_payload,
+    INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID: no_params_from_payload,
+    INSTAGRAM_ACCOUNT_LIST_SAVED_WORKFLOW_ID: no_params_from_payload,
+}
 
 
 def build_instagram_account_handler(
@@ -157,7 +213,7 @@ def build_instagram_account_handler(
         params = instagram_account_params(invocation.workflow_id, merged)
         app = None
         if instagram_account_app is not None:
-            app = instagram_account_app(_optional_string(merged, "packageName", "package_name"))
+            app = instagram_account_app(package_name_from_payload(merged))
         return run_instagram_account(
             invocation.workflow_id,
             params,
@@ -219,54 +275,6 @@ def _merge_invocation_payload(
     merged = dict(payload)
     merged.update(invocation.params)
     return merged
-
-
-def _login_params(payload: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        "username": _required_string(
-            payload,
-            "username",
-            message="Instagram login requires username",
-        ),
-        "password": _required_string(
-            payload,
-            "password",
-            message="Instagram login requires password",
-        ),
-        "max_retries": _int_param(payload, "max_retries", "maxRetries", default=3),
-        "save_session": _bool_param(payload, "save_session", "saveSession", default=True),
-        "use_saved_session": _bool_param(
-            payload,
-            "use_saved_session",
-            "useSavedSession",
-            default=True,
-        ),
-        "save_login_info_instagram": _bool_param(
-            payload,
-            "save_login_info_instagram",
-            "saveLoginInfoInstagram",
-            default=False,
-        ),
-    }
-
-
-def _register_params(payload: Mapping[str, Any]) -> dict[str, Any]:
-    method = _string_param(payload, "method", default="email").lower()
-    if method not in {"email", "phone"}:
-        raise ValueError("Instagram register method must be 'email' or 'phone'")
-
-    email = _optional_string(payload, "email")
-    phone = _optional_string(payload, "phone")
-    if method == "email" and not email:
-        raise ValueError("Instagram register requires email when method is email")
-    if method == "phone" and not phone:
-        raise ValueError("Instagram register requires phone when method is phone")
-
-    return {
-        "method": method,
-        "email": email,
-        "phone": phone,
-    }
 
 
 def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:

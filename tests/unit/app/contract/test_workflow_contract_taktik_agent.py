@@ -1,0 +1,315 @@
+"""The Taktik Agent bridge reads the file the contract describes and prints the lines it declares.
+
+As for the other Instagram bridges (`test_workflow_contract_instagram_bridges.py`): the whole bridge
+runs, from its config file to its stdout, on the app's file, through the real launcher, the real
+`TaktikAgentWorkflow`, the real `AgentAI` and the real AI service; only the screen work, the base,
+the model's HTTP transport and the clock are replaced. The lines come from the production emitters
+(the IPC's Agent and AI helpers, `IPCEmitter`, the step telemetry), not from the test.
+"""
+
+from __future__ import annotations
+
+import json
+from types import SimpleNamespace
+from typing import Any, Dict, List
+
+import pytest
+
+from contract_probe import Recording
+from ig_automation_probe import use_the_bridge_ipc
+from taktik.core.app.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
+from test_workflow_contract_bridges import check_lines
+from test_workflow_contract_instagram_bridges import app_file, assert_reads, printed  # noqa: F401
+
+AGENT = INSTAGRAM_TAKTIK_AGENT
+
+#: What the desktop prepared: one planned step it words itself, and an intro.
+ORCHESTRATION = {
+    "introMessage": "The last sessions liked a lot; this one explores.",
+    "nextSteps": [{"tool": "browse_feed", "message": "Scroll the home feed first"}],
+}
+
+_FEED_POST = "Analyse this feed post"
+_SKIP = {"action": "skip", "visit_profile": False, "reason": "off topic"}
+_LIKE_COMMENT = {"action": "like_comment", "visit_profile": True, "comment": "Lovely bread", "reason": "bakes"}
+
+
+class _Response:
+    """What OpenRouter answers: the text and its cost."""
+
+    def __init__(self, text: str):
+        self.body = json.dumps({
+            "model": "qwen", "choices": [{"message": {"content": text}, "finish_reason": "stop"}],
+            "usage": {"cost": 0.0002, "prompt_tokens": 40, "completion_tokens": 12},
+        }).encode("utf-8")
+
+    def read(self):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _OpenRouter:
+    """The model: a post liked and commented with its author to visit, then posts left alone."""
+
+    def __init__(self):
+        self.feed = [_LIKE_COMMENT]
+
+    def __call__(self, request, timeout=None):
+        message = json.loads(request.data.decode("utf-8"))["messages"][-1]["content"]
+        text = message if isinstance(message, str) else next(p["text"] for p in message if p.get("type") == "text")
+        if "hashtags" in text:
+            return _Response('["bakery", "bread"]')
+        if text.startswith("Should I follow"):
+            return _Response('{"follow": true, "extra_likes": 1, "reason": "a baker"}')
+        assert text.startswith(_FEED_POST), text
+        return _Response(json.dumps(self.feed.pop(0) if self.feed else _SKIP))
+
+
+class _Screen:
+    """The phone: nothing on it matches a selector; a screenshot is a small picture."""
+
+    info = {"displayWidth": 1080, "displayHeight": 2340}
+
+    def xpath(self, selector):
+        return SimpleNamespace(exists=False, click=lambda: None, all=lambda: [])
+
+    def screenshot(self, path):
+        from PIL import Image
+
+        Image.new("RGB", (8, 8), "white").save(path, "PNG")
+
+    def human_scroll(self, direction, **kwargs):
+        # The facade's gesture reports itself to the step telemetry.
+        from taktik.core.shared.telemetry import emit_step
+
+        emit_step("scroll", action="curve", target=direction)
+        return True
+
+    def press(self, key):
+        return None
+
+
+def _feed_class():
+    from loguru import logger
+
+    from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import StatsRecordingMixin
+
+    class Feed(StatsRecordingMixin):
+        """The feed's own recording of a gesture (`_record_action`); only its screen answers here."""
+
+        def __init__(self, device_manager, automation=None):
+            self.device_manager = device_manager
+            self.automation = automation
+            self.session_manager = None
+            self.active_account_id = None
+            self.logger = logger
+
+        def _is_sponsored_post(self):
+            return False
+
+        def _is_reel_post(self):
+            return False
+
+        def _get_current_post_author(self):
+            return "alice"
+
+        def _like_current_post(self, record_as=None):
+            return self._record_action(record_as, "LIKE", 1)
+
+        def _comment_feed_post(self, author, config, comment_text=None):
+            self._record_action(author, "COMMENT", 1, content=comment_text)
+            return {"commented": True}
+
+        def _scroll_to_next_post(self):
+            self.device_manager.device.human_scroll("down", distance_ratio=0.5)
+
+    return Feed
+
+
+class _OwnProfile:
+    """The acting account's profile, read the way the extraction announces it."""
+
+    def __init__(self, device_manager):
+        pass
+
+    def get_complete_profile_info(self, navigate_if_needed=True, **kwargs):
+        from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+
+        info = {"username": "acting", "full_name": "Acting", "biography": "Bakery", "followers_count": 340,
+                "following_count": 12, "posts_count": 9, "is_private": False, "is_verified": False}
+        IPCEmitter.emit_profile_captured(username="acting", profile_data=info,
+                                         profile_pic_base64="data:image/jpeg;base64,AAAA")
+        return info
+
+
+class _Navigation:
+    def __init__(self, device_manager):
+        pass
+
+    def navigate_to_profile_tab(self):
+        return True
+
+    def navigate_to_home(self):
+        return True
+
+    def navigate_to_profile(self, username):
+        return True
+
+    def navigate_to_hashtag(self, hashtag):
+        return True
+
+
+class _Click:
+    def __init__(self, device):
+        pass
+
+    def get_follow_button_state(self):
+        return "follow"
+
+    def follow_user(self, username):
+        return True
+
+
+class _Likes:
+    def __init__(self, device_manager, automation=None):
+        pass
+
+    def like_profile_posts(self, username, max_likes=1, navigate_to_profile=False):
+        return {"posts_liked": max_likes}
+
+
+@pytest.fixture
+def agent_bridge(monkeypatch, tmp_path):
+    """The bridge's module, its phone and its base replaced; `restarts` says whether Instagram opens."""
+    import tempfile
+    import urllib.request
+
+    import bridges.instagram.agent.runtime.bridge as bridge_runtime
+    import bridges.instagram.agent.runtime.commands as commands
+    import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
+    import taktik.core.shared.diagnostics.action_block as action_block
+    import taktik.core.social_media.instagram.actions.atomic.interaction as interaction
+    import taktik.core.social_media.instagram.actions.atomic.navigation as navigation
+    import taktik.core.social_media.instagram.actions.business.actions.like as like
+    import taktik.core.social_media.instagram.actions.business.management.profile as profile
+    import taktik.core.social_media.instagram.actions.business.workflows.feed as feed
+    import taktik.core.social_media.instagram.ui.detectors.problematic_page as problematic_page
+    import taktik.core.social_media.instagram.ui.language as language
+    import taktik.core.social_media.instagram.workflows.common.post_navigation as post_navigation
+    from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
+
+    state = SimpleNamespace(restarts=True)
+
+    class Bridge(commands.TaktikAgentBridge):
+        """The bridge's run; its connection and the restart of Instagram answer here."""
+
+        def __init__(self, device_id, config, package_name=None):
+            self.config = config
+            self.device_manager = SimpleNamespace(device=_Screen())
+            self._app = SimpleNamespace(restart=lambda: state.restarts)
+
+        def connect(self):
+            return True
+
+    monkeypatch.setattr(commands, "TaktikAgentBridge", Bridge)
+    monkeypatch.setattr(commands, "configure_agent_database", lambda: None)
+    monkeypatch.setattr(bridge_runtime, "start_agent_stop_listener", lambda: None)
+    use_the_bridge_ipc(monkeypatch)
+
+    monkeypatch.setattr(urllib.request, "urlopen", _OpenRouter())
+    monkeypatch.setattr(autopilot, "get_db_service", lambda: SimpleNamespace(
+        get_account_by_username=lambda username: {"account_id": 3, "niche": "bakery"}))
+    monkeypatch.setattr(InstagramWorkflowStateService, "record_individual_actions",
+                        staticmethod(lambda *args, **kwargs: None))
+    monkeypatch.setattr(language, "detect_and_optimize", lambda device: None)
+    monkeypatch.setattr(profile, "ProfileBusiness", _OwnProfile)
+    monkeypatch.setattr(navigation, "NavigationActions", _Navigation)
+    monkeypatch.setattr(interaction, "ClickActions", _Click)
+    monkeypatch.setattr(like, "LikeBusiness", _Likes)
+    monkeypatch.setattr(feed, "FeedBusiness", _feed_class())
+    monkeypatch.setattr(post_navigation, "open_first_post_of_profile", lambda device, log=None: True)
+    monkeypatch.setattr(problematic_page, "ProblematicPageDetector", lambda device: None)
+    monkeypatch.setattr(action_block, "look_for_action_block", lambda detector, after=None: False)
+    monkeypatch.setattr(autopilot.random, "randint", lambda low, high: low)
+    monkeypatch.setattr(autopilot.random, "uniform", lambda low, high: low)
+    monkeypatch.setattr(autopilot.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    commands.state = state
+    return commands
+
+
+def _session(**chosen: Any) -> Dict[str, Any]:
+    """The app's file: one post engaged and its author followed, a hashtag explored, then the end."""
+    data = app_file(AGENT, desktop_orchestration_context=dict(ORCHESTRATION), **chosen)
+    data.update(max_posts_seen=13, session_duration_min=5)
+    return data
+
+
+def test_the_agent_bridge_follows_its_contract(agent_bridge, printed):
+    data = _session()
+    log: set = set()
+
+    assert agent_bridge.TaktikAgentRun(Recording(data, log)).run() == 0
+
+    assert_reads(AGENT, data, log)
+    lines = printed()
+    check_lines(AGENT, lines)
+    # Every declared line but a failure's, each from the session's own path.
+    assert {line["type"] for line in lines} == {event.type for event in AGENT.events} - {"error"}
+    statuses = [line["status"] for line in lines if line["type"] == "agent_status"]
+    assert statuses == ["account_detected", "orchestration_context", "planning", "navigating", "running",
+                        "completed"]
+    assert [line["to_strategy"] for line in lines if line["type"] == "strategy_switch"] == ["hashtag", "feed"]
+
+
+@pytest.mark.parametrize("failure", ["no_device", "no_connection", "no_instagram"])
+def test_a_failure_of_the_bridge_is_an_error_line(agent_bridge, printed, failure):
+    data = _session()
+    if failure == "no_device":
+        del data["deviceId"]
+    elif failure == "no_connection":
+        agent_bridge.TaktikAgentBridge.connect = lambda self: False
+    else:
+        agent_bridge.state.restarts = False
+
+    assert agent_bridge.TaktikAgentRun(data).run() == 1
+
+    lines = printed()
+    check_lines(AGENT, lines)
+    assert lines[-1]["type"] == "error"
+
+
+def test_a_session_without_a_key_is_refused_before_instagram_is_touched(agent_bridge, printed):
+    data = _session()
+    del data["openrouter_api_key"]
+    agent_bridge.state.restarts = None  # a restart would fail the session another way
+
+    assert agent_bridge.TaktikAgentRun(data).run() == 1
+
+    lines = printed()
+    check_lines(AGENT, lines)
+    assert [line["type"] for line in lines] == ["agent_status"]
+    assert lines[0]["status"] == "error" and lines[0]["message_key"] == "agentStatusErrNoAi"
+
+
+def test_every_line_helper_of_the_agent_is_declared():
+    """What `AgentIpcMixin` can print, and what the workflow sends by name, is a declared line."""
+    import ast
+    import inspect
+
+    from bridges.common.runtime.ipc_agent import AgentIpcMixin
+    from taktik.core.agent.scenarios import instagram_feed_autopilot
+
+    sent = set()
+    for source in (inspect.getsource(AgentIpcMixin), inspect.getsource(instagram_feed_autopilot)):
+        for node in ast.walk(ast.parse(source)):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "send"
+                    and node.args and isinstance(node.args[0], ast.Constant)):
+                sent.add(node.args[0].value)
+    assert sent == {"agent_decision", "agent_status", "strategy_switch", "follow", "comment"}
+    assert sent <= {event.type for event in AGENT.events}

@@ -15,9 +15,21 @@ import random
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
+from loguru import logger
+
 from taktik.core.shared.behavior.sampling import sample_within
 
 _CALIBRATION_FILE = os.path.join(os.path.dirname(__file__), "human_scroll_calibration.json")
+
+# Screen envelope of a vertical swipe, as fractions of the screen height. The start stays clear of
+# the status bar and of the bottom tab bars; the end stays on the glass.
+_START_MIN_H, _START_MAX_H = 0.10, 0.85
+_END_MIN_H, _END_MAX_H = 0.04, 0.96
+# Longest travel the envelope permits (a down swipe from the highest start to the bottom edge; an
+# up swipe gets 0.81). A larger `dist_cap_h` never lengthens a gesture.
+FULL_REACH_H = round(_END_MAX_H - _START_MIN_H, 2)
+# Share of the requested travel a swipe always covers when the request fits the room.
+_FULL_TRAVEL_SHARE = 0.95
 
 
 @lru_cache(maxsize=1)
@@ -81,6 +93,122 @@ def _bezier_path(
     return path
 
 
+def travel_room(screen_h: int, direction: str,
+                start_band: Optional[Tuple[float, float]] = None) -> float:
+    """Longest vertical travel the envelope allows from the starts a gesture may use, in pixels.
+
+    Up: from the highest allowed start down to the top edge. Down: from the lowest allowed start
+    to the bottom edge. A `start_band` that overlaps the start envelope narrows it."""
+    start_lo, start_hi = _start_interval(screen_h, start_band)
+    if direction == "up":
+        return start_hi - _END_MIN_H * screen_h
+    return _END_MAX_H * screen_h - start_lo
+
+
+def _start_interval(screen_h: int,
+                    start_band: Optional[Tuple[float, float]]) -> Tuple[float, float]:
+    lo, hi = _START_MIN_H * screen_h, _START_MAX_H * screen_h
+    if start_band is None:
+        return lo, hi
+    band_lo, band_hi = min(start_band), max(start_band)
+    if band_lo <= hi and band_hi >= lo:
+        return max(lo, band_lo), min(hi, band_hi)
+    # A band outside the envelope keeps its side: a strip of its width beside the nearest limit.
+    width = min(max(band_hi - band_lo, 0.01 * screen_h), 0.04 * screen_h)
+    return (hi - width, hi) if band_lo > hi else (lo, lo + width)
+
+
+def _sampled_start_x(base, screen_w: int, rng) -> float:
+    return sample_within(
+        lambda: base["nx"] * screen_w + rng.uniform(-0.015, 0.015) * screen_w,
+        0.06 * screen_w, 0.94 * screen_w, rng=rng, edge_band=0.03 * screen_w,
+    )
+
+
+def _sampled_travel_geometry(screen_w, screen_h, direction, start_band, dist_floor_h, rng):
+    """Start, end and travel of a swipe that replays the travel of a real one."""
+    floor_px = dist_floor_h * screen_h
+    # Only swipes long enough to move the feed qualify, rather than lifting the short ones to
+    # exactly the floor.
+    pool = _swipe_pool(direction, dist_floor_h)
+    base = rng.choice(pool)
+    sign = -1.0 if direction == "up" else 1.0
+    sx = _sampled_start_x(base, screen_w, rng)
+    # The start must stay on the content, clear of the bottom navigation bar: a touch-down on
+    # a tab opens it instead of scrolling. Ratio-based, so it holds on every device.
+    start_lo, start_hi = _START_MIN_H * screen_h, _START_MAX_H * screen_h
+    if start_band is not None:
+        lo, hi = min(start_band), max(start_band)
+        sy = sample_within(lambda: rng.uniform(lo, hi), start_lo, start_hi,
+                           rng=rng, edge_band=max(hi - lo, 0.01 * screen_h))
+    else:
+        sy = sample_within(
+            lambda: base["ny"] * screen_h + rng.uniform(-0.02, 0.02) * screen_h,
+            start_lo, start_hi, rng=rng, edge_band=0.04 * screen_h,
+        )
+    sampled_dy = abs(base["ndy"]) * screen_h
+    # The floor guarantees the gesture always moves the feed and is never read as a tap.
+    dy_mag = sampled_dy if sampled_dy >= floor_px else floor_px + rng.uniform(0.0, 0.03) * screen_h
+    # The end stays on the glass. When the travel asks for more room than there is, the finger
+    # lifts somewhere within a finger-width of the edge, not on one fixed row.
+    ey = sy + sign * dy_mag
+    if not _END_MIN_H * screen_h <= ey <= _END_MAX_H * screen_h:
+        edge = _END_MIN_H * screen_h if ey < _END_MIN_H * screen_h else _END_MAX_H * screen_h
+        ey = edge + math.copysign(rng.uniform(0.0, 0.02) * screen_h, sy - edge)
+    return sx, sy, ey, dy_mag, base, pool
+
+
+def _requested_travel_geometry(screen_w, screen_h, direction, distance, start_band,
+                               dist_floor_h, dist_cap_h, rng):
+    """Start, end and travel of a swipe asked to cover `distance` pixels.
+
+    The start is drawn among the REAL starts from which that travel fits on the glass: a start
+    drawn first and a travel cut at the edge afterwards made a 0.7h request come out under 95 %
+    of itself in 58 % of the gestures. A request longer than the room is bounded to the room and
+    logged, with the travel asked and the travel obtained.
+    """
+    requested = max(distance, dist_floor_h * screen_h)
+    room = travel_room(screen_h, direction, start_band)
+    if requested > room:
+        logger.debug(f"swipe travel bounded to the room: requested {round(requested)} px, "
+                     f"room {round(room)} px ({direction})")
+    target = min(requested, dist_cap_h * screen_h, room)
+    # The finger may lift within a finger-width of the edge, never short of this share.
+    need = _FULL_TRAVEL_SHARE * target
+    start_lo, start_hi = _start_interval(screen_h, start_band)
+    if direction == "up":
+        start_lo = max(start_lo, _END_MIN_H * screen_h + need)
+    else:
+        start_hi = min(start_hi, _END_MAX_H * screen_h - need)
+
+    pool = _swipe_pool(direction, 0.0)
+    fitting = [item for item in pool if start_lo <= item["ny"] * screen_h <= start_hi]
+    base = rng.choice(fitting or pool)
+    sx = _sampled_start_x(base, screen_w, rng)
+    strip = min(0.04 * screen_h, start_hi - start_lo)
+    if start_band is not None:
+        lo, hi = min(start_band), max(start_band)
+        sy = sample_within(lambda: rng.uniform(lo, hi), start_lo, start_hi,
+                           rng=rng, edge_band=strip)
+    else:
+        sy = sample_within(
+            lambda: base["ny"] * screen_h + rng.uniform(-0.02, 0.02) * screen_h,
+            start_lo, start_hi, rng=rng, edge_band=strip,
+        )
+
+    sign = -1.0 if direction == "up" else 1.0
+    ey = sy + sign * target
+    if not _END_MIN_H * screen_h <= ey <= _END_MAX_H * screen_h:
+        edge = _END_MIN_H * screen_h if ey < _END_MIN_H * screen_h else _END_MAX_H * screen_h
+        # The lift stays within a finger-width of the edge and never costs the travel its share.
+        slack = abs(sy - edge) - need
+        offset = (sample_within(lambda: rng.uniform(0.0, 0.02 * screen_h), 0.0, slack,
+                                rng=rng, edge_band=slack)
+                  if slack > 0 else 0.0)
+        ey = edge + math.copysign(offset, sy - edge)
+    return sx, sy, ey, target, base, pool
+
+
 def sample_swipe(
     screen_w: int,
     screen_h: int,
@@ -106,8 +234,13 @@ def sample_swipe(
             reel", not "scroll the feed".
         dist_floor_h / dist_cap_h: clamp band for the vertical magnitude as a fraction of
             screen height. Defaults (0.09 / 0.34) match the real flick envelope. The strong
-            flick widens the cap (~0.45) and the long continuous drag widens it a lot (~0.95)
-            so a deliberate "drag the post into view" can travel most of a screen.
+            flick widens the cap (0.45) and the controlled drags use `FULL_REACH_H`, the
+            longest travel the envelope permits, so a deliberate "drag the post into view" can
+            travel most of a screen.
+
+    With `distance_px`, the travel covers at least 95 % of the request (after floor and cap)
+    whenever the request fits the room `travel_room` gives; a longer request covers at least
+    95 % of the room and is logged as bounded.
 
     Returns (path_points, duration_seconds) ready for `swipe_points`.
 
@@ -116,46 +249,15 @@ def sample_swipe(
     one exact value of the touch trace (start pixel, end row, drift angle, duration).
     """
     rng = rng or random
-    floor_px = dist_floor_h * screen_h
-    # Without a distance override the sampled travel is the real one: only swipes long enough
-    # to move the feed qualify, rather than lifting the short ones to exactly the floor.
-    pool = _swipe_pool(direction, dist_floor_h if distance_px is None else 0.0)
-    base = rng.choice(pool)
-
-    sign = -1.0 if direction == "up" else 1.0
-    # Start point: real normalised position + tiny jitter, kept inside safe margins.
-    sx = sample_within(
-        lambda: base["nx"] * screen_w + rng.uniform(-0.015, 0.015) * screen_w,
-        0.06 * screen_w, 0.94 * screen_w, rng=rng, edge_band=0.03 * screen_w,
-    )
-    # The start must stay on the content, clear of the bottom navigation bar: a touch-down on
-    # a tab opens it instead of scrolling. Ratio-based, so it holds on every device.
-    if start_band is not None:
-        lo, hi = min(start_band), max(start_band)
-        sy = sample_within(lambda: rng.uniform(lo, hi), 0.10 * screen_h, 0.85 * screen_h,
-                           rng=rng, edge_band=max(hi - lo, 0.01 * screen_h))
-    else:
-        sy = sample_within(
-            lambda: base["ny"] * screen_h + rng.uniform(-0.02, 0.02) * screen_h,
-            0.10 * screen_h, 0.85 * screen_h, rng=rng, edge_band=0.04 * screen_h,
-        )
-
-    # Vertical magnitude: sampled or overridden, then kept inside the sampled envelope. The
-    # floor guarantees the gesture always moves the feed and is never read as a tap.
-    sampled_dy = abs(base["ndy"]) * screen_h
     if distance_px is not None:
-        dy_mag = min(max(abs(distance_px), floor_px), dist_cap_h * screen_h)
-    elif sampled_dy >= floor_px:
-        dy_mag = sampled_dy
+        sx, sy, ey, dy_mag, base, pool = _requested_travel_geometry(
+            screen_w, screen_h, direction, abs(distance_px), start_band,
+            dist_floor_h, dist_cap_h, rng,
+        )
     else:
-        dy_mag = floor_px + rng.uniform(0.0, 0.03) * screen_h
-    dy = sign * dy_mag
-    # The end stays on the glass. When the travel asks for more room than there is, the finger
-    # lifts somewhere within a finger-width of the edge, not on one fixed row.
-    ey = sy + dy
-    if not 0.04 * screen_h <= ey <= 0.96 * screen_h:
-        edge = 0.04 * screen_h if ey < 0.04 * screen_h else 0.96 * screen_h
-        ey = edge + math.copysign(rng.uniform(0.0, 0.02) * screen_h, sy - edge)
+        sx, sy, ey, dy_mag, base, pool = _sampled_travel_geometry(
+            screen_w, screen_h, direction, start_band, dist_floor_h, rng,
+        )
     actual_dy = abs(ey - sy)
 
     # Horizontal drift keeps a real sampled proportion but must stay under 0.15 of the vertical

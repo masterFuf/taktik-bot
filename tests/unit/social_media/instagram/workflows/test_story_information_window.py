@@ -3,7 +3,8 @@
 Pixel 3a, Instagram 410.0.0.53.71 in English: a real story failed with `share_not_found`. Instagram
 had laid "Your stories can now reach more people" over the editor, with "OK" and "View settings";
 once closed with "OK", the same workflow published. The window here is that real dump, without the
-system navigation bar. The editor under it is a minimal screen carrying the "Your story" button.
+system navigation bar. The editor under it is a real dump of the same version too (the story
+editor of another phone, in English), and so is the creation screen before it; all anonymized.
 """
 
 import time
@@ -27,21 +28,10 @@ WINDOW = (FIXTURES / "ig410_en_story_share_information_window.xml").read_text(en
 PRIMARY = "com.instagram.android:id/igds_headline_primary_action_button"
 SECONDARY = "com.instagram.android:id/igds_headline_secondary_action_text_button"
 HEADLINE = "Your stories can now reach more people"
-APP = (
-    '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-    '<node index="0" text="" resource-id="com.instagram.android:id/quick_capture_root_container" '
-    'class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" '
-    'clickable="false" enabled="true" bounds="[0,0][1080,2220]" /></hierarchy>'
-)
-EDITOR = (
-    '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-    '<node index="0" text="" resource-id="com.instagram.android:id/quick_capture_root_container" '
-    'class="android.widget.FrameLayout" package="com.instagram.android" content-desc="" '
-    'clickable="false" enabled="true" bounds="[0,0][1080,2220]">'
-    '<node index="0" text="Your story" resource-id="" class="android.widget.TextView" '
-    'package="com.instagram.android" content-desc="" clickable="true" enabled="true" '
-    'bounds="[40,1960][420,2060]" /></node></hierarchy>'
-)
+#: What the app shows before the editor: Instagram's creation screen (the reel editor).
+APP = (FIXTURES / "ig410_en_reel_editor.xml").read_text(encoding="utf-8")
+#: The story editor itself, its "Your story" button in the bottom bar, no window over it.
+EDITOR = (FIXTURES / "ig410_en_story_editor.xml").read_text(encoding="utf-8")
 
 
 def _window_primary_labelled(label: str) -> str:
@@ -260,7 +250,8 @@ def test_without_a_window_nothing_is_tapped_and_the_story_publishes():
 
 
 class RawPhone:
-    """A uiautomator2 device: the window's dump, then the editor; the clickable under each touch."""
+    """A uiautomator2 device: the window's dump, then the editor; the clickable under each touch,
+    named by its resource-id, or by its label when it has none (the editor's "Your story")."""
 
     def __init__(self, window=WINDOW):
         self.window = window
@@ -274,7 +265,7 @@ class RawPhone:
         for node in iter_widgets(parse_ui_dump(self.dump_hierarchy())):
             b = parse_bounds(node.get("bounds", ""))
             if node.get("clickable") == "true" and b and b[0] <= x < b[2] and b[1] <= y < b[3]:
-                touched = node.get("resource-id", "")
+                touched = node.get("resource-id") or node.get("content-desc", "")
         self.touched.append(touched)
         if touched == PRIMARY:
             self.window = None
@@ -312,12 +303,8 @@ class RelayPhone(RawPhone):
     def _touch(self, x, y):
         on_editor = self.window is None
         super()._touch(x, y)
-        if on_editor and self.touched[-1] == "your_story":
+        if on_editor and self.touched[-1] == "Your story":
             self.published = True
-
-    def dump_hierarchy(self, *_, **__):
-        return self.window or EDITOR.replace('text="Your story" resource-id=""',
-                                             'text="Your story" resource-id="your_story"')
 
     def xpath(self, selector):
         node = ScreenSnapshot(self.dump_hierarchy()).first(selector)
@@ -344,7 +331,7 @@ def test_the_story_relay_publishes_past_the_same_window():
     phone = RelayPhone()
 
     assert StoryRelayBusiness(phone).publish_opened_story() is True
-    assert phone.touched == [PRIMARY, "your_story"]
+    assert phone.touched == [PRIMARY, "Your story"]
     assert phone.published is True
 
 

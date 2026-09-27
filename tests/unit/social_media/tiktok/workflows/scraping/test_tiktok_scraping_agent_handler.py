@@ -149,6 +149,9 @@ def test_register_tiktok_scraping_handler_executes_target_workflow(store):
     }
     assert ("scraping_completed", {"totalScraped": 1}) in notifier.calls
     assert notifier.calls[-1] == ("status", {"status": "completed", "message": "Scraped 1 profiles"})
+    # The row's id reaches the desktop before any live event: a killed bridge never closes it.
+    assert notifier.calls[0] == ("scraping_session", {"scraping_id": 7, "platform": "tiktok"})
+    assert [kind for kind, _ in notifier.calls].count("scraping_session") == 1
 
 
 def test_a_run_told_not_to_save_files_nothing(store):
@@ -170,6 +173,27 @@ def test_a_run_told_not_to_save_files_nothing(store):
     assert result["total_scraped"] == 1
     assert result["session_id"] is None
     assert store == []
+
+
+def test_a_row_that_could_not_be_written_is_not_announced(store, monkeypatch):
+    monkeypatch.setattr(scraping_store, "open_scraping_session", lambda source_type, source_name: None)
+    notifier = FakeNotifier()
+    registry = WorkflowRegistry()
+    register_tiktok_scraping_handlers(
+        registry,
+        device=object(),
+        notifier=notifier,
+        navigation_factory=FakeNavigation,
+        workflow_factory=FakeScrapingWorkflow,
+    )
+
+    registry.resolve(TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID)(
+        WorkflowInvocation(platform="tiktok", workflow_id=TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID,
+                           params={"type": "hashtag", "hashtag": "food"}),
+        {},
+    )
+
+    assert "scraping_session" not in [kind for kind, _ in notifier.calls]
 
 
 def test_tiktok_scraping_handler_accepts_hashtag_workflow_id():

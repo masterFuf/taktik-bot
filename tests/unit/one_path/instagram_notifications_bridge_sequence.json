@@ -21,6 +21,13 @@
     "message": "Refreshing your account"
    },
    {
+    "type": "active_account",
+    "username": "alpha_bot",
+    "followers": 12,
+    "following": 0,
+    "posts": 0
+   },
+   {
     "type": "notification_step",
     "step": "own_profile",
     "step_status": "done",
@@ -99,6 +106,13 @@
     "step": "own_profile",
     "step_status": "running",
     "message": "Refreshing your account"
+   },
+   {
+    "type": "active_account",
+    "username": "alpha_bot",
+    "followers": 12,
+    "following": 0,
+    "posts": 0
    },
    {
     "type": "notification_step",
@@ -184,6 +198,13 @@
     "step": "own_profile",
     "step_status": "running",
     "message": "Refreshing your account"
+   },
+   {
+    "type": "active_account",
+    "username": "alpha_bot",
+    "followers": 12,
+    "following": 0,
+    "posts": 0
    },
    {
     "type": "notification_step",
@@ -279,12 +300,20 @@
     "message": "Refreshing your account"
    },
    {
+    "type": "active_account",
+    "username": "alpha_bot",
+    "followers": 12,
+    "following": 0,
+    "posts": 0
+   },
+   {
     "type": "notification_step",
     "step": "own_profile",
     "step_status": "done",
     "message": "@alpha_bot — 12 followers"
    },
    {
+    "type": "result",
     "success": false,
     "error": "scan broke",
     "traceback": "<traceback>"
@@ -299,6 +328,7 @@
   ],
   "stdout": [
    {
+    "type": "result",
     "success": false,
     "error": "Failed to connect to device"
    }
@@ -957,6 +987,7 @@
   "calls": [],
   "stdout": [
    {
+    "type": "result",
     "success": false,
     "error": "Unknown command: dance"
    }

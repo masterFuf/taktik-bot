@@ -9,6 +9,7 @@ import random
 from taktik.core.shared.behavior.sampling import sample_within
 
 from ...core.base_action import BaseAction
+from ..detection.screen_reading import read_until
 from ....ui.selectors.support.scroll import SCROLL_SELECTORS
 from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
 
@@ -25,20 +26,49 @@ class ScrollActions(BaseAction):
         self.video_selectors = VIDEO_SELECTORS
         self.scroll_selectors = SCROLL_SELECTORS
     
+    #: Swipes spent on one advance: the pager that snapped back is swiped once more.
+    NEXT_VIDEO_ATTEMPTS = 2
+
     def scroll_to_next_video(self) -> bool:
-        """Scroll to next video in feed."""
+        """Scroll to the next video and read the screen again to check that the video changed.
+
+        The feed pager snaps back when a drag stops short (under ~0.4 of the screen on a Pixel 6a,
+        TikTok 47.0.3), and this used to answer True whatever happened. The video is told apart
+        by `VideoDetector.video_identity`, the fields the stuck-video check compares. False when
+        the same video is still there after `NEXT_VIDEO_ATTEMPTS` swipes.
+        """
         try:
             self.logger.debug("📱 Scrolling to next video")
-            self._swipe_to_next_video()
-            
-            # Wait for video to load
-            time.sleep(0.5)
-            
-            return True
-            
+            before = self._read_video_identity()
+            for attempt in range(1, self.NEXT_VIDEO_ATTEMPTS + 1):
+                self._swipe_to_next_video()
+                if before is None:
+                    # Nothing to compare with (no author, count or caption on the photo).
+                    self.logger.debug("next video not verified: no video identity before the swipe")
+                    time.sleep(0.5)
+                    return True
+                after = self._read_video_identity(until=lambda identity: identity != before)
+                if after != before:
+                    return True
+                self.logger.warning(f"same video after swipe {attempt}: the pager snapped back")
+            return False
+
         except Exception as e:
             self.logger.error(f"Error scrolling to next video: {e}")
             return False
+
+    def _video_detector(self):
+        detector = self.__dict__.get("_detector")
+        if detector is None:
+            from ..detection.video_detector import VideoDetector
+            detector = self.__dict__["_detector"] = VideoDetector(self.device)
+        return detector
+
+    def _read_video_identity(self, until=None):
+        """The identity of the video on screen, on new photos until `until(identity)` holds
+        (2 s at most); the first photo read when no condition is given."""
+        return read_until(self.device, self._video_detector().video_identity,
+                          until or (lambda _identity: True))
     
     def scroll_profile_videos(self, direction: str = 'down') -> bool:
         """Scroll through videos on profile page."""

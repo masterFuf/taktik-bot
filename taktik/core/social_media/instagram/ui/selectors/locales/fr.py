@@ -212,9 +212,9 @@ STRINGS: Dict[str, List[str]] = {
     "detection.followers_list_end_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/row_text_textview\" and contains(@text, \"Et \") and contains(@text, \" autres\")]",
     ],
-    "detection.hashtag_page_indicators": [
-        "//*[contains(@text, \"publications\")]",
-    ],
+    # No `detection.hashtag_page_indicators`: in 410 French, "publications" answered on the
+    # hashtag rows of the search results and never on the hashtag page itself; the language-free
+    # base (grid + "#" in the search field) is what recognises the page.
     "detection.hashtag_search_bar_selectors": [
         "//android.widget.EditText[contains(@text, \"Rechercher\")]",
     ],
@@ -394,7 +394,9 @@ STRINGS: Dict[str, List[str]] = {
     # son pseudo. Le hashtag s'ouvre depuis la recherche, jamais depuis l'onglet Accueil.
     "hashtag.reel_author_container": [
         "//*[contains(@content-desc, \"Reel de\")]"
-        "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\" and @selected=\"true\"])]",
+        # Accueil = feed_tab selectionne, ou son icone seule (IG 410).
+        "[not(//*[@resource-id=\"com.instagram.android:id/feed_tab\"][@selected=\"true\""
+        " or .//*[@resource-id=\"com.instagram.android:id/tab_icon\" and @selected=\"true\"]])]",
     ],
     # Header of the suggestions zone at the BOTTOM of the notifications screen. Raw
     # labels, not xpaths: the fields of that surface carry no resource-id, so the text

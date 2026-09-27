@@ -314,8 +314,19 @@ def mask_exhausted_intents(plan: InteractionPlan, exhausted) -> tuple:
     ), masked
 
 
+#: Interaction-config key that exempts a pass from rule 2 of `resolve_against_availability`.
+#: Only a config that sets it to exactly `True` is exempt; today that is the suggestions visit
+#: (`DEFAULT_SUGGESTION_INTERACTION_CONFIG`), whose job is to follow in bulk.
+FOLLOW_ALONE_ALLOWED = 'follow_alone_allowed'
+
+
+def allows_follow_alone(config) -> bool:
+    """Does this interaction config grant the right to follow with no other gesture?"""
+    return isinstance(config, dict) and config.get(FOLLOW_ALONE_ALLOWED) is True
+
+
 def resolve_against_availability(plan: InteractionPlan, *, story_available: bool,
-                                 posts_count=None) -> tuple:
+                                 posts_count=None, follow_alone_allowed: bool = False) -> tuple:
     """Confronter le plan a ce que le profil offre REELLEMENT. Rend (plan, retires).
 
     Les intentions sont tirees a l'aveugle, avant d'avoir vu le profil : cinq des a l'arrivee,
@@ -336,6 +347,8 @@ def resolve_against_availability(plan: InteractionPlan, *, story_available: bool
     2. **Le follow ne part jamais seul.** Suivre un compte sans avoir regarde une seule de ses
        publications ni sa story ne ressemble a rien d'humain. Si, une fois (1) applique, le follow
        est le seul geste qui atterrirait, il tombe aussi -- le profil est simplement passe.
+       Seule exception : `follow_alone_allowed`, accorde par la config d'interaction de la passe
+       (`allows_follow_alone`). La visite des suggestions l'a : son role est le follow en masse.
 
     Pure et sans dependance, comme le reste de ce module.
     """
@@ -358,9 +371,10 @@ def resolve_against_availability(plan: InteractionPlan, *, story_available: bool
     do_watch = plan.do_watch_story and story_available
     do_story_like = plan.do_story_like and story_available
 
-    # (2) Le follow seul.
+    # (2) Le follow seul -- sauf pour une passe dont la config l'autorise.
     do_follow = plan.do_follow
-    if do_follow and like_target <= 0 and not do_comment and not do_watch:
+    if (do_follow and not follow_alone_allowed
+            and like_target <= 0 and not do_comment and not do_watch):
         retires.append('follow (seul)')
         do_follow = False
 
@@ -476,7 +490,9 @@ def apply_relevance_gating(plan: InteractionPlan, engagement, settings) -> Relev
 
 
 __all__ = [
+    "FOLLOW_ALONE_ALLOWED",
     "InteractionPlan",
+    "allows_follow_alone",
     "RelevanceGating",
     "apply_relevance_gating",
     "proportional_like_cap",

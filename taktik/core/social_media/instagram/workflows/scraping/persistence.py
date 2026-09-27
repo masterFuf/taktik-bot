@@ -308,9 +308,20 @@ class ScrapingPersistenceMixin:
             
             if self.scraping_session_id:
                 self.logger.info(f"Created scraping session: {self.scraping_session_id}")
-            
+                self._announce_scraping_session()
+
         except Exception as e:
             self.logger.warning(f"Could not create scraping session: {e}")
+
+    def _announce_scraping_session(self) -> None:
+        """Tell the desktop which row this run opened: a killed bridge never closes it, the app does."""
+        ipc = getattr(self, '_ipc', None)
+        if ipc is None:
+            return
+        try:
+            ipc.send("scraping_session", scraping_id=self.scraping_session_id, platform="instagram")
+        except Exception as e:
+            self.logger.debug(f"Could not announce scraping session: {e}")
 
     def _complete_scraping_session(self, error_message: Optional[str] = None) -> None:
         """Complete the scraping session in the database."""

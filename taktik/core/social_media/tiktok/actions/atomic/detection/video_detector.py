@@ -60,6 +60,15 @@ def _extract_french_like_count(desc: str) -> Optional[str]:
     return None
 
 
+# What tells one feed video from the next: two videos by the same author differ by their caption.
+VIDEO_IDENTITY_FIELDS = ('author', 'like_count', 'description')
+
+
+def video_signature(info: Dict[str, Any]) -> str:
+    """The identity of a video read into `info` (`get_video_info`, `video_identity`)."""
+    return "_".join(str(info.get(key, '')) for key in VIDEO_IDENTITY_FIELDS)
+
+
 class VideoDetector(BaseAction):
     """Detects video and profile state on TikTok UI."""
 
@@ -389,6 +398,17 @@ class VideoDetector(BaseAction):
         if include_comment_count:
             info['comment_count'] = self.get_video_comment_count(screen)
         return info
+
+    def video_identity(self, screen) -> Optional[str]:
+        """`video_signature` of the video on this photo, read without opening anything (the raw
+        caption, never expanded). None when the photo shows none of its fields: then two photos
+        cannot be told apart."""
+        info = {'author': self.get_video_author(screen),
+                'like_count': self.get_video_like_count(screen),
+                'description': self.get_video_description(screen)}
+        if not any(info.values()):
+            return None
+        return video_signature(info)
 
     def feed_item_on(self, screen) -> Tuple[bool, bool, bool]:
         """(video, ad, LIVE preview) on this photo: what `get_video_info` waits for when it is

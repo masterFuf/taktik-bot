@@ -27,7 +27,6 @@ INSTAGRAM_AUTOMATION_WORKFLOW_TYPES = (
     "target_profiles",
     "hashtags",
     "post_url",
-    "notifications",
     "unfollow",
     "feed",
     "sync_following",
@@ -38,7 +37,7 @@ INSTAGRAM_AUTOMATION_WORKFLOW_IDS = tuple(
     for workflow_type in INSTAGRAM_AUTOMATION_WORKFLOW_TYPES
 )
 #: Workflows whose target is the account itself: an absent target takes the workflow's name.
-_AUTO_TARGET_WORKFLOWS = {"feed", "notifications", "unfollow", "sync_following", "sync_followers_following"}
+_AUTO_TARGET_WORKFLOWS = {"feed", "unfollow", "sync_following", "sync_followers_following"}
 
 InstagramAutomationFactory = Callable[..., Any]
 RuntimeSetup = Callable[..., None]

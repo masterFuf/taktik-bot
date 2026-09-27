@@ -851,6 +851,11 @@ class ScrapingListMixin(DeepQualifyMixin):
         self.logger.info(f"🤖 AI @{username}: {result_text}")
         self._update_scraped_profile_ai(profile_id, score, qualified, reason)
 
+    def _announce_post_url(self, post_url: str, hashtag: str) -> None:
+        """Tell the Agent panel which hashtag post is open."""
+        if self._ipc:
+            self._ipc.send("post_url_found", url=post_url, hashtag=hashtag)
+
     def _scrape_hashtag(self) -> Dict[str, Any]:
         """Scrape profiles from one or more hashtags."""
         # Support both hashtags list (new) and single hashtag (backward compat)
@@ -927,8 +932,7 @@ class ScrapingListMixin(DeepQualifyMixin):
                 post_url = self._get_post_url()
                 if post_url:
                     self.logger.info(f"🔗 URL du post récupérée : {post_url}")
-                    if self._ipc:
-                        self._ipc.send("post_url_found", url=post_url, hashtag=hashtag)
+                    self._announce_post_url(post_url, hashtag)
                     try:
                         _db = self._local_db()
                         if _db.is_post_url_already_scraped(post_url):

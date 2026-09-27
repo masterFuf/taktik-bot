@@ -5,6 +5,7 @@ ENV/
 env/
 env.bak/
 venv.bak/
+.venv-lint/
 
 # Profile images and debug captures
 profile_images/
@@ -111,3 +112,6 @@ assets/tesseract/
 
 # Internal-only audit tool (depends on the private taktik-docs repo) — kept local
 scripts/audit_sqlite_schema_docs.py
+
+# Local denylist of the leak guard (scripts/hooks/leak_guard.py): real values, never versioned
+.leak-denylist
