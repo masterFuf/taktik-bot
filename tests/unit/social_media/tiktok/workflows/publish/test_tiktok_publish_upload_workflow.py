@@ -9,6 +9,10 @@ import pytest
 
 from taktik.core.social_media.tiktok.workflows.publish import upload_workflow as module
 
+PUSHED = "/sdcard/DCIM/Camera/VID_20260928_010000.mp4"
+SAVED_IN_JUNE = {"path": "/storage/emulated/0/DCIM/Camera/2026-06-11-010830653.mp4", "size": 8172575}
+COPY = "/storage/emulated/0/DCIM/Camera/2026-09-28-010203456.mp4"
+
 
 class _Quiet:
     def log(self, *args, **kwargs):
@@ -23,8 +27,8 @@ def publish(monkeypatch, tmp_path):
     """Every screen step succeeds unless the test says otherwise; the Post taps are counted."""
     video = tmp_path / "video.mp4"
     video.write_bytes(b"video")
-    seen = {"post_taps": 0}
-    answers = {"advance": module.POST_SCREEN_REACHED}
+    seen = {"post_taps": 0, "listed": [], "recorded": [], "deleted": []}
+    answers = {"advance": module.POST_SCREEN_REACHED, "saved_before": [SAVED_IN_JUNE], "saved_copies": [COPY]}
 
     ok = lambda *a, **k: True  # noqa: E731
     for name in ("trigger_media_scan", "restart_tiktok_package", "wait_for_tiktok_home",
@@ -33,7 +37,23 @@ def publish(monkeypatch, tmp_path):
         monkeypatch.setattr(module, name, ok)
     monkeypatch.setattr(module, "advance_to_post_screen", lambda *a, **k: answers["advance"])
     monkeypatch.setattr(module, "purge_pushed_media", lambda *a, **k: 0)
-    monkeypatch.setattr(module, "push_media", lambda *a, **k: "/sdcard/DCIM/Camera/VID_20260928_010000.mp4")
+    monkeypatch.setattr(module, "push_media", lambda *a, **k: PUSHED)
+
+    def _list(device_id, package):
+        seen["listed"].append(package)
+        return answers["saved_before"]
+
+    def _record(device_id, package, known_paths):
+        seen["recorded"].append((package, list(known_paths)))
+        return answers["saved_copies"]
+
+    def _delete(device_id, paths, log=None):
+        seen["deleted"].append(list(paths))
+        return len(paths)
+
+    monkeypatch.setattr(module, "list_media_saved_by", _list)
+    monkeypatch.setattr(module, "record_new_media_saved_by", _record)
+    monkeypatch.setattr(module, "delete_pushed_media", _delete)
     monkeypatch.setattr(module, "scan_wait_for", lambda path: 0)
     monkeypatch.setattr(module, "resolve_tiktok_package", lambda device_id: "com.zhiliaoapp.musically")
     monkeypatch.setattr(module, "handle_permission_dialog", lambda *a, **k: False)
@@ -84,3 +104,47 @@ def test_a_post_screen_never_reached_publishes_nothing(publish):
 
     assert result["error_type"] == "post_screen_not_reached"
     assert publish.seen["post_taps"] == 0
+
+
+# --- what the publication leaves in the camera folder --------------------------------------------
+
+
+def test_a_confirmed_publication_deletes_the_video_pushed_and_tiktok_s_copy(publish):
+    result = publish()
+
+    assert result["success"] is True
+    assert publish.seen["listed"] == ["com.zhiliaoapp.musically"]
+    # The copy is what TikTok saved after the first reading: the June copy is known, never touched.
+    assert publish.seen["recorded"] == [("com.zhiliaoapp.musically", [SAVED_IN_JUNE["path"]])]
+    assert publish.seen["deleted"] == [[PUSHED, COPY]]
+
+
+def test_a_failed_publication_records_tiktok_s_copy_and_deletes_nothing(publish):
+    publish.answers["advance"] = "post_screen_not_reached"
+
+    publish()
+
+    assert publish.seen["recorded"] == [("com.zhiliaoapp.musically", [SAVED_IN_JUNE["path"]])]
+    assert publish.seen["deleted"] == []
+
+
+def test_a_crash_midway_still_records_tiktok_s_copy(publish, monkeypatch):
+    def _crash(*a, **k):
+        raise RuntimeError("uiautomator server gone")
+
+    monkeypatch.setattr(module, "advance_to_post_screen", _crash)
+
+    with pytest.raises(RuntimeError):
+        publish()
+    assert len(publish.seen["recorded"]) == 1
+    assert publish.seen["deleted"] == []
+
+
+def test_without_a_first_reading_no_copy_is_guessed(publish):
+    """MediaStore did not answer before the push: nothing tells TikTok's copy from older files, so
+    only the video pushed is deleted."""
+    publish.answers["saved_before"] = None
+
+    assert publish()["success"] is True
+    assert publish.seen["recorded"] == []
+    assert publish.seen["deleted"] == [[PUSHED]]
