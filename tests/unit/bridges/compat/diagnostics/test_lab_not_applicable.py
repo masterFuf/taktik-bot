@@ -134,6 +134,15 @@ def test_a_bio_not_truncated_is_declared_and_a_truncated_one_is_not(name, lang, 
     assert (result["success"], _declared(result)) == (False, declared)
 
 
+def test_a_follow_list_without_load_more_declares_none_and_the_feed_does_not():
+    bundle, phone = _instagram(_dump("instagram", "ig410_en_followers_list.xml"), "en")
+    result = INSTAGRAM_ACTIONS["scraping.click_load_more"](bundle, {})
+    assert _declared(result) == "no load more affordance on this list"
+    assert phone.taps == []
+    bundle, _phone = _instagram(IG_FEED, "en")
+    assert _declared(INSTAGRAM_ACTIONS["scraping.click_load_more"](bundle, {})) is None
+
+
 def test_nothing_to_close_on_a_video_is_declared():
     bundle, phone = _tiktok(TT_VIDEO)
     result = TIKTOK_ACTIONS["tt.popups.close_popup"](bundle, {})

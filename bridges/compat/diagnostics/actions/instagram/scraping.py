@@ -16,6 +16,7 @@ returned (never raw UI element objects).
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action, detection_action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import absent_on_screen
 
 
 # === Entry navigations =======================================================
@@ -129,8 +130,12 @@ def scroll_list_down(a, p):
 
 @action("scraping.click_load_more")
 def click_load_more(a, p):
-    """Recovery: detect + click a 'load more' affordance on a stuck list."""
+    """Recovery: detect + click a 'load more' affordance on a stuck list. The production check
+    answers None when the list shows no such affordance: on a follow list, not applicable."""
     ok = a.scroll.check_and_click_load_more()
+    if ok is None and a.detection.is_followers_list_open():
+        return absent_on_screen("scraping.click_load_more", device=a.device, platform="instagram", still_there=None,
+                                what="load more affordance", where="on this list")
     return {"success": bool(ok), "message": f"load-more clicked={ok}"}
 
 
