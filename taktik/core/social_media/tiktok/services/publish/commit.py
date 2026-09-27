@@ -6,6 +6,8 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from .progress import PublishProgress
+
 
 LogFn = Callable[[str, str], None]
 
@@ -16,7 +18,7 @@ class PublishCommitCallbacks:
 
     handle_publish_confirmation: Callable[[], bool]
     dismiss_popups: Callable[[], None]
-    get_progress_percent: Callable[[], Optional[int]]
+    read_progress: Callable[[], PublishProgress]
     is_on_post_screen: Callable[[], bool]
     has_success_indicator: Callable[[], bool]
 
@@ -53,7 +55,18 @@ def wait_for_publish_commit(
 
         callbacks.dismiss_popups()
 
-        progress = callbacks.get_progress_percent()
+        reading = callbacks.read_progress()
+        if not reading.readable:
+            # Nothing is known of the badge: neither gone nor still there. Wait for a readable
+            # screen; one that stays unreadable ends on the timeout, never as a commit.
+            current_second = int(elapsed)
+            if current_second != last_logged_second:
+                last_logged_second = current_second
+                logger("warning", f"[publishing] screen unreadable after {current_second}s: the upload badge cannot be judged, waiting")
+            sleep(1.2)
+            continue
+
+        progress = reading.percent
         if progress is not None:
             progress_seen = True
             progress_gone_since = None

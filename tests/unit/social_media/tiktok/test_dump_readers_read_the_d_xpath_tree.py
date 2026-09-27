@@ -13,7 +13,7 @@ import pytest
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import (
     PopupHandler,
 )
-from taktik.core.social_media.tiktok.services.publish.progress import get_publish_progress_percent
+from taktik.core.social_media.tiktok.services.publish.progress import read_publish_progress
 from taktik.core.social_media.tiktok.services.publish.upload_picker import tap_upload_button_from_dump
 from taktik.core.social_media.tiktok.workflows.management.signup.signup_workflow import (
     TikTokSignupWorkflow,
@@ -108,7 +108,7 @@ def test_progress_badge_is_read_by_its_resource_id():
         ' bounds="[20,80][120,140]"/>'
     )
 
-    assert get_publish_progress_percent(_Device(xml)) == 81
+    assert read_publish_progress(_Device(xml)).percent == 81
 
 
 def test_upload_button_is_tapped_from_its_bounds():

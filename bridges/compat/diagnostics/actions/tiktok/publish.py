@@ -83,6 +83,22 @@ def advance_to_post(a, p):
     return {"success": bool(ok), "message": f"advanced to post={ok}"}
 
 
+@action("tt.publish.read_progress")
+def read_progress(a, p):
+    """Read TikTok's upload badge as the wait for the publication's commit reads it
+    (``read_publish_progress``): its percent, no badge, or a screen that could not be read, which
+    is never taken for a badge that went away. Reads only."""
+    from taktik.core.social_media.tiktok.services.publish.progress import read_publish_progress
+
+    reading = read_publish_progress(_raw(a))
+    if not reading.readable:
+        return {"success": False, "message": "screen unreadable: the upload badge cannot be judged",
+                "details": {"readable": False, "percent": None}}
+    message = (f"upload badge at {reading.percent}%" if reading.percent is not None
+               else "no upload badge on screen")
+    return {"success": True, "message": message, "details": {"readable": True, "percent": reading.percent}}
+
+
 @action("tt.publish.fill_caption")
 def fill_caption(a, p):
     """Fill the caption (the most intricate publish step: caption + hashtag confirmation).

@@ -15,7 +15,8 @@ from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.shared.device.ui_dump import dump_screen_size, parse_ui_dump
 from taktik.core.social_media.tiktok.services.publish.progress import (
     extract_percent_value,
-    get_publish_progress_percent,
+    PublishProgress,
+    read_publish_progress,
 )
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_PROGRESS_SELECTORS,
@@ -91,29 +92,29 @@ def test_extract_percent_value_rejects_non_progress_labels():
     assert extract_percent_value("Uploading") is None
 
 
-def test_get_publish_progress_percent_reads_resource_id_badge():
+def test_read_publish_progress_reads_resource_id_badge():
     device = FakeDumpDevice(_screen(UPLOADING_43_1_4))
 
-    assert get_publish_progress_percent(device) == 91
+    assert read_publish_progress(device) == PublishProgress(91)
 
 
-def test_get_publish_progress_percent_reads_top_left_text_fallback():
+def test_read_publish_progress_reads_top_left_text_fallback():
     """46.6.3 without its override: only the position of the label can find the badge."""
     device = FakeDumpDevice(_screen(UPLOADING_46_6_3))
 
-    assert get_publish_progress_percent(device) == 66
+    assert read_publish_progress(device).percent == 66
 
 
 def test_the_47_0_3_badge_is_found_by_its_position_too():
     device = FakeDumpDevice(_screen(UPLOADING_47_0_3))
 
-    assert get_publish_progress_percent(device) == 99
+    assert read_publish_progress(device).percent == 99
 
 
-def test_get_publish_progress_percent_ignores_large_or_far_text_nodes():
+def test_read_publish_progress_ignores_large_or_far_text_nodes():
     device = FakeDumpDevice(_screen(POSTED_43_1_4))
 
-    assert get_publish_progress_percent(device) is None
+    assert read_publish_progress(device) == PublishProgress(percent=None, readable=True)
 
 
 def test_the_screen_size_is_read_from_the_dump():
@@ -148,7 +149,7 @@ def test_on_46_6_3_the_43_1_4_badge_is_still_read_by_its_id(on_46_6_3):
 def test_an_unreadable_screen_is_logged_not_taken_for_a_finished_upload():
     log = CollectedLog()
 
-    assert get_publish_progress_percent(UnreadableDevice(), log=log) is None
+    assert read_publish_progress(UnreadableDevice(), log=log) == PublishProgress(readable=False)
     assert [level for level, _ in log.lines] == ["warning"]
     assert "could not be dumped" in log.lines[0][1]
 
@@ -156,7 +157,7 @@ def test_an_unreadable_screen_is_logged_not_taken_for_a_finished_upload():
 def test_a_dump_that_does_not_parse_is_logged():
     log = CollectedLog()
 
-    assert get_publish_progress_percent(FakeDumpDevice("<not xml"), log=log) is None
+    assert read_publish_progress(FakeDumpDevice("<not xml"), log=log) == PublishProgress(readable=False)
     assert [level for level, _ in log.lines] == ["warning"]
 
 
@@ -164,5 +165,5 @@ def test_a_broken_selector_is_logged_and_the_next_one_still_reads():
     log = CollectedLog()
     selectors = PublishProgressSelectors(_publish_progress_rids=["//*[", *PUBLISH_PROGRESS_SELECTORS.publish_progress_indicator])
 
-    assert get_publish_progress_percent(FakeDumpDevice(_screen(UPLOADING_43_1_4)), selectors, log=log) == 91
+    assert read_publish_progress(FakeDumpDevice(_screen(UPLOADING_43_1_4)), selectors, log=log).percent == 91
     assert len(log.lines) == 1 and log.lines[0][0] == "warning" and "//*[" in log.lines[0][1]
