@@ -171,9 +171,7 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
 
     # Generate a sync_id for rows the legacy table left NULL (PC-local rows).
     try:
-        cursor.execute(
-            "UPDATE sessions_unified SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL"
-        )
+        fill_missing_session_sync_ids(cursor)
         cursor.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_unified_sync_id ON sessions_unified(sync_id)"
         )
@@ -183,3 +181,10 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
     # Phase C: writes now go straight to sessions_unified; drop the legacy tables.
     cursor.execute("DROP TABLE IF EXISTS sessions")
     cursor.execute("DROP TABLE IF EXISTS tiktok_sessions")
+
+
+def fill_missing_session_sync_ids(cursor: sqlite3.Cursor) -> None:
+    """A sync_id for rows left without one. Also run at every opening of a numbered base."""
+    cursor.execute(
+        "UPDATE sessions_unified SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL"
+    )

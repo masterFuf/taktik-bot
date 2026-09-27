@@ -2,7 +2,8 @@
 
 A backup is a consistent copy made by SQLite's backup API from a read-only connection, checked
 with `quick_check` and counted table by table before it is trusted. Only the automatic backups
-of `backups/` are ever pruned; any other file is left alone.
+of `backups/` are ever pruned: the two newest are kept, and the oldest for good (the base as it was
+before its first migration). Any other file, a manual backup included, is left alone.
 """
 
 from __future__ import annotations
@@ -170,7 +171,11 @@ def create_backup(
 
 
 def prune_auto_backups(backup_dir, keep: int = KEEP_AUTO_BACKUPS) -> List[str]:
-    """Delete automatic backups beyond the `keep` newest. Other files are never touched."""
+    """Delete automatic backups beyond the `keep` newest, except the oldest one.
+
+    The oldest is the base before its first migration: it is never deleted. Files that are not
+    automatic backups (manual copies, the base itself) are never touched.
+    """
     backup_dir = Path(backup_dir)
     if not backup_dir.is_dir():
         return []
@@ -181,7 +186,7 @@ def prune_auto_backups(backup_dir, keep: int = KEEP_AUTO_BACKUPS) -> List[str]:
             found.append((match.group(3), int(match.group(4)), entry))
     found.sort(key=lambda item: (item[0], item[1]), reverse=True)
     removed = []
-    for _day, _seq, entry in found[keep:]:
+    for _day, _seq, entry in found[keep:-1]:
         entry.unlink()
         sidecar = entry.with_name(entry.name + ".json")
         if sidecar.exists():

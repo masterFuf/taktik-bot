@@ -96,14 +96,6 @@ class BaseRepository(ABC):
         columns = [row[1] for row in cursor.fetchall()]
         return column in columns
     
-    def add_column_if_not_exists(self, table: str, column: str, definition: str) -> bool:
-        """Add a column if it doesn't exist"""
-        if not self.column_exists(table, column):
-            self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
-            self._conn.commit()
-            return True
-        return False
-    
     def row_to_dict(self, row: Optional[sqlite3.Row]) -> Optional[Dict[str, Any]]:
         """Convert a sqlite3.Row to a dictionary"""
         if row is None:

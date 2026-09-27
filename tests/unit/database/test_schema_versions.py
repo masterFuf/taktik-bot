@@ -591,9 +591,10 @@ def test_no_backup_and_no_write_when_the_disk_is_too_full(tmp_path, monkeypatch)
     assert list((tmp_path / "backups").iterdir()) == []
 
 
-def test_pruning_keeps_the_two_newest_automatic_backups_only(tmp_path):
+def test_pruning_keeps_the_two_newest_automatic_backups_and_the_oldest(tmp_path):
     names = [
         "taktik-data.v0-v1.20260901-1.db",
+        "taktik-data.v0-v1.20260901-2.db",
         "taktik-data.v1-v2.20260910-1.db",
         "taktik-data.v2-v3.20260910-2.db",
         "taktik-data.v2-v3.20260920-1.db",
@@ -605,9 +606,21 @@ def test_pruning_keeps_the_two_newest_automatic_backups_only(tmp_path):
     for name in manual:
         (tmp_path / name).write_bytes(b"keep")
     removed = prune_auto_backups(tmp_path)
-    assert sorted(removed) == names[:2]
+    assert sorted(removed) == names[1:3]
+    kept = [names[0], *names[3:]]
     left = sorted(p.name for p in tmp_path.iterdir())
-    assert left == sorted(manual + names[2:] + [n + ".json" for n in names[2:]])
+    assert left == sorted(manual + kept + [n + ".json" for n in kept])
+
+
+def test_pruning_never_removes_the_oldest_automatic_backup_across_rounds(tmp_path):
+    first = "taktik-data.v0-v1.20260901-1.db"
+    (tmp_path / first).write_bytes(b"x")
+    for day in ("20260902", "20260903", "20260904", "20260905"):
+        (tmp_path / f"taktik-data.v1-v2.{day}-1.db").write_bytes(b"x")
+        prune_auto_backups(tmp_path)
+        assert (tmp_path / first).exists()
+    left = sorted(p.name for p in tmp_path.iterdir())
+    assert left == [first, "taktik-data.v1-v2.20260904-1.db", "taktik-data.v1-v2.20260905-1.db"]
 
 
 def test_status_warns_when_an_applied_migration_changed(tmp_path):
