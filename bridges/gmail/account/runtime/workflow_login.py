@@ -6,6 +6,7 @@ from bridges.gmail.account.runtime.persistence import persist_gmail_account
 from bridges.gmail.account.runtime.workflow_result import finish_account_result
 from taktik.core.app.email.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
+    login_params_from_payload,
     run_gmail_account,
 )
 
@@ -22,11 +23,12 @@ def run_gmail_login(
     send_message: Callable[..., None],
 ) -> int:
     """Run the Gmail login workflow and persist the account on success."""
-    email = (config.get("email") or "").strip()
-    password = config.get("password") or ""
-    if not email or not password:
-        send_error("email and password are required for login")
+    try:
+        params = login_params_from_payload(config)
+    except ValueError as exc:
+        send_error(str(exc))
         return 1
+    email = params["email"]
 
     send_status("running", f"Adding Gmail account {email}...")
     send_log("info", f"Gmail login workflow - {email}")
@@ -34,7 +36,7 @@ def run_gmail_login(
     try:
         result = run_gmail_account(
             GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
-            {"email": email, "password": password},
+            params,
             device=device,
             device_id=device_id,
             notifier=notifier,

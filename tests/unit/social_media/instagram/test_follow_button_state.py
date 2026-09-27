@@ -7,19 +7,40 @@ A "Suivre en retour" button contains "suivre" but NOT "suivi", so it fell throug
 'follow' branch and an existing follower was read as a brand-new target. Same in English:
 "Follow back" contains "follow". The 'follow_back' state simply did not exist.
 
-Fixtures are anonymized minimal extracts of REAL IG v410 UI dumps (FR + EN) captured on device,
-including the `profile_header_follow_context_text` decoy ("Suivi(e) par X, Y" = mutual friends),
-a NON-clickable TextView sitting just above the button — a bare text match hits it instead of
-the button.
+The screens are real profiles of Instagram 410.0.0.53.71, anonymized: in French (Pixel 3) a
+"Suivre en retour" profile, a "Suivi(e)" profile and a "Suivre" profile, the last two with the
+`profile_header_follow_context_text` decoy ("Suivi(e) par X, Y" = mutual friends), a
+NON-clickable TextView sitting just above the button — a bare text match hits it instead of the
+button; in English (Pixel 3) a "Follow" profile under its "Followed by" line. They are read the
+way `d.xpath()` reads them (`parse_ui_dump`).
+
+No capture of the corpus shows an English profile whose button says "Follow back" or
+"Following": those two stay written by hand below, until a phone captures them.
 """
 
-from lxml import etree
+from pathlib import Path
 
+import pytest
+
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
     ProfileInteractionMixin,
 )
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+
+FIXTURES = Path(__file__).parent / "fixtures"
+CONTEXT_ID = "com.instagram.android:id/profile_header_follow_context_text"
+
+
+def _screen(name: str) -> str:
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+FR_FOLLOW_BACK = _screen("ig410_fr_profile_follow_back.xml")
+FR_FOLLOWING = _screen("ig410_fr_profile_following.xml")
+FR_FOLLOW = _screen("ig410_fr_profile_follow_with_mutuals.xml")
+EN_FOLLOW = _screen("ig410_en_profile_follow_with_mutuals.xml")
 
 
 class _XPathResult:
@@ -38,7 +59,7 @@ class _XPathResult:
 
 class _XmlDevice:
     def __init__(self, xml: str):
-        self._tree = etree.fromstring(xml.encode("utf-8"))
+        self._tree = parse_ui_dump(xml)
 
     def xpath(self, selector: str) -> _XPathResult:
         return _XPathResult(self._tree.xpath(selector))
@@ -68,18 +89,16 @@ class _Reader(ProfileInteractionMixin):
         return False
 
 
-def _profile(button_text: str, context_text: str = "") -> str:
-    """A profile header carrying the action button and, optionally, the mutual-friends decoy."""
-    decoy = (
-        f'<node resource-id="com.instagram.android:id/profile_header_follow_context_text"'
-        f' class="android.widget.TextView" clickable="false" text="{context_text}" />'
-        if context_text
-        else ""
-    )
+def _context_line(xml: str) -> str:
+    return parse_ui_dump(xml).xpath(f'//*[@resource-id="{CONTEXT_ID}"]')[0].get("text")
+
+
+def _en_profile(button_text: str) -> str:
+    """An English profile header carrying only the action button. Written by hand: no capture
+    of an English "Follow back" or "Following" profile yet (Instagram 410, English)."""
     return f"""
 <hierarchy>
   <node resource-id="com.instagram.android:id/row_profile_header">
-    {decoy}
     <node resource-id="com.instagram.android:id/profile_header_follow_button"
           class="android.widget.Button" clickable="true" text="{button_text}" />
   </node>
@@ -91,13 +110,13 @@ def _profile(button_text: str, context_text: str = "") -> str:
 
 def test_fr_follow_back_is_not_read_as_a_fresh_target():
     set_active_locale("fr")
-    reader = _Reader(_profile("Suivre en retour"))
+    reader = _Reader(FR_FOLLOW_BACK)
     assert reader.get_follow_button_state() == "follow_back"
 
 
 def test_en_follow_back_is_not_read_as_a_fresh_target():
     set_active_locale("en")
-    reader = _Reader(_profile("Follow back"))
+    reader = _Reader(_en_profile("Follow back"))
     assert reader.get_follow_button_state() == "follow_back"
 
 
@@ -105,24 +124,24 @@ def test_en_follow_back_is_not_read_as_a_fresh_target():
 
 def test_fr_following():
     set_active_locale("fr")
-    assert _Reader(_profile("Suivi(e)")).get_follow_button_state() == "following"
+    assert _Reader(FR_FOLLOWING).get_follow_button_state() == "following"
 
 
 def test_en_following():
     set_active_locale("en")
-    assert _Reader(_profile("Following")).get_follow_button_state() == "following"
+    assert _Reader(_en_profile("Following")).get_follow_button_state() == "following"
 
 
 # ── No relationship: the normal target ────────────────────────────────────────────
 
 def test_fr_plain_follow():
     set_active_locale("fr")
-    assert _Reader(_profile("Suivre")).get_follow_button_state() == "follow"
+    assert _Reader(FR_FOLLOW).get_follow_button_state() == "follow"
 
 
 def test_en_plain_follow():
     set_active_locale("en")
-    assert _Reader(_profile("Follow")).get_follow_button_state() == "follow"
+    assert _Reader(EN_FOLLOW).get_follow_button_state() == "follow"
 
 
 # ── The mutual-friends decoy must never drive the verdict ─────────────────────────
@@ -130,28 +149,38 @@ def test_en_plain_follow():
 def test_mutual_friends_label_does_not_flip_a_fresh_target():
     """"Suivi(e) par X, Y" sits above a plain "Suivre" button: the state stays 'follow'."""
     set_active_locale("fr")
-    xml = _profile("Suivre", context_text="Suivi(e) par cikadermo, giustiinaa et 21 autres")
-    assert _Reader(xml).get_follow_button_state() == "follow"
+    assert _context_line(FR_FOLLOW).startswith("Suivi(e) ")
+    assert _Reader(FR_FOLLOW).get_follow_button_state() == "follow"
 
 
-def test_mutual_friends_label_does_not_mask_follow_back():
+def test_mutual_friends_label_does_not_mask_the_english_follow():
     set_active_locale("en")
-    xml = _profile("Follow back", context_text="Followed by amandine_meolia and 21 others")
-    assert _Reader(xml).get_follow_button_state() == "follow_back"
+    assert _context_line(EN_FOLLOW).startswith("Followed by ")
+    assert _Reader(EN_FOLLOW).get_follow_button_state() == "follow"
+
+
+def test_mutual_friends_label_does_not_mask_following():
+    set_active_locale("fr")
+    assert _context_line(FR_FOLLOWING).startswith("Suivi(e) ")
+    assert _Reader(FR_FOLLOWING).get_follow_button_state() == "following"
 
 
 # ── Locale-agnostic safety net ────────────────────────────────────────────────────
 
-def test_states_hold_without_language_detection():
+@pytest.mark.parametrize("xml, state", [
+    (FR_FOLLOW_BACK, "follow_back"),
+    (_en_profile("Follow back"), "follow_back"),
+    (FR_FOLLOWING, "following"),
+    (_en_profile("Following"), "following"),
+    (FR_FOLLOW, "follow"),
+    (EN_FOLLOW, "follow"),
+], ids=["fr_follow_back", "en_follow_back", "fr_following", "en_following", "fr_follow",
+        "en_follow"])
+def test_states_hold_without_language_detection(xml, state):
     """If detect_and_optimize never ran, L() falls back to the multi-language union.
 
     The state labels are disjoint across languages, so the ordered detection still holds — a
     Lab run (or any path missing the locale setup) must not report a different state.
     """
     set_active_locale(None)
-    assert _Reader(_profile("Suivre en retour")).get_follow_button_state() == "follow_back"
-    assert _Reader(_profile("Follow back")).get_follow_button_state() == "follow_back"
-    assert _Reader(_profile("Suivi(e)")).get_follow_button_state() == "following"
-    assert _Reader(_profile("Following")).get_follow_button_state() == "following"
-    assert _Reader(_profile("Suivre")).get_follow_button_state() == "follow"
-    assert _Reader(_profile("Follow")).get_follow_button_state() == "follow"
+    assert _Reader(xml).get_follow_button_state() == state

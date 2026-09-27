@@ -13,9 +13,10 @@ from typing import Any, Dict
 
 import pytest
 
-from contract_probe import DEVICE, Recording, is_group, probe
+from contract_probe import DEVICE, Recording, expected, merge, nest, payload_for, probe, skeleton, value_of
 from taktik.core.app.contract.publish import TIKTOK_UPLOAD, YOUTUBE_UPLOAD
-from taktik.core.app.contract.schema import OneOf, WorkflowContract, has_default
+from taktik.core.app.contract import WORKFLOW_CONTRACTS
+from taktik.core.app.contract.schema import OneOf, Shape, WorkflowContract, has_default, nested_fields
 from taktik.core.app.contract.tasks import INSTAGRAM_STORY_RELAY
 from taktik.core.app.contract.threads import THREADS_FEED, THREADS_SEARCH
 from test_workflow_contract_bridges import assert_reads, check_lines, lines  # noqa: F401 (fixture)
@@ -24,7 +25,7 @@ _DEVICE_KEYS = ("deviceId", "device_id")
 
 
 def app_file(contract: WorkflowContract, **overrides: Any) -> Dict[str, Any]:
-    """The file the app writes: every app setting (a group key by key), the bridge fields."""
+    """The file the app writes: every app setting (a nested one key by key), the bridge fields."""
     settings: Dict[str, Any] = {}
     for item in contract.settings:
         if not item.app:
@@ -33,8 +34,8 @@ def app_file(contract: WorkflowContract, **overrides: Any) -> Dict[str, Any]:
             settings[item.key] = DEVICE
         elif item.key in overrides:
             settings[item.key] = overrides.pop(item.key)
-        elif is_group(item):
-            settings[item.key] = {leaf.key: probe(leaf) for leaf in item.type.fields}
+        elif isinstance(item.type, Shape) and item.via is None:
+            settings[item.key] = skeleton((item,))[item.key]
         elif has_default(item) and not isinstance(item.default, tuple):
             settings[item.key] = item.default
         else:
@@ -55,6 +56,30 @@ def app_file(contract: WorkflowContract, **overrides: Any) -> Dict[str, Any]:
     if contract.nest:
         return {**root, contract.nest: settings}
     return {**root, **settings}
+
+
+# ------------------------------------------------------------------ aliases of a nested setting
+
+GROUP_ALIASES = [
+    pytest.param(contract, path, leaf, alias, id=f"{contract.workflow_id}:{'.'.join(path)}<-{alias}")
+    for contract in WORKFLOW_CONTRACTS
+    for group_path, group, when, via in nested_fields(contract.settings)
+    if len(group_path) == 1 and isinstance(group.type, Shape) and via is None and not when
+    for alias in group.aliases
+    for path, leaf, _, _ in nested_fields(group.type.fields, group_path)
+    if not isinstance(leaf.type, Shape)
+]
+
+
+@pytest.mark.parametrize("contract, path, leaf, alias", GROUP_ALIASES)
+def test_a_nested_setting_is_read_under_its_aliases_after_its_wire_name(contract, path, leaf, alias):
+    """`actions` for `actionProbabilities`: the keys below keep their meaning, the wire name first."""
+    value, other = probe(leaf, 0), probe(leaf, 1)
+    under_alias = nest((alias, *path[1:]), value)
+
+    assert value_of(contract, leaf, payload_for(contract, under_alias)) == expected(leaf, value)
+    both = merge(nest(path, value), nest((alias, *path[1:]), other))
+    assert value_of(contract, leaf, payload_for(contract, both)) == expected(leaf, value)
 
 
 def printed(lines_):
