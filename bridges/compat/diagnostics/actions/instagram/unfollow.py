@@ -56,12 +56,16 @@ def sync_following(a, p):
 
 @action("unfollow.sync_followers")
 def sync_followers(a, p):
-    """Full sync of our followers list (production `sync_followers_list`): what the non-followers
-    and mutual modes trust. Says whether the end of the list was reached. Reads only on screen."""
+    """Sync of our followers list (production `sync_followers_list`): what the non-followers and
+    mutual modes trust. Read from the top; stops at the followers the base knows when the base
+    plus the new ones match the tab's count (proof `base_count`), else reads the whole list and
+    marks the followers gone. Says the proof, the drags and the time. Reads only on screen."""
     stats = a.unfollow.sync_followers_list({"mode": "fast"})
+    how = "stopped at the known followers" if stats.get("incremental") else "whole list"
     return {"success": bool(stats.get("success")),
-            "message": (f"{stats.get('total_seen', 0)} seen, complete={stats.get('complete')}"
-                        f" (proof: {stats.get('proof') or 'none'})"),
+            "message": (f"{stats.get('total_seen', 0)} read of {stats.get('expected')}, {how}"
+                        f" (proof: {stats.get('proof') or 'none'}), {stats.get('scrolls', 0)} drags"
+                        f" in {stats.get('read_seconds', 0)} s, {stats.get('departures', 0)} gone"),
             "details": _sync_summary(stats)}
 
 
