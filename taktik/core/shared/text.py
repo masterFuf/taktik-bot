@@ -1,25 +1,25 @@
 """Shared text primitives.
 
-`detect_text_language` — a deterministic, dependency-free FR/EN language detector for short
-social-media prose (post captions, comments, bios). It exists because the vision model's guess of
-a post's language is unreliable (a French post whose image carries stylised English design text
-gets misread as English), whereas the author's CAPTION is ground truth and right there in the UI.
-
-Scope: reliably tells French from English and returns None when unsure (any other language, or too
-little signal) so the caller can fall back to another signal. Not a general N-language classifier —
-FR/EN is what the comment pipeline needs; extend the word sets to add a language.
+`detect_text_language` — a deterministic, dependency-free language detector for short social-media
+prose (post captions, comments, bios), in the six languages the comment pipeline can tell apart:
+French, English, Spanish, German, Italian, Portuguese. The author's CAPTION is ground truth for a
+post's language; the vision model's guess is not (a French post whose image carries stylised
+English design text reads as English). Returns None when unsure (too little signal, a mixed text no
+language clearly wins, any other language) so the caller keeps its own fallback.
 """
 
 import re
 import unicodedata
-from typing import Optional
+from dataclasses import dataclass
+from typing import FrozenSet, Optional
 
 #: Everything a UI can add and a dump can mangle.
 _NON_ALNUM = re.compile(r"[^0-9a-z]+")
 
 # French letters with diacritics — an extremely strong French signal (English prose essentially
-# never uses them outside rare loanwords). Weighted heavily below.
-_FR_DIACRITICS = "àâäçéèêëîïôöùûüÿœæ"
+# never uses them outside rare loanwords). Weighted heavily below. No umlaut: French does not write
+# them, German does.
+_FR_DIACRITICS = "àâçéèêëîïôùûÿœæ"
 
 # Discriminative function words. Kept to words that are FREQUENT and (mostly) unique to one of the
 # two languages, so a handful of them in a caption tips the balance reliably. Overlap between the
@@ -48,15 +48,135 @@ _EN_WORDS = {
     "really", "always", "never", "here", "there", "because",
 }
 
-_WORD_RE = re.compile(r"[a-zàâäçéèêëîïôöùûüÿœæ']+", re.IGNORECASE)
+# The four other languages. Each list keeps the words it shares with French ("de", "la", "il"):
+# they count for both and decide nothing between them. Left out: English words ("a", "no") and
+# words French or English also write ("su", "ci", "foi", "dos", "ter", "onde", "agora", "hier",
+# "tag", "dove", "ai", "são" of São Paulo), one of which is enough to take a short caption.
+_ES_WORDS = {
+    "el", "los", "las", "del", "al", "lo", "una", "unos", "unas", "uno", "con", "para", "por",
+    "pero", "muy", "más", "como", "cómo", "qué", "cuando", "donde", "dónde", "porque", "también",
+    "siempre", "nunca", "ahora", "aquí", "hoy", "gracias", "hola", "todo", "todos", "toda",
+    "todas", "este", "esta", "esto", "estos", "estas", "eso", "esa", "ese", "hay", "está",
+    "están", "estamos", "estoy", "somos", "fue", "ser", "tiene", "tienen", "tengo", "puede",
+    "hacer", "mucho", "mucha", "muchos", "muchas", "nuestro", "nuestra", "nuestros", "nuestras",
+    "vuestro", "sí", "nada", "algo", "otro", "otra", "nuevo", "nueva", "año", "años", "día",
+    "días", "mejor", "desde", "hasta", "quiero", "vamos", "bueno", "buena", "feliz", "vida",
+    "amigos",
+    # shared with French
+    "de", "la", "que", "un", "se", "tu", "son", "le", "les",
+}
+
+_DE_WORDS = {
+    "und", "der", "die", "das", "ist", "nicht", "mit", "für", "ein", "eine", "einen", "einem",
+    "einer", "eines", "ich", "wir", "sie", "auf", "zu", "den", "dem", "von", "auch", "wie",
+    "noch", "nur", "wenn", "oder", "aber", "sich", "bei", "nach", "aus", "unser", "unsere",
+    "unseren", "unserem", "unserer", "heute", "mehr", "sehr", "schon", "jetzt", "immer", "alle",
+    "diese", "dieser", "dieses", "diesem", "euch", "uns", "mein", "meine", "meinen", "dein",
+    "deine", "ihr", "ihre", "haben", "habe", "sind", "wird", "werden", "kann", "können", "gibt",
+    "viel", "vielen", "dank", "danke", "neue", "neuen", "neues", "zum", "zur", "vom", "beim",
+    "ins", "dass", "über", "schön", "jahr", "wieder", "unter", "durch", "ohne", "seit", "euer",
+    "eure",
+}
+
+_IT_WORDS = {
+    "di", "che", "è", "sono", "della", "delle", "degli", "dello", "del", "dei", "nel", "nella",
+    "nelle", "nei", "alla", "alle", "al", "gli", "questo", "questa", "questi", "queste", "anche",
+    "grazie", "molto", "molta", "più", "tutti", "tutto", "tutta", "tutte", "sempre", "quando",
+    "ancora", "oggi", "ogni", "cosa", "nostro", "nostra", "nostri", "nostre", "vostro", "suo",
+    "sua", "suoi", "loro", "stato", "stata", "essere", "hai", "abbiamo", "siamo", "mio", "mia",
+    "uno", "una", "da", "dal", "dalla", "dai", "con", "ed", "ti", "bella", "bello", "buon",
+    "buona", "nuova", "nuovo", "anni", "anno", "giorno", "vita", "amici", "perché", "qua", "sei",
+    "siete", "fatto", "ciao",
+    # shared with French
+    "il", "la", "le", "un", "se", "tu", "ne", "ma", "qui",
+}
+
+_PT_WORDS = {
+    "não", "uma", "umas", "para", "por", "pelo", "pela", "pelos", "pelas", "muito", "muita",
+    "muitos", "muitas", "você", "vocês", "está", "estão", "estamos", "também", "obrigado",
+    "obrigada", "isso", "isto", "esse", "essa", "este", "esta", "seu", "sua", "seus", "suas",
+    "nosso", "nossa", "nossos", "nossas", "ao", "aos", "às", "ser", "tem", "têm", "mas", "como",
+    "quando", "porque", "sempre", "aqui", "hoje", "dia", "dias", "vida", "todos", "todas",
+    "tudo", "nada", "já", "só", "eu", "ele", "ela", "eles", "elas", "da", "das", "em", "na",
+    "nas", "num", "numa", "é", "meu", "minha", "bem", "novo", "nova", "ano", "anos", "melhor",
+    "fazer", "pra", "vamos", "gente", "feliz",
+    # shared with French
+    "de", "que", "se", "mais", "ou", "nos",
+}
+
+
+@dataclass(frozen=True)
+class _Language:
+    """What tells one language apart in a short social text."""
+
+    code: str
+    words: FrozenSet[str]
+    #: Letters English never writes; each one weighs as much as one and a half words.
+    letters: str
+
+
+_FRENCH = _Language("fr", frozenset(_FR_WORDS), _FR_DIACRITICS)
+_ENGLISH = _Language("en", frozenset(_EN_WORDS), "")
+_OTHER_LANGUAGES = (
+    _Language("es", frozenset(_ES_WORDS), "ñ¿¡áíóú"),
+    _Language("de", frozenset(_DE_WORDS), "ßäöü"),
+    _Language("it", frozenset(_IT_WORDS), "ìò"),
+    _Language("pt", frozenset(_PT_WORDS), "ãõáíóú"),
+)
+
+#: The letters of all six languages, so a word does not stop at "á" ("está" is not the French "est").
+_WORD_RE = re.compile(r"[a-zàâäçéèêëîïôöùûüÿœæñáíóúãõìòß']+", re.IGNORECASE)
+
+#: A language needs at least this many points...
+_MIN_SCORE = 2
+#: ...and this many times the points of its rival, or nothing is decided.
+_MARGIN = 1.5
+
+
+def _score(language: _Language, words: list, lowered: str) -> float:
+    """One point per word of the language, one and a half per letter only it writes."""
+    hits = sum(1 for word in words if word in language.words)
+    letters = sum(1 for char in lowered if char in language.letters)
+    return hits + 1.5 * letters
+
+
+def _has_a_word_of_its_own(language: _Language, words: list) -> bool:
+    """A word of this language that French and English do not have ("und", "más", "questo").
+
+    Without one, its letters alone come from a proper noun (Zürich, Málaga, São Paulo), not from
+    prose in that language.
+    """
+    return any(
+        word in language.words and word not in _FR_WORDS and word not in _EN_WORDS
+        for word in words
+    )
+
+
+def _french_or_english(fr_score: float, en_score: float) -> Optional[str]:
+    """French against English: at least 2 points and one and a half times the other's."""
+    if fr_score >= _MIN_SCORE and fr_score > en_score * _MARGIN:
+        return "fr"
+    if en_score >= _MIN_SCORE and en_score > fr_score * _MARGIN:
+        return "en"
+    return None
 
 
 def detect_text_language(text: Optional[str]) -> Optional[str]:
-    """Return 'fr' or 'en' when the text is confidently one of them, else None.
+    """Return 'fr', 'en', 'es', 'de', 'it' or 'pt' when the text is confidently one of them.
 
-    Deterministic: diacritics + discriminative stop-word frequency. Returns None (rather than
-    guessing) on too-short or ambiguous input, or any language other than FR/EN — the caller then
-    keeps its own fallback (the vision guess, or the account's base language).
+    Deterministic: function words and letters. French and English decide between themselves as
+    they always did. The best of the four others takes the text only when it has a word of its
+    own, at least 2 points, and one and a half times the points of French and of English;
+    otherwise the French/English verdict stands. A mixed caption therefore stays with the
+    language we write in unless the other one clearly dominates.
+
+    No margin is asked BETWEEN the four others: Spanish and Portuguese share too many words to
+    be told apart on a short caption, and for an account writing French or English any of them
+    means the same thing — not a language it writes in. On a tie the first of the list wins
+    (Spanish before Portuguese).
+
+    Returns None (rather than guessing) on too-short or ambiguous input, or any other language —
+    the caller then keeps its own fallback (the vision guess, or the account's base language).
     """
     if not text:
         return None
@@ -65,20 +185,21 @@ def detect_text_language(text: Optional[str]) -> Optional[str]:
     if len(words) < 2:
         return None
 
-    fr_hits = sum(1 for w in words if w in _FR_WORDS)
-    en_hits = sum(1 for w in words if w in _EN_WORDS)
-    fr_diacritics = sum(1 for ch in lowered if ch in _FR_DIACRITICS)
+    fr_score = _score(_FRENCH, words, lowered)
+    en_score = _score(_ENGLISH, words, lowered)
+    verdict = _french_or_english(fr_score, en_score)
 
-    # Diacritics count strongly toward French; word hits count 1 each.
-    fr_score = fr_hits + 1.5 * fr_diacritics
-    en_score = float(en_hits)
+    best_other, best_score = None, 0.0
+    for language in _OTHER_LANGUAGES:
+        if not _has_a_word_of_its_own(language, words):
+            continue
+        score = _score(language, words, lowered)
+        if score > best_score:
+            best_other, best_score = language.code, score
 
-    # Require a real signal AND a clear margin, otherwise stay undecided (None).
-    if fr_score >= 2 and fr_score > en_score * 1.5:
-        return "fr"
-    if en_score >= 2 and en_score > fr_score * 1.5:
-        return "en"
-    return None
+    if best_score >= _MIN_SCORE and best_score > max(fr_score, en_score) * _MARGIN:
+        return best_other
+    return verdict
 
 
 # Every apostrophe shape an Android app can render, folded onto the ASCII one. Instagram and
