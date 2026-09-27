@@ -17,6 +17,7 @@ import pytest
 from contract_probe import (
     Recording,
     by_iteration,
+    call_reader,
     conditions,
     declared_reads,
     expected,
@@ -25,6 +26,7 @@ from contract_probe import (
     launch,
     lookup,
     merge,
+    names,
     nest,
     payload_for,
     probe,
@@ -60,20 +62,27 @@ CONTRACTS = [pytest.param(contract, id=contract.workflow_id) for contract in WOR
 @pytest.mark.parametrize("contract", CONTRACTS)
 def test_the_readers_read_the_declared_keys_and_no_other(contract):
     log = set()
+    skipped: set = set()
     for variant in reading_variants(contract):
         payload = Recording(payload_for(contract, variant), log)
         read(contract, payload)
+        # A key its reader skips because a key of the same reader came first (the list beside a
+        # single message) is read in the alias and wire tests below instead.
+        shared = {contract.setting(key).reader for key in payload if key in names(contract.settings)} - {None}
+        skipped |= {(item.key,) for item in contract.settings if item.reader in shared and item.key not in payload}
         for _, item, _, _ in nested_fields(contract.settings):
             if item.reader:
-                resolve(item.reader)(payload, **item.reader_kwargs)
+                call_reader(item.reader, payload, item.reader_kwargs)
 
     declared, owned = declared_reads(contract.settings)
+    # A reader may read what the bridge carries too (the dispatcher's `workflowType`).
+    declared = declared | {(name,) for name in names(contract.bridge_fields)}
     assert not {path for path in log if path not in declared and not under(path, owned)}, "a key read and not declared"
     # Every wire key is read; an alias may be skipped once a name before it was given. A filter
     # criterion is read when present, by the merge of every flat key. A key handed on whole (`via`)
     # is read further on: the bridge test holds it.
     must = {path for path, item, _, via in nested_fields(contract.settings) if via is None and not by_iteration(item)}
-    assert must <= log, f"declared, never read: {sorted(must - log)}"
+    assert must - skipped <= log, f"declared, never read: {sorted(must - skipped - log)}"
 
 
 @pytest.mark.parametrize("contract, path, item, when", SETTINGS)

@@ -61,6 +61,10 @@ def probe(item: Field, variant: int = 0) -> Any:
     """A value for `item` that differs from its default, and from the probe of another variant."""
     default = item.default if has_default(item) else None
     spec = item.type
+    if isinstance(spec, Shape):
+        return {sub.key: probe(sub, variant) for sub in spec.fields}
+    if isinstance(spec, ListOf) and isinstance(spec.item, Shape):
+        return [probe(Field("item", spec.item), variant)]
     if spec == "int":
         return int(default or 0) + 7 + variant
     if spec == "number":
@@ -130,7 +134,8 @@ def payload_for(contract: WorkflowContract, extra: Dict[str, Any]) -> Dict[str, 
     payload = dict(extra)
     for refusal in contract.refusals:
         needed = contract.setting(refusal.missing)
-        if any(name in payload for name in needed.names):
+        stand_ins = [name for key in refusal.unless for name in contract.setting(key).names]
+        if any(name in payload for name in (*needed.names, *stand_ins)):
             continue
         effective = {}
         for key in refusal.when:
@@ -142,13 +147,22 @@ def payload_for(contract: WorkflowContract, extra: Dict[str, Any]) -> Dict[str, 
     return payload
 
 
+def call_reader(dotted: str, payload: Dict[str, Any], kwargs: Mapping[str, Any]) -> Any:
+    """A reader takes the payload first, or by name when another argument comes first (the flow)."""
+    function = resolve(dotted)
+    kwargs = {key: (DEVICE if value == "<device>" else value) for key, value in kwargs.items()}
+    names = list(inspect.signature(function).parameters)
+    if names and names[0] != "payload" and "payload" in names:
+        return function(payload=payload, **kwargs)
+    return function(payload, **kwargs)
+
+
 def read(contract: WorkflowContract, payload: Dict[str, Any]) -> Any:
-    kwargs = {key: (DEVICE if value == "<device>" else value) for key, value in contract.reader_kwargs.items()}
-    return resolve(contract.reader)(payload, **kwargs)
+    return call_reader(contract.reader, payload, contract.reader_kwargs)
 
 
 def value_of(contract: WorkflowContract, item: Field, payload: Dict[str, Any]) -> Any:
-    result = resolve(item.reader)(payload, **item.reader_kwargs) if item.reader else read(contract, payload)
+    result = call_reader(item.reader, payload, item.reader_kwargs) if item.reader else read(contract, payload)
     return walk(result, item.attr) if item.attr else result
 
 
@@ -174,6 +188,7 @@ def walk(result: Any, attr: str) -> Any:
 
 def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -> Any:
     launcher = resolve(contract.launcher)
+    kwargs = {**contract.launcher_kwargs, **kwargs}
     parameters = inspect.signature(launcher).parameters
     if "workflow_id" in parameters:
         # A launcher of params already read (the account flows): its hosts read the payload first.

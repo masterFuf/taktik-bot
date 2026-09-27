@@ -27,6 +27,10 @@ _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 
 # ------------------------------------------------------------------------------------ helpers
 
+#: Lines of the session start and of the AI provider, which these runs replace: each is proved on
+#: its own real path (`test_workflow_contract_lines.py`).
+_ELSEWHERE = {"bot_profile", "ai_profile_done"}
+
 
 def bridge_file(contract: WorkflowContract, **overrides: Any) -> Dict[str, Any]:
     """The file the app writes: every app setting under its wire key, the bridge fields."""
@@ -408,7 +412,7 @@ def test_the_search_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotati
 
     send_error("Search workflow error: the search field did not open")
     check_lines(TIKTOK_SEARCH, lines)
-    assert {line["type"] for line in lines} == {event.type for event in TIKTOK_SEARCH.events}
+    assert {line["type"] for line in lines} == {event.type for event in TIKTOK_SEARCH.events} - _ELSEWHERE
 
 
 # ---------------------------------------------------- dispatcher: profile-visiting workflows
@@ -473,7 +477,7 @@ def test_the_followers_bridge_follows_its_contract(monkeypatch, lines, no_ip_rot
     if fail:
         assert printed == {"status", "error", "target_switch", "workflow_start"}
     else:
-        assert printed == {event.type for event in TIKTOK_FOLLOWERS.events} - {"error"}
+        assert printed == {event.type for event in TIKTOK_FOLLOWERS.events} - {"error"} - _ELSEWHERE
 
 
 @pytest.mark.parametrize("name", ["target_profiles", "post_url"])
@@ -499,4 +503,195 @@ def test_the_single_pass_bridges_follow_their_contract(monkeypatch, lines, no_ip
 
     send_error("Workflow error: the profile did not open")
     check_lines(contract, lines)
-    assert {line["type"] for line in lines} == {event.type for event in contract.events}
+    assert {line["type"] for line in lines} == {event.type for event in contract.events} - _ELSEWHERE
+
+
+# ------------------------------------------- dispatcher: sync, DMs, inbox, notifications
+
+
+class _Scripted:
+    """A workflow whose screen work answers from a script; its methods fire its callbacks."""
+
+    def __init__(self, device, config=None, **kwargs):
+        self.config = config
+        self.callbacks = {}
+
+    def __getattr__(self, name):
+        if name.startswith("set_on_") and name.endswith("_callback"):
+            return lambda cb: self.callbacks.__setitem__(name[len("set_on_"):-len("_callback")], cb)
+        raise AttributeError(name)
+
+
+def _patch_dm_rows(monkeypatch):
+    import taktik.core.database.tiktok_dm as rows
+
+    for name in ("record_conversations", "record_sent_results"):
+        monkeypatch.setattr(rows, name, lambda *a, **k: None)
+    monkeypatch.setattr(rows, "resolve_account_id", lambda *a, **k: 1)
+
+
+def _engagement_run(monkeypatch, runner_name, contract, workflow_class, *, provider=True, **overrides):
+    import importlib
+
+    import bridges.tiktok.workflows.runtime.dispatcher as dispatcher
+    from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+
+    runner = importlib.import_module(f"bridges.tiktok.workflows.{runner_name}")
+    monkeypatch.setattr(dispatcher, "force_stop_tiktok", lambda device_id: None)
+    start = TikTokStartup(device=object(), bot_username="acting")
+    if provider:
+        monkeypatch.setattr(runner, "tiktok_startup_provider", lambda device_id: lambda: start)
+    else:
+        monkeypatch.setattr(runner, "_startup", lambda device_id: lambda: start)
+    monkeypatch.setattr(importlib.import_module(f"{_WORKFLOWS}.dm.workflow"), "DMWorkflow", workflow_class)
+    data = bridge_file(contract, **overrides)
+    log: set = set()
+    code = dispatcher.TikTokDispatcherBridge(Recording(data, log)).run()
+    return code, data, log
+
+
+def _printed(lines):
+    return {line["type"] for line in lines}
+
+
+def test_the_sync_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation):
+    import bridges.tiktok.workflows.automation.sync_lists as runner
+    import taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.workflow as workflow
+    from taktik.core.app.contract.tiktok_engagement import TIKTOK_SYNC
+    from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import SyncListsStats
+
+    class Sync(_Scripted):
+        def run(self, bot_username=None):
+            self.callbacks["row"]({"list_type": "following", "username": "alice", "display_name": "Alice",
+                                   "relationship": "following", "is_new": True})
+            return SyncListsStats(rows_seen=1, new_count=1, completion_reason="completed")
+
+    dispatcher = _dispatcher(monkeypatch, runner)
+    monkeypatch.setattr(workflow, "SyncListsWorkflow", Sync)
+    data = bridge_file(TIKTOK_SYNC, workflowType="sync_following")
+    log: set = set()
+
+    assert dispatcher.TikTokDispatcherBridge(Recording(data, log)).run() == 0
+
+    assert_reads(TIKTOK_SYNC, data, log)
+    check_lines(TIKTOK_SYNC, lines)
+    assert _printed(lines) == {"status", "workflow_start", "sync_user_discovered", "sync_stats"}
+
+
+def test_the_dm_read_and_send_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotation):
+    from taktik.core.app.contract.tiktok_engagement import TIKTOK_DM_READ, TIKTOK_DM_SEND
+    from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import ConversationData, DMStats
+
+    class Dm(_Scripted):
+        def read_conversations(self):
+            conversation = ConversationData(name="Alice", messages=[
+                {"sender": None, "text": "Hi", "type": "text", "is_sent": False}], last_message="Hi")
+            self.callbacks["progress"](1, 1, "Alice")
+            self.callbacks["conversation"](conversation.to_dict())
+            self.callbacks["stats"](DMStats(conversations_read=1).to_dict())
+            return [conversation]
+
+        def send_bulk_messages(self, messages):
+            self.callbacks["progress"](1, len(messages), messages[0]["conversation"])
+            self.callbacks["message_sent"]({"conversation": messages[0]["conversation"], "success": True})
+            return [{"conversation": messages[0]["conversation"], "success": True}]
+
+        def get_stats(self):
+            return DMStats(conversations_read=1)
+
+    _patch_dm_rows(monkeypatch)
+    code, data, log = _engagement_run(monkeypatch, "engagement.dm_read", TIKTOK_DM_READ, Dm)
+    assert code == 0
+    assert_reads(TIKTOK_DM_READ, data, log)
+    check_lines(TIKTOK_DM_READ, lines)
+    assert _printed(lines) == {"status", "dm_progress", "dm_conversation", "dm_stats"}
+
+    lines.clear()
+    code, data, log = _engagement_run(monkeypatch, "engagement.dm_send", TIKTOK_DM_SEND, Dm)
+    assert code == 0
+    assert_reads(TIKTOK_DM_SEND, data, log)
+    check_lines(TIKTOK_DM_SEND, lines)
+    assert _printed(lines) == {"status", "dm_progress", "dm_sent", "dm_stats"}
+
+
+class _Inbox(_Scripted):
+    def read_new_followers(self, max_items):
+        row = {"username": "Alice", "activity": "started following you", "can_follow_back": True}
+        self.callbacks["new_follower"](row)
+        return [row]
+
+    def follow_back_users(self, usernames):
+        result = {"username": usernames[0], "success": True}
+        self.callbacks["follow_back_result"](result)
+        return [result]
+
+    def read_unreplied_conversations(self, max_items, only_unreplied):
+        row = {"username": "Alice", "preview": "Hello?", "unreplied": True}
+        self.callbacks["unreplied"](row)
+        return [row]
+
+    def read_message_requests(self, max_items):
+        row = {"username": "Bob", "preview": "Hi", "timestamp": "2h"}
+        self.callbacks["message_request"](row)
+        return [row]
+
+    def process_message_requests(self, decisions):
+        result = {"username": decisions[0]["username"], "action": "accept", "success": True, "replied": False}
+        self.callbacks["request_result"](result)
+        return [result]
+
+    def read_notifications(self, max_items):
+        row = {"title": "System notifications", "preview": "Your video", "category": "system"}
+        self.callbacks["notification"](row)
+        return [row]
+
+
+#: (runner, contract, file overrides, lines printed, keys of the file this mode does not reach)
+_INBOX_RUNS = (
+    # Listing: the names to act on and the pace between two actions are the other mode's; the
+    # language is read by the AI welcome pass only, off here.
+    ("engagement.new_followers", "TIKTOK_NEW_FOLLOWERS", {}, {"status", "new_follower"},
+     {"usernames", "delayBetweenActions", "language"}),
+    # Following back: no list read, no welcome pass.
+    ("engagement.new_followers", "TIKTOK_NEW_FOLLOWERS", {"mode": "follow_back"}, {"status", "follow_back_result"},
+     {"maxItems", "ai", "language"}),
+    ("engagement.unreplied", "TIKTOK_UNREPLIED", {}, {"status", "unreplied_conversation"}, set()),
+    ("engagement.requests", "TIKTOK_REQUESTS", {}, {"status", "message_request"},
+     {"decisions", "delayBetweenActions"}),
+    ("engagement.requests", "TIKTOK_REQUESTS", {"mode": "execute"}, {"status", "request_result"}, {"maxItems"}),
+    ("engagement.activity", "TIKTOK_ACTIVITY", {}, {"status", "activity_notification"}, set()),
+)
+
+
+@pytest.mark.parametrize("runner, name, overrides, printed, other_mode", _INBOX_RUNS)
+def test_the_inbox_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotation, runner, name, overrides,
+                                                 printed, other_mode):
+    from taktik.core.app.contract import tiktok_engagement
+
+    contract = getattr(tiktok_engagement, name)
+    code, data, log = _engagement_run(monkeypatch, runner, contract, _Inbox, **overrides)
+
+    assert code == 0
+    assert_reads(contract, data, log | {(key,) for key in other_mode if key in data})
+    check_lines(contract, lines)
+    assert _printed(lines) == printed
+
+
+@pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
+def test_the_notifications_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
+    import taktik.core.social_media.tiktok.actions.business.workflows.notifications.scan as scan
+    from taktik.core.app.contract.tiktok_engagement import TIKTOK_NOTIFICATIONS
+
+    def scanned(device, account_username, max_resolutions):
+        if fail:
+            raise RuntimeError("the new-followers page did not open")
+        return {"listed": 2, "resolved": 1, "skipped_over_budget": 0}
+
+    monkeypatch.setattr(scan, "scan_new_followers", scanned)
+    code, data, log = _engagement_run(monkeypatch, "engagement.notifications", TIKTOK_NOTIFICATIONS, _Scripted,
+                                      provider=False, readActivity=False)
+
+    assert code == (1 if fail else 0)
+    assert_reads(TIKTOK_NOTIFICATIONS, data, log)
+    check_lines(TIKTOK_NOTIFICATIONS, lines)
+    assert _printed(lines) == {"status", "notifications_result"}
