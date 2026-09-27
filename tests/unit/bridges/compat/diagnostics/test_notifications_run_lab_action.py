@@ -105,24 +105,26 @@ def test_the_lab_connect_takes_what_the_launcher_passes(monkeypatch, lab_lifecyc
 
 
 class _AppService:
-    """The bridges' app lifecycle, recorded: what a `NotificationsBridge` restarts and stops with."""
+    """The bridges' app lifecycle, as the real one uses its connection: it restarts and stops the app
+    through the connection's device manager (`stop_app`, `launch_app`), and says which service did."""
 
     calls = []
 
     def __init__(self, connection, platform="instagram", package_override=None):
-        self.device_id = connection.device_id
-        self.package_override = package_override
+        self._conn = connection
+        self.package = package_override or "com.instagram.android"
 
     def get_installed_version(self):
         return None
 
     def restart(self):
-        self.calls.append(("restart", self.device_id, self.package_override))
-        return True
+        self.calls.append("restart")
+        self._conn.device_manager.stop_app(self.package)
+        return self._conn.device_manager.launch_app(self.package)
 
     def stop(self):
-        self.calls.append(("stop", self.device_id, self.package_override))
-        return True
+        self.calls.append("stop")
+        return self._conn.device_manager.stop_app(self.package)
 
 
 @pytest.fixture
@@ -158,12 +160,13 @@ def test_the_runtime_is_the_bridge_class_on_the_session_device(monkeypatch, lab_
     assert restarted._connection.device._device is raw
     assert clone.package_name == "com.instagram.clone"
     # A scan restarts Instagram through the bridges' AppService, a row verb does not; the run's
-    # end closes it. Never through the Lab's own `app.launch`.
-    assert bridge_lifecycle == [
-        ("restart", SERIAL, None),
-        ("stop", SERIAL, None),
+    # end closes it. The service drives the session's phone (its serial), never a new connection.
+    assert bridge_lifecycle == ["restart", "stop"]
+    assert lab_lifecycle == [
+        ("stop", SERIAL, "com.instagram.android"),
+        ("launch", SERIAL, "com.instagram.android", False),
+        ("stop", SERIAL, "com.instagram.android"),
     ]
-    assert lab_lifecycle == []
 
 
 def test_the_lab_and_the_cli_connect_a_bridge_by_one_helper(monkeypatch):
