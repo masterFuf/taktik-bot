@@ -551,6 +551,12 @@ class PostNavigationMixin:
             self.logger.error(f"Error checking post view: {e}")
             return False
     
+    def _glance_at_post(self) -> None:
+        """Look at the post just reached: a short, varied glance (``content_dwell``), scaled by the
+        session's attention. The caller takes it once it knows the post deserves it; the move
+        itself (``_navigate_to_next_post_in_sequence``) never does."""
+        time.sleep(content_dwell(0) * self._behavior_reading_scale("profile_post_glance"))
+
     def _navigate_to_next_post_in_sequence(self) -> bool:
         try:
             self.logger.debug("Navigating to next post...")
@@ -562,8 +568,9 @@ class PostNavigationMixin:
                 # Vertical advance to the next post — humanised like the FEED browse:
                 # alternate a decisive flick (most of the time) with an occasional slow
                 # drag, instead of the single fixed swipe that read as a robotic identical
-                # scroll every post. Then a content-aware reading dwell (varied glance +
-                # occasional linger) replaces the flat 2s pause.
+                # scroll every post. The glance at the post reached is NOT taken here: only the
+                # caller knows whether that post is new (`_glance_at_post`), and a post met
+                # again is passed at once.
                 mode_decision = self.scroll_actions._choose_advance_mode(
                     "profile_posts",
                     base_drag_probability=dict(_ADVANCE_MODE_WEIGHTS)["drag"],
@@ -571,7 +578,6 @@ class PostNavigationMixin:
                 mode = mode_decision["mode"]
                 distance_scale = float(mode_decision.get("distance_scale", 1.0))
                 velocity_scale = float(mode_decision.get("velocity_scale", 1.0))
-                dwell_scale = float(mode_decision.get("dwell_scale", 1.0))
                 if mode == "drag":
                     advanced = self.scroll_actions._long_drag(
                         direction="up",
@@ -598,12 +604,6 @@ class PostNavigationMixin:
                         self.scroll_actions.land_on_post_header()
                     except Exception as land_exc:
                         self.logger.debug(f"land_on_post_header skipped: {land_exc}")
-
-                    # A human GLANCES at each post while scrolling — a short, varied dwell.
-                    # The deliberate "open + read the full description" is no longer done on
-                    # every advance: it's now an engagement step (see engagement_sequence), so
-                    # posts we act on get the full read+reframe and the rest get a glance.
-                    time.sleep(content_dwell(0) * dwell_scale)
 
                 if advanced and self._is_in_post_view():
                     self._remember_sequential_profile_post()
@@ -639,7 +639,6 @@ class PostNavigationMixin:
                         self.logger.debug(f"retry land_on_post_header skipped: {land_exc}")
                 if advanced and self._is_in_post_view():
                     self._remember_sequential_profile_post()
-                    time.sleep(content_dwell(0) * retry["dwell_scale"])
                     self.logger.debug("Navigation successful via controlled vertical retry")
                     return True
             except Exception as e:

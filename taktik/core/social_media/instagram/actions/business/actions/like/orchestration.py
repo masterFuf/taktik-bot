@@ -11,7 +11,6 @@ from .post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
-from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.support.debug import DEBUG_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
@@ -233,10 +232,6 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
             self.logger.success("Entry post opened, starting sequential scroll")
 
-            # A human glances at the first post on arrival; the deliberate description
-            # read is handled per-post by the engagement sequence (engagement_sequence).
-            time.sleep(content_dwell(0) * self._behavior_reading_scale("profile_post_glance"))
-
             consecutive_identical_posts = 0
             seen_posts_signatures = set()
             unique_posts_seen = 0
@@ -273,6 +268,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         post_type = "Reel" if is_reel else "Post"
                         self.logger.info(f"{post_type} #{unique_posts_seen} UNIQUE (scroll #{posts_seen}) - {current_likes} likes, {current_comments} comments - Likes: {posts_liked}/{max_likes}")
                     else:
+                        # A post met again is passed at once: no glance, no reading.
                         consecutive_identical_posts += 1
                         self.logger.debug(f"Already seen post (signature: {signature}) - scroll #{consecutive_identical_posts}/6")
                         
@@ -293,7 +289,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 if not objectives_pending():
                     self.logger.success("Post interaction objectives reached - stopping scroll")
                     break
-                
+
+                # A human glances at each post the first time they reach it, whatever brought it
+                # on screen (grid entry, vertical advance, reopen after a Reel). The deliberate
+                # description read is an engagement step (engagement_sequence).
+                self._glance_at_post()
+
                 # Decide whether to engage this post (probability gate kept — respects the
                 # user's like_probability + a position factor so not every post is liked).
                 if should_like:
@@ -367,10 +368,6 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         else:
                             self.logger.warning("Unable to navigate to next post - end of scroll")
                         break
-                    if is_reel:
-                        time.sleep(
-                            content_dwell(0) * self._behavior_reading_scale("profile_post_glance")
-                        )
 
                 self._human_like_delay('scroll')
             

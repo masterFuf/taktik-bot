@@ -278,6 +278,24 @@ def test_every_reopen_after_a_reel_lands_past_the_furthest_post_reached(monkeypa
     assert reopens, "the profile has Reels in its first rows: the walk must have left one"
 
 
+def test_a_post_met_again_gets_no_glance_and_no_reading(monkeypatch):
+    # The vertical gesture after the first post is swallowed: the same post is still on screen.
+    profile = _Profile(reels=set())
+    profile.swallowed_advances = 1
+    session = BehaviorSessionState(seed=3)
+    host, glances, engaged = _walker(monkeypatch, profile, session, liked_positions=set())
+
+    host.like_posts_with_sequential_scroll(
+        USERNAME, max_likes=1, profile_data={"posts_count": POSTS_ON_PROFILE}
+    )
+
+    # One glance per post, taken once the loop knows the post is new: none on the post met again.
+    entry = profile.grid_opens[0]
+    assert glances[:2] == [entry, entry + 1], f"glances at {glances}"
+    assert glances == sorted(set(glances))
+    assert engaged == []
+
+
 def test_a_reopen_after_a_reel_is_not_always_the_very_next_post(monkeypatch):
     # Entry on cell 1, then the Reel at 2: the reopen draws among the cells past it on screen.
     reopened = set()

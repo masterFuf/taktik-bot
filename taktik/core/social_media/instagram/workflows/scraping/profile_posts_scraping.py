@@ -142,6 +142,8 @@ class ProfilePostsScrapingMixin:
             if not navigator._advance_or_exit_reel(is_reel, username=target):
                 self.logger.info(f"@{target}: no further post to open")
                 break
+            # The move does not glance at the post it reaches; this walk looks at every one.
+            navigator._glance_at_post()
 
         self._return_to_post_grid()
         console.print(

@@ -14,6 +14,7 @@ class _CommentOnlyHarness:
     )
     default_config = {}
     _notify_gesture = staticmethod(LikeOrchestration._notify_gesture)
+    _glance_at_post = LikeOrchestration._glance_at_post
 
     def __init__(self, comment_results):
         self.logger = _Logger()
