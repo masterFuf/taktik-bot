@@ -6,6 +6,11 @@ costs a follow-back; folding it into "relevant" sends a private message to a str
 strength of a call that failed. Both branches are named below (`no_verdict`, `unscored_verdict`)
 so nobody has to read the code to find out which one an absent verdict took.
 
+The welcome DM leans on that verdict only when it is tied to the follow-back
+(`dmRequiresFollowBack`, the default). Without that tie it goes to every new follower detected,
+whatever the verdict: the product decision is that a new follower is welcomed because they
+followed, as on Instagram, and the verdict then decides the follow-back alone.
+
 Nothing here composes a message. The welcome texts are written upstream by the app, which holds
 the account's persona; the bot picks one and types it. A canned sentence living in the bot would
 go out in the account's name without the account knowing — the same rule Instagram's welcome DM
@@ -63,6 +68,14 @@ class WelcomePolicy:
         Worth naming: it looks identical, in the stats, to a run where the AI rejected everyone.
         """
         return self.welcome_dm and not self.messages
+
+    @property
+    def welcomes_every_follower(self) -> bool:
+        """A welcome DM to every new follower, the verdict notwithstanding.
+
+        Asked for by untying the DM from the follow-back; it still needs a text to send.
+        """
+        return self.welcome_dm and bool(self.messages) and not self.dm_requires_follow_back
 
 
 @dataclass(frozen=True)
@@ -132,20 +145,25 @@ def decide_for_new_follower(
     # No verdict is not a verdict. The AI was asked and did not answer (provider error, black
     # screenshot, classification without an engagement block) — acting on that would be acting
     # on nothing, which is exactly how 310 profiles once got a niche off a blank screen.
+    # A welcome to every follower does not rest on the verdict, so it survives each refusal below.
+    welcome_anyway = policy.welcomes_every_follower
     if not isinstance(verdict, Mapping):
-        return WelcomeDecision(handle, reason=REASON_NO_VERDICT)
+        return WelcomeDecision(handle, welcome_dm=welcome_anyway, reason=REASON_NO_VERDICT)
 
     relevant = bool(verdict.get("relevant"))
     score = _as_score(verdict.get("score"))
 
     if not relevant:
-        return WelcomeDecision(handle, reason=REASON_NOT_RELEVANT, score=score, relevant=False)
+        return WelcomeDecision(handle, welcome_dm=welcome_anyway, reason=REASON_NOT_RELEVANT,
+                               score=score, relevant=False)
     if policy.min_score > 0 and score is None:
         # Relevant, but the threshold the operator set cannot be checked. Refusing keeps the
         # setting meaningful; letting it through would make `minScore` decorative.
-        return WelcomeDecision(handle, reason=REASON_UNSCORED, score=None, relevant=True)
+        return WelcomeDecision(handle, welcome_dm=welcome_anyway, reason=REASON_UNSCORED,
+                               score=None, relevant=True)
     if score is not None and score < policy.min_score:
-        return WelcomeDecision(handle, reason=REASON_BELOW_THRESHOLD, score=score, relevant=True)
+        return WelcomeDecision(handle, welcome_dm=welcome_anyway, reason=REASON_BELOW_THRESHOLD,
+                               score=score, relevant=True)
 
     ai_follow = bool(verdict.get("follow"))
     follow_back = policy.follow_back and ai_follow

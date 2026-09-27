@@ -3,7 +3,8 @@
 `tt.activity.suggested.read_handle` is the step taken before a suggested follow,
 `tt.inbox.resolve_thread_handle` the one taken after a wave, `tt.inbox.read_thread_handle` its
 no-gesture read on an open thread; `tt.inbox.hello_candidates` and `tt.inbox.say_hello` cover the
-wave itself, which had no Lab action.
+wave itself, which had no Lab action. `tt.inbox.open_new_follower_profile` is the step the scan and
+the welcome pass take on each new follower.
 """
 
 from types import SimpleNamespace
@@ -38,6 +39,10 @@ class _Dm:
         self.calls.append(("resolve", name))
         return None if name == "Bob" else "ana.b"
 
+    def open_new_follower_profile(self, name):
+        self.calls.append(("open_new_follower", name))
+        return None if name == "Bob" else "ana.b"
+
 
 def test_the_suggested_handle_read_is_the_production_step(monkeypatch):
     seen = []
@@ -69,6 +74,22 @@ def test_the_thread_handle_actions_call_the_dm_actions():
     assert ACTION_REGISTRY["tt.inbox.resolve_thread_handle"](bundle, {"name": "Ana B"})["success"] is True
     assert ACTION_REGISTRY["tt.inbox.resolve_thread_handle"](bundle, {"name": "Bob"})["success"] is False
     assert dm.calls == [("read",), ("resolve", "Ana B"), ("resolve", "Bob")]
+
+
+def test_the_new_follower_profile_open_is_the_production_step():
+    """The welcome pass and the notifications scan open each new follower's row and read the
+    handle off the profile; the Lab had no way to run that step alone."""
+    dm = _Dm()
+    bundle = SimpleNamespace(dm=dm)
+
+    opened = ACTION_REGISTRY["tt.inbox.open_new_follower_profile"](bundle, {"name": "Ana B"})
+    missed = ACTION_REGISTRY["tt.inbox.open_new_follower_profile"](bundle, {"name": "Bob"})
+    refused = ACTION_REGISTRY["tt.inbox.open_new_follower_profile"](bundle, {})
+
+    assert (opened["success"], opened["details"]) == (True, {"name": "Ana B", "handle": "ana.b"})
+    assert (missed["success"], missed["details"]) == (False, {"name": "Bob", "handle": None})
+    assert refused["success"] is False
+    assert dm.calls == [("open_new_follower", "Ana B"), ("open_new_follower", "Bob")]
 
 
 def test_the_wave_has_its_lab_actions():
