@@ -27,6 +27,7 @@ from .shared import (
     STEP_METRIC_EVENT,
     device_field,
 )
+from .stop_reasons import RUN_HALT_CODE
 
 _AGENT = "taktik.core.social_media.instagram.workflows.agent"
 
@@ -70,7 +71,7 @@ STATUS_STATS = Shape(
         Field("session_cost_usd", "number", "What the model calls cost.", optional=True),
         Field("profiles_skipped_relationship", "int", "Profiles left: a relationship already existed.",
               optional=True),
-        Field("stop_reason", "string", "Why the session stopped early (a block...), on `completed`.", optional=True),
+        Field("stop_reason", RUN_HALT_CODE, "Why the session stopped early (a block...), on `completed`.", optional=True),
         Field("username", "string", "The acting account (`account_detected`).", optional=True),
         Field("niche", "string", "Its niche, as on record (`account_detected`).", optional=True),
         Field("tool", "string", "The step announced (`planning`).", optional=True),

@@ -26,6 +26,10 @@ ROOT = Path(__file__).resolve().parents[4]
 #: The fields of a line that say why a run ended.
 REASON_FIELDS = {"completion_reason", "completionReason", "stop_reason", "stopReason", "reason_code"}
 
+#: Not why the run ended: how a sub-pass ended, a vocabulary of its own (the bot's session catalogue
+#: keeps it apart, `.../management/session/stop_reasons.py`).
+SUB_PASSES = {("instagram.engagement.notifications", "result", ("suggestions", "stop_reason"))}
+
 
 def _tree(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8-sig"))
@@ -125,7 +129,8 @@ def test_every_reason_a_line_carries_is_a_catalogue():
     for owner in owners:
         for event in owner.events:
             for path, item, _, _ in nested_fields(event.fields):
-                if item.key in REASON_FIELDS:
+                owner_id = getattr(owner, "workflow_id", getattr(owner, "name", ""))
+                if item.key in REASON_FIELDS and (owner_id, event.type, tuple(path)) not in SUB_PASSES:
                     spec = item.type
                     if not (isinstance(spec, OneOf) and spec.name in {c.name for c in CATALOGUES}):
                         free.append(f"{getattr(owner, 'workflow_id', owner.name)} `{event.type}`.{'.'.join(path)}")
