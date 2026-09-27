@@ -4,9 +4,8 @@ YouTube Upload Bridge
 =====================
 Bridge for publishing a video (Short or standard Video) on YouTube.
 
-Config JSON:
+Config JSON (declared in `taktik/core/app/contract/publish.py`):
   {
-    "workflowType": "upload_post",
     "deviceId": "...",
     "localPath": "/absolute/path/to/file.mp4",
     "title": "My video title",
@@ -30,7 +29,6 @@ setup_environment()
 
 from bridges.common.runtime.entrypoint import CONFIG_ERROR, report_error_message, run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
-from bridges.youtube.publish.runtime.request import build_upload_request
 from bridges.youtube.publish.runtime.workflow import run_youtube_upload_workflow
 from bridges.youtube.base import _ipc, send_error, send_log, send_message, send_status
 from bridges.youtube.runtime.session import cleanup_youtube_app, prepare_youtube_session
@@ -38,8 +36,6 @@ from bridges.youtube.runtime.session import cleanup_youtube_app, prepare_youtube
 
 class YouTubeUploadBridge:
     """Bridge for YouTube video upload (Shorts or standard)."""
-
-    SHORT_TITLE_MAX_LENGTH = 100
 
     def __init__(self, config: dict):
         self.config = config
@@ -53,16 +49,25 @@ class YouTubeUploadBridge:
         send_status("stopping", "Received shutdown signal")
 
     def run(self) -> int:
-        request = build_upload_request(
-            self.config,
-            self.SHORT_TITLE_MAX_LENGTH,
-            send_error,
-            send_log,
+        from taktik.core.social_media.youtube.workflows.publish.payload import (
+            YouTubeUploadRequestError,
+            check_upload_file,
+            youtube_upload_request_from_payload,
         )
-        if not request:
+
+        device_id = self.config.get("deviceId")
+        if not device_id:
+            send_error("deviceId is required")
+            return 1
+        try:
+            # Read before connecting: a missing file means the phone is not touched.
+            request = youtube_upload_request_from_payload(self.config)
+            check_upload_file(request)
+        except YouTubeUploadRequestError as exc:
+            send_error(str(exc))
             return 1
 
-        session = prepare_youtube_session(request.device_id, send_status, send_error)
+        session = prepare_youtube_session(device_id, send_status, send_error)
         if not session:
             return 1
         self._connection = session.connection
@@ -70,15 +75,16 @@ class YouTubeUploadBridge:
         try:
             return run_youtube_upload_workflow(
                 device=session.device,
-                device_id=request.device_id,
-                request=request,
+                device_id=device_id,
+                config=self.config,
+                upload_type=request.upload_type,
                 send_status=send_status,
                 send_message=send_message,
                 send_error=send_error,
                 send_log=send_log,
             )
         finally:
-            cleanup_youtube_app(request.device_id)
+            cleanup_youtube_app(device_id)
 
 
 def main() -> None:

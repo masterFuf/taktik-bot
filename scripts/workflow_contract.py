@@ -41,13 +41,14 @@ from taktik.core.app.contract.schema import (  # noqa: E402
     has_default,
     scalar_default,
 )
-from taktik.core.app.contract.shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT  # noqa: E402
+from taktik.core.app.contract.shared import AI_SPEND_EVENT, ERROR_EVENT, LOG_EVENT, STATUS_EVENT  # noqa: E402
 
 #: Lines every bridge shares get one interface, referenced by each workflow.
 SHARED_LINES = {
     STATUS_EVENT.type: ("BridgeStatusLine", STATUS_EVENT),
     ERROR_EVENT.type: ("BridgeErrorLine", ERROR_EVENT),
     AI_SPEND_EVENT.type: ("BridgeAiSpendLine", AI_SPEND_EVENT),
+    LOG_EVENT.type: ("BridgeLogLine", LOG_EVENT),
 }
 
 HEADER = """/**
@@ -96,7 +97,7 @@ def literal(value: Any) -> str:
 
 
 def constant_name(name: str) -> str:
-    return "_".join(token.upper() for token in re.findall(r"TikTok|[A-Z][a-z0-9]*", name))
+    return "_".join(token.upper() for token in re.findall(r"TikTok|YouTube|[A-Z][a-z0-9]*", name))
 
 
 def doc_line(item: Field) -> str:

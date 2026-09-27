@@ -1,13 +1,14 @@
 """Workflow execution for the YouTube upload bridge."""
 
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 
 def run_youtube_upload_workflow(
     *,
     device: Any,
     device_id: str,
-    request: Any,
+    config: Mapping[str, Any],
+    upload_type: str,
     send_status: Callable[[str, str], None],
     send_message: Callable[..., None],
     send_error: Callable[[str], None],
@@ -18,15 +19,9 @@ def run_youtube_upload_workflow(
     try:
         from taktik.core.social_media.youtube.workflows.publish.agent_handler import run_youtube_upload
 
-        # The core launcher; the bridge injects its stdout callbacks.
+        # The core launcher reads the config file; the bridge injects its stdout callbacks.
         result = run_youtube_upload(
-            {
-                "local_path": request.local_path,
-                "title": request.title,
-                "description": request.description,
-                "upload_type": request.upload_type,
-                "visibility": request.visibility,
-            },
+            config,
             device=device,
             device_id=device_id,
             log=send_log,
@@ -39,7 +34,7 @@ def run_youtube_upload_workflow(
             "upload_result",
             success=success,
             workflow="upload_post",
-            upload_type=request.upload_type,
+            upload_type=upload_type,
             message=result.get("message", ""),
             error_type=result.get("error_type"),
         )

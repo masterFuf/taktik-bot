@@ -56,6 +56,17 @@ ERROR_EVENT = Event(
 )
 
 
+#: `IPC.log` / `send_log`, a line for the run's log view.
+LOG_EVENT = Event(
+    "log",
+    doc="A line for the run's log view.",
+    fields=(
+        Field("level", "string", "debug, info, warning, error..."),
+        Field("message", "string", "The line."),
+    ),
+)
+
+
 #: `IPC.ai_spend` (`bridges/common/runtime/ipc_ai.py`), one line per paid model call.
 AI_SPEND_EVENT = Event(
     "ai_spend",
@@ -73,6 +84,7 @@ AI_SPEND_EVENT = Event(
 __all__ = [
     "AI_SPEND_EVENT",
     "ERROR_EVENT",
+    "LOG_EVENT",
     "NETWORK_RESET",
     "STATUS_EVENT",
     "device_field",

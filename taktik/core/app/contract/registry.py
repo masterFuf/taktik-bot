@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
-from . import tiktok, tiktok_automation, tiktok_profiles
+from . import publish, tasks, threads, tiktok, tiktok_automation, tiktok_profiles
 from .schema import WorkflowContract
 
-WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (*tiktok.CONTRACTS, *tiktok_automation.CONTRACTS, *tiktok_profiles.CONTRACTS)
+WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (
+    *tiktok.CONTRACTS,
+    *tiktok_automation.CONTRACTS,
+    *tiktok_profiles.CONTRACTS,
+    *threads.CONTRACTS,
+    *tasks.CONTRACTS,
+    *publish.CONTRACTS,
+)
 
 
 def contracts_by_id() -> Dict[str, WorkflowContract]:

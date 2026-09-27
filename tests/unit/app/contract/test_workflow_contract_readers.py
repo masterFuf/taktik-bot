@@ -4,6 +4,8 @@ The declaration is the source of the app's types. These tests hold each reader t
 the declared keys and no other, applies the declared default when a key is absent, puts the
 value of the wire key where the declaration says, accepts each alias with the wire key first, and
 refuses what the declaration says it refuses, before the phone is touched.
+
+A nested group (`actionProbabilities`) is held key by key by `test_workflow_contract_groups.py`.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from contract_probe import (
     expected,
     matches,
     expected_default,
+    is_group,
     launch,
     names,
     payload_for,
@@ -31,11 +34,13 @@ SETTINGS = [
     pytest.param(contract, item, id=f"{contract.workflow_id}:{item.key}")
     for contract in WORKFLOW_CONTRACTS
     for item in contract.settings
+    if not is_group(item)
 ]
 ALIASES = [
     pytest.param(contract, item, alias, id=f"{contract.workflow_id}:{item.key}<-{alias}")
     for contract in WORKFLOW_CONTRACTS
     for item in contract.settings
+    if not is_group(item)
     for alias in item.aliases
 ]
 REFUSALS = [
@@ -108,4 +113,6 @@ def test_the_launcher_refuses_what_the_declaration_refuses(contract, refusal):
 def test_every_setting_says_where_its_value_goes():
     for contract in WORKFLOW_CONTRACTS:
         for item in contract.settings:
-            assert item.attr or item.reader, f"{contract.workflow_id}:{item.key}"
+            fields = item.type.fields if is_group(item) else (item,)
+            for leaf in fields:
+                assert leaf.attr or leaf.reader, f"{contract.workflow_id}:{item.key}.{leaf.key}"

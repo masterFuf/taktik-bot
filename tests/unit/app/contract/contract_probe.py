@@ -6,7 +6,7 @@ import importlib
 import inspect
 from typing import Any, Dict, Iterable, Mapping, Set, Tuple
 
-from taktik.core.app.contract.schema import Field, ListOf, OneOf, WorkflowContract, has_default
+from taktik.core.app.contract.schema import Field, ListOf, OneOf, Shape, WorkflowContract, has_default
 
 DEVICE = "emulator-5554"
 
@@ -161,9 +161,18 @@ def value_of(contract: WorkflowContract, item: Field, payload: Dict[str, Any]) -
 
 def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -> Any:
     launcher = resolve(contract.launcher)
-    if "device_id" in inspect.signature(launcher).parameters:
+    parameters = inspect.signature(launcher).parameters
+    if "device_id" in parameters:
         kwargs.setdefault("device_id", DEVICE)
+    if "device" in parameters:
+        # A refusal comes before the phone: a launcher that needs one to refuse fails the test.
+        kwargs.setdefault("device", None)
     return launcher(payload, **kwargs)
+
+
+def is_group(item: Field) -> bool:
+    """A nested setting whose keys are declared one by one (`actionProbabilities.follow`)."""
+    return isinstance(item.type, Shape) and not item.attr and not item.reader
 
 
 def names(fields: Iterable[Field]) -> Set[str]:
