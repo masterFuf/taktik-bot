@@ -140,11 +140,13 @@ def host_settings(contract: WorkflowContract) -> List[Field]:
 # ------------------------------------------------------------------------------------ render
 
 
-def render_shape(shape: Shape) -> List[str]:
+def render_shape(shape: Shape, filled: bool = False) -> List[str]:
+    """`filled`: a shape of a payload the app writes, whose members are optional unless required."""
     out = [f"/** {shape.doc} */"] if shape.doc else []
     out.append(f"export interface {shape.name} {{")
     for item in shape.fields:
-        out += member(item, force_optional=item.optional or not item.required and _is_setting_shape(shape))
+        optional = not item.required and (filled or _is_setting_shape(shape))
+        out += member(item, force_optional=item.optional or optional)
     out.append("}")
     return out
 
@@ -248,8 +250,14 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Tupl
             for shape in shapes_in(item.type):
                 if shapes.setdefault(shape.name, shape) != shape:
                     raise ValueError(f"two shapes named {shape.name}")
+    filled = {
+        shape.name
+        for contract in contracts
+        for item in (*contract.settings, *contract.bridge_fields)
+        for shape in shapes_in(item.type)
+    }
     for shape in shapes.values():
-        lines += render_shape(shape) + [""]
+        lines += render_shape(shape, shape.name in filled) + [""]
         exported.append(shape.name)
     used = {event.type for contract in contracts for event in contract.events}
     for event_type, (name, event) in SHARED_LINES.items():
@@ -276,6 +284,18 @@ def _paths(item: Field, prefix: Tuple[str, ...]) -> List[List[str]]:
     return out
 
 
+def _json_paths(item: Field, prefix: Tuple[str, ...] = ()) -> List[List[str]]:
+    """Where an object read as a whole sits, nested in a shape or not: below it, nothing is declared."""
+    out = []
+    for name in item.names:
+        if item.type == "json":
+            out.append([*prefix, name])
+        elif isinstance(item.type, Shape):
+            for sub in item.type.fields:
+                out += _json_paths(sub, (*prefix, name))
+    return out
+
+
 def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dict[str, Any]:
     _, exported = render(contracts)
     workflows = {}
@@ -297,8 +317,8 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dic
             "launcherReads": launcher,
             "bridgeReads": bridge,
             # Objects the bot reads as a whole ("json"): what lies below them is not declared yet.
-            "opaque": [[*nest, name] for item in contract.settings if item.type == "json" for name in item.names],
-            "launcherOpaque": [[name] for item in contract.settings if item.type == "json" for name in item.names],
+            "opaque": [[*nest, *path] for item in contract.settings for path in _json_paths(item)],
+            "launcherOpaque": [path for item in contract.settings for path in _json_paths(item)],
             "settings": [
                 {"key": item.key, "aliases": list(item.aliases), "app": item.app, "by": item.by,
                  "required": item.required}

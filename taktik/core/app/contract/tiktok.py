@@ -151,6 +151,9 @@ TIKTOK_DM_OUTREACH = WorkflowContract(
 
 TIKTOK_SCRAPING = WorkflowContract(
     workflow_id="tiktok.standalone.tiktok_scraping",
+    # The dispatcher's `scraping` branch runs the same launcher on the same payload (it also reads
+    # its `workflowType`); no app entry sends it there.
+    also=("tiktok.automation.scraping",),
     name="TikTokScraping",
     bridge="tiktok_scraping_bridge",
     doc="Collect profiles from accounts, a hashtag, posts' commenters, sounds or an account's posts.",

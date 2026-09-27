@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import ERROR_EVENT, STATUS_EVENT, network_reset_field
+from .tiktok_lines import AI_PROFILE_DONE_EVENT, BOT_PROFILE_EVENT
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 _AI_HOOKS = "taktik.core.social_media.tiktok.workflows.core.ai_hooks"
@@ -66,9 +67,51 @@ VIDEO_SETTINGS = (
 )
 
 #: The AI block and the language its operator-facing texts are written in (`ai_hooks.py`).
+#: `ai.newFollowers`: the welcome pass of the new-followers flow (`services/welcome/decision.py`).
+WELCOME_POLICY = Shape(
+    name="TikTokWelcomePolicy",
+    doc="The AI welcome pass of new followers; anything missing means off.",
+    fields=(
+        Field("enabled", "bool", "Run the welcome pass.", default=False),
+        Field("followBack", "bool", "Follow back a follower the verdict approves.", default=True,
+              aliases=("follow_back",)),
+        Field("welcomeDm", "bool", "Write a welcome message to an approved follower.", default=False,
+              aliases=("welcome_dm",)),
+        Field("minScore", "number", "The verdict's score, 0 to 1 (or 0 to 100), from which a follower is approved.",
+              default=0.6, aliases=("min_score",)),
+        Field("dmRequiresFollowBack", "bool", "Write only to a follower followed back.", default=True,
+              aliases=("dm_requires_follow_back",)),
+        Field("maxDms", "int", "Welcome messages in the run.", default=10, aliases=("max_dms",)),
+        Field("delayMin", "int", "Shortest pause between two messages, in seconds.", default=30, aliases=("delay_min",)),
+        Field("delayMax", "int", "Longest pause between two messages, in seconds.", default=70, aliases=("delay_max",)),
+        Field("messages", ListOf("string"), "The welcome messages to pick from."),
+    ),
+)
+
+#: The run's `ai` block, as the TikTok readers read it: the AI factory (`app/ai/factory.py`), the
+#: hooks (`workflows/core/ai_hooks.py`) and the welcome policy.
+AI_BLOCK = Shape(
+    name="TikTokAiBlock",
+    doc="The run's AI settings; the key and the models are injected by the app's main process.",
+    fields=(
+        Field("enabled", "bool", "AI on for this run.", default=False),
+        Field("openrouterApiKey", "string", "The OpenRouter key (injected by the host, never typed).", by=HOST),
+        Field("visionModel", "string", "The vision model, instead of the default."),
+        Field("textModel", "string", "The text model, instead of the default."),
+        Field("nicheTaxonomy", "json", "The niches the classifier chooses from.", aliases=("niche_taxonomy",)),
+        Field("profileAnalysis", "bool", "Judge each visited profile before engaging it.", default=False),
+        Field("smartComments", "bool", "Write the comments with the AI.", default=False),
+        Field("commentDecisionMode", "bool", "Let the AI decide whether to comment at all.", default=False),
+        Field("accountNiche", "string", "The acting account's niche, the verdicts are relative to it.",
+              aliases=("account_niche",)),
+        Field("accountSubNiche", "string", "Its sub-niche.", aliases=("account_sub_niche",)),
+        Field("accountProfile", "json", "The acting account's persona, for the comments."),
+        Field("newFollowers", WELCOME_POLICY, "The welcome pass of new followers.", aliases=("new_followers",)),
+    ),
+)
+
 AI_SETTINGS = (
-    Field("ai", "json", "The AI block (profile analysis, smart comments, provider); read by the AI factory, "
-          "its keys are not declared yet.", default={}, reader=f"{_AI_HOOKS}:ai_config_from_payload"),
+    Field("ai", AI_BLOCK, "The AI block.", default={}, reader=f"{_AI_HOOKS}:ai_config_from_payload"),
     Field("language", "string", "The app language the operator-facing AI texts are written in.", default="en",
           aliases=("appLanguage",), reader=f"{_AI_HOOKS}:app_language_from_payload"),
 )
@@ -106,6 +149,8 @@ VIDEO_INFO = Shape(
 VIDEO_EVENTS = (
     STATUS_EVENT,
     ERROR_EVENT,
+    BOT_PROFILE_EVENT,
+    AI_PROFILE_DONE_EVENT,
     Event("stats", doc="The run's counters.", fields=(Field("stats", VIDEO_STATS, "The counters."),)),
     Event("video_info", doc="The video on screen.", fields=(Field("video", VIDEO_INFO, "The video."),)),
     Event("action", doc="An action on the video on screen.", fields=(

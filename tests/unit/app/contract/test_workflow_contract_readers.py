@@ -13,6 +13,7 @@ import pytest
 from contract_probe import (
     Recording,
     by_iteration,
+    call_reader,
     expected,
     matches,
     expected_default,
@@ -53,13 +54,19 @@ def test_the_readers_read_the_declared_keys_and_no_other(contract):
     read(contract, payload)
     for item in contract.settings:
         if item.reader:
-            resolve(item.reader)(payload, **item.reader_kwargs)
+            call_reader(item.reader, payload, item.reader_kwargs)
 
     read_keys = {path[0] for path in log}
-    assert read_keys <= names(contract.settings), "a key read and not declared"
+    # A reader may read what the bridge carries too (the dispatcher's `workflowType`).
+    assert read_keys <= names(contract.settings) | names(contract.bridge_fields), "a key read and not declared"
     # Every wire key is read; an alias may be skipped once a name before it was given. A filter
     # criterion is read when present, by the merge of every flat key.
-    assert {item.key for item in contract.settings if not by_iteration(item)} <= read_keys
+    # A key its reader skips because the run's required key came first (a single message beside
+    # the list) is read in the alias and wire tests below instead.
+    given = {contract.setting(key).reader for key in payload if key in names(contract.settings)}
+    skipped = {item.key for item in contract.settings
+               if item.reader in given and item.reader and item.key not in payload}
+    assert {item.key for item in contract.settings if not by_iteration(item)} - skipped <= read_keys
 
 
 @pytest.mark.parametrize("contract, item", SETTINGS)
