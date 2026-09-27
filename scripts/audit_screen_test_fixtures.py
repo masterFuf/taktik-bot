@@ -127,9 +127,9 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (11, "profile headers rebuilt after eight captured profiles."),
     "tests/unit/social_media/tiktok/test_update_prompt_overlay.py":
         (5,
-         "TikTok's splash, its loading logo and an unlabelled bottom sheet, invented: capture the "
-         "launch screen and such a sheet (43.1.4, French); the prompt, the feed and the launcher "
-         "are real."),
+         "TikTok's loading logo and an unlabelled bottom sheet, invented: no capture shows them "
+         "(the 43.1.4 launch goes from a black screen to the feed on the Pixel 3a); the prompt, "
+         "the feed, the launcher and the black launch screen are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_comment_sheet_label_route.py":
         (6,
          "the 46.6.3 sheets (full, empty, with typed text) rebuilt by a helper after their "

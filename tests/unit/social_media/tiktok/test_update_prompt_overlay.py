@@ -2,10 +2,13 @@
 dump, read by OCR, and dismissed on its "not now" word only.
 
 The prompt is the real 43.1.4 capture (Pixel 3a, French), anonymized: app nodes with no text or
-content-desc, a centred dialog frame. So are the For You feed of the same version and the Pixel
-launcher (Android 12, French). The splash, the loading logo and the unlabelled bottom sheet are
-still written by hand: no capture of the corpus shows them (capture TikTok's launch screen and a
-sheet it draws without labels, 43.1.4, French). The OCR results are invented.
+content-desc, a centred dialog frame. So are the For You feed of the same version, the Pixel
+launcher (Android 12, French) and TikTok's launch screen: captured on the Pixel 3a right after a
+force-stop (decision D16 of 2026-09-27), a black screen where uiautomator sees no node of the app,
+only the status bar (`tt4314_fr_launch_black.xml`); dumped every 0.07 s from the launch, the phone
+went from it straight to the feed, with no loading logo in between. The loading logo and the
+unlabelled bottom sheet are still written by hand (no capture shows them). The OCR results are
+invented.
 """
 
 from pathlib import Path
@@ -39,7 +42,7 @@ def _screen(*nodes):
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROMPT = (FIXTURES / "tt4314_fr_update_prompt.xml").read_text(encoding="utf-8")
-SPLASH = _screen(_node("[0,0][1080,2220]"), _node("[0,0][1080,2220]"))
+SPLASH = (FIXTURES / "tt4314_fr_launch_black.xml").read_text(encoding="utf-8")
 FEED = (FIXTURES / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
 LAUNCHER_ONLY = (Path(__file__).parents[2] / "shared" / "device" / "fixtures"
                  / "android12_fr_launcher_home.xml").read_text(encoding="utf-8")
