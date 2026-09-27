@@ -1,7 +1,7 @@
 """The launchers of the Threads runs, and their Agent handler.
 
-`run_threads_search` (follow, target) and `run_threads_feed` are what the desktop bridge calls
-and what the handler registered under the three `threads.automation.*` ids (the CLI) calls.
+`run_threads_search` (follow) and `run_threads_feed` are what the desktop bridge calls
+and what the handler registered under the two `threads.automation.*` ids (the CLI) calls.
 Both read the payload with the same readers below; what differs between hosts is injected:
 - `startup`: an already started `(manager, device, anchor)`; without it the engine starts
   Threads itself from the payload's device id.
@@ -29,11 +29,9 @@ from taktik.core.social_media.threads.workflows.search_and_interact import (
 
 
 THREADS_FOLLOW_WORKFLOW_ID = "threads.automation.follow"
-THREADS_TARGET_WORKFLOW_ID = "threads.automation.target"
 THREADS_FEED_WORKFLOW_ID = "threads.automation.feed"
 THREADS_AUTOMATION_WORKFLOW_IDS = (
     THREADS_FOLLOW_WORKFLOW_ID,
-    THREADS_TARGET_WORKFLOW_ID,
     THREADS_FEED_WORKFLOW_ID,
 )
 StartupProvider = Callable[[WorkflowInvocation, Mapping[str, Any]], Any]
@@ -45,7 +43,7 @@ LogHook = Callable[[str, str], None]
 
 
 class ThreadsSearchQueryMissing(ValueError):
-    """A follow/target run was given nothing to search for."""
+    """A follow run was given nothing to search for."""
 
 
 # --------------------------------------------------------------------------- launchers
@@ -63,7 +61,7 @@ def run_threads_search(
     on_started: Optional[StartedHook] = None,
     on_finished: Optional[FinishedHook] = None,
 ) -> dict[str, Any]:
-    """Read a follow/target payload, then run one Threads search-and-interact session."""
+    """Read a follow payload, then run one Threads search-and-interact session."""
     config = threads_search_config_from_payload(payload)
     _announce(
         on_log,
@@ -176,7 +174,7 @@ def build_threads_automation_handler(
             if feed_runner is not None:
                 events["feed_runner"] = feed_runner
             return run_threads_feed(merged, **events)
-        if invocation.workflow_id in {THREADS_FOLLOW_WORKFLOW_ID, THREADS_TARGET_WORKFLOW_ID}:
+        if invocation.workflow_id == THREADS_FOLLOW_WORKFLOW_ID:
             if search_runner is not None:
                 events["search_runner"] = search_runner
             return run_threads_search(merged, **events)
@@ -215,7 +213,7 @@ def register_threads_automation_handlers(
 
 
 def threads_search_config_from_payload(payload: Mapping[str, Any]) -> SearchInteractConfig:
-    """The follow/target settings, as the page, the scheduler and the CLI send them."""
+    """The follow settings, as the page, the scheduler and the CLI send them."""
     query = _string_param(payload, "searchQuery", "search_query", "target", "username", default="")
     if not query:
         for name in ("targets", "targetAccounts"):
@@ -226,7 +224,7 @@ def threads_search_config_from_payload(payload: Mapping[str, Any]) -> SearchInte
                 query = str(targets[0]).strip().lstrip("@")
                 break
     if not query:
-        raise ThreadsSearchQueryMissing("Threads follow/target workflow requires searchQuery or target")
+        raise ThreadsSearchQueryMissing("Threads follow workflow requires searchQuery or target")
 
     return SearchInteractConfig(
         device_id=_string_param(payload, "deviceId", "device_id", default="agent"),

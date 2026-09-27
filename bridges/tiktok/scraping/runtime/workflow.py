@@ -1,12 +1,10 @@
 """TikTok scraping bridge runtime.
 
-The run is `run_tiktok_scraping` (core), the launcher the Agent handlers
-`tiktok.automation.scraping` and `tiktok.standalone.tiktok_scraping` (and so the CLI) call too:
-read the payload, start TikTok, scrape, file the session and its profiles. Both desktop entries
-land here: `tiktok_scraping_bridge` (its config file, `TikTokScrapingBridge`) and the
-`scraping` branch of the `tiktok_bridge` dispatcher (`run_scraping_workflow`). This module only
-injects what is specific to the desktop: the startup that prints on stdout, its IPC for the live
-events, the stop signal.
+The run is `run_tiktok_scraping` (core), the launcher the Agent handler
+`tiktok.standalone.tiktok_scraping` (and so the CLI) calls too: read the payload, start TikTok,
+scrape, file the session and its profiles. The desktop entry is `tiktok_scraping_bridge` (its
+config file, `TikTokScrapingBridge`). This module only injects what is specific to the desktop:
+the startup that prints on stdout, its IPC for the live events, the stop signal.
 """
 
 from __future__ import annotations

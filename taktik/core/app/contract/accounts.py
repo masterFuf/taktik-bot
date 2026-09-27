@@ -197,8 +197,10 @@ INSTAGRAM_ACCOUNT_SWITCH = _contract(
         _ACTIVE_ACCOUNT, _ACCOUNT_STEP, _ACCOUNTS_DETECTED, _SAVED_ACCOUNTS_DETECTED,
         _result("switch_account", "The switch is over.",
                 _error_type(),
-                Field("switched_to", "string", "The account now active.", nullable=True),
-                Field("relogin_required", "bool", "The account is known but its session is not saved: log in."),
+                Field("switched_to", "string", "The account now active; with `relogin_required`, the account "
+                      "selected, not active.", nullable=True),
+                Field("relogin_required", "bool", "The account is known but its session is not saved: the switch "
+                      "failed (`error_type` `relogin_required`), log in."),
                 _DETECTED),
     ),
 )

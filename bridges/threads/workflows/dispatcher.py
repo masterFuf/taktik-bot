@@ -52,7 +52,7 @@ def dispatch(config: dict) -> None:
     logger.info(f"Threads bridge starting - workflow={workflow_type} device={device_id}")
 
     try:
-        if workflow_type in ("follow", "target"):
+        if workflow_type == "follow":
             success = run_follow(config)
         elif workflow_type == "feed":
             success = run_feed(config)

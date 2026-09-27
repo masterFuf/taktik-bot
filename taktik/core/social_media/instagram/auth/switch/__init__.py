@@ -10,7 +10,8 @@ Flow (from UI dumps, 2026-07-01):
    Instagram auto-switches to ANOTHER account's home feed instead (→ log out again).
 5. Tap the target account row (content-desc = username, language-neutral).
 6. If the target's session is saved → it logs straight in. If not → the password
-   screen appears → report `relogin_required` so the front routes to Login.
+   screen appears → the switch FAILS with `relogin_required` (the account is not active: the
+   device is on the password screen), so the page routes to Login and a scheduled node fails.
 
 The bot only switches between accounts ALREADY connected on the device; connecting
 a brand-new account is the Login flow's job.
@@ -277,6 +278,18 @@ class InstagramSwitchAccount:
             return None
         return package
 
+    def _relogin_required(self, target: str, detected: List[str]) -> SwitchResult:
+        """The target was selected but Instagram asks for its password: the switch did not happen.
+
+        A failure, not a success with a flag: the device sits on the password screen, so whatever
+        runs next (a scheduled node, a CLI chain) would run there. The flag and the account stay on
+        the result for the page, which offers Login.
+        """
+        self.logger.warning(f"🔐 @{target} requires re-login (session not saved)")
+        self._emit_step("relogin", username=target)
+        return SwitchResult(False, f"@{target} requires re-login (session not saved)", "relogin_required",
+                            switched_to=target, relogin_required=True, detected_accounts=detected)
+
     def switch_to(self, target_username: str) -> SwitchResult:
         target = self._norm(target_username)
         if not target:
@@ -305,9 +318,7 @@ class InstagramSwitchAccount:
                                     detected_accounts=detected)
             time.sleep(3)
             if self._password_required():
-                self._emit_step("relogin", username=target)
-                return SwitchResult(True, f"@{target} requires re-login (session not saved)",
-                                    switched_to=target, relogin_required=True, detected_accounts=detected)
+                return self._relogin_required(target, detected)
             self._emit_active(target)  # target is now the active account → recale the DB
             self._emit_step("switched", username=target)
             self.logger.success(f"✅ Switched to @{target} (picker)")
@@ -351,11 +362,7 @@ class InstagramSwitchAccount:
 
         # 5. Either it logged straight in, or the password screen appeared (session not saved).
         if self._password_required():
-            self.logger.warning(f"🔐 @{target} requires re-login (session not saved)")
-            self._emit_step("relogin", username=target)
-            return SwitchResult(True, f"@{target} requires re-login (session not saved)",
-                                switched_to=target, relogin_required=True,
-                                detected_accounts=picker_accounts)
+            return self._relogin_required(target, picker_accounts)
 
         self._emit_active(target)  # target is now the active account → recale the DB
         self._emit_step("switched", username=target)

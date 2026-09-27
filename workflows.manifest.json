@@ -56,7 +56,6 @@
       "for_you",
       "search",
       "hashtag",
-      "target",
       "followers",
       "target_profiles",
       "sync_following",
@@ -67,7 +66,6 @@
       "dm_unreplied",
       "dm_requests",
       "dm_activity",
-      "scraping",
       "post_url",
       "notifications",
       "sync_lists"
@@ -99,7 +97,6 @@
   "threads": {
     "automation": [
       "follow",
-      "target",
       "feed"
     ]
   },

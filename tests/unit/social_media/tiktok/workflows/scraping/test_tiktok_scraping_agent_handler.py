@@ -3,7 +3,6 @@ import pytest
 import taktik.core.database.tiktok_scraping as scraping_store
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows.scraping import (
-    TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID,
     TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID,
     register_tiktok_scraping_handlers,
 )
@@ -164,8 +163,8 @@ def test_a_run_told_not_to_save_files_nothing(store):
         workflow_factory=FakeScrapingWorkflow,
     )
 
-    result = registry.resolve(TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID)(
-        WorkflowInvocation(platform="tiktok", workflow_id=TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID,
+    result = registry.resolve(TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID)(
+        WorkflowInvocation(platform="tiktok", workflow_id=TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID,
                            params={"type": "hashtag", "hashtag": "food", "saveToDb": False}),
         {},
     )
@@ -187,8 +186,8 @@ def test_a_row_that_could_not_be_written_is_not_announced(store, monkeypatch):
         workflow_factory=FakeScrapingWorkflow,
     )
 
-    registry.resolve(TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID)(
-        WorkflowInvocation(platform="tiktok", workflow_id=TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID,
+    registry.resolve(TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID)(
+        WorkflowInvocation(platform="tiktok", workflow_id=TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID,
                            params={"type": "hashtag", "hashtag": "food"}),
         {},
     )
@@ -215,7 +214,7 @@ def test_tiktok_scraping_handler_accepts_hashtag_workflow_id():
                     step_id="step-1",
                     workflow=WorkflowInvocation(
                         platform="tiktok",
-                        workflow_id=TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID,
+                        workflow_id=TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID,
                         params={"type": "hashtag", "hashtag": "#food"},
                     ),
                 )

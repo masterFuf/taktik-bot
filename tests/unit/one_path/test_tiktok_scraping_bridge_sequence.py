@@ -1,9 +1,11 @@
-"""The desktop's TikTok scraping, frozen: what its two bridges ask of the phone, what they print,
-the config they build and what they write.
+"""The desktop's TikTok scraping, frozen: what its bridge asks of the phone, what it prints, the
+config it builds and what it writes.
 
-The app starts a scraping run through `tiktok_scraping_bridge` (its config file); the
-`tiktok_bridge` dispatcher also routes `workflowType: scraping` to the same runner. The snapshot
-beside this file was recorded from both while the reading of the payload, the session start, the
+The app starts a scraping run through `tiktok_scraping_bridge` (its config file). The `tiktok_bridge`
+dispatcher also routed `workflowType: scraping` to the same runner, under a second id
+(`tiktok.automation.scraping`) that no app entry sent; that route and its recordings are gone, a
+config naming it is refused (`test_tiktok_target_is_not_followers.py`). The snapshot beside this
+file was recorded while the reading of the payload, the session start, the
 live events and the scraping session rows still lived in the bridge, before they moved into the
 core launcher (`run_tiktok_scraping`) and the bridge onto `run_bridge_main`, then from stdin to
 a config file like every bridge. Same device
@@ -39,45 +41,41 @@ NOW = "<now>"
 
 def scenario(name, rig, scraping_payload):
     """What one recorded run is given: the phone and the database are set on `rig`; returns the
-    config file (a payload, raw text, or None: no file) and which bridge receives it."""
+    config file (a payload, raw text, or None: no file)."""
     rig.install_scraping_database()
-    own = "own"
-    if name.startswith("dispatcher_"):
-        own, name = "dispatcher", name[len("dispatcher_"):]
-
     if name in ("page_target", "page_hashtag", "page_post_url", "page_sound", "page_account_posts"):
-        return scraping_payload(name[len("page_"):]), own
+        return scraping_payload(name[len("page_"):])
     if name == "scheduler_node":
-        return scraping_payload("scheduler_node"), own
+        return scraping_payload("scheduler_node")
     if name == "without_saving":
-        return scraping_payload(saveToDb=False), own
+        return scraping_payload(saveToDb=False)
     if name == "session_not_created":
         rig.scraping_session_id = None
-        return scraping_payload(), own
+        return scraping_payload()
     if name in ("max_duration_reached", "stopped_by_user"):
         rig.scraping_reason = name
-        return scraping_payload(sessionDurationMinutes=20), own
+        return scraping_payload(sessionDurationMinutes=20)
     if name == "source_error":
         rig.scraping_error = "Could not open https://vm.tiktok.com/ZNexample/"
-        return scraping_payload("post_url"), own
+        return scraping_payload("post_url")
     if name == "workflow_raises":
         rig.scraping_raises = True
-        return scraping_payload(), own
+        return scraping_payload()
     if name == "start_fails":
         rig.restart_ok = False
-        return scraping_payload(), own
+        return scraping_payload()
     if name == "target_without_accounts":
-        return scraping_payload(targetUsernames=[]), own
+        return scraping_payload(targetUsernames=[])
     if name == "hashtag_without_name":
-        return scraping_payload("hashtag", hashtag=""), own
+        return scraping_payload("hashtag", hashtag="")
     if name == "no_device":
         payload = scraping_payload()
         payload.pop("deviceId")
-        return payload, own
+        return payload
     if name == "no_config_file":
-        return None, own
+        return None
     if name == "invalid_json":
-        return "{not json\n", own
+        return "{not json\n"
     raise KeyError(name)
 
 
@@ -86,8 +84,6 @@ SCENARIOS = (
     "scheduler_node", "without_saving", "session_not_created", "max_duration_reached",
     "stopped_by_user", "source_error", "workflow_raises", "start_fails", "target_without_accounts",
     "hashtag_without_name", "no_device", "no_config_file", "invalid_json",
-    "dispatcher_page_target", "dispatcher_page_post_url", "dispatcher_start_fails",
-    "dispatcher_target_without_accounts",
 )
 
 
@@ -101,11 +97,8 @@ def _stamped(events):
 
 
 def observe(rig, name, scraping_payload):
-    payload, bridge = scenario(name, rig, scraping_payload)
-    if bridge == "dispatcher":
-        code = rig.run_bridge(payload)
-    else:
-        code = rig.run_scraping_bridge(payload)
+    payload = scenario(name, rig, scraping_payload)
+    code = rig.run_scraping_bridge(payload)
     # JSON round trip: the snapshot holds what went over the wire, not Python types.
     return json.loads(json.dumps({
         "exit": code,
@@ -137,12 +130,9 @@ def test_every_recording_is_a_scenario():
 
 def test_a_run_with_nothing_to_scrape_is_refused_before_the_phone_is_touched():
     changed = {name: record for name, record in SNAPSHOT.items() if "calls_old_code" in record}
-    assert sorted(changed) == [
-        "dispatcher_target_without_accounts", "hashtag_without_name", "target_without_accounts",
-    ]
+    assert sorted(changed) == ["hashtag_without_name", "target_without_accounts"]
     for name, record in changed.items():
-        # The dispatcher force-stops TikTok after any run, refused or not.
-        assert record["calls"] in ([], ["force_stop tiktok"]), name
+        assert record["calls"] == [], name
         assert record["calls_old_code"][:2] == ["manager emulator-5554", "restart"], name
         assert record["events"][-1][0] == "error", name
         assert record["exit"] == 1 and record["exit_old_code"] == 0, name

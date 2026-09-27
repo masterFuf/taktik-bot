@@ -4,7 +4,6 @@ from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowIn
 from taktik.core.social_media.tiktok.actions.business.workflows.search import (
     TIKTOK_HASHTAG_WORKFLOW_ID,
     TIKTOK_SEARCH_WORKFLOW_ID,
-    TIKTOK_TARGET_WORKFLOW_ID,
     SearchStats,
     register_tiktok_search_handlers,
 )
@@ -165,7 +164,7 @@ def test_tiktok_hashtag_handler_strips_hash_prefix():
     assert FakeSearchWorkflow.instances[0].config.search_query == "streetfood"
 
 
-def test_tiktok_target_handler_accepts_username_alias():
+def test_tiktok_search_handler_accepts_username_alias():
     FakeSearchWorkflow.instances = []
     registry = WorkflowRegistry()
     register_tiktok_search_handlers(
@@ -183,7 +182,7 @@ def test_tiktok_target_handler_accepts_username_alias():
                     step_id="step-1",
                     workflow=WorkflowInvocation(
                         platform="tiktok",
-                        workflow_id=TIKTOK_TARGET_WORKFLOW_ID,
+                        workflow_id=TIKTOK_SEARCH_WORKFLOW_ID,
                         params={"username": "@creator"},
                     ),
                 )

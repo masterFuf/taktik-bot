@@ -10,7 +10,7 @@ import dataclasses
 
 import pytest
 
-SCRAPING_ID = "tiktok.automation.scraping"
+SCRAPING_ID = "tiktok.standalone.tiktok_scraping"
 
 
 def _run_both(rig, payload, set_phone=lambda: None):
