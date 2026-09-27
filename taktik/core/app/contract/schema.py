@@ -126,6 +126,8 @@ class Refusal:
     missing: str
     when: Mapping[str, Any] = field(default_factory=dict)
     doc: str = ""
+    #: Keys that stand in for `missing` (a single message instead of the list).
+    unless: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -143,6 +145,7 @@ class WorkflowContract:
 
     workflow_id     the id of `workflows.manifest.json`
     also            other ids of the manifest the same launcher runs with this payload
+    launcher_kwargs keyword arguments the launcher needs besides the payload (the inbox flow)
     name            the prefix of the generated TypeScript names
     bridge          the name in `bridges/bridges.manifest.json`
     launcher        "module:function" of the one launcher (`run_*`) the CLI and the bridge call
@@ -167,6 +170,7 @@ class WorkflowContract:
     settings: Tuple[Field, ...]
     doc: str = ""
     also: Tuple[str, ...] = ()
+    launcher_kwargs: Mapping[str, Any] = field(default_factory=dict)
     reader_kwargs: Mapping[str, Any] = field(default_factory=dict)
     bridge_fields: Tuple[Field, ...] = ()
     nest: Optional[str] = None
