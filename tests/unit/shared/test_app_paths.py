@@ -10,8 +10,15 @@ where the operator is looking, which is the whole point of a diagnostic.
 """
 
 import os
+import pathlib
+import subprocess
+import sys
+
+import pytest
 
 from taktik.core.shared.app_paths import get_app_data_dir, get_app_subdir
+
+_CORE_ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
 def test_the_data_folder_follows_the_database_the_app_handed_us(monkeypatch):
@@ -51,3 +58,23 @@ def test_the_writers_land_in_that_folder(monkeypatch, tmp_path):
 
     assert str(FollowersTracker("acct", "target").log_dir).startswith(str(tmp_path))
     assert _snapshot_dir().startswith(str(tmp_path))
+
+
+_BARE_ENV_RUN = "import logging, taktik; logging.getLogger('bare').warning('a line for the journal')"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="elsewhere the home comes from the password database")
+def test_a_process_without_any_home_stops_instead_of_writing_in_its_current_folder(tmp_path):
+    """Started with a bare environment (no APPDATA, USERPROFILE nor HOME, no TAKTIK_* variable),
+    the bot resolved `~` to itself and wrote `~/taktik-desktop/logs/taktik.log` in its current
+    folder: one sat at the root of the core's checkout. It now stops at once and says what to set."""
+    env = {name: os.environ[name] for name in ("PATH", "SystemRoot") if name in os.environ}
+    env["PYTHONPATH"] = str(_CORE_ROOT)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+
+    run = subprocess.run([sys.executable, "-c", _BARE_ENV_RUN], env=env, cwd=tmp_path,
+                         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+
+    assert list(tmp_path.iterdir()) == []
+    assert run.returncode != 0
+    assert "DataFolderUnknown" in run.stderr and "TAKTIK_DATA_DIR" in run.stderr

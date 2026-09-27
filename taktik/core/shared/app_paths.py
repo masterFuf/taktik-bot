@@ -24,28 +24,41 @@ from typing import Optional
 APP_FOLDER_NAME = 'taktik-desktop'
 
 
+class DataFolderUnknown(RuntimeError):
+    """Nothing names a data folder for this process: no `TAKTIK_DATA_DIR`, no `TAKTIK_DB_PATH`, no home."""
+
+
 def platform_data_dir() -> str:
     """The folder the desktop app uses on this platform (Electron's `userData`), when nobody names one.
 
-    Windows without `APPDATA` (a process started with a bare environment) falls back to the home
-    folder rather than to a path relative to wherever the process runs.
+    Windows without `APPDATA` falls back to the home folder. Without a home either (a process
+    started with a bare environment: no `APPDATA`, `USERPROFILE` nor `HOME`), `~` stays `~` and the
+    path is relative: the data would land in whatever folder the process runs from, as a `~` folder
+    once did at the root of the core's checkout. That raises `DataFolderUnknown` instead.
     """
     if sys.platform == 'win32':
         appdata = os.environ.get('APPDATA')
-        if appdata:
-            return os.path.join(appdata, APP_FOLDER_NAME)
+        folder = (os.path.join(appdata, APP_FOLDER_NAME) if appdata
+                  else os.path.join(os.path.expanduser('~'), APP_FOLDER_NAME))
     elif sys.platform == 'darwin':
-        return os.path.expanduser(f'~/Library/Application Support/{APP_FOLDER_NAME}')
+        folder = os.path.expanduser(f'~/Library/Application Support/{APP_FOLDER_NAME}')
     else:
-        return os.path.expanduser(f'~/.config/{APP_FOLDER_NAME}')
-    return os.path.join(os.path.expanduser('~'), APP_FOLDER_NAME)
+        folder = os.path.expanduser(f'~/.config/{APP_FOLDER_NAME}')
+    if not os.path.isabs(folder):
+        raise DataFolderUnknown(
+            "No data folder for this process: TAKTIK_DATA_DIR and TAKTIK_DB_PATH are not set, and no "
+            "home folder is (APPDATA, USERPROFILE, HOME). Set TAKTIK_DATA_DIR or TAKTIK_DB_PATH; the "
+            f"bot does not write into the current folder ({os.getcwd()})."
+        )
+    return folder
 
 
 def get_app_data_dir() -> str:
-    """The folder this installation writes to. Never raises, always returns a path.
+    """The folder this installation writes to.
 
     Order: an explicit `TAKTIK_DATA_DIR`, then the folder of the database the app told us to
-    use, then the platform default. The middle one is what makes this work under the app.
+    use, then the platform default. The middle one is what makes this work under the app. Raises
+    `DataFolderUnknown` when none of the three names a folder (see `platform_data_dir`).
     """
     explicit = os.environ.get('TAKTIK_DATA_DIR')
     if explicit:
