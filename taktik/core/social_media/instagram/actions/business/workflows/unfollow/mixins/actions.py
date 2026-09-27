@@ -104,6 +104,10 @@ def _vertical_band(element) -> Optional[tuple]:
 class UnfollowActionsMixin:
     """Mixin: perform unfollow, extract accounts, scroll & sort the following list."""
 
+    # Read from the business action this mixin is part of (BaseBusinessAction), never set here.
+    logger: Any
+    device: Any
+
     # ─── Rows of an open follow list ──────────────────────────────────────────
 
     def _visible_follow_rows(self, require_username: bool = True,
