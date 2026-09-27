@@ -144,7 +144,8 @@ class NavigationMixin:
         self.logger.debug("Clicking Followers counter")
         selectors = self.followers_selectors.followers_counter
 
-        raw_device = self.device._device if hasattr(self.device, '_device') else self.device
+        device = self.device
+        raw_device = getattr(device, '_device', device)
         followers = read_profile_stats(raw_device).get('followers_count')
         if followers is None:
             self.logger.warning("Could not read the target's followers count: the smart scroll runs without it")
