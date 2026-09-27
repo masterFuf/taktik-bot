@@ -53,20 +53,21 @@ STRINGS: Dict[str, List[str]] = {
     # whole list answer yes, so it must say no on the VIDEO screen: never the composer affordances
     # (« Mentionne quelqu'un », « Stickers »), which live there, and never the composer alone: the
     # comment bar of a video opened from search carries the same hint (47.0.3: same id `ejs`), only
-    # it is not clickable. Every entry therefore needs the sheet's clickable composer, plus:
-    # 1. the count header « N commentaires », read without its U+200E / U+200F marks (full or
-    #    typed sheets; 47.0.3 labels no close control at all);
-    # 2. the labelled close control (empty sheets, 43.1.4 and 46.6.3);
-    # 3. the empty sheet's placeholder (46.6.3).
-    # Measured on 408 captures (43.1.4 to 47.0.3): the 13 French sheets, none of the 394 screens
-    # that are not a sheet.
+    # it is not clickable. Each entry pairs the composer with a mark of the sheet:
+    # 1. the count header « N commentaires », read without its U+200E / U+200F marks, with a
+    #    clickable composer (full or typed sheets; 47.0.3 labels no close control at all);
+    # 2. the labelled close control (43.1.4 and 46.6.3), with the composer's hint, clickable or
+    #    not: once Back has closed the keyboard the sheet's own composer is not clickable (43.1.4);
+    # 3. the empty sheet's placeholder (46.6.3), with a clickable composer.
+    # Measured on 533 distinct captures (43.1.4 to 47.0.3): the French sheets only, none of the 513
+    # screens that are not a sheet.
     "comment.sheet_indicator": [
         "//android.widget.TextView[contains(@text, \" commentaire\")]"
         "[string-length(translate(@text, \"‎‏\", \"\")) < 24]"
         "[contains(\"0123456789\", substring(translate(@text, \"‎‏\", \"\"), 1, 1))]"
         "[//android.widget.EditText[@clickable=\"true\"]]",
         "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]"
-        "[//android.widget.EditText[@clickable=\"true\"][contains(@hint, \"Ajouter un commentaire\")]]",
+        "[//android.widget.EditText[contains(@hint, \"Ajouter un commentaire\")]]",
         "//*[@text=\"Les commentaires apparaissent ici\"]"
         "[//android.widget.EditText[@clickable=\"true\"][contains(@hint, \"Ajouter un commentaire\")]]",
     ],

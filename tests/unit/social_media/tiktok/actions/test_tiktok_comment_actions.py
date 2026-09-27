@@ -8,6 +8,7 @@ measurements forced.
 import re
 
 from taktik.core.social_media.tiktok.actions.atomic.interaction.comment_actions import CommentActions
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
 
 
 class _SilentLogger:
@@ -94,10 +95,10 @@ class _Sheet:
         # on a closed sheet; a double that still keyed on it would keep testing the bug.
         if any(f':id/{rid}"' in selector for rid in ("o3y", "ieb", "maf", "h7t")):
             return _Result([_Node()] if self.is_open else [])
-        # The locale routes behind the panel ids all require the sheet's clickable composer, which
-        # is only there while the sheet is up (checked on real shapes in
-        # test_tiktok_comment_sheet_label_route).
-        if '[//android.widget.EditText[@clickable="true"]' in selector:
+        # The locale routes behind the panel ids each pair the composer with a mark of the sheet
+        # (its count header, its labelled close control, its placeholder), only there while the
+        # sheet is up (checked on real shapes in test_tiktok_comment_sheet_label_route).
+        if selector in COMMENT_SELECTORS.sheet_indicator:
             return _Result([_Node()] if self.is_open else [])
         if "Mention" in selector or "Stickers" in selector:
             return _Result([_Node()])   # present whether or not the sheet is up
@@ -134,9 +135,6 @@ def _actions(sheet) -> CommentActions:
     actions = CommentActions.__new__(CommentActions)
     actions.device = sheet
     actions.logger = _SilentLogger()
-    from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import (
-        COMMENT_SELECTORS,
-    )
     from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
 
     actions.comment_selectors = COMMENT_SELECTORS

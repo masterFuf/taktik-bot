@@ -29,14 +29,20 @@ def test_the_sheet_announces_itself_before_anything_is_read():
     # The panel ids come first: on the measured versions they answer before anything else. They
     # are obfuscated and die on a version bump, so the locales add a route behind them — and that
     # route must keep the safe failure direction: a label shared with the video screen is not
-    # enough. Every entry needs the sheet's CLICKABLE composer (the video page's comment bar has
-    # the same hint but is not clickable), plus a second mark of the sheet.
+    # enough. Every entry needs the sheet's composer plus a mark of the sheet the video screen does
+    # not carry: its labelled close control, or its count header or placeholder beside a CLICKABLE
+    # composer (the video page's comment bar has the same hint but is not clickable). The close
+    # control does not ask for a clickable composer: once Back has closed the keyboard, the
+    # sheet's own composer is not clickable either (the empty sheet of 43.1.4).
     # Behaviour on real shapes: `test_tiktok_comment_sheet_label_route.py`.
     selectors = COMMENT_SELECTORS.sheet_indicator
     panel = [s for s in selectors if "resource-id" in s]
     assert panel and selectors[:len(panel)] == panel, selectors
     for selector in selectors[len(panel):]:
-        assert '//android.widget.EditText[@clickable="true"]' in selector, selector
+        assert "//android.widget.EditText[" in selector, selector
+        closes_the_sheet = selector.startswith(('//*[@content-desc="Fermer"][@clickable="true"]',
+                                                '//*[@content-desc="Close"][@clickable="true"]'))
+        assert closes_the_sheet or '//android.widget.EditText[@clickable="true"]' in selector, selector
     for label in ("Mention", "Stickers"):
         assert not any(label in s for s in COMMENT_SELECTORS.sheet_indicator), (
             f"{label!r} is on the video screen too — as an indicator it never says no"

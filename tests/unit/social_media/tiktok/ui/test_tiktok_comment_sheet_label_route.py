@@ -5,13 +5,15 @@
 between those two), and no sheet of a later version is captured. When they go, the sheet reads
 as closed and every comment action refuses.
 
-The locale route behind them: the sheet's close control, on a screen showing the sheet's composer
-(clickable, with its hint) or its count header. The failure it must never have is the one the
-composer affordances had: answering yes on the VIDEO screen, whose comment bar carries the same
-hint but is not clickable.
+The locale route behind them: the sheet's labelled close control beside the sheet's composer
+(its hint), or its count header beside a clickable composer. The failure it must never have is the
+one the composer affordances had: answering yes on the VIDEO screen, whose comment bar carries the
+same hint but is not clickable. The close control is what tells them apart, not the composer's
+clickability: once Back has closed the keyboard the sheet's own composer is not clickable either
+(the empty sheet of 43.1.4).
 
 Screens, anonymized: the sheet of 43.1.4 in French, full (Pixel 3a, `tt-3a-fr`) and empty (Pixel
-3a, 2026-09-27, opened on a video with no comment and closed by Back), a 43.1.4 video opened from
+3a, 2026-09-27, opened on a video with no comment, its keyboard closed by Back), a 43.1.4 video opened from
 the profile, whose comment bar IS clickable and carries the composer's hint (Pixel 3a, same day),
 the video page of 47.0.3 opened from search, whose bar is not clickable (Pixel 6a, 2026-09-25),
 and the 47.0.3 sheet as a phone showed it (`fixtures/tt4703_fr_comment_sheet.xml`: its close
@@ -27,6 +29,7 @@ import re
 from pathlib import Path
 
 import pytest
+from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.tiktok.actions.core.utils import first_matching
@@ -139,17 +142,24 @@ def test_the_measured_versions_still_answer_from_the_panel(french):
 
 
 @pytest.mark.parametrize("xml", [
-    SHEET_4314,
-    pytest.param(SHEET_4314_EMPTY, marks=pytest.mark.xfail(strict=True, reason=(
-        "the real empty sheet of 43.1.4, once Back has closed its keyboard: composer NOT clickable, "
-        "header « Commentaires » without a count, message « Sois le premier... »; none of the three "
-        "entries of comment.sheet_indicator (locales/fr.py) answers once the panel ids move"))),
+    SHEET_4314, SHEET_4314_EMPTY,
     _sheet_46_6_3(), _sheet_46_6_3(empty=True), _sheet_46_6_3(typed="texte"),
-], ids=["43.1.4", "43.1.4-empty", "46.6.3", "46.6.3-empty", "46.6.3-typed"])
+], ids=["43.1.4", "43.1.4-empty-keyboard-closed", "46.6.3", "46.6.3-empty", "46.6.3-typed"])
 def test_a_sheet_whose_build_ids_moved_is_still_open(french, xml):
-    """Panel ids gone: the full sheet, the empty one (no count header) and the one with typed text
-    (the hint is gone) are each seen by one half of the route."""
+    """Panel ids gone: the full sheet, the empty ones (no count header; on 43.1.4 the composer no
+    longer clickable once Back has closed the keyboard) and the one with typed text (the hint is
+    gone) are each seen by one half of the route."""
     assert _open(_next_build(xml))
+
+
+def test_the_empty_sheet_of_43_1_4_has_no_clickable_composer():
+    """What the route must not require: on the real empty sheet the composer (`EditText` with the
+    hint) is not clickable, and there is no count header."""
+    [composer] = etree.fromstring(SHEET_4314_EMPTY.encode("utf-8")).xpath(
+        '//node[@class="android.widget.EditText"]')
+    assert composer.get("hint").startswith("Ajouter un commentaire")
+    assert composer.get("clickable") == "false"
+    assert "‎" not in SHEET_4314_EMPTY and 'text="Commentaires"' in SHEET_4314_EMPTY
 
 
 SHEET_4703 = (Path(__file__).parents[1] / "fixtures" / "tt4703_fr_comment_sheet.xml").read_text(
@@ -183,9 +193,10 @@ def test_the_47_0_3_screen_without_a_clickable_composer_is_not_a_sheet(french):
     assert not _open(bar)
 
 
-def test_the_english_sheet_is_seen_too(english):
-    xml = _in_english(SHEET_4314)
-    assert xml != SHEET_4314 and 'content-desc="Fermer"' not in xml
+@pytest.mark.parametrize("sheet", [SHEET_4314, SHEET_4314_EMPTY], ids=["43.1.4", "43.1.4-empty-keyboard-closed"])
+def test_the_english_sheet_is_seen_too(english, sheet):
+    xml = _in_english(sheet)
+    assert xml != sheet and 'content-desc="Fermer"' not in xml and "Add comment..." in xml
     assert _open(_next_build(xml))
 
 
