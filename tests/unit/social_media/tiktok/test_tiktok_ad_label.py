@@ -2,17 +2,36 @@
 "Ad"), and a promoted sound ("Musique promotionnelle", "Promoted Music"), which a promoted series
 carries even without the button.
 
-The screens reproduce the shape of the captures (every element a <node>, the widget type an
-attribute), evaluated by uiautomator2's own `d.xpath()` engine. Brands and counts are invented.
+The screens are real captures of TikTok 46.9.3 (Pixel 6a), anonymized, evaluated by uiautomator2's
+own `d.xpath()` engine: in French an ad with its button, a promoted video without it, and an
+organic video opened from a search; in English the same three kinds, the organic one from the For
+You feed. The organic video whose caption says "#publicité" is the French one with that word added
+to its caption (derived: no capture shows such a caption).
 """
 
+from pathlib import Path
+
 import pytest
+from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.state import VIDEO_STATE_SELECTORS
 
-PKG = "com.zhiliaoapp.musically:id/"
+FIXTURES = Path(__file__).parent / "fixtures"
+CAPTION_ID = "com.zhiliaoapp.musically:id/desc"
+
+
+def _screen(name: str) -> str:
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+FR_AD = _screen("tt4693_fr_ad_with_label.xml")
+FR_PROMOTED = _screen("tt4693_fr_ad_promoted_sound_only.xml")
+FR_ORGANIC = _screen("tt4693_fr_search_result_video.xml")
+EN_AD = _screen("tt4693_en_ad_with_label.xml")
+EN_PROMOTED = _screen("tt4693_en_ad_promoted_sound_only.xml")
+EN_ORGANIC = _screen("tt4693_en_for_you_video.xml")
 
 
 @pytest.fixture(autouse=True)
@@ -20,23 +39,6 @@ def french():
     set_active_locale("fr")
     yield
     set_active_locale(None)
-
-
-def _n(cls, text="", desc="", rid=""):
-    return (f'<node class="android.widget.{cls}" text="{text}" content-desc="{desc}" '
-            f'resource-id="{rid}" clickable="true" bounds="[0,0][10,10]" />')
-
-
-def _video(sound, *extra):
-    body = "".join((
-        _n("Button", desc="Profil Marque Demo"),
-        _n("TextView", "Marque Demo"),
-        _n("TextView", "Une publicité, ça se voit ? #publicité"),
-        _n("Button", desc="Partager une vidéo. 3 partages"),
-        _n("Button", desc=sound, rid=PKG + "pmi"),
-        *extra,
-    ))
-    return f'<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">{body}</hierarchy>'
 
 
 class _Device:
@@ -55,28 +57,43 @@ def _is_ad(xml):
     return any(device.xpath(sel).exists for sel in VIDEO_STATE_SELECTORS.ad_label)
 
 
+def _texts(xml):
+    return {node.get("text") for node in etree.fromstring(xml.encode("utf-8")).iter("node")}
+
+
+def _descriptions(xml):
+    return [node.get("content-desc") for node in etree.fromstring(xml.encode("utf-8")).iter("node")]
+
+
+def _caption_says_publicite(xml):
+    root = etree.fromstring(xml.encode("utf-8"))
+    caption = next(node for node in root.iter("node") if node.get("resource-id") == CAPTION_ID)
+    caption.set("text", caption.get("text") + " #publicité")
+    return etree.tostring(root, encoding="unicode")
+
+
 def test_the_publicite_button_marks_an_ad():
-    xml = _video("Son : Musique promotionnelle par Marque Demo",
-                 _n("Button", "Publicité", rid=PKG + "i8p"))
-    assert _is_ad(xml)
+    assert "Publicité" in _texts(FR_AD)
+    assert _is_ad(FR_AD)
 
 
 def test_a_promoted_series_without_the_button_is_still_an_ad():
-    assert _is_ad(_video("Son : Musique promotionnelle par Serie Demo"))
+    assert "Publicité" not in _texts(FR_PROMOTED)
+    assert any(d.startswith("Son : Musique promotionnelle") for d in _descriptions(FR_PROMOTED))
+    assert _is_ad(FR_PROMOTED)
 
 
 def test_an_organic_video_is_not_an_ad_even_when_its_caption_says_publicite():
-    assert not _is_ad(_video("Son : son original - demo_author par Demo"))
+    assert not _is_ad(FR_ORGANIC)
+    assert not _is_ad(_caption_says_publicite(FR_ORGANIC))
 
 
 def test_the_english_ad_button_and_promoted_sound_mark_an_ad():
     set_active_locale("en")
     try:
-        with_button = _video("Sound: Promoted Music by Brand Demo", _n("Button", "Ad", rid=PKG + "i8p"))
-        sound_only = _video("Sound: Promoted Music by Brand Demo")
-        organic = _video("Sound: original sound - demo_author by Demo")
-        assert _is_ad(with_button)
-        assert _is_ad(sound_only)
-        assert not _is_ad(organic)
+        assert "Ad" in _texts(EN_AD) and "Ad" not in _texts(EN_PROMOTED)
+        assert _is_ad(EN_AD)
+        assert _is_ad(EN_PROMOTED)
+        assert not _is_ad(EN_ORGANIC)
     finally:
         set_active_locale("fr")

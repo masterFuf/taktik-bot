@@ -7,13 +7,19 @@ back from the list it had never left. Now a row that could not be tapped is kept
 details and nothing else moves.
 
 The phone is uiautomator2's own xpath engine behind the facade production mounts
-(`CloneAwareDeviceProxy`); the dumps are invented (public repository).
+(`CloneAwareDeviceProxy`). Its screen is a real followers list of Instagram 410.0.0.53.71 in
+French (Pixel 3), anonymized; the untappable row is the same screen with its first name given
+no size (derived).
 """
 
+from pathlib import Path
+
+from lxml import etree
 from loguru import logger
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+from taktik.core.shared.device.ui_dump import parse_bounds
 from taktik.core.social_media.instagram.actions.atomic.detection.list_detection import (
     ListDetectionMixin,
 )
@@ -24,24 +30,28 @@ from taktik.core.social_media.instagram.workflows.scraping.list_scraping import 
 from taktik.core.social_media.instagram.workflows.scraping.list_strategy import ListScrapingStrategy
 
 PKG = "com.instagram.android"
+LIST = (Path(__file__).parents[2] / "fixtures" / "ig410_fr_followers_list_top.xml").read_text(encoding="utf-8")
 
 
-def _screen(bounds):
-    left, top, right, bottom = bounds
-    return ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-            f'<node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="{PKG}" '
-            'bounds="[0,0][1080,2400]">'
-            f'<node index="0" text="bob_demo" resource-id="{PKG}:id/follow_list_username" '
-            f'class="android.widget.TextView" package="{PKG}" content-desc="" clickable="true" '
-            f'enabled="true" bounds="[{left},{top}][{right},{bottom}]" />'
-            '</node></hierarchy>')
+def _first_name(root):
+    return next(n for n in root.iter("node") if n.get("resource-id", "").endswith("/follow_list_username"))
+
+
+FIRST = _first_name(etree.fromstring(LIST.encode("utf-8")))
+FIRST_NAME, FIRST_BOUNDS = FIRST.get("text"), parse_bounds(FIRST.get("bounds"))
+
+
+def _without_size():
+    root = etree.fromstring(LIST.encode("utf-8"))
+    _first_name(root).set("bounds", "[0,0][0,0]")
+    return etree.tostring(root, encoding="unicode")
 
 
 class _Phone:
     """The raw device the scrape holds, and what uiautomator2's `d.xpath()` needs."""
 
     wait_timeout = 1.0
-    info = {"displayWidth": 1080, "displayHeight": 2400}
+    info = {"displayWidth": 1080, "displayHeight": 2160}
 
     def __init__(self, xml):
         self.xml = xml
@@ -62,7 +72,7 @@ class _Phone:
         self.presses.append(key)
 
     def window_size(self):
-        return 1080, 2400
+        return 1080, 2160
 
 
 class _Scraper(ScrapingListMixin):
@@ -88,8 +98,8 @@ class _Scraper(ScrapingListMixin):
         return None
 
 
-def _scrape(bounds):
-    phone = _Phone(_screen(bounds))
+def _scrape(xml):
+    phone = _Phone(xml)
     detection = object.__new__(ListDetectionMixin)
     detection.device = DeviceFacade(CloneAwareDeviceProxy(phone, PKG))
     detection.detection_selectors = DETECTION_SELECTORS
@@ -104,17 +114,18 @@ def _scrape(bounds):
 
 
 def test_a_row_is_tapped_inside_its_bounds_and_enriched():
-    scraper, phone, scraped = _scrape((200, 600, 700, 650))
-    assert [profile["username"] for profile in scraped] == ["bob_demo"]
+    scraper, phone, scraped = _scrape(LIST)
+    assert [profile["username"] for profile in scraped] == [FIRST_NAME]
     assert len(phone.taps) == 1
     x, y = phone.taps[0]
-    assert 200 <= x <= 700 and 600 <= y <= 650
-    assert scraper.captured == ["bob_demo"] and scraper.backs_to_list == 1
+    left, top, right, bottom = FIRST_BOUNDS
+    assert left <= x <= right and top <= y <= bottom
+    assert scraper.captured == [FIRST_NAME] and scraper.backs_to_list == 1
     assert phone.presses == []
 
 
 def test_a_row_that_cannot_be_tapped_is_kept_and_the_list_is_not_left():
-    scraper, phone, scraped = _scrape((0, 0, 0, 0))
-    assert [profile["username"] for profile in scraped] == ["bob_demo"]
+    scraper, phone, scraped = _scrape(_without_size())
+    assert [profile["username"] for profile in scraped] == [FIRST_NAME]
     assert phone.taps == [] and scraper.captured == [] and scraper.backs_to_list == 0
     assert phone.presses == []

@@ -6,7 +6,7 @@ import importlib
 import inspect
 from typing import Any, Dict, Iterable, Mapping, Set, Tuple
 
-from taktik.core.app.contract.schema import Field, ListOf, OneOf, WorkflowContract, has_default
+from taktik.core.app.contract.schema import Field, ListOf, OneOf, Shape, WorkflowContract, has_default, nested_fields
 
 DEVICE = "emulator-5554"
 
@@ -149,13 +149,26 @@ def read(contract: WorkflowContract, payload: Dict[str, Any]) -> Any:
 
 def value_of(contract: WorkflowContract, item: Field, payload: Dict[str, Any]) -> Any:
     result = resolve(item.reader)(payload, **item.reader_kwargs) if item.reader else read(contract, payload)
-    for part in (item.attr.split(".") if item.attr else ()):
+    return walk(result, item.attr) if item.attr else result
+
+
+def walk(result: Any, attr: str) -> Any:
+    """`attr` of the reader's result: an attribute, an index, or a dotted path into what it builds.
+
+    A key missing from a built dict or list is None (the reader left it unset); a missing
+    attribute or tuple index fails.
+    """
+    for part in attr.split("."):
         if isinstance(result, tuple):
             result = result[int(part)]
+        elif isinstance(result, list):
+            result = result[int(part)] if int(part) < len(result) else None
         elif isinstance(result, Mapping):
             result = result.get(part)
         else:
             result = getattr(result, part)
+        if result is None:
+            return None
     return result
 
 
@@ -173,3 +186,90 @@ def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -
 
 def names(fields: Iterable[Field]) -> Set[str]:
     return {name for item in fields for name in item.names}
+
+
+# ------------------------------------------------------------------------------------ nested settings
+
+
+def nest(path: Tuple[str, ...], value: Any) -> Dict[str, Any]:
+    """`{"a": {"b": value}}` for the path `("a", "b")`."""
+    out: Any = value
+    for key in reversed(path):
+        out = {key: out}
+    return out
+
+
+def merge(*parts: Dict[str, Any]) -> Dict[str, Any]:
+    """The parts, nested objects merged key by key; a later value wins."""
+    out: Dict[str, Any] = {}
+    for part in parts:
+        for key, value in part.items():
+            if isinstance(value, dict) and isinstance(out.get(key), dict):
+                out[key] = merge(out[key], value)
+            else:
+                out[key] = value
+    return out
+
+
+def conditions(when: Dict[str, Any]) -> Dict[str, Any]:
+    """The payload a `when` stands for: dotted paths spelled out."""
+    return merge(*(nest(tuple(key.split(".")), value) for key, value in when.items()))
+
+
+def lookup(payload: Dict[str, Any], path: Tuple[str, ...]) -> Tuple[bool, Any]:
+    current: Any = payload
+    for key in path:
+        if not isinstance(current, dict) or key not in current:
+            return False, None
+        current = current[key]
+    return True, current
+
+
+def held_leaves(contract: WorkflowContract):
+    """(path, field, when) of every setting held value by value: scalars nobody hands on (`via`)."""
+    for path, item, when, via in nested_fields(contract.settings):
+        if via is None and not isinstance(item.type, Shape):
+            yield path, item, when
+
+
+def skeleton(fields) -> Dict[str, Any]:
+    """Every nested setting present, its held keys probed: the reader then reads each of them."""
+    out: Dict[str, Any] = {}
+    for item in fields:
+        if item.via is None and isinstance(item.type, Shape):
+            inner = {sub.key: probe(sub) for sub in item.type.fields
+                     if sub.via is None and not isinstance(sub.type, Shape)}
+            out[item.key] = merge(inner, skeleton(item.type.fields))
+    return out
+
+
+def reading_variants(contract: WorkflowContract):
+    """The payloads under which, together, the reader reads every key it reads at all."""
+    base = skeleton(contract.settings)
+    whens = [when for _, _, when, _ in nested_fields(contract.settings) if when]
+    if contract.selector:
+        selector = contract.setting(contract.selector)
+        whens += [{contract.selector: value} for value in getattr(selector.type, "values", ())]
+    variants = [base] + [merge(base, conditions(when)) for when in whens]
+    unique = []
+    for variant in variants:
+        if variant not in unique:
+            unique.append(variant)
+    return unique
+
+
+def declared_reads(fields, prefix: Tuple[str, ...] = ()) -> Tuple[set, set]:
+    """Every declared path (aliases included), and the paths handed on whole (`via`)."""
+    paths, owned = set(), set()
+    for path, item, _, via in nested_fields(fields, prefix):
+        parent = path[:-1]
+        for name in item.names:
+            paths.add((*parent, name))
+            if item.via:
+                owned.add((*parent, name))
+    return paths, owned
+
+
+def under(path: Tuple[str, ...], owned: set) -> bool:
+    """`path` lies strictly below a key handed on whole."""
+    return any(path[:len(prefix)] == prefix and len(path) > len(prefix) for prefix in owned)

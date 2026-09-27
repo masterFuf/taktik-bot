@@ -1,26 +1,21 @@
 """The Lab actions of the readers moved onto the screen photo (steps 3 L5-L6): the production reads."""
 
+from pathlib import Path
 from types import SimpleNamespace
 
+from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 from bridges.compat.diagnostics.actions.instagram.comment import read_visible_texts
 from bridges.compat.diagnostics.actions.instagram.profile import extract_avatar, extract_own_avatar
 from taktik.core.shared.device.facade import BaseDeviceFacade
 
-# One Compose comment row (IG 442 shape: no body id, "<author> said <text>"), invented names.
-THREAD = """<hierarchy rotation="0">
-  <node class="android.view.ViewGroup" bounds="[0,1037][1080,1280]" content-desc="">
-    <node class="android.widget.ImageView" bounds="[42,1068][137,1163]" content-desc="Go to demo_one's profile"/>
-    <node class="android.view.ViewGroup" bounds="[148,1058][933,1199]" content-desc="">
-      <node class="android.widget.TextView" bounds="[172,1058][423,1099]" text="demo_one" content-desc="demo_one&#160; "/>
-      <node class="android.view.ViewGroup" bounds="[426,1058][472,1099]" text="6h" content-desc="6h"/>
-      <node class="android.view.ViewGroup" bounds="[172,1110][933,1199]"
-            text="demo_one said nice light" content-desc="demo_one said nice light"/>
-    </node>
-    <node class="android.view.View" bounds="[172,1199][363,1280]" text="Reply" content-desc="Reply"/>
-  </node>
-</hierarchy>"""
+# One Compose comment row (no body id, "<author> a dit <text>"): the caption sheet of a reel,
+# Instagram 447 in French (Pixel 6a), a real dump, anonymized.
+THREAD = (Path(__file__).parents[3] / "social_media" / "instagram" / "fixtures"
+          / "ig447_fr_reel_caption_sheet.xml").read_text(encoding="utf-8")
+BODY = next(node.get("text") for node in etree.fromstring(THREAD.encode("utf-8")).iter("node")
+            if " a dit " in (node.get("text") or "")).split(" a dit ", 1)[1]
 
 
 class _Phone:
@@ -59,6 +54,6 @@ def test_the_persona_reading_reads_the_rows_of_one_photo_and_gives_the_lab_its_l
     phone = _Phone(THREAD)
     result = read_visible_texts(SimpleNamespace(device=BaseDeviceFacade(phone)), {})
     assert result["success"] is True and result["details"]["count"] == 1
-    assert "nice light" in result["details"]["texts"][0]
+    assert BODY.splitlines()[0] in result["details"]["texts"][0]
     assert restored == [True]
     assert phone.dumps == 2  # the id path's `d.xpath()`, then one photo
