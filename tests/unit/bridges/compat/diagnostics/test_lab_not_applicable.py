@@ -199,3 +199,16 @@ def test_an_inbox_offering_no_wave_declares_none_and_the_feed_does_not():
     bundle, _phone = _tiktok(TT_VIDEO)
     result = TIKTOK_ACTIONS["tt.inbox.hello_candidates"](bundle, {})
     assert (result["success"], _declared(result)) == (False, None)
+
+
+def test_a_thread_longer_than_the_screen_declares_no_card_and_the_inbox_does_not():
+    """The card that prints the handle scrolls away once the conversation outgrows the screen
+    (43.1.4, a thread between two test accounts); the inbox is not a thread at all."""
+    bundle, phone = _tiktok(_dump("tiktok", "tt4314_fr_dm_thread_card_scrolled_away.xml"))
+    result = TIKTOK_ACTIONS["tt.inbox.read_thread_handle"](bundle, {})
+    assert (result["success"], _declared(result)) == (False, "no profile card on the open thread")
+    assert phone.taps == []
+    bundle, _phone = _tiktok(TT_INBOX)
+    result = TIKTOK_ACTIONS["tt.inbox.read_thread_handle"](bundle, {})
+    assert (result["success"], _declared(result)) == (False, None)
+    assert "no thread open" in result["message"]

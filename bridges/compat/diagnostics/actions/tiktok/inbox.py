@@ -122,11 +122,19 @@ def say_hello(a, p):
 def read_thread_handle(a, p):
     """READS ONLY, no gesture: the correspondent's handle on the profile card of the OPEN thread.
 
-    What the notifications pass files a wave under. Fails when the card shows no handle or two.
+    What the notifications pass files a wave under. Fails when the card shows two handles. Not
+    applicable on an open thread that shows no card: it scrolls away once the conversation outgrows
+    the screen, and the production (`resolve_thread_handle`) then reads the header's profile.
     """
     handle = a.dm.read_conversation_handle()
-    return {"success": bool(handle), "message": handle or "no single handle on this thread",
-            "details": {"handle": handle}}
+    if handle:
+        return {"success": True, "message": handle, "details": {"handle": handle}}
+    if not first_matching(a.device, a.dm.conversation_selectors.profile_username):
+        if not a.dm.is_in_conversation():
+            return {"success": False, "message": "tt.inbox.read_thread_handle: no thread open, nothing concluded"}
+        return absent_on_screen("tt.inbox.read_thread_handle", device=a.device, platform="tiktok",
+                                still_there=None, what="profile card", where="on the open thread")
+    return {"success": False, "message": "no single handle on this thread", "details": {"handle": handle}}
 
 
 @action("tt.inbox.resolve_thread_handle")
