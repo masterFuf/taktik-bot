@@ -1,4 +1,4 @@
-"""Leak guard run by the pre-commit and commit-msg hooks of this public repository.
+"""Leak guard run by the pre-commit, pre-merge-commit and commit-msg hooks of this public repository.
 
 It refuses a commit that would publish:
 
@@ -7,9 +7,13 @@ It refuses a commit that would publish:
 - a clock time within office hours written in an added line or in the commit message;
 - an author or committer date on a weekday within office hours.
 
-Only added lines of the staged diff are read. The denylist is looked up, in this order and all
-merged: `$TAKTIK_LEAK_DENYLIST`, `<worktree>/.leak-denylist`, `<git common dir>/leak-denylist`.
-One entry per line, `#` starts a comment, an entry is either a plain value or `sha256:<hex>`.
+Only added lines of the staged diff are read. While a merge is concluded (MERGE_HEAD present), a line
+or a file name counts only if it is new against HEAD and against every merged commit: what a parent
+already carries is published there. The commit dates are checked the same way for a merge.
+
+The denylist is looked up, in this order and all merged: `$TAKTIK_LEAK_DENYLIST`,
+`<worktree>/.leak-denylist`, `<git common dir>/leak-denylist`. One entry per line, `#` starts a
+comment, an entry is either a plain value or `sha256:<hex>`.
 
 Usage (from the hooks): `leak_guard.py pre-commit` or `leak_guard.py commit-msg <message file>`.
 """
@@ -240,12 +244,35 @@ def _common_dir(core: pathlib.Path) -> pathlib.Path:
     return (core / _git(core, "rev-parse", "--git-common-dir").strip()).resolve()
 
 
+def merge_heads(core: pathlib.Path) -> list:
+    """The commits being merged (several for an octopus), none outside a merge."""
+    path = core / _git(core, "rev-parse", "--git-path", "MERGE_HEAD").strip()
+    if not path.is_file():
+        return []
+    return path.read_text(encoding="utf-8").split()
+
+
+def _staged_added_lines(core: pathlib.Path, base: Optional[str] = None) -> list:
+    against = [base] if base else []
+    return parse_added_lines(_git(core, "diff", "--cached", "--no-color", "--no-ext-diff", "--unified=0",
+                                  "--diff-filter=ACMR", *against))
+
+
+def _staged_paths(core: pathlib.Path, base: Optional[str] = None) -> list:
+    against = [base] if base else []
+    return _git(core, "diff", "--cached", "--name-only", "--diff-filter=ACMR", *against).splitlines()
+
+
 def check_staged(core: pathlib.Path, denylist: Denylist, environ: Mapping[str, str], now: dt.datetime,
                  local_zone: Optional[dt.tzinfo] = None) -> list:
-    diff = _git(core, "diff", "--cached", "--no-color", "--no-ext-diff", "--unified=0", "--diff-filter=ACMR")
-    paths = _git(core, "diff", "--cached", "--name-only", "--diff-filter=ACMR").splitlines()
-    return (scan_paths(paths, denylist) + scan_lines(parse_added_lines(diff), denylist)
-            + commit_date_leaks(environ, now, local_zone))
+    lines, paths = _staged_added_lines(core), _staged_paths(core)
+    # A merge publishes only what no parent already carries: the lines written while resolving it.
+    for head in merge_heads(core):
+        new_lines = {(line.path, line.number) for line in _staged_added_lines(core, head)}
+        new_paths = set(_staged_paths(core, head))
+        lines = [line for line in lines if (line.path, line.number) in new_lines]
+        paths = [path for path in paths if path in new_paths]
+    return scan_paths(paths, denylist) + scan_lines(lines, denylist) + commit_date_leaks(environ, now, local_zone)
 
 
 def report(leaks: list) -> str:

@@ -151,3 +151,82 @@ def test_the_staged_diff_is_read_end_to_end(tmp_path):
     leaks = leak_guard.check_staged(repo, denylist, {}, _at(SATURDAY, 10), PARIS_SUMMER)
     denylist_file = leak_guard.DENYLIST_FILE
     assert sorted(leak.where for leak in leaks) == [denylist_file, f"{denylist_file}:1", "notes.txt:2"]
+
+
+def _commit(repo, message):
+    _git(repo, "commit", "-q", "--no-verify", "-m", message)
+
+
+def _publish_on(repo, branch, files):
+    _git(repo, "checkout", "-q", "-b", branch, "main")
+    for name, content in files.items():
+        (repo / name).write_text(content, encoding="utf-8")
+    _git(repo, "add", *files)
+    _commit(repo, f"published on {branch}")
+    _git(repo, "checkout", "-q", "main")
+
+
+def _repo_in_a_merge(tmp_path, branches=("other",)):
+    """A merge left open (MERGE_HEAD present) whose other parents already published a clock and a guarded name."""
+    repo = tmp_path / "repo"
+    (repo / "tests" / "unit").mkdir(parents=True)
+    shutil.copy(CORE / leak_guard.H8_GUARD, repo / leak_guard.H8_GUARD)
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.name", "Demo")
+    _git(repo, "config", "user.email", "demo@example.invalid")
+    (repo / "notes.txt").write_text("kept\n", encoding="utf-8")
+    _git(repo, "add", "notes.txt", leak_guard.H8_GUARD)
+    _commit(repo, "base")
+    published = {
+        "other": {"published.py": f'SEEN = "{_clock(10, 29)}"\n', f"notes_{SERIAL}.txt": "kept\n"},
+        "third": {"third.py": f'SEEN = "{_clock(15, 10)}"\n'},
+    }
+    for branch in branches:
+        _publish_on(repo, branch, published[branch])
+    (repo / "notes.txt").write_text("kept\nmain side\n", encoding="utf-8")
+    _git(repo, "add", "notes.txt")
+    _commit(repo, "main side")
+    _git(repo, "merge", "-q", "--no-ff", "--no-commit", *branches)
+    denylist = tmp_path / "denylist"
+    denylist.write_text(f"{HANDLE}\n{SERIAL}\n", encoding="utf-8")
+    return repo, leak_guard.load_denylist(repo, [denylist])
+
+
+def test_a_merge_does_not_refuse_what_a_parent_already_published(tmp_path):
+    repo, denylist = _repo_in_a_merge(tmp_path)
+    assert leak_guard.check_staged(repo, denylist, {}, _at(SATURDAY, 10), PARIS_SUMMER) == []
+
+
+def test_a_leak_added_while_resolving_a_merge_is_refused(tmp_path):
+    repo, denylist = _repo_in_a_merge(tmp_path)
+    (repo / "notes.txt").write_text(f"kept\nmain side\nresolved at {_clock(11, 45)}\nby {HANDLE}\n",
+                                    encoding="utf-8")
+    (repo / "published.py").write_text(f'SEEN = "{_clock(10, 29)}"\nAGAIN = "{_clock(14, 5)}"\n',
+                                       encoding="utf-8")
+    (repo / f"extra_{SERIAL}.txt").write_text("new\n", encoding="utf-8")
+    _git(repo, "add", "notes.txt", "published.py", f"extra_{SERIAL}.txt")
+    leaks = leak_guard.check_staged(repo, denylist, {}, _at(SATURDAY, 10), PARIS_SUMMER)
+    assert sorted(leak.where for leak in leaks) == [f"extra_{SERIAL}.txt", "notes.txt:3", "notes.txt:4",
+                                                    "published.py:2"]
+
+
+def test_the_date_of_a_merge_is_still_checked(tmp_path):
+    repo, denylist = _repo_in_a_merge(tmp_path)
+    leaks = leak_guard.check_staged(repo, denylist, {}, _at(MONDAY, 10), PARIS_SUMMER)
+    assert [leak.where for leak in leaks] == ["author date", "committer date"]
+
+
+def test_an_octopus_merge_reads_only_what_no_parent_published(tmp_path):
+    repo, denylist = _repo_in_a_merge(tmp_path, branches=("other", "third"))
+    assert leak_guard.check_staged(repo, denylist, {}, _at(SATURDAY, 10), PARIS_SUMMER) == []
+    (repo / "third.py").write_text(f'SEEN = "{_clock(15, 10)}"\nAGAIN = "{_clock(9, 40)}"\n', encoding="utf-8")
+    _git(repo, "add", "third.py")
+    leaks = leak_guard.check_staged(repo, denylist, {}, _at(SATURDAY, 10), PARIS_SUMMER)
+    assert [leak.where for leak in leaks] == ["third.py:2"]
+
+
+def test_an_unreadable_merge_head_refuses_the_commit(tmp_path):
+    repo, denylist = _repo_in_a_merge(tmp_path)
+    (repo / ".git" / "MERGE_HEAD").write_text("not-a-commit\n", encoding="utf-8")
+    with pytest.raises(subprocess.CalledProcessError):
+        leak_guard.check_staged(repo, denylist, {}, _at(SATURDAY, 10), PARIS_SUMMER)

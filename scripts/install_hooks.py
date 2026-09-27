@@ -1,4 +1,4 @@
-"""Install the leak guard (scripts/hooks/pre-commit) as the pre-commit and commit-msg hooks.
+"""Install the leak guard (scripts/hooks/pre-commit) as the pre-commit, pre-merge-commit and commit-msg hooks.
 
 The hooks directory comes from `git rev-parse --git-path hooks`, so a linked worktree installs into
 the shared hooks of its repository and `core.hooksPath` is honoured. The installed hook runs the
@@ -22,7 +22,8 @@ CORE = pathlib.Path(__file__).resolve().parents[1]
 SOURCE_DIR = CORE / "scripts" / "hooks"
 HOOK_SOURCE = SOURCE_DIR / "pre-commit"
 GUARD_SOURCE = SOURCE_DIR / "leak_guard.py"
-HOOK_NAMES = ("pre-commit", "commit-msg")
+# A merge that commits by itself runs pre-merge-commit instead of pre-commit.
+HOOK_NAMES = ("pre-commit", "pre-merge-commit", "commit-msg")
 MARKER = b"taktik-leak-guard"
 
 
