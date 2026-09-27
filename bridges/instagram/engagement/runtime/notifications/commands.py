@@ -77,7 +77,7 @@ def run_notifications_command(config: dict) -> None:
         import traceback
 
         logger.error(f"notifications bridge error: {exc}")
-        emit_notif_json({"success": False, "error": str(exc), "traceback": traceback.format_exc()}, flush=True)
+        emit_notif_error(str(exc), flush=True, traceback=traceback.format_exc())
         sys.exit(1)
 
     emit_notif_json(result, flush=True)

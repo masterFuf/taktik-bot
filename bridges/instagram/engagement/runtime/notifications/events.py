@@ -1,4 +1,9 @@
-"""JSON stdout emitters for the Instagram notifications engagement bridge."""
+"""JSON stdout emitters for the Instagram notifications engagement bridge.
+
+The run's own lines (`notification_step`, the command's `result`) are built by the core
+(`management/notifications/commands.py`); the bridge prints them, and says in a `result` line
+of its own why a command could not run.
+"""
 
 import json
 
@@ -7,17 +12,9 @@ def emit_notif_json(payload: dict, *, flush: bool = False) -> None:
     print(json.dumps(payload), flush=flush)
 
 
-def emit_notif_error(error: str, *, flush: bool = False) -> None:
-    emit_notif_json({"success": False, "error": error}, flush=flush)
+def emit_notif_error(error: str, *, flush: bool = False, **extra) -> None:
+    """The command's last line when it could not run: a `result` that failed, and why."""
+    emit_notif_json({"type": "result", "success": False, "error": error, **extra}, flush=flush)
 
 
-def emit_notif_step(*, step: str, status: str, message: str = "", **extra) -> None:
-    """Per-step live narration emitted to the front."""
-    emit_notif_json(
-        {"type": "notification_step", "step": step, "step_status": status,
-         "message": message, **extra},
-        flush=True,
-    )
-
-
-__all__ = ["emit_notif_json", "emit_notif_error", "emit_notif_step"]
+__all__ = ["emit_notif_error", "emit_notif_json"]
