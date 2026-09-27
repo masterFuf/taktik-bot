@@ -52,12 +52,11 @@ class NavigationSelectors:
     def activity_tab(self) -> List[str]:
         return L("navigation.activity_tab")
 
+    # The bottom bar's tab, by its exact id: `contains(@resource-id, "profile_tab")` also names
+    # the grid tabs of a profile page (profile_tabs_container, profile_tab_layout,
+    # profile_tab_icon_view), earlier in the dump, and a tap there opens Reels or Reposts.
     _profile_tab_base: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, "profile_tab")]',
-        '//*[contains(@resource-id, "tab_profile")]',
-        '//*[contains(@resource-id, "tab_bar_profile")]',
-        '(//android.widget.FrameLayout[contains(@resource-id, "tab_")])[last()]',
-        '//*[contains(@resource-id, "tab") and position()=5]',
+        '//*[@resource-id="com.instagram.android:id/profile_tab"]',
     ])
 
     @property

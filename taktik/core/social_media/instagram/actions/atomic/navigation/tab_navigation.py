@@ -109,6 +109,8 @@ class TabNavigationMixin(BaseAction):
 
             if self._find_and_click(self.selectors.profile_tab, timeout=15):
                 self._human_like_delay('navigation')
+                # The tab switches at once, the profile header loads seconds later.
+                detection.wait_for_profile_screen()
 
                 if detection.is_on_own_profile():
                     self.logger.debug(f"✅ Successfully navigated to own profile (attempt {attempt + 1})")
