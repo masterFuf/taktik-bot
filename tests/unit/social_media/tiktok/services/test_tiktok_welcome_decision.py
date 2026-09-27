@@ -129,6 +129,45 @@ def test_a_welcome_message_can_go_out_without_a_follow_back_when_the_policy_allo
     assert decision.reason == REASON_RELEVANT
 
 
+def test_a_welcome_to_every_new_follower_does_not_wait_for_the_verdict():
+    """Product decision: the welcome DM goes to every new follower detected, not only to the
+    ones followed back. `dmRequiresFollowBack: false` is how the app asks for it; the verdict
+    still decides the follow-back, and only that.
+
+    Would have caught the page's "welcome every new follower" reaching the bot and the pass
+    writing only to the followers the AI judged relevant.
+    """
+    policy = _policy(follow_back=False, dm_requires_follow_back=False)
+    verdicts = {
+        REASON_NO_VERDICT: None,
+        REASON_NOT_RELEVANT: _verdict(relevant=False),
+        REASON_UNSCORED: _verdict(score=None),
+        REASON_BELOW_THRESHOLD: _verdict(score=0.1),
+    }
+
+    for reason, verdict in verdicts.items():
+        decision = decide_for_new_follower("creator", verdict, policy)
+        assert (decision.follow_back, decision.welcome_dm, decision.reason) == (False, True, reason)
+
+
+def test_welcoming_every_follower_leaves_the_follow_back_to_the_verdict():
+    policy = _policy(dm_requires_follow_back=False)
+
+    rejected = decide_for_new_follower("stranger", _verdict(relevant=False), policy)
+    approved = decide_for_new_follower("creator", _verdict(), policy)
+
+    assert (rejected.follow_back, rejected.welcome_dm) == (False, True)
+    assert (approved.follow_back, approved.welcome_dm) == (True, True)
+
+
+def test_welcoming_every_follower_still_needs_a_text_to_send():
+    policy = _policy(dm_requires_follow_back=False, messages=())
+
+    decision = decide_for_new_follower("creator", _verdict(relevant=False), policy)
+
+    assert decision.welcome_dm is False
+
+
 def test_a_welcome_dm_with_no_message_text_is_not_sent():
     """The bot never composes: the texts come from the app. No text means no message.
 

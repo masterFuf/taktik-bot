@@ -27,6 +27,21 @@ def follow_back(a, p):
     return a.dm.follow_back(p.get("username", ""))
 
 
+@action("tt.inbox.open_new_follower_profile")
+def open_new_follower_profile(a, p):
+    """Open one new follower's profile from the new-followers page and read their handle.
+
+    Param: name (required), the DISPLAY NAME as the row shows it. The production step of the
+    welcome pass and of the notifications scan; fails when the row does not open a readable profile.
+    """
+    name = str((p or {}).get("name") or "").strip()
+    if not name:
+        return {"success": False, "message": "name is required"}
+    handle = a.dm.open_new_follower_profile(name)
+    return {"success": bool(handle), "message": f"{name} -> @{handle}" if handle else f"no profile read for {name}",
+            "details": {"name": name, "handle": handle}}
+
+
 @action("tt.inbox.get_unreplied")
 def get_unreplied(a, p):
     """List the conversations, with the unanswered flag."""
