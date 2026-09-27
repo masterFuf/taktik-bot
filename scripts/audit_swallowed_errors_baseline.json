@@ -152,7 +152,7 @@
   "taktik/core/social_media/tiktok/workflows/management/language/change_language_workflow.py": 1,
   "taktik/core/social_media/tiktok/workflows/management/signup/signup_workflow.py": 2,
   "taktik/core/social_media/tiktok/workflows/publish/agent_handler.py": 1,
-  "taktik/core/social_media/tiktok/workflows/publish/upload_workflow.py": 2,
+  "taktik/core/social_media/tiktok/workflows/publish/upload_workflow.py": 1,
   "taktik/core/social_media/tiktok/workflows/runtime/startup.py": 1,
   "taktik/core/social_media/youtube/workflows/account/account_workflow.py": 6,
   "taktik/core/social_media/youtube/workflows/publish/upload_workflow.py": 6

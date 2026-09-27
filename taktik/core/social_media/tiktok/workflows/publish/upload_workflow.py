@@ -121,11 +121,13 @@ class TikTokUploadWorkflow:
         self._step_hook = step_hook
 
     def _capture(self, phase: str) -> None:
+        """Hand the phase to the host's capture hook. A capture is diagnostic: its failure is said,
+        and the publication goes on."""
         if self._step_hook:
             try:
                 self._step_hook(phase)
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - any failure of a host's hook
+                _ipc.log("warning", f"Step capture {phase} failed: {exc}")
 
     # ------------------------------------------------------------------
     # Public entrypoint
