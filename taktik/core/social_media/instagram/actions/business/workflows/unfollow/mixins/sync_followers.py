@@ -223,8 +223,8 @@ class SyncFollowersMixin(UnfollowActionsMixin):
                             stop_signal = True
                             self.logger.info(
                                 f"⏹ {known_in_a_row} known followers in a row after "
-                                f"{stats['new_count']} new one(s): the base plus the new ones "
-                                f"({known_after}) match the count ({expected}), stopping"
+                                f"{known_after - len(known_followers)} the base did not know: the base "
+                                f"plus the new ones ({known_after}) match the count ({expected}), stopping"
                             )
                             break
                         self.logger.info(
