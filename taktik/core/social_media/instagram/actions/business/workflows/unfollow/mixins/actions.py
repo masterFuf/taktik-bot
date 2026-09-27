@@ -2,9 +2,10 @@
 
 import time
 import random
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Set
 
 from taktik.core.clone import get_active_package
+from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.shared.device.ui_dump import index_of_closest_row
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.shared.behavior.tap import tap_element_human
@@ -104,9 +105,11 @@ def _vertical_band(element) -> Optional[tuple]:
 class UnfollowActionsMixin:
     """Mixin: perform unfollow, extract accounts, scroll & sort the following list."""
 
-    # Read from the business action this mixin is part of (BaseBusinessAction), never set here.
+    # Read from the business action this mixin is part of (BaseBusinessAction, UnfollowBusiness),
+    # never set here.
     logger: Any
     device: Any
+    _unfollow_selectors: Dict[str, Any]
 
     # ─── Rows of an open follow list ──────────────────────────────────────────
 
@@ -206,12 +209,49 @@ class UnfollowActionsMixin:
         a log that never calls "complete" a read that proved nothing (no row read, a read cut
         short by the session)."""
         stats['success'] = stats['proof'] is not None
-        verdict = describe_proof(stats['proof'], seen, stats['expected'])
+        verdict = describe_proof(stats['proof'], seen, stats['expected'], stats.get('known_after'))
         counts = f"{stats['new_count']} new, {stats['updated_count']} updated"
         if stats['success']:
             self.logger.info(f"✅ {kind.capitalize()} sync: {verdict}; {counts}")
         else:
             self.logger.warning(f"⚠️ {kind.capitalize()} sync proved nothing: {verdict}; {counts}")
+
+    # Departures one read may mark at most: beyond, the read is more likely wrong than the base.
+    max_departure_share = 0.10
+    min_departures_cap = 5
+
+    def _record_departures(self, kind: str, account_id: int, known: Set[str], present: Set[str],
+                           stats: Optional[Dict[str, Any]] = None) -> int:
+        """Close the rows the base holds for the `kind` list ('following' or 'followers') that a
+        COMPLETE read of that list did not show (`present`: the names read, and the names shown
+        without a button to pair them, which are rows of the list all the same).
+
+        'following': accounts unfollowed elsewhere, by hand, from another device, or by Instagram.
+        'followers': accounts that no longer follow us. Until 2026-09-24 no departure was seen
+        on the following list, until 2026-09-28 none on the followers list: such an account stayed
+        in the base forever. Called only after a complete read; a partial one proves nothing. A
+        wrong mark is undone by the next read that shows the account (`upsert_following`,
+        `upsert_follower`). More departures than a tenth of the known rows (5 at least) in one read
+        are not applied, only logged.
+        """
+        present_lower = {name.lower() for name in present}
+        gone = sorted(name for name in known if name.lower() not in present_lower)
+        cap = max(self.min_departures_cap, int(len(known) * self.max_departure_share))
+        if len(gone) > cap:
+            self.logger.warning(
+                f"📉 {len(gone)} {kind} missing from a complete read (cap {cap}): "
+                "not applied, the read is more likely wrong than the base"
+            )
+            if stats is not None:
+                stats['departures_withheld'] = len(gone)
+            return 0
+        mark_gone = (InstagramFollowGraphService.mark_unfollowed if kind == 'following'
+                     else InstagramFollowGraphService.mark_follower_gone)
+        for username in gone:
+            mark_gone(username, account_id)
+        if gone:
+            self.logger.info(f"📉 {len(gone)} {kind} gone since the last complete read")
+        return len(gone)
 
     def _session_stop_reason(self):
         """The session's stop reason when one of its limits is reached (its duration, the run's
@@ -358,6 +398,17 @@ class UnfollowActionsMixin:
             except Exception as exc:
                 self.logger.debug(f"Tab count not read ({kind}): {exc}")
         return None
+
+    def _list_shows_sort_control(self) -> bool:
+        """Does the open list show a sort control (its "Trié par ..." header, or its sort icon)?
+
+        The followers tab of Instagram 410 has none and shows the newest follower first. The one of
+        Instagram 447 has one, on "Par défaut", and that order is not the follow date: between two
+        reads of a Pixel 6a account the new followers were spread down the list and the known ones
+        reordered.
+        """
+        selectors = self._unfollow_selectors['sort_entry_label'] + self._unfollow_selectors['sort_button']
+        return any(self.device.xpath(selector).exists for selector in selectors)
 
     def _go_back_to_following_list(self):
         """Go back to the following list, one verified Back at a time."""

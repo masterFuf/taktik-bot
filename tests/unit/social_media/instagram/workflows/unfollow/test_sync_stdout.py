@@ -51,6 +51,7 @@ def test_an_enriched_profile_is_reported_by_the_extraction_alone(monkeypatch, ca
     monkeypatch.setattr(followers_mixin, "tap_element_human", lambda *a, **k: True)
     graph = followers_mixin.InstagramFollowGraphService
     monkeypatch.setattr(graph, "get_active_following_usernames", staticmethod(lambda _a: set()))
+    monkeypatch.setattr(graph, "get_follower_usernames", staticmethod(lambda _a: set()))
     monkeypatch.setattr(graph, "upsert_follower", staticmethod(lambda username, **_k: "new"))
     monkeypatch.setattr(graph, "set_followings_reciprocity", staticmethod(lambda _a, names: len(names)))
 

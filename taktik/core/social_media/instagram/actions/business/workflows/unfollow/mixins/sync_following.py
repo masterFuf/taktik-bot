@@ -12,7 +12,7 @@ This avoids:
 
 import time
 import random
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Set
 
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.clone import get_active_package
@@ -21,11 +21,11 @@ from taktik.core.shared.behavior.tap import tap_element_human
 from ..list_proof import (
     PROOF_BY_KNOWN_ACCOUNT, describe_proof, incremental_stop_allowed, proof_of_read, scrolls_for,
 )
-from .actions import LeftOutRows, row_belongs_to_tab
+from .actions import LeftOutRows, UnfollowActionsMixin, row_belongs_to_tab
 from .sync_events import emit_sync_progress, emit_sync_user_discovered
 
 
-class SyncFollowingMixin:
+class SyncFollowingMixin(UnfollowActionsMixin):
     """Mixin: sync the following list incrementally and detect non-followers via native category."""
 
     # ─── Public entry points ──────────────────────────────────────────────────
@@ -305,8 +305,8 @@ class SyncFollowingMixin:
                         scroll_attempts += 1
 
             if stats['complete'] and stats['total_seen'] > 0:
-                stats['departures'] = self._record_following_departures(
-                    account_id, known_usernames, seen_on_screen, stats)
+                stats['departures'] = self._record_departures(
+                    'following', account_id, known_usernames, seen_on_screen | left_out.unpaired, stats)
 
             # What the read saw and did not count: a read short of the tab's count says why
             stats['left_out'] = left_out.summary(seen_on_screen)
@@ -547,38 +547,6 @@ class SyncFollowingMixin:
             self.logger.debug(f"Error extracting non-follower usernames: {e}")
 
         return results
-
-    # Departures one read may mark at most: beyond, the read is more likely wrong than the base.
-    max_departure_share = 0.10
-    min_departures_cap = 5
-
-    def _record_following_departures(self, account_id: int, known: Set[str], seen: Set[str],
-                                     stats: Optional[Dict[str, Any]] = None) -> int:
-        """Mark as unfollowed the accounts the base says we follow and a COMPLETE read missed.
-
-        They were unfollowed elsewhere: by hand, from another device, or by Instagram. Until
-        2026-09-24 the sync never saw a departure, and such an account stayed "followed" in the
-        base forever. Called only after a complete read of the list; a partial one proves nothing.
-        A wrong mark is harmless in the safe direction (one candidate fewer), and the next sync
-        that sees the account clears it (`upsert_following`). More departures than a tenth of the
-        known followings (5 at least) in one read are not applied, only logged.
-        """
-        seen_lower = {name.lower() for name in seen}
-        gone = sorted(name for name in known if name.lower() not in seen_lower)
-        cap = max(self.min_departures_cap, int(len(known) * self.max_departure_share))
-        if len(gone) > cap:
-            self.logger.warning(
-                f"📉 {len(gone)} followings missing from a complete read (cap {cap}): "
-                "not applied, the read is more likely wrong than the base"
-            )
-            if stats is not None:
-                stats['departures_withheld'] = len(gone)
-            return 0
-        for username in gone:
-            InstagramFollowGraphService.mark_unfollowed(username, account_id)
-        if gone:
-            self.logger.info(f"📉 {len(gone)} account(s) no longer followed (unfollowed elsewhere)")
-        return len(gone)
 
     def _has_follow_back_row(self) -> bool:
         """Does a row of the open list offer to follow back ("Follow back", "Suivre en retour")?

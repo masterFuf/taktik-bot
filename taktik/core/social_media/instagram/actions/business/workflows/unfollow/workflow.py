@@ -150,7 +150,9 @@ class UnfollowBusiness(
                     stats['followers_sync'] = {'total_seen': followers_sync.get('total_seen'),
                                                'expected': followers_sync.get('expected'),
                                                'complete': self._followers.complete,
-                                               'proof': followers_sync.get('proof')}
+                                               'proof': followers_sync.get('proof'),
+                                               'incremental': followers_sync.get('incremental'),
+                                               'departures': followers_sync.get('departures')}
                 self._synced = True
             followers = self._followers
 
