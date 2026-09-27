@@ -67,7 +67,6 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "auth.profile_selection_screen": [
         "//android.widget.Button[@content-desc=\"Utiliser un autre profil\"]",
-        "//android.widget.Button[@content-desc=\"Créer un compte\"]",
         "//*[contains(@text, \"Utiliser un autre profil\")]",
     ],
     "auth.profile_tab_button": [

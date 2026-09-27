@@ -57,8 +57,8 @@ class ResultDetectionMixin:
                 error_type="credentials_error"
             )
         
-        # Still on the login screen
-        if self._is_on_login_screen():
+        # Still on the login screen: the form, or the saved profiles (read, never tapped)
+        if self._read_login_screen() is not None:
             self.logger.error("❌ Still on login screen - login failed")
             return LoginResult(
                 success=False,

@@ -213,7 +213,7 @@
   "taktik/core/social_media/instagram/auth/login/credentials.py": 72,
   "taktik/core/social_media/instagram/auth/login/popups.py": 58,
   "taktik/core/social_media/instagram/auth/login/result_detection.py": 19,
-  "taktik/core/social_media/instagram/auth/login/screen_detection.py": 37,
+  "taktik/core/social_media/instagram/auth/login/screen_detection.py": 2,
   "taktik/core/social_media/instagram/auth/session/session_manager.py": 2,
   "taktik/core/social_media/instagram/auth/switch/__init__.py": 2,
   "taktik/core/social_media/instagram/core/manager.py": 6,

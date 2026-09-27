@@ -90,7 +90,7 @@
   "taktik/core/social_media/instagram/actions/core/device/facade.py": 1,
   "taktik/core/social_media/instagram/auth/login/__init__.py": 2,
   "taktik/core/social_media/instagram/auth/login/credentials.py": 12,
-  "taktik/core/social_media/instagram/auth/login/screen_detection.py": 3,
+  "taktik/core/social_media/instagram/auth/login/screen_detection.py": 1,
   "taktik/core/social_media/instagram/auth/logout/__init__.py": 1,
   "taktik/core/social_media/instagram/auth/signup/signup.py": 3,
   "taktik/core/social_media/instagram/auth/switch/__init__.py": 1,

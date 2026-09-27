@@ -73,10 +73,10 @@ def fill_login_credentials(a, p):
 
 @detection_action("account.detect_login_screen")
 def detect_login_screen(a, p):
-    """Detection: are we on the login screen (profile-tile vs form branch)? The production reader
-    answers True (the login form), False (a saved profile tile was tapped) or None (neither the form
-    nor the profile picker, the home feed for one): the last two both mean "not on the login screen"."""
-    return _login(a)._is_on_login_screen() is True
+    """Detection: are we on a login screen, the login form or the saved profiles? Read by the
+    production reader of the login, which taps nothing (the login step that picks a saved profile is
+    `_reach_login_form`)."""
+    return _login(a)._read_login_screen() is not None
 
 
 @action("account.detect_login_result")
