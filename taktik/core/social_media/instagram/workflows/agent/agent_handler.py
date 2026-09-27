@@ -3,8 +3,9 @@
 `run_instagram_agent` is what the desktop bridge (`taktik_agent_bridge`) calls, what `taktik agent
 run` calls and what the handler registered as `instagram.engagement.taktik_agent` calls: read the
 payload (`payload.py`), refuse a session the Agent cannot decide in before the phone is touched,
-restart Instagram cleanly, then run `TaktikAgentWorkflow`. What differs between the hosts is
-injected:
+restart Instagram cleanly, then run `TaktikAgentWorkflow` with the warmup budget of the account's
+day (`WarmupBudget`, the automation's counter, on the caps of the file). What differs between the
+hosts is injected:
 - `device_manager` and `restart`: the device ready for the flow (the bridges' clone-aware,
   facade-wrapped device, with the selector overrides of the installed version) and its clean
   restart through `AppService`.
@@ -26,6 +27,7 @@ from typing import Any, Callable, Mapping, Optional
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
+from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import WarmupBudget
 
 
 INSTAGRAM_AGENT_WORKFLOW_ID = "instagram.engagement.taktik_agent"
@@ -82,6 +84,8 @@ def run_instagram_agent(
         config=config,
         ipc=ipc,
         ai_service_factory=ai_service_factory,
+        # Handed in, not built by the session: the Agent kernel does not import a platform.
+        warmup=WarmupBudget(request.warmup_policy),
     )
     if on_workflow is not None:
         on_workflow(workflow)

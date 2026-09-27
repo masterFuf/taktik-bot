@@ -26,6 +26,9 @@ class _FakeAI:
 def _make_agent(state: str, skip: bool = True):
     """Minimal instance (bypasses the heavy __init__) with the visit dependencies stubbed."""
     agent = object.__new__(TaktikAgentWorkflow)
+    # No warmup budget handed by a launcher: the session's own quotas only.
+    agent._warmup = None
+    agent._warmup_stop = ""
     agent.stats = {
         "profile_visits": 0,
         "profiles_skipped_relationship": 0,

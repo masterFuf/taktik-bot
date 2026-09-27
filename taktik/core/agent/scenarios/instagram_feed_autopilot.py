@@ -9,7 +9,8 @@ Current implementation: Instagram feed browsing.
   3. Scrolls through posts, stopping on ~40% of them
   4. For each stopped post: takes a screenshot → AI decides (like / skip / comment / save)
   5. If AI says visit_profile: navigate to author → screenshot → AI decides (follow / skip)
-  6. Respects configurable daily quotas; stops when any quota is reached
+  6. Respects its session quotas and the warmup budget of the account's day, counted gesture by
+     gesture; stops when a quota or a warmup cap is reached
   7. Emits IPC events throughout for the Taktik Agent panel
 """
 
@@ -68,6 +69,7 @@ class TaktikAgentWorkflow:
         ipc=None,
         ai_service: Optional[AgentAIService] = None,
         ai_service_factory: Optional[AgentAIServiceFactory] = None,
+        warmup=None,
     ):
         self.device_manager = device_manager
         self.device = device_manager.device if hasattr(device_manager, 'device') else device_manager
@@ -102,6 +104,16 @@ class TaktikAgentWorkflow:
         # re-engage its own audience.
         self._skip_related_profiles = self.request.skip_related_profiles
         self._skip_reels = self.request.skip_reels
+
+        # The warmup budget of the account's day, the automation's counter (`WarmupBudget`), handed
+        # by the launcher on the caps of the file; None when constructed without one (no cap). It
+        # reads the day from the ledger, where each like, comment and follow of this session is
+        # filed: asked before each of them, it counts the session gesture by gesture.
+        self._warmup = warmup
+        if warmup is not None:
+            warmup.count_against_account(lambda: self._account_id)
+        # The warmup cap that ended the session, once reached: no gesture after it.
+        self._warmup_stop = ""
 
         self._stop_requested = False
         self._session_start = None
@@ -729,6 +741,9 @@ class TaktikAgentWorkflow:
         if run_halt.arret_demande():
             logger.warning("[TaktikAgent] Run stop requested — no profile visit")
             return
+        # A warmup cap reached on the post: no visit, no paid AI call for a follow it would refuse.
+        if self._warmup_spent():
+            return
 
         if not self._navigate_to_profile(username):
             logger.warning(f"[TaktikAgent] Could not navigate to @{username}")
@@ -772,7 +787,8 @@ class TaktikAgentWorkflow:
             f"(extra_likes={decision['extra_likes']}) | {decision.get('reason', '')}"
         )
 
-        if decision["follow"] and self.stats["follows"] < self.quotas["max_follows"]:
+        if (decision["follow"] and self.stats["follows"] < self.quotas["max_follows"]
+                and self._warmup_allows("follow")):
             self._do_follow(username)
             time.sleep(random.uniform(*DELAY_AFTER_FOLLOW))
             if self._block_seen("follow"):
@@ -848,6 +864,10 @@ class TaktikAgentWorkflow:
         that never existed, from a module that does not export `LikeBusiness`: the exception
         was swallowed and no extra like was ever given."""
         count = min(count, self.quotas["max_likes"] - self.stats["likes"])
+        # Filed in one batch at the end of the profile: cut to what the warmup leaves first.
+        left = self._warmup.actions_left(self._written_actions()) if self._warmup is not None else None
+        if left is not None:
+            count = min(count, left)
         if count <= 0:
             return
         try:
@@ -889,7 +909,7 @@ class TaktikAgentWorkflow:
             logger.info("[TaktikAgent] Post author unreadable: post not engaged, it could not be recorded")
             return False, False
         engaged = False
-        if self.stats["likes"] < self.quotas["max_likes"]:
+        if self.stats["likes"] < self.quotas["max_likes"] and self._warmup_allows("like"):
             if feed._like_current_post(record_as=author):
                 self.stats["likes"] += 1
                 engaged = True
@@ -899,7 +919,8 @@ class TaktikAgentWorkflow:
                 if self._block_seen("like"):
                     return engaged, True
 
-        if engaged and action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]:
+        if (engaged and action == "like_comment" and self.stats["comments"] < self.quotas["max_comments"]
+                and self._warmup_allows("comment")):
             comment_text = decision.get("comment", "")
             if comment_text:
                 self._post_comment(feed, comment_text, author)
@@ -966,6 +987,8 @@ class TaktikAgentWorkflow:
         if halt:
             logger.warning(f"[TaktikAgent] Run stop requested: {halt.get('code')}")
             return True
+        if self._warmup_spent():
+            return True
         if time.time() > deadline:
             logger.info("[TaktikAgent] Session duration limit reached")
             return True
@@ -979,6 +1002,42 @@ class TaktikAgentWorkflow:
             logger.info("[TaktikAgent] All quotas reached")
             return True
         return False
+
+    # ------------------------------------------------------------------
+    # Warmup budget of the account's day
+    # ------------------------------------------------------------------
+
+    def _written_actions(self) -> int:
+        """This session's written actions (likes + follows + comments), the unit of the warmup's
+        session cap, as in the automation."""
+        return self.stats["likes"] + self.stats["follows"] + self.stats["comments"]
+
+    def _warmup_spent(self) -> bool:
+        """Has a warmup cap ended the session: the day's actions, the run's actions, or a day that
+        can no longer be read? The first reason is kept and goes in the final stats."""
+        if self._warmup is None:
+            return False
+        if self._warmup_stop:
+            return True
+        reason = self._warmup.stop_reason(self._written_actions())
+        if not reason:
+            return False
+        self._warmup_stop = reason
+        self.stats["stop_reason"] = reason.code
+        logger.info(f"[TaktikAgent] Warmup budget reached: {reason}")
+        return True
+
+    def _warmup_allows(self, intent: str) -> bool:
+        """May this written gesture (`like`, `comment`, `follow`) be made under the warmup budget?
+
+        Asked just before it: a gesture that would pass a cap is not made. A spent daily quota of
+        follows or comments disables that gesture only, the session goes on (the automation's rule).
+        """
+        if self._warmup is None:
+            return True
+        if self._warmup_spent():
+            return False
+        return intent not in self._warmup.exhausted_intents()
 
     # ------------------------------------------------------------------
     # IPC helpers

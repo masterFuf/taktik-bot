@@ -80,7 +80,7 @@ def test_an_untouched_budget_masks_nothing():
 
 def test_daily_budget_matches_the_real_session_manager():
     sm = _manager(warmup_policy={'max_actions_per_day': 250})
-    sm.set_daily_usage_provider(lambda: {'total': 250})
+    sm.warmup.set_daily_usage_provider(lambda: {'total': 250})
 
     keep_going, emitted = sm.should_continue()
 

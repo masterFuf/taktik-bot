@@ -9,7 +9,7 @@ from typing import Optional, List, Dict, Any, Union
 from pathlib import Path
 from loguru import logger
 
-from .....database import InstagramProfile, get_db_service
+from .....database import InstagramProfile
 from .....database.account_health import witness_for
 from taktik.core.shared.diagnostics import run_halt
 from ..management.session import stop_reasons
@@ -277,36 +277,17 @@ class InstagramAutomation:
         else:
             self.session_manager = SessionManager(self.config)
 
-        # Warmup daily-budget provider: give the SessionManager a way to read TODAY's totals for the
-        # active account, so its in-session cap sees this session's own live writes. Bound to a
-        # method (not a captured id) so it self-heals — before the account is identified it returns
-        # empty totals (cap no-op), and starts reading real numbers the moment active_account_id is
-        # set. No-op end to end when the desktop injected no warmup caps.
-        self.session_manager.set_daily_usage_provider(self._today_usage_for_warmup)
+        # Warmup daily budget: the SessionManager's budget reads TODAY's totals of the active
+        # account from the ledger, so its in-session cap sees this session's own live writes. A
+        # reader of the attribute, not a captured id: before the account is identified the day is
+        # empty (cap no-op), and real numbers are read the moment active_account_id is set. A read
+        # error is counted by the budget, not swallowed here. No-op end to end when the desktop
+        # injected no warmup caps. The front launch gate stays the primary guard.
+        self.session_manager.warmup.count_against_account(lambda: getattr(self, 'active_account_id', None))
 
         session_settings = self.config.get('session_settings', {})
         duration_minutes = session_settings.get('session_duration_minutes', 'NOT_DEFINED')
         self.logger.debug(f"SessionManager config update: duration={duration_minutes}min, keys={list(self.config.keys())}")
-
-    def _today_usage_for_warmup(self) -> Dict[str, int]:
-        """Today's action totals for the active account, for the warmup daily-budget stop.
-
-        Two situations used to return the same empty totals, and they are not the same thing:
-        no account resolved yet is the NORMAL state at the start of a session, while a failed
-        read is an anomaly. Merging them meant the guard could not tell "nothing to enforce yet"
-        from "I can no longer evaluate the cap".
-
-        So: empty totals when there is no account (unchanged, never trips the cap), and the
-        read error is left to propagate. The caller — `SessionManager._read_daily_usage` —
-        already catches it without killing the run, and now counts it: the decision of what a
-        streak of failures means belongs there, next to the session state that measures it.
-
-        The front launch gate remains the primary guard; the bot cap is defense in depth.
-        """
-        account_id = getattr(self, 'active_account_id', None)
-        if not account_id:
-            return {}
-        return get_db_service().get_today_totals(account_id)
 
     def _install_health_witness(self) -> None:
         """A block seen anywhere in this run becomes one entry of the account's health history.

@@ -2,7 +2,7 @@
 
 The payload is the file the app's main process writes for the Agent node (the session's caps, the
 app's language) with what the host adds (the OpenRouter key, the vision model, the orchestration
-context the desktop prepared); `taktik agent run --param k=v` and `taktik workflows run
+context the desktop prepared, the warmup caps of the account's day); `taktik agent run --param k=v` and `taktik workflows run
 instagram.engagement.taktik_agent` send the same keys. Each key is read by a plain `.get`, here
 and nowhere else: `TaktikAgentWorkflow` and its launcher take the request this module builds.
 """
@@ -12,6 +12,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional
+
+from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import (
+    warmup_policy_from_payload,
+)
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,9 @@ class TaktikAgentRequest:
     openrouter_api_key: str = ""
     agent_plan: Any = None
     orchestration: AgentOrchestration = field(default_factory=AgentOrchestration)
+    #: The warmup caps of the account's day, read by the automation's reader (`warmup_budget.py`);
+    #: empty without a desktop (no cap).
+    warmup_policy: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def quotas(self) -> Dict[str, Any]:
@@ -97,6 +104,7 @@ def taktik_agent_request_from_payload(config: Mapping[str, Any]) -> TaktikAgentR
         openrouter_api_key=config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", ""),
         agent_plan=config.get("agent_plan") or config.get("agentPlan"),
         orchestration=_orchestration(config.get("desktop_orchestration_context")),
+        warmup_policy=warmup_policy_from_payload(config.get("warmupPolicy")) or {},
     )
 
 

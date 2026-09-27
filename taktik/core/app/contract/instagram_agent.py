@@ -3,7 +3,9 @@ reads, and the lines it prints.
 
 One launcher (`run_instagram_agent`), one reader (`taktik_agent_request_from_payload`), one bridge.
 The app launches it from the scheduler's Agent node; the main process adds the OpenRouter key, the
-vision model and the orchestration context it prepared from the account's recent sessions.
+vision model, the orchestration context it prepared from the account's recent sessions, and the
+warmup caps of the account's day that its launch gate computed (`warmupPolicy`, the automation's
+declaration and reader: the Agent counts each gesture against them, `WarmupBudget`).
 `tests/unit/app/contract` holds the reader, the launcher and the bridge to it.
 
 The lines come from the launcher (`status`, `error`), from the bridge's own failures (`error`),
@@ -27,9 +29,10 @@ from .shared import (
     STEP_METRIC_EVENT,
     device_field,
 )
-from .stop_reasons import RUN_HALT_CODE
+from .stop_reasons import INSTAGRAM_STOP_REASON_CODE
 
 _AGENT = "taktik.core.social_media.instagram.workflows.agent"
+_WARMUP_BUDGET = "taktik.core.social_media.instagram.workflows.management.session.warmup_budget"
 
 NEXT_STEP = Shape(
     name="InstagramTaktikAgentNextStep",
@@ -71,7 +74,9 @@ STATUS_STATS = Shape(
         Field("session_cost_usd", "number", "What the model calls cost.", optional=True),
         Field("profiles_skipped_relationship", "int", "Profiles left: a relationship already existed.",
               optional=True),
-        Field("stop_reason", RUN_HALT_CODE, "Why the session stopped early (a block...), on `completed`.", optional=True),
+        Field("stop_reason", INSTAGRAM_STOP_REASON_CODE, "Why the session stopped before its own quotas, on "
+              "`completed`: the stop latch (a block, a lost phone) or a warmup cap (`daily_budget`, "
+              "`session_action_cap`, `daily_budget_unreadable`).", optional=True),
         Field("username", "string", "The acting account (`account_detected`).", optional=True),
         Field("niche", "string", "Its niche, as on record (`account_detected`).", optional=True),
         Field("tool", "string", "The step announced (`planning`).", optional=True),
@@ -151,6 +156,12 @@ INSTAGRAM_TAKTIK_AGENT = WorkflowContract(
               by=HOST),
         Field("desktop_orchestration_context", ORCHESTRATION, "What the desktop prepared; injected by the host.",
               by=HOST),
+        # The automation's declaration, read by its reader: the same caps, the same names.
+        Field("warmupPolicy", INSTAGRAM_AUTOMATION.setting("warmupPolicy").type,
+              "The warmup caps of the account's day, each like, comment and follow counted against them "
+              "(the day's and the run's actions stop the session, the day's follows and comments disable "
+              "their gesture; the pace floor and the unfollow budget are the automation's); injected by "
+              "the host.", via=f"{_WARMUP_BUDGET}:warmup_policy_from_payload", by=HOST),
     ),
     bridge_fields=(
         device_field("deviceId"),
