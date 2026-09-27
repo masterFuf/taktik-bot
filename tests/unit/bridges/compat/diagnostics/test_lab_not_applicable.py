@@ -150,6 +150,23 @@ def test_a_video_whose_sound_page_does_not_open_is_a_failure():
     assert (result["success"], _declared(result)) == (False, None)
 
 
+def test_a_profile_without_a_message_entry_declares_none_and_a_feed_is_a_failure():
+    """TikTok 47.0.3: a profile that follows us, not followed back, has no « Message » (fixture of
+    `test_tiktok_dm_outreach_no_message_entry.py`); the For You feed is not a profile at all."""
+    from taktik.core.compat.selectors.setup import apply_version_overrides
+
+    apply_version_overrides("tiktok", "47.0.3")
+    try:
+        bundle, phone = _tiktok(_dump("tiktok", "tt47_fr_profile_follows_us_no_message_entry.xml"))
+        result = TIKTOK_ACTIONS["tt.profile.click_message"](bundle, {})
+        assert _declared(result) == "the open profile offers no message entry"
+        bundle, phone = _tiktok(_dump("tiktok", "tt4703_fr_home.xml"))
+        result = TIKTOK_ACTIONS["tt.profile.click_message"](bundle, {})
+        assert (result["success"], _declared(result)) == (False, None)
+    finally:
+        apply_version_overrides("tiktok", "43.1.4")
+
+
 def test_an_inbox_without_message_requests_declares_none():
     bundle, _phone = _tiktok(TT_INBOX)
     result = TIKTOK_ACTIONS["tt.inbox.open_message_requests"](bundle, {})

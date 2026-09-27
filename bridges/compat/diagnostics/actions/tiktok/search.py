@@ -6,6 +6,7 @@ from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action
 from bridges.compat.diagnostics.runtime.action_test.action_bundle import bundle_device_id
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_applicable
 
 
 @action("tt.search.open")
@@ -67,6 +68,11 @@ def click_message(a, p):
     )
     workflow.connect()
     outcome = workflow.open_conversation_from_profile()
+    if outcome == outreach.NO_MESSAGE_ENTRY:
+        # The production step recognised the profile and found no message entry on it (a profile we
+        # do not follow, without « Message » nor a message item in its menu): the recipient a run skips.
+        return not_applicable("tt.profile.click_message", "the open profile offers no message entry",
+                              outcome=outcome)
     return {
         "success": outcome == outreach.CONVERSATION_OPENED,
         "message": f"message entry: {outcome}",
