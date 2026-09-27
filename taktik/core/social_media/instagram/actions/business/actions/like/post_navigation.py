@@ -3,7 +3,7 @@
 import time
 import random
 import re
-from typing import Optional
+from typing import TYPE_CHECKING, Callable, Optional
 from loguru import logger
 
 from taktik.core.shared.behavior.grid_entry import (
@@ -16,6 +16,9 @@ from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.shared.diagnostics.miss_capture import signaler_ecran_inconnu
 from taktik.core.shared.telemetry import emit_step
 from ....core.ipc.emitter import IPCEmitter
+
+if TYPE_CHECKING:
+    from loguru import Logger
 
 # Long-run advance mix when browsing a profile's posts. Session memory turns this baseline into
 # short brisk/steady/deliberate bursts instead of an independent 85/15 draw on every post.
@@ -34,10 +37,14 @@ class PostNavigationMixin:
     self.scroll_actions, etc.)
     """
 
+    # What the host provides, declared as an interface would be (no value: nothing is shadowed).
+    logger: "Logger"
+    _behavior_reading_scale: Callable[[str], float]
+
     def _open_entry_post_of_profile(
         self,
         posts_count: int = 0,
-        username: str = None,
+        username: Optional[str] = None,
         *,
         reopening: bool = False,
         posts_to_inspect: int = 0,
@@ -108,6 +115,9 @@ class PostNavigationMixin:
                 index = self._choose_session_grid_entry(
                     posts, username=username, candidates=candidates
                 )
+                if index is None:
+                    self.logger.warning("No grid entry drawn — using legacy first-post open")
+                    return self._open_first_post_of_profile(username=username)
             target = posts[index]
             self.logger.info(
                 f"Opening entry post: thumbnail #{index + 1}/{len(posts)} "
@@ -301,7 +311,7 @@ class PostNavigationMixin:
         return int(index) + 1
 
     @staticmethod
-    def _grid_entry_key(element, index: int, username: str = None) -> str:
+    def _grid_entry_key(element, index: int, username: Optional[str] = None) -> str:
         """Stable per-profile cell key from live grid metadata, with an index fallback."""
         position = PostNavigationMixin._grid_entry_position(element, index)
         cell = f"position:{position}"
@@ -310,7 +320,7 @@ class PostNavigationMixin:
     def _choose_session_grid_entry(
         self,
         posts,
-        username: str = None,
+        username: Optional[str] = None,
         *,
         require_unseen: bool = False,
         candidates: Optional[list] = None,
@@ -333,7 +343,7 @@ class PostNavigationMixin:
             return indexes[int(choice)] if choice is not None else None
         return indexes[sample_entry_index(len(indexes))]
 
-    def _find_reentry_cell(self, posts, thumb_selector: str, posts_count: int, username: str = None):
+    def _find_reentry_cell(self, posts, thumb_selector: str, posts_count: int, username: Optional[str] = None):
         """The cell a reopen opens after a Reel exit, as ``(visible cells, index)``, or None.
 
         The viewer walks a profile one position at a time, so a cell before the furthest position
@@ -388,7 +398,7 @@ class PostNavigationMixin:
                 return None
             posts, positions = moved, moved_positions
 
-    def _furthest_position_reached(self, username: str = None) -> int:
+    def _furthest_position_reached(self, username: Optional[str] = None) -> int:
         """The furthest absolute position reached during this profile visit (0 before any)."""
         cursor = getattr(self, "_profile_post_cursor", None) or {}
         if cursor.get("context") != (username or "current-profile"):
@@ -396,7 +406,7 @@ class PostNavigationMixin:
         return int(cursor.get("furthest") or 0)
 
     def _remember_session_grid_entry(
-        self, target, index: int, username: str = None, *, continuing_visit: bool = False
+        self, target, index: int, username: Optional[str] = None, *, continuing_visit: bool = False
     ) -> None:
         """Remember a grid cell that opened: in the session memory, and in the visit's cursor.
 
@@ -462,7 +472,7 @@ class PostNavigationMixin:
             self.logger.debug(f"thumbnail human-tap bounds unreadable ({e}); centre-click fallback")
         return False
 
-    def _open_first_post_of_profile(self, username: str = None) -> bool:
+    def _open_first_post_of_profile(self, username: Optional[str] = None) -> bool:
         try:
             self.logger.info("Opening first post of profile...")
             
@@ -666,7 +676,7 @@ class PostNavigationMixin:
             self.logger.error(f"Error navigating to next post: {e}")
             return False
 
-    def _advance_or_exit_reel(self, is_reel: bool, total_posts_on_profile: int = 0, username: str = None) -> bool:
+    def _advance_or_exit_reel(self, is_reel: bool, total_posts_on_profile: int = 0, username: Optional[str] = None) -> bool:
         """Advance to the next post — but a REEL must be handled specially.
 
         A reel opened from the grid drops us in the full-screen clips viewer, where the vertical
@@ -687,7 +697,7 @@ class PostNavigationMixin:
             return False
         return self._navigate_to_next_post_in_sequence()
 
-    def _return_to_grid_and_open_another_post(self, posts_count: int = 0, username: str = None) -> bool:
+    def _return_to_grid_and_open_another_post(self, posts_count: int = 0, username: Optional[str] = None) -> bool:
         """Leave a Reel safely, return to the profile grid, and open an unseen post.
 
         Swiping vertically from a freshly opened Reel enters Instagram's global Reels feed and

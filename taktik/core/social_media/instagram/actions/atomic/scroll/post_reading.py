@@ -20,12 +20,17 @@ it through its composed `scroll_actions`.
 import re
 import time
 import random
-from typing import Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from ....ui.extractors import count_from_counter_label
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
 from taktik.core.shared.text import text_lost_emoji
+
+if TYPE_CHECKING:
+    from loguru import Logger
+
+    from taktik.core.shared.device.facade import BaseDeviceFacade
 
 # uiautomator bounds string: "[left,top][right,bottom]" — shared with the feed engine.
 _BOUNDS_RE = re.compile(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]')
@@ -59,6 +64,14 @@ class PostReadingMixin:
     """Mixin: human reading of the on-screen post (caption expand/read, carousel browse,
     content-aware dwell). Host must expose `self.device`, `self.screen_height`, `self.logger`
     and `_long_drag`."""
+
+    # What the host provides, declared as an interface would be (no value: nothing is shadowed).
+    device: "BaseDeviceFacade"
+    logger: "Logger"
+    screen_height: int
+    _long_drag: Callable[..., bool]
+    _human_swipe: Callable[..., bool]
+    _human_horizontal_swipe: Callable[..., bool]
 
     def _dump_root(self):
         """The tree of one screen photo (one dump; the tree `d.xpath()` sees), or None. Used by

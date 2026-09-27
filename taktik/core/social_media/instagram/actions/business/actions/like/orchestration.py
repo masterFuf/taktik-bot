@@ -449,7 +449,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         """Ask the reading owner (`PostReadingMixin`, through `scroll_actions`) about the framed
         post; None when this host has no such reader (a bare test host)."""
         reader = getattr(getattr(self, "scroll_actions", None), reader_name, None)
-        return reader() if callable(reader) else None
+        reading = reader() if callable(reader) else None
+        return reading if isinstance(reading, str) else None
 
     def _visit_signature(self, likes, comments, is_reel) -> str:
         """How the visit tells its posts apart: the framed post's own header and counters
