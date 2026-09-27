@@ -538,11 +538,12 @@ class PostReadingMixin:
 
         The framed post is the first header fully below the action bar; its window runs to the
         next post's header (or the bottom bar). Only what lies inside belongs to this post: its
-        button row, the counters beside those buttons, its captions. None when no header is
-        framed (full-screen Reel viewer, mid-scroll).
+        button row, the heart and the counters of that row, its captions, and its media between
+        its header and its row. None when no header is framed (full-screen Reel viewer,
+        mid-scroll).
         """
         top_limit, bottom_limit = 0, int(self.screen_height)
-        headers, buttons, captions, counters = [], [], [], []
+        headers, buttons, captions, counters, hearts = [], [], [], [], []
         for node in root.iter():
             short = node.get("resource-id", "").rsplit("/", 1)[-1]
             bounds = self._node_bounds(node)
@@ -554,6 +555,8 @@ class PostReadingMixin:
                 headers.append((bounds, node.get("content-desc") or ""))
             elif short == FS.buttons_row_id and bounds:
                 buttons.append(bounds)
+            elif short == FS.like_button_id and bounds:
+                hearts.append((bounds, node.get("selected") == "true"))
             elif node.tag == FS.caption_layout_class and bounds:
                 text = node.get("text") or ""
                 if text:
@@ -576,11 +579,18 @@ class PostReadingMixin:
 
         buttons_bounds = next((b for b in buttons if _in_window(b)), None)
         row_counters = []
+        heart = None
+        media_bounds = None
         if buttons_bounds is not None:
             row_counters = [
                 text for bounds, text in sorted(counters, key=lambda c: c[0][0])
                 if buttons_bounds[1] <= bounds[1] and bounds[3] <= buttons_bounds[3]
             ]
+            heart = next((h for h in hearts
+                          if buttons_bounds[1] <= h[0][1] and h[0][3] <= buttons_bounds[3]), None)
+            if buttons_bounds[1] > header_bounds[3]:
+                media_bounds = (header_bounds[0], header_bounds[3], header_bounds[2],
+                                buttons_bounds[1])
         return {
             "header_desc": header_desc.strip(),
             "header_bounds": header_bounds,
@@ -588,6 +598,9 @@ class PostReadingMixin:
             "buttons_bounds": buttons_bounds,
             "row_counters": row_counters,
             "captions": [c for c in captions if _in_window(c[0])],
+            "heart_bounds": heart[0] if heart else None,
+            "heart_selected": heart[1] if heart else None,
+            "media_bounds": media_bounds,
         }
 
     def framed_post_identity(self, root=None) -> Optional[str]:
@@ -612,6 +625,34 @@ class PostReadingMixin:
         if window is None or not window["header_desc"]:
             return None
         return " | ".join([window["header_desc"]] + [" ".join(window["row_counters"])])
+
+    def framed_post_like_target(self, root=None) -> Optional[dict]:
+        """Where a like of the framed post goes, from one dump; None when the screen cannot be read.
+
+        On a list of posts (a profile's posts, the feed, a hashtag), the post is the framed one,
+        whose header gives the identity the guards check: `media` is its media between its header
+        and its button row (for a double tap), `heart` the like button of that row and `liked` its
+        state. Both are None unless that heart is on screen: the post above can fill most of the
+        screen with its media and its heart, and nothing may then be liked. Off a list (the
+        full-screen Reel viewer), {"list": False}: its single post is liked as that viewer does.
+        """
+        root = root if root is not None else self._dump_root()
+        if root is None:
+            return None
+        list_ids = (FS.profile_header_id, FS.buttons_row_id, FS.like_button_id)
+        if not any(node.get("resource-id", "").rsplit("/", 1)[-1] in list_ids for node in root.iter()):
+            return {"list": False}
+        window = self._framed_window(root)
+        if window is None or window["heart_bounds"] is None:
+            return {"list": True, "identity": window["header_desc"] if window is not None else None,
+                    "media": None, "heart": None, "liked": None}
+        return {
+            "list": True,
+            "identity": window["header_desc"],
+            "media": window["media_bounds"],
+            "heart": window["heart_bounds"],
+            "liked": window["heart_selected"],
+        }
 
     def _reread_caption_without_xml(self, bounds) -> Optional[str]:
         """Re-read a caption through JSON-RPC instead of the XML dump.
