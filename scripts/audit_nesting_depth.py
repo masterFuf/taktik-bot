@@ -61,7 +61,8 @@ def profondeur(node: ast.AST, niveau: int = 0) -> int:
     return maxi
 
 
-def fonctions():
+def fonctions(illisibles: list[str] | None = None):
+    """Chaque fonction du moteur et sa profondeur ; un fichier illisible va dans `illisibles`."""
     for dossier, _, fichiers in os.walk(os.path.join(RACINE, "taktik")):
         if "__pycache__" in dossier:
             continue
@@ -71,8 +72,11 @@ def fonctions():
             chemin = os.path.join(dossier, fichier)
             relatif = os.path.relpath(chemin, RACINE).replace(os.sep, "/")
             try:
-                arbre = ast.parse(io.open(chemin, encoding="utf-8").read())
-            except Exception:
+                # utf-8-sig : quelques fichiers du moteur commencent par un BOM, qu'ast refuse.
+                arbre = ast.parse(io.open(chemin, encoding="utf-8-sig").read())
+            except (OSError, SyntaxError, UnicodeDecodeError, ValueError) as exc:
+                if illisibles is not None:
+                    illisibles.append(f"{relatif} ({type(exc).__name__}: {exc})")
                 continue
             for noeud in ast.walk(arbre):
                 if isinstance(noeud, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -80,7 +84,8 @@ def fonctions():
 
 
 def main() -> int:
-    mesures = sorted(fonctions(), key=lambda kv: kv[1], reverse=True)
+    illisibles: list[str] = []
+    mesures = sorted(fonctions(illisibles), key=lambda kv: kv[1], reverse=True)
 
     if "--list" in sys.argv:
         print("Les dix fonctions les plus imbriquees :")
@@ -107,11 +112,13 @@ def main() -> int:
     for nom, p, plafond in ameliorees:
         print(f"  ameliore : {nom} passe de {plafond} a {p} — mettre TOLERE a jour")
 
-    if not nouvelles and not aggravees:
+    if not nouvelles and not aggravees and not illisibles:
         print(f"Nesting depth OK ({len(mesures)} fonctions, seuil {SEUIL}, "
               f"{len(TOLERE)} tolerance(s) nommee(s))")
         return 0
 
+    for fichier in illisibles:
+        print(f"ECHEC : {fichier} n'a pas pu etre lu, sa profondeur n'est pas mesuree.")
     for nom, p in nouvelles:
         print(f"ECHEC : {nom} atteint {p} niveaux (seuil {SEUIL}). "
               f"Un dispatch par chaine se remplace par une table.")
