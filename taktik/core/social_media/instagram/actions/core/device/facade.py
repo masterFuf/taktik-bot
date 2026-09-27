@@ -114,22 +114,13 @@ class DeviceFacade(BaseDeviceFacade):
     # Instagram-specific: several selectors asked of one screen photo
     # =========================================================================
 
-    def xpath_exists_in_xml(self, xml_content: str, xpath: str) -> bool:
-        """Does `xpath` find anything on a dump already held? Answered on a photo of that dump,
-        as `self.xpath(xpath).exists` answers on the screen: the device's rewrite (bare and
-        clone ids) and uiautomator2's shorthands included. No device call."""
-        try:
-            return bool(self.snapshot_of(xml_content).elements(xpath))
-        except Exception:
-            return False
-
     def batch_xpath_check(self, selectors_dict: Dict[str, List[str]]) -> Dict[str, bool]:
         """Named selector lists asked of ONE photo of the screen (one dump for all of them).
 
         A name is True when one of its selectors finds anything, exactly as
         `self.xpath(selector).exists` would on that screen: through the device's rewrite (every
-        Instagram bridge mounts `CloneAwareDeviceProxy`, which makes an id equality match a
-        clone's prefix and the bare ids of the Compose screens) and uiautomator2's own
+        Instagram bridge mounts `CloneAwareDeviceProxy`, which makes an Instagram id equality
+        match a clone's prefix and the bare ids of the Compose screens) and uiautomator2's own
         evaluation. A selector the engine rejects is skipped; an unreadable screen answers False
         for every name.
 

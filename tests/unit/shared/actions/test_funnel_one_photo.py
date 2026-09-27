@@ -134,7 +134,8 @@ def test_a_clone_screen_is_read_through_the_proxy_rewrite():
     """The catalogue names the official package; a clone shows its own prefix. The photo applies
     the proxy's rewrite, as `d.xpath()` does through the proxy."""
     clone = "com.example.clone1"
+    official = _id("count", package="com.instagram.android")
     action, phone = _action(_screen(_node("count", "12", package=clone), package=clone), clone_package=clone)
-    assert action._is_element_present([_id("count")]) is True
-    assert action._get_text_from_element([_id("count")]) == "12"
+    assert action._is_element_present([official]) is True
+    assert action._get_text_from_element([official]) == "12"
     assert phone.dumps == 2

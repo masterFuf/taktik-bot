@@ -8,9 +8,10 @@ Exact by construction, not by imitation: each selector goes through uiautomator2
 `XPathSelector(...).all()` on the photo's `PageSource` -- the code `d.xpath(selector).all()` runs
 after its own dump, shorthand translation (`strict_xpath`), tag renaming and `re:` namespace
 included, whatever version is installed. The one step before it is the device's: every Instagram
-bridge mounts `CloneAwareDeviceProxy`, whose `xpath()` rewrites each `@resource-id="pkg:id/X"`
-equality so it also matches a clone's prefix and the bare ids of Instagram's Compose screens. A
-photo taken through a device that rewrites (`rewrite_xpath`) applies the same rewrite.
+bridge mounts `CloneAwareDeviceProxy`, whose `xpath()` rewrites each Instagram
+`@resource-id="pkg:id/X"` equality so it also matches a clone's prefix and the bare ids of
+Instagram's Compose screens (another app's id is left as written). A photo taken through a device
+that rewrites (`rewrite_xpath`) applies the same rewrite.
 
 What a photo does NOT do, deliberately:
 - serve an old screen: `SnapshotSource.snapshot()` takes a new photo each time; reusing one

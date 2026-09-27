@@ -13,7 +13,7 @@ This complements SyncFollowingMixin which handles the following list.
 
 import time
 import random
-from typing import Dict, Any, List, Set
+from typing import Dict, Any, Set
 
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.clone import get_active_package
@@ -294,50 +294,6 @@ class SyncFollowersMixin:
         return stats
 
     # ─── Internal helpers ──────────────────────────────────────────────────────
-
-    def _get_visible_follower_usernames_with_display(self) -> List[tuple]:
-        """
-        Extract (username, display_name) tuples from the visible followers list.
-
-        Returns:
-            List of (username, display_name) tuples
-        """
-        results = []
-        try:
-            d = self.device.device
-            active_package = get_active_package()
-            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
-            subtitle_resource_id = UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
-
-            username_elements = d(resourceId=username_resource_id)
-            subtitle_elements = d(resourceId=subtitle_resource_id)
-
-            if not username_elements.exists:
-                return results
-
-            count = username_elements.count
-            for i in range(count):
-                try:
-                    username = username_elements[i].get_text() or ''
-                    username = username.strip().lstrip('@')
-                    if not username or not self._is_valid_username(username):
-                        continue
-
-                    display_name = ''
-                    try:
-                        if subtitle_elements.exists and i < subtitle_elements.count:
-                            display_name = subtitle_elements[i].get_text() or ''
-                    except Exception:
-                        pass
-
-                    results.append((username, display_name))
-                except Exception:
-                    continue
-
-        except Exception as e:
-            self.logger.debug(f"Error extracting visible follower accounts: {e}")
-
-        return results
 
     def _scroll_followers_list(self) -> bool:
         """Scroll the followers list down (humanized controlled scroll). False when it failed."""

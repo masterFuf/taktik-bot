@@ -116,36 +116,8 @@ class ProfileExtractionMixin(BaseAction):
             self.logger.error(f"Error retrieving username: {e}")
             return None
     
-    def get_full_name_from_profile(self) -> Optional[str]:
-        return self._get_text_from_element(self.selectors.full_name)
-    
     def get_biography_from_profile(self) -> Optional[str]:
         return self._get_text_from_element(self.selectors.bio)
-    
-    def _get_count_from_selectors(self, selectors) -> Optional[int]:
-        """Generic method to get count from selectors."""
-        text = self._get_text_from_element(selectors)
-        if text:
-            return self._extract_number_from_text(text)
-        return None
-    
-    def get_followers_count_text(self) -> Optional[str]:
-        return self._get_text_from_element(self.selectors.followers_count)
-    
-    def get_following_count_text(self) -> Optional[str]:
-        return self._get_text_from_element(self.selectors.following_count)
-    
-    def get_posts_count_text(self) -> Optional[str]:
-        return self._get_text_from_element(self.selectors.posts_count)
-    
-    def get_followers_count(self) -> Optional[int]:
-        return self._get_count_from_selectors(self.selectors.followers_count)
-    
-    def get_following_count(self) -> Optional[int]:
-        return self._get_count_from_selectors(self.selectors.following_count)
-    
-    def get_posts_count(self) -> Optional[int]:
-        return self._get_count_from_selectors(self.selectors.posts_count)
 
     # === Batch text extraction (XML) ===
 

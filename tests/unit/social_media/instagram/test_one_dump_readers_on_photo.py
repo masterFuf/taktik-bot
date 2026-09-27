@@ -118,15 +118,6 @@ def test_an_unreadable_screen_answers_false_for_every_name(xml):
     assert phone.dumps == 1
 
 
-def test_a_dump_already_held_is_checked_without_a_device_call():
-    facade, phone = _facade("")
-    held = '<hierarchy rotation="0"><node class="android.view.View" resource-id="activity_feed_list" /></hierarchy>'
-    assert facade.xpath_exists_in_xml(held, f'//*[@resource-id="{STOCK}:id/activity_feed_list"]')
-    assert not facade.xpath_exists_in_xml(held, '//*[@text="absent"]')
-    assert not facade.xpath_exists_in_xml("", "//*")
-    assert phone.dumps == 0
-
-
 # --------------------------------------------------------------------------- profile readers
 
 def _read_all(package):
