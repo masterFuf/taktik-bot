@@ -1,0 +1,14 @@
+#!/bin/sh
+# taktik-leak-guard: refuses a commit that would publish a guarded word or an office-hour trace.
+# Installed as pre-commit and commit-msg by scripts/install_hooks.py; logic in scripts/hooks/leak_guard.py.
+top=$(git rev-parse --show-toplevel) || exit 1
+guard="$top/scripts/hooks/leak_guard.py"
+[ -f "$guard" ] || guard="$(dirname "$0")/leak_guard.py"
+for python in "$TAKTIK_HOOK_PYTHON" python python3 py; do
+    [ -n "$python" ] || continue
+    if "$python" -c "import sys; sys.exit(sys.version_info < (3, 8))" >/dev/null 2>&1; then
+        exec "$python" "$guard" "$(basename "$0")" "$@"
+    fi
+done
+echo "leak guard: no Python 3 found, set TAKTIK_HOOK_PYTHON." >&2
+exit 1
