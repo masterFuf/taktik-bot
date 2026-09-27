@@ -17,6 +17,11 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_S
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.ui.extractors import post_signature
 
+# Share of the framed post's media a like's double tap aims in: its middle, as the image band of
+# the screen did, but of the post's own media.
+_DOUBLE_TAP_BAND_X = (0.30, 0.70)
+_DOUBLE_TAP_BAND_Y = (0.25, 0.75)
+
 
 class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
     
@@ -401,16 +406,23 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 self.logger.warning("Not on a post screen")
                 return False
 
+            target = self._framed_like_target()
+            if target is None:
+                self.logger.warning("Screen unreadable: no like")
+                return False
+            if target["list"]:
+                return self._like_framed_post(target, record_as)
+
             if self.detection_actions.is_post_liked():
                 self.logger.debug("Post already liked")
                 return True
 
             # Alternate like methods like a human (telemetry showed the profile-posts
             # path always used the button): ~45% an image double-tap, else the button.
-            # Works in the feed AND the Reels/clips player: the double-tap is verified via
-            # the like button's @selected state (liked_button_indicators now covers the reel
-            # like_button), so a successful tap is recognised instead of falling through to
-            # the button (which would toggle the like back off).
+            # Off a list, the single post is the Reels/clips player's: the double-tap is
+            # verified via the like button's @selected state (liked_button_indicators covers
+            # the reel like_button), so a successful tap is recognised instead of falling
+            # through to the button (which would toggle the like back off).
             if should_double_tap_like() and self._double_tap_like_image():
                 self.logger.debug("Post liked via image double-tap")
                 self.record_post_like(record_as)
@@ -427,6 +439,69 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         except Exception as e:
             self.logger.error(f"Error liking current post: {e}")
             return False
+
+    def _framed_like_target(self) -> Optional[Dict[str, Any]]:
+        """Where a like of the framed post goes (`PostReadingMixin.framed_post_like_target`); a
+        host without that reader (a bare test host) likes as off a list."""
+        reader = self._framed_post_reader("framed_post_like_target")
+        if reader is None:
+            return {"list": False}
+        target = reader()
+        return target if isinstance(target, dict) else None
+
+    def _like_framed_post(self, target: Dict[str, Any], record_as: Optional[str]) -> bool:
+        """Like the framed post of a list, and nothing else: a double tap on its media or a tap on
+        the heart of its own row, the gesture a human alternates (`should_double_tap_like`). No
+        like when that heart is off the screen: the post above can fill it, and neither a double
+        tap nor a heart could be told apart from it; and the heart is what says whether the like
+        took. After a double tap that did not take, the same row's heart, as off a list."""
+        identity = target.get("identity")
+        if target.get("heart") is None:
+            self.logger.warning(
+                f"Framed post's like button not on screen ({identity or 'no framed post'}): no like"
+            )
+            return False
+        if target.get("liked"):
+            self.logger.debug("Post already liked")
+            return True
+
+        if should_double_tap_like() and target.get("media") is not None:
+            self.device.human_double_tap(self._double_tap_region(target["media"]))
+            self._human_like_delay('click')
+            after = self._framed_like_target()
+            if self._framed_post_liked(after, identity):
+                self.logger.debug("Post liked via image double-tap")
+                self.record_post_like(record_as)
+                return True
+            if not after or after.get("identity") != identity or after.get("heart") is None:
+                self.logger.warning("Framed post changed after the double tap: no like")
+                return False
+            target = after
+
+        self.device.human_tap(target["heart"])
+        self._human_like_delay('click')
+        if self._framed_post_liked(self._framed_like_target(), identity):
+            self.logger.debug("Post liked successfully (button)")
+            self.record_post_like(record_as)
+            return True
+        self.logger.warning("Failed to like: the framed post's heart did not turn")
+        return False
+
+    @staticmethod
+    def _framed_post_liked(target: Optional[Dict[str, Any]], identity: Optional[str]) -> bool:
+        return bool(target and target.get("list") and target.get("identity") == identity
+                    and target.get("liked"))
+
+    @staticmethod
+    def _double_tap_region(media) -> tuple:
+        """The middle of the framed post's media, away from its edges, where Instagram draws the
+        tag, sound and slide-index badges."""
+        left, top, right, bottom = media
+        width, height = right - left, bottom - top
+        return (
+            left + int(width * _DOUBLE_TAP_BAND_X[0]), top + int(height * _DOUBLE_TAP_BAND_Y[0]),
+            left + int(width * _DOUBLE_TAP_BAND_X[1]), top + int(height * _DOUBLE_TAP_BAND_Y[1]),
+        )
 
     def record_post_like(self, username: Optional[str]) -> None:
         """Ledger row and session counter for ONE post like, written at the gesture. Never
@@ -445,11 +520,16 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 self.logger.error(f"Failed to increment like session counter: {exc}")
         self._record_action(username, 'LIKE', 1)
 
-    def _framed_post_reading(self, reader_name: str) -> Optional[str]:
-        """Ask the reading owner (`PostReadingMixin`, through `scroll_actions`) about the framed
-        post; None when this host has no such reader (a bare test host)."""
+    def _framed_post_reader(self, reader_name: str):
+        """A reader of the framed post from its owner (`PostReadingMixin`, through
+        `scroll_actions`); None when this host has no such reader (a bare test host)."""
         reader = getattr(getattr(self, "scroll_actions", None), reader_name, None)
-        reading = reader() if callable(reader) else None
+        return reader if callable(reader) else None
+
+    def _framed_post_reading(self, reader_name: str) -> Optional[str]:
+        """Ask the reading owner about the framed post; None when this host has no such reader."""
+        reader = self._framed_post_reader(reader_name)
+        reading = reader() if reader is not None else None
         return reading if isinstance(reading, str) else None
 
     def _visit_signature(self, likes, comments, is_reel) -> str:
@@ -575,9 +655,10 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             return False
 
     def _double_tap_like_image(self) -> bool:
-        """Double-tap a varied point in the post image band to like it, then confirm the
-        like registered (a double-tap can miss). Returns False so the caller falls back
-        to the like button if it didn't take."""
+        """Off a list (the full-screen viewer, its single post), double-tap a varied point in
+        the image band of the screen to like it, then confirm the like registered (a double-tap
+        can miss). Returns False so the caller falls back to the like button if it didn't take.
+        On a list, `_like_framed_post` aims at the framed post's own media instead."""
         try:
             width, height = self.device.get_screen_size()
             image_region = (
@@ -592,7 +673,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             return False
     
     def _is_post_already_liked(self) -> bool:
+        """Is the framed post liked? On a list, its own row's heart says, never the post above's
+        (often the post just liked); off a list, the viewer's heart."""
         try:
+            target = self._framed_like_target()
+            if target is not None and target["list"]:
+                return bool(target.get("liked"))
             return self.detection_actions.is_post_liked()
         except Exception as e:
             self.logger.debug(f"Error checking if liked: {e}")

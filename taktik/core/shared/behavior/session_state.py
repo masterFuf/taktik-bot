@@ -75,8 +75,10 @@ _STYLE_ENERGY_TARGET = {
 # In the profile-post viewer, interaction selectors can still match the outgoing post when the
 # incoming header sits too low. Feed browsing has an additional metadata-reveal safety loop, so its
 # generic threshold can remain more permissive; profile interactions need a lower hard boundary.
+# That landing is measured from the top of the post list, under the viewer's title bar (0.104 h on
+# Instagram 410, 0.116 h on 447): 0.18 below it is where 0.30 of the screen used to be.
 _CONTEXT_CRITICAL_FRAMING = {
-    "profile_post_header": 0.30,
+    "profile_post_header": 0.18,
 }
 
 _PROFILE_STYLE_WEIGHTS = {

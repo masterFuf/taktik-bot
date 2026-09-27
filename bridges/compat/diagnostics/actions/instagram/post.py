@@ -87,17 +87,46 @@ def navigate_next(a, p):
     """Advance to the next post in the in-viewer sequence with the humanised swipe
     (sampled geometry, randomised distance) instead of the old fixed 78%->21%
     gesture. Must be run while a post is open."""
-    ok = a.like._navigate_to_next_post_in_sequence()
     scroll = a.like.scroll_actions
+    scroll._last_landing = None
+    ok = a.like._navigate_to_next_post_in_sequence()
     decision = dict(getattr(scroll, "_last_advance_behavior", {}))
     snapshot = getattr(scroll, "_behavior_snapshot", lambda: {})()
+    landing = getattr(scroll, "_last_landing", None) or {}
+    land = landing.get("land_ratio")
     return {
         "success": bool(ok),
         "message": (
             f"navigated to next post={ok} mode={decision.get('mode')} "
-            f"style={decision.get('style')} energy={decision.get('energy')}"
+            f"style={decision.get('style')} energy={decision.get('energy')} | header "
+            f"{'?' if land is None else f'{land:.1%}'} below the top of the list, "
+            f"framed={landing.get('framed')} corrected={landing.get('corrected')}"
         ),
-        "details": {"advance_decision": decision, "behavior_state": snapshot},
+        "details": {"advance_decision": decision, "landing": landing, "behavior_state": snapshot},
+    }
+
+
+@action("post.like_target")
+def like_target(a, p):
+    """Where a like of the framed post would go, without liking: its media (double tap) and the
+    heart of its own row, read by the production like (`LikeOrchestration._framed_like_target`,
+    `PostReadingMixin.framed_post_like_target`). No like when that heart is off the screen."""
+    target = a.like._framed_like_target()
+    if target is None:
+        return {"success": False, "message": "ecran illisible : aucun like"}
+    if not target.get("list"):
+        return {"success": True, "message": "hors liste de posts (visionneuse plein ecran) : like de la visionneuse",
+                "details": target}
+    if target.get("heart") is None:
+        return {"success": False,
+                "message": f"aucun like : le coeur du post cadre n'est pas a l'ecran ({target.get('identity') or 'aucun post cadre'})",
+                "details": target}
+    region = a.like._double_tap_region(target["media"]) if target.get("media") else None
+    return {
+        "success": True,
+        "message": (f"{target.get('identity')} | double tap {region} | coeur {target.get('heart')} | "
+                    f"deja aime={target.get('liked')}"),
+        "details": {**target, "double_tap_region": region},
     }
 
 

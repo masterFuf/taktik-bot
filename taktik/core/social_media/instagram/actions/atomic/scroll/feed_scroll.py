@@ -54,6 +54,9 @@ class FeedScrollMixin(PostReadingMixin):
     must expose `self.device`, `self.screen_width/height`, `self.logger`, and the gesture
     primitives `_strong_flick`/`_long_drag` (from the shared `GestureMixin`)."""
 
+    # The host's flick, declared as an interface would be (no value: nothing is shadowed).
+    _strong_flick: Callable[..., bool]
+
     # ── PERCEPTION: read the feed state, and recover to the feed ───────────────────
 
     def _read_feed_anchors(self) -> Dict[str, Any]:
@@ -66,6 +69,8 @@ class FeedScrollMixin(PostReadingMixin):
         stays on_feed=True; only the standalone reel viewer flips it False."""
         headers: List[int] = []
         posts: List[tuple] = []      # (header_top_y, username) to identify the dominant post
+        header_rows: List[int] = []  # tops of the full header rows (the framed post's own anchor)
+        list_top: Optional[int] = None
         likes: List[int] = []
         ad_tops: List[int] = []      # tops of "Sponsorisé(e)" / "Sponsored" markers (ad posts)
         sugg_tops: List[int] = []    # tops of "Suggestions" / "Suggested" markers (recommended posts/reels)
@@ -126,22 +131,34 @@ class FeedScrollMixin(PostReadingMixin):
                 if not m:
                     continue
                 top, bottom = int(m.group(2)), int(m.group(4))
+                # One anchor per node: each kind is kept, then the next node.
                 if short == FS.header_id:
                     headers.append(top)
                     user = (node.get("text") or node.get("content-desc") or "").strip()
                     posts.append((top, user))
-                elif short == FS.like_button_id:
+                    continue
+                if short == FS.profile_header_id:
+                    header_rows.append(top)
+                    continue
+                if short == FS.post_list_id and list_top is None:
+                    list_top = top
+                    continue
+                if short == FS.like_button_id:
                     likes.append(top)
-                elif short == FS.action_bar_id:
+                    continue
+                if short == FS.action_bar_id:
                     top_bar_bottom = bottom
-                elif short == FS.tab_bar_id:  # tab_bar_shadow has no top we care about
+                    continue
+                if short == FS.tab_bar_id:  # tab_bar_shadow has no top we care about
                     tab_top = top
-                elif short in FS.video_ids:
-                    if video_band is None or (bottom - top) > (video_band[1] - video_band[0]):
-                        video_band = (top, bottom)
+                    continue
+                if short in FS.video_ids and (
+                        video_band is None or (bottom - top) > (video_band[1] - video_band[0])):
+                    video_band = (top, bottom)
         except Exception as e:
             self.logger.debug(f"feed anchor read failed: {e}")
-            return {"headers": [], "posts": [], "likes": [], "ad_tops": [], "sugg_tops": [],
+            return {"headers": [], "posts": [], "header_rows": [], "list_top": None,
+                    "likes": [], "ad_tops": [], "sugg_tops": [],
                     "top": int(self.screen_height * 0.10),
                     "tab": int(self.screen_height * 0.92), "on_feed": False, "video_band": None,
                     "surface": "unknown"}
@@ -151,6 +168,8 @@ class FeedScrollMixin(PostReadingMixin):
         return {
             "headers": sorted(headers),
             "posts": sorted(posts),
+            "header_rows": sorted(header_rows),
+            "list_top": list_top,
             "likes": sorted(likes),
             "ad_tops": sorted(ad_tops),
             "sugg_tops": sorted(sugg_tops),
@@ -297,20 +316,53 @@ class FeedScrollMixin(PostReadingMixin):
             "target_ratio": _LAND_TARGET if needed else None,
         }
 
-    def land_on_post_header(self, max_corrections: int = 1) -> Dict[str, Any]:
-        """Evaluate and optionally frame the topmost post after an advance.
+    @staticmethod
+    def _advance_settle_s(mode: str, settle_scale: float = 1.0) -> float:
+        """The beat left after an advance before the list is read: a flick's coast (0.45-0.70 s), or
+        a drag's stop with the finger (0.15-0.30 s), scaled by the session's motor style. The feed
+        and the profile's post list wait the same way."""
+        low, high = (0.15, 0.30) if mode == "drag" else (0.45, 0.70)
+        return random.uniform(low, high) * settle_scale
+
+    def _header_below_list_ratio(self, anchors: Dict[str, Any]) -> Optional[float]:
+        """How far below the top of the post list the first post header sits, as a share of the
+        screen; None when no header is on screen.
+
+        A profile's post list starts under a fixed title bar (0.104 h on Instagram 410, 0.116 h on
+        447): measured from the top of the screen, a header right under that bar read as barely
+        framed, and a correction aimed at the screen pushed it under the bar. The header row is the
+        anchor the framed-post readers use (`_framed_window`); one scrolled partly under the bar
+        reports the top of the list, its visible part, so it reads 0: its post fills the screen."""
+        rows = anchors.get("header_rows") or []
+        if not rows:
+            return None
+        list_top = anchors.get("list_top") or 0
+        return max(0, min(rows) - list_top) / float(self.screen_height)
+
+    def land_on_post_header(self, max_corrections: int = 1, *, advance_mode: Optional[str] = None,
+                            settle_scale: float = 1.0) -> Dict[str, Any]:
+        """Evaluate and optionally frame the topmost post of a profile's post list after an advance.
 
         Reuses the feed's session-aware landing policy (header ratio, perception confidence, and at
-        most one precise 1:1 lift drag) without feed-specific ad/recovery behaviour, so it is safe
-        on the profile-post viewer too. Moderate imperfections may be accepted; severe ones are
-        repaired, always by less than one post pitch so the correction cannot skip a post.
+        most one precise 1:1 lift drag) without feed-specific ad/recovery behaviour. Moderate
+        imperfections may be accepted; severe ones are repaired, always by less than one post pitch
+        so the correction cannot skip a post.
+
+        The list is read once the advance has settled: `advance_mode` is the gesture that just moved
+        it, and the landing waits the beat the feed leaves after its own advance
+        (`_advance_settle_s`); None when the caller already waited. Read earlier, a flick is still
+        coasting (0.5-0.8 s after it returned, measured on a Pixel 6a with Instagram 447), and the
+        correction computed from that reading lands on a list that has moved on. The header is
+        measured from the top of the list (`_header_below_list_ratio`).
 
         Best-effort + non-destructive: a NO-OP when no post header is detected (a reel, or an
         unrecognised surface) → it never regresses the caller. Returns {framed, corrected,
-        land_ratio, framing_decision}."""
+        land_ratio, framing_decision}, also kept as `_last_landing` for the Lab."""
         corrected = False
+        if advance_mode is not None:
+            time.sleep(self._advance_settle_s(advance_mode, settle_scale))
         anchors = self._read_feed_anchors()
-        land = self._incoming_header_ratio(anchors)
+        land = self._header_below_list_ratio(anchors)
         framing_decision = self._framing_decision(anchors, land, "profile_post_header")
         correction_limit = max(0, max_corrections)
         for attempt in range(correction_limit):
@@ -339,18 +391,19 @@ class FeedScrollMixin(PostReadingMixin):
             corrected = True
             time.sleep(random.uniform(0.30, 0.50) * motor["settle_scale"])
             anchors = self._read_feed_anchors()
-            land = self._incoming_header_ratio(anchors)
+            land = self._header_below_list_ratio(anchors)
             if (attempt + 1 < correction_limit
                     and land is not None and land > _LAND_GOOD_MAX):
                 framing_decision = self._framing_decision(
                     anchors, land, "profile_post_header"
                 )
-        return {
+        self._last_landing = {
             "framed": land is not None and land <= _LAND_GOOD_MAX,
             "corrected": corrected,
             "land_ratio": land,
             "framing_decision": framing_decision,
         }
+        return self._last_landing
 
     # ── ENGINE: advance to the next real post ──────────────────────────────────────
 
@@ -432,7 +485,8 @@ class FeedScrollMixin(PostReadingMixin):
                 )
                 mode = advance_decision["mode"]
             else:
-                modes, weights = zip(*_MODE_WEIGHTS)
+                modes = [name for name, _weight in _MODE_WEIGHTS]
+                weights = [weight for _name, weight in _MODE_WEIGHTS]
                 mode = random.choices(modes, weights=weights)[0]
                 advance_decision = {
                     "context": "feed_post",
@@ -453,7 +507,6 @@ class FeedScrollMixin(PostReadingMixin):
                     velocity_scale=velocity_scale,
                 )
                 gestures = 1
-                settle = random.uniform(0.15, 0.30) * settle_scale
             else:  # flick (default)
                 self._strong_flick(
                     "up", distance_px=(random.uniform(*_FLICK_FINGER_H) * h
@@ -462,8 +515,8 @@ class FeedScrollMixin(PostReadingMixin):
                     velocity_scale=velocity_scale,
                 )
                 gestures = 1
-                settle = random.uniform(0.45, 0.70) * settle_scale
-            time.sleep(settle)   # let the fling coast settle before measuring (natural glance beat)
+            # let the fling coast settle before measuring (natural glance beat)
+            time.sleep(self._advance_settle_s(mode, settle_scale))
 
             anchors = self._read_feed_anchors()      # single dump: surface check + landing
             dumps += 1

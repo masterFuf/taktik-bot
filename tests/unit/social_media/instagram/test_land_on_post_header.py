@@ -20,8 +20,11 @@ class _Host(FeedScrollMixin):
         self.logger = _Log()
 
     def _read_feed_anchors(self):
+        # The header row is the landing's anchor, measured from the top of the list (here the
+        # top of the screen).
         y = self._seq.pop(0) if self._seq else None
-        return {"headers": ([y] if y is not None else [])}
+        seen = [y] if y is not None else []
+        return {"headers": seen, "header_rows": seen, "list_top": 0}
 
     def _long_drag(self, direction, distance_px=0, vel_range=None, guard_start=False,
                    velocity_scale=1.0):
