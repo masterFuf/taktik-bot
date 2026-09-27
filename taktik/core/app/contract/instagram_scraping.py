@@ -8,7 +8,7 @@ One payload, one reader, one launcher: `type` names the source, and so the workf
 from __future__ import annotations
 
 from .schema import HOST, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import device_field
+from .shared import AI_ERROR_EVENT, AI_PROFILE_DONE_EVENT, AI_PROFILE_START_EVENT, device_field
 
 _SCRAPING = "taktik.core.social_media.instagram.workflows.scraping"
 
@@ -146,41 +146,6 @@ SCRAPING_RESULT_EVENT = Event("scraping_result", doc="The run's verdict: its las
     Field("completionReason", "string", "Why the run ended (`limit_reached`, `source_unreachable`...).",
           optional=True, nullable=True),
     Field("error", "string", "What went wrong, for a person.", optional=True, nullable=True),
-))
-
-#: `AIIpcMixin.ai_profile_analyzing` (`bridges/common/runtime/ipc_ai.py`).
-AI_PROFILE_START_EVENT = Event("ai_profile_start", doc="The AI starts qualifying a profile.", fields=(
-    Field("username", "string", "The profile."),
-    Field("target_username", "string", "The same."),
-    Field("prompt", "string", "What is asked, in English.", nullable=True),
-    Field("model", "string", "The model asked.", nullable=True),
-    Field("workflow_type", "string", "The family of the run."),
-    Field("image", "string", "The picture sent to the model.", optional=True),
-    Field("avatar_url", "string", "The profile's picture.", optional=True),
-    Field("prompt_key", "string", "A key the app translates the prompt with.", optional=True),
-))
-
-#: `AIIpcMixin.ai_profile_analyzed`.
-AI_PROFILE_DONE_EVENT = Event("ai_profile_done", doc="The AI qualified a profile.", fields=(
-    Field("username", "string", "The profile."),
-    Field("target_username", "string", "The same."),
-    Field("result", "string", "The verdict, for a person."),
-    Field("duration_ms", "int", "How long the model took."),
-    Field("model", "string", "The model that answered.", nullable=True),
-    Field("provider", "string", "Who served it.", nullable=True),
-    Field("workflow_type", "string", "The family of the run."),
-    Field("event_id", "string", "Pairs it with its start.", optional=True),
-    Field("cost_usd", "number", "What the call cost.", optional=True),
-    Field("classification", "json", "The qualification, as the model gave it.", optional=True),
-    Field("screenshot", "string", "The picture the model read.", optional=True),
-    Field("persist_only", "bool", "A copy for the base only: not counted again.", optional=True),
-))
-
-#: `AIIpcMixin.ai_error`.
-AI_ERROR_EVENT = Event("ai_error", doc="An AI call failed.", fields=(
-    Field("error", "string", "What went wrong."),
-    Field("target_username", "string", "The profile, if one.", nullable=True),
-    Field("workflow_type", "string", "The family of the run."),
 ))
 
 _EVENTS = (

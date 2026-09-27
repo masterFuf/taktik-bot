@@ -10,7 +10,6 @@ This avoids:
 - Visiting each profile to check follow-back status
 """
 
-import json
 import time
 import random
 from typing import Dict, Any, List, Optional, Set
@@ -21,6 +20,7 @@ from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOL
 from taktik.core.shared.behavior.tap import tap_element_human
 from ..list_proof import describe_proof, incremental_stop_allowed, proof_of_read, scrolls_for
 from .actions import LeftOutRows, row_belongs_to_tab
+from .sync_events import emit_sync_user_discovered
 
 
 class SyncFollowingMixin:
@@ -182,16 +182,7 @@ class SyncFollowingMixin:
                         # Fast mode stops at the first known account, but only when the list is
                         # sorted by follow date: otherwise that account says nothing about the rest
                         if mode != 'enriched' and stop_at_first_known:
-                            try:
-                                print(json.dumps({
-                                    "type": "sync_user_discovered",
-                                    "list_type": "following",
-                                    "username": username,
-                                    "display_name": display_name,
-                                    "is_new": False,
-                                }), flush=True)
-                            except Exception:
-                                pass
+                            emit_sync_user_discovered("following", username, display_name, False)
                             self.logger.info(
                                 f"⏹ Found known username @{username} — stopping sync "
                                 f"({stats['new_count']} new accounts added)"
@@ -216,16 +207,7 @@ class SyncFollowingMixin:
                         stats['updated_count'] += 1
 
                     # Emit per-username IPC
-                    try:
-                        print(json.dumps({
-                            "type": "sync_user_discovered",
-                            "list_type": "following",
-                            "username": username,
-                            "display_name": display_name,
-                            "is_new": result == 'new',
-                        }), flush=True)
-                    except Exception:
-                        pass
+                    emit_sync_user_discovered("following", username, display_name, result == 'new')
 
                     # ── Enrichissement inline (comme likers_scraping) ──
                     if mode == 'enriched' and profile_extractor:

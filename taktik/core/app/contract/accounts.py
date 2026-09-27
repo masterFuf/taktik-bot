@@ -13,22 +13,12 @@ from __future__ import annotations
 from typing import Tuple
 
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, STATUS_EVENT
+from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT
 
 _INSTAGRAM = "taktik.core.social_media.instagram.workflows.management.agent_handler"
 _TIKTOK = "taktik.core.social_media.tiktok.workflows.management.agent_handler"
 _GMAIL = "taktik.core.app.email.gmail.workflows.agent_handler"
 _YOUTUBE = "taktik.core.social_media.youtube.workflows.account.agent_handler"
-
-#: `IPC.log` / `send_log`: a line for the app's debug console.
-LOG_EVENT = Event(
-    "log",
-    doc="A line for the debug console.",
-    fields=(
-        Field("level", "string", "info, warning, error, debug."),
-        Field("message", "string", "The line."),
-    ),
-)
 
 
 def _device() -> Field:

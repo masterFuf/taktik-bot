@@ -16,6 +16,7 @@ from __future__ import annotations
 from .schema import HOST, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import ERROR_EVENT, STATUS_EVENT, network_reset_field
 from .tiktok_automation import AI_SETTINGS
+from .tiktok_lines import AI_PROFILE_DONE_EVENT, BOT_PROFILE_EVENT
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 _FOLLOWERS = f"{_WORKFLOWS}.followers.payload"
@@ -129,6 +130,8 @@ PROFILE_RUN_STATS = Shape(
 PROFILE_EVENTS = (
     STATUS_EVENT,
     ERROR_EVENT,
+    BOT_PROFILE_EVENT,
+    AI_PROFILE_DONE_EVENT,
     Event("followers_stats", doc="The run's counters.", fields=(Field("stats", PROFILE_RUN_STATS, "The counters."),)),
     Event("action", doc="An action on the profile being visited.", fields=(
         Field("action", "string", "What was done (like, follow, favorite, comment, story_like...)."),

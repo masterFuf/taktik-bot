@@ -17,6 +17,7 @@ import pytest
 from contract_probe import (
     Recording,
     by_iteration,
+    call_reader,
     conditions,
     declared_reads,
     expected,
@@ -25,6 +26,7 @@ from contract_probe import (
     launch,
     lookup,
     merge,
+    names,
     nest,
     payload_for,
     probe,
@@ -60,21 +62,56 @@ CONTRACTS = [pytest.param(contract, id=contract.workflow_id) for contract in WOR
 @pytest.mark.parametrize("contract", CONTRACTS)
 def test_the_readers_read_the_declared_keys_and_no_other(contract):
     log = set()
+    skipped: set = set()
     for variant in reading_variants(contract):
         payload = Recording(payload_for(contract, variant), log)
         read(contract, payload)
+        # A key its reader skips because a key of the same reader came first (the list beside a
+        # single message) is read in the alias and wire tests below instead.
+        shared = {contract.setting(key).reader for key in payload if key in names(contract.settings)} - {None}
+        skipped |= {(item.key,) for item in contract.settings if item.reader in shared and item.key not in payload}
         for _, item, _, _ in nested_fields(contract.settings):
             if item.reader:
-                resolve(item.reader)(payload, **item.reader_kwargs)
+                call_reader(item.reader, payload, item.reader_kwargs)
 
     declared, owned = declared_reads(contract.settings)
+    # A reader may read what the bridge carries too (the dispatcher's `workflowType`).
+    declared = declared | {(name,) for name in names(contract.bridge_fields)}
     assert not {path for path in log if path not in declared and not under(path, owned)}, "a key read and not declared"
     # Every wire key is read; an alias may be skipped once a name before it was given. A filter
     # criterion is read when present, by the merge of every flat key. A key handed on whole (`via`)
     # is read further on: the bridge test holds it.
     must = {path for path, item, _, via in nested_fields(contract.settings) if via is None and not by_iteration(item)}
-    assert must <= log, f"declared, never read: {sorted(must - log)}"
+    assert must - skipped <= log, f"declared, never read: {sorted(must - skipped - log)}"
 
+
+
+def _holds(when, payload) -> bool:
+    """`payload` holds what `when` asks (a tuple: any of its values)."""
+    for dotted, wanted in when.items():
+        present, value = lookup(payload, tuple(dotted.split(".")))
+        if not present or not (value in wanted if isinstance(wanted, tuple) else value == wanted):
+            return False
+    return True
+
+
+@pytest.mark.parametrize("contract", CONTRACTS)
+def test_a_key_is_never_read_outside_its_condition(contract):
+    """`when` says the reader reads the key under it, and only there."""
+    for variant in reading_variants(contract):
+        base = payload_for(contract, variant)
+        log: set = set()
+        read(contract, Recording(base, log))
+        wires = {}
+        # A nested setting's object may be fetched whole before its condition is looked at: its
+        # values are held, not the object.
+        for path, item, when, _ in nested_fields(contract.settings):
+            if not isinstance(item.type, Shape):
+                wires.setdefault(path, []).append(when)
+        for path, whens in wires.items():
+            # A wire key declared under several conditions is read under any of them.
+            if all(when for when in whens) and not any(_holds(when, base) for when in whens):
+                assert path not in log, f"{'.'.join(path)} read outside of its condition, under {variant}"
 
 @pytest.mark.parametrize("contract, path, item, when", SETTINGS)
 def test_an_absent_key_takes_the_declared_default(contract, path, item, when):

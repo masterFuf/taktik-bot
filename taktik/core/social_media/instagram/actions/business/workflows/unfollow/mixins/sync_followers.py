@@ -11,7 +11,6 @@ Strategy:
 This complements SyncFollowingMixin which handles the following list.
 """
 
-import json
 import time
 import random
 from typing import Dict, Any, List, Set
@@ -22,6 +21,7 @@ from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOL
 from taktik.core.shared.behavior.tap import tap_element_human
 from ..list_proof import describe_proof, proof_of_read, scrolls_for
 from .actions import LeftOutRows, row_belongs_to_tab
+from .sync_events import emit_sync_progress, emit_sync_user_discovered
 
 
 class SyncFollowersMixin:
@@ -185,16 +185,7 @@ class SyncFollowersMixin:
                         stats['updated_count'] += 1
 
                     # Emit per-username IPC
-                    try:
-                        print(json.dumps({
-                            "type": "sync_user_discovered",
-                            "list_type": "followers",
-                            "username": username,
-                            "display_name": display_name,
-                            "is_new": result == 'new',
-                        }), flush=True)
-                    except Exception:
-                        pass
+                    emit_sync_user_discovered("followers", username, display_name, result == 'new')
 
                     # ── Enrichissement inline (comme likers_scraping) ──
                     if mode == 'enriched' and profile_extractor:
@@ -358,14 +349,4 @@ class SyncFollowersMixin:
 
     def _emit_sync_progress(self, list_type: str, stats: Dict[str, Any]):
         """Emit IPC progress message for the frontend."""
-        try:
-            msg = {
-                "type": "sync_progress",
-                "list_type": list_type,
-                "new_count": stats['new_count'],
-                "updated_count": stats['updated_count'],
-                "total_seen": stats['total_seen'],
-            }
-            print(json.dumps(msg), flush=True)
-        except Exception:
-            pass
+        emit_sync_progress(list_type, stats)

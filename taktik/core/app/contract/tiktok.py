@@ -1,7 +1,7 @@
 """TikTok workflows with a bridge of their own (`tiktok.standalone.*`): unfollow, cold DM, scraping.
 
 Each declaration names the reader it describes; `tests/unit/app/contract` holds the reader to it.
-The upload (`tiktok.standalone.upload_post`) has no payload reader yet and is not declared.
+The upload (`tiktok.standalone.upload_post`) is declared with the other publications (`publish.py`).
 """
 
 from __future__ import annotations
@@ -151,6 +151,9 @@ TIKTOK_DM_OUTREACH = WorkflowContract(
 
 TIKTOK_SCRAPING = WorkflowContract(
     workflow_id="tiktok.standalone.tiktok_scraping",
+    # The dispatcher's `scraping` branch runs the same launcher on the same payload (it also reads
+    # its `workflowType`); no app entry sends it there.
+    also=("tiktok.automation.scraping",),
     name="TikTokScraping",
     bridge="tiktok_scraping_bridge",
     doc="Collect profiles from accounts, a hashtag, posts' commenters, sounds or an account's posts.",

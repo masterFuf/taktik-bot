@@ -1,8 +1,9 @@
 """Gmail and YouTube: the bridge and the CLI handler reach the workflow through the same launcher.
 
 The bridges used to build `GmailWorkflow`, `YouTubeAccountWorkflow` and `YouTubeUploadWorkflow`
-themselves, next to handlers that built them too. Each host still reads its own payload and
-emits its own events; the engine is built and called in one place, `run_*` of the handler module.
+themselves, next to handlers that built them too. Each host emits its own events; the engine is
+built and called in one place, `run_*` of the handler module (which, for the upload, also reads
+the payload: `youtube/workflows/publish/payload.py`).
 """
 from __future__ import annotations
 
@@ -110,7 +111,6 @@ def _fake_upload(recorder):
 
 
 def test_youtube_upload_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch, tmp_path):
-    from bridges.youtube.publish.runtime.request import build_upload_request
     from bridges.youtube.publish.runtime.workflow import run_youtube_upload_workflow
     from taktik.core.social_media.youtube.workflows.publish import agent_handler
 
@@ -121,8 +121,8 @@ def test_youtube_upload_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch
 
     bridge, cli = Recorder(), Recorder()
     monkeypatch.setitem(agent_handler.run_youtube_upload.__kwdefaults__, "workflow_factory", _fake_upload(bridge))
-    request = build_upload_request(page, 100, _silent, _silent)
-    exit_code = run_youtube_upload_workflow(device=DEVICE, device_id=DEVICE_ID, request=request,
+    exit_code = run_youtube_upload_workflow(device=DEVICE, device_id=DEVICE_ID, config=page,
+                                            upload_type="short",
                                             send_status=_silent, send_message=_silent,
                                             send_error=_silent, send_log=_silent)
 

@@ -40,13 +40,35 @@ from taktik.core.app.contract.schema import (  # noqa: E402
     WorkflowContract,
     scalar_default,
 )
-from taktik.core.app.contract.shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT  # noqa: E402
+from taktik.core.app.contract.shared import (  # noqa: E402
+    AI_COMMENT_DONE_EVENT,
+    AI_COMMENT_START_EVENT,
+    AI_ERROR_EVENT,
+    AI_PROFILE_DONE_EVENT,
+    AI_PROFILE_START_EVENT,
+    AI_SCREENSHOT_DONE_EVENT,
+    AI_SCREENSHOT_START_EVENT,
+    AI_SPEND_EVENT,
+    ERROR_EVENT,
+    LOG_EVENT,
+    NETWORK_RESET_COMPLETE_EVENT,
+    STATUS_EVENT,
+)
 
 #: Lines every bridge shares get one interface, referenced by each workflow.
 SHARED_LINES = {
     STATUS_EVENT.type: ("BridgeStatusLine", STATUS_EVENT),
     ERROR_EVENT.type: ("BridgeErrorLine", ERROR_EVENT),
     AI_SPEND_EVENT.type: ("BridgeAiSpendLine", AI_SPEND_EVENT),
+    LOG_EVENT.type: ("BridgeLogLine", LOG_EVENT),
+    NETWORK_RESET_COMPLETE_EVENT.type: ("BridgeNetworkResetCompleteLine", NETWORK_RESET_COMPLETE_EVENT),
+    AI_PROFILE_START_EVENT.type: ("BridgeAiProfileStartLine", AI_PROFILE_START_EVENT),
+    AI_PROFILE_DONE_EVENT.type: ("BridgeAiProfileDoneLine", AI_PROFILE_DONE_EVENT),
+    AI_SCREENSHOT_START_EVENT.type: ("BridgeAiScreenshotStartLine", AI_SCREENSHOT_START_EVENT),
+    AI_SCREENSHOT_DONE_EVENT.type: ("BridgeAiScreenshotDoneLine", AI_SCREENSHOT_DONE_EVENT),
+    AI_COMMENT_START_EVENT.type: ("BridgeAiCommentStartLine", AI_COMMENT_START_EVENT),
+    AI_COMMENT_DONE_EVENT.type: ("BridgeAiCommentDoneLine", AI_COMMENT_DONE_EVENT),
+    AI_ERROR_EVENT.type: ("BridgeAiErrorLine", AI_ERROR_EVENT),
 }
 
 HEADER = """/**
@@ -313,6 +335,18 @@ def _paths(item: Field, prefix: Tuple[str, ...]) -> List[List[str]]:
     return out
 
 
+def _json_paths(item: Field, prefix: Tuple[str, ...] = ()) -> List[List[str]]:
+    """Where an object read as a whole sits, nested in a shape or not: below it, nothing is declared."""
+    out = []
+    for name in item.names:
+        if item.type == "json":
+            out.append([*prefix, name])
+        elif isinstance(item.type, Shape):
+            for sub in item.type.fields:
+                out += _json_paths(sub, (*prefix, name))
+    return out
+
+
 def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dict[str, Any]:
     _, exported = render(contracts)
     workflows = {}
@@ -336,8 +370,8 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dic
             "launcherReads": launcher,
             "bridgeReads": bridge,
             # Objects the bot reads as a whole ("json"): what lies below them is not declared yet.
-            "opaque": [[*nest, name] for item in contract.settings if item.type == "json" for name in item.names],
-            "launcherOpaque": [[name] for item in contract.settings if item.type == "json" for name in item.names],
+            "opaque": [[*nest, *path] for item in contract.settings for path in _json_paths(item)],
+            "launcherOpaque": [path for item in contract.settings for path in _json_paths(item)],
             "settings": [
                 {"key": item.key, "aliases": list(item.aliases), "app": item.app, "by": item.by,
                  "required": item.required}

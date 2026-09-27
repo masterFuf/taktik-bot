@@ -280,9 +280,10 @@ def _value_param(payload: Mapping[str, Any], *names: str) -> Any:
     return None
 
 
-def _mapping_param(payload: Mapping[str, Any], *names: str) -> dict[str, Any]:
+def _mapping_param(payload: Mapping[str, Any], *names: str) -> Mapping[str, Any]:
+    # The object as given, read key by key: what the contract tests watch.
     value = _value_param(payload, *names)
-    return dict(value) if isinstance(value, Mapping) else {}
+    return value if isinstance(value, Mapping) else {}
 
 
 def _string_param(payload: Mapping[str, Any], *names: str, default: str) -> str:

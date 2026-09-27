@@ -20,64 +20,12 @@ from typing import Any, Dict, List
 
 import pytest
 
-from contract_probe import DEVICE, Recording, declared_reads, under
+from contract_probe import Recording, declared_reads, under
+from ig_automation_probe import bridge_file, file_paths, protect_hooks
 from taktik.core.app.contract.instagram_automation import INSTAGRAM_AUTOMATION, WORKFLOW_TYPES
-from taktik.core.app.contract.schema import HOST, Field, ListOf, MapOf, OneOf, Shape, has_default
+from taktik.core.app.contract.schema import HOST
 
 CORE = Path(__file__).resolve().parents[4]
-_HOOKED = (
-    ("taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow", "PostUrlBusiness",
-     "in_thread_reply_writer"),
-    ("taktik.core.social_media.instagram.actions.business.actions.comment.action", "CommentAction",
-     "comment_on_post"),
-    ("taktik.core.social_media.instagram.actions.core.base_business.interaction_engine", "InteractionEngineMixin",
-     "_perform_interactions_on_profile"),
-    ("taktik.core.social_media.instagram.actions.business.actions.like.orchestration", "LikeOrchestration",
-     "like_current_post"),
-)
-
-
-# ------------------------------------------------------------------------------------ the file
-
-
-def _value(item: Field) -> Any:
-    """What the app writes for `item`: its default, or a value the run acts on."""
-    if has_default(item) and not isinstance(item.default, tuple):
-        return item.default
-    spec = item.type
-    if isinstance(spec, OneOf):
-        return spec.values[-1]
-    if isinstance(spec, ListOf):
-        return ["alpha", "beta"]
-    if isinstance(spec, MapOf):
-        return {"fitness": ["yoga"]}
-    return {"int": 7, "number": 2.5, "bool": True, "string": "probe", "json": {}}[spec]
-
-
-def _fill(fields) -> Dict[str, Any]:
-    return {item.key: _fill(item.type.fields) if isinstance(item.type, Shape) else _value(item)
-            for item in fields if item.app}
-
-
-def bridge_file(workflow_type: str) -> Dict[str, Any]:
-    """The file the app writes for one workflow: every app key, the host's keys, the bridge's."""
-    data = _fill((*INSTAGRAM_AUTOMATION.settings, *INSTAGRAM_AUTOMATION.bridge_fields))
-    data.update(deviceId=DEVICE, workflowType=workflow_type, target="alpha,beta")
-    data["networkReset"] = {"enabled": True, "method": "data"}
-    data["mediaCaptureEnabled"] = False
-    # Decision mode on, so the plans' capabilities are read; the key long enough to build the service.
-    data["ai"].update(enabled=True, openrouterApiKey="sk-probe-key-long-enough")
-    data["ai"]["decision"]["mode"] = "decide"
-    return data
-
-
-def file_paths(data: Dict[str, Any], prefix=()) -> set:
-    out = set()
-    for key, value in data.items():
-        out.add((*prefix, key))
-        if isinstance(value, dict):
-            out |= file_paths(value, (*prefix, key))
-    return out
 
 
 # ------------------------------------------------------------------------------------ the run
@@ -108,8 +56,6 @@ class _DecisionClient:
 @pytest.fixture
 def desktop_bridge(monkeypatch):
     """`DesktopBridge` with the phone, the network, the base and the automation replaced."""
-    import importlib
-
     import bridges.common.device.network as network
     import bridges.instagram.automation.runtime.bridge as bridge
     import taktik.core.social_media.instagram.workflows.core.automation as automation
@@ -138,9 +84,7 @@ def desktop_bridge(monkeypatch):
     monkeypatch.setattr(automation, "InstagramAutomation", _Automation)
     monkeypatch.setattr(runtime_setup, "prepare_instagram_automation_runtime", lambda **kwargs: None)
     # The AI hooks patch these classes for the run: put them back afterwards.
-    for module, owner, name in _HOOKED:
-        cls = getattr(importlib.import_module(module), owner)
-        monkeypatch.setattr(cls, name, getattr(cls, name, None), raising=False)
+    protect_hooks(monkeypatch)
     return bridge.DesktopBridge, printed
 
 

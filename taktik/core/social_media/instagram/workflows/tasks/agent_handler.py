@@ -12,7 +12,8 @@ resolve through. A task needed the shelf, not a new engine.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
@@ -25,6 +26,41 @@ INSTAGRAM_TASK_STORY_RELAY_WORKFLOW_ID = "instagram.task.story_relay"
 INSTAGRAM_TASK_WORKFLOW_IDS = (INSTAGRAM_TASK_STORY_RELAY_WORKFLOW_ID,)
 
 
+@dataclass(frozen=True)
+class StoryRelayRequest:
+    """What one story relay pass is asked, read once from its payload."""
+
+    source_username: str
+    account_id: Optional[int] = None
+    max_stories: int = DEFAULT_MAX_STORIES
+
+
+def story_relay_request_from_payload(payload: Mapping[str, Any]) -> StoryRelayRequest:
+    """The story relay settings, as the page, the scheduler and the CLI send them. Refuses a
+    payload without a source account, before the phone is touched."""
+    return StoryRelayRequest(
+        source_username=_source_username(payload),
+        account_id=_optional_int(payload, "account_id", "accountId"),
+        max_stories=_int_param(payload, "max_stories", "maxStories", default=DEFAULT_MAX_STORIES),
+    )
+
+
+def run_instagram_story_relay(
+    payload: Mapping[str, Any],
+    *,
+    device,
+    relay: Callable[..., dict[str, Any]] = relay_source_stories,
+) -> dict[str, Any]:
+    """The one launcher of the story relay: read the payload, then run one pass on `device`."""
+    request = story_relay_request_from_payload(payload)
+    return relay(
+        device=device,
+        source_username=request.source_username,
+        account_id=request.account_id,
+        max_stories=request.max_stories,
+    )
+
+
 def build_instagram_task_handler(*, device, device_id: str = "") -> WorkflowHandler:
     """Build an injectable Instagram task handler without bridge startup."""
 
@@ -32,13 +68,7 @@ def build_instagram_task_handler(*, device, device_id: str = "") -> WorkflowHand
         merged = _merge_invocation_payload(invocation, payload)
 
         if invocation.workflow_id == INSTAGRAM_TASK_STORY_RELAY_WORKFLOW_ID:
-            return relay_source_stories(
-                device=device,
-                source_username=_source_username(merged),
-                account_id=_optional_int(merged, "account_id", "accountId"),
-                max_stories=_int_param(merged, "max_stories", "maxStories",
-                                       default=DEFAULT_MAX_STORIES),
-            )
+            return run_instagram_story_relay(merged, device=device)
 
         raise ValueError(f"Unsupported Instagram task workflow id: {invocation.workflow_id}")
 
@@ -61,7 +91,9 @@ def register_instagram_task_handlers(
 def _merge_invocation_payload(
     invocation: WorkflowInvocation,
     payload: Mapping[str, Any],
-) -> dict[str, Any]:
+) -> Mapping[str, Any]:
+    if not invocation.params:
+        return payload
     merged = dict(payload)
     merged.update(invocation.params)
     return merged
@@ -96,6 +128,9 @@ def _int_param(payload: Mapping[str, Any], *keys: str, default: int) -> int:
 __all__ = [
     "INSTAGRAM_TASK_STORY_RELAY_WORKFLOW_ID",
     "INSTAGRAM_TASK_WORKFLOW_IDS",
+    "StoryRelayRequest",
     "build_instagram_task_handler",
     "register_instagram_task_handlers",
+    "run_instagram_story_relay",
+    "story_relay_request_from_payload",
 ]
