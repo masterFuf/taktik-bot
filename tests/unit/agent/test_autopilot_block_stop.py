@@ -48,6 +48,9 @@ class _Phone:
 
 def _agent(phone=None):
     agent = object.__new__(TaktikAgentWorkflow)
+    # No warmup budget handed by a launcher: the session's own quotas only.
+    agent._warmup = None
+    agent._warmup_stop = ""
     agent._stop_requested = False
     agent._account_id = None
     agent.device = phone

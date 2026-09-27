@@ -47,10 +47,10 @@ def test_the_session_maximum_is_a_real_ceiling():
 def test_the_day_budget_of_the_warmup_is_its_own():
     sm = _sm(warmup={"max_unfollows_per_day": 10, "max_actions_per_day": 50})
     # 40 actions today (likes/follows/comments) do not spend the unfollow budget...
-    sm.set_daily_usage_provider(lambda: {"total": 40, "unfollows": 7})
+    sm.warmup.set_daily_usage_provider(lambda: {"total": 40, "unfollows": 7})
     assert sm.unfollow_allowance(50) == (3, None)
     # ...and a spent unfollow budget stops the unfollows with its own reason.
-    sm.set_daily_usage_provider(lambda: {"total": 0, "unfollows": 10})
+    sm.warmup.set_daily_usage_provider(lambda: {"total": 0, "unfollows": 10})
     room, reason = sm.unfollow_allowance(50)
     assert room == 0 and reason.code == "daily_unfollow_budget"
 
@@ -221,7 +221,7 @@ def test_a_second_batch_gets_only_what_is_left(monkeypatch):
 
 def test_a_spent_day_budget_stops_before_any_sync(monkeypatch):
     sm = _sm(warmup={"max_unfollows_per_day": 10})
-    sm.set_daily_usage_provider(lambda: {"total": 0, "unfollows": 10})
+    sm.warmup.set_daily_usage_provider(lambda: {"total": 0, "unfollows": 10})
     runner, finalized, configs = _runner(
         monkeypatch, {"unfollows_made": 1, "success": True, "stop_reason": None}, session_manager=sm)
     assert runner._run_unfollow_workflow({"type": "unfollow", "max_unfollows": 5}) is False
@@ -234,14 +234,14 @@ def test_a_spent_day_budget_stops_before_any_sync(monkeypatch):
 def test_a_spent_action_budget_does_not_end_an_unfollow_session():
     sm = SessionManager({"session_settings": {"workflow_type": "unfollow",
                                               "warmup_policy": {"max_actions_per_day": 40}}})
-    sm.set_daily_usage_provider(lambda: {"total": 40, "unfollows": 0})
+    sm.warmup.set_daily_usage_provider(lambda: {"total": 40, "unfollows": 0})
     assert sm.should_continue() == (True, "")
 
 
 def test_the_same_budget_still_ends_a_likes_session():
     sm = SessionManager({"session_settings": {"workflow_type": "feed",
                                               "warmup_policy": {"max_actions_per_day": 40}}})
-    sm.set_daily_usage_provider(lambda: {"total": 40, "unfollows": 0})
+    sm.warmup.set_daily_usage_provider(lambda: {"total": 40, "unfollows": 0})
     keep_going, reason = sm.should_continue()
     assert keep_going is False and reason.code == "daily_budget"
 
@@ -252,6 +252,6 @@ def test_an_unreadable_day_budget_stops_the_unfollow():
     def broken():
         raise RuntimeError("base locked")
 
-    sm.set_daily_usage_provider(broken)
+    sm.warmup.set_daily_usage_provider(broken)
     reasons = [sm.unfollow_allowance(5)[1] for _ in range(5)]
     assert reasons[-1] is not None and reasons[-1].code == "daily_budget_unreadable"

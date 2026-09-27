@@ -57,6 +57,9 @@ class _Feed(_Ledger):
 
 def _agent(**quotas):
     agent = object.__new__(TaktikAgentWorkflow)
+    # No warmup budget handed by a launcher: the session's own quotas only.
+    agent._warmup = None
+    agent._warmup_stop = ""
     agent._stop_requested = False
     agent._account_id = 42
     agent.device = None

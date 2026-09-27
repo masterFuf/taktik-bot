@@ -35,6 +35,9 @@ def _answer_with(content):
 
 def _agent():
     agent = object.__new__(TaktikAgentWorkflow)
+    # No warmup budget handed by a launcher: the session's own quotas only.
+    agent._warmup = None
+    agent._warmup_stop = ""
     agent._persona_block = "Niche: hair salon\nServices: cuts, colour\nTarget: women 25-45"
     agent._hashtag_pool = []
     agent._ai = types.SimpleNamespace(ai_service=AIService(api_key="test-key"))

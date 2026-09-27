@@ -1,7 +1,7 @@
 import random
 import time
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 from loguru import logger
 
 from taktik.core.shared.behavior.policy import parse_behavior_policy
@@ -11,16 +11,10 @@ from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
 from taktik.core.shared.diagnostics import run_halt
 from . import stop_reasons
+from .warmup_budget import WarmupBudget
 
 
 log = logger.bind(module="session-manager")
-
-
-#: Consecutive failures of the daily-usage read before the warmup cap stops the session.
-#: Not one: reads fail transiently, and a run must not die for that. Not never either, which is
-#: what "continue without cap" amounted to -- a persistent condition (a locked DB, a schema that
-#: moved) switched the protection off for good, with nothing but a log line to say so.
-_DAILY_USAGE_FAILURES_BEFORE_STOP = 3
 
 
 class SessionManager:
@@ -81,16 +75,10 @@ class SessionManager:
         if policy:
             log.info(f"Pacing profile: {self.pacing.profile_id}")
 
-        # Warmup guardrail caps injected by the desktop app (empty in standalone -> no enforcement).
-        self._warmup_policy = session_settings.get('warmup_policy') or {}
-        # Provider of TODAY's totals for this account (daily_stats), injected by the workflow which
-        # holds the account_id + DB. Kept as a callable so SessionManager never owns a repository
-        # (DI: the DB read is injected, not hidden here). None -> the daily-cap check is skipped.
-        self._daily_usage_provider: Optional[Callable[[], Dict[str, int]]] = None
-        # Consecutive failures of that read. One is transient and changes nothing; reaching the
-        # threshold means the cap can no longer be evaluated, which is not the same thing as
-        # "no cap" -- see _check_daily_budget.
-        self._daily_usage_failures = 0
+        # Warmup guardrail caps injected by the desktop app (empty in standalone -> no enforcement),
+        # counted against the account's day. The same counter as the Taktik Agent's; the workflow,
+        # which holds the account, points it at the ledger (`warmup.count_against_account`).
+        self.warmup = WarmupBudget(session_settings.get('warmup_policy'))
 
     def should_continue(self) -> tuple[bool, str]:
         """Check if session should continue based on defined limits.
@@ -169,77 +157,26 @@ class SessionManager:
         # comments), and its own ceilings, the session maximum and the day's unfollow budget,
         # are `unfollow_allowance`. The day's likes used to end an unfollow run before its
         # first unfollow (review of 2026-09-24).
-        stop_reason = self._check_daily_budget() if workflow_type != 'unfollow' else ""
+        #
+        # Then the written-action cap for THIS session, which spreads the day over several gentle
+        # sessions rather than one dump (story views, being passive, do not enter it).
+        #
+        # Only these global budgets stop the session; the per-type daily sub-quotas disable their
+        # own action (`exhausted_intents`). A read error does not kill the session, and a cap that
+        # can no longer be READ does not silently become "no cap" either: the budget tolerates
+        # isolated failures and stops after a few in a row (`warmup_budget.py`). The day is read
+        # once per profile: the read frequency stays negligible.
+        stop_reason = self.warmup.stop_reason(self._written_actions(), day_budget=workflow_type != 'unfollow')
         if stop_reason:
             log.info(f"🛑 Session ended: {stop_reason}")
             return False, stop_reason
 
-        # Written-action cap for THIS session. It complements the daily budget by spreading the
-        # day over several gentle sessions rather than one dump. It counts the written actions
-        # only; story views, being passive, do not enter the budget. Zero or absent means no
-        # cap.
-        max_per_session = int(self._warmup_policy.get('max_actions_per_session', 0) or 0)
-        if max_per_session > 0:
-            session_actions = (
-                self.counters['likes'] + self.counters['follows'] + self.counters['comments']
-            )
-            if session_actions >= max_per_session:
-                reason = stop_reasons.session_action_cap(session_actions, max_per_session)
-                log.info(f"🛑 Session ended: {reason}")
-                return False, reason
-
         return True, ""
 
-    def _check_daily_budget(self) -> str:
-        """Is the GLOBAL daily budget reached? Returns the stop reason, or empty to continue.
-
-        Only the global action budget stops the session. The per-type sub-quotas are NOT a stop
-        reason: they disable their own action for the rest of the day. Treating them as one
-        killed the whole session as soon as the LEAST essential cap was reached, while the
-        global budget still left room to like and watch stories.
-        
-
-        Best-effort, but not unconditionally: a read error must not kill the session, and a cap
-        that can no longer be READ must not silently become "no cap" either. The two errors do
-        not cost the same -- applying the cap wrongly shortens a run, failing to apply it can
-        lose the account -- so the guard tolerates isolated failures and stops after
-        `_DAILY_USAGE_FAILURES_BEFORE_STOP` in a row.
-
-        The provider reads the account daily totals on each call, and this is consulted once per
-        profile, so the read frequency stays negligible.
-        """
-        usage = self._read_daily_usage()
-        if usage is None:
-            if self._daily_usage_failures >= _DAILY_USAGE_FAILURES_BEFORE_STOP:
-                return stop_reasons.daily_budget_unreadable(self._daily_usage_failures)
-            return ""
-
-        max_actions = int(self._warmup_policy.get('max_actions_per_day', 0) or 0)
-        total = int(usage.get('total', 0))
-        if max_actions > 0 and total >= max_actions:
-            return stop_reasons.daily_budget(total, max_actions)
-        return ""
-
-    def _read_daily_usage(self) -> Optional[Dict[str, int]]:
-        """The account daily totals, or None when there is nothing to enforce.
-
-        `None` covers three situations that are NOT the same: standalone (no provider), no warmup
-        policy, and a read that failed. Only the third is an anomaly, and only it is counted --
-        the streak resets on the first successful read, so a transient failure leaves no trace.
-        """
-        provider = self._daily_usage_provider
-        if provider is None or not self._warmup_policy:
-            return None
-        try:
-            usage = provider() or {}
-        except Exception as exc:  # noqa: BLE001 — the guard must never fail a run
-            self._daily_usage_failures += 1
-            log.warning(
-                f"Daily-budget provider failed ({self._daily_usage_failures} in a row): {exc}"
-            )
-            return None
-        self._daily_usage_failures = 0
-        return usage
+    def _written_actions(self) -> int:
+        """This session's written actions (likes + follows + comments), the unit of the warmup's
+        session cap."""
+        return self.counters['likes'] + self.counters['follows'] + self.counters['comments']
 
     def exhausted_intents(self) -> set:
         """The actions whose budget is spent — SESSION ceilings and DAILY sub-quotas together.
@@ -265,26 +202,7 @@ class SessionManager:
             spent.add('like')
 
         # Daily sub-quotas, injected by the desktop guard.
-        usage = self._read_daily_usage()
-        if usage is None:
-            return spent
-
-        caps = self._warmup_policy
-        max_follows = int(caps.get('max_follows_per_day', 0) or 0)
-        if max_follows > 0 and int(usage.get('follows', 0)) >= max_follows:
-            spent.add('follow')
-        max_comments = int(caps.get('max_comments_per_day', 0) or 0)
-        if max_comments > 0 and int(usage.get('comments', 0)) >= max_comments:
-            spent.add('comment')
-        return spent
-
-    def set_daily_usage_provider(self, provider: Optional[Callable[[], Dict[str, int]]]) -> None:
-        """Inject the callable returning TODAY's totals for this account (keys: total/follows/comments).
-
-        Called by the workflow once the account_id is resolved. Without it, the daily-budget check
-        is a no-op — which keeps the standalone bot exactly as before.
-        """
-        self._daily_usage_provider = provider
+        return spent | self.warmup.exhausted_intents()
 
     def decision_budget_snapshot(self) -> Dict[str, Dict[str, int]]:
         """Return factual live budget state for an injected premium decision provider.
@@ -293,13 +211,9 @@ class SessionManager:
         hard caps already injected by Electron. With no desktop policy/provider every value is
         zero, preserving standalone behavior and preventing a caller from assuming free budget.
         """
-        usage = self._read_daily_usage() or {}
-        caps = self._warmup_policy
-        session_total = (
-            int(self.counters.get('likes', 0))
-            + int(self.counters.get('follows', 0))
-            + int(self.counters.get('comments', 0))
-        )
+        usage = self.warmup.read_daily_usage() or {}
+        caps = self.warmup.policy
+        session_total = self._written_actions()
         return {
             'daily': {
                 'total': int(usage.get('total', 0) or 0),
@@ -334,19 +248,11 @@ class SessionManager:
         room: Optional[int] = max(limit - done, 0) if limit > 0 else None
         if room == 0:
             return 0, stop_reasons.unfollows_cap(done, limit)
-        daily_cap = int((self._warmup_policy or {}).get('max_unfollows_per_day', 0) or 0)
-        if daily_cap > 0:
-            usage = self._read_daily_usage()
-            # A day budget that can no longer be read is not "no budget" (same rule as the
-            # action budget): after a few failed reads in a row, the unfollow stops.
-            if usage is None and self._daily_usage_failures >= _DAILY_USAGE_FAILURES_BEFORE_STOP:
-                return 0, stop_reasons.daily_budget_unreadable(self._daily_usage_failures)
-            if usage is not None:
-                today = int(usage.get('unfollows', 0) or 0)
-                day_room = max(daily_cap - today, 0)
-                if day_room == 0:
-                    return 0, stop_reasons.daily_unfollow_budget(today, daily_cap)
-                room = day_room if room is None else min(room, day_room)
+        day_room, day_reason = self.warmup.unfollow_room()
+        if day_reason:
+            return 0, day_reason
+        if day_room is not None:
+            room = day_room if room is None else min(room, day_room)
         return room, None
 
     def record_profile_processed(self):
@@ -408,7 +314,7 @@ class SessionManager:
         # Pace floor of the guard: never faster than this minimum, whatever the pacing profile
         # chosen elsewhere. This is the lever that breaks the mechanical regularity observed on
         # a fresh account. Zero or absent means no floor, and standalone is unchanged.
-        floor = float(self._warmup_policy.get('min_action_gap_seconds', 0) or 0)
+        floor = self.warmup.min_action_gap_seconds()
         if floor <= 0:
             return random.uniform(low, high)
         # A delay under the floor is drawn again. When the whole range sits under it, the delay
@@ -453,7 +359,7 @@ class SessionManager:
         session_settings = self.config.get('session_settings', {})
         # Same reason as the pacing profile: refresh the warmup caps on a config swap. The injected
         # usage provider is deliberately NOT touched here — it carries the resolved account_id.
-        self._warmup_policy = session_settings.get('warmup_policy') or {}
+        self.warmup.set_policy(session_settings.get('warmup_policy'))
         duration_minutes = session_settings.get('session_duration_minutes', 60)
         log.debug(f"Configuration updated: duration={duration_minutes}min, settings={session_settings}")
     

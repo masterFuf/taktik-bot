@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from ...actions.business.workflows.common.distribution import normalize_distribution
+from ..management.session.warmup_budget import warmup_policy_from_payload
 
 # Workflow types this builder can turn into an automation action. Anything else must
 # fail loudly instead of silently becoming a follower-interaction run (that fallback
@@ -505,17 +506,10 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
     # SessionManager enforces them: a floor on the between-actions delay (cadence) and a hard stop
     # when the day's budget is reached (defense in depth behind the front's launch gate). Absent
     # when the bot runs standalone -> no enforcement, behaviour unchanged. 0 = no cap on that axis.
-    warmup = raw_config.get("warmupPolicy")
-    if isinstance(warmup, dict):
-        session_settings["warmup_policy"] = {
-            "max_actions_per_day": int(warmup.get("maxActionsPerDay", 0) or 0),
-            "max_follows_per_day": int(warmup.get("maxFollowsPerDay", 0) or 0),
-            "max_comments_per_day": int(warmup.get("maxCommentsPerDay", 0) or 0),
-            # A budget of its own: unfollows do not spend the like/follow/comment budget.
-            "max_unfollows_per_day": int(warmup.get("maxUnfollowsPerDay", 0) or 0),
-            "min_action_gap_seconds": float(warmup.get("minActionGapSeconds", 0) or 0),
-            "max_actions_per_session": int(warmup.get("maxActionsPerSession", 0) or 0),
-        }
+    # Read by the budget's own reader, which the Taktik Agent's file goes through too.
+    warmup = warmup_policy_from_payload(raw_config.get("warmupPolicy"))
+    if warmup is not None:
+        session_settings["warmup_policy"] = warmup
 
     return built
 
