@@ -9,8 +9,9 @@ going from "Add to story" to a story of ours. A failed, rehearsed or unconfirmed
 media for the age purge.
 
 The story used to be declared published once the caption field was gone, a field its editor never
-shows: the verdict held whatever happened. It now reads the tray. The tray fixtures are real IG 410
-dumps (handles replaced): our bubble whole without a story (Lab corpus, French), the same bubble cut
+shows: the verdict held whatever happened. It now reads the tray. Every screen is a real IG 410
+dump, anonymized: the pending row of a post and the snackbar of a reel after their share (Lab), the
+feed, the story editor, and for the tray: our bubble whole without a story (Lab corpus, French), the same bubble cut
 by the scroll, and a phone run in English with our story up then deleted. On IG 410 the "Add to
 story" badge stays on our bubble while the story is up: only its ring (`seen_state`) tells, and a
 verdict read on the badge never confirmed a story, so its media were never deleted.
@@ -43,24 +44,15 @@ TRAY_POSTED = (FIXTURES / "ig410_en_feed_tray_own_story_up.xml").read_text(encod
 TRAY_EMPTY_EN = (FIXTURES / "ig410_en_feed_tray_own_story_deleted.xml").read_text(encoding="utf-8")
 
 
-def _screen(*nodes: str) -> str:
-    return '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">' + "".join(nodes) + "</hierarchy>"
-
-
-def _node(resource_id: str = "", text: str = "") -> str:
-    return (f'<node index="0" text="{text}" resource-id="{resource_id}" class="android.widget.FrameLayout" '
-            f'package="com.instagram.android" content-desc="" clickable="false" enabled="true" '
-            f'bounds="[0,300][1080,420]" />')
-
-
-# After a post or a carousel: the feed's pending row (Lab dump `publish.tap_share`, IG 410).
-PENDING_ROW = _screen(_node("com.instagram.android:id/row_pending_container"),
-                      _node(text="Keep Instagram open to finish posting…"))
-# After a reel: the Reels tab's upload snackbar (same Lab run).
-REELS_UPLOADING = _screen(_node("com.instagram.android:id/upload_snackbar_container"),
-                          _node(text="Sharing to Reels…"))
-FEED = _screen(_node("com.instagram.android:id/refreshable_container"))
-EDITOR = _screen(_node(text="Your story"))
+# After a post or a carousel: the feed's pending row, "Posting to <account>…" (Lab dump
+# `publish.tap_share`, IG 410 in English, anonymized).
+PENDING_ROW = (FIXTURES / "ig410_en_feed_pending_post.xml").read_text(encoding="utf-8")
+# After a reel: the reel shown with the Reels tab's upload snackbar, "Sharing to Reels…" (same Lab).
+REELS_UPLOADING = (FIXTURES / "ig410_en_reel_viewer.xml").read_text(encoding="utf-8")
+# The feed once the upload is done: no pending row, no snackbar (IG 410 in English, anonymized).
+FEED = (FIXTURES / "ig410_en_feed_carousel_framed.xml").read_text(encoding="utf-8")
+# The story editor, its "Your story" button (IG 410 in English, anonymized).
+EDITOR = (FIXTURES / "ig410_en_story_editor.xml").read_text(encoding="utf-8")
 MEDIA = __file__
 
 

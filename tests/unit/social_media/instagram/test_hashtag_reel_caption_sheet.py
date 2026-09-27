@@ -8,10 +8,12 @@ composer ("Rejoindre la conversation…") appears. The hashtag metadata read tap
 to expand it, the like was then refused ("Not on a post screen"), and the run went on inside the
 sheet until a comment was published there.
 
-The two screens below reproduce the structure of those dumps with invented names and text.
+The two screens are those dumps (Pixel 6a), anonymized together: the reel as it opens, and the
+same reel one second after a single tap on its caption.
 """
 
 import types
+from pathlib import Path
 
 import pytest
 from lxml import etree
@@ -27,53 +29,20 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_S
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
 ID = "com.instagram.android:id/"
-CAPTION = "Une legende inventee pour ce test, assez longue pour etre repliee par Instagram …"
+FIXTURES = Path(__file__).parent / "fixtures"
 
-# The reel as it opens from the grid (structure of dump 2).
-REEL_OPEN = f"""<hierarchy>
-<node class="android.widget.FrameLayout" resource-id="{ID}clips_viewer_container" bounds="[0,0][1080,2400]">
-  <node class="android.view.ViewGroup" resource-id="{ID}clips_media_component" clickable="false"
-        content-desc="Reel de demo_author. Appuyez deux fois pour lire ou mettre en pause." bounds="[0,132][1080,2179]"/>
-  <node class="android.view.ViewGroup" resource-id="{ID}clips_author_info_component" bounds="[42,1860][900,1940]">
-    <node class="android.widget.Button" resource-id="{ID}clips_author_username" clickable="true"
-          text="demo_author\u00a0\u00a0" content-desc="demo_author\u00a0\u00a0" bounds="[137,1874][453,1922]"/>
-  </node>
-  <node class="android.view.ViewGroup" resource-id="{ID}clips_caption_component" bounds="[42,1954][943,2116]">
-    <node class="android.widget.ScrollView" bounds="[42,1954][943,2116]">
-      <node class="android.view.ViewGroup" bounds="[42,1965][943,2116]">
-        <node class="android.view.ViewGroup" clickable="true" content-desc="{CAPTION}" bounds="[42,1965][943,2116]"/>
-      </node>
-    </node>
-  </node>
-  <node class="android.view.ViewGroup" resource-id="{ID}clips_ufi_component" bounds="[943,1005][1080,2153]">
-    <node class="android.widget.ImageView" resource-id="{ID}like_button" clickable="true" content-desc="J’aime" bounds="[943,1229][1059,1345]"/>
-    <node class="android.widget.ImageView" resource-id="{ID}comment_button" clickable="true" content-desc="Commentaire" bounds="[943,1407][1059,1523]"/>
-  </node>
-  <node class="android.widget.LinearLayout" resource-id="{ID}comment_composer_inner_layout" bounds="[42,2200][1038,2326]">
-    <node class="android.widget.Button" resource-id="{ID}comment_composer_text_view" clickable="true"
-          text="Ajoutez un commentaire…" bounds="[42,2200][1038,2326]"/>
-  </node>
-</node>
-</hierarchy>"""
+# The reel as it opens from the grid (dump 2).
+REEL_OPEN = (FIXTURES / "ig447_fr_reel_open.xml").read_text(encoding="utf-8")
+# One second after a single tap on the caption (dump 3).
+SHEET_OPEN = (FIXTURES / "ig447_fr_reel_caption_sheet.xml").read_text(encoding="utf-8")
 
-# One second after a single tap on the caption (structure of dump 3).
-SHEET_OPEN = f"""<hierarchy>
-<node class="android.widget.FrameLayout" resource-id="{ID}clips_viewer_container" bounds="[0,0][1080,2400]">
-  <node class="android.view.ViewGroup" resource-id="{ID}clips_media_component" clickable="false"
-        content-desc="Reel de demo_author. Appuyez deux fois pour lire ou mettre en pause." bounds="[0,132][1080,2179]"/>
-  <node class="android.widget.LinearLayout" resource-id="{ID}comment_composer_inner_layout" bounds="[42,2200][1038,2326]">
-    <node class="android.widget.Button" resource-id="{ID}comment_composer_text_view" clickable="true"
-          text="Ajoutez un commentaire…" bounds="[42,2200][1038,2326]"/>
-  </node>
-  <node class="android.widget.FrameLayout" resource-id="{ID}layout_container_bottom_sheet" clickable="true" bounds="[0,132][1080,2337]">
-    <node class="android.widget.FrameLayout" resource-id="{ID}bottom_sheet_drag_handle_frame" bounds="[0,1014][1080,1083]"/>
-    <node class="android.widget.Button" resource-id="{ID}clips_author_username" clickable="true"
-          text="demo_author\u00a0\u00a0" bounds="[150,1143][466,1191]"/>
-    <node class="android.widget.AutoCompleteTextView" resource-id="{ID}layout_comment_thread_edittext_multiline"
-          clickable="true" text="Rejoindre la conversation…" hint="Rejoindre la conversation…" bounds="[148,2232][833,2327]"/>
-  </node>
-</node>
-</hierarchy>"""
+
+def _author_and_caption(xml):
+    """What the reel shows, read off the dump: its author's label and its collapsed caption."""
+    tree = etree.fromstring(xml.encode("utf-8"))
+    author = tree.xpath(f'//node[@resource-id="{ID}clips_author_username"]/@text')[0]
+    caption = tree.xpath(f'//node[@resource-id="{ID}clips_caption_component"]//node[@clickable="true"]/@content-desc')[0]
+    return author.replace(" ", " ").strip(), caption
 
 
 def _tree(xml):
@@ -121,7 +90,10 @@ def test_the_447_sheet_detector_sees_the_sheet_and_not_the_reel():
 
 
 def test_the_caption_and_the_author_are_readable_without_a_tap(french):
-    assert _matches(REEL_OPEN, POST_SELECTORS.reel_caption_selectors[0]) == 1
+    # The device writes a content-desc on every node, empty or not: the caption selector also
+    # takes the empty wrapper of the caption, and only one of its answers carries the text.
+    captions = [node.get("content-desc") for node in _tree(REEL_OPEN).xpath(POST_SELECTORS.reel_caption_selectors[0])]
+    assert [desc for desc in captions if desc] == [_author_and_caption(REEL_OPEN)[1]]
     assert _matches(REEL_OPEN, POST_SELECTORS.reel_author_username_selectors[0]) == 1
 
 
@@ -193,9 +165,10 @@ def test_a_collapsed_reel_caption_is_read_and_never_tapped(french, no_wait):
 
     metadata = host._extract_current_post_metadata(is_reel=True)
 
+    author, caption = _author_and_caption(REEL_OPEN)
     assert host.device.taps == [], "the caption tap is what opens the comments sheet on IG 447"
-    assert metadata['author'] == 'demo_author'
-    assert metadata['caption'].startswith('Une legende inventee')
+    assert metadata['author'] == author
+    assert caption.endswith("…") and metadata['caption'].startswith(caption[:40])
     assert metadata['caption_hash']
 
 

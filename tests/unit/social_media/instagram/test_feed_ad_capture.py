@@ -6,6 +6,8 @@ about what it must never do (change the crawl, cost the run, inflate its own cou
 about what it collects.
 """
 
+from pathlib import Path
+
 import pytest
 from PIL import Image
 import numpy as np
@@ -161,24 +163,27 @@ def test_an_ad_with_no_readable_advertiser_is_still_worth_recording(_recorded):
 # ───────────────────────────────────────────────── the EN ad label selector
 
 def test_the_english_ad_label_is_matched_exactly_not_by_containment():
-    """`contains(@text, "Ad")` also matched "Add to story" — which sits in the feed's own
-    story tray — so a normal English feed marked its first post as sponsored and skipped it.
-    With capture on, it would have polluted the corpus as well."""
-    etree = pytest.importorskip("lxml.etree")
+    """`contains(@text, "Ad")` also matched "Add to story", so a normal English feed marked a post
+    as sponsored and skipped it. With capture on, it would have polluted the corpus as well.
+
+    The screen is real (Instagram 410.0.0.53.71 in English, anonymized): the share sheet opened
+    over a sponsored post, its "Add to story" button a text node beside the post's "Ad" label.
+    Read the way `d.xpath()` reads it (`parse_ui_dump`).
+    """
+    from taktik.core.shared.device.ui_dump import parse_ui_dump
     from taktik.core.social_media.instagram.ui.selectors import locales as ig_locales
     from taktik.core.social_media.instagram.ui.selectors.locales import en
 
+    screen = (Path(__file__).parent / "fixtures"
+              / "ig410_en_share_sheet_over_sponsored_post.xml").read_text(encoding="utf-8")
     before = ig_locales.active_locale()
     try:
         ig_locales.set_active_locale('en')
-        doc = etree.fromstring(
-            '<hierarchy><node text="Add to story"/><node text="Adam Smith"/>'
-            '<node text="Ads you might like"/><node text="Sponsored"/>'
-            '<node text="Ad"/></hierarchy>'
-        )
+        doc = parse_ui_dump(screen)
+        assert doc.xpath('//*[@text="Add to story"]')
         matched = set()
         for selector in en.STRINGS["feed.sponsored_indicators"]:
             matched.update(n.get("text") for n in doc.xpath(selector))
-        assert matched == {"Sponsored", "Ad"}
+        assert matched == {"Ad"}
     finally:
         ig_locales.set_active_locale(before)
