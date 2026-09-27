@@ -1,9 +1,11 @@
 """What the TikTok contracts declare beyond one bridge: the lines of the session start and of the
-AI provider, the keys of the `ai` block, the rows the inbox screen readers build.
+AI (provider verdict, its copy for the base, the engagement verdict), the keys of the `ai` block,
+the rows the inbox screen readers build.
 
 Each is held to the code that produces or reads it, on its real path: the session start with its
-phone replaced, the AI provider with its network replaced, the readers of the `ai` block, and the
-dict literals the screen readers and the inbox workflow write.
+phone replaced, the AI provider with its network replaced, the bridge's AI hooks and the welcome
+pass's qualifier with only the network and the screenshot replaced, the readers of the `ai` block,
+and the dict literals the screen readers and the inbox workflow write.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from taktik.core.app.contract import WORKFLOW_CONTRACTS
 from taktik.core.app.contract.schema import Field, Shape
 from taktik.core.app.contract.shared import AI_SPEND_EVENT
 from taktik.core.app.contract.tiktok_automation import AI_BLOCK
-from taktik.core.app.contract.tiktok_lines import AI_PROFILE_DONE_EVENT, BOT_PROFILE_EVENT
+from taktik.core.app.contract.tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
 
 ROOT = Path(__file__).resolve().parents[4]
 _TIKTOK = ROOT / "taktik" / "core" / "social_media" / "tiktok"
@@ -101,11 +103,13 @@ class _Answer:
         return False
 
 
-def test_ai_profile_done_is_what_the_provider_prints(monkeypatch, lines, tmp_path):
+_KEY = "sk-or-" + "x" * 48
+
+
+def _scripted_provider(monkeypatch, tmp_path) -> None:
+    """The profile's screenshot and the model's answer: all the AI path touches outside the bot."""
     from PIL import Image
 
-    from bridges.tiktok.runtime.ipc import _ipc
-    from taktik.core.app.ai.factory import create_ai_service
     from taktik.core.social_media.tiktok.workflows.core import ai_hooks
 
     shot = tmp_path / "profile.png"
@@ -122,6 +126,14 @@ def test_ai_profile_done_is_what_the_provider_prints(monkeypatch, lines, tmp_pat
                         "model": body["model"]})
 
     monkeypatch.setattr("urllib.request.urlopen", answer)
+
+
+def test_ai_profile_done_is_what_the_provider_prints(monkeypatch, lines, tmp_path):
+    from bridges.tiktok.runtime.ipc import _ipc
+    from taktik.core.app.ai.factory import create_ai_service
+    from taktik.core.social_media.tiktok.workflows.core import ai_hooks
+
+    _scripted_provider(monkeypatch, tmp_path)
     enabled, service = create_ai_service(ai_config={"enabled": True, "openrouterApiKey": "sk-or-" + "x" * 48},
                                          ipc=_ipc)
     assert enabled
@@ -132,12 +144,59 @@ def test_ai_profile_done_is_what_the_provider_prints(monkeypatch, lines, tmp_pat
     _conforms(AI_SPEND_EVENT, lines)
 
 
+def test_ai_relevance_is_what_the_bridge_ai_hooks_print(monkeypatch, lines, tmp_path):
+    """A run that qualifies the profiles it visits: the bridge's hooks (`install_run_ai_hooks`) on
+    the shared mixin, the real AI service, the verdict, its copy for the base, the relevance."""
+    from bridges.tiktok.workflows.automation.runtime.ai import install_run_ai_hooks
+    from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_comment import VideoCommentMixin
+    from taktik.core.social_media.tiktok.actions.business.workflows.followers.interaction import (
+        VideoInteractionMixin,
+    )
+
+    # The hooks patch two mixins for the process: the visit itself answers from a script, and
+    # both are put back after the test.
+    monkeypatch.setattr(VideoInteractionMixin, "_interact_with_profile_posts", lambda self_wf: "interacted")
+    monkeypatch.setattr(VideoCommentMixin, "_try_comment_video", VideoCommentMixin._try_comment_video)
+    _scripted_provider(monkeypatch, tmp_path)
+
+    install_run_ai_hooks({"enabled": True, "openrouterApiKey": _KEY, "profileAnalysis": True}, "fr")
+    visit = SimpleNamespace(device=object(), _current_profile_username="alice")
+    assert VideoInteractionMixin._interact_with_profile_posts(visit) == "interacted"
+
+    _conforms(AI_RELEVANCE_EVENT, lines)
+    _conforms(AI_PROFILE_DONE_EVENT, lines)
+    assert any(line.get("persist_only") for line in lines if line["type"] == "ai_profile_done")
+
+
+def test_ai_relevance_is_what_the_welcome_pass_prints(monkeypatch, lines, tmp_path):
+    from bridges.tiktok.workflows.automation.runtime.ai import build_welcome_qualifier
+
+    _scripted_provider(monkeypatch, tmp_path)
+    qualify = build_welcome_qualifier({"enabled": True, "openrouterApiKey": _KEY}, "fr")
+    assert qualify is not None
+
+    assert qualify(object(), "bob") is not None
+    _conforms(AI_RELEVANCE_EVENT, lines)
+    _conforms(AI_PROFILE_DONE_EVENT, lines)
+    # The welcome pass's session does not read `ai_spend`.
+    assert "ai_spend" not in {line["type"] for line in lines}
+
+
+#: The dispatcher's workflows that qualify profiles: those that visit them, and the welcome pass.
+_QUALIFYING = {
+    "tiktok.automation.followers", "tiktok.automation.target_profiles", "tiktok.automation.post_url",
+    "tiktok.automation.new_followers",
+}
+
+
 def test_every_tiktok_app_reader_of_ai_profile_done_has_it_declared():
     declared = {c.workflow_id for c in WORKFLOW_CONTRACTS if any(e is AI_PROFILE_DONE_EVENT for e in c.events)}
-    assert {
-        "tiktok.automation.for_you", "tiktok.automation.search", "tiktok.automation.followers",
-        "tiktok.automation.target_profiles", "tiktok.automation.post_url",
-    } <= declared
+    assert {"tiktok.automation.for_you", "tiktok.automation.search", *_QUALIFYING} <= declared
+
+
+def test_every_tiktok_workflow_that_qualifies_profiles_declares_ai_relevance():
+    declared = {c.workflow_id for c in WORKFLOW_CONTRACTS if any(e is AI_RELEVANCE_EVENT for e in c.events)}
+    assert declared == _QUALIFYING
 
 
 # ---------------------------------------------------------------------------- the ai block

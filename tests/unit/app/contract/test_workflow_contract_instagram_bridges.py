@@ -153,7 +153,7 @@ def _scraping_class():
             self._collect_open_post("alice", None, set())
             self._qualify_profile_ai(profile, 1)
             self._qualify_profile_ai(dict(profile, username="dave"), 2)
-            return {"success": True, "total_scraped": 1, "completion_reason": "limit_reached"}
+            return {"success": True, "total_scraped": 1, "completion_reason": "completed"}
 
     return Scraping
 

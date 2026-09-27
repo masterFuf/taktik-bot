@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT, device_field, network_reset_field
+from .stop_reasons import TIKTOK_COMPLETION_REASON_OR_NONE
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 
@@ -26,7 +27,7 @@ UNFOLLOW_RUN_STATS = Shape(
         Field("unconfirmed", "int", "Taps the row did not confirm: not unfollows."),
         Field("recorded", "int", "Confirmed unfollows written to the base."),
         Field("errors", "int", "Rows that failed."),
-        Field("stop_reason", "string", "Why the run stopped early; empty otherwise."),
+        Field("stop_reason", TIKTOK_COMPLETION_REASON_OR_NONE, "Why the run stopped early; empty otherwise."),
         Field("refusals", MapOf("int"), "Motive -> rows kept for it."),
         Field("target", "int", "The run's maximum."),
     ),

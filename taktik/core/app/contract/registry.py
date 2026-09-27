@@ -1,4 +1,8 @@
-"""Every declared workflow contract, in one place: what the generator and the gates read."""
+"""Every declared contract, in one place: what the generator and the gates read.
+
+`WORKFLOW_CONTRACTS` the workflows of the manifest, `TOOL_CONTRACTS` the diagnostic tools the app
+runs beside them (their lines only).
+"""
 
 from __future__ import annotations
 
@@ -6,6 +10,7 @@ from typing import Dict, Tuple
 
 from . import (
     accounts,
+    diagnostics,
     instagram_agent,
     instagram_automation,
     instagram_engagement,
@@ -19,7 +24,7 @@ from . import (
     tiktok_engagement,
     tiktok_profiles,
 )
-from .schema import WorkflowContract
+from .schema import ToolContract, WorkflowContract
 
 WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (
     *tiktok.CONTRACTS,
@@ -37,6 +42,8 @@ WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (
     *publish.CONTRACTS,
 )
 
+TOOL_CONTRACTS: Tuple[ToolContract, ...] = diagnostics.TOOLS
+
 
 def contracts_by_id() -> Dict[str, WorkflowContract]:
     """Every id of the manifest a declaration covers, its own and the ones it shares (`also`)."""
@@ -47,4 +54,4 @@ def contracts_by_id() -> Dict[str, WorkflowContract]:
     }
 
 
-__all__ = ["WORKFLOW_CONTRACTS", "contracts_by_id"]
+__all__ = ["TOOL_CONTRACTS", "WORKFLOW_CONTRACTS", "contracts_by_id"]
