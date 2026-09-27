@@ -97,6 +97,16 @@ class TabNavigationMixin(BaseAction):
                     self.logger.debug(f"✅ Back to own profile via back button (attempt {attempt + 1})")
                     return True
 
+            # A follow list covers the whole screen, bottom bar included: Back returns to the
+            # profile it was opened from, without searching 15 s for a tab that is not there.
+            if detection.is_followers_list_open() and self._is_instagram_open():
+                self.logger.debug(f"📋 On a follow list, pressing back (attempt {attempt + 1})")
+                self._back_one_screen()
+                if detection.is_on_own_profile():
+                    self.logger.debug(f"✅ Back to own profile from the follow list (attempt {attempt + 1})")
+                    return True
+                continue
+
             if self._find_and_click(self.selectors.profile_tab, timeout=15):
                 self._human_like_delay('navigation')
 
