@@ -383,16 +383,14 @@ def _emitter_lines(monkeypatch, capsys) -> List[Dict[str, Any]]:
 
     # The follow-graph sync, as both lists print it while they are read.
     from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.sync_events import (
+        emit_sync_progress,
         emit_sync_user_discovered,
-    )
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.sync_followers import (
-        SyncFollowersMixin,
     )
 
     emit_sync_user_discovered("following", "a_profile", "A Profile", True)
     emit_sync_user_discovered("followers", "a_fan", "", False)
-    SyncFollowersMixin._emit_sync_progress(SimpleNamespace(), "followers",
-                                           {"new_count": 2, "updated_count": 1, "total_seen": 3})
+    emit_sync_progress("followers", {"new_count": 2, "updated_count": 1, "total_seen": 3, "expected": 1219})
+    emit_sync_progress("following", {"new_count": 0, "updated_count": 0, "total_seen": 0, "expected": None})
 
     # The media capture: the profiles and posts the app loads, read from its traffic.
     runtime = InstagramMediaCaptureRuntime(device_id="emulator-5554", enabled=True)

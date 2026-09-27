@@ -22,7 +22,7 @@ from ..list_proof import (
     PROOF_BY_KNOWN_ACCOUNT, describe_proof, incremental_stop_allowed, proof_of_read, scrolls_for,
 )
 from .actions import LeftOutRows, row_belongs_to_tab
-from .sync_events import emit_sync_user_discovered
+from .sync_events import emit_sync_progress, emit_sync_user_discovered
 
 
 class SyncFollowingMixin:
@@ -129,6 +129,7 @@ class SyncFollowingMixin:
 
             seen_on_screen: Set[str] = set()
             left_out = LeftOutRows()
+            emit_sync_progress('following', stats)
             scroll_attempts = 0
             # A fixed 60 scrolls read about 270 accounts: the bound follows the tab's count.
             max_scrolls = scrolls_for(expected, 60)
@@ -251,6 +252,8 @@ class SyncFollowingMixin:
                         # Do not carry on with the loop after enrichment
                         continue
 
+                if new_found:
+                    emit_sync_progress('following', stats)
                 if stop_signal:
                     break
 

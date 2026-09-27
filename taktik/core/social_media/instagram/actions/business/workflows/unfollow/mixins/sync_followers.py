@@ -113,6 +113,7 @@ class SyncFollowersMixin:
 
             seen_on_screen: Set[str] = set()
             left_out = LeftOutRows()
+            emit_sync_progress('followers', stats)
             scroll_attempts = 0
             no_new_count = 0
 
@@ -214,9 +215,8 @@ class SyncFollowersMixin:
                             break  # Re-read the UI elements
                         continue
 
-                # Emit progress IPC
-                if stats['total_seen'] > 0 and stats['total_seen'] % 10 == 0:
-                    self._emit_sync_progress('followers', stats)
+                if new_found:
+                    emit_sync_progress('followers', stats)
 
                 # The end of the list: the suggestions under it, or several reads in a row without
                 # a new name; it counts only if the names read reach the tab's exact count.
@@ -287,7 +287,3 @@ class SyncFollowersMixin:
         except Exception as e:
             self.logger.debug(f"Error scrolling followers list: {e}")
             return False
-
-    def _emit_sync_progress(self, list_type: str, stats: Dict[str, Any]):
-        """Emit IPC progress message for the frontend."""
-        emit_sync_progress(list_type, stats)

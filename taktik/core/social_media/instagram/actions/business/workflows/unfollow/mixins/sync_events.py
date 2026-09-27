@@ -7,6 +7,8 @@ One place for both lists, so the desktop reads the same line whichever list prin
 import json
 from typing import Any, Dict
 
+from loguru import logger
+
 
 def emit_sync_user_discovered(list_type: str, username: str, display_name: str, is_new: bool) -> None:
     """One account read in a list."""
@@ -18,12 +20,14 @@ def emit_sync_user_discovered(list_type: str, username: str, display_name: str, 
             "display_name": display_name,
             "is_new": is_new,
         }), flush=True)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(f"sync_user_discovered not printed for @{username}: {exc}")
 
 
 def emit_sync_progress(list_type: str, stats: Dict[str, Any]) -> None:
-    """A list being read: its counters so far."""
+    """A list being read: its counters so far, and the count its tab shows (None without one).
+    Printed when the read starts and after each screen that brought new names, so the page can
+    say which list the run is reading before its first unfollow, and how far it got."""
     try:
         print(json.dumps({
             "type": "sync_progress",
@@ -31,9 +35,10 @@ def emit_sync_progress(list_type: str, stats: Dict[str, Any]) -> None:
             "new_count": stats['new_count'],
             "updated_count": stats['updated_count'],
             "total_seen": stats['total_seen'],
+            "expected": stats.get('expected'),
         }), flush=True)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(f"sync_progress not printed for the {list_type} list: {exc}")
 
 
 __all__ = ["emit_sync_progress", "emit_sync_user_discovered"]
