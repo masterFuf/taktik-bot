@@ -10,7 +10,7 @@ unfollowed a given list through the search. One engine is left:
    following read that `list_proof` does not prove stops the run before any decision;
 2. choose the candidates from the base, rule by rule (`candidates.py`); in doubt, nobody;
 3. walk the following list; for each row of a candidate still followed: check its profile when a
-   rule needs the screen (the "Follows you" badge, verified or business accounts), tap the row
+   rule needs the screen (verified or business accounts), tap the row
    button, confirm a private account, read the row again (an unfollow counts only if the row now
    offers to follow), stop at the first sign of a block, count it in the session, the day and
    the warmup, pause the configured time.
@@ -283,7 +283,6 @@ class UnfollowBusiness(
     def _unfollow_in_open_list(self, cfg: Dict[str, Any], targets: List[str], forced: Set[str],
                                stats: Dict[str, Any]) -> None:
         """Act on the rows of `targets` that the open following list shows, top to bottom."""
-        mode = cfg.get('unfollow_mode', 'non-followers')
         max_unfollows = int(cfg.get('max_unfollows') or 0)
         pending = {name.lower() for name in targets}
         # A row is handled once per session: an unfollow the screen did not confirm is not retried
@@ -330,13 +329,13 @@ class UnfollowBusiness(
             handled.add(key)
             pending.discard(key)
 
-            refusal = self._profile_refusal(row, mode, key in forced, cfg)
+            refusal = self._profile_refusal(row, key in forced, cfg)
             if refusal:
                 stats['profile_refusals'][refusal] = stats['profile_refusals'].get(refusal, 0) + 1
                 self.logger.info(f"⏭ @{username} kept: {refusal}")
                 emit_step('unfollow_decision', action='skip', target=username, reason=refusal)
                 continue
-            if row.get('name_element') is not None and self._profile_was_opened(mode, key in forced, cfg):
+            if row.get('name_element') is not None and self._profile_was_opened(key in forced, cfg):
                 # Back from the profile: the rows were redrawn, read the candidate's row again.
                 row = next((r for r in self._visible_follow_rows()
                             if r['username'].lower() == key and r['state'] == 'following'), None)
@@ -348,13 +347,11 @@ class UnfollowBusiness(
             if not self._unfollow_row(row, cfg, stats):
                 break
 
-    def _profile_was_opened(self, mode: str, forced: bool, cfg: Dict[str, Any]) -> bool:
+    def _profile_was_opened(self, forced: bool, cfg: Dict[str, Any]) -> bool:
         """Did `_profile_refusal` open the profile for this row (so the list was redrawn)?"""
         if forced:
             return False
-        return (mode in ('non-followers', 'mutual')
-                or bool(cfg.get('skip_verified', True))
-                or bool(cfg.get('skip_business', False)))
+        return bool(cfg.get('skip_verified', True)) or bool(cfg.get('skip_business', False))
 
     def _unfollow_row(self, row: Dict[str, Any], cfg: Dict[str, Any], stats: Dict[str, Any]) -> bool:
         """Tap the row button, confirm, check the row, check for a block, count, pause.

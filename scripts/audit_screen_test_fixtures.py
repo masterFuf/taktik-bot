@@ -95,7 +95,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "capture a comments sheet after a like (410, French and English); the like lands on a "
          "real sheet."),
     "tests/unit/social_media/instagram/workflows/unfollow/fake_follow_list.py":
-        (18,
+        (17,
          "follow lists of 410 and 447 rendered by a helper for the engine's scripted runs: the 410 "
          "lists are in fixtures/ (ig410_*_followers_list*); no unfollow dialog in the corpus: "
          "capture it (410, French) and a 447 list."),

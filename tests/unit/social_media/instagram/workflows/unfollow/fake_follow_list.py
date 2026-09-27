@@ -243,23 +243,20 @@ def walk_list(business, config=None, names=None):
     return stats
 
 
-def profile_xml(username: str, follows_you: bool = False, loaded: bool = True) -> str:
-    """A profile screen: its action bar names the account; "Vous suit" when it follows us.
+def profile_xml(username: str, loaded: bool = True) -> str:
+    """A profile screen: its action bar names the account.
 
     `loaded`: the relationship data arrived, so the header's action button says "Suivi(e)". Before
-    that, the name shows and neither the badge nor the button does.
+    that, the name shows and the button does not.
     """
-    badge = ('<node index="3" text="Vous suit" resource-id="" class="android.widget.TextView" '
-             'content-desc="" bounds="[40,520][300,560]" />') if follows_you and loaded else ""
-    if loaded:
-        badge += (f'<node index="4" text="Suivi(e)" resource-id="{PKG}:id/profile_header_follow_button" '
-                  'class="android.widget.Button" content-desc="" bounds="[40,600][500,680]" />')
+    button = (f'<node index="4" text="Suivi(e)" resource-id="{PKG}:id/profile_header_follow_button" '
+              'class="android.widget.Button" content-desc="" bounds="[40,600][500,680]" />') if loaded else ""
     return (
         '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
         '<node index="0" text="" resource-id="" class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">'
         f'<node index="1" text="{username}" resource-id="{PKG}:id/action_bar_title" '
         'class="android.widget.TextView" content-desc="" bounds="[200,100][800,160]" />'
-        + badge + "</node></hierarchy>"
+        + button + "</node></hierarchy>"
     )
 
 
