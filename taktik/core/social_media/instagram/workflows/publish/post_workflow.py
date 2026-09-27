@@ -482,12 +482,18 @@ class InstagramPostWorkflow:
     # ------------------------------------------------------------------
 
     def _advance_to_composer(self, max_taps: int = 3) -> bool:
-        """Tap Next (dismissing optional OK modals) until the caption field appears."""
+        """Tap Next (dismissing optional OK modals) until the caption field appears.
+
+        The video editor Next opens asks Android for the camera when this app session holds no
+        grant (Pixel 3a, Instagram 410, 2026-09-28: the prompt over "Edit video" after the gallery's
+        Next): answered "Only this time" before the next tap, as when creation opens."""
         composer = CC.composer_xpaths()
         next_selectors = CC.next_button_xpaths()
         for _ in range(max_taps):
             if self._a["click"]._is_element_present(composer):
                 return True
+            if self._answer_permission_prompts():
+                return False
             # Optional post-selection modal ("OK")
             self._tap(CC.post_selection_ok_xpaths(), timeout=1)
             if not self._tap(next_selectors, timeout=4):
