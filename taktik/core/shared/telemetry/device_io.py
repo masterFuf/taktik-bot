@@ -242,19 +242,22 @@ class DeviceIoMeasure:
     def finish(self, **outcome: Any) -> None:
         """Emit one `device_io` step. Fields: `dumps`, `dump_ms`, `rpc` (every server round trip,
         dumps included), `rpc_ms`, `waits`, `wait_ms` (server-side waits), `shells`, `shell_ms`
-        (adb), `errors`, the gestures by kind (`GESTURE_KINDS`), `total_ms` (wall time), `other_ms`
-        (the rest: parsing, sleeps, the bot's own work), then the context and the outcome."""
+        (adb), `errors`, `gestures` (the gestures made, by kind: `GESTURE_KINDS`), `total_ms` (wall
+        time), `other_ms` (the rest: parsing, sleeps, the bot's own work), then the context and the
+        outcome."""
         if self._finished:
             return
         self._finished = True
         try:
             total_ms = _elapsed_ms(self._started_at)
             delta = _delta(self._before, self._meter.snapshot())
+            gestures = {kind: delta.pop(kind, 0) for kind in GESTURE_KINDS}
             device_ms = delta.get("rpc_ms", 0.0) + delta.get("shell_ms", 0.0)
             fields = {
                 "total_ms": round(total_ms, 1),
                 "other_ms": round(max(total_ms - device_ms, 0.0), 1),
                 **delta,
+                "gestures": gestures,
                 **self._context,
                 **outcome,
             }

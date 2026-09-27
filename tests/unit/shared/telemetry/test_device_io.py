@@ -270,8 +270,9 @@ def test_an_action_emits_the_gestures_it_made(steps):
         device.jsonrpc_call("click", (10, 20))
         device.jsonrpc_call("dumpWindowHierarchy")
 
-    detail = steps[0].detail
-    assert (detail["taps"], detail["long_presses"], detail["swipes"], detail["keys"], detail["texts"]) == (1, 0, 0, 0, 0)
+    gestures = steps[0].detail["gestures"]
+    assert gestures == {"taps": 1, "long_presses": 0, "swipes": 0, "touches": 0, "keys": 0, "texts": 0,
+                        "launches": 0, "stops": 0}
 
 
 def test_the_bot_s_adb_process_calls_are_counted_with_their_gestures(monkeypatch):
