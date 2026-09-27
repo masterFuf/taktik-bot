@@ -99,7 +99,7 @@
   "taktik/core/social_media/tiktok/actions/atomic/detection/detection_actions.py": 2,
   "taktik/core/social_media/tiktok/actions/atomic/detection/popup_detector.py": 2,
   "taktik/core/social_media/tiktok/actions/atomic/detection/screen_reading.py": 5,
-  "taktik/core/social_media/tiktok/actions/atomic/detection/sound_actions.py": 6,
+  "taktik/core/social_media/tiktok/actions/atomic/detection/sound_actions.py": 5,
   "taktik/core/social_media/tiktok/actions/atomic/detection/video_detector.py": 3,
   "taktik/core/social_media/tiktok/actions/atomic/interaction/activity_actions.py": 6,
   "taktik/core/social_media/tiktok/actions/atomic/interaction/click_actions.py": 2,

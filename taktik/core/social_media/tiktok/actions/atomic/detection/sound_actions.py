@@ -27,6 +27,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from ...core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 from ...core.utils import first_matching, first_text, parse_count
 from ....ui.selectors.surfaces.video import VIDEO_SOUND_SELECTORS
 from ....ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
@@ -84,8 +85,6 @@ class SoundActions(BaseAction):
         only be known after opening it. Searching "Umbrella" opens Ember Island's version, not
         Rihanna's, and a caller told only "it worked" would harvest the wrong audience.
         """
-        from ...navigation.navigation_actions import NavigationActions
-
         wanted = (query or "").strip()
         if not wanted:
             return ""
