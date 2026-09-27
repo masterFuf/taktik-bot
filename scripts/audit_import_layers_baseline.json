@@ -58,7 +58,7 @@
   "taktik/core/social_media/instagram/actions/business/workflows/followers/workflows/direct/main_loop.py": 7,
   "taktik/core/social_media/instagram/actions/business/workflows/followers/workflows/direct/profile_processing.py": 2,
   "taktik/core/social_media/instagram/actions/business/workflows/hashtag/workflow.py": 2,
-  "taktik/core/social_media/instagram/actions/business/workflows/messaging/workflow.py": 2,
+  "taktik/core/social_media/instagram/actions/business/workflows/messaging/workflow.py": 1,
   "taktik/core/social_media/instagram/actions/business/workflows/post_url/workflow.py": 2,
   "taktik/core/social_media/instagram/actions/business/workflows/profile_list/workflow.py": 1,
   "taktik/core/social_media/instagram/actions/business/workflows/unfollow/mixins/sync_followers.py": 1,
