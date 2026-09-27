@@ -138,11 +138,9 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
 
     workflows: list = []
     try:
-        runtime = CliInstagramHost(manager, device_id).agent_runtime(config.get("packageName"))
         result = run_instagram_agent(
             config,
-            device_manager=runtime.device_manager,
-            restart=runtime.restart,
+            connect=CliInstagramHost(manager, device_id).agent_runtime,
             ipc=_ConsoleNotifier(),
             ai_service_factory=ai_service_factory,
             on_workflow=workflows.append,

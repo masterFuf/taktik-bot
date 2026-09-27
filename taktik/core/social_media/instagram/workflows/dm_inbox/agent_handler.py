@@ -4,7 +4,8 @@
 desktop bridge (`dm_bridge <config.json>`) calls it, and so do the handlers registered as
 `instagram.engagement.dm_read` and `instagram.engagement.dm_send` (the CLI). What differs between
 the hosts is injected:
-- `runtime`: a `DMRuntime` already bound to a connected device, with `restart_instagram()` and
+- `connect(package_name) -> runtime`: a `DMRuntime` bound to the phone, on the Instagram the payload
+  names (`packageName`, a clone; None: the installed one), with `restart_instagram()` and
   `device_manager` (the bridges' `DMBridge`: clone-aware, facade-wrapped device, Taktik Keyboard,
   clean restart through `AppService`); its `dm_events` receives the conversation events of a read.
 - `emit(payload)`: where the account read from the inbox header is announced (the bridge's stdout).
@@ -32,6 +33,7 @@ from taktik.core.social_media.instagram.workflows.dm_inbox.persistence import (
 )
 from taktik.core.social_media.instagram.workflows.dm_inbox.payload import DM_COMMANDS, dm_command_from_payload
 from taktik.core.social_media.instagram.workflows.dm_inbox.session import ensure_dm_inbox, return_to_inbox
+from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 
 
 INSTAGRAM_DM_READ_WORKFLOW_ID = "instagram.engagement.dm_read"
@@ -45,12 +47,14 @@ def _failure(error: str) -> dict[str, Any]:
     return {"success": False, "error": error}
 
 
-def run_instagram_dm(config: Mapping[str, Any], *, runtime, emit: Optional[Emit] = None) -> dict[str, Any]:
+def run_instagram_dm(config: Mapping[str, Any], *, connect: RuntimeProvider,
+                     emit: Optional[Emit] = None) -> dict[str, Any]:
     """Run the DM command a payload describes: `read`, `read_requests` (`limit`, <= 0 for all) or
     `send` (`username`, `message`). Returns the result the desktop reads, or
     `{"success": False, "error": ...}`. An unknown command, or a reply without its recipient or its
     text, is refused (`DmCommandError`) before the phone is touched."""
     request = dm_command_from_payload(config)
+    runtime = connect(package_name_from_payload(config))
     if request.command == "read":
         return _read(runtime, request.limit, emit)
     if request.command == "read_requests":
@@ -195,8 +199,7 @@ def build_instagram_dm_handler(
             config["command"] = "send"
         elif config.get("command") != "read_requests":
             config["command"] = "read"
-        return run_instagram_dm(config, runtime=instagram_dm_runtime(config.get("packageName")),
-                                emit=instagram_dm_emit)
+        return run_instagram_dm(config, connect=instagram_dm_runtime, emit=instagram_dm_emit)
 
     return handler
 

@@ -92,6 +92,13 @@ class CliInstagramHost:
         """The app lifecycle an account flow restarts, or keeps on its current screen."""
         return self._app_for(package_name)
 
+    def task_device(self, package_name: Optional[str]):
+        """The phone after the clean restart of the task's Instagram (a clone when it names one), as
+        the task bridge restarts it: a one-shot starts from the feed."""
+        if not self.start(package_name):
+            raise RuntimeError("Instagram did not start cleanly; the task was not started")
+        return getattr(self.device_manager, "device", None)
+
     def installed_version(self) -> Optional[str]:
         """The installed Instagram version, for the selector overrides."""
         app = self.app or self._app_for(None)

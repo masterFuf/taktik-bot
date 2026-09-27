@@ -212,7 +212,6 @@ def agent_bridge(monkeypatch, tmp_path):
     """The bridge's module, its phone and its base replaced; `restarts` says whether Instagram opens."""
     import tempfile
 
-    import bridges.instagram.agent.runtime.bridge as bridge_runtime
     import bridges.instagram.agent.runtime.commands as commands
     import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
     import taktik.core.shared.diagnostics.action_block as action_block
@@ -227,13 +226,13 @@ def agent_bridge(monkeypatch, tmp_path):
     import taktik.core.social_media.instagram.workflows.management.session.warmup_budget as warmup_budget
     from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
-    state = SimpleNamespace(restarts=True)
+    state = SimpleNamespace(restarts=True, packages=[])
 
     class Bridge(commands.TaktikAgentBridge):
-        """The bridge's run; its connection and the restart of Instagram answer here."""
+        """The bridge's connection, on the launcher's package; the restart of Instagram answers here."""
 
-        def __init__(self, device_id, config, package_name=None):
-            self.config = config
+        def __init__(self, device_id, package_name=None):
+            state.packages.append(package_name)
             self.device_manager = SimpleNamespace(device=_Screen())
             self._app = SimpleNamespace(restart=lambda: state.restarts)
 
@@ -242,7 +241,7 @@ def agent_bridge(monkeypatch, tmp_path):
 
     monkeypatch.setattr(commands, "TaktikAgentBridge", Bridge)
     monkeypatch.setattr(commands, "configure_agent_database", lambda: None)
-    monkeypatch.setattr(bridge_runtime, "start_agent_stop_listener", lambda: None)
+    monkeypatch.setattr(commands, "start_agent_stop_listener", lambda: None)
     use_the_bridge_ipc(monkeypatch)
 
     monkeypatch.setattr(urllib.request, "urlopen", _OpenRouter())
@@ -287,6 +286,8 @@ def test_the_agent_bridge_follows_its_contract(agent_bridge, printed):
     assert agent_bridge.TaktikAgentRun(Recording(data, log)).run() == 0
 
     assert_reads(AGENT, data, log)
+    # The launcher read the clone of the file and the bridge connected on it.
+    assert agent_bridge.state.packages == [data["packageName"]]
     lines = printed()
     check_lines(AGENT, lines)
     # Every declared line but a failure's, each from the session's own path.
@@ -321,6 +322,7 @@ def test_a_session_without_a_key_is_refused_before_instagram_is_touched(agent_br
 
     assert agent_bridge.TaktikAgentRun(data).run() == 1
 
+    assert agent_bridge.state.packages == []  # never connected
     lines = printed()
     check_lines(AGENT, lines)
     assert [line["type"] for line in lines] == ["agent_status"]

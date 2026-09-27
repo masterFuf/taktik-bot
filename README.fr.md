@@ -1,7 +1,7 @@
 <div align="center">
-  <h1>Plateforme d'automatisation des reseaux sociaux</h1>
+  <h1>Plateforme d'automatisation des réseaux sociaux</h1>
 
-  <p><strong>Automatisation Instagram, TikTok, YouTube, Threads et Gmail via de vrais appareils Android. Likes, follows, DMs, scraping, publication, ciblage hashtag/localisation et outils IA. Construit avec Python, uiautomator2 et ADB.</strong></p>
+  <p><strong>Automatisation Instagram, TikTok, YouTube, Threads et Gmail sur de vrais appareils Android. Likes, follows, DM, scraping, publication, ciblage par hashtag, commentaires et qualification de profils par IA. Construit avec Python, uiautomator2 et ADB.</strong></p>
 
   [![GitHub stars](https://img.shields.io/github/stars/masterFuf/taktik-bot?style=social)](https://github.com/masterFuf/taktik-bot/stargazers)
   [![GitHub forks](https://img.shields.io/github/forks/masterFuf/taktik-bot?style=social)](https://github.com/masterFuf/taktik-bot/network/members)
@@ -24,7 +24,7 @@
 
   [![Demo TAKTIK](https://img.youtube.com/vi/mFh0iv3Hzck/maxresdefault.jpg)](https://www.youtube.com/watch?v=mFh0iv3Hzck)
 
-  **Les conditions d'acces a l'application Desktop sont disponibles sur le site**
+  **Les conditions d'accès à l'application desktop sont disponibles sur le site**
 
   <a href="https://taktik-bot.com/fr">**Voir les conditions actuelles** →</a>
 
@@ -36,198 +36,180 @@
 
 ## Qu'est-ce que TAKTIK ?
 
-**TAKTIK** est une plateforme complete d'**automatisation des reseaux sociaux** pour Instagram, TikTok, YouTube, Threads et Gmail. Elle combine un moteur Python open source avec une application Desktop premium qui ajoute l'interface, l'orchestration, les outils IA, l'analytics et les outils d'administration.
+**TAKTIK** automatise Instagram, TikTok, YouTube, Threads et Gmail sur de vrais téléphones Android.
+Il a deux moitiés :
 
-### Pour qui ?
+- **Le moteur (ce dépôt, GPLv3).** Un bot Python qui pilote le téléphone par ADB et uiautomator2,
+  avec une ligne de commande (`taktik`). Chaque workflow de la liste ci-dessous se lance depuis la
+  ligne de commande, sans limite de licence.
+- **L'application desktop (commerciale).** Une interface graphique qui lance le même moteur et
+  ajoute ce qui est listé dans [Ce qui demande l'application desktop](#ce-qui-demande-lapplication-desktop).
 
-- **Createurs de contenu** : automatiser l'engagement et la publication.
-- **Social media managers** : piloter plusieurs comptes et plusieurs appareils.
-- **Agences** : industrialiser les workflows multi-devices.
-- **Petites entreprises** : gagner du temps sur l'execution quotidienne.
-- **Marketeurs / prospection** : constituer des datasets et lancer de l'outreach cible.
+La ligne de commande et l'application lancent les mêmes workflows avec les mêmes réglages (sauf le
+changement d'IP avant un run, qui est celui de l'application) : l'application passe par les
+lanceurs du moteur, elle n'en a pas une deuxième copie.
 
 ---
 
-## Apercu des fonctionnalites
+## Fonctionnalités
+
+Chaque ligne se lance depuis la ligne de commande (`taktik workflows run <id>`), sauf mention
+contraire. `taktik workflows list` affiche tous les identifiants.
 
 ### Instagram
 
-#### Publication
-
-| Fonctionnalite | Description |
+| Fonctionnalité | Identifiants / commande |
 |---|---|
-| **Posts & carrousels** | Publication manuelle ou IA |
-| **Reels** | Upload et publication |
-| **Stories** | Publication sur le compte |
-| **Generation d'images IA** | Text-to-image ou image-to-image via la configuration media active |
-| **Captions & hashtags IA** | Generation de descriptions et hashtags |
+| **Abonnés ou abonnements de comptes cibles** | `instagram.automation.target_followers`, `target_following` |
+| **Une liste de profils cibles** | `instagram.automation.target_profiles` |
+| **Hashtags** | `instagram.automation.hashtags` |
+| **Likers d'un post** | `instagram.automation.post_url` |
+| **Fil d'actualité** | `instagram.automation.feed` |
+| **Désabonnement** | `instagram.automation.unfollow` |
+| **Synchronisation des abonnements et des abonnés** | `instagram.automation.sync_following`, `sync_followers_following` |
+| **Scraping** : abonnés ou abonnements d'un compte, un hashtag, likers et commentateurs d'un post, une liste de pseudos, les posts de comptes | `instagram.scraping.target`, `hashtag`, `post_url`, `usernames`, `profile_posts` |
+| **DM à froid** : une liste de comptes, messages fixes ou un message écrit par l'IA pour chacun | `instagram.engagement.coldDm` |
+| **Boîte DM** : lire la boîte ou les demandes, répondre dans une conversation | `instagram.engagement.dm_read`, `dm_send` |
+| **Notifications** : lire l'activité, accepter les demandes, liker, suivre en retour, répondre, lots | `instagram.engagement.notifications` |
+| **Relais de stories** : repartager les stories d'un compte source | `instagram.task.story_relay` |
+| **Publication** : post, carrousel, reel, story | `taktik publish post\|carousel\|reel\|story` |
+| **Comptes** : connexion, inscription, déconnexion, changement de compte, liste des comptes, langue de l'app | `instagram.account.*` |
 
-#### Messages directs
-
-| Fonctionnalite | Description |
-|---|---|
-| **Reponses DM** | Lecture et reponse aux DM entrants |
-| **Cold DM / prospection** | Envoi de messages a des profils cibles |
-
-> En detail : [DM IA et reponse automatique Instagram](https://taktik-bot.com/fr/fonctionnalites/instagram-ai-dm) sur le site.
-
-#### Automatisation
-
-| Fonctionnalite | Description |
-|---|---|
-| **Target followers/following** | Interactions sur les followers/following d'un compte |
-| **Workflow hashtag** | Engagement sur des hashtags cibles |
-| **Workflow post URL** | Interaction avec les likers d'un post |
-| **Workflow feed** | Interaction avec le feed d'accueil |
-| **Workflow unfollow** | Maintenance et nettoyage |
-
-> En detail : [automatisation Instagram](https://taktik-bot.com/fr/fonctionnalites/instagram-automation) sur le site.
-
-#### Scraping & qualification
-
-| Fonctionnalite | Description |
-|---|---|
-| **Target scraping** | Scraping followers/following |
-| **Hashtag scraping** | Extraction depuis des hashtags |
-| **Post URL scraping** | Extraction des likers d'un post |
-| **Scraping avance** | Consolidation target/hashtag/post pour construire des datasets |
-| **Qualification IA** | Scoring et qualification des profils |
-| **Target Search** | Recherche et filtrage des profils decouverts |
-| **Export** | CSV / XLSX dans l'application Desktop |
+> En détail : [automatisation Instagram](https://taktik-bot.com/fr/fonctionnalites/instagram-automation)
+> et [DM IA Instagram](https://taktik-bot.com/fr/fonctionnalites/instagram-ai-dm) sur le site.
 
 ### TikTok
 
-| Fonctionnalite | Description |
+| Fonctionnalité | Identifiants |
 |---|---|
-| **Publication** | Publication de posts |
-| **For You workflow** | Interaction avec les videos du feed |
-| **Target followers** | Interaction avec les followers d'un compte cible |
-| **Hashtag workflow** | Engagement sur hashtags |
-| **Unfollow workflow** | Maintenance |
-| **DM responses / Cold DM** | Messaging manuel ou IA |
-| **Scraping target / hashtag** | Extraction de profils |
+| **Fil Pour toi** | `tiktok.automation.for_you` |
+| **Hashtags, recherche de compte** | `tiktok.automation.hashtag`, `search` |
+| **Abonnés de comptes cibles, une liste de profils cibles** | `tiktok.automation.followers`, `target_profiles` |
+| **Commentateurs d'une vidéo** | `tiktok.automation.post_url` |
+| **Synchronisation des abonnements et des abonnés** | `tiktok.automation.sync_lists`, `sync_following`, `sync_followers` |
+| **DM** : lecture et envoi | `tiktok.automation.dm_read`, `dm_send` |
+| **Boîte de réception** : nouveaux abonnés (avec une passe d'accueil par IA), conversations sans réponse, demandes, activité | `tiktok.automation.new_followers`, `dm_unreplied`, `dm_requests`, `dm_activity` |
+| **Notifications** | `tiktok.automation.notifications` |
+| **DM à froid** : messages fixes ou un message écrit par l'IA pour chacun | `tiktok.standalone.tiktok_dm_outreach` |
+| **Désabonnement** | `tiktok.standalone.tiktok_unfollow` |
+| **Scraping** : abonnés d'un compte, un hashtag, commentateurs d'une vidéo, un son, les posts de comptes | `tiktok.standalone.tiktok_scraping` |
+| **Publication** : une vidéo, ou un post texte | `tiktok.standalone.upload_post` |
+| **Comptes** : connexion, inscription, déconnexion, langue de l'app | `tiktok.account.*` |
 
-> Les fonctionnalites TikTok restent en beta et evoluent encore.
-> En detail : [automatisation TikTok](https://taktik-bot.com/fr/fonctionnalites/tiktok-automation) sur le site.
+> En détail : [automatisation TikTok](https://taktik-bot.com/fr/fonctionnalites/tiktok-automation) sur le site.
 
-### YouTube
+### YouTube, Threads, Gmail
 
-| Fonctionnalite | Description |
+| Fonctionnalité | Identifiants |
 |---|---|
-| **Compte** | Login / logout et gestion de compte |
-| **Upload** | Publication de Shorts et videos avec titre, description et visibilite |
+| **YouTube** : connexion, déconnexion ; publier un Short ou une vidéo avec titre, description et visibilité | `youtube.account.login`, `logout`, `youtube.publish.upload_post` |
+| **Threads** : suivre des comptes trouvés par une recherche, interagir avec le fil | `threads.automation.follow`, `feed` |
+| **Gmail** : ajouter et retirer un compte, lire le dernier code, lister les comptes du téléphone | `gmail.account.login`, `logout`, `read_otp`, `scan_accounts` |
 
-### Threads & Gmail
+### L'IA dans le moteur
 
-| Fonctionnalite | Description |
+Elle marche depuis la ligne de commande avec votre propre clé [OpenRouter](https://openrouter.ai)
+(demandée au lancement quand un run utilise l'IA ; un run manuel n'en demande aucune).
+
+| Fonctionnalité | Où |
 |---|---|
-| **Threads automation** | Workflows d'engagement Threads |
-| **Comptes Gmail** | Login/logout, lecture OTP et scan de comptes pour les flows de creation |
-
-### Outils IA
-
-| Fonctionnalite | Description |
-|---|---|
-| **Analyse persona** | Analyse visuelle de profil, classification et score |
-| **Smart Comment** | Commentaires generes avec contexte |
-| **Taktik Agent** | Orchestration multi-etapes pilotee par IA |
-| **Generation de contenu** | Images, captions, hashtags |
-| **Text-to-Speech** | Synthetise vocale pour certains usages |
-
-> Les flows IA texte/vision passent par **OpenRouter** ; `@fal-ai/client` reste utilise pour certains flows media.
-
-### Fonctionnalites Desktop exclusives
-
-| Fonctionnalite | Description |
-|---|---|
-| **Screen mirroring** | Affichage temps reel des devices |
-| **Scheduler** | Construction visuelle de patterns d'automatisation |
-| **Scheduler Control Center** | Supervision des schedulers actifs |
-| **Generation IA de schedulers** | Construction via prompts |
-| **Analytics** | Stats detaillees par jour/semaine/mois/annee |
-| **Session analytics** | Historique des sessions et details |
-| **Scraping history** | Historique et exports des sessions de scraping |
-| **Advanced scraping & AI qualification** | Recherche, filtrage et qualification des leads |
-| **Target Search** | Recherche transversale dans les profils decouverts |
-| **Network & proxy** | Pools reseau, reset IP/data, historique IP |
-| **Device groups** | Groupes et aliases de devices |
-| **Cartography Lab** | Banc de test d'actions atomiques avec captures XML + screenshot et comparaison multi-device |
-| **Multi-langue** | Interface disponible en 10+ langues |
-
-> Catalogue complet avec captures : [toutes les fonctionnalites](https://taktik-bot.com/fr/fonctionnalites) — dont le [scheduler](https://taktik-bot.com/fr/fonctionnalites/app-scheduler), les [analytics](https://taktik-bot.com/fr/fonctionnalites/app-sessions-analytics) et la [recherche de cibles](https://taktik-bot.com/fr/fonctionnalites/app-target-search).
+| **Commentaires IA** : un commentaire écrit pour le post qu'il accompagne | le bloc `ai` d'un run d'automatisation |
+| **Qualification de profils** : un modèle de vision lit le profil visité, donne sa niche et un score de pertinence | le bloc `ai` d'un run d'automatisation ou de scraping |
+| **DM à froid écrit par l'IA**, un message par destinataire | `messageMode: "ai"` (Instagram et TikTok) |
+| **Passe d'accueil TikTok** : nouveaux abonnés qualifiés, les pertinents suivis en retour | `tiktok.automation.new_followers` avec `ai.newFollowers` |
+| **Taktik Agent** : une session Instagram autonome où un modèle de vision décide chaque like, commentaire, visite de profil et follow | `taktik agent run` |
 
 ---
 
-## Demarrage rapide
+## Ce qui demande l'application desktop
 
-### Option 1 : application Desktop
+| Fonctionnalité | Sans l'application |
+|---|---|
+| **Interface graphique**, panneaux en direct, historique des sessions, tableaux de bord | La ligne de commande affiche des journaux et le résultat final. |
+| **Planificateur** (éditeur visuel, plans de journée et de période, plans générés par l'IA), **campagnes autonomes** | Une tâche cron peut enchaîner des commandes. |
+| **Changer d'IP avant un run** (données mobiles ou mode avion), pools réseau, un seul téléphone à la fois sur une connexion partagée | La ligne de commande ne change jamais d'IP. |
+| **Montée en charge** : plafonds calculés d'après l'âge et l'intensité du compte (`warmupPolicy`) | Vous pouvez écrire `warmupPolicy` vous-même dans le JSON d'un run ; le moteur applique ces plafonds. |
+| **Persona du compte** : le compte opéré analysé (profil, posts, style d'écriture) pour guider ce que l'IA écrit (`ai.accountProfile`) | Vous pouvez écrire `ai.accountProfile` vous-même. |
+| **Taxonomie des niches** (catégories, sous-niches, alias) utilisée par la qualification IA (`ai.nicheTaxonomy`) | La qualification est libre, ou vous écrivez `ai.nicheTaxonomy` vous-même. |
+| **Mode décision** : l'application planifie les actions sur chaque profil | Le moteur n'agit pas sans le plan de l'application. |
+| **Réponses IA aux DM**, messages de bienvenue Instagram écrits par l'IA, réponses IA aux commentaires | Les réponses se tapent au terminal. |
+| **Contenu IA pour publier** : images, légendes, hashtags | La publication prend vos médias et vos textes. |
+| **Target Search** (explorer la base locale), carte du monde, audience, export CSV/XLSX | La base est un fichier SQLite local, que vous pouvez interroger vous-même. |
+| **Cartography Lab** (banc de test des actions atomiques), miroir d'écran, mur d'appareils, groupes d'appareils | - |
+| **Synchronisation entre plusieurs PC** | - |
+
+Le nombre de téléphones que pilote l'application dépend de son abonnement. Le moteur n'a pas cette
+limite : une commande par téléphone.
+
+> Catalogue complet : [toutes les fonctionnalités](https://taktik-bot.com/fr/fonctionnalites), dont
+> le [planificateur](https://taktik-bot.com/fr/fonctionnalites/app-scheduler), les
+> [analytics](https://taktik-bot.com/fr/fonctionnalites/app-sessions-analytics) et la
+> [recherche de cibles](https://taktik-bot.com/fr/fonctionnalites/app-target-search).
+
+---
+
+## Démarrage rapide
+
+### Application desktop
 
 1. S'inscrire sur [taktik-bot.com](https://taktik-bot.com/fr/nos-prix)
-2. Telecharger l'application Desktop Windows
-3. Connecter un appareil Android ou un emulateur via ADB
-4. Lancer les workflows depuis l'interface
+2. Télécharger l'application desktop pour Windows
+3. Brancher un appareil Android par ADB
+4. Lancer un workflow depuis l'interface
 
-### Option 2 : CLI Python
+### Ligne de commande
 
 ```bash
 git clone https://github.com/masterFuf/taktik-bot.git
 cd taktik-bot
 pip install -r requirements.txt
-python -m taktik
+
+python -m taktik                         # menu interactif
+python -m taktik workflows list          # tous les identifiants
+python -m taktik workflows run instagram.automation.feed --dry-run
 ```
 
-> La CLI est surtout maintenue pour l'integration Desktop. Certaines fonctions restent pensees pour ce mode d'integration.
+Au démarrage, la ligne de commande dit dans quelle base elle écrit. Sans `TAKTIK_DB_PATH`, c'est
+la base de l'application desktop (`%APPDATA%/taktik-desktop/taktik-data.db` sous Windows) ;
+`TAKTIK_DB_PATH` en désigne une autre.
 
-### Tests de developpement
+La référence de la ligne de commande (paramètres, clé IA, un exemple par workflow) est dans la
+documentation.
 
-```text
-tests/unit/database
-tests/unit/database/repositories/tiktok
-tests/unit/social_media/tiktok/bridges
-tests/unit/social_media/tiktok/services
-tests/unit/social_media/tiktok/ui
-tests/unit/social_media/tiktok/workflows/followers
-tests/unit/social_media/tiktok/workflows/publish
-```
+### Prérequis
 
-Lancer tous les tests unitaires :
+- Un appareil **Android** joignable par **ADB**
+- **Instagram** et/ou **TikTok** installés, dans une version listée dans [COMPATIBILITY.md](COMPATIBILITY.md)
+- **Python 3.10+** pour la ligne de commande
+
+### Versions et langues prises en charge
+
+Les versions d'Instagram et de TikTok prises en charge, par architecture, avec un lien de
+téléchargement de l'APK d'origine pour chacune, sont dans **[COMPATIBILITY.md](COMPATIBILITY.md)**
+(en anglais). Ce fichier est généré depuis les données de sélecteurs du bot
+(`python scripts/audit_compatibility_file.py --write`) et vérifié par le même script.
+
+Les applications peuvent être en **anglais ou en français** : le bot lit la langue de l'app au
+début d'un run et prend les libellés qui vont avec. La ligne de commande elle-même parle anglais et
+français (`--lang en|fr`).
+
+### Tests de développement
 
 ```bash
 python -m pytest
 ```
 
-Les POC locaux et scripts smoke dependants d'un appareil doivent rester dans `tests/poc/` et `tests/smoke/`.
-
-### Prerequis
-
-- Appareil ou emulateur **Android 10+**
-- **ADB** installe
-- Applications sociales installees sur le device
-- **Python 3.10+** pour l'usage CLI
-
-### Versions supportees
-
-Les versions d'Instagram et de TikTok supportees, par architecture, avec un lien de telechargement
-de l'APK d'origine pour chacune, sont dans **[COMPATIBILITY.md](COMPATIBILITY.md)** (en anglais).
-Ce fichier est genere depuis les donnees de selecteurs du bot
-(`python scripts/audit_compatibility_file.py --write`) et verifie par le meme script.
-
-Instagram et TikTok doivent etre en **anglais**.
-
-### Appareils compatibles
-
-- Vrais appareils Android
-- LDPlayer
-- BlueStacks
-- NoxPlayer
-- MEmu
-- Autres emulateurs Android compatibles ADB
+Les tests sont sous `tests/unit` (base de données, ligne de commande, contrat entre le bot et
+l'application, un dossier par plateforme). Les POC locaux et scripts smoke dépendants d'un appareil
+vont dans `tests/poc/` et `tests/smoke/`, ignorés par git parce qu'ils peuvent contenir des dumps,
+des captures ou des essais propres à un appareil.
 
 ---
 
-## Acces & conditions commerciales
+## Accès et conditions commerciales
 
-Les modalites d'acces a l'application Desktop et les conditions commerciales actuelles sont maintenues sur le site :
+Le moteur Python de ce dépôt est open source. Les modalités d'accès à l'application desktop et les
+conditions commerciales actuelles sont maintenues sur le site :
 
 - **[Site web TAKTIK](https://taktik-bot.com/fr)**
 - **[Contact commercial](https://taktik-bot.com/fr/contact)**
@@ -236,13 +218,19 @@ Les modalites d'acces a l'application Desktop et les conditions commerciales act
 
 ## Documentation
 
-Documentation complete disponible sur **[taktik-bot.com/fr/documentation](https://taktik-bot.com/fr/documentation)**.
+Documentation complète sur **[taktik-bot.com/fr/documentation](https://taktik-bot.com/fr/documentation)**.
 
 ---
 
-## Communaute & support
+## Contribuer
 
-- **[Discord](https://discord.com/invite/6tTBRTMhBj)** : aide, feedback, annonces
+Les issues sont bienvenues : un bug, une version d'Instagram ou de TikTok qui casse un workflow, une
+question. Les pull requests extérieures ne sont pas acceptées pour l'instant. Voir
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Communauté et support
+
+- **[Discord](https://discord.com/invite/6tTBRTMhBj)** : aide et astuces
 - **[GitHub Issues](https://github.com/masterFuf/taktik-bot/issues)** : bugs et demandes
 - **[Contact](https://taktik-bot.com/fr/contact)** : demandes commerciales
 
@@ -252,12 +240,15 @@ Documentation complete disponible sur **[taktik-bot.com/fr/documentation](https:
 
 Ce projet est sous licence **GNU General Public License v3.0**. Voir [LICENSE](LICENSE).
 
-Le moteur d'automatisation Python est open source. L'application Desktop est un produit commercial ; les conditions actuelles sont detaillees sur le site.
+Un fichier de données relève d'une autre licence : `taktik/core/app/ai/data/agreement_fr.tsv` dérive
+de Lexique 3.83 et est distribué sous CC BY-SA 4.0. Voir [NOTICE](NOTICE).
+
+L'application desktop est un produit commercial ; les conditions actuelles sont détaillées sur le site.
 
 ---
 
 ## Avertissement
 
-**A des fins educatives et de recherche uniquement.**
+**À des fins éducatives et de recherche uniquement.**
 
-Ce logiciel est fourni tel quel. Les utilisateurs doivent respecter les conditions des plateformes automatisees. Les developpeurs ne sont pas responsables des restrictions de compte ou bannissements. Utilisation a vos risques.
+Ce logiciel est fourni tel quel. Les utilisateurs doivent respecter les conditions des plateformes automatisées. Les développeurs ne sont pas responsables des restrictions de compte ou bannissements. Utilisation à vos risques.

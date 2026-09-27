@@ -8,8 +8,8 @@ this bridge, and adding one never means editing a dispatch table in three places
 Config contract (JSON file passed as argv[1]):
     deviceId     device serial (required)
     taskId       short task name ("story_relay") or full id ("instagram.task.story_relay")
-    params       dict handed to the task handler as its payload
-    packageName  optional Instagram package override (clones)
+    params       dict handed to the task handler as its payload, `packageName` (a clone) included:
+                 the task's launcher reads it and asks this bridge to restart that Instagram
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ class TaskBridge:
         self.device_id = config.get("deviceId")
         self.task_id = self._canonical_task_id(config.get("taskId"))
         self.params = config.get("params") or {}
-        self.package_name = config.get("packageName")
         self._connection = None
 
         setup_signal_handlers(ipc=_ipc)
@@ -64,7 +63,8 @@ class TaskBridge:
         return self._run_task(device)
 
     def _prepare_runtime_session(self):
-        """DB, device connection, clean Instagram restart — same order as every bridge."""
+        """DB, then device connection — same order as every bridge; the task's launcher asks for
+        the clean restart of its Instagram (`_restart_instagram`)."""
         try:
             from taktik.core.database import configure_db_service
 
@@ -84,16 +84,18 @@ class TaskBridge:
             send_error("Device object unavailable after connection")
             return None
 
+        return device
+
+    def _restart_instagram(self, device, package_name: str | None):
+        """Clean restart, always: a task starts from a known screen (the feed), never from wherever
+        a previous run left the app — e.g. a fullscreen story viewer. On the launcher's package."""
         app_service = AppService(
             self._connection,
             platform="instagram",
-            package_override=self.package_name,
+            package_override=package_name,
         )
-        # Clean restart, always: a task starts from a known screen (the feed), never from
-        # wherever a previous run left the app — e.g. a fullscreen story viewer.
         send_status("initializing", "Restarting Instagram...")
         app_service.restart()
-
         return device
 
     def _run_task(self, device) -> int:
@@ -104,7 +106,10 @@ class TaskBridge:
         )
 
         registry = WorkflowRegistry()
-        register_instagram_task_handlers(registry, device=device, device_id=self.device_id)
+        register_instagram_task_handlers(
+            registry,
+            instagram_task_connect=lambda package_name: self._restart_instagram(device, package_name),
+        )
 
         if not registry.contains(self.task_id):
             send_error(

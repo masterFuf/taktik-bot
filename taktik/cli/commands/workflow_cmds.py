@@ -25,6 +25,7 @@ from typing import Any
 
 import click
 from rich.console import Console
+from rich.prompt import Confirm
 from rich.table import Table
 
 from taktik.cli.common.ai_key import (
@@ -38,6 +39,35 @@ from taktik.cli.common.ai_key import (
 from taktik.cli.common.registry_builder import build_registry
 
 console = Console()
+
+#: Workflows whose name does not say they log the account out, and what they do to it. The CLI
+#: warns, then runs one only once the operator said yes: at a terminal, or `--yes` in a script.
+LOGS_THE_ACCOUNT_OUT = {
+    "instagram.account.list_saved_accounts": (
+        "logs the account out: the only screen that lists every saved account is the logged-out "
+        "account picker, and the phone is left on it"
+    ),
+}
+
+
+def _warn_if_it_logs_out(workflow_id: str) -> bool:
+    """Say that `workflow_id` logs the account out; True when it does."""
+    effect = LOGS_THE_ACCOUNT_OUT.get(workflow_id)
+    if effect is not None:
+        console.print(f"[yellow]Warning:[/yellow] {workflow_id} {effect}.")
+    return effect is not None
+
+
+def _confirmed(workflow_id: str, yes: bool, scripted: bool) -> bool:
+    """Warn about a workflow that logs the account out; True once the operator agreed."""
+    if not _warn_if_it_logs_out(workflow_id):
+        return True
+    if yes:
+        return True
+    if not is_interactive(scripted=scripted):
+        console.print("[red]Not run:[/red] pass --yes to run it without a question.")
+        return False
+    return Confirm.ask("Run it?", default=False)
 
 
 def _parse_params(pairs: tuple[str, ...], json_blob: str | None) -> dict[str, Any]:
@@ -138,8 +168,9 @@ def list_workflows(platform: str | None) -> None:
 @click.option("--param", "params", multiple=True, help="Workflow parameter, key=value. Repeatable.")
 @click.option("--json", "json_blob", help="Whole parameter object as JSON.")
 @click.option("--dry-run", is_flag=True, help="Resolve and show the call without touching the device.")
+@click.option("--yes", "-y", is_flag=True, help="Run a workflow that logs the account out without asking.")
 def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...],
-                 json_blob: str | None, dry_run: bool) -> None:
+                 json_blob: str | None, dry_run: bool, yes: bool) -> None:
     """Run WORKFLOW_ID through the Agent registry."""
     from taktik.core.agent.kernel.contracts import WorkflowInvocation
 
@@ -158,7 +189,12 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
         if run_uses_ai(workflow_id, resolved_params):
             found = "found" if resolve_openrouter_key() else "missing"
             console.print(f"[cyan]AI:[/cyan] this run uses AI, OpenRouter key {found}")
+        if _warn_if_it_logs_out(workflow_id):
+            console.print("A run asks first, or takes --yes.")
         return
+
+    if not _confirmed(workflow_id, yes, scripted=json_blob is not None):
+        raise SystemExit(1)
 
     try:
         ensure_ai_key(workflow_id, resolved_params,

@@ -161,6 +161,14 @@ def display_banner():
         if Confirm.ask("[bold cyan]Would you like to update automatically now?[/bold cyan]", default=False):
             auto_update()
 
+def open_database():
+    """Configure the database and say which file it is, on stderr: stdout stays a script's."""
+    path = configure_db_service().local_db.db_path
+    click.echo(current_translations['database_in_use'].format(path), err=True)
+    if not os.environ.get('TAKTIK_DB_PATH'):
+        click.echo(current_translations['database_is_app_default'], err=True)
+
+
 def select_language():
     console.print("\n[bold blue]Language Selection / Sélection de la langue[/bold blue]")
     console.print("1. English")
@@ -192,7 +200,7 @@ def cli(ctx, lang=None):
     
     console = Console()
     
-    configure_db_service()
+    open_database()
     
     if ctx.invoked_subcommand is None:
         display_banner()
@@ -540,11 +548,6 @@ def cli(ctx, lang=None):
                 console.print(f"\n[yellow]{current_translations['goodbye']}[/yellow]")
                 sys.exit(0)
 
-@cli.command()
-def setup():
-    console.print(Panel.fit("[bold green]Configuration de Taktik-Instagram[/bold green]"))
-    console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
-
 # Registry-driven access to every workflow that has a runnable handler, including the platforms
 # that never got a menu branch (TikTok, Threads, Gmail, YouTube). Registered as a group rather
 # than woven into the interactive menu so a new platform needs no edit here.
@@ -584,7 +587,7 @@ def tiktok():
     from taktik.core import database as _database
 
     if getattr(_database, "db_service", None) is None:
-        configure_db_service()
+        open_database()
 
 @device.command(name="list")
 def list_devices():
@@ -720,24 +723,6 @@ def launch(network, device_id):
         console.print(f"[green]{network.capitalize()} a été lancé avec succès ![/green]")
     else:
         console.print(f"[red]Échec du lancement de {network.capitalize()}.[/red]")
-
-@cli.command()
-def proxy():
-    """Proxy management."""
-    console.print(Panel.fit("[bold green]Gestion des proxies[/bold green]"))
-    console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
-
-@cli.command()
-def account():
-    """Instagram account management."""
-    console.print(Panel.fit("[bold green]Gestion des comptes Instagram[/bold green]"))
-    console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
-
-@cli.command()
-def run():
-    """Start an interaction session."""
-    console.print(Panel.fit("[bold green]Démarrage d'une session d'interaction[/bold green]"))
-    console.print("[yellow]Cette fonctionnalité sera implémentée prochainement.[/yellow]")
 
 # ==================== MANAGEMENT GROUP ====================
 cli.add_command(management)

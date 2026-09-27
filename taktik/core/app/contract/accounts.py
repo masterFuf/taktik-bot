@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Tuple
 
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT
+from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT, instagram_package_field
 
 _INSTAGRAM = "taktik.core.social_media.instagram.workflows.management.agent_handler"
 _TIKTOK = "taktik.core.social_media.tiktok.workflows.management.agent_handler"
@@ -98,7 +98,7 @@ _LOGIN_REFUSALS = (
 
 _IG_BRIDGE = "account_bridge"
 _IG_LAUNCHER = f"{_INSTAGRAM}:run_instagram_account"
-_IG_PACKAGE = _package(_INSTAGRAM, "Instagram")
+_IG_PACKAGE = instagram_package_field("The Instagram package to run on (a clone); absent: the default Instagram.")
 
 #: Narration of the flows that walk the account picker (`on_active_account`, `on_step`).
 _ACTIVE_ACCOUNT = Event("active_account_detected", doc="The account the phone shows as active.", fields=(

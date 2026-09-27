@@ -4,8 +4,9 @@
 `accept_all`, a row verb (`accept`, `ignore`, `like`, `follow_back`, `reply`) or a `batch`. The
 desktop bridge (`notifications_bridge <config.json>`) calls it, and so does the handler registered
 as `instagram.engagement.notifications` (the CLI). What differs between the hosts is injected:
-- `connect(restart) -> runtime`: the connected device (`device`, `device_id`,
-  `restart_instagram()`, `stop()`), Instagram restarted first when `restart` is true;
+- `connect(package_name, restart) -> runtime`: the connected device (`device`, `device_id`,
+  `restart_instagram()`, `stop()`), on the Instagram the payload names (`packageName`, a clone;
+  None: the installed one), Instagram restarted first when `restart` is true;
 - `emit(payload)`: the run's events (the bridge's stdout, the CLI's log);
 - `instagram_ai_service(ai_config) -> service | None`: qualifies the profiles a scan visits.
 No injected callable receives the whole payload, so the app's config contract test can still see
@@ -20,6 +21,7 @@ from loguru import logger
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.management.notifications import commands
 from taktik.core.social_media.instagram.workflows.management.notifications.payload import (
     NOTIFICATIONS_COMMANDS,
@@ -30,10 +32,9 @@ from taktik.core.social_media.instagram.workflows.management.notifications.paylo
 
 INSTAGRAM_NOTIFICATIONS_WORKFLOW_ID = "instagram.engagement.notifications"
 
-Connect = Callable[[bool], Any]
+Connect = Callable[[Optional[str], bool], Any]
 Emit = Callable[[dict], None]
 AIServiceFactory = Callable[[Mapping[str, Any]], Any]
-RuntimeProvider = Callable[[Optional[str], bool], Any]
 
 
 def _log_event(payload: Mapping[str, Any]) -> None:
@@ -52,12 +53,13 @@ def run_instagram_notifications(
 
     The payload is read by `notifications_request_from_payload` (`payload.py`), which refuses
     an unknown command, a row verb or a reply without `username` and a batch without actions,
-    before the phone is touched. `deviceId` and `packageName` are the host's, read when it
-    connects.
+    before the phone is touched. `deviceId` is the host's, read when it connects; `packageName`
+    is read here and handed to it.
     """
     request = notifications_request_from_payload(config)
-    host = commands.NotificationsHost(connect=connect, emit=emit or _log_event,
-                                      ai_service=instagram_ai_service)
+    package_name = package_name_from_payload(config)
+    host = commands.NotificationsHost(connect=lambda restart: connect(package_name, restart),
+                                      emit=emit or _log_event, ai_service=instagram_ai_service)
     account_username = request.account_username
 
     if request.command == "scan":
@@ -84,7 +86,7 @@ def run_instagram_notifications(
 
 def build_instagram_notifications_handler(
     *,
-    instagram_notifications_runtime: Optional[RuntimeProvider] = None,
+    instagram_notifications_runtime: Optional[Connect] = None,
     instagram_ai_service: Optional[AIServiceFactory] = None,
 ) -> WorkflowHandler:
     """Build an injectable notifications handler: the launcher, on the runtime the host prepares."""
@@ -95,10 +97,9 @@ def build_instagram_notifications_handler(
         config = dict(payload)
         config.update(invocation.params)
         config.setdefault("command", "scan")
-        package_name = config.get("packageName")
         return run_instagram_notifications(
             config,
-            connect=lambda restart: instagram_notifications_runtime(package_name, restart),
+            connect=instagram_notifications_runtime,
             instagram_ai_service=instagram_ai_service,
         )
 
@@ -108,7 +109,7 @@ def build_instagram_notifications_handler(
 def register_instagram_notifications_handlers(
     registry: WorkflowRegistry,
     *,
-    instagram_notifications_runtime: Optional[RuntimeProvider] = None,
+    instagram_notifications_runtime: Optional[Connect] = None,
     instagram_ai_service: Optional[AIServiceFactory] = None,
 ) -> WorkflowRegistry:
     """Register the Instagram notifications handler into an injected Agent registry."""

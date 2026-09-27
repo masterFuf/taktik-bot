@@ -1173,10 +1173,7 @@
  },
  "no_recipients": {
   "exit": 1,
-  "calls": [
-   "connect",
-   "version_overrides 410.0.0.53.71"
-  ],
+  "calls": [],
   "stdout": [
    {
     "type": "cold_dm_result",
@@ -1191,10 +1188,7 @@
  },
  "no_messages": {
   "exit": 1,
-  "calls": [
-   "connect",
-   "version_overrides 410.0.0.53.71"
-  ],
+  "calls": [],
   "stdout": [
    {
     "type": "cold_dm_result",

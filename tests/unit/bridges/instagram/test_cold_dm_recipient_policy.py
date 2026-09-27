@@ -162,7 +162,7 @@ def test_the_page_settings_reach_the_workflow(payload, expected):
 
     run_instagram_cold_dm(
         {"deviceId": "dev", "recipients": ["a"], "messages": ["hi"], **payload},
-        runtime=ColdDmRuntime(device=None, device_manager=None, keyboard=None),
+        connect=lambda package_name: ColdDmRuntime(device=None, device_manager=None, keyboard=None),
         workflow_factory=_Workflow,
     )
 
