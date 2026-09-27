@@ -1,4 +1,3 @@
-import random
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
@@ -6,7 +5,6 @@ from loguru import logger
 
 from taktik.core.shared.behavior.policy import parse_behavior_policy
 from taktik.core.shared.behavior.profiles import resolve_pacing_profile
-from taktik.core.shared.behavior.sampling import sample_within
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
 from taktik.core.shared.diagnostics import run_halt
@@ -313,16 +311,9 @@ class SessionManager:
 
         # Pace floor of the guard: never faster than this minimum, whatever the pacing profile
         # chosen elsewhere. This is the lever that breaks the mechanical regularity observed on
-        # a fresh account. Zero or absent means no floor, and standalone is unchanged.
-        floor = self.warmup.min_action_gap_seconds()
-        if floor <= 0:
-            return random.uniform(low, high)
-        # A delay under the floor is drawn again. When the whole range sits under it, the delay
-        # keeps the range's own spread above the floor: raising every gap to exactly the floor
-        # made the cadence a metronome, the very regularity the floor is there to break.
-        spread = max(abs(high - low), 0.1 * floor)
-        return sample_within(lambda: random.uniform(low, high), floor, float('inf'),
-                             edge_band=spread)
+        # a fresh account. Zero or absent means no floor, and standalone is unchanged. The same
+        # draw as the Taktik Agent's pause after a gesture (`WarmupBudget.action_gap`).
+        return self.warmup.action_gap(low, high)
 
     def get_session_stats(self) -> Dict:
         """Return current session statistics.

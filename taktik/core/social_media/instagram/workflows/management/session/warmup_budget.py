@@ -12,7 +12,8 @@ What the caps do, the same for both runs:
   (likes + follows + comments) STOP the run when reached;
 - the day's follows and comments DISABLE their own gesture (`exhausted_intents`), the run goes on;
 - the day's unfollows are a budget of their own (`unfollow_room`);
-- the pace floor (`min_action_gap_seconds`) is the automation's, between two steps.
+- the pace floor (`min_action_gap_seconds`) lengthens the pause after an action (`action_gap`):
+  between two steps of the automation, after each gesture of the Agent.
 
 Without caps (standalone, the CLI) nothing applies. A day that can no longer be read is not "no
 cap": after a few failures in a row, the run stops (`daily_budget_unreadable`).
@@ -20,11 +21,14 @@ cap": after a few failures in a row, the run stops (`daily_budget_unreadable`).
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Mapping, Optional, Set, Tuple
+import random
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, FrozenSet, Mapping, Optional, Set, Tuple
 
 from loguru import logger
 
 from taktik.core.database import get_db_service
+from taktik.core.shared.behavior.sampling import sample_within
 
 from . import stop_reasons
 
@@ -56,6 +60,15 @@ def warmup_policy_from_payload(warmup: Any) -> Optional[Dict[str, Any]]:
     if not isinstance(warmup, Mapping):
         return None
     return {name: kind(warmup.get(wire, 0) or 0) for wire, name, kind in _WIRE_KEYS}
+
+
+@dataclass(frozen=True)
+class WarmupCheck:
+    """What the caps say on one read of the day: the reason that ends the run (empty to go on) and
+    the gestures whose daily quota is spent."""
+
+    stop_reason: str
+    exhausted_intents: FrozenSet[str]
 
 
 class WarmupBudget:
@@ -137,15 +150,35 @@ class WarmupBudget:
 
     # ---------------------------------------------------------------------------- the checks
 
+    def check(self, session_actions: int) -> WarmupCheck:
+        """What a gesture asks just before it is made, on ONE read of the day: does a cap end the
+        run, and which gestures have spent their daily quota.
+
+        Asking `stop_reason` then `exhausted_intents` read the day twice per gesture. On a base the
+        synchronisation holds, each failed read counts toward `daily_budget_unreadable`: the run
+        could stop at its second gesture.
+        """
+        usage = self.read_daily_usage()
+        return WarmupCheck(
+            stop_reason=self._stop_reason_on(usage, session_actions),
+            exhausted_intents=frozenset(self._exhausted_on(usage)),
+        )
+
     def stop_reason(self, session_actions: int, *, day_budget: bool = True) -> str:
         """Does a cap end the run? The reason, or empty to go on.
 
         `session_actions` is this run's written actions (likes + follows + comments). The day's
-        budget first (not for an unfollow run, `day_budget=False`: it spends none of it), then the
-        run's own cap, which spreads the day over several gentle sessions rather than one dump.
+        budget first (not for an unfollow run, `day_budget=False`: it spends none of it, and the
+        day is not read), then the run's own cap, which spreads the day over several gentle
+        sessions rather than one dump.
         """
+        usage = self.read_daily_usage() if day_budget else None
+        return self._stop_reason_on(usage, session_actions, day_budget=day_budget)
+
+    def _stop_reason_on(self, usage: Optional[Dict[str, int]], session_actions: int, *,
+                        day_budget: bool = True) -> str:
+        """`stop_reason` on a day already read (`usage`, None when not read or unreadable)."""
         if day_budget:
-            usage = self.read_daily_usage()
             if usage is None:
                 if self._unreadable():
                     return stop_reasons.daily_budget_unreadable(self._daily_usage_failures)
@@ -176,8 +209,11 @@ class WarmupBudget:
     def exhausted_intents(self) -> Set[str]:
         """The gestures whose daily quota is spent (`follow`, `comment`): they are disabled, the run
         goes on. Empty without caps, and on a read error (fail-open, like the rest of the guard)."""
-        spent = set()
-        usage = self.read_daily_usage()
+        return self._exhausted_on(self.read_daily_usage())
+
+    def _exhausted_on(self, usage: Optional[Dict[str, int]]) -> Set[str]:
+        """`exhausted_intents` on a day already read (`usage`, None when not read or unreadable)."""
+        spent: Set[str] = set()
         if usage is None:
             return spent
         max_follows = int(self.cap("max_follows_per_day"))
@@ -207,12 +243,28 @@ class WarmupBudget:
         return room, None
 
     def min_action_gap_seconds(self) -> float:
-        """The pace floor between two steps; 0 for none."""
+        """The pace floor between two actions; 0 for none."""
         return float(self.cap("min_action_gap_seconds"))
+
+    def action_gap(self, low: float, high: float) -> float:
+        """The pause after an action: a draw in [low, high] seconds, never under the pace floor.
+
+        The one place the floor applies, for the automation (after a step) and the Agent (after a
+        gesture). A draw under the floor is drawn again. When the whole range sits under it, the
+        pause keeps the range's own spread above the floor: raising every gap to exactly the floor
+        made the cadence a metronome, the very regularity the floor is there to break. No floor
+        (zero, standalone): the range as it is.
+        """
+        floor = self.min_action_gap_seconds()
+        if floor <= 0:
+            return random.uniform(low, high)
+        spread = max(abs(high - low), 0.1 * floor)
+        return sample_within(lambda: random.uniform(low, high), floor, float("inf"), edge_band=spread)
 
 
 __all__ = [
     "DAILY_USAGE_FAILURES_BEFORE_STOP",
     "WarmupBudget",
+    "WarmupCheck",
     "warmup_policy_from_payload",
 ]

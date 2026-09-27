@@ -70,6 +70,35 @@ def test_the_file_caps_are_read_by_one_reader():
     assert warmup_policy_from_payload("50") is None
 
 
+def test_one_read_of_the_day_answers_the_stop_and_the_spent_gestures():
+    """What a gesture asks just before it is made: whether a cap ends the run, and whether its own
+    quota is spent. One read of the day for both; each failed read counts toward the stop."""
+    reads = []
+
+    def today():
+        reads.append("read")
+        return {"total": 20, "follows": 10, "comments": 1}
+
+    budget = WarmupBudget({"max_actions_per_day": 50, "max_follows_per_day": 10, "max_comments_per_day": 5})
+    budget.set_daily_usage_provider(today)
+
+    check = budget.check(session_actions=0)
+
+    assert reads == ["read"]
+    assert check.stop_reason == ""
+    assert check.exhausted_intents == frozenset({"follow"})
+
+
+def test_the_check_carries_the_stop_of_the_day():
+    budget = WarmupBudget({"max_actions_per_day": 50, "max_follows_per_day": 10})
+    budget.set_daily_usage_provider(lambda: {"total": 50, "follows": 10})
+
+    check = budget.check(session_actions=0)
+
+    assert check.stop_reason.code == "daily_budget"
+    assert check.stop_reason.params == {"count": 50, "limit": 50}
+
+
 def test_actions_left_is_the_tighter_of_the_day_and_the_run():
     budget = WarmupBudget({"max_actions_per_day": 50, "max_actions_per_session": 25})
     budget.set_daily_usage_provider(lambda: {"total": 40})
