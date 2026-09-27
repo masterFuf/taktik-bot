@@ -166,6 +166,8 @@ def build_registry(
         "instagram_notifications_runtime": instagram_host.notifications_runtime if instagram_host else None,
         # The Taktik Agent session starts the way its bridge starts it.
         "instagram_agent_runtime": instagram_host.agent_runtime if instagram_host else None,
+        # A task (the story relay) starts from a clean restart of its Instagram, as its bridge does.
+        "instagram_task_connect": instagram_host.task_device if instagram_host else None,
         "instagram_agent_ai_service_factory": cli_instagram_agent_ai_service_factory,
     }
 

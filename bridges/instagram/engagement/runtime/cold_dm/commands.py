@@ -1,9 +1,10 @@
 """CLI/config command handling for the Instagram Cold DM bridge.
 
 The run is `run_instagram_cold_dm`, the launcher the Agent handler `instagram.engagement.coldDm` (and
-so the CLI) calls too, called by name so the app's config contract test can follow the payload. The
-bridge keeps its IP rotation and the final JSON, its connection (the bridges'
-clone-aware, facade-wrapped device) and its stdout, `session_start` included.
+so the CLI) calls too, called by name so the app's config contract test can follow the payload: it
+reads the package and asks the bridge's connection for the phone on it. The bridge keeps its IP
+rotation and the final JSON, its connection (the bridges' clone-aware, facade-wrapped device) and
+its stdout, `session_start` included.
 """
 
 from __future__ import annotations
@@ -32,6 +33,25 @@ def report_cold_dm_entry_error(message: str, reason: str) -> None:
     print_cold_dm_result(False, error=message)
 
 
+def _connect(device_id: str, package_name: str = None):
+    """The phone, on the Instagram the launcher names (a clone, or the installed one)."""
+    from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
+
+    if package_name:
+        logger.info(f"Cold DM on package: {package_name}")
+    connection = InstagramBridgeBase(device_id, package_name=package_name)
+    if not connection.connect():
+        logger.error(f"Failed to connect to device {device_id}")
+        print_cold_dm_result(False, error="Failed to connect to device")
+        sys.exit(1)
+    return ColdDmRuntime(
+        device=connection.device,
+        device_manager=connection.device_manager,
+        keyboard=KeyboardService(device_id),
+        restart=connection.restart,
+    )
+
+
 class ColdDmRun:
     """One Cold DM run, from its config file (read by `run_bridge_main`)."""
 
@@ -47,11 +67,7 @@ def run_cold_dm(config: dict) -> None:
     """Run the Cold DM workflow of `config` and print its final JSON."""
     try:
         device_id = config["deviceId"]
-        package_name = config.get("packageName")
-        logger.info(
-            f"Starting Cold DM workflow for device: {device_id}"
-            + (f" (package: {package_name})" if package_name else "")
-        )
+        logger.info(f"Starting Cold DM workflow for device: {device_id}")
 
         # The page offers "reset IP before the run"; until now nothing here read it. Done before
         # connecting, so the app is never opened on the IP the previous account just used.
@@ -59,27 +75,11 @@ def run_cold_dm(config: dict) -> None:
             print_cold_dm_result(False, error="IP rotation failed")
             sys.exit(1)
 
-        keyboard = KeyboardService(device_id)
-        connection = InstagramBridgeBase(device_id, package_name=package_name)
-
-        if not connection.connect():
-            logger.error(f"Failed to connect to device {device_id}")
-            print_cold_dm_result(False, error="Failed to connect to device")
-            sys.exit(1)
-
-        from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import (
-            ColdDmRuntime,
-            run_instagram_cold_dm,
-        )
+        from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import run_instagram_cold_dm
 
         result = run_instagram_cold_dm(
             config,
-            runtime=ColdDmRuntime(
-                device=connection.device,
-                device_manager=connection.device_manager,
-                keyboard=keyboard,
-                restart=connection.restart,
-            ),
+            connect=lambda package_name: _connect(device_id, package_name),
             progress=emit_cold_dm_progress,
             ai_ipc=_ipc,
             on_session_start=_ipc.session_start,

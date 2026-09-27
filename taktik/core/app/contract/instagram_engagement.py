@@ -7,7 +7,7 @@ launcher and the bridge to it.
 from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import AI_SPEND_EVENT, SESSION_START_EVENT, device_field, network_reset_field
+from .shared import AI_SPEND_EVENT, SESSION_START_EVENT, device_field, instagram_package_field, network_reset_field
 from .stop_reasons import RUN_HALT_CODE
 
 _WORKFLOWS = "taktik.core.social_media.instagram.workflows"
@@ -46,10 +46,10 @@ INSTAGRAM_COLD_DM = WorkflowContract(
               "`sessionAccountId` is absent).", default=1, attr="account_id", app=False),
         Field("sessionId", "string", "Tags the sent-DM markers of this run.", default=Computed("the device id"),
               attr="session_id", app=False),
+        instagram_package_field(),
     ),
     bridge_fields=(
         device_field("deviceId"),
-        Field("packageName", "string", "An Instagram clone's package, opened instead of Instagram.", by=HOST),
         network_reset_field(),
     ),
     refusals=(
@@ -105,10 +105,7 @@ DM_CONVERSATION = Shape(
 
 _DM_LAUNCHER = f"{_WORKFLOWS}.dm_inbox.agent_handler:run_instagram_dm"
 _DM_READER = f"{_WORKFLOWS}.dm_inbox.payload:dm_command_from_payload"
-_DM_BRIDGE_FIELDS = (
-    device_field("deviceId"),
-    Field("packageName", "string", "An Instagram clone's package, opened instead of Instagram.", by=HOST),
-)
+_DM_BRIDGE_FIELDS = (device_field("deviceId"),)
 
 
 def _dm_result(*fields: Field) -> Event:
@@ -131,6 +128,7 @@ INSTAGRAM_DM_READ = WorkflowContract(
         Field("command", OneOf(("read", "read_requests")), "The inbox, or the message requests.", required=True,
               attr="command"),
         Field("limit", "int", "Conversations to read; 0 or less: all.", default=10, attr="limit"),
+        instagram_package_field(),
     ),
     bridge_fields=_DM_BRIDGE_FIELDS,
     refusals=(Refusal("command", doc="No command."),),
@@ -170,6 +168,7 @@ INSTAGRAM_DM_SEND = WorkflowContract(
         Field("command", OneOf(("send",)), "A reply.", required=True, attr="command"),
         Field("username", "string", "The conversation to reply in.", required=True, attr="username"),
         Field("message", "string", "The reply.", required=True, attr="message"),
+        instagram_package_field(),
     ),
     bridge_fields=_DM_BRIDGE_FIELDS,
     refusals=(

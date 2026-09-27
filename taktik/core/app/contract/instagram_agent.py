@@ -28,6 +28,7 @@ from .shared import (
     STATUS_EVENT,
     STEP_METRIC_EVENT,
     device_field,
+    instagram_package_field,
 )
 from .stop_reasons import INSTAGRAM_STOP_REASON_CODE
 
@@ -162,11 +163,9 @@ INSTAGRAM_TAKTIK_AGENT = WorkflowContract(
               "(the day's and the run's actions stop the session, the day's follows and comments disable "
               "their gesture; the pace floor and the unfollow budget are the automation's); injected by "
               "the host.", via=f"{_WARMUP_BUDGET}:warmup_policy_from_payload", by=HOST),
+        instagram_package_field(),
     ),
-    bridge_fields=(
-        device_field("deviceId"),
-        Field("packageName", "string", "An Instagram clone's package, opened instead of Instagram.", by=HOST),
-    ),
+    bridge_fields=(device_field("deviceId"),),
     refusals=(
         Refusal("openrouter_api_key", doc="No key, in the file or in the environment: the model cannot decide."),
     ),

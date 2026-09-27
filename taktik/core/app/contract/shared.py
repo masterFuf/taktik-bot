@@ -23,11 +23,19 @@ NETWORK_RESET = Shape(
 
 
 def network_reset_field() -> Field:
-    return Field("networkReset", NETWORK_RESET, "Pre-session IP rotation, read by the bridge.")
+    return Field("networkReset", NETWORK_RESET, "Pre-session IP rotation: a setting of the desktop app, done by "
+                 "the bridge; a CLI run never rotates the IP.")
 
 
 def device_field(key: str, *aliases: str) -> Field:
     return Field(key, "string", "The adb serial of the phone.", required=True, aliases=aliases, by=HOST)
+
+
+def instagram_package_field(doc: str = "An Instagram clone's package, run instead of Instagram; absent: the "
+                                       "installed Instagram.") -> Field:
+    """The clone an Instagram run starts: read by its launcher, which hands it to the host's connection."""
+    return Field("packageName", "string", doc, aliases=("package_name",),
+                 reader="taktik.core.social_media.instagram.workflows.core.startup:package_name_from_payload")
 
 
 #: `IPC.status`, or `send_message("status", ...)` when a run says why it ended.

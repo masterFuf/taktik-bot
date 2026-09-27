@@ -20,6 +20,7 @@ from loguru import logger
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.management.language.change_language_workflow import (
     ChangeLanguageWorkflow,
 )
@@ -177,11 +178,6 @@ def switch_account_params_from_payload(payload: Mapping[str, Any]) -> dict[str, 
 def no_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Logout and the account lists take nothing but the package (`package_name_from_payload`)."""
     return {}
-
-
-def package_name_from_payload(payload: Mapping[str, Any]) -> Optional[str]:
-    """The Instagram package the flow runs on (a clone); None: the default Instagram."""
-    return _optional_string(payload, "packageName", "package_name")
 
 
 _READERS = {

@@ -17,6 +17,8 @@ TRANSLATIONS = {
     "option_quit": "Quitter",
     "prompt_choice": "Votre choix",
     "goodbye": "Merci d'avoir utilisé TAKTIK. À bientôt !",
+    "database_in_use": "Base de données : {}",
+    "database_is_app_default": "C'est la base de l'application desktop ; TAKTIK_DB_PATH en désigne une autre.",
     "website": "Site web",
     "github": "GitHub",
     

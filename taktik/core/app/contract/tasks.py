@@ -7,7 +7,7 @@ task's own settings travel under `params`, handed to the task's launcher as its 
 from __future__ import annotations
 
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT
+from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT, instagram_package_field
 
 _TASKS = "taktik.core.social_media.instagram.workflows.tasks"
 
@@ -54,12 +54,12 @@ INSTAGRAM_STORY_RELAY = WorkflowContract(
               aliases=("maxStories",), attr="max_stories"),
         Field("account_id", "int", "The acting account's row, for the journal of relayed stories.",
               aliases=("accountId",), attr="account_id", app=False),
+        instagram_package_field("The Instagram to restart, for a clone; the official app when absent."),
     ),
     bridge_fields=(
         Field("deviceId", "string", "The adb serial of the phone.", required=True, by=HOST),
         Field("taskId", OneOf(("story_relay", "instagram.task.story_relay")), "The task: its short name or its id.",
               required=True),
-        Field("packageName", "string", "The Instagram to restart, for a clone; the official app when absent."),
     ),
     refusals=(Refusal("source_username", doc="No source account."),),
     events=(

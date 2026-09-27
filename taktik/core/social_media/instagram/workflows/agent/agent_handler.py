@@ -6,9 +6,10 @@ payload (`payload.py`), refuse a session the Agent cannot decide in before the p
 restart Instagram cleanly, then run `TaktikAgentWorkflow` with the warmup budget of the account's
 day (`WarmupBudget`, the automation's counter, on the caps of the file). What differs between the
 hosts is injected:
-- `device_manager` and `restart`: the device ready for the flow (the bridges' clone-aware,
-  facade-wrapped device, with the selector overrides of the installed version) and its clean
-  restart through `AppService`.
+- `connect(package_name) -> AgentRuntime`: the device ready for the flow, on the Instagram the payload
+  names (`packageName`, a clone; None: the installed one): the bridges' clone-aware, facade-wrapped
+  device, with the selector overrides of the installed version, and its clean restart through
+  `AppService`.
 - `ipc`: where the status lines and the Agent's events go (the bridge's stdout, the CLI's console).
 - `ai_service_factory(*, api_key, ipc, vision_model, text_model)`: how the AI service is built.
 - `on_workflow(workflow)`: told the workflow once built (the bridge registers it for its stop
@@ -27,6 +28,7 @@ from typing import Any, Callable, Mapping, Optional
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
+from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import WarmupBudget
 
 
@@ -52,8 +54,7 @@ AIKeyProvider = Callable[[], Optional[str]]
 def run_instagram_agent(
     config: Mapping[str, Any],
     *,
-    device_manager,
-    restart: Callable[[], Any],
+    connect: RuntimeProvider,
     ipc=None,
     ai_service_factory: Optional[AIServiceFactory] = None,
     on_workflow: Optional[Callable[[Any], None]] = None,
@@ -66,10 +67,11 @@ def run_instagram_agent(
         if callable(announce):
             announce("error", NO_AI_KEY, message_key="agentStatusErrNoAi")
         raise ValueError(NO_AI_KEY)
+    runtime = connect(package_name_from_payload(config))
     if ipc is not None:
         ipc.status("launching", "Restarting Instagram…")
     # Clean restart (force-stop + launch) for a consistent initial state, like every other bridge.
-    if not restart():
+    if not runtime.restart():
         if ipc is not None:
             ipc.error("Failed to launch Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
         return {"success": False, "error": "Failed to launch Instagram"}
@@ -80,7 +82,7 @@ def run_instagram_agent(
     from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
 
     workflow = TaktikAgentWorkflow(
-        device_manager=device_manager,
+        device_manager=runtime.device_manager,
         config=config,
         ipc=ipc,
         ai_service_factory=ai_service_factory,
@@ -110,11 +112,9 @@ def build_instagram_agent_handler(
             key = instagram_ai_key()
             if key:
                 config["openrouter_api_key"] = key
-        runtime = instagram_agent_runtime(config.get("packageName"))
         return run_instagram_agent(
             config,
-            device_manager=runtime.device_manager,
-            restart=runtime.restart,
+            connect=instagram_agent_runtime,
             ipc=notifier,
             ai_service_factory=instagram_agent_ai_service_factory,
         )

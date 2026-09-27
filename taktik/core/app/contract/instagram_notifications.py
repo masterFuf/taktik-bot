@@ -19,6 +19,7 @@ from .shared import (
     AI_PROFILE_START_EVENT,
     STEP_METRIC_EVENT,
     device_field,
+    instagram_package_field,
 )
 from .stop_reasons import INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON, RUN_HALT_CODE
 
@@ -226,11 +227,9 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
               when=_BATCH),
         Field("followActorDailyCap", "int", "Follows of the accounts that engaged with our comments, a day; "
               "absent: uncapped.", attr="follow_actor_daily_cap", when=_BATCH),
+        instagram_package_field(),
     ),
-    bridge_fields=(
-        device_field("deviceId"),
-        Field("packageName", "string", "An Instagram clone's package, opened instead of Instagram.", by=HOST),
-    ),
+    bridge_fields=(device_field("deviceId"),),
     refusals=(
         Refusal("command", doc="No command, or one the bot does not know."),
         *(Refusal("username", when={"command": command}, doc=f"`{command}` without its row.")

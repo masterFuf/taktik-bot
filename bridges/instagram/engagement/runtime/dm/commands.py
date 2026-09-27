@@ -4,7 +4,8 @@ The desktop writes the command to a JSON file and passes its path (it used to pa
 arguments): `{"command": "read" | "read_requests", "deviceId", "limit", "packageName"?}` or
 `{"command": "send", "deviceId", "username", "message", "packageName"?}`. The run is
 `run_instagram_dm`, the core launcher the `instagram.engagement.dm_read` / `dm_send` handlers (the
-CLI) call too; the bridge keeps its connection and its stdout (conversation events, final JSON).
+CLI) call too: it reads the package and asks the bridge's connection for the phone on it; the bridge
+keeps that connection and its stdout (conversation events, final JSON).
 """
 
 from __future__ import annotations
@@ -15,6 +16,15 @@ from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
 from bridges.instagram.engagement.runtime.dm.events import emit_dm_error, emit_dm_json, emit_dm_result
 from taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler import run_instagram_dm
 from taktik.core.social_media.instagram.workflows.dm_inbox.payload import DmCommandError
+
+
+def _connect(device_id: str, package_name: str = None) -> DMBridge:
+    """The phone, on the Instagram the launcher names (a clone, or the installed one)."""
+    bridge = DMBridge(device_id, package_name=package_name)
+    if not bridge.connect():
+        emit_dm_error("Failed to connect to device")
+        sys.exit(1)
+    return bridge
 
 
 def report_dm_entry_error(message: str, _reason: str) -> None:
@@ -41,12 +51,8 @@ def run_dm_command(config: dict) -> None:
             emit_dm_error("deviceId is required")
             sys.exit(1)
 
-        bridge = DMBridge(device_id, package_name=config.get("packageName"))
-        if not bridge.connect():
-            emit_dm_error("Failed to connect to device")
-            sys.exit(1)
-
-        result = run_instagram_dm(config, runtime=bridge, emit=lambda payload: emit_dm_json(payload, flush=True))
+        result = run_instagram_dm(config, connect=lambda package_name: _connect(device_id, package_name),
+                                  emit=lambda payload: emit_dm_json(payload, flush=True))
 
     except DmCommandError as e:
         # A command refused before the phone is touched.

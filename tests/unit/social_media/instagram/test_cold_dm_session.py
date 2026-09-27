@@ -57,7 +57,7 @@ def _workflow(result=None, raises=None, seen=None):
 def _run(payload, workflow, started=None):
     return run_instagram_cold_dm(
         {"deviceId": "phone-1", "recipients": ["ana", "@bob", "cid"], "messages": ["hi"], **payload},
-        runtime=ColdDmRuntime(device=None, device_manager=None, keyboard=None),
+        connect=lambda package_name: ColdDmRuntime(device=None, device_manager=None, keyboard=None),
         workflow_factory=workflow,
         on_session_start=(started.append if started is not None else None),
     )

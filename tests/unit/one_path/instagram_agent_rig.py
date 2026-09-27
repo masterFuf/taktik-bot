@@ -63,7 +63,7 @@ class InstagramAgentRig(InstagramColdDmRig):
                 mp.setattr(f"{module}.configure_db_service", lambda *a, **k: rig.calls.append("configure_db"))
             except (ImportError, AttributeError):
                 pass
-        mp.setattr("bridges.instagram.agent.runtime.bridge.start_agent_stop_listener",
+        mp.setattr("bridges.instagram.agent.runtime.commands.start_agent_stop_listener",
                    lambda: rig.calls.append("stop_listener"))
 
     # ------------------------------------------------------------------ paths

@@ -4,8 +4,9 @@
 registered as `instagram.engagement.coldDm` (the CLI) calls: read the Cold DM page's payload
 (`payload.py`), refuse a run that cannot send before the phone is touched, then run
 `ColdDMWorkflow`, the only cold DM engine. What differs between the hosts is injected:
-- `runtime`: the device ready for the flow (the bridges' clone-aware, facade-wrapped device), its
-  manager, the Taktik Keyboard service and the clean restart of Instagram.
+- `connect(package_name) -> ColdDmRuntime`: the device ready for the flow, on the Instagram the
+  payload names (`packageName`, a clone; None: the installed one): the bridges' clone-aware,
+  facade-wrapped device, its manager, the Taktik Keyboard service and the clean restart.
 - `progress(current, total, username)`: where the per-recipient progress goes (the bridge's stdout).
 - `ai_ipc`: where the AI spend is reported (the bridge's stdout IPC).
 - `instagram_ai_key() -> str | None`: the OpenRouter key when the payload brings none (the CLI's
@@ -32,6 +33,7 @@ from taktik.core.social_media.instagram.workflows.cold_dm.session import (
     close_cold_dm_session,
     open_cold_dm_session,
 )
+from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 
 
 INSTAGRAM_COLD_DM_WORKFLOW_ID = "instagram.engagement.coldDm"
@@ -64,7 +66,7 @@ def _default_workflow_factory() -> WorkflowFactory:
 def run_instagram_cold_dm(
     config: Mapping[str, Any],
     *,
-    runtime: ColdDmRuntime,
+    connect: RuntimeProvider,
     progress: Optional[ProgressCallback] = None,
     ai_ipc=None,
     instagram_ai_key: Optional[AIKeyProvider] = None,
@@ -90,6 +92,7 @@ def run_instagram_cold_dm(
 
     logger.info(f"Cold DM config: {len(recipients)} recipients, {len(messages)} messages, mode: {message_mode}")
 
+    runtime = connect(package_name_from_payload(config))
     workflow = (workflow_factory or _default_workflow_factory())(
         runtime.device,
         runtime.device_manager,
@@ -138,7 +141,7 @@ def build_instagram_cold_dm_handler(
         config.update(invocation.params)
         return run_instagram_cold_dm(
             config,
-            runtime=instagram_cold_dm_runtime(config.get("packageName")),
+            connect=instagram_cold_dm_runtime,
             instagram_ai_key=instagram_ai_key,
             workflow_factory=workflow_factory,
         )
