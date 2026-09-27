@@ -378,7 +378,8 @@ class AuthSelectors:
         ' and @package="com.instagram.android"]',
         # Feed timeline
         '//*[@resource-id="com.instagram.android:id/feed_timeline"]',
-        # Profile tab accessible
+        # The bottom profile tab, or the grid tabs of a profile page hiding the bar: both only
+        # exist logged in, hence the loose match (never tapped).
         '//*[contains(@resource-id, "profile_tab")]'
     ])
 

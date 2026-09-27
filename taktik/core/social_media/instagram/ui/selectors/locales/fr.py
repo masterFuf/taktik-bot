@@ -451,9 +451,10 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.home_tab_descriptions": [],
     "navigation.posts_tab_options": [],
     "navigation.profile_tab": [
-        "//*[contains(@content-desc, \"Profil\") and contains(name(), \"ImageView\") and @package=\"com.instagram.android\"]",
-        "//*[contains(@content-desc, \"Profil\") and @package=\"com.instagram.android\"]",
-        "//*[contains(@resource-id, \"tab_bar_icon\") and contains(@content-desc, \"Profil\")]",
+        # Inside Instagram's tab bar only: outside it, "Profil" also starts the "Profile picture
+        # of ..." of every avatar of an English screen, read while the language is unknown.
+        # The proxy makes the tab_bar id match any package's, hence @package too.
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Profil\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.recent_tab_selectors": [
         "//*[contains(@text, \"Récents\")]",

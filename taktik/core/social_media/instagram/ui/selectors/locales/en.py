@@ -479,8 +479,10 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.ImageView[@content-desc=\"Grid view\"]",
     ],
     "navigation.profile_tab": [
-        "//*[contains(@content-desc, \"Profile\") and contains(name(), \"ImageView\") and @package=\"com.instagram.android\"]",
-        "//*[contains(@content-desc, \"Profile\") and @package=\"com.instagram.android\"]",
+        # Inside Instagram's tab bar only: outside it, "Profile" is every avatar's "Profile
+        # picture of ..." (feed, follow lists, another profile's header, a story).
+        # The proxy makes the tab_bar id match any package's, hence @package too.
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Profile\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.recent_tab_selectors": [
         "//*[contains(@text, \"Recent\")]",
