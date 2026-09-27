@@ -458,7 +458,7 @@ def test_a_scan_reads_the_rows_of_the_screen(notifications_bridge, printed):
     visit = result["suggestions"]
     assert visit["visited"] == len(_SUGGESTION_ROWS) and visit["processed"] == 3
     assert [profile["status"] for profile in visit["profiles"]] == [
-        "skipped_probability", "skipped_probability", "filtered_private", "no_username"]
+        "interacted", "interacted", "filtered_private", "no_username"]
 
 
 @pytest.mark.parametrize("command", ("like", "reply", "accept", "ignore", "follow_back"))

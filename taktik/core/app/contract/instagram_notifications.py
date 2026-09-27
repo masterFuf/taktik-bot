@@ -175,13 +175,14 @@ RESULT_EVENT = Event("result", doc="The command's result, or why it could not ru
 #: - our own profile, read before the feed (`_refresh_own_account`): the account and its counters;
 #: - the qualified visit of the suggested accounts (`followSuggestions`): the per-profile pipeline of
 #:   the automation (`_process_profile_on_screen`: the profile opened and read, the plan, a private or
-#:   filtered profile), and the AI qualification when the CLI passes an `ai` block (the app sends
-#:   none). The app shows them in the automation's live panel.
+#:   filtered profile, the follow of the account it qualified), and the AI qualification when the CLI
+#:   passes an `ai` block (the app sends none). The app shows them in the automation's live panel.
 SCAN_RUN_EVENTS = (
     INSTAGRAM_AUTOMATION.event("active_account"),
     INSTAGRAM_AUTOMATION.event("profile_captured"),
     INSTAGRAM_AUTOMATION.event("instagram_profile_visit"),
     INSTAGRAM_AUTOMATION.event("instagram_action"),
+    INSTAGRAM_AUTOMATION.event("follow_event"),
     AI_PROFILE_START_EVENT,
     AI_PROFILE_DONE_EVENT,
     AI_ERROR_EVENT,
