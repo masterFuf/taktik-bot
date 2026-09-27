@@ -13,9 +13,8 @@ from typing import Dict, List
 
 STRINGS: Dict[str, List[str]] = {
     # --- auth ---
-    # The account sheet opened from the profile's @username (410, Pixel 3a, June): "Ajouter un
-    # compte Instagram" (a no-break space before "Instagram") and "Accéder à l’Espace Comptes"
-    # (U+2019), read around those characters. In the corpus, on that sheet only.
+    # The account sheet the profile's @username opens (410): "Ajouter un compte Instagram" holds a
+    # no-break space and "Accéder à l’Espace Comptes" a U+2019, so both are read around them.
     "auth.account_switcher_sheet_indicators": [
         "//android.widget.Button[starts-with(@content-desc, \"Ajouter un compte\") and contains(@content-desc, \"Instagram\")]",
         "//android.widget.Button[contains(@content-desc, \"Espace Comptes\")]",
@@ -442,14 +441,9 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "navigation.explore_search_bar_texts": [],
     "navigation.home_tab": [
-        # Instagram in French names its home tab "Home", beside "Reels", "Rechercher et
-        # explorer" and "Profil": every French dump of the corpus (410 and 447, four phones)
-        # and a cold start of 447 (Pixel 6a, Instagram force-stopped then opened from the
-        # launcher). No Instagram node of the corpus says "Accueil": that word is the Android
-        # navigation bar's home button, the Pixel launcher's full-screen
-        # accessibility_action_view and the Google dialer's tab.
-        # Inside Instagram's tab bar only: outside it, "Home" is also Instagram's "Back to Home"
-        # camera button and any name holding the word.
+        # Instagram in French still names its home tab "Home" (410 and 447, after a cold start
+        # too); "Accueil" is Android's: its navigation bar, the Pixel launcher, the dialer.
+        # Inside the tab bar only: outside it, "Home" is also the camera's "Back to Home".
         # The proxy makes the tab_bar id match any package's, hence @package too.
         "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\") and @package=\"com.instagram.android\"]",
     ],

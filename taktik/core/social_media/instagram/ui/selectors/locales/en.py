@@ -13,8 +13,7 @@ from typing import Dict, List
 
 STRINGS: Dict[str, List[str]] = {
     # --- auth ---
-    # The account sheet opened from the profile's @username (410, Pixel 3a, 2026-09-27). In the
-    # corpus, on that sheet only.
+    # The account sheet the profile's @username opens (410).
     "auth.account_switcher_sheet_indicators": [
         "//android.widget.Button[@content-desc=\"Add Instagram account\"]",
         "//android.widget.Button[@content-desc=\"Go to Accounts Center\"]",
