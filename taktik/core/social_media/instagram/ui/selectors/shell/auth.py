@@ -470,6 +470,12 @@ class AuthSelectors:
         '//*[@resource-id="com.instagram.android:id/action_bar_title" and @clickable="true"]',
     ])
 
+    # Markers of the account sheet the @username opens: its "add account" and "Accounts Center"
+    # buttons. It carries no "use another profile", which is the logged-out picker's (below).
+    @property
+    def account_switcher_sheet_indicators(self) -> List[str]:
+        return L("auth.account_switcher_sheet_indicators")
+
     # Markers of the logged-out account picker: the "use another profile" button is
     # present.
     account_picker_indicators: List[str] = field(default_factory=lambda: [
@@ -498,6 +504,8 @@ class AuthSelectors:
     # Labels to EXCLUDE from the account enumeration (picker/menu buttons, multilingual).
     account_row_exclude_labels: List[str] = field(default_factory=lambda: [
         'Use another profile', 'Utiliser un autre profil',
+        # Grab handle of the account sheet, clickable (410, English and French dumps).
+        'Cancel', 'Annuler',
         'Create account', 'Créer un compte', 'Create new account', 'Créer un nouveau compte',
         'Add account', 'Ajouter un compte',
         'Settings', 'Paramètres', 'Options', 'Back', 'Retour',

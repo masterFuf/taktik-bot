@@ -6,22 +6,35 @@ that leak behind the switcher sheet, and story labels; stripping the trailing
 ",  New notifications" suffix; de-duplicating) and username normalisation.
 
 Real screens, anonymized, where a phone shows them: the account sheet opened from the own profile
-(Instagram 410 in English, Pixel 3a, 2026-09-27: one account, then "Add Instagram account" and
-"Go to Accounts Center"), that own profile, and the home feed. The logged-out picker and a sheet
-of several accounts are still written by hand: no phone of the bench holds several accounts, and
-the picker needs a log out.
+(Instagram 410 in English, Pixel 3a, 2026-09-27: its grab handle "Cancel", one account, then "Add
+Instagram account" and "Go to Accounts Center"; the same sheet in French, Pixel 3a, Lab corpus of
+June: "Annuler", "Ajouter un compte Instagram", "Accéder à l’Espace Comptes"), the own profiles
+it opens from, and the home feed. The sheet carries no "Use another profile": that button is the
+logged-out picker's. The logged-out picker and a sheet of several accounts are still written by
+hand: no phone of the bench holds several accounts, and the picker needs a log out. The phone that
+opens the sheet is uiautomator2's own xpath engine on those screens.
 """
 
 from pathlib import Path
 
 import pytest
+from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
+from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
 
 FIXTURES = Path(__file__).parent / "social_media" / "instagram" / "fixtures"
 ACCOUNT_SHEET = (FIXTURES / "ig410_en_account_switcher.xml").read_text(encoding="utf-8")
+ACCOUNT_SHEET_FR = (FIXTURES / "ig410_fr_account_switcher.xml").read_text(encoding="utf-8")
 OWN_PROFILE = (FIXTURES / "ig410_en_own_profile_professional.xml").read_text(encoding="utf-8")
+OWN_PROFILE_FR = (FIXTURES / "ig410_fr_own_profile.xml").read_text(encoding="utf-8")
 HOME_FEED = (FIXTURES / "ig410_en_home_feed_carousel_post.xml").read_text(encoding="utf-8")
+
+# (own profile, the sheet its @username opens, the language of both)
+SHEETS = {
+    "410-en": (OWN_PROFILE, ACCOUNT_SHEET, "en"),
+    "410-fr": (OWN_PROFILE_FR, ACCOUNT_SHEET_FR, "fr"),
+}
 
 
 def _dump(*content_descs: str) -> str:
@@ -87,12 +100,62 @@ def test_enumerate_accounts_drops_android_navbar_buttons():
     assert "Retour" not in accounts and "Accueil" not in accounts
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "the account sheet of 410 opens with a clickable 'Cancel' that has no space: it is listed as "
-    "an account (account_row_exclude_labels, shell/auth.py)"))
-def test_the_real_account_sheet_lists_its_one_account():
-    accounts = InstagramSwitchAccount(_FakeDevice(ACCOUNT_SHEET), "device-1")._list_accounts_on_screen()
+@pytest.mark.parametrize("sheet", [s for _, s, _ in SHEETS.values()], ids=SHEETS.keys())
+def test_the_real_account_sheet_lists_its_one_account(sheet):
+    """The grab handle of the sheet ("Cancel", "Annuler") is clickable and has no space: not an
+    account."""
+    accounts = InstagramSwitchAccount(_FakeDevice(sheet), "device-1")._list_accounts_on_screen()
     assert accounts == ["user_1"]
+
+
+class _Phone:
+    """A real screen read by uiautomator2's xpath engine; a tap shows `after_tap`, if given."""
+
+    wait_timeout = 1.0
+    info = {"displayWidth": 1080, "displayHeight": 2220}
+
+    def __init__(self, screen, after_tap=None):
+        self.screen = screen
+        self.after_tap = after_tap
+        self.taps = []
+        self.xpath = XPathEntry(self)
+
+    def dump_hierarchy(self, *_a, **_k):
+        return self.screen
+
+    def window_size(self):
+        return 1080, 2220
+
+    def click(self, x, y):
+        self.taps.append((x, y))
+        if self.after_tap is not None:
+            self.screen = self.after_tap
+
+
+@pytest.fixture
+def locale():
+    before = active_locale()
+    yield set_active_locale
+    set_active_locale(before)
+
+
+@pytest.mark.parametrize("known_language", [True, False], ids=["language-detected", "language-unknown"])
+@pytest.mark.parametrize("profile, sheet, lang", SHEETS.values(), ids=SHEETS.keys())
+def test_tapping_the_username_opens_the_sheet_and_says_so(monkeypatch, locale, profile, sheet, lang,
+                                                          known_language):
+    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
+    locale(lang if known_language else None)
+    phone = _Phone(profile, after_tap=sheet)
+    assert InstagramSwitchAccount(phone, "device-1")._open_account_switcher() is True
+    assert len(phone.taps) == 1 and phone.screen is sheet
+
+
+@pytest.mark.parametrize("screen", [OWN_PROFILE, OWN_PROFILE_FR, HOME_FEED], ids=["profile-en", "profile-fr",
+                                                                              "home-feed"])
+def test_a_screen_without_the_sheet_is_not_an_open_switcher(locale, screen):
+    locale(None)
+    assert InstagramSwitchAccount(_Phone(screen), "device-1")._switcher_is_open() is False
 
 
 def test_enumerate_accounts_drops_home_feed_bottom_nav():

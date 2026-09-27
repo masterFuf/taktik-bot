@@ -168,8 +168,11 @@ class InstagramSwitchAccount:
         return self._accounts_from_labels(self._clickable_labels())
 
     def _switcher_is_open(self) -> bool:
-        """The account switcher sheet / picker is open (shows the "Use another profile" button)."""
-        return self._element_exists(self.auth.account_picker_indicators)
+        """The account sheet is open (its "add account" / "Accounts Center" buttons), or the
+        logged-out picker ("Use another profile", a button the sheet does not carry)."""
+        return self._element_exists(
+            self.auth.account_switcher_sheet_indicators + self.auth.account_picker_indicators
+        )
 
     def _on_landing_account_list(self) -> bool:
         """We are on the connected-accounts picker (the logged-out screen IG opens on directly).

@@ -13,6 +13,13 @@ from typing import Dict, List
 
 STRINGS: Dict[str, List[str]] = {
     # --- auth ---
+    # The account sheet opened from the profile's @username (410, Pixel 3a, June): "Ajouter un
+    # compte Instagram" (a no-break space before "Instagram") and "Accéder à l’Espace Comptes"
+    # (U+2019), read around those characters. In the corpus, on that sheet only.
+    "auth.account_switcher_sheet_indicators": [
+        "//android.widget.Button[starts-with(@content-desc, \"Ajouter un compte\") and contains(@content-desc, \"Instagram\")]",
+        "//android.widget.Button[contains(@content-desc, \"Espace Comptes\")]",
+    ],
     "auth.contacts_sync_popup": [
         "//android.widget.Button[@content-desc=\"Autoriser\"]",
     ],
