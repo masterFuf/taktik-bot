@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from one_path_seams import patch_seam
 DEVICE_ID = "emulator-5554"
 
 
@@ -192,7 +193,7 @@ class Rig:
                 rig.calls.append("permission_deny")
                 return 1
 
-        mp.setattr("taktik.core.shared.device.permissions.PermissionHandler", FakePermissionHandler)
+        patch_seam(mp, "taktik.core.shared.device.permissions", "PermissionHandler", FakePermissionHandler)
 
         class FakeNavigationActions:
             def __init__(self, device):
@@ -204,16 +205,14 @@ class Rig:
             def navigate_to_home(self):
                 rig.calls.append("navigate_home")
 
-        mp.setattr(
-            "taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions.NavigationActions",
-            FakeNavigationActions,
-        )
+        patch_seam(mp, "taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions",
+                   "NavigationActions", FakeNavigationActions)
 
         def fake_detect(device, *args, **kwargs):
             rig.calls.append("detect_language")
             return "fr"
 
-        mp.setattr("taktik.core.social_media.tiktok.ui.language.detect_and_optimize", fake_detect)
+        patch_seam(mp, "taktik.core.social_media.tiktok.ui.language", "detect_and_optimize", fake_detect)
 
         class FakeProfileActions:
             def __init__(self, device):
@@ -392,8 +391,6 @@ class Rig:
         if hasattr(followers_bridge, "return_to_tiktok_home"):
             mp.setattr(followers_bridge, "return_to_tiktok_home", fake_return_home)
 
-        from taktik.core.app.ai import factory
-
         def classify_profile_niche(*, username, **kwargs):
             rig.calls.append(f"ai_classify {username}")
             classification = {"niche_category": "sport", "niche": "running"}
@@ -414,7 +411,7 @@ class Rig:
             return SimpleNamespace(name="fake-ai", classify_profile_niche=classify_profile_niche,
                                    text_completion=text_completion)
 
-        mp.setattr(factory, "build_ai_service", fake_build_ai_service)
+        patch_seam(mp, "taktik.core.app.ai.factory", "build_ai_service", fake_build_ai_service)
         self._fake_build_ai_service = fake_build_ai_service
 
         from taktik.core.social_media.tiktok.workflows.core import ai_hooks
@@ -524,8 +521,6 @@ class Rig:
         mp.setattr(account_health, "record_action_block", lambda halt, **kw: rig.calls.append(
             f"health {kw['platform']} {kw['account_username']} {halt.get('code')} {kw.get('source_type')}"))
 
-        import taktik.core.clone as clone
-
         def fake_set_active_package(package):
             rig.calls.append(f"set_active_package {package}")
 
@@ -535,8 +530,8 @@ class Rig:
                 raise RuntimeError("no catalogue for this package")
             return 3
 
-        mp.setattr(clone, "set_active_package", fake_set_active_package)
-        mp.setattr(clone, "patch_selectors_for_package", fake_patch_selectors)
+        patch_seam(mp, "taktik.core.clone", "set_active_package", fake_set_active_package)
+        patch_seam(mp, "taktik.core.clone", "patch_selectors_for_package", fake_patch_selectors)
 
     def _install_scraping_fakes(self) -> None:
         rig = self
@@ -1311,16 +1306,10 @@ class Rig:
             return 7, False
 
         fake_service = SimpleNamespace(get_or_create_profile=get_or_create_profile)
-        modules = [database_package]
-        try:
-            from bridges.tiktok.workflows.engagement.runtime import dm_persistence
-
-            modules.append(dm_persistence)
-        except ImportError:
-            pass
-        for module in modules:
-            mp.setattr(module, "get_db_service", lambda: fake_service)
-            mp.setattr(module, "configure_db_service", lambda *a, **k: None)
+        # The package only: the modules that copied these two keep the real ones, as the recorded
+        # runs expect.
+        patch_seam(mp, database_package.__name__, "get_db_service", lambda: fake_service, copies=False)
+        patch_seam(mp, database_package.__name__, "configure_db_service", lambda *a, **k: None, copies=False)
 
         # The guard opens the database file itself: an empty one, whose repositories answer from
         # what `rig` says the database knows.

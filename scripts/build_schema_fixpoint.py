@@ -28,6 +28,7 @@ CORE = Path(__file__).resolve().parents[1]
 ROOT = CORE.parent
 APP = ROOT / "app"
 SHIM = Path(__file__).resolve().parent / "schema_fixpoint" / "app_shim.cjs"
+APP_DRIVER = APP / "scripts" / "quality" / "lib" / "node-sqlite-driver.cjs"
 if str(CORE) not in sys.path:
     sys.path.insert(0, str(CORE))
 
@@ -54,6 +55,8 @@ def _esbuild() -> Path:
 def requirements_missing() -> Optional[str]:
     if not (APP / "electron" / "database" / "migrations.ts").exists():
         return f"desktop app not found next to core ({APP})"
+    if not APP_DRIVER.exists():
+        return f"the app's node:sqlite driver is missing ({APP_DRIVER})"
     try:
         _esbuild()
     except FixpointUnavailable as exc:

@@ -14,6 +14,7 @@ import json
 import re
 import sys
 
+from one_path_seams import patch_seam
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 CLONE = "com.instagram.android.clone"
@@ -263,7 +264,7 @@ class InstagramDmRig:
                 self._device = rig.phone
                 return True
 
-        mp.setattr("bridges.common.device.connection.ConnectionService", FakeConnection)
+        patch_seam(mp, "bridges.common.device.connection", "ConnectionService", FakeConnection)
 
         from bridges.common.device import app_manager
 
@@ -272,7 +273,8 @@ class InstagramDmRig:
 
         mp.setattr(compat_setup, "apply_version_overrides",
                    lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
-        mp.setattr("taktik.core.clone.set_active_package", lambda package: rig.calls.append(f"active_package {package}"))
+        patch_seam(mp, "taktik.core.clone", "set_active_package",
+                   lambda package: rig.calls.append(f"active_package {package}"))
         # The app language read at the start of a run, recorded instead of applied.
         from taktik.core.social_media.instagram.workflows.core import runtime_setup
 

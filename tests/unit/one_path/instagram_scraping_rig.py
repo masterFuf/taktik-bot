@@ -12,6 +12,7 @@ import sys
 
 import pytest
 
+from one_path_seams import patch_seam
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 AI_KEY = "sk-or-v1-" + "c" * 48
@@ -157,12 +158,8 @@ class InstagramScrapingRig:
 
         mp.setattr(ipc_module.IPC, "send", _send)
 
-        import taktik.core.database as database
-
-        mp.setattr(database, "configure_db_service", lambda *a, **k: rig.calls.append("configure_db"))
-        from bridges.instagram.scraping.runtime import session as session_module
-
-        mp.setattr(session_module, "configure_db_service", lambda *a, **k: rig.calls.append("configure_db"))
+        patch_seam(mp, "taktik.core.database", "configure_db_service",
+                   lambda *a, **k: rig.calls.append("configure_db"))
 
         class FakeDevice:
             serial = DEVICE_ID
@@ -210,8 +207,7 @@ class InstagramScrapingRig:
             def disconnect(self):
                 rig.calls.append("disconnect")
 
-        mp.setattr("bridges.common.device.connection.ConnectionService", FakeConnection)
-        mp.setattr(session_module, "ConnectionService", FakeConnection)
+        patch_seam(mp, "bridges.common.device.connection", "ConnectionService", FakeConnection)
 
         from bridges.common.device import app_manager
 
@@ -239,8 +235,7 @@ class InstagramScrapingRig:
                                   "niche_taxonomy": niche_taxonomy, "report_spend": report_spend})
             return {"ai": len(rig.ai_builds)}
 
-        mp.setattr("taktik.core.app.ai.factory.build_ai_service", fake_build_ai_service)
-        mp.setattr("bridges.instagram.scraping.runtime.ai.build_ai_service", fake_build_ai_service)
+        patch_seam(mp, "taktik.core.app.ai.factory", "build_ai_service", fake_build_ai_service)
 
         from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 

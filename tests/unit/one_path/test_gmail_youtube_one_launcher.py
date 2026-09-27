@@ -112,7 +112,12 @@ def _fake_upload(recorder):
 
 def test_youtube_upload_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch, tmp_path):
     from bridges.youtube.publish.runtime.workflow import run_youtube_upload_workflow
-    from taktik.core.social_media.youtube.workflows.publish import agent_handler
+    from taktik.core.social_media.youtube.workflows.publish import agent_handler, upload_workflow
+
+    # The launcher registers the host's log and status callbacks in the upload module, for the
+    # process: put back what was there once the test is over.
+    for callback in ("_log_callback", "_status_callback"):
+        monkeypatch.setattr(upload_workflow, callback, getattr(upload_workflow, callback))
 
     video = tmp_path / "clip.mp4"
     video.write_bytes(b"x")

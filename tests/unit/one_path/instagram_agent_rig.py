@@ -12,6 +12,7 @@ import io
 import json
 import sys
 
+from one_path_seams import patch_seam
 from instagram_cold_dm_rig import DEVICE_ID, INSTAGRAM, InstagramColdDmRig
 
 CLONE = "com.instagram.android.clone"
@@ -57,12 +58,8 @@ class InstagramAgentRig(InstagramColdDmRig):
                 rig.calls.append("agent_stop")
 
         mp.setattr("taktik.core.agent.scenarios.instagram_feed_autopilot.TaktikAgentWorkflow", RecordingAgent)
-        mp.setattr("taktik.core.database.configure_db_service", lambda *a, **k: rig.calls.append("configure_db"))
-        for module in ("bridges.instagram.agent.runtime.session",):
-            try:
-                mp.setattr(f"{module}.configure_db_service", lambda *a, **k: rig.calls.append("configure_db"))
-            except (ImportError, AttributeError):
-                pass
+        patch_seam(mp, "taktik.core.database", "configure_db_service",
+                   lambda *a, **k: rig.calls.append("configure_db"))
         mp.setattr("bridges.instagram.agent.runtime.bridge.start_agent_stop_listener",
                    lambda: rig.calls.append("stop_listener"))
 
