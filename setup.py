@@ -1,8 +1,23 @@
+from pathlib import Path
+
 from setuptools import setup, find_packages
+
+
+def engine_version() -> str:
+    """The engine's version, written once in `taktik/__init__.py`.
+
+    Read as text: importing the package would need its dependencies, and creates its log folder.
+    """
+    init = Path(__file__).resolve().parent / "taktik" / "__init__.py"
+    for line in init.read_text(encoding="utf-8").splitlines():
+        if line.startswith("__version__"):
+            return line.split("=", 1)[1].strip().strip("'\"")
+    raise RuntimeError(f"no __version__ in {init}")
+
 
 setup(
     name="taktik-bot",
-    version="1.1.6",
+    version=engine_version(),
     packages=find_packages(),
     include_package_data=True,
     python_requires=">=3.10",
@@ -27,7 +42,8 @@ setup(
     },
     author="Taktik",
     author_email="contact@taktik-bot.com",
-    description="Plateforme d'automatisation Instagram & TikTok",
+    description="Instagram, TikTok, YouTube, Threads and Gmail automation on real Android devices "
+                "(uiautomator2, ADB), from the command line or the TAKTIK desktop app",
     long_description=open("README.md", encoding='utf-8').read(),
     long_description_content_type="text/markdown",
     url="https://github.com/masterFuf/taktik-bot",
