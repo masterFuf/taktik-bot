@@ -5,6 +5,7 @@ ENV/
 env/
 env.bak/
 venv.bak/
+.venv-lint/
 
 # Profile images and debug captures
 profile_images/
