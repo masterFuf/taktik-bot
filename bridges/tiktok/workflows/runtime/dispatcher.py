@@ -74,8 +74,6 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
         return run_search_workflow(config), workflow_type
 
-    # "target" is the search everywhere else (the scheduler node, the CLI id); the bridge alias
-    # that sent it to the followers workflow is gone.
     if workflow_type == "followers":
         from bridges.tiktok.workflows.automation.followers import run_followers_workflow
 
@@ -142,13 +140,7 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
         return run_activity_workflow(config), workflow_type
 
-    # The same runner as `tiktok_scraping_bridge`, the entry the app uses; no app entry sends
-    # this type here.
-    if workflow_type == "scraping":
-        from bridges.tiktok.scraping.runtime.workflow import run_scraping_workflow
-
-        return run_scraping_workflow(config), workflow_type
-
+    # A scraping run has its own bridge, `tiktok_scraping_bridge`.
     send_error(f"Unknown workflow type: {workflow_type}")
     logger.error(f"Unknown workflow type: {workflow_type}")
     raise UnknownWorkflowError(workflow_type)

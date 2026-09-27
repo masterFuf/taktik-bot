@@ -1,4 +1,4 @@
-"""Threads workflows of the `threads_bridge` dispatcher: the search (follow, target) and the feed.
+"""Threads workflows of the `threads_bridge` dispatcher: the search (follow) and the feed.
 
 Both read the same settings (`threads_*_config_from_payload`), two of them as nested objects: the
 chance of each action and the profile filters. A nested object is a group: the keys under it are
@@ -94,7 +94,6 @@ def _workflow_type(values, doc: str, **kwargs) -> Field:
 
 THREADS_SEARCH = WorkflowContract(
     workflow_id="threads.automation.follow",
-    also=("threads.automation.target",),
     name="ThreadsSearch",
     bridge="threads_bridge",
     doc="Search Threads for a query, then act on the profiles it finds.",
@@ -106,7 +105,7 @@ THREADS_SEARCH = WorkflowContract(
               aliases=("search_query", "target", "username", "targets", "targetAccounts"), attr="search_query"),
         *COMMON_SETTINGS,
     ),
-    bridge_fields=(_workflow_type(("follow", "target"), "Which workflow of the dispatcher runs.",
+    bridge_fields=(_workflow_type(("follow",), "Which workflow of the dispatcher runs.",
                                   default="follow"),),
     refusals=(Refusal("searchQuery", doc="Nothing to search for."),),
     events=EVENTS,

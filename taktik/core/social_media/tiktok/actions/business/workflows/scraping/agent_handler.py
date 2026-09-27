@@ -1,8 +1,7 @@
 """The one launcher of a TikTok scraping run, and its Agent handlers.
 
-`run_tiktok_scraping` is what the desktop bridges call (`tiktok_scraping_bridge`, and the
-`scraping` branch of the `tiktok_bridge` dispatcher) and what the handlers registered as
-`tiktok.automation.scraping` and `tiktok.standalone.tiktok_scraping` (the CLI) call: read the
+`run_tiktok_scraping` is what the desktop bridge calls (`tiktok_scraping_bridge`) and what the
+handler registered as `tiktok.standalone.tiktok_scraping` (the CLI) calls: read the
 payload (`payload.py`), start TikTok, scrape, file the session and its profiles. What differs
 between hosts is injected:
 - `tiktok_startup() -> TikTokStartup`: clean restart, language, account; supplies the device.
@@ -34,12 +33,8 @@ from taktik.core.social_media.tiktok.actions.business.workflows.scraping.payload
 )
 
 
-TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID = "tiktok.automation.scraping"
 TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID = "tiktok.standalone.tiktok_scraping"
-TIKTOK_SCRAPING_WORKFLOW_IDS = (
-    TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID,
-    TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID,
-)
+TIKTOK_SCRAPING_WORKFLOW_IDS = (TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID,)
 ScrapingWorkflowFactory = Callable[..., Any]
 NavigationFactory = Callable[[Any], Any]
 StartupProvider = Callable[[], Any]
@@ -200,7 +195,6 @@ def _attach_callbacks(workflow: Any, notifier: Any) -> None:
 
 
 __all__ = [
-    "TIKTOK_AUTOMATION_SCRAPING_WORKFLOW_ID",
     "TIKTOK_SCRAPING_WORKFLOW_IDS",
     "TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID",
     "build_tiktok_scraping_handler",

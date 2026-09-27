@@ -17,7 +17,7 @@ class FakeStats:
         return {"marker": self.marker}
 
 
-def test_threads_target_handler_runs_search_runner_with_injected_startup():
+def test_threads_follow_handler_runs_search_runner_with_injected_startup():
     calls = []
     startup = ("manager", "device", "anchor")
 
@@ -34,7 +34,7 @@ def test_threads_target_handler_runs_search_runner_with_injected_startup():
     result = handler(
         WorkflowInvocation(
             platform="threads",
-            workflow_id="threads.automation.target",
+            workflow_id="threads.automation.follow",
             params={
                 "searchQuery": "creators",
                 "maxProfiles": 4,

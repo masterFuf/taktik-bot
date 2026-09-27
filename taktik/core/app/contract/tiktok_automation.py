@@ -201,7 +201,7 @@ TIKTOK_FOR_YOU = WorkflowContract(
 
 TIKTOK_SEARCH = WorkflowContract(
     workflow_id="tiktok.automation.search",
-    also=("tiktok.automation.hashtag", "tiktok.automation.target"),
+    also=("tiktok.automation.hashtag",),
     name="TikTokSearch",
     bridge="tiktok_bridge",
     doc="Search one or more queries (accounts or hashtags) and act on the videos found; the budgets "

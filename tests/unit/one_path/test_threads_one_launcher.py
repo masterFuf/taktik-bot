@@ -6,6 +6,8 @@ Both now call `run_threads_search` / `run_threads_feed`, which read the payload 
 """
 from __future__ import annotations
 
+import pytest
+
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.threads.workflows import agent_handler
@@ -45,7 +47,7 @@ def _cli(workflow_id, params, **runners):
     return registry.resolve(workflow_id)(invocation, {})
 
 
-def test_threads_target_is_the_same_config_from_the_bridge_and_the_cli(monkeypatch):
+def test_threads_follow_is_the_same_config_from_the_bridge_and_the_cli(monkeypatch):
     from bridges.threads.workflows.runtime import events as bridge_events
     from bridges.threads.workflows.runtime import search as bridge_search
 
@@ -56,7 +58,7 @@ def test_threads_target_is_the_same_config_from_the_bridge_and_the_cli(monkeypat
     emitted = _silence_bridge(monkeypatch, bridge_events, bridge_search)
 
     assert bridge_search.run_follow(dict(PAGE)) is True
-    result = _cli(agent_handler.THREADS_TARGET_WORKFLOW_ID, dict(PAGE),
+    result = _cli(agent_handler.THREADS_FOLLOW_WORKFLOW_ID, dict(PAGE),
                   search_runner=_recording_runner(cli_calls, stats))
 
     assert result["success"] is True
@@ -95,3 +97,20 @@ def test_threads_bridge_reports_a_missing_query_with_its_code(monkeypatch):
 
     assert bridge_search.run_follow({"deviceId": DEVICE_ID, "targets": []}) is False
     assert emitted == [("send_error", ("No search query provided",), {"error_code": "threads.no_query"})]
+
+
+def test_threads_target_is_refused_not_run_as_another_workflow(monkeypatch):
+    """`target` was an alias of `follow` that no page or node sent; its id is retired (A11)."""
+    from bridges.threads.workflows import dispatcher
+
+    errors = []
+    monkeypatch.setattr(dispatcher, "send_error", lambda message, **kwargs: errors.append(kwargs.get("error_code")))
+    monkeypatch.setattr(dispatcher, "run_follow", lambda config: pytest.fail("target ran the search"))
+    monkeypatch.setattr(dispatcher, "run_feed", lambda config: pytest.fail("target ran the feed"))
+
+    with pytest.raises(SystemExit) as exit_:
+        dispatcher.dispatch({"deviceId": DEVICE_ID, "workflowType": "target", "searchQuery": "creators"})
+
+    assert exit_.value.code == 1
+    assert errors == ["threads.unknown_workflow"]
+    assert "threads.automation.target" not in agent_handler.THREADS_AUTOMATION_WORKFLOW_IDS

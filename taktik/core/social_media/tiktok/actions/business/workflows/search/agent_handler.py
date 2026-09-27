@@ -1,7 +1,7 @@
 """The one launcher of a TikTok Search or Hashtag run, and its Agent handlers.
 
 `run_tiktok_search` is what the desktop bridge calls and what the handlers registered as
-`tiktok.automation.search`, `.hashtag` and `.target` (the CLI) call. A run walks its queries in
+`tiktok.automation.search` and `.hashtag` (the CLI) call. A run walks its queries in
 order, shares the video budget between them, carries the like and follow budgets over from one
 query to the next, and returns home between two queries. What differs between hosts is injected:
 - `tiktok_startup() -> TikTokStartup`: clean restart, language, account; supplies the device.
@@ -38,11 +38,9 @@ from taktik.core.social_media.tiktok.actions.business.workflows.search.payload i
 
 TIKTOK_SEARCH_WORKFLOW_ID = "tiktok.automation.search"
 TIKTOK_HASHTAG_WORKFLOW_ID = "tiktok.automation.hashtag"
-TIKTOK_TARGET_WORKFLOW_ID = "tiktok.automation.target"
 TIKTOK_SEARCH_WORKFLOW_IDS = (
     TIKTOK_SEARCH_WORKFLOW_ID,
     TIKTOK_HASHTAG_WORKFLOW_ID,
-    TIKTOK_TARGET_WORKFLOW_ID,
 )
 SearchWorkflowFactory = Callable[..., Any]
 StartupProvider = Callable[[], Any]
@@ -182,7 +180,7 @@ def build_tiktok_search_handler(
     tiktok_startup: Optional[StartupProvider] = None,
     tiktok_ai_hooks: Optional[AIHooks] = None,
 ) -> WorkflowHandler:
-    """Build the Search/Hashtag/Target handler for the Agent runtime."""
+    """Build the Search/Hashtag handler for the Agent runtime."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
         return run_tiktok_search(
@@ -207,7 +205,7 @@ def register_tiktok_search_handlers(
     tiktok_startup: Optional[StartupProvider] = None,
     tiktok_ai_hooks: Optional[AIHooks] = None,
 ) -> WorkflowRegistry:
-    """Register TikTok Search/Hashtag/Target handlers into an injected registry."""
+    """Register TikTok Search/Hashtag handlers into an injected registry."""
     handler = build_tiktok_search_handler(
         device=device,
         notifier=notifier,

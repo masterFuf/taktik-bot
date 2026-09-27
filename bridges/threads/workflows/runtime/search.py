@@ -5,7 +5,7 @@ from bridges.threads.workflows.runtime.events import build_threads_callbacks, em
 
 
 def run_follow(config: dict) -> bool:
-    """Threads Search-and-Interact workflow (follow, target), through its launcher."""
+    """Threads Search-and-Interact workflow (follow), through its launcher."""
     from taktik.core.social_media.threads.workflows.agent_handler import (
         ThreadsSearchQueryMissing,
         run_threads_search,

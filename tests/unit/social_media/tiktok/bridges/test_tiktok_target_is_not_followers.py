@@ -1,8 +1,10 @@
-"""`target` no longer reaches the followers workflow through the bridge.
+"""The TikTok dispatcher runs no workflow under a name that is not its own.
 
-The scheduler node "target accounts" and the CLI id `tiktok.automation.target` both run the search;
-only the bridge read `workflowType: target` as the followers workflow. No emitter sent it, so the
-alias is gone: a hand-written config naming it is refused instead of running another workflow.
+`target` was read by the bridge as the followers workflow while the scheduler and the CLI meant the
+account search; no emitter sent it, and the id `tiktok.automation.target` is gone from the manifest
+(the search is `search`). `scraping` has its own bridge, `tiktok_scraping_bridge`, and its id
+`tiktok.standalone.tiktok_scraping`. A hand-written config naming either is refused instead of
+running another workflow.
 """
 
 import pytest
@@ -10,10 +12,11 @@ import pytest
 import bridges.tiktok.workflows.runtime.dispatcher as dispatcher
 
 
-def test_target_is_refused_instead_of_running_followers(monkeypatch):
+@pytest.mark.parametrize("workflow_type", ["target", "scraping"])
+def test_a_retired_name_is_refused_instead_of_running_a_workflow(monkeypatch, workflow_type):
     monkeypatch.setattr(dispatcher, "send_error", lambda *a, **k: None)
     with pytest.raises(dispatcher.UnknownWorkflowError):
-        dispatcher.dispatch_tiktok_workflow({"workflowType": "target"})
+        dispatcher.dispatch_tiktok_workflow({"workflowType": workflow_type})
 
 
 def test_followers_still_runs_followers(monkeypatch):
