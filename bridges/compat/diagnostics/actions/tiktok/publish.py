@@ -57,7 +57,8 @@ def tap_create(a, p):
 
 @action("tt.publish.tap_upload")
 def tap_upload(a, p):
-    """Tap the Upload button (chain of fallbacks that drift)."""
+    """Tap the camera's way into the gallery, by its selectors only: nothing is tapped when none
+    answers (no coordinate fallback)."""
     ok = _nav(a).tap_upload_button(_raw(a))
     return {"success": bool(ok), "message": f"upload tapped={ok}"}
 

@@ -2,8 +2,6 @@ from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import (
     tap_caption_focus_fallback,
     tap_create_button_fallback,
     tap_first_gallery_item_fallback,
-    tap_upload_bottom_left_fallback,
-    tap_upload_right_strip_fallback,
 )
 
 
@@ -24,20 +22,6 @@ def test_tap_create_button_fallback_uses_bottom_nav_ratio():
 
     assert tap_create_button_fallback(device)
     assert device.clicks == [(400, 1880)]
-
-
-def test_tap_upload_right_strip_fallback_uses_camera_strip_ratio():
-    device = FakeDevice({"displayWidth": 576, "displayHeight": 1280})
-
-    assert tap_upload_right_strip_fallback(device)
-    assert device.clicks == [(469, 1004)]
-
-
-def test_tap_upload_bottom_left_fallback_uses_large_layout_ratio():
-    device = FakeDevice({"displayWidth": 1000, "displayHeight": 2000})
-
-    assert tap_upload_bottom_left_fallback(device)
-    assert device.clicks == [(86, 1842)]
 
 
 def test_tap_first_gallery_item_fallback_taps_first_grid_cell_and_waits():

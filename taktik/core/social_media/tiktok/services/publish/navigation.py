@@ -14,8 +14,6 @@ from taktik.core.social_media.tiktok.services.publish.screen_detector import (
 from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import (
     tap_create_button_fallback,
     tap_first_gallery_item_fallback,
-    tap_upload_bottom_left_fallback,
-    tap_upload_right_strip_fallback,
 )
 from taktik.core.social_media.tiktok.services.publish.upload_picker import tap_upload_button_from_dump
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
@@ -49,14 +47,16 @@ def tap_upload_button(
     selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
     log: LogFn | None = None,
 ) -> bool:
-    """Tap Upload/Gallery using selectors, dump bounds, then coordinate fallbacks."""
+    """Tap the camera's way into the gallery: by its selectors, then by the bounds the dump gives
+    for the same ids. Nothing else. When no selector answers, nothing is tapped and the caller
+    stops: the two coordinate fallbacks that stood here tapped whatever lay under a fixed point,
+    and on TikTok 47.0.3 that was the effects carousel of the camera (2026-09-27)."""
     if tap_element(device, selectors.upload_btn, timeout=6.0):
         return True
     if tap_upload_button_from_dump(device, selectors=selectors, log=log):
         return True
-    if tap_upload_right_strip_fallback(device, log=log):
-        return True
-    return tap_upload_bottom_left_fallback(device, log=log)
+    _log(log, "error", "[upload] no selector found the way into the gallery on this screen: nothing tapped")
+    return False
 
 
 def ensure_gallery_picker_open(

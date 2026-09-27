@@ -38,7 +38,19 @@ def test_tap_create_button_uses_fallback_after_selector_failure(monkeypatch):
     assert tap_create_button(FakeDevice())
 
 
-def test_tap_upload_button_tries_selector_dump_and_fallbacks_in_order(monkeypatch):
+class ClickRecordingDevice:
+    """Records any tap made at a point, with the screen size a coordinate fallback would read."""
+
+    info = {"displayWidth": 1080, "displayHeight": 2400}
+
+    def __init__(self):
+        self.clicks = []
+
+    def click(self, x, y):
+        self.clicks.append((x, y))
+
+
+def test_tap_upload_button_tries_the_selectors_then_the_dump(monkeypatch):
     calls = []
 
     monkeypatch.setattr(
@@ -49,21 +61,23 @@ def test_tap_upload_button_tries_selector_dump_and_fallbacks_in_order(monkeypatc
     monkeypatch.setattr(
         publish_navigation,
         "tap_upload_button_from_dump",
-        lambda *_args, **_kwargs: calls.append("dump") or False,
-    )
-    monkeypatch.setattr(
-        publish_navigation,
-        "tap_upload_right_strip_fallback",
-        lambda *_args, **_kwargs: calls.append("right") or False,
-    )
-    monkeypatch.setattr(
-        publish_navigation,
-        "tap_upload_bottom_left_fallback",
-        lambda *_args, **_kwargs: calls.append("bottom") or True,
+        lambda *_args, **_kwargs: calls.append("dump") or True,
     )
 
     assert tap_upload_button(FakeDevice())
-    assert calls == ["selector", "dump", "right", "bottom"]
+    assert calls == ["selector", "dump"]
+
+
+def test_tap_upload_button_taps_no_point_when_no_selector_answers(monkeypatch):
+    """No coordinate fallback: on 47.0.3 the right-strip point was the effects carousel."""
+    monkeypatch.setattr(publish_navigation, "tap_element", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(publish_navigation, "tap_upload_button_from_dump", lambda *_args, **_kwargs: False)
+    logged = []
+    device = ClickRecordingDevice()
+
+    assert not tap_upload_button(device, log=lambda level, message: logged.append(level))
+    assert device.clicks == []
+    assert logged == ["error"]
 
 
 def test_ensure_gallery_picker_open_retries_upload_when_still_on_camera(monkeypatch):

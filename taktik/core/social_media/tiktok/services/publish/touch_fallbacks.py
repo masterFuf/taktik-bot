@@ -27,31 +27,6 @@ def tap_create_button_fallback(device, *, log: LogFn | None = None) -> bool:
     )
 
 
-def tap_upload_right_strip_fallback(device, *, log: LogFn | None = None) -> bool:
-    """Tap the right-side gallery thumbnail used by several TikTok camera layouts."""
-    return tap_relative(
-        device,
-        0.815,
-        0.785,
-        label="[upload] fallback A (right-strip)",
-        error_label="[upload] fallback A failed",
-        log=log,
-    )
-
-
-def tap_upload_bottom_left_fallback(device, *, log: LogFn | None = None) -> bool:
-    """Tap the bottom-left gallery thumbnail used by larger TikTok layouts."""
-    return tap_relative(
-        device,
-        0.086,
-        0.921,
-        label="[upload] fallback B (bottom-left)",
-        error_label="[upload] fallback B failed",
-        error_level="error",
-        log=log,
-    )
-
-
 def tap_first_gallery_item_fallback(
     device,
     *,
