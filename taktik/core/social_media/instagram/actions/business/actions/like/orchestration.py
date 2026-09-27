@@ -254,7 +254,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     current_likes = self._extract_likes_count_from_ui(is_reel=is_reel)
                     current_comments = self._extract_comments_count_from_ui(is_reel=is_reel)
                     
-                    signature = post_signature(current_likes, current_comments, is_reel)
+                    signature = self._visit_signature(current_likes, current_comments, is_reel)
 
                     self.logger.debug(f"Extracted signature: {signature} | Already seen: {len(seen_posts_signatures)} posts")
 
@@ -445,18 +445,40 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 self.logger.error(f"Failed to increment like session counter: {exc}")
         self._record_action(username, 'LIKE', 1)
 
+    def _framed_post_reading(self, reader_name: str) -> Optional[str]:
+        """Ask the reading owner (`PostReadingMixin`, through `scroll_actions`) about the framed
+        post; None when this host has no such reader (a bare test host)."""
+        reader = getattr(getattr(self, "scroll_actions", None), reader_name, None)
+        return reader() if callable(reader) else None
+
+    def _visit_signature(self, likes, comments, is_reel) -> str:
+        """How the visit tells its posts apart: the framed post's own header and counters
+        (`framed_post_signature`), read inside its window only. The counters triplet read on the
+        whole screen (`post_signature`) only when no header is framed (full-screen Reel viewer):
+        on a list it takes a neighbour's numbers, and small posts of one account share them."""
+        framed = self._framed_post_reading("framed_post_signature")
+        if framed:
+            return f"framed:{framed}"
+        return post_signature(likes, comments, is_reel)
+
     def _current_post_signature(self) -> str:
-        """A cheap identity signature of the on-screen post (likes_comments_isreel) — used
-        to detect that a description read scrolled the frame onto a DIFFERENT post before we
-        act. Empty string if it can't be read."""
+        """Which post the screen frames, to check that a description read did not move the frame
+        onto ANOTHER post before we act: the description of the framed post's own header
+        (`framed_post_identity`), which no neighbour, carousel slide or like can change. The
+        counters triplet only when no header is framed (full-screen Reel viewer). Empty string
+        when nothing can be read."""
         try:
+            identity = self._framed_post_reading("framed_post_identity")
+            if identity:
+                return f"framed:{identity}"
             is_reel = self._is_current_post_reel()
             return post_signature(
                 self._extract_likes_count_from_ui(is_reel=is_reel),
                 self._extract_comments_count_from_ui(is_reel=is_reel),
                 is_reel,
             )
-        except Exception:
+        except Exception as exc:
+            self.logger.debug(f"Post identity unreadable: {exc}")
             return ""
 
     def _run_engagement_sequence(self, sequence, username, custom_comments, config) -> tuple:

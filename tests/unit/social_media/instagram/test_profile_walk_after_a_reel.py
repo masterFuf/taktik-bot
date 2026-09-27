@@ -65,6 +65,8 @@ class _Profile:
         self.counters = {
             position: (100 + 7 * position, position % 5) for position in range(1, posts + 1)
         }
+        #: Header descriptions by position; none = a screen without a framed header.
+        self.headers = {}
         self.top_row = 1
         self.current = None
         self.liked = set()
@@ -118,6 +120,16 @@ class _Profile:
         self.current = None
         return True
 
+    def framed_header(self):
+        return self.headers.get(self.current)
+
+    def framed_signature(self):
+        header = self.framed_header()
+        if header is None:
+            return None
+        likes, comments = self.counters[self.current]
+        return f"{header} | {likes} {comments}"
+
     def like(self):
         likes, comments = self.counters[self.current]
         self.counters[self.current] = (likes + 1, comments)
@@ -151,6 +163,12 @@ class _ViewerGestures:
     @staticmethod
     def land_on_post_header():
         return {}
+
+    def framed_post_identity(self):
+        return self.profile.framed_header()
+
+    def framed_post_signature(self):
+        return self.profile.framed_signature()
 
 
 class _SessionWithTheRunsDice(BehaviorSessionState):
@@ -310,3 +328,29 @@ def test_a_reopen_after_a_reel_is_not_always_the_very_next_post(monkeypatch):
 
     assert reopened <= {3, 4, 5, 6}
     assert 3 in reopened and len(reopened) > 1
+
+
+#: The counters the loop read on a small account of the run, post after post (likes, comments):
+#: nine readings, four of them already met, although the walk never went back.
+SMALL_ACCOUNT_COUNTERS = [(4, 0), (5, 0), (8, 1), (8, 1), (7, 0), (4, 0), (6, 0), (6, 0), (6, 0), (4, 0)]
+
+
+def test_posts_of_a_small_account_sharing_their_counters_are_not_taken_as_already_seen(
+    monkeypatch,
+):
+    profile = _Profile(reels=set())
+    for position, counters in enumerate(SMALL_ACCOUNT_COUNTERS, start=1):
+        profile.counters[position] = counters
+        profile.headers[position] = f"auteur_exemple a publié un(e) photo il y a {position} semaines"
+    session = _SessionWithTheRunsDice([1], seed=5)
+    host, glances, _engaged = _walker(monkeypatch, profile, session, liked_positions=set())
+
+    result = host.like_posts_with_sequential_scroll(
+        USERNAME, max_likes=2, profile_data={"posts_count": POSTS_ON_PROFILE}
+    )
+
+    assert profile.landings == list(range(1, len(SMALL_ACCOUNT_COUNTERS) + 1))
+    assert result["unique_posts_seen"] == result["posts_seen"] == len(SMALL_ACCOUNT_COUNTERS), (
+        "distinct posts with equal counters were skipped as already seen"
+    )
+    assert glances == profile.landings

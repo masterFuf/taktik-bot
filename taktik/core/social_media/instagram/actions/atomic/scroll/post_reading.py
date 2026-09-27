@@ -22,6 +22,7 @@ import time
 import random
 from typing import Optional
 
+from ....ui.extractors import count_from_counter_label
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
 from taktik.core.shared.text import text_lost_emoji
@@ -391,9 +392,43 @@ class PostReadingMixin:
         root = root if root is not None else self._dump_root()
         if root is None:
             return None
+        window = self._framed_window(root)
+        if window is None:
+            return None
 
+        caption_bounds, caption_text = None, ""
+        if window["captions"]:
+            caption_bounds, caption_text = max(
+                window["captions"], key=lambda c: c[0][3] - c[0][1]
+            )
+            if text_lost_emoji(caption_text):
+                recovered = self._reread_caption_without_xml(caption_bounds)
+                if recovered:
+                    caption_text = recovered
+
+        header_desc = window["header_desc"]
+        # Header content-desc starts with the author's handle ("author a publié ...").
+        author = header_desc.split(" ", 1)[0].strip() if header_desc else ""
+        return {
+            "header_desc": header_desc,
+            "author": author,
+            "header_bounds": window["header_bounds"],
+            "buttons_bounds": window["buttons_bounds"],
+            "caption_text": caption_text,
+            "caption_bounds": caption_bounds,
+            "window_bottom": window["window_bottom"],
+        }
+
+    def _framed_window(self, root) -> Optional[dict]:
+        """The framed post and what lies INSIDE its window, from one dump.
+
+        The framed post is the first header fully below the action bar; its window runs to the
+        next post's header (or the bottom bar). Only what lies inside belongs to this post: its
+        button row, the counters beside those buttons, its captions. None when no header is
+        framed (full-screen Reel viewer, mid-scroll).
+        """
         top_limit, bottom_limit = 0, int(self.screen_height)
-        headers, buttons, captions = [], [], []
+        headers, buttons, captions, counters = [], [], [], []
         for node in root.iter():
             short = node.get("resource-id", "").rsplit("/", 1)[-1]
             bounds = self._node_bounds(node)
@@ -409,8 +444,11 @@ class PostReadingMixin:
                 text = node.get("text") or ""
                 if text:
                     captions.append((bounds, text))
+            elif node.tag == FS.counter_button_class and bounds:
+                text = (node.get("text") or "").strip()
+                if count_from_counter_label(text) is not None:
+                    counters.append((bounds, text))
 
-        # The framed post = the first header fully below the action bar.
         visible = sorted((h for h in headers if h[0][1] >= top_limit), key=lambda h: h[0][1])
         if not visible:
             return None
@@ -423,28 +461,43 @@ class PostReadingMixin:
             return window_top <= bounds[1] and bounds[3] <= window_bottom
 
         buttons_bounds = next((b for b in buttons if _in_window(b)), None)
-        caption_bounds, caption_text = None, ""
-        in_window = [c for c in captions if _in_window(c[0])]
-        if in_window:
-            caption_bounds, caption_text = max(
-                in_window, key=lambda c: c[0][3] - c[0][1]
-            )
-            if text_lost_emoji(caption_text):
-                recovered = self._reread_caption_without_xml(caption_bounds)
-                if recovered:
-                    caption_text = recovered
-
-        # Header content-desc starts with the author's handle ("author a publié ...").
-        author = header_desc.split(" ", 1)[0].strip() if header_desc else ""
+        row_counters = []
+        if buttons_bounds is not None:
+            row_counters = [
+                text for bounds, text in sorted(counters, key=lambda c: c[0][0])
+                if buttons_bounds[1] <= bounds[1] and bounds[3] <= buttons_bounds[3]
+            ]
         return {
-            "header_desc": header_desc,
-            "author": author,
+            "header_desc": header_desc.strip(),
             "header_bounds": header_bounds,
-            "buttons_bounds": buttons_bounds,
-            "caption_text": caption_text,
-            "caption_bounds": caption_bounds,
             "window_bottom": window_bottom,
+            "buttons_bounds": buttons_bounds,
+            "row_counters": row_counters,
+            "captions": [c for c in captions if _in_window(c[0])],
         }
+
+    def framed_post_identity(self, root=None) -> Optional[str]:
+        """Which post is framed: the description of its own header ("author a publié un(e)
+        <kind> <place> <date>"), from one dump. Nothing else on screen is read, so a neighbour
+        peeking above or below, a carousel slide, or our own like never changes it. None when no
+        header is framed or it carries no description."""
+        root = root if root is not None else self._dump_root()
+        window = self._framed_window(root) if root is not None else None
+        if window is None or not window["header_desc"]:
+            return None
+        return window["header_desc"]
+
+    def framed_post_signature(self, root=None) -> Optional[str]:
+        """The framed post's identity plus the counters of its own button row ("1 781 38 14 23"),
+        from one dump: tells apart two posts of the same author, kind and week, which share a
+        header description. The counters move with a like, so this is for telling posts apart
+        during a visit, not for checking that the screen still shows the same post (use
+        ``framed_post_identity``). None when no header is framed or it carries no description."""
+        root = root if root is not None else self._dump_root()
+        window = self._framed_window(root) if root is not None else None
+        if window is None or not window["header_desc"]:
+            return None
+        return " | ".join([window["header_desc"]] + [" ".join(window["row_counters"])])
 
     def _reread_caption_without_xml(self, bounds) -> Optional[str]:
         """Re-read a caption through JSON-RPC instead of the XML dump.

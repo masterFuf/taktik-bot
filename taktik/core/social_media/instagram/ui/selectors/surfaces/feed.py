@@ -255,6 +255,9 @@ class FeedScrollSelectors:
     caption_expand_descs: tuple = ("plus", "more")             # EXACT content-desc of the expand button
     caption_expand_suffixes: tuple = (" plus", " more")        # end of a truncated text
     caption_collapse_suffixes: tuple = (" moins", " less")     # end of an EXPANDED text (collapse control)
+    # The counts beside the like/comment/share buttons are sibling Buttons whose text is the
+    # number ("1 781", "38"), inside the post's button row (410 and 447 profile post lists).
+    counter_button_class: str = "android.widget.Button"
 
     # --- Carousel inline ---
     carousel_viewpager_id: str = "carousel_viewpager"
