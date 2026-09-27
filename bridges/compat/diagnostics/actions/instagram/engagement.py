@@ -25,6 +25,19 @@ def like_current_post(a, p):
     return {"success": bool(ok), "message": "post liked" if ok else "like failed / already liked"}
 
 
+@action("engagement.read_feed_post_author")
+def read_feed_post_author(a, p):
+    """Read, without a gesture, the author the Feed files the framed post under
+    (``FeedBusiness._get_current_post_author``): the first handle of the framed post's own
+    header description (``framed_post_identity``), the post the Feed likes. None when no post is
+    framed or the description names no handle: the Feed then leaves the post alone."""
+    author = a.feed._get_current_post_author()
+    identity = a.feed.scroll_actions.framed_post_identity()
+    return {"success": bool(author),
+            "message": f"@{author}" if author else "no author: no framed post, or no handle in its header",
+            "details": {"author": author, "framed_identity": identity}}
+
+
 @action("engagement.like_feed_post")
 def like_feed_post(a, p):
     """Like the home-feed post on screen the way the Feed workflow does: read its author

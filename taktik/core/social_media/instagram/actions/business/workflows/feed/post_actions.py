@@ -4,7 +4,6 @@ import time
 from typing import Dict, List, Any, Optional
 
 from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
-from taktik.core.social_media.instagram.ui.extractors import username_from_author_header
 
 
 class FeedPostActionsMixin:
@@ -30,34 +29,26 @@ class FeedPostActionsMixin:
             return False
     
     def _get_current_post_author(self) -> Optional[str]:
-        """Username of the current post author."""
+        """The author of the FRAMED post, the one the Feed likes and comments, read in that
+        post's own header (`PostReadingMixin.framed_post_author`), like the like's guards: the
+        first handle of its description ("author a publié ..."; a collaboration's first account),
+        else of the author line inside that header.
+
+        It read the first author line of the screen: with the framed header just under the top
+        of the list, its name line is out of the dump and the line read was the NEXT post's; with
+        the post above still under the action bar, that post's. The like, given to the framed
+        post, was filed under another account. None when no post is framed (mid-scroll, a
+        full-screen Reel) or its header names no handle: the post is then not engaged, it could
+        not be filed.
+        """
         try:
-            for selector in self._feed_selectors['post_author_username']:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    # A collaboration post names several accounts here ("a et b"): the first
-                    # handle, never the line, which the cleaner used to glue into "aetb".
-                    username = username_from_author_header(element.get_text())
-                    if username:
-                        return username
-            
-            # Fallback: essayer via content-desc de l'avatar
-            for selector in self._feed_selectors['post_author_avatar']:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    content_desc = element.attrib.get('content-desc', '')
-                    if content_desc:
-                        # The content-desc often holds a localized "profile picture of <username>"
-                        parts = content_desc.split()
-                        for part in parts:
-                            if self._is_valid_username(part):
-                                return self._clean_username(part)
-            
-            return None
-            
+            author = self.scroll_actions.framed_post_author()
         except Exception as e:
-            self.logger.debug(f"Error getting post author: {e}")
+            self.logger.warning(f"Framed post unreadable, author unknown: {e}")
             return None
+        if not author:
+            self.logger.debug("No framed post with a readable author on screen")
+        return author
     
     def _like_budget_spent(self) -> bool:
         """Is `like` among the session's exhausted intents (session ceiling or daily sub-quota)?

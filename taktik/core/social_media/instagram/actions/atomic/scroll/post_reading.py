@@ -22,7 +22,7 @@ import time
 import random
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, cast
 
-from ....ui.extractors import count_from_counter_label
+from ....ui.extractors import count_from_counter_label, username_from_author_header
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
 from taktik.core.shared.behavior.gesture import SWIPE_FLOOR_H
@@ -533,12 +533,10 @@ class PostReadingMixin:
                 if recovered:
                     caption_text = recovered
 
-        header_desc = window["header_desc"]
-        # Header content-desc starts with the author's handle ("author a publié ...").
-        author = header_desc.split(" ", 1)[0].strip() if header_desc else ""
         return {
-            "header_desc": header_desc,
-            "author": author,
+            "header_desc": window["header_desc"],
+            # "" when the header names no handle (`framed_post_author`'s reading).
+            "author": self._author_of(window) or "",
             "header_bounds": window["header_bounds"],
             "buttons_bounds": window["buttons_bounds"],
             "caption_text": caption_text,
@@ -561,7 +559,7 @@ class PostReadingMixin:
         """
         top_limit, bottom_limit = 0, int(self.screen_height)
         list_bounds = None
-        headers, buttons, captions, counters, hearts = [], [], [], [], []
+        headers, buttons, captions, counters, hearts, names = [], [], [], [], [], []
         for node in root.iter():
             bounds = self._node_bounds(node)
             if not bounds:
@@ -579,6 +577,9 @@ class PostReadingMixin:
                 continue
             if short == FS.profile_header_id:
                 headers.append((bounds, node.get("content-desc") or ""))
+                continue
+            if short == FS.header_id:
+                names.append((bounds, node.get("text") or ""))
                 continue
             if short == FS.buttons_row_id:
                 buttons.append(bounds)
@@ -621,8 +622,12 @@ class PostReadingMixin:
                                 buttons_bounds[1])
         list_top = max(top_limit, list_bounds[1]) if list_bounds else top_limit
         list_bottom = min(bottom_limit, list_bounds[3]) if list_bounds else bottom_limit
+        # The author line INSIDE the framed header: another post's line is never read.
+        author_line = next((text for bounds, text in names
+                            if header_bounds[1] <= bounds[1] and bounds[3] <= header_bounds[3]), "")
         return {
             "header_desc": header_desc.strip(),
+            "author_line": author_line.strip(),
             "header_bounds": header_bounds,
             "list_top": list_top,
             "list_bottom": list_bottom,
@@ -634,6 +639,24 @@ class PostReadingMixin:
             "heart_selected": heart[1] if heart else None,
             "media_bounds": media_bounds,
         }
+
+    @staticmethod
+    def _author_of(window: dict) -> Optional[str]:
+        """The framed post's author: the first handle of its header description ("author a publié
+        ...": for a collaboration, the first account it names), else of the author line inside its
+        header (a header without description). None when neither names a handle."""
+        return (username_from_author_header(window["header_desc"])
+                or username_from_author_header(window["author_line"]))
+
+    def framed_post_author(self, root=None) -> Optional[str]:
+        """Who the framed post is by, from one dump: the account the Feed files its like and its
+        comment under (`_author_of`). Only the framed post's own header is read: the first author
+        line of the screen can be the next post's (the framed one's line is out of the dump when its
+        header sits just under the top of the list) or the post above's. None when no post is
+        framed (mid-scroll, a full-screen Reel) or its header names no handle."""
+        root = root if root is not None else self._dump_root()
+        window = self._framed_window(root) if root is not None else None
+        return self._author_of(window) if window is not None else None
 
     def framed_post_identity(self, root=None) -> Optional[str]:
         """Which post is framed: the description of its own header ("author a publié un(e)

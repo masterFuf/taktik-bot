@@ -19,11 +19,6 @@ class FeedSelectors:
         '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_username"]'
     ])
     
-    # === Avatar de l'auteur ===
-    post_author_avatar: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/row_feed_photo_profile_imageview"]'
-    ])
-    
     # === Sponsored-post markers — language-dependent (locales overlay) ===
     @property
     def sponsored_indicators(self) -> List[str]:

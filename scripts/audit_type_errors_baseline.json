@@ -170,7 +170,7 @@
   "taktik/core/social_media/instagram/actions/business/management/profile/persistence.py": 1,
   "taktik/core/social_media/instagram/actions/business/workflows/common/likers_base.py": 12,
   "taktik/core/social_media/instagram/actions/business/workflows/common/private_streak_policy.py": 2,
-  "taktik/core/social_media/instagram/actions/business/workflows/feed/post_actions.py": 29,
+  "taktik/core/social_media/instagram/actions/business/workflows/feed/post_actions.py": 25,
   "taktik/core/social_media/instagram/actions/business/workflows/feed/suggestions.py": 55,
   "taktik/core/social_media/instagram/actions/business/workflows/feed/suggestions_parsing.py": 2,
   "taktik/core/social_media/instagram/actions/business/workflows/feed/suggestions_visit.py": 21,

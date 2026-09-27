@@ -8,16 +8,14 @@ URL fallback returned it whole.
 
 The header lines below are the shapes found in the Lab dumps (`row_feed_photo_profile_name`),
 French and English, two authors or "N others". The rule needs no conjunction: a handle has no
-space, so the first word is the first author in any language.
+space, so the first word is the first author in any language. The Feed reads its author in the
+framed post's own header description, on real captures: `test_feed_author_is_the_framed_posts.py`.
 """
 
 import types
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.feed.post_actions import (
-    FeedPostActionsMixin,
-)
 from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_finder import (
     HashtagPostFinderMixin,
 )
@@ -89,15 +87,6 @@ def test_the_hashtag_files_a_collaboration_under_its_first_author():
     metadata = finder._extract_current_post_metadata(is_reel=False)
 
     assert metadata['author'] == "abelstudios.au"
-
-
-def test_the_feed_reads_the_first_author_not_a_glued_handle():
-    feed = object.__new__(FeedPostActionsMixin)
-    feed.logger = _log()
-    feed._feed_selectors = {'post_author_username': ['author_sel'], 'post_author_avatar': []}
-    feed.device = _Device(['author_sel'], COLLAB)
-
-    assert feed._get_current_post_author() == "abelstudios.au"
 
 
 def test_post_url_reads_the_first_author_from_the_header():
