@@ -9,7 +9,8 @@ Flow :
   3. open the app and tap the create button
   4. tap the upload entry to open the gallery, rather than the camera
   5. select the first file, the most recent being the one just pushed
-  6. tap the next button as many times as needed
+  6. tap the next button as many times as needed, taking off first the sound TikTok attached
+     to the video on its own
   7. type the description, caption and hashtags
   8. Tape "Post" / "Publier"
 """
@@ -49,6 +50,8 @@ from taktik.core.social_media.tiktok.services.publish.hashtag_suggestions import
     tap_hashtag_suggestion_from_dump,
 )
 from taktik.core.social_media.tiktok.services.publish.navigation import (
+    POST_SCREEN_REACHED,
+    SOUND_NOT_REMOVED,
     advance_to_post_screen,
     ensure_gallery_picker_open,
     select_first_gallery_item,
@@ -232,9 +235,15 @@ class TikTokUploadWorkflow:
             time.sleep(1.2)  # wait for TikTok to enable the Next button after item selection
             self._capture("04_media_selected")
 
-            # 8. Taper "Next" jusqu'à l'écran de description (max 3 fois)
+            # 8. Tap Next up to the post screen, taking off the sound TikTok attached to the video
             _ipc.status("navigating", "Navigating to post screen...")
-            if not advance_to_post_screen(self.device):
+            reached = advance_to_post_screen(self.device, log=_ipc.log)
+            if reached == SOUND_NOT_REMOVED:
+                return self._error(
+                    "sound_not_removed",
+                    "The sound TikTok attached to the video could not be taken off: nothing was published",
+                )
+            if reached != POST_SCREEN_REACHED:
                 return self._error("post_screen_not_reached", "TikTok post description screen was not reached")
             self._capture("05_post_screen")
 

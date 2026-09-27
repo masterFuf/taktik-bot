@@ -79,9 +79,27 @@ def select_first_media(a, p):
 
 @action("tt.publish.advance_to_post")
 def advance_to_post(a, p):
-    """Advance from the edit screen to the post screen."""
-    ok = _nav(a).advance_to_post_screen(_raw(a))
-    return {"success": bool(ok), "message": f"advanced to post={ok}"}
+    """Advance from the edit screen to the post screen, taking off first the sound TikTok attached
+    to the video (the production step)."""
+    nav = _nav(a)
+    outcome = nav.advance_to_post_screen(_raw(a), log=_lab_log)
+    return {"success": outcome == nav.POST_SCREEN_REACHED, "message": outcome}
+
+
+@action("tt.publish.remove_sound")
+def remove_sound(a, p):
+    """Take off the sound TikTok attached to the video on the editor, and check on a fresh dump that
+    the chip carries none (production function). Answers no_sound, sound_removed, sound_kept or
+    sound_unchecked; only the last two are failures. Be on the editor."""
+    from taktik.core.social_media.tiktok.services.publish import editor_sound
+
+    outcome = editor_sound.remove_attached_sound(_raw(a), log=_lab_log)
+    success = outcome in (editor_sound.NO_SOUND, editor_sound.SOUND_REMOVED)
+    return {"success": success, "message": outcome}
+
+
+def _lab_log(level: str, message: str) -> None:
+    getattr(logger, level)(message)
 
 
 @action("tt.publish.fill_caption")

@@ -64,3 +64,25 @@ def test_where_no_selector_knows_the_entry_nothing_is_tapped():
 
     assert not navigation.tap_upload_button(phone)
     assert phone.taps == []
+
+
+def test_on_47_0_3_the_production_steps_go_from_the_camera_to_the_post_screen(on_47_0_3, monkeypatch):
+    """Each step of the workflow, in its order, on the real screens: every tap on the node the hand
+    tapped that day, the sound off before the editor's Next."""
+    monkeypatch.setattr(navigation, "handle_permission_dialog", lambda *_args, **_kwargs: False)
+    phone = _phone()
+    no_sleep = lambda _seconds: None  # noqa: E731
+
+    assert navigation.tap_upload_button(phone)
+    assert navigation.ensure_gallery_picker_open(phone, "device-1", sleep=no_sleep)
+    assert navigation.select_first_gallery_item(phone, sleep=no_sleep)
+    assert navigation.advance_to_post_screen(phone, sleep=no_sleep) == navigation.POST_SCREEN_REACHED
+
+    assert [(tap.rid, tap.bounds) for tap in phone.taps] == [
+        ("upload_hot_area", "[0,2118][210,2314]"),
+        ("l34", "[280,397][343,460]"),  # the box of the newest cell, top left
+        ("xyk", "[550,2179][1048,2295]"),  # Suivant (1)
+        ("e1d", "[703,203][801,319]"),  # the cross of the sound TikTok attached
+        ("q03", "[545,2192][1048,2308]"),  # Suivant, never Ta Story
+    ]
+    assert phone.screen == "post_screen"

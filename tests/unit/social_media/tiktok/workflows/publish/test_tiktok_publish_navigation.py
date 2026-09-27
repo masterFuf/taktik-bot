@@ -150,13 +150,14 @@ def test_advance_to_post_screen_taps_next_until_post_screen(monkeypatch):
     monkeypatch.setattr(publish_navigation, "is_post_screen", lambda _device: next(post_states))
     monkeypatch.setattr(publish_navigation, "tap_element", lambda *_args, **_kwargs: taps.append("next") or True)
 
-    assert advance_to_post_screen(FakeDevice(), sleep=sleeps.append)
+    assert advance_to_post_screen(FakeDevice(), sleep=sleeps.append) == publish_navigation.POST_SCREEN_REACHED
     assert taps == ["next"]
     assert sleeps == [1.5]
 
 
-def test_advance_to_post_screen_returns_false_when_next_is_missing(monkeypatch):
+def test_advance_to_post_screen_says_the_post_screen_was_not_reached_when_next_is_missing(monkeypatch):
     monkeypatch.setattr(publish_navigation, "is_post_screen", lambda _device: False)
     monkeypatch.setattr(publish_navigation, "tap_element", lambda *_args, **_kwargs: False)
 
-    assert not advance_to_post_screen(FakeDevice(), sleep=lambda _seconds: None)
+    assert advance_to_post_screen(FakeDevice(), sleep=lambda _seconds: None) == (
+        publish_navigation.POST_SCREEN_NOT_REACHED)

@@ -41,8 +41,9 @@ def publish(monkeypatch, tmp_path):
     ok = lambda *a, **k: True  # noqa: E731
     for name in ("trigger_media_scan", "restart_tiktok_package", "wait_for_tiktok_home",
                  "tap_create_button", "tap_upload_button", "ensure_gallery_picker_open",
-                 "select_first_gallery_item", "advance_to_post_screen"):
+                 "select_first_gallery_item"):
         monkeypatch.setattr(module, name, ok)
+    monkeypatch.setattr(module, "advance_to_post_screen", lambda *a, **k: module.POST_SCREEN_REACHED)
     monkeypatch.setattr(module, "push_media", lambda *a, **k: "/sdcard/DCIM/video.mp4")
     monkeypatch.setattr(module, "scan_wait_for", lambda path: 0)
     monkeypatch.setattr(module, "resolve_tiktok_package", lambda device_id: "com.zhiliaoapp.musically")
