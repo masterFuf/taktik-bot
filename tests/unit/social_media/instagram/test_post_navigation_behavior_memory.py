@@ -48,8 +48,8 @@ class _Scroll:
         self.calls.append(("drag", kwargs))
         return True
 
-    def land_on_post_header(self):
-        self.calls.append(("frame",))
+    def land_on_post_header(self, **kwargs):
+        self.calls.append(("frame", kwargs))
         return {"corrected": False}
 
 
@@ -86,7 +86,8 @@ def test_profile_post_navigation_uses_session_mode_choice(monkeypatch):
     assert host.scroll_actions.calls[1][1]["guard_start"] is True
     assert host.scroll_actions.calls[1][1]["velocity_scale"] == 0.90
     assert host.scroll_actions.calls[1][1]["distance_px"] == 0.80 * 2280 * 1.04
-    assert host.scroll_actions.calls[2] == ("frame",)
+    # The landing is told which gesture moved the list, to wait for it to settle as the feed does.
+    assert host.scroll_actions.calls[2] == ("frame", {"advance_mode": "drag", "settle_scale": 1.0})
     # The move does not glance at the post it reaches: the caller does, once it knows the post is
     # new (`_glance_at_post`), so a post met again is passed at once.
     assert sleeps == []

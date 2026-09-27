@@ -588,6 +588,7 @@ class PostNavigationMixin:
                 mode = mode_decision["mode"]
                 distance_scale = float(mode_decision.get("distance_scale", 1.0))
                 velocity_scale = float(mode_decision.get("velocity_scale", 1.0))
+                settle_scale = float(mode_decision.get("settle_scale", 1.0))
                 if mode == "drag":
                     advanced = self.scroll_actions._long_drag(
                         direction="up",
@@ -606,14 +607,17 @@ class PostNavigationMixin:
                         guard_start=True,
                         velocity_scale=velocity_scale,
                     )
-                # Evaluate the landing exactly like the feed: severity, dump confidence, current
-                # session style, and recent corrections decide whether a precise 1:1 lift is useful.
-                # A moderate imperfection may remain; a severe half-shown post is always repaired.
+                # Evaluate the landing exactly like the feed, once the list has settled as it does
+                # after the feed's advance: severity, dump confidence, current session style, and
+                # recent corrections decide whether a precise 1:1 lift is useful. A moderate
+                # imperfection may remain; a severe half-shown post is always repaired.
                 if advanced:
                     try:
-                        self.scroll_actions.land_on_post_header()
+                        self.scroll_actions.land_on_post_header(
+                            advance_mode=mode, settle_scale=settle_scale
+                        )
                     except Exception as land_exc:
-                        self.logger.debug(f"land_on_post_header skipped: {land_exc}")
+                        self.logger.warning(f"land_on_post_header skipped: {land_exc}")
 
                 if advanced and self._is_in_post_view():
                     self._remember_sequential_profile_post()
@@ -646,7 +650,7 @@ class PostNavigationMixin:
                     try:
                         self.scroll_actions.land_on_post_header()
                     except Exception as land_exc:
-                        self.logger.debug(f"retry land_on_post_header skipped: {land_exc}")
+                        self.logger.warning(f"retry land_on_post_header skipped: {land_exc}")
                 if advanced and self._is_in_post_view():
                     self._remember_sequential_profile_post()
                     self.logger.debug("Navigation successful via controlled vertical retry")

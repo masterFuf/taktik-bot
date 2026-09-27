@@ -221,6 +221,10 @@ class FeedScrollSelectors:
     buttons_row_id: str = "row_feed_view_group_buttons" # like/comment/share/save row (post bottom edge)
     like_button_id: str = "row_feed_button_like"        # engagement bar = proof the post was fully seen
     action_bar_id: str = "main_feed_action_bar"         # top bar of the feed (only present at the top)
+    # The RecyclerView of the post rows (android:id/list). Its top edge is where a header starts to
+    # hide: the status bar on the home feed, the fixed title bar in a profile's post list (231 px on
+    # a 410 dump, `ig410_fr_post_opened_from_grid.xml`; 279 px on a 447 one).
+    post_list_id: str = "list"
     tab_bar_id: str = "tab_bar"                         # bottom navigation bar
     secondary_label_id: str = "secondary_label"         # subtitle under a header
     clips_root_id: str = "root_clips_layout"            # fullscreen reels viewer

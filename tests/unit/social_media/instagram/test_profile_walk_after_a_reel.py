@@ -161,7 +161,7 @@ class _ViewerGestures:
         return self.profile.advance()
 
     @staticmethod
-    def land_on_post_header():
+    def land_on_post_header(**_kwargs):
         return {}
 
     def framed_post_identity(self):
