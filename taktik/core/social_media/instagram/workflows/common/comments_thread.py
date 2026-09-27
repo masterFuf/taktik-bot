@@ -26,6 +26,9 @@ from typing import Any, Dict, List, Optional, Tuple
 # Bounds geometry belongs to the shared owner; re-exported here so the existing
 # callers of this module keep working.
 from taktik.core.shared.device.ui_dump import center, iter_widgets, parse_bounds  # noqa: F401
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post.comments import (
+    POST_COMMENTS_SELECTORS,
+)
 
 
 def _matches_any(value: str, tokens: List[str]) -> bool:
@@ -87,9 +90,10 @@ def _username_nodes(root) -> List[Tuple[str, Tuple[int, int, int, int]]]:
     """
     compose: List[Tuple[str, Tuple[int, int, int, int]]] = []
     legacy: List[Tuple[str, Tuple[int, int, int, int]]] = []
+    chrome = _chrome_nodes(root)
     for node in iter_widgets(root):
         handle = _handle_shape(node)
-        if not handle:
+        if not handle or node in chrome:
             continue
         box = parse_bounds(node.get("bounds", ""))
         if not box:
@@ -100,6 +104,21 @@ def _username_nodes(root) -> List[Tuple[str, Tuple[int, int, int, int]]]:
         elif desc == handle and node.tag.endswith("TextView"):
             compose.append((handle, box))
     return compose or legacy
+
+
+def _chrome_nodes(root) -> set:
+    """Labels around the thread that are nobody's comment (action bar, sheet title).
+
+    Without this, the title "Posts" of a post opened from a grid -- a TextView repeating its
+    text in content-desc -- passed for a Compose username and every legacy author was dropped.
+    """
+    nodes = set()
+    for selector in POST_COMMENTS_SELECTORS.thread_chrome_labels:
+        try:
+            nodes.update(root.xpath(selector))
+        except Exception:
+            continue
+    return nodes
 
 
 def _username_center_y(root, target: str) -> Optional[int]:

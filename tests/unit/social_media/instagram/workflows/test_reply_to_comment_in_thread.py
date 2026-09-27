@@ -9,7 +9,8 @@ Lab filed the run under the launcher's version), anonymized, four comments on sc
 own "Répondre" button.
 
 On the comments sheet of a post opened from a grid ("Posts" in the action bar, Instagram
-410.0.0.53.71 in English, Pixel 3, anonymized), no reply lands: see the strict xfail at the end.
+410.0.0.53.71 in English, Pixel 3, anonymized), the reply lands under its comment: the title
+is not taken for an author (see the last test).
 """
 
 import types
@@ -231,11 +232,6 @@ def test_a_reply_that_could_not_be_sent_is_not_recorded(_no_db):
     assert act.actions == [] and not _no_db
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "On the sheet of a post opened from a grid, the action bar title 'Posts' is a TextView whose "
-    "content-desc repeats its text: `_username_nodes` (workflows/common/comments_thread.py) takes "
-    "it for a Compose username, then drops every 410 author (legacy shape): no row is found. "
-    "Open point, to prove on a phone."))
 def test_a_reply_lands_under_its_comment_on_a_post_opened_from_a_grid(_no_db):
     act = _action(xml=POSTS_THREAD, field=_Field("@" + POSTS_COMMENTER + " "))
 
