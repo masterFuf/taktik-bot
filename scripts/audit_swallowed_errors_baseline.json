@@ -144,7 +144,6 @@
   "taktik/core/social_media/tiktok/services/followers/listing.py": 1,
   "taktik/core/social_media/tiktok/services/navigation/reset.py": 2,
   "taktik/core/social_media/tiktok/services/profile/username.py": 1,
-  "taktik/core/social_media/tiktok/services/publish/progress.py": 2,
   "taktik/core/social_media/tiktok/services/publish/screen_detector.py": 7,
   "taktik/core/social_media/tiktok/services/publish/text_post.py": 1,
   "taktik/core/social_media/tiktok/services/runtime/app_control.py": 1,
