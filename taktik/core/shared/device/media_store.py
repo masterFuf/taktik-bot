@@ -35,6 +35,7 @@ References:
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import time
 from typing import Callable, Iterable, Optional
@@ -52,6 +53,8 @@ VIDEO_EXTS = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp')
 
 DEFAULT_REMOTE_DIR = '/sdcard/DCIM/Camera'
 NORMALIZED_REMOTE_DIR = '/storage/emulated/0/DCIM/Camera'
+# The same folder as MediaStore names it (`relative_path` column, Android 10 and later).
+CAMERA_RELATIVE_PATH = 'DCIM/Camera/'
 
 # Stock camera naming: `IMG_yyyyMMdd_HHmmss` / `VID_yyyyMMdd_HHmmss`.
 CAMERA_IMAGE_PREFIX = 'IMG'
@@ -71,10 +74,16 @@ SCAN_WAIT_IMAGE = 3.0
 # ---------------------------------------------------------------------------
 
 def _adb_shell(device_id: str, *args: str, timeout: int = 15) -> tuple[int, str, str]:
-    """Run `adb -s <device_id> shell <args>`. Returns (returncode, stdout, stderr)."""
+    """Run `adb -s <device_id> shell <args>`. Returns (returncode, stdout, stderr).
+
+    Each argument reaches the device as one word. `adb shell` joins its arguments with spaces
+    and the device's shell splits the line again: unquoted, the where clause of a MediaStore
+    delete lost its quotes (the provider answered "Invalid token", so the row stayed), and a
+    file name with a space, as "2026-06-11-010830653 (1).mp4", became two paths.
+    """
     try:
         result = subprocess.run(
-            ['adb', '-s', device_id, 'shell'] + list(args),
+            ['adb', '-s', device_id, 'shell'] + [shlex.quote(arg) for arg in args],
             capture_output=True, text=True, timeout=timeout
         )
         return result.returncode, (result.stdout or '').strip(), (result.stderr or '').strip()
@@ -240,6 +249,17 @@ def parse_pushed_timestamp(filename: str, prefixes: Iterable[str] = LEGACY_FILE_
     return None
 
 
+def _media_provider_error(out: str, err: str) -> Optional[str]:
+    """The first line of an error the media provider reported, or None.
+
+    `content` exits 0 whatever the provider answered: its errors come as text, on stderr.
+    """
+    for line in f'{err}\n{out}'.splitlines():
+        if line.startswith('Error') or 'Exception' in line:
+            return line.strip()
+    return None
+
+
 def _delete_remote_media(device_id: str, remote_path: str) -> bool:
     """Remove the file and its MediaStore row. False when the file could not be removed."""
     rm_code, _, _ = _adb_shell(device_id, 'rm', '-f', remote_path)
@@ -250,7 +270,10 @@ def _delete_remote_media(device_id: str, remote_path: str) -> bool:
     # gallery, and the picker would offer a medium that no longer exists.
     normalized = remote_path.replace('/sdcard/', '/storage/emulated/0/')
     for uri in ('content://media/external/images/media', 'content://media/external/video/media'):
-        _adb_shell(device_id, 'content', 'delete', '--uri', uri, '--where', f'_data=\'{normalized}\'')
+        _, out, err = _adb_shell(device_id, 'content', 'delete', '--uri', uri, '--where', f"_data='{normalized}'")
+        error = _media_provider_error(out, err)
+        if error:
+            logger.warning(f'[media_store] MediaStore row of {normalized} not deleted ({uri}): {error}')
     return True
 
 
@@ -292,11 +315,12 @@ def delete_pushed_media(
     remote_paths: Iterable[str],
     log: Optional[Callable[[str, str], None]] = None,
 ) -> int:
-    """Delete media this bot pushed for a publish Instagram has confirmed. Returns the count.
+    """Delete the media a publish of this bot left, once the platform confirmed it. Returns the count.
 
     Called once the publish is confirmed on screen, never after a failure or an unconfirmed
     verdict: those files wait for `purge_pushed_media`. Only paths of `pushed_media_registry` are
-    touched, and only while they still hold a file of the size we pushed.
+    touched (what `push_media` wrote, and the copies `record_new_media_saved_by` found), and only
+    while they still hold a file of the size recorded.
     """
     wanted = {path for path in remote_paths if path}
     if not wanted:
@@ -309,6 +333,66 @@ def delete_pushed_media(
         except Exception:
             pass
     return removed
+
+
+def list_media_saved_by(
+    device_id: str,
+    owner_package: str,
+    relative_path: str = CAMERA_RELATIVE_PATH,
+) -> Optional[list[dict]]:
+    """The media an app saved in a folder, as MediaStore records them: `[{'path', 'size'}]`.
+
+    MediaStore keeps the package that wrote each file (`owner_package_name`, Android 10 and
+    later): TikTok's copies of the videos it publishes carry its package, a file pushed over adb
+    carries `com.android.shell`. None when the device did not answer, or when its media provider
+    reported an error (an Android before 10 has no such column); a row whose size or path cannot
+    be read is left out, and said.
+    """
+    code, out, err = _adb_shell(
+        device_id, 'content', 'query', '--uri', 'content://media/external/file',
+        '--projection', '_size:_data',
+        '--where', f"owner_package_name='{owner_package}' AND relative_path='{relative_path}'",
+    )
+    error = _media_provider_error(out, err)
+    if code != 0 or error:
+        logger.warning(f'[media_store] MediaStore did not list the media of {owner_package}: {error or err or code}')
+        return None
+    rows = []
+    for line in out.splitlines():
+        line = line.strip()
+        if not line.startswith('Row:'):
+            continue  # "No result found." when the app saved nothing there
+        head, found, path = line.partition(', _data=')
+        size = head.rpartition('_size=')[2]
+        if not found or not size.isdigit():
+            logger.warning(f'[media_store] MediaStore row left out, size or path unreadable: {line}')
+            continue
+        rows.append({'path': path, 'size': int(size)})
+    return rows
+
+
+def record_new_media_saved_by(
+    device_id: str,
+    owner_package: str,
+    known_paths: Iterable[str],
+    relative_path: str = CAMERA_RELATIVE_PATH,
+) -> Optional[list[str]]:
+    """Record, as media of this bot, what an app saved in a folder since `known_paths` was read.
+
+    A publish can leave more than the file it pushed: TikTok saves a copy of the video it
+    publishes in the camera folder. That copy is found without guessing, as a MediaStore row the
+    app wrote that was not there before the publish, and recorded in `pushed_media_registry` with
+    its size, so `delete_pushed_media` and `purge_pushed_media` treat it like a pushed file.
+    Returns the recorded paths, or None when MediaStore did not answer.
+    """
+    rows = list_media_saved_by(device_id, owner_package, relative_path)
+    if rows is None:
+        return None
+    known = set(known_paths)
+    new_rows = [row for row in rows if row['path'] not in known]
+    for row in new_rows:
+        pushed_media_registry.record(device_id, row['path'], row['size'])
+    return [row['path'] for row in new_rows]
 
 
 def _purge_legacy_prefixed(device_id: str, remote_dir: str, cutoff: float) -> int:
