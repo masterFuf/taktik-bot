@@ -1,0 +1,6 @@
+{
+  "include": ["taktik", "bridges", "scripts"],
+  "typeCheckingMode": "standard",
+  "pythonVersion": "3.10",
+  "pythonPlatform": "Windows"
+}
