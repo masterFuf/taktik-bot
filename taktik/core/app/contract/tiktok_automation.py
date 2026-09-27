@@ -70,11 +70,14 @@ VIDEO_SETTINGS = (
 #: `ai.newFollowers`: the welcome pass of the new-followers flow (`services/welcome/decision.py`).
 WELCOME_POLICY = Shape(
     name="TikTokWelcomePolicy",
-    doc="The AI welcome pass of new followers; anything missing means off.",
+    doc="The welcome pass of new followers; anything missing means off. Only the follow-back asks the AI.",
     fields=(
-        Field("enabled", "bool", "Run the welcome pass.", default=False),
-        Field("followBack", "bool", "Follow back a follower the verdict approves.", default=True,
-              aliases=("follow_back",)),
+        Field("enabled", "bool",
+              "Run the welcome pass; without `followBack`, it needs no `ai.enabled`, no key, no AI call.",
+              default=False),
+        Field("followBack", "bool",
+              "Follow back a follower the verdict approves: each follower is then qualified by the AI "
+              "(`ai.enabled` required).", default=True, aliases=("follow_back",)),
         Field("welcomeDm", "bool", "Write a welcome message to a new follower (see `dmRequiresFollowBack`).",
               default=False, aliases=("welcome_dm",)),
         Field("minScore", "number", "The verdict's score, 0 to 1 (or 0 to 100), from which a follower is approved.",

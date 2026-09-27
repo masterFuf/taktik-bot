@@ -1,12 +1,15 @@
-"""The AI welcome pass over a new-followers list: qualify each follower, record them for the
-attribution, follow back, and welcome the ones the policy allows.
+"""The welcome pass over a new-followers list: open each follower's profile (for the handle),
+qualify them by the AI when a follow-back is asked for, record them for the attribution, follow
+back, and welcome the ones the policy allows.
 
-It runs after a `scrape` of the new-followers flow, only when BOTH `ai.enabled` and
-`ai.newFollowers.enabled` are set: a run that says nothing about AI lists and stops. The decision
-itself is `services/welcome` (pure policy, the anti-duplicate guard, the qualification walk); this
-module does the device work around it, for the desktop bridge and the CLI alike. What differs
-between hosts is injected: the qualifier (the AI service, and where its verdicts are printed), the
-notifier, and whether this host sends the welcome DM at all.
+It runs after a `scrape` of the new-followers flow, only when `ai.newFollowers.enabled` is set: a
+run that says nothing about it lists and stops. The AI is asked only for the follow-back
+(`WelcomePolicy.needs_verdict`): a welcome without follow-back builds no AI service, needs no key
+and pays no call. The decision itself is `services/welcome` (pure policy, the anti-duplicate
+guard, the qualification walk); this module does the device work around it, for the desktop
+bridge and the CLI alike. What differs between hosts is injected: the qualifier (the AI service,
+and where its verdicts are printed), the notifier, and whether this host sends the welcome DM at
+all.
 
 The DM itself is not written here: the texts come from the app (which holds the account persona)
 and the send goes through the production cold-DM path, which navigates by verified arrival and
@@ -84,20 +87,27 @@ def run_welcome_pass(
             workflow_hook=workflow_hook, send_welcome_dms=send_welcome_dms,
         )
     except Exception as exc:
-        logger.error(f"Passe IA nouveaux followers en échec: {exc}")
-        _emit(notifier, "log", "warning", f"AI welcome pass failed: {exc}")
+        logger.error(f"Passe de bienvenue nouveaux followers en échec: {exc}")
+        _emit(notifier, "log", "warning", f"{_pass_name(policy)} failed: {exc}")
         return {"error": str(exc)}
+
+
+def _pass_name(policy: WelcomePolicy) -> str:
+    """How the operator's log names the pass: "AI" only when the AI is asked something."""
+    return "AI welcome pass" if policy.needs_verdict else "Welcome pass"
 
 
 def _run(followers, policy, *, workflow, started, device_id, ai_config, language, notifier,
          qualifier_factory, outreach_notifier, workflow_hook, send_welcome_dms) -> Dict[str, Any]:
-    qualify = qualifier_factory(ai_config, language) if qualifier_factory is not None else None
-    if qualify is None:
-        # No service means no verdict, and no verdict means no decision. Falling back to
-        # "follow everyone back" here would be the run doing something nobody asked for.
-        logger.warning("🤖 Passe IA demandée mais aucun service IA disponible — aucune décision prise")
-        _emit(notifier, "log", "warning", "AI welcome pass skipped: no AI service available")
-        return {"skipped": "no_ai_service"}
+    qualify = None
+    if policy.needs_verdict:
+        qualify = qualifier_factory(ai_config, language) if qualifier_factory is not None else None
+        if qualify is None:
+            # No service means no verdict, and no verdict means no decision. Falling back to
+            # "follow everyone back" here would be the run doing something nobody asked for.
+            logger.warning("🤖 Passe IA demandée mais aucun service IA disponible — aucune décision prise")
+            _emit(notifier, "log", "warning", "AI welcome pass skipped: no AI service available")
+            return {"skipped": "no_ai_service"}
 
     from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 
@@ -112,14 +122,14 @@ def _run(followers, policy, *, workflow, started, device_id, ai_config, language
             resolved_handles[shown_name] = handle
         return bool(handle)
 
-    def _qualify_visited(shown_name: str):
-        # Under the REAL handle. A verdict filed under a display name lands on a username
-        # nobody has, and the "have we already written to this person?" guard never matches.
-        return qualify(device, resolved_handles.get(shown_name) or shown_name)
-
-    _emit(notifier, "status", "running", f"Qualifying {len(followers)} new follower(s)")
+    if qualify is not None:
+        _emit(notifier, "status", "running", f"Qualifying {len(followers)} new follower(s)")
+        qualify_visited = _under_the_real_handle(qualify, device, resolved_handles)
+    else:
+        _emit(notifier, "status", "running", f"Opening {len(followers)} new follower profile(s)")
+        qualify_visited = None
     decisions = NewFollowerWelcomePass(
-        policy=policy, visit_profile=_visit, qualify=_qualify_visited, log=_log
+        policy=policy, visit_profile=_visit, qualify=qualify_visited, log=_log
     ).decide(followers)
 
     # Every decision travels under the handle its profile carried, so what follows -- the
@@ -132,8 +142,8 @@ def _run(followers, policy, *, workflow, started, device_id, ai_config, language
         for decision in decisions
     ]
     stats = summarize(decisions)
-    logger.info(f"🤖 Décisions IA: {stats}")
-    _emit(notifier, "log", "info", f"AI welcome pass: {stats}")
+    logger.info(f"✉️ Décisions de la passe de bienvenue: {stats}")
+    _emit(notifier, "log", "info", f"{_pass_name(policy)}: {stats}")
 
     # The attribution's raw material, and it costs nothing here: every profile has just been
     # opened and every handle is already in hand. A separate scan would open the same profiles
@@ -151,6 +161,19 @@ def _run(followers, policy, *, workflow, started, device_id, ai_config, language
         "follow_back": followed_back,
         "welcome_dm": welcome,
     }
+
+
+def _under_the_real_handle(qualify: Qualifier, device: Any,
+                           resolved_handles: Dict[str, str]) -> Callable[[str], Optional[dict]]:
+    """The verdict of a visited row, asked under the handle its profile showed.
+
+    A verdict filed under a display name lands on a username nobody has, and the "have we already
+    written to this person?" guard never matches.
+    """
+    def _qualify_visited(shown_name: str) -> Optional[dict]:
+        return qualify(device, resolved_handles.get(shown_name) or shown_name)
+
+    return _qualify_visited
 
 
 def _record_followers_as_notifications(

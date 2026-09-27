@@ -11,14 +11,20 @@ The welcome DM leans on that verdict only when it is tied to the follow-back
 whatever the verdict: the product decision is that a new follower is welcomed because they
 followed, as on Instagram, and the verdict then decides the follow-back alone.
 
+So the verdict is asked for only when a follow-back is (`WelcomePolicy.needs_verdict`, product
+decision of 2026-09-27): a welcome without follow-back writes the operator's own texts, and costs
+no AI call, no key and no AI licence. The pass reads this property before building the AI service
+and before each qualification; nothing else decides whether the AI is asked.
+
 Nothing here composes a message. The welcome texts are written upstream by the app, which holds
 the account's persona; the bot picks one and types it. A canned sentence living in the bot would
 go out in the account's name without the account knowing — the same rule Instagram's welcome DM
 already follows.
 
-Off by default, twice: the run's `ai.enabled` master switch AND an explicit
-`ai.newFollowers.enabled`. A run that says nothing about the welcome pass behaves exactly as it
-did before this file existed, even when AI is on for another reason.
+Off by default: the pass runs only on an explicit `ai.newFollowers.enabled`, so a run that says
+nothing about the welcome pass behaves exactly as it did before this file existed, even when AI
+is on for another reason. The run's `ai.enabled` master switch is required on top only by a pass
+that needs a verdict.
 """
 
 from __future__ import annotations
@@ -37,6 +43,9 @@ REASON_BELOW_THRESHOLD = "below_threshold"
 REASON_AI_DECLINED_FOLLOW = "ai_declined_follow"
 REASON_NO_MESSAGE = "no_welcome_message"
 REASON_RELEVANT = "ai_relevant"
+# No follow-back asked, so no verdict asked: welcomed because they followed, or nothing to do.
+REASON_WELCOME_EVERY_FOLLOWER = "welcome_every_follower"
+REASON_NOTHING_ASKED = "nothing_asked"
 
 DEFAULT_MIN_SCORE = 0.6
 DEFAULT_MAX_DMS = 10
@@ -77,6 +86,16 @@ class WelcomePolicy:
         """
         return self.welcome_dm and bool(self.messages) and not self.dm_requires_follow_back
 
+    @property
+    def needs_verdict(self) -> bool:
+        """Whether the AI is asked about each follower: only when a follow-back is asked for.
+
+        The verdict decides the follow-back and nothing else. A DM tied to the follow-back
+        follows it, so with no follow-back it never goes out; a DM to every follower does not
+        wait for it. Asking anyway would pay one call per follower to decide nothing.
+        """
+        return self.follow_back
+
 
 @dataclass(frozen=True)
 class WelcomeDecision:
@@ -103,17 +122,28 @@ class WelcomeDecision:
 def parse_welcome_policy(ai_config: Optional[Mapping[str, Any]]) -> WelcomePolicy:
     """Read the run's `ai.newFollowers` block. Anything missing means OFF.
 
-    Two switches on purpose. `ai.enabled` is already sent by every AI-capable TikTok run (the
-    Followers workflow uses it for the relevance verdict), so gating on it alone would turn a
-    profile-qualification run into an outreach run the day the front starts sending it here.
-    """
-    if not ai_config or not ai_config.get("enabled"):
-        return WelcomePolicy()
+    The block has its own switch on purpose. `ai.enabled` is already sent by every AI-capable
+    TikTok run (the Followers workflow uses it for the relevance verdict), so gating on it alone
+    would turn a profile-qualification run into an outreach run the day the front starts sending
+    it here.
 
+    `ai.enabled` is the AI's switch, and only a pass that asks the AI something needs it: a
+    follow-back asked for with the AI off stays off, as it always did, while a welcome without
+    follow-back runs without it.
+    """
+    ai_config = ai_config or {}
     block = ai_config.get("newFollowers") or ai_config.get("new_followers") or {}
     if not isinstance(block, Mapping) or not block.get("enabled"):
         return WelcomePolicy()
 
+    policy = _policy_from_block(block)
+    if policy.needs_verdict and not ai_config.get("enabled"):
+        return WelcomePolicy()
+    return policy
+
+
+def _policy_from_block(block: Mapping[str, Any]) -> WelcomePolicy:
+    """The `ai.newFollowers` block, key by key (camelCase from the app, snake_case from a plan)."""
     return WelcomePolicy(
         enabled=True,
         follow_back=bool(block.get("followBack", block.get("follow_back", True))),
@@ -141,6 +171,8 @@ def decide_for_new_follower(
         return WelcomeDecision("", reason=REASON_UNREADABLE_HANDLE)
     if not policy.enabled:
         return WelcomeDecision(handle, reason=REASON_AI_OFF)
+    if not policy.needs_verdict:
+        return _decide_without_verdict(handle, policy)
 
     # No verdict is not a verdict. The AI was asked and did not answer (provider error, black
     # screenshot, classification without an engagement block) — acting on that would be acting
@@ -188,6 +220,16 @@ def decide_for_new_follower(
         score=score,
         relevant=True,
     )
+
+
+def _decide_without_verdict(handle: str, policy: WelcomePolicy) -> WelcomeDecision:
+    """No follow-back asked: the verdict would decide nothing, so none is read, whatever it says."""
+    if policy.welcomes_every_follower:
+        return WelcomeDecision(handle, welcome_dm=True, reason=REASON_WELCOME_EVERY_FOLLOWER)
+    if policy.dm_requested_without_message:
+        return WelcomeDecision(handle, reason=REASON_NO_MESSAGE)
+    # A DM tied to a follow-back that nobody asked for, or no DM at all.
+    return WelcomeDecision(handle, reason=REASON_NOTHING_ASKED)
 
 
 def follow_back_targets(decisions: Sequence[WelcomeDecision]) -> List[str]:
@@ -261,12 +303,14 @@ __all__ = [
     "REASON_AI_OFF",
     "REASON_BELOW_THRESHOLD",
     "REASON_NOT_RELEVANT",
+    "REASON_NOTHING_ASKED",
     "REASON_NO_MESSAGE",
     "REASON_NO_VERDICT",
     "REASON_PROFILE_UNREACHABLE",
     "REASON_RELEVANT",
     "REASON_UNREADABLE_HANDLE",
     "REASON_UNSCORED",
+    "REASON_WELCOME_EVERY_FOLLOWER",
     "WelcomeDecision",
     "WelcomePolicy",
     "decide_for_new_follower",

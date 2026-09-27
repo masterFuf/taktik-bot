@@ -219,3 +219,46 @@ def test_without_an_ai_service_the_pass_decides_nothing():
 
     assert outcome == {"skipped": "no_ai_service"}
     assert ("log", ("warning", "AI welcome pass skipped: no AI service available")) in notifier.calls
+
+
+def test_a_welcome_to_every_follower_without_follow_back_builds_no_ai_service(monkeypatch, fake_outreach):
+    """Product decision of 2026-09-27: no AI call, no cost, no AI licence when only the message is
+    asked for; the qualification serves the follow-back alone.
+
+    Would have caught the pass building the AI service (so demanding a key, and paying a call per
+    follower) for a welcome that never reads a verdict, then giving up without a key.
+    """
+    import taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions as dm_actions_module
+
+    class _Profiles:
+        """Opens a follower's row; the profile shows the handle."""
+
+        def __init__(self, device):
+            self.device = device
+
+        def open_new_follower_profile(self, shown_name):
+            return shown_name.lower().replace(" ", "_")
+
+    monkeypatch.setattr(dm_actions_module, "DMActions", _Profiles)
+    recorded = []
+    monkeypatch.setattr(welcome_pass, "_record_followers_as_notifications",
+                        lambda account, followers, handles: recorded.append(dict(handles)))
+    monkeypatch.setattr(tiktok_dm, "resolve_account_id", lambda username: 7)
+    monkeypatch.setattr(tiktok_dm, "sent_dm_already_recorded", lambda account_id, handle: False)
+    monkeypatch.setattr(tiktok_dm, "thread_carries_our_message", lambda account_id, handle: False)
+    asked = []
+
+    outcome = welcome_pass.run_welcome_pass(
+        [{"username": "fan_one"}, {"username": "Fan Two"}], _policy(dm_requires_follow_back=False),
+        workflow=SimpleNamespace(follow_back_users=lambda handles: pytest.fail("followed back")),
+        started=SimpleNamespace(device=object(), bot_username="acting_account", manager=object()),
+        device_id="device-1", ai_config={"enabled": False}, language="fr", notifier=_Notifier(),
+        qualifier_factory=lambda ai_config, language: asked.append(ai_config),
+    )
+
+    assert asked == []
+    assert outcome["summary"] == {"reasons": {"welcome_every_follower": 2}, "follow_back": 0, "welcome_dm": 2}
+    assert fake_outreach.instances[0].run_args[0] == ["fan_one", "fan_two"]
+    assert outcome["welcome_dm"]["sent"] is True
+    # The attribution's raw material is still written: it needs the handles, not the AI.
+    assert recorded == [{"fan_one": "fan_one", "Fan Two": "fan_two"}]

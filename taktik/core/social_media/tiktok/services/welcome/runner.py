@@ -11,6 +11,10 @@ opened, since the page shows display names, and the handle is read off the profi
 which answers ARRIVAL rather than click. A False from it means we did not land where we meant to,
 and a verdict taken there would describe a stranger's profile while being filed under our
 follower's name.
+
+`qualify` is asked only when the policy needs a verdict (`WelcomePolicy.needs_verdict`: a
+follow-back is asked for). A welcome without follow-back still visits each profile, for the handle,
+and asks the AI nothing; it can be built without a qualifier at all.
 """
 
 from __future__ import annotations
@@ -42,7 +46,7 @@ class NewFollowerWelcomePass:
         *,
         policy: WelcomePolicy,
         visit_profile: VisitProfile,
-        qualify: Qualify,
+        qualify: Optional[Qualify] = None,
         log: Callable[[str, str], None] = _noop_log,
     ) -> None:
         self.policy = policy
@@ -81,10 +85,11 @@ class NewFollowerWelcomePass:
                 continue
 
             verdict = None
-            try:
-                verdict = self._qualify(handle)
-            except Exception as exc:  # noqa: BLE001
-                self._log("warning", f"[WELCOME] Verdict IA indisponible pour @{handle}: {exc}")
+            if self.policy.needs_verdict and self._qualify is not None:
+                try:
+                    verdict = self._qualify(handle)
+                except Exception as exc:  # noqa: BLE001
+                    self._log("warning", f"[WELCOME] Verdict IA indisponible pour @{handle}: {exc}")
 
             decision = decide_for_new_follower(handle, verdict, self.policy)
             self._log(

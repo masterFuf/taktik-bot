@@ -12,6 +12,12 @@ touched. The old code's values stay in the snapshot (`calls_old_code`, `events_o
 `configs_old_code`). The app never sends either request: both buttons are disabled on an empty
 selection.
 
+A third was re-recorded on 2026-09-27, by the product decision that the AI qualification serves the
+follow-back alone: `new_followers_welcome_without_follow_back` (no follow-back, the DM tied to one)
+qualified each reached follower, one screenshot and one paid AI call each, to decide nothing. It
+now opens each profile for its handle and asks the AI nothing (the old record is in the history
+of this file).
+
 Every welcome scenario but one sends through a stand-in of the cold-DM workflow.
 `new_followers_welcome_no_message_entry` runs the production one: a follower whose profile offers
 no message entry is skipped, and the bridge prints what the cold DM prints for it.
@@ -187,3 +193,13 @@ def test_the_welcome_dm_skips_a_follower_without_message_entry_as_the_cold_dm_do
     # Not marked: the entry comes back once we follow them.
     marked = [write["sent_dm"]["recipient"] for write in record["db_writes"] if "sent_dm" in write]
     assert marked == ["fan_one"]
+
+
+def test_a_pass_without_follow_back_asks_the_ai_nothing():
+    """The verdict decides the follow-back alone: without one, no service, no screenshot, no call."""
+    record = SNAPSHOT["new_followers_welcome_without_follow_back"]
+    assert record["ai_services"] == []
+    assert not [call for call in record["calls"] if call.startswith(("ai_classify", "screenshot"))]
+    assert not [kind for kind, _event in record["events"] if kind.startswith("ai_")]
+    assert [call for call in record["calls"] if call.startswith("open_follower_profile ")] == [
+        "open_follower_profile fan_one", "open_follower_profile Fan Two", "open_follower_profile Emile B"]
