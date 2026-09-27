@@ -21,9 +21,11 @@ handle, so `navigate_to_user_profile` cannot be the way in. Handing it the displ
 is read off the profile that opens -- which also keeps the verdict from being filed under a
 username nobody has. A display name whose emoji the XML dump ate came back as its real handle.
 
-STILL UNVERIFIED on a phone: the follow-back and the DM themselves. That run's AI declined all
-three followers (small personal accounts against a niche operated account), a legitimate outcome
-that means no send has run yet.
+The DM itself was then proven on a phone (2026-09-27, TikTok 43.1.4, the welcome without
+follow-back): the top row opened, its handle read on the profile, no AI service built, one message
+sent through the cold-DM path and found in the conversation, the marker and the thread written.
+STILL UNVERIFIED on a phone: the follow-back of this pass. The first device run's AI declined all
+three followers (small personal accounts against a niche operated account), so none has run yet.
 """
 
 from __future__ import annotations
