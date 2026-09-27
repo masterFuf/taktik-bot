@@ -117,6 +117,12 @@ def _refresh_own_account(host: NotificationsHost, runtime, account_username: str
         )
         if profile and profile.get("username"):
             resolved = account_username or profile["username"]
+            # The account the run acts as, as the automation announces it: the app's live panel of
+            # a scan that visits suggestions shows it.
+            host.emit({"type": "active_account", "username": profile["username"],
+                       "followers": int(profile.get("followers_count") or 0),
+                       "following": int(profile.get("following_count") or 0),
+                       "posts": int(profile.get("posts_count") or 0)})
             host.step(
                 step="own_profile", status="done",
                 message=f"@{profile['username']} — {profile.get('followers_count', 0)} followers",

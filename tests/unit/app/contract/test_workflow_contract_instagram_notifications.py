@@ -2,10 +2,12 @@
 
 As for the other Instagram bridges (`test_workflow_contract_instagram_bridges.py`): the whole bridge
 runs, from its config file to its stdout, on the app's file, one run per command. The production
-workflow reads a real activity screen (`ig410_en_notifications.xml`, anonymized); only what moves the
-phone, the base and the per-profile pipeline of the suggestions visit answer here. The lines are
-printed by the production emitters (the workflow's narration, the batch, the shared suggestions
-visit, the command results, the bridge's refusals), not written by the test.
+workflow reads a real activity screen (`ig410_en_notifications.xml`, anonymized); the suggestions
+visit walks the real per-profile pipeline (`build_notifications_profile_pipeline`) on a real, empty
+base. Only what the phone reads and moves, the notifications' own records and the AI's HTTP transport
+answer here. The lines are printed by the production emitters (the workflow's narration, the batch,
+the shared suggestions visit, the automation's per-profile pipeline and AI service, the command
+results, the bridge's refusals), not written by the test.
 """
 
 from __future__ import annotations
@@ -19,11 +21,14 @@ from typing import Any, Dict, List
 import pytest
 
 from contract_probe import Recording
+from ig_automation_probe import protect_hooks
 from taktik.core.app.contract.instagram_notifications import (
     BATCH_VERBS,
     COMMANDS,
     INSTAGRAM_NOTIFICATIONS,
+    NOTIFICATION_STEP_EVENT,
     NOTIFICATION_TYPES,
+    RESULT_EVENT,
     ROW_COMMANDS,
 )
 from test_workflow_contract_bridges import check_lines
@@ -64,14 +69,35 @@ class _Composer:
         return ""
 
 
+#: The suggestion rows at the bottom of the activity screen (their height), and the profile each one
+#: opens: a public account, a second one, a private one, one whose handle cannot be read.
+_SUGGESTION_ROWS = (
+    (1500, "Name One", "suggested_one"),
+    (1700, "Name Two", "suggested_two"),
+    (1900, "Name Three", "suggested_private"),
+    (2100, "Name Four", None),
+)
+#: The account on the phone.
+_OWN = "acting"
+#: The profile the phone shows.
+_SHOWN = {"username": _OWN}
+
+
 class _Phone:
-    """Taps land nowhere."""
+    """A tap on a suggestion row opens its profile; the other taps land nowhere."""
 
     def long_click(self, x, y, duration=None):
-        return None
+        self.click(x, y)
 
     def click(self, x, y):
-        return None
+        for row_y, _label, username in _SUGGESTION_ROWS:
+            if abs(y - row_y) < 50:
+                _SHOWN["username"] = username
+
+    def screenshot(self):
+        from PIL import Image
+
+        return Image.new("RGB", (8, 8))
 
 
 def _workflow_class(screen):
@@ -81,8 +107,8 @@ def _workflow_class(screen):
 
     requests = [{"username": "user_20", "accept": (646, 486), "ignore": (908, 486)},
                 {"username": "user_21", "accept": (646, 689), "ignore": (908, 689)}]
-    suggestions = [{"label": "Name One", "state": "follow", "follow_point": (900, 1500), "row_point": (400, 1500)},
-                   {"label": "Name Two", "state": "follow", "follow_point": (900, 1700), "row_point": (400, 1700)}]
+    suggestions = [{"label": label, "state": "follow", "follow_point": (900, y), "row_point": (400, y)}
+                   for y, label, _username in _SUGGESTION_ROWS]
 
     class Scripted(NotificationsEngagementWorkflow):
         """The production workflow on a real activity screen; what moves the phone answers here."""
@@ -150,36 +176,63 @@ def _workflow_class(screen):
         def scan_suggestions(self, root=None):
             return [dict(row) for row in suggestions]
 
-        def open_suggestion_profile(self, row, load_timeout_s=8.0):
-            return True
-
         def leave_suggestion_profile(self):
             return True
 
     return Scripted
 
 
-class _Pipeline:
-    """The per-profile pipeline's answer: its own lines belong to the automation's contract."""
+def _script_the_profile_screen(monkeypatch) -> None:
+    """What the phone reads on the profile it shows answers from a script; the per-profile pipeline
+    around it is production's (`build_notifications_profile_pipeline`: extraction, filters, plan,
+    follow, base), and so is the reading of our own profile before the feed."""
+    from taktik.core.social_media.instagram.actions.atomic.detection.profile_extraction import (
+        ProfileExtractionMixin,
+    )
+    from taktik.core.social_media.instagram.actions.atomic.detection.screen_detection import ScreenDetectionMixin
+    from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
+        ProfileInteractionMixin,
+    )
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+    from taktik.core.social_media.instagram.actions.business.management.profile.extraction import ProfileExtraction
+    from taktik.core.social_media.instagram.actions.core.base_business import interaction_engine
+    from taktik.core.social_media.instagram.actions.core.base_business.modal_recovery import ModalRecoveryMixin
+    from taktik.core.social_media.instagram.actions.core.base_business.popup_handling import PopupHandlingMixin
 
-    def __init__(self):
-        self.read = iter(("suggested_one", None))
+    shown = _SHOWN
 
-    def read_username(self):
-        return next(self.read, None)
+    def own_profile(self, *args, **kwargs):
+        shown["username"] = _OWN
+        return True
 
-    def process(self, username):
-        from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import (
-            ProfileProcessingResult,
-        )
-
-        outcome = ProfileProcessingResult(ProfileProcessingResult.SUCCESS, username)
-        outcome.interaction_result = {"follows": 1}
-        return outcome
+    screen = {
+        (ScreenDetectionMixin, "wait_for_profile_screen"): lambda self, timeout=8.0, interval=0.4: True,
+        (ScreenDetectionMixin, "count_visible_posts"): lambda self: 9,
+        (ScreenDetectionMixin, "is_on_profile_screen"): lambda self, *args, **kwargs: True,
+        (NavigationActions, "navigate_to_profile_tab"): own_profile,
+        (ProfileExtractionMixin, "extract_own_avatar_from_tab"): lambda self, xml_content=None: None,
+        (ProfileExtractionMixin, "get_username_from_profile"): lambda self: shown["username"],
+        (ProfileExtractionMixin, "get_profile_flags_batch"): lambda self: {
+            "is_private": shown["username"] == "suggested_private", "is_verified": False, "is_business": False},
+        (ProfileExtractionMixin, "get_enriched_profile_data"): lambda self, **kwargs: {
+            "username": shown["username"], "full_name": "A Name", "biography": "yoga", "bio_truncated": False},
+        (ProfileExtractionMixin, "extract_profile_image"): lambda self, xml_content=None: "data:image/jpeg;base64,AAAA",
+        (ProfileExtraction, "_get_followers_count_robust"): lambda self, swipe_up_if_needed=False: 120,
+        (ProfileExtraction, "_get_following_count_robust"): lambda self, swipe_up_if_needed=False: 80,
+        (ProfileExtraction, "_get_posts_count_robust"): lambda self, swipe_up_if_needed=False: 30,
+        (ProfileInteractionMixin, "get_follow_button_state"): lambda self: "follow",
+        (ProfileInteractionMixin, "follow_user"): lambda self, username: True,
+        (ModalRecoveryMixin, "_recover_from_blocking_modal"): lambda self, username="", context="": None,
+        (PopupHandlingMixin, "_handle_follow_suggestions_popup"): lambda self: False,
+    }
+    for (owner, name), answer in screen.items():
+        monkeypatch.setattr(owner, name, answer)
+    # After the follow, one look for "Try again later": the screen shows none.
+    monkeypatch.setattr(interaction_engine, "look_for_action_block", lambda *args, **kwargs: False)
 
 
 @pytest.fixture
-def notifications_bridge(monkeypatch):
+def notifications_bridge(monkeypatch, tmp_path):
     import importlib
 
     import bridges.common.device.connection as connection
@@ -209,7 +262,19 @@ def notifications_bridge(monkeypatch):
     monkeypatch.setattr(bridge, "NotificationsBridge", Runtime)
     workflow = _workflow_class(screen)
     monkeypatch.setattr(commands, "NotificationsEngagementWorkflow", workflow)
-    monkeypatch.setattr(commands, "build_notifications_profile_pipeline", lambda device, **kwargs: _Pipeline())
+    _script_the_profile_screen(monkeypatch)
+    monkeypatch.setitem(_SHOWN, "username", _OWN)
+    # The AI hooks of a run with an `ai` block patch the interaction engine: put back afterwards.
+    protect_hooks(monkeypatch)
+    # A real, empty base for what the visit writes (profiles, filtered profiles, AI cache).
+    import sqlite3
+
+    import taktik.core.database as database
+
+    database_file = tmp_path / "notifications.db"
+    sqlite3.connect(database_file).close()
+    monkeypatch.setenv("TAKTIK_DB_PATH", str(database_file))
+    monkeypatch.setattr(database, "db_service", None)
     monkeypatch.setattr(workflow_module, "ensure_taktik_keyboard", lambda device_id: None)
     monkeypatch.setattr(workflow_module, "tap_element_human", lambda device, element: True)
     monkeypatch.setattr(time, "sleep", lambda seconds: None)
@@ -234,13 +299,6 @@ def notifications_bridge(monkeypatch):
         "message": f"@{username} - already in a relationship"})
     monkeypatch.setattr(commands, "wait_before_next_off_screen_action", lambda *, is_last: None)
 
-    class Profile:
-        def __init__(self, device):
-            pass
-
-        def get_complete_profile_info(self, username=None, navigate_if_needed=True):
-            return {"username": "acting", "followers_count": 12}
-
     class Navigation:
         def __init__(self, device):
             pass
@@ -248,7 +306,6 @@ def notifications_bridge(monkeypatch):
         def navigate_to_home(self):
             return None
 
-    monkeypatch.setattr("taktik.core.social_media.instagram.actions.business.management.profile.ProfileBusiness", Profile)
     monkeypatch.setattr("taktik.core.social_media.instagram.actions.atomic.navigation.NavigationActions", Navigation)
     monkeypatch.setattr(bridge, "Runtime", Runtime, raising=False)
     monkeypatch.setattr(bridge, "Workflow", workflow, raising=False)
@@ -270,7 +327,7 @@ _BATCH = [
 
 #: The choices the app's file is written for, command by command.
 _RUNS = {
-    "scan": {"followSuggestions": 2, "accountUsername": "acting"},
+    "scan": {"followSuggestions": len(_SUGGESTION_ROWS), "accountUsername": "acting"},
     "list_requests": {},
     "accept_all": {"accountUsername": "acting"},
     "reply": {"username": "user_3", "text": "Thanks", "accountUsername": "acting"},
@@ -302,11 +359,81 @@ def test_the_notifications_bridge_follows_its_contract(notifications_bridge, pri
         assert any(line["type"] == "notification_step" for line in lines)
 
 
+def _cli_scan_with_ai(bridge, monkeypatch) -> None:
+    """A scan whose file carries an `ai` block, as the CLI may pass it (the app sends none): the real
+    AI service qualifies the visited profiles, its HTTP transport answering from a script, the first
+    call answered, the second refused."""
+    from test_workflow_contract_bridges import assert_reads as assert_reads_up_to_json
+    from test_workflow_contract_instagram_automation_lines import _MODEL_ANSWER, _openrouter
+
+    monkeypatch.setattr("urllib.request.urlopen", _openrouter([_MODEL_ANSWER, "fail", "fail", "fail"]))
+    data = app_file(INSTAGRAM_NOTIFICATIONS, command="scan", **_RUNS["scan"])
+    data.update(ai={"enabled": True, "profileAnalysis": True, "openrouterApiKey": "sk-probe-key-long-enough"},
+                language="fr")
+    log: set = set()
+
+    assert _run(bridge, data, log) == 0
+
+    # Below `ai`, declared as an object read whole, what is read is the AI service's business.
+    assert_reads_up_to_json(INSTAGRAM_NOTIFICATIONS, data, log)
+
+
+def test_a_scan_that_visits_suggestions_prints_the_automation_s_lines(notifications_bridge, printed, monkeypatch):
+    _run(notifications_bridge, app_file(INSTAGRAM_NOTIFICATIONS, command="scan", **_RUNS["scan"]), set())
+    lines = printed()
+    _cli_scan_with_ai(notifications_bridge, monkeypatch)
+    with_ai = printed()
+
+    check_lines(INSTAGRAM_NOTIFICATIONS, lines + with_ai)
+    visited = [line["username"] for line in lines if line["type"] == "instagram_profile_visit"]
+    assert visited == ["suggested_one", "suggested_two", "suggested_private"]
+    assert {line["username"] for line in lines if line["type"] == "profile_captured"} == {_OWN, *visited}
+    assert [line["username"] for line in lines if line["type"] == "active_account"] == [_OWN]
+    actions = {(line["action"], line["username"]) for line in lines if line["type"] == "instagram_action"}
+    assert ("private", "suggested_private") in actions and ("plan", "suggested_one") in actions
+    # Without an `ai` block nothing is qualified; with one, each public profile is, and a refused call
+    # is said.
+    assert not any(line["type"].startswith("ai_") for line in lines)
+    assert {line["type"] for line in with_ai} >= {"ai_profile_start", "ai_profile_done", "ai_error"}
+
+
+def test_a_scan_without_suggestions_opens_no_profile(notifications_bridge, printed):
+    """`followSuggestions` governs the visit: 0 (the default) opens no suggested profile."""
+    _run(notifications_bridge, app_file(INSTAGRAM_NOTIFICATIONS, command="scan", accountUsername="acting"), set())
+    lines = printed()
+
+    check_lines(INSTAGRAM_NOTIFICATIONS, lines)
+    assert not any(line["type"] in ("instagram_profile_visit", "instagram_action") for line in lines)
+    assert lines[-1]["suggestions"]["stop_reason"] == "disabled"
+
+
+def test_the_visit_opens_no_more_profiles_than_followsuggestions(notifications_bridge, printed):
+    _run(notifications_bridge, app_file(INSTAGRAM_NOTIFICATIONS, command="scan", followSuggestions=2,
+                                        accountUsername="acting"), set())
+    lines = printed()
+
+    visited = [line["username"] for line in lines if line["type"] == "instagram_profile_visit"]
+    assert visited == ["suggested_one", "suggested_two"]
+    assert lines[-1]["suggestions"]["visited"] == 2
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "`resolve_against_availability` (shared/behavior/interaction_plan.py, rule 2, 2026-09-05) drops a "
+    "follow that would be the only gesture; the visit's interaction config (profile_pipeline.py, "
+    "follow 100 %, nothing else) is exactly that, so the visit never follows. Decision pending."))
+def test_a_suggestion_visit_follows_the_account_it_qualified(notifications_bridge, printed):
+    _run(notifications_bridge, app_file(INSTAGRAM_NOTIFICATIONS, command="scan", **_RUNS["scan"]), set())
+
+    assert printed()[-1]["suggestions"]["follows"] >= 1
+
+
 def test_every_declared_line_and_field_comes_out_of_a_real_run(notifications_bridge, printed, monkeypatch):
     seen: List[Dict[str, Any]] = []
     for command in COMMANDS:
         _run(notifications_bridge, app_file(INSTAGRAM_NOTIFICATIONS, command=command, **_RUNS[command]), set())
         seen += printed()
+    _cli_scan_with_ai(notifications_bridge, monkeypatch)
+    seen += printed()
     # Instagram refuses the like; a verb without its row is refused before the phone.
     monkeypatch.setattr(notifications_bridge.Workflow, "blocked", True)
     _run(notifications_bridge, app_file(INSTAGRAM_NOTIFICATIONS, command="accept", **_RUNS["accept"]), set())
@@ -318,7 +445,9 @@ def test_every_declared_line_and_field_comes_out_of_a_real_run(notifications_bri
 
     check_lines(INSTAGRAM_NOTIFICATIONS, seen)
     assert {line["type"] for line in seen} == {event.type for event in INSTAGRAM_NOTIFICATIONS.events}
-    for event in INSTAGRAM_NOTIFICATIONS.events:
+    # The automation's lines are that contract's, each field held by its own tests; this bridge prints
+    # the part of them its run reaches.
+    for event in (NOTIFICATION_STEP_EVENT, RESULT_EVENT):
         printed_fields = {key for line in seen if line["type"] == event.type for key in line} - {"type"}
         # `traceback` is a crash's: `test_a_crash_is_said_in_the_last_line`.
         assert printed_fields | {"traceback"} >= {item.key for item in event.fields}, event.type
@@ -330,7 +459,10 @@ def test_a_scan_reads_the_rows_of_the_screen(notifications_bridge, printed):
     result = printed()[-1]
     assert result["success"] is True and result["count"] == len(result["items"]) > 0
     assert {item["type"] for item in result["items"]} >= {"new_follower", "comment_mention"}
-    assert result["suggestions"]["follows"] == 1 and result["suggestions"]["profiles"][1]["username"] is None
+    visit = result["suggestions"]
+    assert visit["visited"] == len(_SUGGESTION_ROWS) and visit["processed"] == 3
+    assert [profile["status"] for profile in visit["profiles"]] == [
+        "skipped_probability", "skipped_probability", "filtered_private", "no_username"]
 
 
 @pytest.mark.parametrize("command", ("like", "reply", "accept", "ignore", "follow_back"))
@@ -389,3 +521,4 @@ def test_an_unreadable_file_is_said_in_a_result_line(printed, tmp_path, monkeypa
     lines = printed()
     check_lines(INSTAGRAM_NOTIFICATIONS, lines)
     assert [line["type"] for line in lines] == ["result"] and lines[0]["success"] is False
+

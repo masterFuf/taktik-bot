@@ -411,6 +411,10 @@ def _json_paths(item: Field, prefix: Tuple[str, ...] = ()) -> List[List[str]]:
     return out
 
 
+def _json_when(when) -> Dict[str, Any]:
+    return {key: list(value) if isinstance(value, tuple) else value for key, value in (when or {}).items()}
+
+
 def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
             tools: Tuple[ToolContract, ...] = TOOL_CONTRACTS) -> Dict[str, Any]:
     _, exported = render(contracts, tools)
@@ -437,9 +441,10 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
             # Objects the bot reads as a whole ("json"): what lies below them is not declared yet.
             "opaque": [[*nest, *path] for item in contract.settings for path in _json_paths(item)],
             "launcherOpaque": [path for item in contract.settings for path in _json_paths(item)],
+            # `when`: the settings under which the reader reads the key (a list: any of its values).
             "settings": [
                 {"key": item.key, "aliases": list(item.aliases), "app": item.app, "by": item.by,
-                 "required": item.required}
+                 "required": item.required, "when": _json_when(item.when)}
                 for item in contract.settings
             ],
             "bridgeFields": [
