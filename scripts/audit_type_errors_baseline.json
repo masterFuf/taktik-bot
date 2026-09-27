@@ -240,7 +240,7 @@
   "taktik/core/social_media/instagram/workflows/dm_inbox/conversation_state.py": 6,
   "taktik/core/social_media/instagram/workflows/dm_inbox/inbox_reset.py": 21,
   "taktik/core/social_media/instagram/workflows/dm_inbox/message_extraction.py": 14,
-  "taktik/core/social_media/instagram/workflows/dm_inbox/navigation.py": 21,
+  "taktik/core/social_media/instagram/workflows/dm_inbox/navigation.py": 13,
   "taktik/core/social_media/instagram/workflows/dm_inbox/reader.py": 9,
   "taktik/core/social_media/instagram/workflows/dm_inbox/sender.py": 13,
   "taktik/core/social_media/instagram/workflows/management/notifications/agent_handler.py": 11,
