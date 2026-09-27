@@ -10,6 +10,7 @@ on the current screen (``ocr.locate``). Platform-agnostic primitive in
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import absent_on_screen
 
 
 @action("ocr.available")
@@ -47,8 +48,16 @@ def ocr_locate(a, p):
         except ValueError:
             return {"success": False, "message": "region must be 'x1,y1,x2,y2'"}
 
+    from taktik.core.shared.vision import OcrService
+
+    if not OcrService.available():
+        return {"success": False, "message": "ocr.locate: OCR unavailable (tesseract not found), nothing read"}
     matches = locate_text_on_screen(a.device, queries, region=region)
     details = [{"text": m.text, "center": m.center, "confidence": round(m.confidence)} for m in matches]
     msg = f"ocr.locate: {len(matches)} match(es) for {queries}" + (f" in {region}" if region else "")
     logger.info(msg)
-    return {"success": bool(matches), "count": len(matches), "matches": details, "message": msg}
+    if not matches:
+        # OCR read the screen and none of the words is on it.
+        return absent_on_screen("ocr.locate", device=a.device, platform="instagram", still_there=None,
+                                what=f"{', '.join(queries)} read by OCR")
+    return {"success": True, "count": len(matches), "matches": details, "message": msg}

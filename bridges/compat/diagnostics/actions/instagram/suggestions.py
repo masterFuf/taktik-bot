@@ -15,6 +15,7 @@ Every UI signature comes from the centralized catalogs
 """
 
 from bridges.compat.diagnostics.actions.instagram import action, detection_action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import absent_on_screen
 
 
 # What the report must say: why it stopped there, and whether the device came
@@ -218,6 +219,10 @@ def find_carousel(a, p):
     max_scrolls = int(p.get("max_scrolls", 12))
     res = a.feed.find_feed_suggestions_carousel(max_scrolls)
     found = bool(res.get("found"))
+    if not found and a.detection.is_on_home_screen():
+        # The feed was read scroll after scroll and served no carousel: content, not a selector.
+        return absent_on_screen("suggestions.find_carousel", device=a.device, platform="instagram", still_there=None,
+                                what=f"suggestions carousel in {res.get('scrolls', 0)} scroll(s)", where="of the home feed")
     if not found:
         message = f"Aucun carousel apres {res.get('scrolls', 0)} scroll(s)"
     else:

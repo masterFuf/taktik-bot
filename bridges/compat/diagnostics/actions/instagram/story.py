@@ -3,6 +3,7 @@
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action, detection_action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import absent_on_screen
 
 
 @action("story.like")
@@ -64,8 +65,14 @@ def story_has_profile_story(a, p):
 
 @action("story.open_from_profile")
 def story_open_from_profile(a, p):
-    """Open the active story from the current profile's avatar ring (not a highlight)."""
-    return a.click.click_profile_story_ring()
+    """Open the active story from the current profile's avatar ring (not a highlight). A profile
+    without a story up has no ring: not applicable."""
+    if a.click.click_profile_story_ring():
+        return True
+    if a.detection.is_on_profile_screen() and not a.detection.has_unseen_profile_story():
+        return absent_on_screen("story.open_from_profile", device=a.device, platform="instagram", still_there=None,
+                                what="story ring", where="on this profile")
+    return {"success": False, "message": "story.open_from_profile: the ring was not opened"}
 
 
 @action("story.count_highlights")

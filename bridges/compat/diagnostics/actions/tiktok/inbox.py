@@ -7,6 +7,16 @@ and therefore to the scenarios. Built on the DM actions.
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import absent_on_screen
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+
+
+def _absent_from_inbox(action_id, a, what):
+    """Nothing to act on: not applicable on the inbox, read and TikTok's; a failure anywhere else."""
+    if not a.dm.is_on_inbox_page():
+        return {"success": False, "message": f"{action_id}: not on the inbox, nothing concluded"}
+    return absent_on_screen(action_id, device=a.device, platform="tiktok", still_there=None, what=what,
+                            where="on the inbox")
 
 
 @action("tt.inbox.open_new_followers")
@@ -50,8 +60,12 @@ def get_unreplied(a, p):
 
 @action("tt.inbox.open_message_requests")
 def open_message_requests(a, p):
-    """Open the message-requests page."""
-    return a.dm.open_message_requests_page()
+    """Open the message-requests page. No request pending (no row on the inbox): not applicable."""
+    if a.dm.open_message_requests_page():
+        return True
+    if first_matching(a.device, a.dm.inbox_selectors.message_requests_section):
+        return {"success": False, "message": "tt.inbox.open_message_requests: the requests row is there, the page did not open"}
+    return _absent_from_inbox("tt.inbox.open_message_requests", a, "message requests row")
 
 
 @action("tt.inbox.get_requests")
@@ -88,8 +102,9 @@ def get_notifications(a, p):
 def hello_candidates(a, p):
     """READS ONLY: the display names the inbox offers a one-tap wave to."""
     names = a.dm.say_hello_candidates()
-    return {"success": bool(names), "message": ", ".join(names[:6]) or "no wave offered on this screen",
-            "details": {"names": names}}
+    if not names:
+        return _absent_from_inbox("tt.inbox.hello_candidates", a, "wave offered")
+    return {"success": True, "message": ", ".join(names[:6]), "details": {"names": names}}
 
 
 @action("tt.inbox.say_hello")

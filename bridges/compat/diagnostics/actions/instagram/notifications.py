@@ -21,6 +21,7 @@ from bridges.compat.diagnostics.runtime.action_test.action_bundle import (
 )
 
 from bridges.compat.diagnostics.actions.instagram import action, detection_action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import absent_on_screen
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS as N
 
 
@@ -75,6 +76,15 @@ def lab_suggestion_session(p, source):
                        f"the {source} run will not be attached to any session")
     with suggestion_session(account_id, source=f"lab:{source}") as session_id:
         yield session_id
+
+
+def _absent_from_notifications(action_id, a, wf, what):
+    """Nothing to act on: not applicable on the notifications screen, read and Instagram's (the
+    production check `_on_notifications_screen`); a failure anywhere else."""
+    if not wf._on_notifications_screen():
+        return {"success": False, "message": f"{action_id}: not on the notifications screen, nothing concluded"}
+    return absent_on_screen(action_id, device=a.device, platform="instagram", still_there=None, what=what,
+                            where="on the notifications screen")
 
 
 def _tap_first(a, selectors, label):
@@ -136,13 +146,14 @@ def open_follow_requests(a, p):
     Taps the grouped digest row's LEFT avatar cluster — the reliable hit target;
     a center tap on the row text is flaky even by hand (this is exactly why prod
     targets the avatar zone, and why the Lab must drive the same code)."""
-    ok = _workflow(a)._open_grouped_requests()
-    if ok:
-        time.sleep(1.0)
-    msg = ("notifications.open_follow_requests: opened" if ok
-           else "notifications.open_follow_requests: grouped header not found")
-    (logger.info if ok else logger.warning)(msg)
-    return {"success": ok, "message": msg}
+    wf = _workflow(a)
+    ok = wf._open_grouped_requests()
+    if not ok:
+        # No request pending: the screen has no "Follow requests" row to open.
+        return _absent_from_notifications("notifications.open_follow_requests", a, wf, "follow requests row")
+    time.sleep(1.0)
+    logger.info("notifications.open_follow_requests: opened")
+    return {"success": True, "message": "notifications.open_follow_requests: opened"}
 
 
 def _act_first_request(a, which, label):
@@ -195,11 +206,11 @@ def reply_mention(a, p):
 
     Reuses the prod ``_open_reply_thread('')`` (taps the first Reply affordance on
     screen, bounds-paired, humanized)."""
-    ok = _workflow(a)._open_reply_thread("")
-    msg = ("notifications.reply_mention: reply opened" if ok
-           else "notifications.reply_mention: no reply affordance on screen")
-    (logger.info if ok else logger.warning)(msg)
-    return {"success": ok, "message": msg}
+    wf = _workflow(a)
+    if not wf._open_reply_thread(""):
+        return _absent_from_notifications("notifications.reply_mention", a, wf, "row to reply to")
+    logger.info("notifications.reply_mention: reply opened")
+    return {"success": True, "message": "notifications.reply_mention: reply opened"}
 
 
 @action("notifications.open_filter")
@@ -310,7 +321,12 @@ def follow_back(a, p):
 def open_mention(a, p):
     """Open the comment thread of ``username``'s row WITHOUT typing (row-scoped).
     Param: username (optional → first reply affordance)."""
-    return _workflow(a).open_mention((p.get("username") or "").strip())
+    username = (p.get("username") or "").strip()
+    wf = _workflow(a)
+    result = wf.open_mention(username)
+    if not result.get("success") and not username and not wf._all_matches(N.reply_button):
+        return _absent_from_notifications("notifications.open_mention", a, wf, "mention or comment row to open")
+    return result
 
 
 @action("notifications.reply_to_comment")
@@ -326,9 +342,10 @@ def expand_more(a, p):
     Device must be on the notifications screen with a truncated row visible."""
     wf = _workflow(a)
     wf._expanded_keys = set()
-    tried = wf._expand_one_more()
-    return {"success": bool(tried),
-            "message": "expanded a truncated row" if tried else "no truncated row in view (or OCR unavailable)"}
+    if wf._expand_one_more():
+        return {"success": True, "message": "expanded a truncated row"}
+    # `_expand_one_more` finds no row to try only when no row of the screen is truncated.
+    return _absent_from_notifications("notifications.expand_more", a, wf, "truncated row")
 
 
 # =============================================================================
@@ -367,7 +384,11 @@ def reach_suggestions(a, p):
     anti-loop guard.
     """
     max_scrolls = int(p.get("max_scrolls", 60))
-    ok = _workflow(a).reach_suggestions_zone(max_scrolls=max_scrolls)
+    wf = _workflow(a)
+    ok = wf.reach_suggestions_zone(max_scrolls=max_scrolls)
+    if not ok and getattr(wf, "descent_outcome", None) == "no_suggestions_offered":
+        # The bottom of the list was reached, and the people section it serves is not the suggestions.
+        return _absent_from_notifications("notifications.reach_suggestions", a, wf, "suggestions zone at the bottom of the list")
     msg = ("notifications.reach_suggestions: zone suggestions atteinte" if ok
            else f"notifications.reach_suggestions: en-tete jamais vu apres {max_scrolls} scroll(s)")
     (logger.info if ok else logger.warning)(msg)
