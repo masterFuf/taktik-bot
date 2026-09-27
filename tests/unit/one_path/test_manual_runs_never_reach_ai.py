@@ -9,6 +9,7 @@ the wrap sees AI when there is some.
 """
 import pytest
 
+from one_path_seams import patch_seam
 from instagram_cold_dm_rig import AI_KEY as COLD_DM_KEY, cold_dm_payload
 from instagram_rig import AI_KEY as AUTOMATION_KEY, target_payload
 from instagram_scraping_rig import AI_KEY as SCRAPING_KEY, hashtag_payload
@@ -33,8 +34,10 @@ def ai_reached(monkeypatch):
 
     def install():
         # After the rig: its fakes stay what answers, the wrap only records who called them.
-        monkeypatch.setattr(factory, "create_ai_service", wrap("create_ai_service", factory.create_ai_service))
-        monkeypatch.setattr(factory, "build_ai_service", wrap("build_ai_service", factory.build_ai_service))
+        patch_seam(monkeypatch, "taktik.core.app.ai.factory", "create_ai_service",
+                   wrap("create_ai_service", factory.create_ai_service))
+        patch_seam(monkeypatch, "taktik.core.app.ai.factory", "build_ai_service",
+                   wrap("build_ai_service", factory.build_ai_service))
 
     def refuse_client(*_args, **_kwargs):
         reached.append("AIService")

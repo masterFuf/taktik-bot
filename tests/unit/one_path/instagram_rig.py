@@ -13,6 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from one_path_seams import patch_seam
+
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 INSTALLED_VERSION = "410.0.0.53.71"
@@ -115,9 +117,8 @@ class InstagramRig:
         mp.setattr(network, "measure_network_baseline",
                    lambda device_id: rig.calls.append(f"network_baseline {device_id}"))
 
-        import taktik.core.database as database
-
-        mp.setattr(database, "configure_db_service", lambda *a, **k: rig.calls.append("configure_db"))
+        patch_seam(mp, "taktik.core.database", "configure_db_service",
+                   lambda *a, **k: rig.calls.append("configure_db"))
 
         class FakeDevice:
             serial = DEVICE_ID
@@ -165,10 +166,7 @@ class InstagramRig:
                 rig.calls.append(f"atx_health repair={repair} retries={max_retries}")
                 return {"atx_healthy": True}
 
-        mp.setattr("bridges.common.device.connection.ConnectionService", FakeConnection)
-        from bridges.instagram.automation.runtime import session as session_module
-
-        mp.setattr(session_module, "ConnectionService", FakeConnection)
+        patch_seam(mp, "bridges.common.device.connection", "ConnectionService", FakeConnection)
 
         from bridges.common.device import app_manager
 
@@ -219,8 +217,7 @@ class InstagramRig:
             rig.ai_services.append({"key": key, "ipc": ipc is not None})
             return True, service
 
-        mp.setattr("taktik.core.app.ai.factory.create_ai_service", fake_create_ai_service)
-        mp.setattr("bridges.instagram.runtime.ai.create_ai_service", fake_create_ai_service)
+        patch_seam(mp, "taktik.core.app.ai.factory", "create_ai_service", fake_create_ai_service)
 
         def fake_install(*, ai, ai_config, device=None, language="en", log=None, decision_provider=None, **_k):
             rig.ai_installs.append({

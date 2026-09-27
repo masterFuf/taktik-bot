@@ -156,11 +156,12 @@ def pytest_make_collect_report(collector):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     outcome = yield
+    report = outcome.get_result()
     hits = _GUARD.take()
     if hits:
-        report = outcome.get_result()
         report.outcome = "failed"
         report.longrepr = _GUARD.explain(hits, report.longrepr)
+    _report_doubles_left_behind(item, call, report)
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -272,6 +273,98 @@ def _ai_hooks_never_outlive_their_test():
                 delattr(owner, attribute)
         else:
             setattr(owner, attribute, value)
+
+
+# A test double that outlives its test. `monkeypatch.setattr("a.b.name", fake)` puts back what it
+# found, but a module imported for the first time WHILE `a.b.name` is patched copies the fake
+# (`from a.b import name`) and keeps it for the rest of the session: the one-path rigs left the
+# AI factory of three bridges and a device connection bound to their doubles, and 12 contract
+# tests collected after them ran on those doubles. Checked after every test, once its fixtures
+# are torn down: the modules the test imported first (the only ones that can capture a patch),
+# and, in every module that holds them, the two functions of the AI factory.
+_TESTS_ROOT = os.path.join(_CORE_ROOT, "tests") + os.sep
+_AI_FACTORY_NAMES = ("build_ai_service", "create_ai_service")
+
+from taktik.core.app.ai import factory as _ai_factory  # noqa: E402 - after the guard
+
+_REAL_AI_FACTORY = {name: getattr(_ai_factory, name) for name in _AI_FACTORY_NAMES}
+
+
+def _defined_in_tests(value) -> bool:
+    function = getattr(value, "__func__", value)
+    code = getattr(function, "__code__", None)
+    if code is not None:
+        return os.path.abspath(code.co_filename).startswith(_TESTS_ROOT)
+    if isinstance(value, type):
+        module = sys.modules.get(value.__module__)
+        return os.path.abspath(getattr(module, "__file__", "") or "").startswith(_TESTS_ROOT)
+    return False
+
+
+def _is_product_module(name: str) -> bool:
+    return name.split(".", 1)[0] in ("taktik", "bridges")
+
+
+#: Product modules holding an AI factory function, noted once as they appear: scanning every
+#: module after every test slowed the suite by about 40 %.
+_AI_FACTORY_HOLDERS: dict = {}
+_MODULES_SEEN: set = set()
+
+
+def _note_ai_factory_holders() -> None:
+    unseen = set(sys.modules) - _MODULES_SEEN
+    _MODULES_SEEN.update(unseen)
+    for name in unseen:
+        module = sys.modules.get(name)
+        if module is not None and _is_product_module(name) \
+                and any(attribute in vars(module) for attribute in _AI_FACTORY_NAMES):
+            _AI_FACTORY_HOLDERS[name] = module
+
+
+def _doubles_left_behind(new_modules) -> list:
+    """What product modules still hold from tests; an AI factory function is put back as well."""
+    leaks = {}
+    for name in sorted(new_modules):
+        module = sys.modules.get(name)
+        if module is None or not _is_product_module(name):
+            continue
+        for attribute, value in list(vars(module).items()):
+            if _defined_in_tests(value):
+                leaks[f"{name}.{attribute}"] = repr(value)
+            elif isinstance(value, type) and value.__module__ == name:
+                for member, inner in list(vars(value).items()):
+                    if _defined_in_tests(inner):
+                        leaks[f"{name}.{attribute}.{member}"] = repr(inner)
+    for name, module in _AI_FACTORY_HOLDERS.items():
+        for attribute in _AI_FACTORY_NAMES:
+            value = vars(module).get(attribute)
+            if value is not None and value is not _REAL_AI_FACTORY[attribute]:
+                leaks[f"{name}.{attribute}"] = f"{value!r} (not the AI factory's, put back)"
+                setattr(module, attribute, _REAL_AI_FACTORY[attribute])
+    return [f"{where} = {what}" for where, what in leaks.items()]
+
+
+_MODULES_BEFORE = pytest.StashKey[frozenset]()
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_setup(item):
+    item.stash[_MODULES_BEFORE] = frozenset(sys.modules)
+    yield
+
+
+def _report_doubles_left_behind(item, call, report) -> None:
+    """Called once the teardown has run: every fixture, monkeypatch included, is undone."""
+    if call.when != "teardown" or _MODULES_BEFORE not in item.stash:
+        return
+    _note_ai_factory_holders()
+    leaks = _doubles_left_behind(set(sys.modules) - item.stash[_MODULES_BEFORE])
+    if leaks:
+        report.outcome = "failed"
+        report.longrepr = (
+            "test doubles outlive this test (import the module that copies a name BEFORE "
+            "patching that name, then patch it there too):\n  " + "\n  ".join(leaks)
+        )
 
 
 @pytest.fixture

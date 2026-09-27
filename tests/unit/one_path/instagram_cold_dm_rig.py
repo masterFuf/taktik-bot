@@ -16,6 +16,7 @@ import sys
 
 import pytest
 
+from one_path_seams import patch_seam
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 AI_KEY = "sk-or-v1-" + "d" * 48
@@ -321,7 +322,7 @@ class InstagramColdDmRig:
                 self._device = rig.phone
                 return True
 
-        mp.setattr("bridges.common.device.connection.ConnectionService", FakeConnection)
+        patch_seam(mp, "bridges.common.device.connection", "ConnectionService", FakeConnection)
 
         from bridges.common.device import app_manager
 
@@ -330,8 +331,9 @@ class InstagramColdDmRig:
 
         mp.setattr(compat_setup, "apply_version_overrides",
                    lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
-        mp.setattr("taktik.core.clone.set_active_package", lambda package: rig.calls.append(f"active_package {package}"))
-        mp.setattr("taktik.core.social_media.instagram.ui.language.detect_and_optimize",
+        patch_seam(mp, "taktik.core.clone", "set_active_package",
+                   lambda package: rig.calls.append(f"active_package {package}"))
+        patch_seam(mp, "taktik.core.social_media.instagram.ui.language", "detect_and_optimize",
                    lambda device, *a, **k: rig.calls.append("detect_language") or "en")
 
         from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
@@ -374,9 +376,9 @@ class InstagramColdDmRig:
             rig.phone.keyboard_cleared()
             return True
 
-        mp.setattr(shared_keyboard, "is_taktik_keyboard_active", lambda device_id: True)
-        mp.setattr(shared_keyboard, "type_with_taktik_keyboard", fake_shared_type)
-        mp.setattr(shared_keyboard, "clear_text_with_taktik_keyboard", fake_clear)
+        patch_seam(mp, shared_keyboard.__name__, "is_taktik_keyboard_active", lambda device_id: True)
+        patch_seam(mp, shared_keyboard.__name__, "type_with_taktik_keyboard", fake_shared_type)
+        patch_seam(mp, shared_keyboard.__name__, "clear_text_with_taktik_keyboard", fake_clear)
 
         from taktik.core.database.messaging import SentDMService
 
@@ -412,7 +414,7 @@ class InstagramColdDmRig:
                                      "stop_reason": getattr(stop_reason, "code", stop_reason)})
                 return True
 
-        mp.setattr("taktik.core.database.local.service.get_local_database", lambda: FakeSessionDatabase())
+        patch_seam(mp, "taktik.core.database.local.service", "get_local_database", lambda: FakeSessionDatabase())
 
         class FakeAI:
             def __init__(self, api_key, ipc):
@@ -427,13 +429,7 @@ class InstagramColdDmRig:
         def fake_build_ai_service(*, api_key, ipc=None, **_kwargs):
             return FakeAI(api_key, ipc)
 
-        mp.setattr("taktik.core.app.ai.factory.build_ai_service", fake_build_ai_service)
-        for module in ("bridges.instagram.engagement.runtime.cold_dm.ai",
-                       "taktik.core.social_media.instagram.workflows.cold_dm.ai"):
-            try:
-                mp.setattr(f"{module}.build_ai_service", fake_build_ai_service)
-            except (ImportError, AttributeError):
-                pass
+        patch_seam(mp, "taktik.core.app.ai.factory", "build_ai_service", fake_build_ai_service)
 
     # ------------------------------------------------------------------ paths
 
