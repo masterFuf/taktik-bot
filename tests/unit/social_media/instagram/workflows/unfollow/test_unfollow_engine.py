@@ -8,6 +8,10 @@ from fake_follow_list import (
     FakeDetection, FakeFacade, FakeScreen, follow_list_xml, profile_xml, walk_list,
 )
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list_proof import (
+    PROOF_BY_COUNT,
+    PROOF_BY_KNOWN_ACCOUNT,
+)
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.workflows.core.config_builder import build_instagram_automation_config
@@ -128,7 +132,7 @@ def test_non_followers_run_decides_on_data_and_checks_the_badge(monkeypatch):
     business._get_account_id = lambda: 1
     business.nav_actions.navigate_to_profile_tab = lambda: True
     business.nav_actions.open_following_list = lambda: True
-    business.sync_following_list = lambda cfg: {"complete": True}
+    business.sync_following_list = lambda cfg: {"complete": True, "proof": PROOF_BY_COUNT}
     # the followers sync saw nobody of the three, and read the whole list
     business.sync_followers_list = lambda cfg: {"usernames": {"someone_else"}, "complete": True}
     monkeypatch.setattr(unfollow_workflow.InstagramFollowGraphService, "list_active_followings",
@@ -171,7 +175,7 @@ def test_the_instagram_facade_press_back_is_obeyed_by_the_device():
 def test_an_incomplete_followers_sync_unfollows_nobody_in_non_followers_mode(monkeypatch):
     business, screen, recorded = _business(follow_list_xml([("ghost", "Suivi(e)")]))
     business._get_account_id = lambda: 1
-    business.sync_following_list = lambda cfg: {}
+    business.sync_following_list = lambda cfg: {"proof": PROOF_BY_KNOWN_ACCOUNT}
     business.sync_followers_list = lambda cfg: {"usernames": set(), "complete": False}
     monkeypatch.setattr(unfollow_workflow.InstagramFollowGraphService, "list_active_followings",
                         staticmethod(lambda account_id: [
@@ -191,7 +195,7 @@ def _engine_on_data(monkeypatch, business, followings):
 
     def sync_following(cfg):
         calls["following"] += 1
-        return {"complete": True}
+        return calls.get("following_read", {"complete": True, "proof": PROOF_BY_COUNT})
 
     def sync_followers(cfg):
         calls["followers"] += 1
@@ -248,6 +252,31 @@ def test_nobody_to_unfollow_is_an_ok_end_with_its_reason(monkeypatch):
     stats = business.run_unfollow_workflow({"unfollow_mode": "all", "max_unfollows": 5})
 
     assert stats["stop_reason"].code == "no_unfollow_candidates" and calls["walks"] == []
+
+
+def test_a_following_read_that_proves_nothing_stops_the_run_before_any_decision(monkeypatch):
+    business, screen, recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["a1", "a2"])
+    calls["following_read"] = {"total_seen": 0, "expected": 1929, "complete": False, "proof": None}
+
+    stats = business.run_unfollow_workflow({"unfollow_mode": "non-followers", "max_unfollows": 5})
+
+    assert stats["stop_reason"].code == "following_list_unproven"
+    assert stats["stop_reason"].params == {"seen": 0, "expected": 1929}
+    assert calls["followers"] == 0 and calls["walks"] == []
+    assert screen.taps == [] and recorded == []
+
+
+def test_a_following_read_cut_by_the_session_ends_on_the_session_reason(monkeypatch):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["a1"])
+    calls["following_read"] = {"total_seen": 40, "expected": 1929, "proof": None, "stopped_by_session": True}
+    duration = unfollow_workflow.stop_reasons.duration_cap(30)
+    business.session_manager = SimpleNamespace(should_continue=lambda: (False, duration))
+
+    stats = business.run_unfollow_workflow({"unfollow_mode": "all", "max_unfollows": 5})
+
+    assert stats["stop_reason"] is duration and calls["walks"] == []
 
 
 @pytest.mark.parametrize("broken, code", [("navigate_to_profile_tab", "navigation_lost"),

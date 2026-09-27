@@ -3,12 +3,18 @@
 Synthetic on purpose: the dumps captured on real phones carry real usernames and never enter
 this public repository. The structure (resource ids, button texts, content-desc) follows the
 dumps of Instagram 410 and 447 in English and French captured in September 2026; the usernames
-are invented.
+are invented. `FakeScreen` also plays real dumps (the `fixtures/` captures), `Graph` stands for
+the follow graph service and `FakeClock` for the time the screen code waits on.
 """
 
 from typing import Iterable, List, Optional, Tuple
 
 from lxml import etree
+
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import (
+    sync_followers as followers_mixin,
+    sync_following as following_mixin,
+)
 
 PKG = "com.instagram.android"
 ROW_HEIGHT = 180
@@ -288,3 +294,54 @@ class FakeDetection:
             if row["username"] == username:
                 return row["state"]
         return "unknown"
+
+
+class Graph:
+    """The follow graph service, in memory."""
+
+    def __init__(self, known_followings=(), bot_follows=()):
+        self.known = {name.lower() for name in known_followings}
+        self.bot_follows = {name.lower() for name in bot_follows}
+        self.followings, self.followers, self.unfollowed = [], [], []
+        self.reciprocity = []
+        self.bot_flags, self.display = {}, {}
+
+    def _upsert_following(self, username, **kwargs):
+        self.followings.append(username)
+        self.bot_flags[username] = kwargs.get("followed_by_bot")
+        self.display[username] = kwargs.get("display_name")
+        return "new"
+
+    @staticmethod
+    def _per_row_query(*_a, **_k):
+        raise AssertionError("the bot's follows are read once per sync, never per row")
+
+    def install(self, monkeypatch):
+        for module in (followers_mixin, following_mixin):
+            service = module.InstagramFollowGraphService
+            monkeypatch.setattr(service, "get_active_following_usernames", staticmethod(lambda _a: set(self.known)))
+            monkeypatch.setattr(service, "has_bot_follow_record", staticmethod(self._per_row_query))
+            monkeypatch.setattr(service, "bot_followed_usernames", staticmethod(lambda _a: set(self.bot_follows)))
+            monkeypatch.setattr(service, "upsert_following", staticmethod(self._upsert_following))
+            monkeypatch.setattr(service, "upsert_follower",
+                                staticmethod(lambda username, **_k: self.followers.append(username) or "new"))
+            monkeypatch.setattr(service, "mark_unfollowed",
+                                staticmethod(lambda username, _a: self.unfollowed.append(username)))
+            monkeypatch.setattr(service, "set_followings_reciprocity",
+                                staticmethod(lambda _a, names: self.reciprocity.append(set(names)) or len(names)))
+
+
+class FakeClock:
+    """The `time` module of the code under test: it moves only when the code sleeps."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def time(self) -> float:
+        return self.now
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += max(0.0, seconds)

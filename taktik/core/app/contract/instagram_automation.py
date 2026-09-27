@@ -636,11 +636,13 @@ EVENTS = (
         Field("updated_count", "int", "Accounts updated (`completed`).", optional=True),
         Field("total_seen", "int", "Accounts read (`completed`, followers).", optional=True),
     )),
-    Event("sync_progress", doc="A list being read.", fields=(
+    Event("sync_progress", doc="A list being read: printed when its read starts, then after each screen.", fields=(
         Field("list_type", _SYNC_LIST, "The list."),
         Field("new_count", "int", "New so far."),
         Field("updated_count", "int", "Updated so far."),
         Field("total_seen", "int", "Read so far."),
+        Field("expected", "int", "The count the list's tab shows; null without one (abbreviated, no tabs).",
+              nullable=True),
     )),
     Event("sync_user_discovered", doc="An account read in a list.", fields=(
         Field("list_type", _SYNC_LIST, "The list."),

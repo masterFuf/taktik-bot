@@ -14,7 +14,7 @@ from taktik.core.social_media.instagram.actions.atomic.interaction.profile_inter
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ..list_proof import parse_tab_count
+from ..list_proof import describe_proof, parse_tab_count
 
 
 # A row button that CONTRADICTS the tab it is read on: its row is not part of that list. A blank
@@ -103,6 +103,10 @@ def _vertical_band(element) -> Optional[tuple]:
 
 class UnfollowActionsMixin:
     """Mixin: perform unfollow, extract accounts, scroll & sort the following list."""
+
+    # Read from the business action this mixin is part of (BaseBusinessAction), never set here.
+    logger: Any
+    device: Any
 
     # ─── Rows of an open follow list ──────────────────────────────────────────
 
@@ -197,6 +201,18 @@ class UnfollowActionsMixin:
                 continue
         return min(tops) if tops else None
 
+    def _close_list_read(self, kind: str, stats: Dict[str, Any], seen: int) -> None:
+        """The last word of a list read: `success` only when a rule of `list_proof` proved it, and
+        a log that never calls "complete" a read that proved nothing (no row read, a read cut
+        short by the session)."""
+        stats['success'] = stats['proof'] is not None
+        verdict = describe_proof(stats['proof'], seen, stats['expected'])
+        counts = f"{stats['new_count']} new, {stats['updated_count']} updated"
+        if stats['success']:
+            self.logger.info(f"✅ {kind.capitalize()} sync: {verdict}; {counts}")
+        else:
+            self.logger.warning(f"⚠️ {kind.capitalize()} sync proved nothing: {verdict}; {counts}")
+
     def _session_stop_reason(self):
         """The session's stop reason when one of its limits is reached (its duration, the run's
         stop lock), else None. None without a session manager (the Lab)."""
@@ -263,8 +279,9 @@ class UnfollowActionsMixin:
             time.sleep(0.3)
 
     following_tab_timeout = 2.0
-    # After a tab switch the new list loads: its first rows are awaited this long.
-    list_load_timeout = 3.0
+    # A list just opened, switched or re-sorted shows its rows after the list itself (only a
+    # loading placeholder before them): its first rows are awaited this long, no more.
+    list_load_timeout = 10.0
 
     def _ensure_following_tab(self) -> bool:
         """Make sure the open list is OUR FOLLOWING tab, not the followers one.
@@ -454,6 +471,13 @@ class UnfollowActionsMixin:
                     # list's header must now name the option.
                     if self._sort_confirmed(chosen):
                         self.logger.info(f"✅ Sort confirmed on screen: {sort_order}")
+                        # The header names the new order before the list has reloaded in it: a
+                        # read in between finds no row and took the list for ended.
+                        if not self._wait_for_list_rows():
+                            self.logger.warning(
+                                f"Sorted by {sort_order}, but no row of the list came back within "
+                                f"{self.list_load_timeout:.0f}s"
+                            )
                         return True
                     self.logger.warning(f"Sort option '{sort_order}' tapped but not confirmed on screen")
                     if self.device.xpath(selector).exists:  # the sheet did not close

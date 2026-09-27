@@ -92,21 +92,10 @@ class SyncFollowersMixin:
             max_scrolls = config.get('max_scrolls') or scrolls_for(expected, 100)
             scroll_failed = False
 
-            # Wait for the list items to be actually loaded
-            d = self.device.device
-            active_package = get_active_package()
-            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
-            wait_attempts = 0
-            while wait_attempts < 10:
-                if d(resourceId=username_resource_id).exists:
-                    self.logger.debug("✅ Followers list elements loaded")
-                    break
-                self.logger.debug(f"⏳ Waiting for followers list to load... ({wait_attempts + 1}/10)")
-                time.sleep(1)
-                wait_attempts += 1
-            else:
+            if not self._wait_for_list_rows():
                 self.logger.error("sync_followers_list: followers list elements never appeared")
                 return stats
+            self.logger.debug("✅ Followers list elements loaded")
 
             # Get known following usernames for mutual detection
             known_followings = InstagramFollowGraphService.get_active_following_usernames(account_id)
@@ -124,6 +113,7 @@ class SyncFollowersMixin:
 
             seen_on_screen: Set[str] = set()
             left_out = LeftOutRows()
+            emit_sync_progress('followers', stats)
             scroll_attempts = 0
             no_new_count = 0
 
@@ -225,9 +215,8 @@ class SyncFollowersMixin:
                             break  # Re-read the UI elements
                         continue
 
-                # Emit progress IPC
-                if stats['total_seen'] > 0 and stats['total_seen'] % 10 == 0:
-                    self._emit_sync_progress('followers', stats)
+                if new_found:
+                    emit_sync_progress('followers', stats)
 
                 # The end of the list: the suggestions under it, or several reads in a row without
                 # a new name; it counts only if the names read reach the tab's exact count.
@@ -282,11 +271,7 @@ class SyncFollowersMixin:
             stats['left_out'] = left_out.summary(seen_on_screen)
             if stats['left_out']:
                 self.logger.info(f"Followers names seen but not read: {stats['left_out']}")
-            stats['success'] = True
-            self.logger.info(
-                f"✅ Followers sync complete: {stats['new_count']} new, "
-                f"{stats['updated_count']} updated, {stats['total_seen']} seen"
-            )
+            self._close_list_read('followers', stats, len(seen_on_screen))
 
         except Exception as e:
             self.logger.error(f"Error in sync_followers_list: {e}")
@@ -302,7 +287,3 @@ class SyncFollowersMixin:
         except Exception as e:
             self.logger.debug(f"Error scrolling followers list: {e}")
             return False
-
-    def _emit_sync_progress(self, list_type: str, stats: Dict[str, Any]):
-        """Emit IPC progress message for the frontend."""
-        emit_sync_progress(list_type, stats)

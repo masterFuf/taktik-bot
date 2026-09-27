@@ -46,9 +46,11 @@ def _sync_summary(stats):
 def sync_following(a, p):
     """Sync our following list into the base (production `sync_following_list`): reads the
     list, writes the follow graph, marks the accounts unfollowed elsewhere after a complete read.
-    Reads only on screen."""
+    Says what the read proves (`list_proof`); one that proves nothing fails. Reads only on screen."""
     stats = a.unfollow.sync_following_list({"mode": "fast"})
-    return {"success": bool(stats.get("success")), "message": f"{stats.get('total_seen', 0)} seen",
+    return {"success": bool(stats.get("success")),
+            "message": (f"{stats.get('total_seen', 0)} seen of {stats.get('expected')}"
+                        f" (proof: {stats.get('proof') or 'none'})"),
             "details": _sync_summary(stats)}
 
 

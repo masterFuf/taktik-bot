@@ -18,9 +18,11 @@ from taktik.core.database.instagram_follow_graph import InstagramFollowGraphServ
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
-from ..list_proof import describe_proof, incremental_stop_allowed, proof_of_read, scrolls_for
+from ..list_proof import (
+    PROOF_BY_KNOWN_ACCOUNT, describe_proof, incremental_stop_allowed, proof_of_read, scrolls_for,
+)
 from .actions import LeftOutRows, row_belongs_to_tab
-from .sync_events import emit_sync_user_discovered
+from .sync_events import emit_sync_progress, emit_sync_user_discovered
 
 
 class SyncFollowingMixin:
@@ -127,6 +129,7 @@ class SyncFollowingMixin:
 
             seen_on_screen: Set[str] = set()
             left_out = LeftOutRows()
+            emit_sync_progress('following', stats)
             scroll_attempts = 0
             # A fixed 60 scrolls read about 270 accounts: the bound follows the tab's count.
             max_scrolls = scrolls_for(expected, 60)
@@ -189,6 +192,7 @@ class SyncFollowingMixin:
                             )
                             stop_signal = True
                             stats['stopped_early'] = True
+                            stats['proof'] = PROOF_BY_KNOWN_ACCOUNT
                             break
                         self.logger.debug(f"Known @{username} — processing anyway (enriched mode)")
 
@@ -248,6 +252,8 @@ class SyncFollowingMixin:
                         # Do not carry on with the loop after enrichment
                         continue
 
+                if new_found:
+                    emit_sync_progress('following', stats)
                 if stop_signal:
                     break
 
@@ -306,12 +312,7 @@ class SyncFollowingMixin:
             stats['left_out'] = left_out.summary(seen_on_screen)
             if stats['left_out']:
                 self.logger.info(f"Following names seen but not read: {stats['left_out']}")
-            stats['success'] = True
-            self.logger.info(
-                f"✅ Following sync complete: {stats['new_count']} new, "
-                f"{stats['updated_count']} updated, {stats['total_seen']} seen"
-            )
-
+            self._close_list_read('following', stats, len(seen_on_screen))
 
         except Exception as e:
             self.logger.error(f"Error in sync_following_list: {e}")

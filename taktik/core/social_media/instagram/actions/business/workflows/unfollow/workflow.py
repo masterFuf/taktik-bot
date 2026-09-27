@@ -6,7 +6,8 @@ an unfollow, ignored the mode, the lists, the delay since the follow and "bot fo
 stopped at no block and at no ceiling; a second loop that could decide had no caller, and a third
 unfollowed a given list through the search. One engine is left:
 
-1. sync the following list (and the followers list, for the modes that depend on reciprocity);
+1. sync the following list (and the followers list, for the modes that depend on reciprocity); a
+   following read that `list_proof` does not prove stops the run before any decision;
 2. choose the candidates from the base, rule by rule (`candidates.py`); in doubt, nobody;
 3. walk the following list; for each row of a candidate still followed: check its profile when a
    rule needs the screen (the "Follows you" badge, verified or business accounts), tap the row
@@ -131,6 +132,16 @@ class UnfollowBusiness(
                 stats['following_sync'] = {k: following_sync.get(k) for k in
                                            ('new_count', 'updated_count', 'total_seen', 'expected',
                                             'complete', 'proof', 'departures', 'departures_withheld')}
+                if following_sync.get('proof') is None:
+                    # A read that proved nothing leaves the base unchecked: nothing is decided on it.
+                    self.logger.error(
+                        f"Unfollow: following list not proven read ({following_sync.get('total_seen') or 0}"
+                        f" of {following_sync.get('expected')}): no unfollow decided on an unchecked base"
+                    )
+                    stats['errors'] += 1
+                    stats['stop_reason'] = self._session_stop_reason() or stop_reasons.following_list_unproven(
+                        following_sync.get('total_seen') or 0, following_sync.get('expected'))
+                    return stats
                 if mode in ('non-followers', 'mutual'):
                     followers_sync = self.sync_followers_list({'mode': 'fast'})
                     self._followers = FollowersSnapshot(
