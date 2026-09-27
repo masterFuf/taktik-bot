@@ -13,7 +13,6 @@ from bridges.compat.diagnostics.runtime.workflow_test.config.catalog import (
     INSTAGRAM_SCRAPING_WF,
 )
 from bridges.compat.diagnostics.runtime.workflow_test.contracts.dispatch import WorkflowDispatchResult
-from bridges.compat.diagnostics.runtime.workflow_test.execution.not_wired import not_wired
 from bridges.compat.diagnostics.runtime.workflow_test.observability import set_active_watchdog
 from bridges.compat.diagnostics.runtime.workflow_test.execution.runners import (
     run_instagram_dm,
@@ -41,13 +40,6 @@ def dispatch_instagram_workflow(
 ) -> WorkflowDispatchResult:
     """Dispatch an Instagram workflow family while preserving compat IPC events."""
     result = WorkflowDispatchResult()
-
-    if workflow_type == "notifications":
-        # Not an automation step (the engine has none): the notifications run has its own
-        # launcher, whose connection is the notifications bridge's.
-        result.success = not_wired(ipc, "notifications",
-                                   "run_instagram_notifications (instagram.engagement.notifications)")
-        return result
 
     if workflow_type in INSTAGRAM_AUTOMATION_WF:
         result.watchdog = _run_instagram_automation(

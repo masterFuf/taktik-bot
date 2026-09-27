@@ -6,7 +6,6 @@
   "bridges/common/runtime/owner_watchdog.py": 1,
   "bridges/common/runtime/platform_bridge.py": 1,
   "bridges/common/runtime/signal_handler.py": 2,
-  "bridges/compat/diagnostics/actions/instagram/app.py": 1,
   "bridges/compat/diagnostics/actions/instagram/dm.py": 1,
   "bridges/compat/diagnostics/actions/instagram/publish.py": 3,
   "bridges/compat/diagnostics/actions/instagram/scroll.py": 2,

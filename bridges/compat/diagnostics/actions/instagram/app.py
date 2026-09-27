@@ -15,6 +15,15 @@ from taktik.core.clone import get_active_package
 from taktik.core.shared.device.manager import DeviceManager
 
 
+def _session_app_manager(a) -> DeviceManager:
+    """The app lifecycle on the session's phone, through its connected device (no reconnection)."""
+    # The session's serial, not none: the clone launcher lookup runs `adb -s <serial>`, and the
+    # TikTok twin of this action, built without it, relaunched its app on another phone.
+    dm = DeviceManager(bundle_device_id(a))
+    dm.device = a.device  # facade proxies app_start/shell/app_current to the raw device
+    return dm
+
+
 @action("app.launch")
 def launch(a, p):
     """Foreground Instagram (or the active clone) and confirm it reached the front.
@@ -22,10 +31,7 @@ def launch(a, p):
     Reuses the already-connected device facade so DeviceManager does not reconnect.
     """
     pkg = get_active_package()
-    # The session's serial, not none: the clone launcher lookup runs `adb -s <serial>`, and the
-    # TikTok twin of this action, built without it, relaunched its app on another phone.
-    dm = DeviceManager(bundle_device_id(a))
-    dm.device = a.device  # facade proxies app_start/shell/app_current to the raw device
+    dm = _session_app_manager(a)
     # Force-stop then start: a CLEAN cold start always lands on the feed. A plain resume
     # would reopen the app wherever it was left (e.g. a fullscreen story viewer), so the
     # auto-test's recovery could never escape that screen. Clean start = deterministic +
@@ -39,7 +45,12 @@ def launch(a, p):
         try:
             if a.device.app_current().get("package") == pkg:
                 return True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(f"app.launch: foreground not readable yet ({exc})")
     logger.warning(f"app.launch: {pkg} did not reach foreground in time")
     return False
+
+
+def stop_instagram(a) -> bool:
+    """Force-stop Instagram (or the active clone) on the session's phone: the end of a run."""
+    return _session_app_manager(a).stop_app(get_active_package())

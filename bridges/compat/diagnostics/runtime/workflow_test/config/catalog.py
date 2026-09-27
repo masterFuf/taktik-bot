@@ -35,7 +35,6 @@ INSTAGRAM_AUTOMATION_WF = (
     "post_likers",
     "post_url",
     "feed",
-    "notifications",
     "unfollow",
 )
 INSTAGRAM_SCRAPING_WF = (

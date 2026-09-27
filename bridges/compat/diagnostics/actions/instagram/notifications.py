@@ -1,7 +1,8 @@
 """Notifications actions for Instagram compat diagnostics.
 
 Atomic, single-shot probes for the "Notifications" surface and its follow-requests
-sub-screen, plus the full engagement-workflow methods. Every probe reuses a
+sub-screen, the full engagement-workflow methods, and the whole run by its launcher
+(``notifications.run``). Every probe reuses a
 primitive of ``NotificationsEngagementWorkflow``; ``open_filter`` and
 ``confirm_inline_request`` are plain selector probes, since the workflow does not
 drive those affordances.
@@ -15,10 +16,12 @@ from contextlib import contextmanager
 from loguru import logger
 
 from bridges.compat.diagnostics.runtime.action_test.action_bundle import (
+    bundle_device_id,
     resolve_lab_account_id,
 )
 
 from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram.app import launch, stop_instagram
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS as N
 
 
@@ -452,6 +455,92 @@ def leave_suggestion_profile(a, p):
            else "notifications.leave_suggestion_profile: ecran notifications non retrouve")
     (logger.info if ok else logger.warning)(msg)
     return {"success": ok, "message": msg}
+
+
+# =============================================================================
+# The whole run  (prod: run_instagram_notifications, the notifications bridge's launcher)
+# =============================================================================
+
+class _SessionRuntime:
+    """The Lab session's phone as the runtime the launcher connects to.
+
+    The bridge hands the launcher its own connection (`NotificationsBridge`), the CLI the device
+    it connected; the Lab hands it the device the session already holds, with the Lab's clean
+    restart (`app.launch`), so a run costs no second connection.
+    """
+
+    def __init__(self, a, device_id: str):
+        self._bundle = a
+        self.device = a.device
+        self.device_id = device_id
+
+    def restart_instagram(self) -> None:
+        if not launch(self._bundle, {}):
+            logger.warning("notifications.run: Instagram did not come back to the foreground after its restart")
+
+    def stop(self) -> bool:
+        return stop_instagram(self._bundle)
+
+
+def _log_run_event(payload: dict) -> None:
+    # The step and its narration only, never a message body.
+    logger.info(f"notifications.run: {payload.get('step', payload.get('type', 'event'))} "
+                f"{payload.get('step_status', '')} {payload.get('message', '')}".rstrip())
+
+
+@action("notifications.run")
+def run_notifications(a, p):
+    """The whole notifications run, by `run_instagram_notifications`: the launcher the desktop's
+    notifications bridge and the CLI call, on the session's phone.
+
+    Params are the launcher's own keys: ``command`` (``scan`` by default, like the CLI handler;
+    ``list_requests``, ``accept_all``, ``accept``, ``ignore``, ``like``, ``follow_back``,
+    ``reply``), ``scroll`` and ``followSuggestions`` (scan), ``limit`` (list_requests), ``max``
+    (accept_all), ``username`` and ``text`` (row verbs, reply), ``accountUsername``. A ``batch``
+    needs a list of actions, which the Lab's fields cannot give: the reader refuses it. A scan
+    restarts Instagram first and closes it at the end, as in production. The run's events come
+    back in ``details.events``; stdout stays the session's.
+    """
+    from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler
+
+    device_id = bundle_device_id(a)
+    if not device_id:
+        msg = "notifications.run: no phone serial for this session, nothing run"
+        logger.error(msg)
+        return {"success": False, "message": msg}
+
+    config = dict(p)
+    config.setdefault("command", "scan")
+    events: list = []
+
+    def emit(payload: dict) -> None:
+        events.append(payload)
+        _log_run_event(payload)
+
+    try:
+        result = agent_handler.run_instagram_notifications(
+            config,
+            connect=lambda restart: _connected_runtime(a, device_id, restart),
+            emit=emit,
+            # The app never sends an `ai` block, and the bridge's AI service prints on stdout.
+            instagram_ai_service=None,
+        )
+    except agent_handler.NotificationsCommandError as exc:
+        msg = f"notifications.run: refused before the phone: {exc}"
+        logger.warning(msg)
+        return {"success": False, "message": msg, "details": {"events": events}}
+
+    success = bool(result.get("success"))
+    msg = f"notifications.run {config['command']}: {result.get('message') or ('done' if success else 'failed')}"
+    (logger.info if success else logger.warning)(msg)
+    return {"success": success, "message": msg, "details": {"result": result, "events": events}}
+
+
+def _connected_runtime(a, device_id: str, restart: bool) -> _SessionRuntime:
+    runtime = _SessionRuntime(a, device_id)
+    if restart:
+        runtime.restart_instagram()
+    return runtime
 
 
 @action("notifications.visit_suggestions")
