@@ -1,7 +1,7 @@
 """TikTok workflows with a bridge of their own (`tiktok.standalone.*`): unfollow, cold DM, scraping.
 
 Each declaration names the reader it describes; `tests/unit/app/contract` holds the reader to it.
-The upload (`tiktok.standalone.upload_post`) has no payload reader yet and is not declared.
+The upload (`tiktok.standalone.upload_post`) is declared with the other publications (`publish.py`).
 """
 
 from __future__ import annotations

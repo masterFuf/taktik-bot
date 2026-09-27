@@ -21,7 +21,6 @@ _GMAIL = "taktik.core.app.email.gmail.workflows.agent_handler"
 _YOUTUBE = "taktik.core.social_media.youtube.workflows.account.agent_handler"
 
 
-
 def _device() -> Field:
     return Field("deviceId", "string", "The adb serial of the phone.", required=True, by=HOST)
 

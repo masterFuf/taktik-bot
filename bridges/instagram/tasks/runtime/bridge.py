@@ -118,7 +118,7 @@ class TaskBridge:
             # Params travel as the payload; the invocation carries none so the handler's
             # merge cannot apply them twice.
             invocation = WorkflowInvocation(platform="instagram", workflow_id=self.task_id)
-            report = handler(invocation, dict(self.params))
+            report = handler(invocation, self.params)
         except Exception as exc:  # noqa: BLE001
             import traceback
 

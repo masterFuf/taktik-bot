@@ -189,13 +189,17 @@ def walk(result: Any, attr: str) -> Any:
 def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -> Any:
     launcher = resolve(contract.launcher)
     kwargs = {**contract.launcher_kwargs, **kwargs}
-    if "workflow_id" in inspect.signature(launcher).parameters:
+    parameters = inspect.signature(launcher).parameters
+    if "workflow_id" in parameters:
         # A launcher of params already read (the account flows): its hosts read the payload first.
         kwargs.setdefault("device", None)
         kwargs.setdefault("device_id", DEVICE)
         return launcher(contract.workflow_id, read(contract, payload), **kwargs)
-    if "device_id" in inspect.signature(launcher).parameters:
+    if "device_id" in parameters:
         kwargs.setdefault("device_id", DEVICE)
+    if "device" in parameters:
+        # A refusal comes before the phone: a launcher that needs one to refuse fails the test.
+        kwargs.setdefault("device", None)
     return launcher(payload, **kwargs)
 
 

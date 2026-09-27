@@ -56,6 +56,17 @@ ERROR_EVENT = Event(
 )
 
 
+#: `IPC.log` / `send_log`, a line for the run's log view.
+LOG_EVENT = Event(
+    "log",
+    doc="A line for the run's log view.",
+    fields=(
+        Field("level", "string", "debug, info, warning, error..."),
+        Field("message", "string", "The line."),
+    ),
+)
+
+
 #: `IPC.ai_spend` (`bridges/common/runtime/ipc_ai.py`), one line per paid model call.
 AI_SPEND_EVENT = Event(
     "ai_spend",
@@ -69,16 +80,6 @@ AI_SPEND_EVENT = Event(
     ),
 )
 
-
-#: `IPC.log`, a line for the desktop's debug console.
-LOG_EVENT = Event(
-    "log",
-    doc="A line for the debug console.",
-    fields=(
-        Field("level", "string", "debug, info, warning, error."),
-        Field("message", "string", "The line."),
-    ),
-)
 
 #: `perform_network_reset` (`bridges/common/device/network.py`), when a rotation was asked for.
 NETWORK_RESET_COMPLETE_EVENT = Event(

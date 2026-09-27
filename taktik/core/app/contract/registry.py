@@ -4,7 +4,17 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
-from . import accounts, instagram_automation, tiktok, tiktok_automation, tiktok_engagement, tiktok_profiles
+from . import (
+    accounts,
+    instagram_automation,
+    publish,
+    tasks,
+    threads,
+    tiktok,
+    tiktok_automation,
+    tiktok_engagement,
+    tiktok_profiles,
+)
 from .schema import WorkflowContract
 
 WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (
@@ -14,6 +24,9 @@ WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (
     *tiktok_engagement.CONTRACTS,
     *instagram_automation.CONTRACTS,
     *accounts.CONTRACTS,
+    *threads.CONTRACTS,
+    *tasks.CONTRACTS,
+    *publish.CONTRACTS,
 )
 
 
