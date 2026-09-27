@@ -110,7 +110,28 @@ def iter_widgets(element) -> Iterator:
             yield node
 
 
+def dump_screen_size(root) -> Optional[Tuple[int, int]]:
+    """Width and height of the screen a `parse_ui_dump` tree describes, or None.
+
+    Read from the dump itself, in the dump's own coordinates: the right-most and lowest edges of
+    its windows (the children of `<hierarchy>`). The full-screen window of the app in front gives
+    the screen; a status bar or a floating badge adds nothing beyond it. None when no window
+    carries bounds: nothing is measured, and no default size stands in for one.
+    """
+    if root is None:
+        return None
+    windows = [parse_bounds(window.get("bounds") or "") for window in root]
+    windows = [bounds for bounds in windows if bounds]
+    if not windows:
+        return None
+    width = max(bounds[2] for bounds in windows)
+    height = max(bounds[3] for bounds in windows)
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
 __all__ = [
     "parse_bounds", "vertical_center", "center", "index_of_closest_row", "parse_ui_dump",
-    "iter_widgets",
+    "iter_widgets", "dump_screen_size",
 ]
