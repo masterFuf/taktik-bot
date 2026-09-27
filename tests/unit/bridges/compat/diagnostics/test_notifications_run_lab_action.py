@@ -141,6 +141,10 @@ class _RawDevice:
 
 
 def test_the_runtime_is_the_bridge_class_on_the_session_device(monkeypatch, lab_lifecycle, bridge_lifecycle):
+    import taktik.core.clone as clone
+
+    # A clone's bridge registers its package for the whole process: put it back after the test.
+    monkeypatch.setattr(clone, "_active_package", clone.get_active_package())
     runtimes = []
 
     def launcher(config, *, connect, emit=None, instagram_ai_service=None):
