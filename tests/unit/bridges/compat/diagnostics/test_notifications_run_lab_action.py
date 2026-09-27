@@ -1,9 +1,11 @@
 """The Lab runs a whole notifications run through the launcher the desktop bridge calls.
 
 `notifications.run` hands `run_instagram_notifications` (the one launcher of
-`instagram.engagement.notifications`, called by `notifications_bridge` and by the CLI) the Lab
-session's device instead of a second connection, and the Lab's clean restart. The run's events
-come back in the result, never on stdout (the session's own JSON lines).
+`instagram.engagement.notifications`, called by `notifications_bridge` and by the CLI) the bridge's
+own runtime, `NotificationsBridge`, on the Lab session's device instead of a second connection
+(decision D5 of 2026-09-27): the same clone-aware device, the same clean restart through
+`AppService`, by the helper the CLI uses (`bridges/common/runtime/connected_device.py`). The run's
+events come back in the result, never on stdout (the session's own JSON lines).
 """
 
 import inspect
@@ -14,6 +16,7 @@ import pytest
 from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
 from bridges.compat.diagnostics.actions.instagram import app as lab_app
 from bridges.instagram.engagement.runtime.notifications import commands as bridge_commands
+from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
 from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler
 
 SERIAL = "lab-device"
@@ -101,30 +104,80 @@ def test_the_lab_connect_takes_what_the_launcher_passes(monkeypatch, lab_lifecyc
     assert len(inspect.signature(seen["connect"]).parameters) == declared
 
 
-def test_the_runtime_is_the_session_device_and_the_lab_restart(monkeypatch, lab_lifecycle):
+class _AppService:
+    """The bridges' app lifecycle, recorded: what a `NotificationsBridge` restarts and stops with."""
+
+    calls = []
+
+    def __init__(self, connection, platform="instagram", package_override=None):
+        self.device_id = connection.device_id
+        self.package_override = package_override
+
+    def get_installed_version(self):
+        return None
+
+    def restart(self):
+        self.calls.append(("restart", self.device_id, self.package_override))
+        return True
+
+    def stop(self):
+        self.calls.append(("stop", self.device_id, self.package_override))
+        return True
+
+
+@pytest.fixture
+def bridge_lifecycle(monkeypatch):
+    import bridges.common.device.app_manager as app_manager
+
+    _AppService.calls = []
+    monkeypatch.setattr(app_manager, "AppService", _AppService)
+    return _AppService.calls
+
+
+class _RawDevice:
+    serial = SERIAL
+
+
+def test_the_runtime_is_the_bridge_class_on_the_session_device(monkeypatch, lab_lifecycle, bridge_lifecycle):
     runtimes = []
 
     def launcher(config, *, connect, emit=None, instagram_ai_service=None):
         runtimes.append(connect(None, True))
-        runtimes.append(connect(None, False))
+        runtimes.append(connect("com.instagram.clone", False))
         runtimes[0].stop()
         return {"type": "result", "command": "scan", "success": True, "message": ""}
 
     monkeypatch.setattr(agent_handler, "run_instagram_notifications", launcher)
-    bundle = _bundle()
+    raw = _RawDevice()
+    bundle = _bundle(device=SimpleNamespace(_device=raw))
     ACTION_REGISTRY["notifications.run"](bundle, {})
 
-    restarted, current = runtimes
-    assert restarted.device is bundle.device and restarted.device_id == SERIAL
-    assert current.device is bundle.device
-    # A scan restarts Instagram cleanly (force-stop then start), a row verb does not; the run's
-    # end closes it. All on the session's phone.
-    assert lab_lifecycle == [
-        ("launch", SERIAL, "com.instagram.android", True),
-        ("stop", SERIAL, "com.instagram.android"),
+    restarted, clone = runtimes
+    # The desktop bridge's own class, on the phone the session holds: no second connection.
+    assert isinstance(restarted, NotificationsBridge) and restarted.device_id == SERIAL
+    assert restarted._connection.device._device is raw
+    assert clone.package_name == "com.instagram.clone"
+    # A scan restarts Instagram through the bridges' AppService, a row verb does not; the run's
+    # end closes it. Never through the Lab's own `app.launch`.
+    assert bridge_lifecycle == [
+        ("restart", SERIAL, None),
+        ("stop", SERIAL, None),
     ]
-    restarted.restart_instagram()
-    assert lab_lifecycle[-1] == ("launch", SERIAL, "com.instagram.android", True)
+    assert lab_lifecycle == []
+
+
+def test_the_lab_and_the_cli_connect_a_bridge_by_one_helper(monkeypatch):
+    from bridges.common.runtime import connected_device
+    from taktik.cli.common import instagram_host
+
+    connected = []
+    monkeypatch.setattr(connected_device, "on_connected_device",
+                        lambda base, device_manager, device_id: connected.append(type(base).__name__) or base)
+    host = instagram_host.CliInstagramHost(SimpleNamespace(device=object()), SERIAL)
+    host.notifications_runtime(None, restart=False)
+
+    assert connected == ["NotificationsBridge"]
+    assert not hasattr(instagram_host, "_on_connected_device")
 
 
 def test_the_run_events_come_back_in_the_result_not_on_stdout(monkeypatch, capsys, lab_lifecycle):
