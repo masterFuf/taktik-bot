@@ -131,5 +131,6 @@ def test_register_tiktok_for_you_handler_executes_workflow_with_normalized_confi
     assert ("video_info", {"video": {"author": "creator", "description": "#one", "like_count": "42"}}) in notifier.calls
     assert ("action", {"action": "like", "target": "creator"}) in notifier.calls
     assert ("action", {"action": "follow", "target": "creator"}) in notifier.calls
-    assert ("tiktok_stats", {"stats": {"videos_watched": 1}}) in notifier.calls
+    # The counters reach the desktop through the bridge's `stats` line, not the notifier.
+    assert "tiktok_stats" not in {name for name, _ in notifier.calls}
     assert ("pause", {"duration": 8}) in notifier.calls

@@ -20,7 +20,7 @@ from .shared import (
     STEP_METRIC_EVENT,
     device_field,
 )
-from .stop_reasons import RUN_HALT_CODE
+from .stop_reasons import INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON, RUN_HALT_CODE
 
 _NOTIFICATIONS = "taktik.core.social_media.instagram.workflows.management.notifications"
 
@@ -102,8 +102,7 @@ SUGGESTIONS = Shape(
         Field("filtered", "int", "Profiles the filters left out."),
         Field("errors", "int", "Profiles that failed."),
         Field("profiles", ListOf(SUGGESTION_PROFILE), "Each suggestion tried."),
-        Field("stop_reason", "string", "Why the visit ended: `disabled`, `no_account`, `max_reached`, "
-              "`list_exhausted`..."),
+        Field("stop_reason", INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON, "Why the visit ended (not the scan)."),
         Field("ai_qualification", "bool", "The AI qualified the visited profiles."),
         Field("session_id", "int", "The visit's `sessions` row.", optional=True, nullable=True),
         Field("fallback", "json", "The same visit on the people screen, when the feed offered none.",

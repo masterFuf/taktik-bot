@@ -14,7 +14,7 @@ def send_stats(
     errors: int = 0,
 ) -> None:
     """Send TikTok stats update to desktop app."""
-    _ipc.tiktok_stats(
+    _ipc.video_stats(
         videos_watched=videos_watched,
         videos_liked=videos_liked,
         users_followed=users_followed,

@@ -29,8 +29,6 @@ def attach_video_callbacks(workflow: Any, notifier: Any) -> None:
         workflow.set_on_follow_callback(
             lambda video: notify(notifier, "action", action="follow", target=video.get("author", ""))
         )
-    if hasattr(workflow, "set_on_stats_callback"):
-        workflow.set_on_stats_callback(lambda stats: notify(notifier, "tiktok_stats", stats=stats))
     if hasattr(workflow, "set_on_pause_callback"):
         workflow.set_on_pause_callback(lambda duration: notify(notifier, "pause", duration=duration))
 

@@ -4,7 +4,7 @@
 class TikTokIpcMixin:
     """Emit TikTok events through the core IPC send primitive."""
 
-    def tiktok_stats(
+    def video_stats(
         self,
         videos_watched: int = 0,
         videos_liked: int = 0,
@@ -13,7 +13,7 @@ class TikTokIpcMixin:
         videos_skipped: int = 0,
         errors: int = 0,
     ) -> None:
-        """Send TikTok stats update."""
+        """Send the `stats` line of a TikTok video run: its counters."""
         self.send("stats", stats={
             "videos_watched": videos_watched,
             "videos_liked": videos_liked,
