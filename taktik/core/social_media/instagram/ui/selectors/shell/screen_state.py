@@ -78,24 +78,23 @@ class DetectionSelectors:
         '//*[contains(@resource-id, "story_viewer")]'
     ])
 
-    _post_screen_indicators_base: List[str] = field(default_factory=lambda: [
-        # PRIORITY 2: Reel-specific selectors (if generic fails)
-        '//*[@resource-id="com.instagram.android:id/like_button"]',  # Reel like button
-
-        # PRIORITY 3: Regular post selectors (fallback for posts only)
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_like"]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_comment"]',
-        '//*[@resource-id="com.instagram.android:id/row_feed_button_share"]',
+    # "A post is open": the post viewer (opened from a grid, a link or a notification) or the
+    # Reels player. Never the home feed, whose posts carry the same like buttons, nor the
+    # notifications or a story, whose descriptions say "Like" (the English "Like"/"Comment"
+    # descriptions and the bare like buttons answered yes there: Lab auto-test, Pixel 3a, IG 410,
+    # 2026-09-28). A post of the viewer is a post row under an action bar with Back, which the
+    # feed never has; its buttons may be below the screen, its header is not (fixture
+    # ig410_fr_post_opened_from_grid.xml).
+    post_screen_indicators: List[str] = field(default_factory=lambda: [
+        # The Reels player: its own like button inside the clips layout (ig410_en_reel_viewer.xml).
+        '//*[@resource-id="com.instagram.android:id/root_clips_layout"]'
+        '//*[@resource-id="com.instagram.android:id/like_button"]',
+        # The post viewer: a post row, and the action bar's Back on the same screen.
+        '//*[@resource-id="com.instagram.android:id/row_feed_profile_header"]'
+        '[//*[@resource-id="com.instagram.android:id/action_bar_button_back"]]',
         '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]'
-        # clips_single_media_component removed (0/30 on v417)
+        '[//*[@resource-id="com.instagram.android:id/action_bar_button_back"]]',
     ])
-
-    @property
-    def post_screen_indicators(self) -> List[str]:
-        # PRIORITY 1: Generic content-desc selectors (Like / Comment) are
-        # language-dependent and injected first via the overlay; the neutral
-        # resource-id fallbacks follow.
-        return L("detection.post_screen_indicators") + self._post_screen_indicators_base
 
     @property
     def reel_indicators(self) -> List[str]:

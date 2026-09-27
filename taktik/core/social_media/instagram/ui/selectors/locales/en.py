@@ -281,10 +281,6 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"unavailable\")]",
         "//*[contains(@text, \"private\")]",
     ],
-    "detection.post_screen_indicators": [
-        "//*[contains(@content-desc, \"Like\")]",
-        "//*[contains(@content-desc, \"Comment\")]",
-    ],
     "detection.private_account_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/igds_headline_emphasized_headline\" and contains(@text, \"private\")]",
         "//*[@resource-id=\"com.instagram.android:id/row_profile_header_empty_profile_notice_title\" and @text=\"This account is private\"]",
