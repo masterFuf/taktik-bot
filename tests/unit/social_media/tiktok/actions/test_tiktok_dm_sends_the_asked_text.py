@@ -123,6 +123,31 @@ def test_a_message_that_cannot_be_typed_right_is_not_sent(monkeypatch):
     assert phone.sent == []
 
 
+class _SilentKeyboardPhone(_Phone):
+    """No broadcast to the Taktik Keyboard gets an answer (adb returns nothing): it types and
+    clears nothing. uiautomator2's `send_keys` still writes, and is listed."""
+
+    def __init__(self):
+        super().__init__()
+        self.pasted = []
+
+    def shell(self, device_id, command):
+        return "" if "am broadcast" in command else super().shell(device_id, command)
+
+    def send_keys(self, text, clear=False):
+        self.pasted.append(text)
+        self.composer = text if clear else self.composer + text
+
+
+def test_a_message_the_keyboard_cannot_type_is_not_pasted(monkeypatch):
+    """It fell back to uiautomator2's `send_keys`: the whole message written at once, then sent."""
+    phone = _SilentKeyboardPhone()
+
+    assert _actions(phone, monkeypatch).send_text_message("Test TAKTIK") is False
+
+    assert phone.pasted == [] and phone.sent == []
+
+
 _REAL_IS_ACTIVE = kb.is_taktik_keyboard_active
 
 

@@ -42,9 +42,6 @@ class _Field:
     def get_text(self):
         return self._text
 
-    def set_text(self, value):
-        self._text = value
-
     def click(self):
         pass
 
@@ -159,39 +156,10 @@ def test_a_reply_is_ledgered_as_a_comment_with_its_text(_no_db):
 
 
 # ── The mention is the thread link ──────────────────────────────────────────
-
-def test_a_wiped_mention_is_restored_before_sending(_no_db):
-    """The typing helper falls back to set_text, which REPLACES the field — that fallback
-    erases the prefilled "@<commenter> " and the reply would land as a top-level comment."""
-    field = _Field("Merci !")  # mention gone: what set_text leaves behind
-    act = _action(field=field)
-
-    act.reply_to_comment_in_thread(COMMENTER, "Merci !")
-
-    assert field.get_text() == "@" + COMMENTER + " Merci !"
-
-
-def test_an_intact_mention_is_left_untouched(_no_db):
-    field = _Field("@" + COMMENTER + " Merci !")
-    act = _action(field=field)
-
-    act.reply_to_comment_in_thread(COMMENTER, "Merci !")
-
-    assert field.get_text() == "@" + COMMENTER + " Merci !"  # not rewritten
-
-
-def test_an_unreadable_composer_is_not_overwritten(_no_db):
-    """Better a reply we cannot verify than a correct one clobbered by a blind rewrite."""
-    class _Unreadable(_Field):
-        def get_text(self):
-            raise RuntimeError("no text")
-
-    field = _Unreadable("@" + COMMENTER + " Merci !")
-    act = _action(field=field)
-
-    act.reply_to_comment_in_thread(COMMENTER, "Merci !")
-
-    assert field._text == "@" + COMMENTER + " Merci !"
+#
+# A reply's typing is checked against its mention (`_type_comment(..., mention=...)`): the field
+# without it is emptied and the mention typed with the reply, by the keyboard, nothing rewritten
+# afterwards (`test_text_is_never_pasted.py`, a reply that lost its mention).
 
 
 # ── Refusals ────────────────────────────────────────────────────────────────

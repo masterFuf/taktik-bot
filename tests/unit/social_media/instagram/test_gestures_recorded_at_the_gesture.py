@@ -70,7 +70,6 @@ def _comment_action(close=None):
     act._human_like_delay = lambda _kind: None
     act._ensure_taktik_keyboard = lambda: True
     act._find_comment_reply_control = lambda _handle: (1, 2, 3, 4)
-    act._ensure_reply_mention = lambda _h, _t: None
     act.device = types.SimpleNamespace(human_tap=lambda bounds, **_k: (bounds[0], bounds[1]))
     act._close_comment_popup = close or (lambda: True)
     return act

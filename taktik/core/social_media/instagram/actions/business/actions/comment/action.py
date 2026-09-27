@@ -7,7 +7,6 @@ from loguru import logger
 
 from ....core.base_business import BaseBusinessAction
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
-from taktik.core.shared.input.taktik_keyboard import field_holds_text
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from .validation import validate_comment
 
@@ -306,13 +305,12 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             comment_field.click()
             time.sleep(0.5)
             
-            # Read back and retyped once if the field does not hold exactly the comment.
+            # Read back and retyped once if the field does not hold exactly the comment. Nothing
+            # is pasted when it still does not: `set_text` writes the whole text at once.
             if not self._type_text_checked(comment_text, prefix=mention):
-                self.logger.warning("The comment field does not hold the comment, falling back to set_text")
-                comment_field.set_text(mention + comment_text)
-                if not field_holds_text(self.device, mention + comment_text):
-                    self.logger.error("The comment field does not hold the requested comment: not sent")
-                    return False
+                self.logger.error("The Taktik Keyboard did not leave the comment in the field: "
+                                  "not sent, nothing pasted")
+                return False
             self.logger.debug(f"Comment text typed ({len(comment_text)} chars)")
             
             return True
@@ -547,10 +545,10 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
 
         Tapping the row's own Reply affordance is what makes the answer land UNDER that
         comment instead of at the bottom of the post: Instagram prefills the composer with
-        "@username ", and that mention is the thread link. The typing helper falls back to
-        `set_text`, which REPLACES the field — so the mention is verified after typing and
-        restored if it was wiped, otherwise the reply would silently become an ordinary
-        top-level comment addressed to nobody.
+        "@username ", and that mention is the thread link. The typing is checked against it
+        (`_type_comment(..., mention=...)`): a field without the mention is emptied and the
+        mention typed with the reply, through the keyboard, otherwise the reply would
+        silently become an ordinary top-level comment addressed to nobody.
         """
         config = {**self.default_config, **(config or {})}
         result = {'success': False, 'username': username, 'comment_id': None, 'message': ''}
@@ -589,8 +587,6 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
                 result['message'] = 'Could not type the reply'
                 return result
 
-            self._ensure_reply_mention(handle, text)
-
             if not self._post_comment():
                 result['message'] = 'Could not send the reply'
                 return result
@@ -617,40 +613,6 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             self.logger.error(f"Error replying to @{handle}: {exc}")
             result['message'] = str(exc)
             return result
-
-    def _ensure_reply_mention(self, username: str, text: str) -> None:
-        """Put the "@username " mention back if the typing fallback wiped it.
-
-        Best-effort by design: when the composer cannot be read we leave the field as the
-        typing helper left it rather than risk overwriting a correct reply.
-        """
-        mention = f'@{username}'
-        field = None
-        for selector in getattr(self.post_selectors, 'comment_field_selectors',
-                                [self.post_selectors.comment_field_selector]):
-            try:
-                candidate = self.device.xpath(selector)
-                if candidate.exists:
-                    field = candidate
-                    break
-            except Exception:
-                continue
-        if field is None:
-            return
-
-        try:
-            current = field.get_text() or ''
-        except Exception:
-            return
-
-        if mention.lower() in current.lower():
-            return
-
-        self.logger.warning(f"Reply mention to @{username} was lost while typing — restoring it")
-        try:
-            field.set_text(f'{mention} {text}')
-        except Exception as exc:
-            self.logger.debug(f"Could not restore the reply mention: {exc}")
 
     def _find_comment_reply_control(self, username: str):
         """Bounds of the Reply affordance on ``username``'s comment row."""

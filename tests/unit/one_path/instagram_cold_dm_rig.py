@@ -125,6 +125,8 @@ class FakePhone:
         self.user = None
         #: What the conversation composer holds: the typing reads it back before the send.
         self.composer = ""
+        #: What the search bar holds: the Taktik Keyboard types the handle there, read back too.
+        self.search_text = ""
         self.edit_text_class = DM_SELECTORS.edit_text_class_name
         suffix = lambda rid: rid.split(":id/")[-1]
         self.ids = {
@@ -186,6 +188,8 @@ class FakePhone:
         focused = key in (("class", self.edit_text_class), ("other", json.dumps({"focused": True})))
         if focused and self.exists(("id", self.ids["composer"])):
             return {"text": self.composer, "focused": True, "className": self.edit_text_class}
+        if focused and self.exists(("id", self.ids["search_bar"])):
+            return {"text": self.search_text, "focused": True, "className": self.edit_text_class}
         raise LookupError(f"no element {key}")
 
     # --- what a gesture does --------------------------------------------------------------------
@@ -194,6 +198,7 @@ class FakePhone:
         ids = self.ids
         if key == ("id", ids["search_tab"]):
             self.state = "search"
+            self.search_text = ""
         elif key in (("id", ids["row"]), ("id", ids["row_username"])):
             self.state = "profile"
         elif key == ("id", ids["message_button"]):
@@ -213,12 +218,19 @@ class FakePhone:
             self.composer = text
 
     def keyboard_typed(self, text) -> None:
-        """The Taktik Keyboard types into the focused field: the composer when it is open."""
+        """The Taktik Keyboard types into the focused field: the composer when it is open, else
+        the search bar, whose results then show."""
         if self.exists(("id", self.ids["composer"])):
             self.composer += text
+        elif self.exists(("id", self.ids["search_bar"])):
+            self.search_text += text
+            self.state = "typed"
+            self.user = self.search_text
 
     def keyboard_cleared(self) -> None:
         self.composer = ""
+        if self.exists(("id", self.ids["search_bar"])):
+            self.search_text = ""
 
     def press(self, button):
         self.rig.calls.append(f"press {button}")

@@ -11,8 +11,8 @@ This module is their union, and the only place that knows how to talk to a DM co
 - **finding the field** tries every signature the four used, richest first;
 - **focusing it** uses the sampled human tap, with a centre click as fallback, once the Taktik
   keyboard is the phone's keyboard (a switch after the tap can cost the field its focus);
-- **typing** goes through the Taktik keyboard, then `set_text`, then `send_keys`, and counts
-  only when the composer then reads exactly the message;
+- **typing** goes through the Taktik keyboard only, and counts only when the composer then reads
+  exactly the message; a keyboard that fails is a failure, nothing is pasted;
 - **sending** tries the xpath catalogue, then the resource-ids, then the content-descriptions.
 
 `device_id` is REQUIRED. The three call sites that resolved it as
@@ -120,7 +120,8 @@ def type_message(
     typos: bool = True,
     logger=None,
 ) -> bool:
-    """Focus the composer and type `message`, falling back until something lands.
+    """Focus the composer and type `message` through the Taktik Keyboard; False when the
+    composer does not then hold exactly it (nothing is pasted instead).
 
     Typing is humanised by default: occasional adjacent-key mistakes that get noticed and
     corrected, plus think-pauses at word and sentence boundaries. The plan's rendering equals
@@ -145,26 +146,11 @@ def type_message(
     focus_message_input(device, element, logger=log)
     time.sleep(0.3)
 
-    # Each path counts only if the composer then reads exactly the message.
+    # The typing counts only if the composer then reads exactly the message. Nothing is pasted
+    # when it does not: `set_text` or `send_keys` would write the whole message at once.
     if type_text_checked(device, device_id, message, typos=typos):
         return True
-
-    log.warning("The composer does not hold the message, falling back to set_text")
-    try:
-        element.set_text(message)
-        if field_holds_text(device, message):
-            return True
-    except Exception as exc:
-        log.warning(f"set_text failed: {exc}, trying send_keys")
-
-    try:
-        element.send_keys(message)
-        if field_holds_text(device, message):
-            return True
-    except Exception as exc:
-        log.error(f"Could not type the DM: {exc}")
-        return False
-    log.error("The composer does not hold the requested message: not sent")
+    log.error("The Taktik Keyboard did not leave the message in the composer: not sent, nothing pasted")
     return False
 
 

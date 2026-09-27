@@ -56,7 +56,7 @@ class BaseAction(
     - HumanBehavior singleton (fatigue, gaussian delays, break management)
     - Extended action types for _human_like_delay
     - Human-like scroll with random offsets
-    - Taktik Keyboard with send_keys fallback
+    - Taktik Keyboard state (the typing is the shared owner's: no pasted fallback)
     - Instagram app management
     """
     

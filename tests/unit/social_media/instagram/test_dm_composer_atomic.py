@@ -135,25 +135,17 @@ def test_an_unnameable_device_raises_instead_of_guessing():
 
 # ── Typing ───────────────────────────────────────────────────────────────────
 
-def test_typing_falls_back_to_set_text_when_the_keyboard_fails(monkeypatch):
+def test_a_keyboard_that_does_not_type_is_a_failure_and_nothing_is_pasted(monkeypatch):
+    """It fell back to `set_text`, then `send_keys`: the whole message written at once. Held on a
+    phone by `test_text_is_never_pasted.py`."""
     element = _Element("composer")
     monkeypatch.setattr(dm_composer, "type_text_checked", lambda *a, **k: False)
-    monkeypatch.setattr(dm_composer, "field_holds_text", lambda device, text: element.text_set == text)
     monkeypatch.setattr(dm_composer, "tap_element_human", lambda *a, **k: True)
 
     ok = dm_composer.type_message(_Device(xpath_hit=element), "PHONE-1", "bonjour", element=element)
 
-    assert ok is True
-    assert element.text_set == "bonjour"
-
-
-def test_a_fallback_that_leaves_another_text_is_a_failure(monkeypatch):
-    element = _Element("composer")
-    monkeypatch.setattr(dm_composer, "type_text_checked", lambda *a, **k: False)
-    monkeypatch.setattr(dm_composer, "field_holds_text", lambda device, text: False)
-    monkeypatch.setattr(dm_composer, "tap_element_human", lambda *a, **k: True)
-
-    assert dm_composer.type_message(_Device(), "PHONE-1", "bonjour", element=element) is False
+    assert ok is False
+    assert element.text_set is None
 
 
 def test_a_composer_that_does_not_read_the_message_is_not_sent(monkeypatch):
@@ -167,20 +159,6 @@ def test_a_composer_that_does_not_read_the_message_is_not_sent(monkeypatch):
 
     assert dm_composer.send_message(_Device(), "PHONE-1", "bonjour") is False
     assert pressed == []
-
-
-def test_typing_reports_failure_when_every_path_fails(monkeypatch):
-    monkeypatch.setattr(dm_composer, "type_text_checked", lambda *a, **k: False)
-    monkeypatch.setattr(dm_composer, "tap_element_human", lambda *a, **k: True)
-
-    class _Hostile(_Element):
-        def set_text(self, value):
-            raise RuntimeError("no")
-
-        def send_keys(self, value):
-            raise RuntimeError("no")
-
-    assert dm_composer.type_message(_Device(), "PHONE-1", "x", element=_Hostile("c")) is False
 
 
 def test_empty_message_is_a_no_op():

@@ -126,7 +126,9 @@ class CredentialsMixin:
                 except Exception:
                     pass
 
-        if self.text_actions.type_text(text, clear_first=False, human_typing=True):
+        # The login keeps its pasted rescue when the keyboard fails, until Kevin decides.
+        if self.text_actions.type_text(text, clear_first=False, human_typing=True,
+                                       paste_if_keyboard_fails=True):
             self.logger.success(f"✅ {field_name} filled")
             return True
 
@@ -248,7 +250,8 @@ class CredentialsMixin:
         if cx and cy:
             self.device.click(cx, cy)
             time.sleep(0.4)
-        if self.text_actions.type_text(username, clear_first=False, human_typing=True):
+        if self.text_actions.type_text(username, clear_first=False, human_typing=True,
+                                       paste_if_keyboard_fails=True):
             # Check what the field holds after typing
             try:
                 actual_after = element.get_text() or ""

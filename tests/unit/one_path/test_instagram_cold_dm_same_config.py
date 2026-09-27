@@ -95,7 +95,8 @@ def test_the_cli_writes_ai_messages_with_the_key_of_the_environment(igc_rig):
 
     assert result.exit_code == 0, result.output
     assert [call["key"] for call in igc_rig.ai_calls] == [AI_KEY]
-    assert igc_rig.typed == ["AI note for open_one"]
+    # The handle in the search bar, then the message: both typed by the Taktik Keyboard.
+    assert igc_rig.typed == ["open_one", "AI note for open_one"]
 
 
 def test_without_a_key_a_scripted_ai_run_is_refused_before_the_phone(igc_rig):
