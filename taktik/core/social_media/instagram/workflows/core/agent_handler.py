@@ -19,6 +19,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 
 
 INSTAGRAM_AUTOMATION_WORKFLOW_TYPES = (
@@ -97,7 +98,7 @@ def run_instagram_automation(
 
     # Without a host of its own (the CLI), the run's setup lines go to the log.
     log = log or _log_to_logger
-    package_name = payload.get("packageName")
+    package_name = package_name_from_payload(payload)
 
     if instagram_start is not None and not instagram_start(package_name):
         raise InstagramStartError("Instagram did not start cleanly; the run was not started")
@@ -149,7 +150,8 @@ def instagram_automation_payload(
     The handler used to copy eleven known sections and drop the rest, so the warmup caps, the
     pacing profile, the feed settings, the split between sources or the post URL's comment
     settings never reached a CLI run. Only the names a terminal user may type are added: the
-    target's aliases, `feed_stories`, `appLanguage`, `package_name`.
+    target's aliases, `feed_stories`, `appLanguage` (`package_name` is read by the launcher, with every
+    Instagram launcher: `package_name_from_payload`).
     """
     merged = dict(payload)
     merged.update(invocation.params)
@@ -159,7 +161,6 @@ def instagram_automation_payload(
     merged["target"] = _target_for_workflow(workflow_type, merged)
     _alias(merged, "feedStories", "feed_stories")
     _alias(merged, "language", "appLanguage")
-    _alias(merged, "packageName", "package_name")
     if not str(merged.get("language") or "").strip():
         merged["language"] = "en"
     return merged
