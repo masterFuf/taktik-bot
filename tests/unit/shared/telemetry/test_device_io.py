@@ -286,3 +286,20 @@ def test_the_bot_s_adb_process_calls_are_counted_with_their_gestures(monkeypatch
     assert adb_module.run_adb_shell_process("phone", ["am", "force-stop", "com.instagram.android"]) == "completed"
     assert adb_module.run_adb_shell_process("phone", ["pm", "list", "packages"]) == "completed"
     assert (meter.snapshot()["shells"], meter.snapshot()["stops"]) == (2, 1)
+
+
+def test_a_humanized_tap_that_holds_briefly_is_a_tap_not_a_long_press():
+    """Found on the Pixel 3a on the first auto-test run: every tab tap was counted as a long
+    press. A humanized tap asks for a short hold (`long_click(x, y, ~68 ms)`, never above
+    MAX_TAP_HOLD_MS); only a longer hold is a press the app may take for touch-and-hold."""
+    from taktik.core.shared.behavior.tap import MAX_TAP_HOLD_MS
+
+    device, meter = FakeU2Device(), DeviceIoMeter()
+    instrument_device_io(device, meter)
+    device.jsonrpc_call("click", (10, 20, 68))
+    device.jsonrpc_call("click", (10, 20, int(MAX_TAP_HOLD_MS)))
+    device.jsonrpc_call("click", (10, 20, int(MAX_TAP_HOLD_MS) + 1))
+    device.jsonrpc_call("click", (10, 20, 500))              # d.long_click's own default
+
+    totals = meter.snapshot()
+    assert (totals["taps"], totals["long_presses"]) == (2, 2)

@@ -27,13 +27,16 @@ from typing import Any, Dict, Iterator
 
 from loguru import logger
 
+from taktik.core.shared.behavior.tap import MAX_TAP_HOLD_MS
 from taktik.core.shared.telemetry.sink import emit_step
 
 DUMP_METHODS = frozenset({"dumpWindowHierarchy"})
 WAIT_METHODS = frozenset({"waitForExists", "waitUntilGone", "waitForWindowUpdate"})
 
-# The gestures of the uiautomator2 server, by kind. `click` with a third parameter (a duration) is
-# `long_click`; `injectInputEvent` is the raw touch of `d.touch`, one touch per ACTION_DOWN (0).
+# The gestures of the uiautomator2 server, by kind. `click` with a third parameter holds the finger
+# down that many milliseconds (`long_click`): a humanized tap asks for a short hold, never above
+# MAX_TAP_HOLD_MS (`behavior/tap.py`), so only a longer hold is a press the app may take for
+# touch-and-hold. `injectInputEvent` is the raw touch of `d.touch`, one touch per ACTION_DOWN (0).
 GESTURE_KINDS = ("taps", "long_presses", "swipes", "touches", "keys", "texts", "launches", "stops")
 _SWIPE_METHODS = frozenset({
     "swipe", "swipePoints", "drag", "dragTo", "gesture", "pinchIn", "pinchOut",
@@ -61,7 +64,8 @@ _TYPING_BROADCASTS = ("ADB_INPUT_", "ADB_CLEAR_TEXT", "ADB_KEYBOARD_INPUT", "ADB
 def rpc_gesture_kind(method: str, params: Any = None) -> str | None:
     """The kind of gesture a server call makes, or None for a read (a dump, a wait, `.info`)."""
     if method == "click":
-        return "long_presses" if isinstance(params, (list, tuple)) and len(params) >= 3 else "taps"
+        hold = params[2] if isinstance(params, (list, tuple)) and len(params) >= 3 else 0
+        return "long_presses" if isinstance(hold, (int, float)) and hold > MAX_TAP_HOLD_MS else "taps"
     if method == "longClick":
         return "long_presses"
     if method == "injectInputEvent":
