@@ -149,18 +149,23 @@ def test_an_english_caption_is_answered_in_english():
     assert ai.calls[0]["language"] == "en"
 
 
-def test_an_undetected_caption_falls_back_to_the_account_language():
-    """Et voila jusqu'ou va vraiment le garde. `detect_text_language` repond `fr`, `en` ou None —
-    None pour TOUTE autre langue, par conception. Mesure le 2026-08-30 : une legende espagnole
-    revient None, donc elle prend la branche « non detectee » et recoit un commentaire dans la
-    langue du compte, ici en francais. La branche « langue etrangere -> on se tait » est ecrite
-    pour un detecteur qui en connait davantage ; elle ne peut pas se declencher aujourd'hui.
-    Ce test fige le comportement REEL pour que personne ne lise la regle comme une protection
-    deja acquise — l'elargissement du detecteur est une decision, pas un rangement."""
+def test_a_spanish_caption_is_not_commented_by_a_french_account():
+    """Une legende que le detecteur ne nomme pas prend la branche « non detectee » et recoit un
+    commentaire dans la langue du compte, et TikTok n'a pas le garde par l'image d'Instagram.
+    L'espagnol nomme, la regle partagee se tait, et l'appel IA n'est pas paye."""
     ai = _FakeAI()
     caption = "Este es el secreto de mi exito, mira el video completo en mi perfil ahora mismo"
 
-    assert generate_tiktok_comment(ai, _Screen(caption), "alguien", account_persona=PERSONA)
+    assert generate_tiktok_comment(ai, _Screen(caption), "alguien", account_persona=PERSONA) is None
+    assert ai.calls == []
+
+
+def test_an_undetected_caption_falls_back_to_the_account_language():
+    """Une legende qui ne dit rien de sa langue (trop courte, emoji, hashtags) garde la branche
+    « non detectee » : le commentaire suit la langue du compte, comme avant."""
+    ai = _FakeAI()
+
+    assert generate_tiktok_comment(ai, _Screen("🔥🔥 #fyp #viral"), "alguien", account_persona=PERSONA)
     assert ai.calls[0]["language"] == "fr"
 
 

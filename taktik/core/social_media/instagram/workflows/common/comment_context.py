@@ -129,8 +129,9 @@ def _words(value: str) -> List[str]:
 def _foreign_script(value: str) -> bool:
     """More than 30 % of the letters outside the Latin range.
 
-    `detect_text_language` only ever answers fr / en / None, so a CJK, Cyrillic or Arabic
-    comment would sail through the language filter, eat the budget and teach the model nothing.
+    `detect_text_language` reads six Latin-script languages and answers None for the rest, so a
+    CJK, Cyrillic or Arabic comment would sail through the language filter, eat the budget and
+    teach the model nothing.
     """
     letters = [ch for ch in (value or "") if ch.isalpha()]
     if len(letters) < 4:

@@ -394,9 +394,10 @@ def install_instagram_ai_hooks(
                     # NEVER from the vision model's post_language guess — that guess is unreliable (a
                     # French post whose image carries stylised English design text reads as "english"),
                     # and letting it win over the account language is exactly what made a French account
-                    # comment in English. So: caption confidently French/English → follow it; caption
-                    # absent/too short/ambiguous → DEFAULT to the account language (never the vision
-                    # guess). English is allowed as the universal 2nd language; a third language → skip.
+                    # comment in English. So: caption confidently in one of the six languages the
+                    # detector reads (fr, en, es, de, it, pt) → follow it; caption absent/too
+                    # short/ambiguous → DEFAULT to the account language (never the vision guess).
+                    # English is allowed as the universal 2nd language; a third language → skip.
                     caption_lang = detect_text_language(post_caption)
                     vision_lang = _detect_language_code(str(post_language).strip().lower()) if post_language else None
                     if caption_lang and vision_lang and vision_lang != caption_lang:
@@ -404,8 +405,8 @@ def install_instagram_ai_hooks(
                                     f"(vision guessed '{post_language}', ignored)")
                     # Safety veto (vision used ONLY to skip, never to force English): if the caption
                     # gave no verdict but the vision model flags a language that is neither the account's
-                    # nor English (e.g. a genuinely Spanish post), skip instead of default-commenting in
-                    # the account language on a clearly-foreign post.
+                    # nor English (a Dutch or Japanese post, or a caption too short to say), skip instead
+                    # of default-commenting in the account language on a clearly-foreign post.
                     allowed_langs = {c for c in (base_lang, "en") if c}
                     if caption_lang is None and vision_lang and vision_lang not in allowed_langs:
                         reason = (
