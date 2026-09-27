@@ -10,7 +10,7 @@ The lines come from the launcher (`status`, `error`), from the bridge's own fail
 from the session (`AgentIpcMixin`: `agent_status`, `strategy_switch`, `agent_decision`; `follow`
 and `comment` once done), from its AI calls (the AI cards) and from the gestures it shares with
 the automation (`instagram_action` when a gesture is filed, `profile_captured` for the acting
-account, `step_metric`): those are the automation's declarations, not copies.
+account): those are the automation's declarations, not copies; `step_metric` is `shared`'s.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from .shared import (
     AI_SCREENSHOT_START_EVENT,
     ERROR_EVENT,
     STATUS_EVENT,
+    STEP_METRIC_EVENT,
     device_field,
 )
 
@@ -110,7 +111,7 @@ EVENTS = (
     )),
     INSTAGRAM_AUTOMATION.event("instagram_action"),
     INSTAGRAM_AUTOMATION.event("profile_captured"),
-    INSTAGRAM_AUTOMATION.event("step_metric"),
+    STEP_METRIC_EVENT,
     AI_SCREENSHOT_START_EVENT,
     AI_SCREENSHOT_DONE_EVENT,
     AI_PROFILE_START_EVENT,

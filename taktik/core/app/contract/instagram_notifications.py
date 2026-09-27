@@ -11,9 +11,8 @@ carry the scan's rows, the suggestions visit and the batch report.
 
 from __future__ import annotations
 
-from .instagram_automation import INSTAGRAM_AUTOMATION
 from .schema import HOST, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import device_field
+from .shared import STEP_METRIC_EVENT, device_field
 
 _NOTIFICATIONS = "taktik.core.social_media.instagram.workflows.management.notifications"
 
@@ -216,7 +215,7 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
     ),
     # `step_metric`: the step telemetry the bridge's IPC module registers (a refused write, a
     # keystroke); the app does not read it from this bridge.
-    events=(NOTIFICATION_STEP_EVENT, RESULT_EVENT, INSTAGRAM_AUTOMATION.event("step_metric")),
+    events=(NOTIFICATION_STEP_EVENT, RESULT_EVENT, STEP_METRIC_EVENT),
 )
 
 CONTRACTS = (INSTAGRAM_NOTIFICATIONS,)
