@@ -168,7 +168,7 @@ def test_the_workflow_bench_prints_its_declared_lines(monkeypatch, lines, bench)
 
     workflow_test.run_workflow_test(IPC(), _bench_config())
     # A workflow the bench cannot run yet, and one it does not know.
-    workflow_test.run_workflow_test(IPC(), _bench_config(workflow="notifications", target=""))
+    workflow_test.run_workflow_test(IPC(), _bench_config(workflow="dm_response", target=""))
     workflow_test.run_workflow_test(IPC(), _bench_config(workflow="not_a_workflow", target=""))
     with pytest.raises(SystemExit):
         workflow_test.run_workflow_test(IPC(), {"app": "instagram"})
