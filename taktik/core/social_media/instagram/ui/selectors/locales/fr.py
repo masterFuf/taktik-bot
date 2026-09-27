@@ -218,8 +218,10 @@ STRINGS: Dict[str, List[str]] = {
     "detection.hashtag_search_bar_selectors": [
         "//android.widget.EditText[contains(@text, \"Rechercher\")]",
     ],
+    # Instagram in French names its home tab "Home" (see navigation.home_tab); "Accueil" is
+    # Android's. Inside the tab bar, like the tab itself.
     "detection.home_screen_indicators": [
-        "//*[contains(@content-desc, \"Accueil\") and @selected=\"true\"]",
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\") and @selected=\"true\" and @package=\"com.instagram.android\"]",
     ],
     "detection.liked_button_indicators": [
         "//*[contains(@content-desc, \"Ne plus aimer\")]",
@@ -433,12 +435,16 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "navigation.explore_search_bar_texts": [],
     "navigation.home_tab": [
-        # Inside Instagram's tab bar only. Outside it, "Accueil" is the Android navigation
-        # bar's home button, the Pixel launcher's full-screen accessibility_action_view (a tap
-        # on it lands on a random point of the home screen) and the Google dialer's tab; no
-        # Instagram node of the corpus carries it (its 410 home tab says "Home").
+        # Instagram in French names its home tab "Home", beside "Reels", "Rechercher et
+        # explorer" and "Profil": every French dump of the corpus (410 and 447, four phones)
+        # and a cold start of 447 (Pixel 6a, Instagram force-stopped then opened from the
+        # launcher). No Instagram node of the corpus says "Accueil": that word is the Android
+        # navigation bar's home button, the Pixel launcher's full-screen
+        # accessibility_action_view and the Google dialer's tab.
+        # Inside Instagram's tab bar only: outside it, "Home" is also Instagram's "Back to Home"
+        # camera button and any name holding the word.
         # The proxy makes the tab_bar id match any package's, hence @package too.
-        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Accueil\") and @package=\"com.instagram.android\"]",
+        "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\") and @package=\"com.instagram.android\"]",
     ],
     "navigation.home_tab_description_contains": [],
     "navigation.home_tab_descriptions": [],

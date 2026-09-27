@@ -158,11 +158,7 @@ def test_the_home_tab_is_still_found_in_instagram():
 
 
 def test_a_clone_is_still_found_through_the_proxy():
-    """`@package` is swapped for the clone's by the proxy, as `@resource-id` is made agnostic.
-
-    Read with the English entry: the home tab of Instagram in French says "Home", and the French
-    entry looks for "Accueil" (see test_tab_selectors_stay_in_instagram.py)."""
-    set_active_locale("en")
+    """`@package` is swapped for the clone's by the proxy, as `@resource-id` is made agnostic."""
     label_only = [s for s in NAVIGATION_SELECTORS.home_tab if "@package" in s]
     assert label_only, "the locale home tab entry is expected to name Instagram's package"
     assert _packages_found(label_only, home_feed(CLONE), package=CLONE) == {CLONE}

@@ -11,10 +11,16 @@ Google search bar the same way (a Lab `navigation.go_search` once ended in the G
 Both fallbacks now look inside Instagram's tab bar, where every real home and search tab of
 the corpus sits, and `navigate_to_home` opens Instagram when it is not in the foreground.
 
+Instagram in French names its home tab "Home", in English, beside "Reels", "Rechercher et
+explorer" and "Profil": every French dump of the corpus (410 and 447, four phones), and a cold
+start of 447 on a Pixel 6a (Android and Instagram in French, Instagram force-stopped then opened
+from the launcher), so not a leftover of a language switch. The French entries look for "Home".
+
 The screens are real dumps, anonymized: the Pixel launcher (Android 12, French), and Instagram
 410 in French on a Pixel 3 (home feed, own profile, a followers list, the account results of a
-search) and on a Pixel 3a (the likers sheet of a post), and in English on another phone (the story
-camera). No phone holds an English Android:
+search) and on a Pixel 3a (the likers sheet of a post, a home feed whose home tab is the selected
+node), 447 in French on a Pixel 6a (the home feed after the cold start), and in English on another
+phone (the story camera). No phone holds an English Android:
 the English runs read the French launcher. The phone is uiautomator2's own xpath engine behind the
 facade production mounts (`CloneAwareDeviceProxy`); a tap reaches the clickable node under it.
 """
@@ -33,6 +39,7 @@ from taktik.core.social_media.instagram.actions.atomic.navigation import Navigat
 from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS
 
 IG = "com.instagram.android"
@@ -46,6 +53,8 @@ def _capture(path):
 
 LAUNCHER = _capture(Path(__file__).parents[2] / "shared" / "device" / "fixtures" / "android12_fr_launcher_home.xml")
 FEED = _capture(FIXTURES / "ig410_fr_home_feed_tab_icon_selected.xml")
+FEED_HOME_TAB_SELECTED = _capture(FIXTURES / "ig410_fr_home_feed_reel_row.xml")
+FEED_447_COLD_START = _capture(FIXTURES / "ig447_fr_home_feed_cold_start.xml")
 OWN_PROFILE = _capture(FIXTURES / "ig410_fr_own_profile.xml")
 # Instagram 410 shows a followers list without the tab bar.
 FOLLOWERS = _capture(FIXTURES / "ig410_fr_followers_list_top.xml")
@@ -85,6 +94,7 @@ def test_no_home_or_search_tab_on_the_launcher(locale, lang):
     assert _matches(LAUNCHER, NAVIGATION_SELECTORS.home_tab) == []
     assert _matches(LAUNCHER, NAVIGATION_SELECTORS.search_tab) == []
     assert _matches(LAUNCHER, [FEED_SCROLL_SELECTORS.home_tab_xpath]) == []
+    assert _matches(LAUNCHER, DETECTION_SELECTORS.home_screen_indicators) == []
 
 
 @pytest.mark.parametrize("screen", [CAMERA, SEARCH_RESULTS], ids=["camera", "search_results"])
@@ -117,12 +127,19 @@ def test_the_localized_fallback_finds_a_tab_without_its_id(locale):
     assert _matches(bar, NAVIGATION_SELECTORS.search_tab) == ["Rechercher et explorer"]
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "the French entry of navigation.home_tab looks for \"Accueil\"; the home tab of Instagram in "
-    "French says \"Home\" (410 on the Pixel 3, 447 on the Pixel 6a): locales/fr.py"))
-def test_the_french_fallback_finds_the_home_tab_of_a_french_tab_bar(locale):
+@pytest.mark.parametrize("screen", [FEED, FEED_447_COLD_START], ids=["410", "447-cold-start"])
+def test_the_french_fallback_finds_the_home_tab_of_a_french_tab_bar(locale, screen):
     locale("fr")
-    assert _matches(_tabs_without_their_ids(FEED), NAVIGATION_SELECTORS.home_tab) == ["Home"]
+    assert _matches(_tabs_without_their_ids(screen), NAVIGATION_SELECTORS.home_tab) == ["Home"]
+
+
+def test_the_french_home_screen_fallback_reads_the_selected_home_tab(locale):
+    """The home screen told by its selected home tab once the tab ids moved; the own profile,
+    whose home tab is in the same bar but not selected, is not the home screen."""
+    locale("fr")
+    home = _tabs_without_their_ids(FEED_HOME_TAB_SELECTED)
+    assert _matches(home, DETECTION_SELECTORS.home_screen_indicators) == ["Home"]
+    assert _matches(_tabs_without_their_ids(OWN_PROFILE), DETECTION_SELECTORS.home_screen_indicators) == []
 
 
 class _Phone:
