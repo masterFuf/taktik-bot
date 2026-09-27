@@ -93,6 +93,27 @@ def test_the_pause_defaults_to_two_to_five_seconds():
     assert (action["min_delay"], action["max_delay"]) == (2.0, 5.0)
 
 
+def test_a_profile_budget_never_ends_an_unfollow():
+    """An unfollow reads its own maximum; the run's profile budget is not its ceiling.
+
+    The profile budget becomes the session's profile cap, but an unfollow opens no profile to
+    engage and counts none: twenty unfollows under a profile budget of twenty leave the session going.
+    """
+    config = build_instagram_automation_config({
+        "deviceId": "x",
+        "workflowType": "unfollow",
+        "limits": {"maxProfiles": 20},
+        "unfollow": {"maxUnfollows": 50},
+        "session": {"durationMinutes": 30},
+    })
+    assert _unfollow_action(config)["max_unfollows"] == 50
+    sm = SessionManager(config)
+    for _ in range(20):
+        sm.record_action("unfollow")
+    assert sm.should_continue()[0] is True
+    assert sm.unfollow_allowance(50) == (30, None)
+
+
 def test_the_warmup_unfollow_budget_reaches_the_bot():
     config = _config({"maxUnfollows": 12}, warmup={"maxUnfollowsPerDay": 25})
     assert config["session_settings"]["warmup_policy"]["max_unfollows_per_day"] == 25

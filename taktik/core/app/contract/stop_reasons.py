@@ -77,18 +77,43 @@ INSTAGRAM_SCRAPING_COMPLETION_REASON = OneOf(
     doc="How an Instagram scraping ended: its surface reached or not, profiles or none.",
 )
 
+#: `result.suggestions.stop_reason` of an Instagram notifications scan: how the visit of the
+#: suggested accounts ended. A sub-pass of the scan, not the run: the scan itself goes on. Set by
+#: the shared visit (`.../workflows/common/suggestion_visit.py`), its two surfaces (the bottom of
+#: the activity screen, `.../notifications/suggestions_flow.py`; the people screen,
+#: `.../feed/suggestions_visit.py`) and the scan that runs it (`.../notifications/commands.py`).
+INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON = OneOf(
+    (
+        # done, or nothing asked
+        "max_reached", "list_exhausted", "max_scrolls", "disabled",
+        # the bottom of the activity screen
+        "zone_not_reached", "no_suggestions_offered", "cap_hit",
+        # the people screen, when the activity screen offered none
+        "home_not_reached", "carousel_not_found", "carousel_not_framed", "cta_tap_failed",
+        "blocked_by_dialog", "discover_screen_not_reached", "discover_screen_lost", "fallback_error",
+        # refused before the visit, or failed
+        "no_account", "no_pipeline", "error",
+        # the stop latch
+        *RUN_HALT_CODE.values,
+    ),
+    name="InstagramSuggestionsVisitStopReason",
+    doc="How the visit of suggested accounts ended (`result.suggestions.stop_reason` of a scan).",
+)
+
 #: Every catalogue, for the generator and the tests.
 CATALOGUES = (
     RUN_HALT_CODE,
     INSTAGRAM_STOP_REASON_CODE,
     TIKTOK_COMPLETION_REASON,
     INSTAGRAM_SCRAPING_COMPLETION_REASON,
+    INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON,
 )
 
 __all__ = [
     "CATALOGUES",
     "INSTAGRAM_SCRAPING_COMPLETION_REASON",
     "INSTAGRAM_STOP_REASON_CODE",
+    "INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON",
     "RUN_HALT_CODE",
     "TIKTOK_COMPLETION_REASON",
     "TIKTOK_COMPLETION_REASON_OR_NONE",

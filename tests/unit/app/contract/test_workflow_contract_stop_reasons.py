@@ -17,18 +17,18 @@ from taktik.core.app.contract.stop_reasons import (
     CATALOGUES,
     INSTAGRAM_SCRAPING_COMPLETION_REASON,
     INSTAGRAM_STOP_REASON_CODE,
+    INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON,
     RUN_HALT_CODE,
     TIKTOK_COMPLETION_REASON,
 )
 
 ROOT = Path(__file__).resolve().parents[4]
 
-#: The fields of a line that say why a run ended.
+#: The fields of a line that say why a run (or a pass of it) ended.
 REASON_FIELDS = {"completion_reason", "completionReason", "stop_reason", "stopReason", "reason_code"}
 
-#: Not why the run ended: how a sub-pass ended, a vocabulary of its own (the bot's session catalogue
-#: keeps it apart, `.../management/session/stop_reasons.py`).
-SUB_PASSES = {("instagram.engagement.notifications", "result", ("suggestions", "stop_reason"))}
+#: The names a workflow sets a run's reason under.
+REASON_NAMES = ("completion_reason", "stop_reason")
 
 
 def _tree(path: Path) -> ast.Module:
@@ -71,37 +71,48 @@ def test_the_instagram_scraping_reasons_are_its_outcome_constants():
     assert set(INSTAGRAM_SCRAPING_COMPLETION_REASON.values) == _module_constants(outcome)
 
 
-def _reason_target(node) -> bool:
+def _reason_target(node, names: Iterable[str]) -> bool:
     if isinstance(node, ast.Name):
-        return node.id in ("completion_reason", "stop_reason")
+        return node.id in names
     if isinstance(node, ast.Attribute):
-        return node.attr in ("completion_reason", "stop_reason")
+        return node.attr in names
     if isinstance(node, ast.Subscript):
-        return _string(node.slice) in ("completion_reason", "stop_reason")
+        return _string(node.slice) in names
     return False
+
+
+def _literals_set_as(paths: Iterable[Path], names: Iterable[str] = REASON_NAMES) -> Set[str]:
+    """Every literal the code sets under one of `names`.
+
+    Assigned to it (a name, an attribute, a key), or passed under that keyword or dict key.
+    """
+    names = tuple(names)
+    found: Set[str] = set()
+    for path in paths:
+        for node in ast.walk(_tree(path)):
+            if isinstance(node, ast.Assign) and any(_reason_target(t, names) for t in node.targets):
+                found.add(_string(node.value))
+            elif isinstance(node, ast.keyword) and node.arg in names:
+                found.add(_string(node.value))
+            elif isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if _string(key) in names:
+                        found.add(_string(value))
+    return {value for value in found if value}
 
 
 def _tiktok_reasons(paths: Iterable[Path]) -> Set[str]:
     """Every literal a TikTok workflow or bridge sets as a run's reason.
 
-    Assigned to `completion_reason` / `stop_reason` (a name, an attribute, a key), passed under
-    that keyword or dict key, returned by `_check_limits_reached`, or held by a module constant
-    named `STOP_*` / `ACTION_BLOCKED` (what `stop_reason` is set from).
+    Set as `completion_reason` / `stop_reason`, returned by `_check_limits_reached`, or held by a
+    module constant named `STOP_*` / `ACTION_BLOCKED` (what `stop_reason` is set from).
     """
-    found: Set[str] = set()
+    paths = list(paths)
+    found: Set[str] = _literals_set_as(paths)
     for path in paths:
-        tree = _tree(path)
         found |= _module_constants(path, lambda name: name.startswith("STOP_") or name == "ACTION_BLOCKED")
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assign) and any(_reason_target(t) for t in node.targets):
-                found.add(_string(node.value))
-            elif isinstance(node, ast.keyword) and node.arg in ("completion_reason", "stop_reason"):
-                found.add(_string(node.value))
-            elif isinstance(node, ast.Dict):
-                for key, value in zip(node.keys, node.values):
-                    if _string(key) in ("completion_reason", "stop_reason"):
-                        found.add(_string(value))
-            elif isinstance(node, ast.FunctionDef) and node.name == "_check_limits_reached":
+        for node in ast.walk(_tree(path)):
+            if isinstance(node, ast.FunctionDef) and node.name == "_check_limits_reached":
                 for inner in ast.walk(node):
                     if isinstance(inner, ast.Return):
                         found.add(_string(inner.value))
@@ -114,6 +125,22 @@ def test_the_tiktok_reasons_are_what_its_workflows_set():
     # The latch's codes reach `completion_reason` / `stop_reason` through `halt["code"]`.
     set_by_code = _tiktok_reasons(paths) | set(RUN_HALT_CODE.values)
     assert set(TIKTOK_COMPLETION_REASON.values) == set_by_code
+
+
+def test_the_suggestions_visit_reasons_are_what_the_pass_sets():
+    instagram = ROOT / "taktik" / "core" / "social_media" / "instagram"
+    paths = [
+        instagram / "actions" / "business" / "workflows" / "common" / "suggestion_visit.py",
+        instagram / "actions" / "business" / "workflows" / "feed" / "suggestions_visit.py",
+        instagram / "workflows" / "management" / "notifications" / "suggestions_flow.py",
+        instagram / "workflows" / "management" / "notifications" / "commands.py",
+    ]
+    # A surface that cannot be reached gives its `reach_failure_reason`; the activity screen's
+    # is where its descent stopped (`descent_outcome`), whose "reached" never fails the reach.
+    set_by_code = _literals_set_as(paths, (*REASON_NAMES, "reach_failure_reason", "descent_outcome"))
+    set_by_code.discard("reached")
+    # The latch's codes reach it through `halt.get("code")`.
+    assert set(INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON.values) == set_by_code | set(RUN_HALT_CODE.values)
 
 
 def test_a_catalogue_is_a_named_closed_set_without_duplicates():
@@ -129,8 +156,7 @@ def test_every_reason_a_line_carries_is_a_catalogue():
     for owner in owners:
         for event in owner.events:
             for path, item, _, _ in nested_fields(event.fields):
-                owner_id = getattr(owner, "workflow_id", getattr(owner, "name", ""))
-                if item.key in REASON_FIELDS and (owner_id, event.type, tuple(path)) not in SUB_PASSES:
+                if item.key in REASON_FIELDS:
                     spec = item.type
                     if not (isinstance(spec, OneOf) and spec.name in {c.name for c in CATALOGUES}):
                         free.append(f"{getattr(owner, 'workflow_id', owner.name)} `{event.type}`.{'.'.join(path)}")
