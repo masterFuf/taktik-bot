@@ -50,7 +50,6 @@ PROFILE_SETTINGS = (
           aliases=("comments", "comment_texts"), attr="comment_texts"),
     Field("maxCommentsPerSession", "int", "Comments in the run.", default=10,
           aliases=("max_comments_per_session",), attr="max_comments_per_session"),
-    _percent("shareProbability", "share_probability", "Chance to share a video", 5),
     _percent("followProbability", "follow_probability", "Chance to follow the profile", 50),
     _percent("storyLikeProbability", "story_like_probability", "Chance to like the profile's story", 50),
     Field("minDelay", "number", "Shortest pause between two actions, in seconds.", default=1.0,

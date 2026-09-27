@@ -257,12 +257,7 @@ class VideoInteractionMixin(VideoCommentMixin):
                     emit_step("comment", action="sheet", target=self._current_profile_username)
                     self._send_action('comment', self._current_profile_username)
                     self._record_interaction('COMMENT', self._current_profile_username)
-        
-        # Share (rare)
-        if random.random() < self.config.share_probability:
-            # TODO: Implement sharing
-            pass
-        
+
         self._send_stats_update()
     
     def _is_video_already_liked(self) -> bool:

@@ -30,7 +30,6 @@ class FollowersConfig:
     #: a generic "Nice!" under a stranger's video is the most recognisable bot signature there
     #: is, so a run that configured none posts none.
     comment_texts: List[str] = field(default_factory=list)
-    share_probability: float = 0.05
     favorite_probability: float = 0.3
     follow_probability: float = 0.5
     story_like_probability: float = 0.5  # Probability to like stories when encountered

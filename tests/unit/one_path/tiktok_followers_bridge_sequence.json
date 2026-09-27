@@ -69,7 +69,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       },
@@ -123,7 +122,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "beta",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -446,7 +444,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       },
@@ -504,7 +501,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "beta",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -863,7 +859,6 @@
         "pause_duration_max": 60.0,
         "pause_duration_min": 30.0,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -1101,7 +1096,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -1339,7 +1333,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -1576,7 +1569,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -1810,7 +1802,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       },
@@ -1863,7 +1854,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "beta",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -2178,7 +2168,6 @@
         "pause_duration_max": 180,
         "pause_duration_min": 60,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       },
@@ -2234,7 +2223,6 @@
         "pause_duration_max": 180,
         "pause_duration_min": 60,
         "search_query": "beta",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -2552,7 +2540,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "alpha",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       },
@@ -2605,7 +2592,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "beta",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5
       }
@@ -2920,7 +2906,6 @@
         "pause_duration_min": 20,
         "post_url": "https://www.tiktok.com/@creator/video/1",
         "search_query": "",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5,
         "usernames": []
@@ -3171,7 +3156,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 30,
         "search_query": "",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5,
         "usernames": [
@@ -3410,7 +3394,6 @@
         "pause_duration_max": 60,
         "pause_duration_min": 20,
         "search_query": "",
-        "share_probability": 0.05,
         "skip_private_accounts": false,
         "story_like_probability": 0.5,
         "usernames": [

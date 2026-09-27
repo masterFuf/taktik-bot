@@ -138,7 +138,6 @@ def followers_settings_from_payload(payload: Mapping[str, Any]) -> dict[str, Any
         "max_comments_per_session": as_int(
             first_given(payload.get("maxCommentsPerSession"), payload.get("max_comments_per_session")), 10
         ),
-        "share_probability": probability(payload.get("shareProbability"), payload.get("share_probability"), 5),
         "follow_probability": probability(payload.get("followProbability"), payload.get("follow_probability"), 50),
         "story_like_probability": probability(
             payload.get("storyLikeProbability"), payload.get("story_like_probability"), 50
