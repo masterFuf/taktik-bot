@@ -108,10 +108,6 @@ class ScrollEndDetector:
         self.pages.append(usernames)
         return len(new_users) > 0
 
-    def has_load_more_button(self) -> bool:
-        """Vérifie s'il y a un bouton "Load More" visible à l'écran."""
-        return self._find_element_from_selectors(self.load_more_selectors, "Bouton 'Load More'") is not None
-    
     def click_load_more_if_present(self) -> bool:
         """Tap the "load more" button when present."""
         element = self._find_element_from_selectors(self.load_more_selectors, "Bouton 'Load More'")
@@ -120,10 +116,6 @@ class ScrollEndDetector:
             element.click()
             return True
         return False
-    
-    def has_end_of_list_indicator(self) -> bool:
-        """Vérifie s'il y a un indicateur de fin de liste visible."""
-        return self._find_element_from_selectors(self.end_of_list_indicators, "Indicateur de fin de liste") is not None
 
     def should_use_fast_scroll(self) -> bool:
         """

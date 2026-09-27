@@ -18,7 +18,7 @@ class InstagramBridgeBase(PlatformBridgeBase):
     def _after_connect(self) -> None:
         """Wrap the device in the clone-aware, package-agnostic proxy — ALWAYS.
 
-        Mounted unconditionally now, not only for clones. The proxy turns every exact
+        Mounted unconditionally now, not only for clones. The proxy turns every exact Instagram
         ``resourceId=`` into a package-agnostic ``resourceIdMatches``, and that is what lets
         the STOCK app be driven on Instagram 442: 442 exposes its Jetpack Compose content ids
         with NO package prefix (`activity_feed_newsfeed_story_row`, not

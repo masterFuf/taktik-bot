@@ -162,9 +162,6 @@ class ScreenDetectionMixin(BaseAction):
             self.logger.warning("Rate limit detected!")
         return is_limited
     
-    def is_login_required(self) -> bool:
-        return self._detect_element(self.detection_selectors.login_required_indicators, "Login required")
-    
     def detect_popup_or_modal(self) -> Optional[str]:
         for popup_type, selector in self.detection_selectors.popup_types.items():
             if self._is_element_present([selector]):

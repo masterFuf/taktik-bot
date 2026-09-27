@@ -5,7 +5,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.device.wait import find_element
-from ..common.detection import is_reel_post, is_likers_popup_open
+from ..common.detection import is_likers_popup_open
 from ...ui.selectors.shell.popups import POPUP_SELECTORS
 from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from ...ui.selectors.surfaces.post.likers import POST_LIKERS_SELECTORS
@@ -39,9 +39,6 @@ class UIHelpers:
     def _element_exists(self, selectors: list) -> bool:
         """Check if any element from selectors exists."""
         return self._find_element(selectors) is not None
-    
-    def is_current_post_reel(self) -> bool:
-        return is_reel_post(self.device, self.logger)
     
     def has_likes_on_current_post(self) -> bool:
         try:

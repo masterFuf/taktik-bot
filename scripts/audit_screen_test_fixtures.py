@@ -93,7 +93,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "after the home-detection lot (feed_tab / tab_icon, corrected in parallel); the launcher "
          "(shared/device/fixtures/android12_fr_launcher_home.xml) and the feeds are in fixtures/."),
     "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
-        (13, "profile header and screen signals built by a helper, invented."),
+        (12, "profile header and screen signals built by a helper, invented."),
     "tests/unit/social_media/instagram/test_profile_header_447.py":
         (9,
          "447 and 410 profile headers in the real shapes: no 447 professional profile in the "

@@ -9,10 +9,9 @@ while its ids carry `com.android.permissioncontroller`: both prefixes are accept
 the prompt in `com.android.packageinstaller`, with no "only this time" choice; it is recognised so
 that such a phone fails clearly.
 
-Each id is matched with `substring-after` and `starts-with`, never with an `@resource-id="..."`
-equality: the clone proxy rewrites every equality into a package-agnostic match, which would let
-an app's own `permission_message` pass for Android's. Written this way a selector means the same
-through the proxy and without it.
+Each id is matched with `substring-after` and `starts-with`: one selector accepts each owner
+package, and never an app's own `permission_message`. Written this way a selector means the same
+through the clone proxy and without it (the proxy rewrites Instagram's ids only).
 """
 
 from __future__ import annotations

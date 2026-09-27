@@ -315,9 +315,6 @@ class UnfollowActionsMixin:
         return any(d.xpath(selector).exists
                    for selector in UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind, selected=True))
 
-    def _following_tab_selected(self, package: str) -> bool:
-        return self._list_tab_selected(package, "following")
-
     def _wait_for_list_rows(self) -> bool:
         """Wait, bounded, for the first username of the open list."""
         d = self.device.device

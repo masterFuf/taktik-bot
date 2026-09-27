@@ -53,9 +53,6 @@ class PostInteractionMixin(BaseAction):
     def click_save_button(self) -> bool:
         return self._click_button(self.selectors.save_button, "Save button", "🔖")
 
-    def is_like_button_available(self) -> bool:
-        return self._is_element_present(self.selectors.like_button)
-    
     def is_post_already_liked(self) -> bool:
         return self._is_element_present(self.selectors.like_button)
 

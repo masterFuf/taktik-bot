@@ -24,7 +24,6 @@ from typing import Any, Dict, List, Optional, Set
 from loguru import logger
 
 from taktik.core.shared.device.adb import run_adb_shell_process
-from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 # A comment body carries no attribute saying "this is a body", so each field is located by
@@ -75,12 +74,6 @@ def parse_litho_comments(dumpsys_output: str) -> List[Dict[str, Any]]:
             current_username = None  # each username labels exactly one body
 
     return comments
-
-
-def extract_visible_comment_usernames(xml: str) -> Set[str]:
-    """Lower-cased usernames currently on screen, from a hierarchy dump."""
-    root = parse_ui_dump(xml)
-    return set() if root is None else visible_comment_usernames(root)
 
 
 def visible_comment_usernames(root) -> Set[str]:
@@ -171,7 +164,6 @@ def _looks_like_username_button(node_class: str, text: str) -> bool:
 
 __all__ = [
     "parse_litho_comments",
-    "extract_visible_comment_usernames",
     "visible_comment_usernames",
     "read_visible_comments",
     "resolve_device_serial",

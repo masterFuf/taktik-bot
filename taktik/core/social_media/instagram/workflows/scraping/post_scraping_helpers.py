@@ -9,7 +9,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_COMMENTS_SELECTORS,
-    POST_DETAIL_SELECTORS,
     POST_GRID_SELECTORS,
     POST_LIKERS_SELECTORS,
     POST_REELS_SELECTORS,
@@ -438,17 +437,3 @@ class ScrapingPostHelpersMixin:
                 continue
 
         return False
-
-    def _get_post_author(self) -> Optional[str]:
-        """Get the username of the current post author."""
-        selectors = POST_DETAIL_SELECTORS.post_author_username_selectors
-        
-        for selector in selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    return element.get_text().strip().lstrip('@')
-            except Exception:
-                continue
-        
-        return None

@@ -17,6 +17,11 @@ bare form, so a phone that auto-updated to a Compose build stopped finding its
 rows even on the stock app. Same idiom TikTok DM already used
 (``DMActions._resource_id_pattern``), generalised to any prefix.
 
+Only Instagram's own ids are rewritten: an id under the official package or the
+one driven (a clone), or a bare id. Another app's id (``android:id/…``, Google's
+``com.google.android.gms:id/…``, the keyboard's) reaches uiautomator2 as written;
+made agnostic, Google's popup title would match Instagram's own ``title``.
+
 Three interception points:
 
 1. ``device(resourceId="…")``            → agnostic ``resourceIdMatches`` kwarg
@@ -49,25 +54,35 @@ from taktik.core.clone.packages.package_map import OFFICIAL_PACKAGE
 _UI_OBJECT_RETURNING = frozenset({"child", "sibling", "left", "right", "up", "down"})
 
 
-def _agnostic_pattern(resource_id: str) -> str:
-    """A `resourceIdMatches` regex that matches an id under ANY package prefix, or none.
+def _instagram_id_name(resource_id: str, official: str, clone: str) -> Optional[str]:
+    """The name after `:id/` when the id is Instagram's own: under the official package, under
+    the package driven (a clone), or bare (no `:id/` at all). None for another app's id, which
+    the proxy leaves as written."""
+    package, separator, name = resource_id.rpartition(":id/")
+    if not separator:
+        return resource_id
+    if package in (official, clone):
+        return name
+    return None
 
-    `^(.*:id/)?<token>$` matches all three forms the same node can take:
-      - `com.instagram.android:id/<token>` — the official package;
-      - `com.nomix.ig.c1:id/<token>`       — a clone package;
-      - `<token>`                          — no prefix at all, which is what Instagram's
+
+def _agnostic_pattern(name: str) -> str:
+    """A `resourceIdMatches` regex that matches the id `name` under ANY package prefix, or none.
+
+    `^(.*:id/)?<name>$` matches all three forms the same node can take:
+      - `com.instagram.android:id/<name>` — the official package;
+      - `com.nomix.ig.c1:id/<name>`       — a clone package;
+      - `<name>`                          — no prefix at all, which is what Instagram's
         Jetpack Compose screens (442+) expose for their content ids.
 
-    The token is the id after the last `:id/` (or the whole string when there is none),
-    escaped so an id is never read as a regex. This is the same idiom TikTok DM already
+    Escaped so an id is never read as a regex. This is the same idiom TikTok DM already
     uses (`DMActions._resource_id_pattern`) — extended here to be package-agnostic.
     """
-    token = resource_id.rsplit(":id/", 1)[-1]
-    return f"^(.*:id/)?{re.escape(token)}$"
+    return f"^(.*:id/)?{re.escape(name)}$"
 
 
 def _rewrite_kwargs(kwargs: dict, official: str, clone: str) -> dict:
-    """Turn an exact ``resourceId`` into a package-agnostic ``resourceIdMatches``.
+    """Turn an exact Instagram ``resourceId`` into a package-agnostic ``resourceIdMatches``.
 
     Why not the old prefix swap (`com.instagram.android` -> clone package)? Because it
     only ever handled ONE alternative prefix and could not handle the ABSENCE of a prefix.
@@ -77,15 +92,18 @@ def _rewrite_kwargs(kwargs: dict, official: str, clone: str) -> dict:
     stock case in one shape — verified on a live 442 device against a 410 baseline: it
     recovers the bare ids and never regresses the prefixed native ones.
 
-    `official`/`clone` are no longer needed for the match (the regex spans every prefix) but
-    stay in the signature so the two call sites keep one contract. A caller that already
-    passes `resourceIdMatches` is left untouched — it knows what it is doing.
+    Another app's id stays an exact ``resourceId``. A caller that already passes
+    `resourceIdMatches` is left untouched — it knows what it is doing.
     """
     rid = kwargs.get("resourceId")
-    if rid and isinstance(rid, str):
-        kwargs = dict(kwargs)
-        del kwargs["resourceId"]
-        kwargs["resourceIdMatches"] = _agnostic_pattern(rid)
+    if not rid or not isinstance(rid, str):
+        return kwargs
+    name = _instagram_id_name(rid, official, clone)
+    if name is None:
+        return kwargs
+    kwargs = dict(kwargs)
+    del kwargs["resourceId"]
+    kwargs["resourceIdMatches"] = _agnostic_pattern(name)
     return kwargs
 
 
@@ -95,13 +113,14 @@ _XPATH_RID_EQ = re.compile(r'@resource-id\s*=\s*"([^"]+)"')
 
 
 def _rewrite_str(value: Any, official: str, clone: str) -> Any:
-    """Make every ``@resource-id="pkg:id/X"`` equality in an xpath package-agnostic, and point
-    every ``@package="<official>"`` equality at the package actually driven.
+    """Make every Instagram ``@resource-id="pkg:id/X"`` equality in an xpath package-agnostic,
+    and point every ``@package="<official>"`` equality at the package actually driven.
 
     Same reasoning as the kwarg path: an exact `@resource-id="com.instagram.android:id/X"`
     misses the bare `X` that Compose exposes on IG 442 (and misses a clone's prefix too).
-    Each equality becomes `(substring-after(@resource-id,":id/")="X" or @resource-id="X")`,
-    which matches the id under ANY prefix or none.
+    Each Instagram or bare id equality becomes
+    `(substring-after(@resource-id,":id/")="X" or @resource-id="X")`, which matches the id
+    under ANY prefix or none. Another app's id equality is left as written.
 
     `@package` cannot be made agnostic (a clone's package is any name), so it is swapped for
     the clone's: a selector restricted to Instagram's own nodes, to keep off the Android
@@ -111,8 +130,10 @@ def _rewrite_str(value: Any, official: str, clone: str) -> Any:
         return value
 
     def _repl(match: "re.Match") -> str:
-        token = match.group(1).rsplit(":id/", 1)[-1]
-        return f'(substring-after(@resource-id,":id/")="{token}" or @resource-id="{token}")'
+        name = _instagram_id_name(match.group(1), official, clone)
+        if name is None:
+            return match.group(0)
+        return f'(substring-after(@resource-id,":id/")="{name}" or @resource-id="{name}")'
 
     if "@resource-id" in value:
         value = _XPATH_RID_EQ.sub(_repl, value)
@@ -218,9 +239,9 @@ class CloneAwareDeviceProxy:
         return self._device
 
     def rewrite_xpath(self, xpath):
-        """The xpath as `xpath()` hands it to uiautomator2: every `@resource-id` equality made
-        package-agnostic. Public so a reader of a dump taken elsewhere (the screen photo) applies
-        the very same rewrite instead of a copy of it."""
+        """The xpath as `xpath()` hands it to uiautomator2: every Instagram or bare `@resource-id`
+        equality made package-agnostic. Public so a reader of a dump taken elsewhere (the screen
+        photo) applies the very same rewrite instead of a copy of it."""
         return _rewrite_str(xpath, self._official, self._clone)
 
     # ── Forwarding / interception ────────────────────────────────────

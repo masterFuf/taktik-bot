@@ -231,19 +231,6 @@ class PopupHandlingMixin:
             self.logger.debug(f"Error observing inline suggestions: {e}")
             return False
 
-    def _is_ad_consent_popup_open(self) -> bool:
-        """Check if the Meta ad consent popup (page 1 or 2) is visible."""
-        try:
-            for indicator in self.popup_selectors.ad_consent_page1_indicators:
-                if self._is_element_present([indicator]):
-                    return True
-            for indicator in self.popup_selectors.ad_consent_page2_indicators:
-                if self._is_element_present([indicator]):
-                    return True
-        except Exception:
-            pass
-        return False
-
     def _handle_ad_consent_popup(self) -> bool:
         """Handle the Meta ad consent popup (2-page flow).
         

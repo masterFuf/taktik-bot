@@ -447,50 +447,6 @@ class SyncFollowingMixin:
 
     # ─── Internal helpers ─────────────────────────────────────────────────────
 
-    def _get_visible_following_usernames_with_display(self) -> List[tuple]:
-        """
-        Extract the visible (username, display name) pairs of the following list.
-
-        Returns:
-            List of (username, display name) tuples
-        """
-        results = []
-        try:
-            d = self.device.device
-            active_package = get_active_package()
-            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
-            subtitle_resource_id = UNFOLLOW_SELECTORS.active_follow_list_subtitle_resource_id(active_package)
-
-            username_elements = d(resourceId=username_resource_id)
-            subtitle_elements = d(resourceId=subtitle_resource_id)
-
-            if not username_elements.exists:
-                return results
-
-            count = username_elements.count
-            for i in range(count):
-                try:
-                    username = username_elements[i].get_text() or ''
-                    username = username.strip().lstrip('@')
-                    if not username or not self._is_valid_username(username):
-                        continue
-
-                    display_name = ''
-                    try:
-                        if subtitle_elements.exists and i < subtitle_elements.count:
-                            display_name = subtitle_elements[i].get_text() or ''
-                    except Exception:
-                        pass
-
-                    results.append((username, display_name))
-                except Exception:
-                    continue
-
-        except Exception as e:
-            self.logger.debug(f"Error extracting visible following accounts: {e}")
-
-        return results
-
     def _click_non_followers_category(self) -> bool:
         """
         Tap the non-reciprocal category.

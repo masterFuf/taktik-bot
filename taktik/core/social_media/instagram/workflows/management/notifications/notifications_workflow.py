@@ -390,10 +390,6 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
     # ------------------------------------------------------------------
     # Read pass — classify the activity feed (all families)
     # ------------------------------------------------------------------
-    def _rows_on_screen(self) -> List[Dict[str, Any]]:
-        rows, _ = self._dump_screen()
-        return rows
-
     def _dump_screen(self) -> tuple:
         """One dump -> (classified feed rows, visible time-section header texts)."""
         root = self._dump_root()

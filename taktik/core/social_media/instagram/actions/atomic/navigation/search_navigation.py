@@ -318,16 +318,6 @@ class SearchNavigationMixin(BaseAction):
         
         self.logger.warning(f"⚠️ Could not extract username from profile")
         return True
-    
-    def is_on_profile(self, username: str) -> bool:
-        return self._verify_profile_navigation(username)
-    
-    def get_current_username(self) -> Optional[str]:
-        if not self._is_profile_screen():
-            return None
-        
-        username = self._get_text_from_element(PROFILE_SELECTORS.username)
-        return self._clean_username(username) if username else None
 
     # === Content navigation (lists, posts, stories) ===
 

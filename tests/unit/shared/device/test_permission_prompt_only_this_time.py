@@ -199,7 +199,8 @@ def test_the_android_9_installer_prompt_is_recognised_and_left_alone():
 
 
 def test_the_same_ids_under_an_app_package_are_not_a_prompt():
-    """The clone proxy makes an id equality package-agnostic: these selectors must not rely on it."""
+    """The clone proxy makes an Instagram id equality package-agnostic: these selectors must not
+    rely on it."""
     foreign = CAMERA.replace("com.android.permissioncontroller:id/", "com.instagram.android:id/")
     phone = PromptPhone(foreign)
 
