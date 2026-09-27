@@ -216,17 +216,26 @@ class SocialGraphRepository(BaseRepository):
                 # COALESCE would keep `unfollowed_at`, and the account stayed "unfollowed" forever).
                 # Not followed by the bot this time unless the bot just did it: marked "refollow",
                 # so only a bot FOLLOW of this new episode makes it the bot's again.
-                self.execute(
-                    "UPDATE social_graph_sync SET unfollowed_at = NULL, first_seen_at = datetime('now'), "
-                    "source = ? "
-                    "WHERE platform = ? AND account_id = ? AND username = ? COLLATE NOCASE "
-                    "AND direction = 'following' AND unfollowed_at IS NOT NULL",
-                    ("bot_follow" if bot_follow else "refollow", self.platform, account_id, username),
-                )
+                self._reopen(account_id, username, "following",
+                             source="bot_follow" if bot_follow else "refollow")
             return "updated" if existing else "new"
         except Exception as exc:
             logger.debug(f"Error in upsert_following for @{username}: {exc}")
             return "error"
+
+    def _reopen(self, account_id: int, username: str, direction: str, source: Optional[str] = None) -> None:
+        """A closed row (`unfollowed_at` set) seen again: a new episode that starts now.
+
+        Clears `unfollowed_at` and dates the episode from now (`first_seen_at`); `source` names who
+        reopened it, when given. Only a closed row is touched.
+        """
+        self.execute(
+            "UPDATE social_graph_sync SET unfollowed_at = NULL, first_seen_at = datetime('now'), "
+            "source = COALESCE(?, source) "
+            "WHERE platform = ? AND account_id = ? AND username = ? COLLATE NOCASE "
+            "AND direction = ? AND unfollowed_at IS NOT NULL",
+            (source, self.platform, account_id, username, direction),
+        )
 
     def get_active_following_usernames(self, account_id: int) -> set[str]:
         if not account_id:
@@ -361,30 +370,50 @@ class SocialGraphRepository(BaseRepository):
         is_following_back: Optional[bool] = None,
         source: str = "sync",
     ) -> str:
+        """Insert or update a follower row. A follower marked gone (`mark_follower_gone`) and seen
+        again follows us again: its row is reopened, a new episode that starts now."""
         if not account_id:
             return "error"
 
         try:
             existing = self.query_one(
-                "SELECT 1 FROM social_graph_sync "
+                "SELECT unfollowed_at FROM social_graph_sync "
                 "WHERE platform = ? AND account_id = ? AND username = ? COLLATE NOCASE AND direction = 'follower'",
                 (self.platform, account_id, username),
             )
             self._upsert_social_graph(account_id, username, "follower",
                                       display_name=display_name, is_reciprocal=is_following_back, source=source)
+            if existing is not None and existing[0] is not None:
+                self._reopen(account_id, username, "follower")
             return "updated" if existing else "new"
         except Exception as exc:
             logger.debug(f"Error in upsert_follower for @{username}: {exc}")
             return "error"
 
+    def mark_follower_gone(self, username: str, account_id: int) -> None:
+        """Stamp a follower row as gone: the account no longer follows us (`unfollowed_at`).
+
+        Written after a COMPLETE read of the followers list that did not show the account; the
+        next read that shows it reopens the row (`upsert_follower`).
+        """
+        if not account_id:
+            return
+
+        try:
+            self._upsert_social_graph(account_id, username, "follower", unfollowed=True)
+        except Exception as exc:
+            logger.debug(f"Error marking follower @{username} as gone: {exc}")
+
     def get_follower_usernames(self, account_id: int) -> set[str]:
+        """The accounts that follow this account, as the base knows them (lowercased): every
+        follower row not marked gone."""
         if not account_id:
             return set()
 
         try:
             rows = self.query_orm_first(
                 "SELECT username FROM social_graph_sync "
-                "WHERE platform = ? AND account_id = ? AND direction = 'follower'",
+                "WHERE platform = ? AND account_id = ? AND direction = 'follower' AND unfollowed_at IS NULL",
                 (self.platform, account_id),
             )
             return {row["username"].lower() for row in rows}
