@@ -10,7 +10,7 @@ A declaration is plain data. It is the single source of three things:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Tuple, Union
+from typing import Any, Iterator, Mapping, Optional, Tuple, Union
 
 
 class _NoDefault:
@@ -89,6 +89,11 @@ class Field:
     app       False: accepted from the CLI or an Agent plan only, never sent by the app
     nullable  the value may be null (events)
     optional  events: the key may be missing from the line
+    via       "module:function" the value is handed to, whole or transformed (an AI hook, the
+              AI service): the tests hold that the key is read, not what it sets; the keys
+              under it are that function's to read
+    when      the settings under which the reader reads the key, by dotted path
+              (`{"workflowType": "feed"}`); the keys under a nested setting inherit it
     """
 
     key: str
@@ -106,6 +111,8 @@ class Field:
     app: bool = True
     nullable: bool = False
     optional: bool = False
+    via: Optional[str] = None
+    when: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def names(self) -> Tuple[str, ...]:
@@ -151,6 +158,8 @@ class WorkflowContract:
     beside_settings bridge fields that travel under `nest`, next to the settings
     events          the lines of the bridge's stdout the app reads
     refusals        what the launcher refuses before the phone is touched
+    selector        the setting that picks the workflow among `workflow_id` and `also`, when
+                    they read the same file for different runs
     """
 
     workflow_id: str
@@ -168,6 +177,12 @@ class WorkflowContract:
     beside_settings: Tuple[str, ...] = ()
     events: Tuple[Event, ...] = ()
     refusals: Tuple[Refusal, ...] = ()
+    selector: Optional[str] = None
+
+    @property
+    def serves(self) -> Tuple[str, ...]:
+        """The manifest ids this declaration stands for."""
+        return (self.workflow_id, *self.also)
 
     def setting(self, key: str) -> Field:
         for item in self.settings:
@@ -184,6 +199,22 @@ class WorkflowContract:
 
 def has_default(item: Field) -> bool:
     return item.default is not NO_DEFAULT and not isinstance(item.default, Computed)
+
+
+def nested_fields(
+    fields: Tuple[Field, ...],
+    prefix: Tuple[str, ...] = (),
+    when: Optional[Mapping[str, Any]] = None,
+    via: Optional[str] = None,
+) -> Iterator[Tuple[Tuple[str, ...], Field, Mapping[str, Any], Optional[str]]]:
+    """Every field, nested ones included: its path, itself, the `when` and the `via` it inherits."""
+    for item in fields:
+        path = (*prefix, item.key)
+        inherited = {**(when or {}), **item.when}
+        owner = via or item.via
+        yield path, item, inherited, owner
+        if isinstance(item.type, Shape):
+            yield from nested_fields(item.type.fields, path, inherited, owner)
 
 
 def scalar_default(item: Field) -> bool:
@@ -207,5 +238,6 @@ __all__ = [
     "TypeSpec",
     "WorkflowContract",
     "has_default",
+    "nested_fields",
     "scalar_default",
 ]

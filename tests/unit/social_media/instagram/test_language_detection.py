@@ -11,7 +11,15 @@ Two root causes, both covered here:
      independent lead on every dump;
   2. no confidence margin → a 2.5-vs-1.5 coin flip was enough to strip a whole locale.
 A wrong guess is worse than no guess: 'unknown' keeps every locale (overlay union).
+
+The screens are real captures of Instagram 410.0.0.53.71, anonymized (Pixel 3 and Pixel 3a, whose
+Android runs in French whatever the language of Instagram, so every dump also carries the French
+system bar: "Accueil", "Retour"): own profiles in French and English, a reel in each language, a
+French home feed, the English Explore grid, a story being watched, the story information window,
+and a hashtag page of Instagram 447 in French (Pixel 6a).
 """
+
+from pathlib import Path
 
 import pytest
 
@@ -51,52 +59,54 @@ def _no_inplace_filtering(monkeypatch):
     monkeypatch.setattr(language._DETECTION, 'optimize_selector_dataclass', lambda inst, lang: 0)
 
 
-# The English resource-ids that are present on EVERY Instagram dump, whatever the app language.
-_ENGLISH_IDS = (
-    '<node resource-id="com.instagram.android:id/profile_tab" />'
-    '<node resource-id="com.instagram.android:id/search_tab" />'
-    '<node resource-id="com.instagram.android:id/feed_tab" />'
-    '<node resource-id="com.instagram.android:id/action_bar_button_back" />'
-    '<node resource-id="com.instagram.android:id/activity_feed" />'
-)
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _screen(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+#: Instagram's English ids and hardly a word: the story information window (24 strings, English).
+_ENGLISH_IDS = _screen("ig410_en_story_share_information_window.xml")
+_OWN_PROFILE_FR = _screen("ig410_fr_own_profile.xml")
+_OWN_PROFILE_EN = _screen("ig410_en_own_profile.xml")
+#: A story being watched: a few words, both languages scoring (the French ones are the system's).
+_POOR_SCREEN = _screen("ig410_en_story_viewer.xml")
+#: English Instagram under a French system bar: both languages match, too close to call.
+_AMBIGUOUS = _screen("ig410_en_explore_grid.xml")
+_REEL_FR = _screen("ig410_fr_reel_viewer.xml")
+_REEL_EN = _screen("ig410_en_reel_viewer.xml")
+_FEED_FR = _screen("ig410_fr_home_feed.xml")
+#: Two French words and not one English: "Retour" (the system's) and "vidéo".
+_TWO_WORDS = _screen("ig447_fr_hashtag_page.xml")
 
 
 def test_english_resource_ids_alone_never_decide_the_language():
     """The exact regression: an English-id-only dump used to score EN=2.5 and win."""
+    assert "com.instagram.android:id/" in _ENGLISH_IDS
     assert language.detect_language(_FakeDevice(_ENGLISH_IDS)) == 'unknown'
 
 
 def test_french_app_with_english_resource_ids_is_detected_french():
     """A French nav bar must win despite the English ids sitting in the same dump."""
-    xml = _ENGLISH_IDS + (
-        '<node content-desc="Accueil" />'
-        '<node content-desc="Rechercher et explorer" />'
-        '<node content-desc="Profil" />'
-        '<node text="Modifier le profil" />'
-    )
-    assert language.detect_language(_FakeDevice(xml)) == 'fr'
+    assert 'text="Modifier le profil"' in _OWN_PROFILE_FR and "id/profile_tab" in _OWN_PROFILE_FR
+    assert language.detect_language(_FakeDevice(_OWN_PROFILE_FR)) == 'fr'
 
 
 def test_english_app_is_detected_english():
-    xml = _ENGLISH_IDS + (
-        '<node content-desc="Home" />'
-        '<node content-desc="Search" />'
-        '<node content-desc="Profile" />'
-        '<node text="Edit profile" />'
-    )
-    assert language.detect_language(_FakeDevice(xml)) == 'en'
+    assert 'text="Edit profile"' in _OWN_PROFILE_EN
+    assert language.detect_language(_FakeDevice(_OWN_PROFILE_EN)) == 'en'
 
 
 def test_a_poor_screen_stays_unknown_instead_of_guessing():
     """The screen the bot actually started on: barely any visible words → keep every locale."""
-    xml = _ENGLISH_IDS + '<node text="15:31" /><node content-desc="Les plus récents" />'
-    assert language.detect_language(_FakeDevice(xml)) == 'unknown'
+    assert language.detect_language(_FakeDevice(_POOR_SCREEN)) == 'unknown'
 
 
 def test_ambiguous_scores_stay_unknown():
     """Close scores must not strip a locale (the 2.5-vs-1.5 coin flip)."""
-    xml = '<node content-desc="Accueil" /><node content-desc="Home" />'
-    assert language.detect_language(_FakeDevice(xml)) == 'unknown'
+    assert 'content-desc="Accueil"' in _AMBIGUOUS and 'content-desc="Home"' in _AMBIGUOUS
+    assert language.detect_language(_FakeDevice(_AMBIGUOUS)) == 'unknown'
 
 
 def test_unknown_keeps_all_selectors(monkeypatch):
@@ -118,50 +128,27 @@ def test_unknown_keeps_all_selectors(monkeypatch):
 # module carried a 113-word French vocabulary used only to classify our own selectors.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Verbatim from the reel dumps of 31/07 (Instagram 410.0.0.53.71, French phone).
-_REEL_FR = (
-    '<node content-desc="Reel de dolce_cocoon. Appuyez deux fois pour lire ou mettre en pause." />'
-    '<node content-desc="Nombre de J’aime : 14. Voir les J’aime" />'
-    '<node content-desc="Nombre de commentaires : 6. Voir les commentaires" />'
-    '<node content-desc="Envoyer" /><node text="Plus" /><node text="Audio original" />'
-    '<node text="Suivre" />'
-)
-
-_REEL_EN = (
-    '<node content-desc="Reel by john_doe. Double-tap to play or pause." />'
-    '<node content-desc="Like number is14. View likes" />'
-    '<node content-desc="Comment number is 6. View comments" />'
-    '<node content-desc="Send" /><node text="More" /><node text="Original audio" />'
-    '<node text="Follow" />'
-)
-
 
 def test_a_reel_screen_is_enough_to_decide_the_language():
     """No navigation bar on a reel — the five nav probes scored 0.0 against 0.0 there."""
-    assert language.detect_language(_FakeDevice(_ENGLISH_IDS + _REEL_FR)) == 'fr'
-    assert language.detect_language(_FakeDevice(_ENGLISH_IDS + _REEL_EN)) == 'en'
+    assert language.detect_language(_FakeDevice(_REEL_FR)) == 'fr'
+    assert language.detect_language(_FakeDevice(_REEL_EN)) == 'en'
 
 
 def test_a_feed_decides_even_when_the_tabs_carry_no_label():
     """The tab bar is not always labelled; the rest of the screen still says the language."""
-    xml = _ENGLISH_IDS + (
-        '<node content-desc="Ajouter à la story" /><node content-desc="Votre story" />'
-        '<node content-desc="J’aime" /><node content-desc="Commenter" />'
-        '<node content-desc="Envoyer" /><node content-desc="Ajouter aux enregistrements" />'
-    )
-    assert language.detect_language(_FakeDevice(xml)) == 'fr'
+    assert language.detect_language(_FakeDevice(_FEED_FR)) == 'fr'
 
 
 def test_a_single_stray_word_still_decides_nothing():
-    """More vocabulary must not mean a lower bar: one word is not a language."""
-    xml = _ENGLISH_IDS + '<node content-desc="Envoyer" />'
-    assert language.detect_language(_FakeDevice(xml)) == 'unknown'
+    """More vocabulary must not mean a lower bar: a word or two is not a language."""
+    assert language.detect_language(_FakeDevice(_TWO_WORDS)) == 'unknown'
 
 
 def test_a_french_screen_carrying_one_english_word_is_still_french():
     """The ratio margin tolerates a stray loser match instead of falling back to unknown."""
-    xml = _ENGLISH_IDS + _REEL_FR + '<node text="Reels" /><node content-desc="Follow" />'
-    assert language.detect_language(_FakeDevice(xml)) == 'fr'
+    assert 'content-desc="Reels"' in _REEL_FR
+    assert language.detect_language(_FakeDevice(_REEL_FR)) == 'fr'
 
 
 def test_redetection_only_happens_while_the_language_is_undecided(_no_inplace_filtering):
@@ -169,11 +156,11 @@ def test_redetection_only_happens_while_the_language_is_undecided(_no_inplace_fi
     chance the log promised and nothing ever performed — but a decided language must never
     be re-opened: a later screen could only turn a good answer into a worse one."""
     language._DETECTION._detected_lang = 'unknown'
-    assert language.redetect_if_unknown(_FakeDevice(_ENGLISH_IDS + _REEL_FR)) == 'fr'
+    assert language.redetect_if_unknown(_FakeDevice(_REEL_FR)) == 'fr'
 
     # already decided -> the new dump is not even read
     language._DETECTION._detected_lang = 'fr'
-    assert language.redetect_if_unknown(_FakeDevice(_ENGLISH_IDS + _REEL_EN)) == 'fr'
+    assert language.redetect_if_unknown(_FakeDevice(_REEL_EN)) == 'fr'
 
 
 def test_the_undecided_log_names_what_it_saw():

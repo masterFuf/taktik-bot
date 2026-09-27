@@ -1,11 +1,20 @@
 """The profile username reader keeps a handle and refuses everything else.
 
-The last username selector matches any text holding "@". On a profile whose action bar could not be
+The last username selector matched any text holding "@". On a profile whose action bar could not be
 read it landed on the biography, the reader took the whole line, `clean_username` squeezed it into
-one word, and that word was saved as a profile. Every pseudo and bio here is invented.
+one word, and that word was saved as a profile.
+
+The screens of the batch and enriched reads are real, Instagram 410.0.0.53.71, anonymized: a
+French profile (Pixel 3a) whose bio mentions another account ("@..."), the same profile with its
+action bar title removed (derived: the read the action bar could not serve), and the English "Discover
+people" screen (Pixel 3a), whose title is no handle. The pseudos and bio of the single-read
+tests (no screen, only the text each selector answers) are invented.
 """
 
+from pathlib import Path
 from types import SimpleNamespace
+
+from lxml import etree
 
 from loguru import logger
 
@@ -23,13 +32,21 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PRO
 BIO = "Podcast et critiques dédiés aux films, animé par @lina.photo et @marc_studio"
 
 
-def _dump(*nodes):
-    body = "".join(
-        f'<node class="android.widget.TextView" resource-id="{rid}" text="{text}" '
-        f'content-desc="" bounds="[0,0][10,10]"/>'
-        for rid, text in nodes
-    )
-    return f'<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">{body}</hierarchy>'
+FIXTURES = Path(__file__).parent / "fixtures"
+PROFILE = (FIXTURES / "ig410_fr_profile_highlights_only.xml").read_text(encoding="utf-8")
+DISCOVER = (FIXTURES / "ig410_en_discover_people.xml").read_text(encoding="utf-8")
+TITLE_ID = "com.instagram.android:id/action_bar_title"
+
+
+def _title(xml):
+    return etree.fromstring(xml.encode("utf-8")).xpath(f'//node[@resource-id="{TITLE_ID}"]/@text')[0]
+
+
+def _without_action_bar(xml):
+    root = etree.fromstring(xml.encode("utf-8"))
+    for node in root.xpath('//node[contains(@resource-id, "action_bar_title")]'):
+        node.getparent().remove(node)
+    return etree.tostring(root, encoding="unicode")
 
 
 class _DumpDevice:
@@ -80,22 +97,22 @@ def test_a_handle_is_kept_and_a_sentence_refused():
 
 
 def test_the_batch_read_does_not_take_the_bio_for_the_username():
-    reader = _reader(_DumpDevice(_dump(("com.instagram.android:id/profile_header_bio_text", BIO))))
+    xml = _without_action_bar(PROFILE)
+    assert "@user_" in xml
+    reader = _reader(_DumpDevice(xml))
 
     assert reader.get_profile_text_batch()["username"] is None
 
 
 def test_the_batch_read_still_reads_the_action_bar():
-    reader = _reader(_DumpDevice(_dump(
-        ("com.instagram.android:id/action_bar_title", "lina.photo"),
-        ("com.instagram.android:id/profile_header_bio_text", BIO),
-    )))
+    reader = _reader(_DumpDevice(PROFILE))
 
-    assert reader.get_profile_text_batch()["username"] == "lina.photo"
+    assert reader.get_profile_text_batch()["username"] == _title(PROFILE).strip()
 
 
 def test_the_enriched_read_refuses_a_title_that_is_no_handle():
-    reader = _reader(_DumpDevice(_dump(("com.instagram.android:id/action_bar_title", "Envoyer un message"))))
+    assert _title(DISCOVER) == "Discover people"
+    reader = _reader(_DumpDevice(DISCOVER))
 
     assert reader.get_enriched_profile_data()["username"] is None
 

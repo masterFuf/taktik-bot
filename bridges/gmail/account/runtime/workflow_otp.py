@@ -5,6 +5,7 @@ from typing import Any, Callable
 from bridges.gmail.account.runtime.workflow_result import finish_account_result
 from taktik.core.app.email.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
+    read_otp_params_from_payload,
     run_gmail_account,
 )
 
@@ -21,26 +22,20 @@ def run_gmail_read_otp(
     send_message: Callable[..., None],
 ) -> int:
     """Run the Gmail OTP reading workflow."""
-    email = (config.get("email") or "").strip()
-    sender_filter = config.get("senderFilter") or None
-    subject_filter = config.get("subjectFilter") or None
-    timeout = int(config.get("timeout") or 120)
-    if not email:
-        send_error("email is required for read_otp")
+    try:
+        params = read_otp_params_from_payload(config)
+    except ValueError as exc:
+        send_error(str(exc))
         return 1
+    email = params["email"]
 
     send_status("running", f"Reading verification code from {email}...")
-    send_log("info", f"Gmail OTP workflow - {email} (sender={sender_filter})")
+    send_log("info", f"Gmail OTP workflow - {email} (sender={params['sender_filter']})")
 
     try:
         result = run_gmail_account(
             GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
-            {
-                "email": email,
-                "sender_filter": sender_filter,
-                "subject_filter": subject_filter,
-                "timeout": timeout,
-            },
+            params,
             device=device,
             device_id=device_id,
             notifier=notifier,

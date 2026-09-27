@@ -11,7 +11,6 @@ from typing import Any, Callable, Mapping
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
-    int_param,
     merge_invocation_payload,
     value_param,
 )
@@ -84,20 +83,10 @@ def build_gmail_account_handler(
 ) -> WorkflowHandler:
     """Build an injectable Gmail account handler without bridge DB ownership."""
 
-    readers = {
-        GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID: _login_params,
-        GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID: _logout_params,
-        GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID: _read_otp_params,
-        GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID: lambda _payload: {},
-    }
-
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
-        read = readers.get(invocation.workflow_id)
-        if read is None:
-            raise ValueError(f"Unsupported Gmail account workflow id: {invocation.workflow_id}")
         return run_gmail_account(
             invocation.workflow_id,
-            read(merge_invocation_payload(invocation, payload)),
+            gmail_account_params(invocation.workflow_id, merge_invocation_payload(invocation, payload)),
             device=device,
             device_id=device_id,
             notifier=notifier,
@@ -133,26 +122,54 @@ def register_gmail_account_handlers(
     return registry
 
 
-def _login_params(payload: Mapping[str, Any]) -> dict[str, str]:
+def gmail_account_params(workflow_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """The params of `workflow_id` read from a payload (page keys or snake_case).
+
+    Raises ValueError, before any device work, when a required field is missing.
+    """
+    reader = _READERS.get(workflow_id)
+    if reader is None:
+        raise ValueError(f"Unsupported Gmail account workflow id: {workflow_id}")
+    return reader(payload)
+
+
+def login_params_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
+    """`gmail.account.login`: the Google account to add to the phone."""
     return {
         "email": _required_string(payload, "email", message="Gmail login requires email"),
         "password": _required_string(payload, "password", message="Gmail login requires password"),
     }
 
 
-def _logout_params(payload: Mapping[str, Any]) -> dict[str, str]:
+def logout_params_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
+    """`gmail.account.logout`: the Google account to remove."""
     return {
         "email": _required_string(payload, "email", message="Gmail logout requires email"),
     }
 
 
-def _read_otp_params(payload: Mapping[str, Any]) -> dict[str, Any]:
+def read_otp_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`gmail.account.read_otp`: whose inbox, which mail, and how long to wait for it."""
     return {
         "email": _required_string(payload, "email", message="Gmail read_otp requires email"),
-        "sender_filter": _optional_string(payload, "sender_filter", "senderFilter"),
-        "subject_filter": _optional_string(payload, "subject_filter", "subjectFilter"),
-        "timeout": int_param(payload, "timeout", default=120),
+        "sender_filter": _optional_string(payload, "senderFilter", "sender_filter"),
+        "subject_filter": _optional_string(payload, "subjectFilter", "subject_filter"),
+        # A zero or empty timeout waits the default time rather than not at all.
+        "timeout": int(value_param(payload, "timeout", default=None) or 120),
     }
+
+
+def scan_accounts_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`gmail.account.scan_accounts` takes nothing: it reads what the phone holds."""
+    return {}
+
+
+_READERS = {
+    GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID: login_params_from_payload,
+    GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID: logout_params_from_payload,
+    GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID: read_otp_params_from_payload,
+    GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID: scan_accounts_params_from_payload,
+}
 
 
 def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:

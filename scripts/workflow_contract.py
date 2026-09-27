@@ -38,7 +38,6 @@ from taktik.core.app.contract.schema import (  # noqa: E402
     OneOf,
     Shape,
     WorkflowContract,
-    has_default,
     scalar_default,
 )
 from taktik.core.app.contract.shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT  # noqa: E402
@@ -96,7 +95,13 @@ def literal(value: Any) -> str:
 
 
 def constant_name(name: str) -> str:
-    return "_".join(token.upper() for token in re.findall(r"TikTok|[A-Z][a-z0-9]*", name))
+    return "_".join(token.upper() for token in re.findall(r"TikTok|YouTube|[A-Z][a-z0-9]*", name))
+
+
+def served(contract: WorkflowContract) -> str:
+    """The ids a CLI run takes: all of a family picked by a setting, the declared id otherwise."""
+    ids = contract.serves if contract.selector else (contract.workflow_id,)
+    return ", ".join(f"`{workflow_id}`" for workflow_id in ids)
 
 
 def doc_line(item: Field) -> str:
@@ -105,6 +110,8 @@ def doc_line(item: Field) -> str:
         text += f" Default {literal(item.default)}."
     elif isinstance(item.default, Computed):
         text += f" Default: {item.default.description}."
+    if item.when:
+        text += " Read when " + ", ".join(f"`{key}` is {literal(value)}" for key, value in item.when.items()) + "."
     return text.replace("*/", "* /")
 
 
@@ -140,20 +147,30 @@ def host_settings(contract: WorkflowContract) -> List[Field]:
 # ------------------------------------------------------------------------------------ render
 
 
-def render_shape(shape: Shape, filled: bool = False) -> List[str]:
-    """`filled`: a shape of a payload the app writes, whose members are optional unless required."""
+def render_shape(shape: Shape, setting: bool) -> List[str]:
+    """A shape the app fills (settings, the IP rotation) has optional members; a line's shape does not."""
     out = [f"/** {shape.doc} */"] if shape.doc else []
     out.append(f"export interface {shape.name} {{")
     for item in shape.fields:
-        optional = not item.required and (filled or _is_setting_shape(shape))
-        out += member(item, force_optional=item.optional or optional)
+        if setting and not item.app:
+            continue
+        out += member(item, force_optional=not item.required if setting else item.optional)
     out.append("}")
     return out
 
 
-def _is_setting_shape(shape: Shape) -> bool:
-    """A shape the operator fills (the IP rotation) has optional members; a line's shape does not."""
-    return all(has_default(item) for item in shape.fields)
+def shape_defaults(shape: Shape) -> List[str]:
+    """What the bot applies when a key of a nested setting is absent."""
+    defaults = [item for item in shape.fields
+                if item.app and scalar_default(item)]
+    if not defaults:
+        return []
+    keys = " | ".join(f"'{item.key}'" for item in defaults)
+    out = ["", "/** What the bot applies when a key is absent. */",
+           f"export const {constant_name(shape.name)}_BOT_DEFAULTS: Readonly<Required<Pick<{shape.name}, {keys}>>> = {{"]
+    out += [f"  {item.key}: {literal(item.default)}," for item in defaults]
+    out.append("}")
+    return out
 
 
 def render_line(name: str, event: Event) -> List[str]:
@@ -169,11 +186,12 @@ def render_contract(contract: WorkflowContract) -> Tuple[List[str], List[str]]:
     name = contract.name
     reader = contract.reader.split(":")[-1]
     exported: List[str] = []
+    picked = f", picked by `{contract.selector}`" if contract.selector else ""
     out = [
         f"// {'-' * 96}",
         f"// {contract.workflow_id} ({contract.bridge})",
         "",
-        f"/** {contract.doc} Read by `{reader}`, for the app and for a CLI run of `{contract.workflow_id}`"
+        f"/** {contract.doc} Read by `{reader}`, for the app and for a CLI run of {served(contract)}{picked}"
         " (which also takes the aliases and the CLI-only keys of the declaration). */",
         f"export interface {name}Settings {{",
     ]
@@ -245,19 +263,25 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Tupl
         "",
     ]
     shapes: Dict[str, Shape] = {}
+    settings: set = set()
+    filled: set = set()
     for contract in contracts:
         for item in (*contract.settings, *contract.bridge_fields, *(f for e in contract.events for f in e.fields)):
             for shape in shapes_in(item.type):
                 if shapes.setdefault(shape.name, shape) != shape:
                     raise ValueError(f"two shapes named {shape.name}")
-    filled = {
-        shape.name
-        for contract in contracts
-        for item in (*contract.settings, *contract.bridge_fields)
-        for shape in shapes_in(item.type)
-    }
+        for item in (*contract.settings, *contract.bridge_fields):
+            filled |= {shape.name for shape in shapes_in(item.type)}
+        for item in contract.settings:
+            settings |= {shape.name for shape in shapes_in(item.type)}
     for shape in shapes.values():
-        lines += render_shape(shape, shape.name in filled) + [""]
+        lines += render_shape(shape, shape.name in filled)
+        if shape.name in settings:
+            defaults = shape_defaults(shape)
+            lines += defaults
+            if defaults:
+                exported.append(f"{constant_name(shape.name)}_BOT_DEFAULTS")
+        lines.append("")
         exported.append(shape.name)
     used = {event.type for contract in contracts for event in contract.events}
     for event_type, (name, event) in SHARED_LINES.items():
@@ -309,6 +333,8 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dic
             bridge.append([contract.nest])
         workflows[contract.workflow_id] = {
             "name": contract.name,
+            "serves": list(contract.serves),
+            "selector": contract.selector,
             "bridge": contract.bridge,
             "also": list(contract.also),
             "launcher": contract.launcher,

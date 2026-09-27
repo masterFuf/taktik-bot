@@ -111,7 +111,10 @@ AI_BLOCK = Shape(
 )
 
 AI_SETTINGS = (
-    Field("ai", AI_BLOCK, "The AI block.", default={}, reader=f"{_AI_HOOKS}:ai_config_from_payload"),
+    # Handed whole to the AI factory, the hooks and the welcome policy: their reads are held by
+    # `test_workflow_contract_lines.py`.
+    Field("ai", AI_BLOCK, "The AI block.", default={}, reader=f"{_AI_HOOKS}:ai_config_from_payload",
+          via=f"{_AI_HOOKS}:install_profile_ai_hooks_for_run"),
     Field("language", "string", "The app language the operator-facing AI texts are written in.", default="en",
           aliases=("appLanguage",), reader=f"{_AI_HOOKS}:app_language_from_payload"),
 )

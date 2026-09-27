@@ -93,21 +93,76 @@ def tiktok_account_params(workflow_id: str, payload: Mapping[str, Any]) -> dict[
 
     Raises ValueError, before any device work, when a required field is missing.
     """
-    if workflow_id == TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID:
-        return _login_params(payload)
-    if workflow_id == TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID:
-        return _register_params(payload)
-    if workflow_id == TIKTOK_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID:
-        # Refused rather than defaulted: a missing field must not change what the phone speaks.
-        return {
-            "target_language": _required_string(
-                payload, "targetLanguage", "target_language", "language",
-                message="targetLanguage is required (e.g. 'fr', 'en', 'en-US')",
-            ),
-        }
-    if workflow_id == TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID:
-        return {}
-    raise ValueError(f"Unsupported TikTok account workflow id: {workflow_id}")
+    reader = _READERS.get(workflow_id)
+    if reader is None:
+        raise ValueError(f"Unsupported TikTok account workflow id: {workflow_id}")
+    return reader(payload)
+
+
+def login_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`tiktok.account.login`: the credentials and how the session is kept."""
+    return {
+        "username": _required_string(payload, "username", message="TikTok login requires username"),
+        "password": _required_string(payload, "password", message="TikTok login requires password"),
+        "max_retries": int_param(payload, "maxRetries", "max_retries", default=3),
+        "save_session": bool_param(payload, "saveSession", "save_session", default=True),
+    }
+
+
+def register_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`tiktok.account.register`: by email or by phone, the one the method names required."""
+    method = str(value_param(payload, "method", default="email")).strip().lower()
+    if method not in {"email", "phone"}:
+        raise ValueError("TikTok register method must be 'email' or 'phone'")
+
+    email = _optional_string(payload, "email")
+    phone = _optional_string(payload, "phone")
+    if method == "email" and not email:
+        raise ValueError("TikTok register requires email when method is email")
+    if method == "phone" and not phone:
+        raise ValueError("TikTok register requires phone when method is phone")
+
+    return {
+        "method": method,
+        "email": email,
+        "phone": phone,
+        "phone_country": _optional_string(payload, "phoneCountry", "phone_country"),
+        "birth_year": int_param(payload, "birthYear", "birth_year", default=1995),
+        "birth_month": int_param(payload, "birthMonth", "birth_month", default=6),
+        "birth_day": int_param(payload, "birthDay", "birth_day", default=15),
+        "gmail_password": _optional_string(payload, "gmailPassword", "gmail_password"),
+        "tiktok_password": _optional_string(payload, "tiktokPassword", "tiktok_password"),
+        "nickname": _optional_string(payload, "nickname"),
+    }
+
+
+def change_language_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """`tiktok.account.change_language`: refused rather than defaulted, a missing field must not
+    change what the phone speaks."""
+    return {
+        "target_language": _required_string(
+            payload, "targetLanguage", "target_language", "language",
+            message="targetLanguage is required (e.g. 'fr', 'en', 'en-US')",
+        ),
+    }
+
+
+def no_params_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Logout takes nothing but the package (`package_name_from_payload`)."""
+    return {}
+
+
+def package_name_from_payload(payload: Mapping[str, Any]) -> Optional[str]:
+    """The TikTok package the flow runs on (a clone); None: the default TikTok."""
+    return _optional_string(payload, "packageName", "package_name")
+
+
+_READERS = {
+    TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID: login_params_from_payload,
+    TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID: register_params_from_payload,
+    TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID: no_params_from_payload,
+    TIKTOK_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID: change_language_params_from_payload,
+}
 
 
 def build_tiktok_account_handler(
@@ -128,7 +183,7 @@ def build_tiktok_account_handler(
         params = tiktok_account_params(invocation.workflow_id, merged)
         app = None
         if tiktok_account_app is not None:
-            app = tiktok_account_app(_optional_string(merged, "packageName", "package_name"))
+            app = tiktok_account_app(package_name_from_payload(merged))
         return run_tiktok_account(
             invocation.workflow_id,
             params,
@@ -177,43 +232,6 @@ def _emit(notifier: Any, method: str, *args: Any) -> None:
     target = getattr(notifier, method, None)
     if callable(target):
         target(*args)
-
-
-def _login_params(payload: Mapping[str, Any]) -> dict[str, Any]:
-    username = _required_string(payload, "username", message="TikTok login requires username")
-    password = _required_string(payload, "password", message="TikTok login requires password")
-    return {
-        "username": username,
-        "password": password,
-        "max_retries": int_param(payload, "max_retries", "maxRetries", default=3),
-        "save_session": bool_param(payload, "save_session", "saveSession", default=True),
-    }
-
-
-def _register_params(payload: Mapping[str, Any]) -> dict[str, Any]:
-    method = str(value_param(payload, "method", default="email")).strip().lower()
-    if method not in {"email", "phone"}:
-        raise ValueError("TikTok register method must be 'email' or 'phone'")
-
-    email = _optional_string(payload, "email")
-    phone = _optional_string(payload, "phone")
-    if method == "email" and not email:
-        raise ValueError("TikTok register requires email when method is email")
-    if method == "phone" and not phone:
-        raise ValueError("TikTok register requires phone when method is phone")
-
-    return {
-        "method": method,
-        "email": email,
-        "phone": phone,
-        "phone_country": _optional_string(payload, "phone_country", "phoneCountry"),
-        "birth_year": int_param(payload, "birth_year", "birthYear", default=1995),
-        "birth_month": int_param(payload, "birth_month", "birthMonth", default=6),
-        "birth_day": int_param(payload, "birth_day", "birthDay", default=15),
-        "gmail_password": _optional_string(payload, "gmail_password", "gmailPassword"),
-        "tiktok_password": _optional_string(payload, "tiktok_password", "tiktokPassword"),
-        "nickname": _optional_string(payload, "nickname"),
-    }
 
 
 def _required_string(payload: Mapping[str, Any], *names: str, message: str) -> str:

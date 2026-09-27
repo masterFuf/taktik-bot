@@ -34,7 +34,7 @@ class YouTubeAccountBridge:
     def __init__(self, config: dict):
         self.config = config
         self.device_id = config.get("deviceId")
-        self.workflow_type = config.get("workflowType", "login")
+        self.workflow_type = config.get("workflowType")
         self._connection = None
 
         setup_signal_handlers(ipc=_ipc)
@@ -47,6 +47,9 @@ class YouTubeAccountBridge:
     def run(self) -> int:
         if not self.device_id:
             send_error("deviceId is required")
+            return 1
+        if not self.workflow_type:
+            send_error("workflowType is required ('login' or 'logout')")
             return 1
 
         session = prepare_youtube_session(self.device_id, send_status, send_error)
