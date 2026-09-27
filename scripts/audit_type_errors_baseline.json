@@ -279,7 +279,7 @@
   "taktik/core/social_media/tiktok/actions/business/workflows/dm/agent_handler.py": 1,
   "taktik/core/social_media/tiktok/actions/business/workflows/dm/outreach.py": 11,
   "taktik/core/social_media/tiktok/actions/business/workflows/followers/filtering.py": 1,
-  "taktik/core/social_media/tiktok/actions/business/workflows/followers/interaction.py": 112,
+  "taktik/core/social_media/tiktok/actions/business/workflows/followers/interaction.py": 111,
   "taktik/core/social_media/tiktok/actions/business/workflows/followers/navigation.py": 87,
   "taktik/core/social_media/tiktok/actions/business/workflows/followers/page_detection.py": 14,
   "taktik/core/social_media/tiktok/actions/business/workflows/followers/profile_data.py": 19,
