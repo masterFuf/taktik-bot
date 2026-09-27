@@ -7,7 +7,7 @@ field holds a hashtag. Each half alone lies -- the grid is also Explore, and the
 holding "#voyage" is also the search RESULTS screen.
 
 The screens are real captures, anonymized (a hashtag keeps its "#"): the hashtag page of
-Instagram 447 in French (Pixel 6a) and of 410 in English (Pixel 3); in 410 French, the results
+Instagram 447 in French (Pixel 6a), of 410 in French and in English (Pixel 3); in 410 French, the results
 listed for a hashtag typed in the search field (Pixel 3), the Explore grid (Pixel 3a) and the
 results of a plain search, an account name (Pixel 3). Read the way `d.xpath()` reads a dump.
 """
@@ -38,20 +38,18 @@ def _looks_like_a_hashtag_page(root):
     return any(root.xpath(indicator) for indicator in DETECTION_SELECTORS.hashtag_page_indicators)
 
 
-@pytest.mark.parametrize("name", ["ig447_fr_hashtag_page.xml", "ig410_en_hashtag_page.xml"],
-                         ids=["447 fr", "410 en"])
+@pytest.mark.parametrize("name", ["ig447_fr_hashtag_page.xml", "ig410_fr_hashtag_page.xml",
+                                  "ig410_en_hashtag_page.xml"],
+                         ids=["447 fr", "410 fr", "410 en"])
 def test_a_hashtag_page_is_recognised(name):
     root = _screen(name)
     assert _field(root).startswith("#") and root.xpath(GRID)
     assert _looks_like_a_hashtag_page(root)
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "The French entry `detection.hashtag_page_indicators` holds "
-    "`//*[contains(@text, \"publications\")]`: it answers on the subtitle of every hashtag row "
-    "of the search results (\"18,7 m publications\"), and on the post counter of any French "
-    "profile. Open point, to prove on a phone before a selector changes."))
 def test_the_search_results_screen_is_not_a_hashtag_page():
+    # The French entry used to hold `contains(@text, "publications")`, which answered on the
+    # subtitle of every hashtag row here ("18,7 m publications").
     # Same query in the same field, but a list of results instead of a grid.
     root = _screen("ig410_fr_hashtag_search_results.xml")
     assert _field(root).startswith("#") and not root.xpath(GRID)

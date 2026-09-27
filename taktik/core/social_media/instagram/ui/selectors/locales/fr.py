@@ -212,9 +212,9 @@ STRINGS: Dict[str, List[str]] = {
     "detection.followers_list_end_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/row_text_textview\" and contains(@text, \"Et \") and contains(@text, \" autres\")]",
     ],
-    "detection.hashtag_page_indicators": [
-        "//*[contains(@text, \"publications\")]",
-    ],
+    # No `detection.hashtag_page_indicators`: in 410 French, "publications" answered on the
+    # hashtag rows of the search results and never on the hashtag page itself; the language-free
+    # base (grid + "#" in the search field) is what recognises the page.
     "detection.hashtag_search_bar_selectors": [
         "//android.widget.EditText[contains(@text, \"Rechercher\")]",
     ],
