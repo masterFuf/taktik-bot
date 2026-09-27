@@ -148,5 +148,5 @@
   "taktik/core/social_media/tiktok/ui/selectors/surfaces/video/sound.py": 1,
   "taktik/core/social_media/tiktok/ui/selectors/surfaces/video/state.py": 1,
   "taktik/core/social_media/tiktok/workflows/core/ai_hooks.py": 2,
-  "taktik/core/social_media/tiktok/workflows/management/language/change_language_workflow.py": 6
+  "taktik/core/social_media/tiktok/workflows/management/language/change_language_workflow.py": 5
 }
