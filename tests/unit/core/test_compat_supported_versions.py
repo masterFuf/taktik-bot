@@ -93,3 +93,22 @@ def test_drift_is_reported(tmp_path):
     stale.write_text("# App compatibility\n", encoding="utf-8")
     assert "does not match" in compatibility_file_drift(stale)
     assert "missing" in compatibility_file_drift(tmp_path / "absent.md")
+
+
+def test_the_json_the_app_reads_carries_the_published_rows(tmp_path):
+    """The Lab's exit gate (`npm run lab:exit`) asks for a green run on each version the public
+    file lists: it reads the same rows, with their status, never a list of its own."""
+    from taktik.core.compat.selectors.supported_versions import as_json
+
+    path = _builds_file(tmp_path, [
+        {"version": "444.0.0.46.85", "status": "testing"},
+        {"version": "410.0.0.53.71", "status": "validated", "recommended": True},
+    ])
+    supported = load_supported_versions(path, OVERRIDES_DIR)
+    rows = as_json(supported)["apps"]["instagram"]["rows"]
+    assert rows == [
+        {"version": r.version, "display": r.display, "status": r.status}
+        for r in compatibility_rows(supported.app("instagram"))
+    ]
+    assert {"version": "447.0.0.0", "display": "447.x", "status": "Supported"} in rows
+    assert {"version": "444.0.0.46.85", "display": "444.0.0.46.85", "status": "Under validation"} in rows
