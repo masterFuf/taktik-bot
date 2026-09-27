@@ -5,9 +5,8 @@ French locale the field held no selector at all, so the control could not be fou
 was later captured on the Top results of TikTok 43.1.4 (the reference version) and 47.0.3.
 
 The screens are those captures, anonymized: the Top results of 43.1.4 (Pixel 3a) and of 47.0.3
-(Pixel 6a), and the same label elsewhere, the Activity page (43.1.4, Pixel 6a) and the suggested
-accounts of a profile (47.0.3, Pixel 6a). The new followers page of 46.6.3 is still written by
-hand after its capture (capture it again, TikTok 46.6.3 or later, French). Evaluated by
+(Pixel 6a), and the same label elsewhere, the Activity page (43.1.4, Pixel 6a), the new followers
+page of the inbox and the suggested accounts of a profile (47.0.3, Pixel 6a). Evaluated by
 uiautomator2's own `d.xpath()` engine, through `first_matching`, as production reads a selector
 list.
 """
@@ -36,23 +35,10 @@ RESULTS_43_1_4 = _capture("tt4314_fr_search_top_results.xml")
 #: Top results, TikTok 47.0.3 (Pixel 6a, French): same shape, every build id moved.
 RESULTS_47_0_3 = _capture("tt4703_fr_search_top_results.xml")
 
-#: The same label elsewhere: the Activity page (43.1.4), the new followers page (46.6.3) and the
+#: The same label elsewhere: the Activity page (43.1.4), the new followers page (47.0.3) and the
 #: suggested accounts of a profile (47.0.3). None of them sits beside a « Utilisateurs » title.
 ACTIVITY_43_1_4 = _capture("tt4314_fr_activity.xml")
-#: Written by hand after the 46.6.3 capture, which the corpus no longer holds.
-NEW_FOLLOWERS_46_6_3 = (
-    '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-    '<node class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">'
-    '<node class="android.widget.RelativeLayout" resource-id="com.zhiliaoapp.musically:id/ufg" text="" '
-    'content-desc="" clickable="true" bounds="[0,903][1080,998]">'
-    '<node class="android.widget.RelativeLayout" resource-id="" text="" content-desc="" clickable="false" '
-    'bounds="[449,929][630,971]">'
-    '<node class="android.widget.TextView" resource-id="com.zhiliaoapp.musically:id/tv_see_all" '
-    'text="Tout voir" content-desc="" clickable="false" bounds="[449,929][593,971]"/>'
-    '<node class="android.widget.ImageView" resource-id="com.zhiliaoapp.musically:id/kmr" text="" '
-    'content-desc="Défiler vers le bas" clickable="false" bounds="[0,0][1,1]"/>'
-    '</node></node></node></hierarchy>'
-)
+NEW_FOLLOWERS_47_0_3 = _capture("tt4703_fr_new_followers.xml")
 PROFILE_SUGGESTED_47_0_3 = _capture("tt4703_fr_profile_suggested_accounts.xml")
 
 
@@ -94,7 +80,7 @@ def test_the_link_is_still_found_once_the_build_ids_moved():
     assert [el.attrib.get("resource-id") for el in found] == [ID + "vja"]
 
 
-@pytest.mark.parametrize("xml", [ACTIVITY_43_1_4, NEW_FOLLOWERS_46_6_3, PROFILE_SUGGESTED_47_0_3],
+@pytest.mark.parametrize("xml", [ACTIVITY_43_1_4, NEW_FOLLOWERS_47_0_3, PROFILE_SUGGESTED_47_0_3],
                          ids=["activity", "new-followers", "profile-suggested"])
 def test_the_same_label_on_another_screen_is_not_the_search_link(xml):
     assert "Tout voir" in _labels(xml)

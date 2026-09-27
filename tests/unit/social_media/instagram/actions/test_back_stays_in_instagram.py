@@ -6,11 +6,17 @@ Every dump holds more than Instagram: the Android navigation bar (`com.android.s
 leaves the home feed, the launcher gets tapped at random. And a Back KEY on a root screen of
 Instagram (home feed, main tabs) leaves Instagram or jumps tab: the facade refuses it.
 
-The phone is uiautomator2's own xpath engine behind the proxy and the facade production mounts;
-the dumps are invented, shaped like the Pixel 3 ones (IG 410, 1080x2160).
+The phone is uiautomator2's own xpath engine behind the proxy and the facade production mounts.
+The screens are real dumps, anonymized: Instagram 410 in French on a Pixel 3 (home feed, a
+profile opened from the search) and a Pixel 3a (the likers sheet of a post, over the tab bar),
+in English on a Pixel 3a (the search field, keyboard open) and another phone (a story), and the
+Pixel launcher (Android 12, French). Every phone runs Android in French: the Android bar says
+"Retour" and "Accueil", and the English runs read it so. The clone's feed is the real feed with
+its package renamed, as a clone draws it.
 """
 
 import logging
+from pathlib import Path
 
 import pytest
 from uiautomator2.xpath import XPathEntry
@@ -43,65 +49,38 @@ def _french_app(monkeypatch):
     set_active_locale(None)
 
 
-def _node(package, rid, desc="", bounds=(0, 0, 10, 10), cls="android.widget.FrameLayout", focused=False,
-          children=""):
-    left, top, right, bottom = bounds
-    rid = f"{package}:id/{rid}" if rid else ""
-    return (f'<node index="0" text="" resource-id="{rid}" class="{cls}" package="{package}" '
-            f'content-desc="{desc}" clickable="true" enabled="true" focused="{str(focused).lower()}" '
-            f'selected="false" bounds="[{left},{top}][{right},{bottom}]">{children}</node>')
+def _capture(path):
+    return path.read_text(encoding="utf-8")
 
 
-def _nav_bar():
-    # French and English labels at once: the selectors of both locales are checked against it.
-    return "".join(_node(SYSTEMUI, rid, desc, bounds, "android.widget.ImageView") for rid, desc, bounds in (
-        ("back", "Retour", (129, 2028, 349, 2160)), ("home_button", "Accueil", (430, 2028, 650, 2160)),
-        ("back", "Back", (129, 2028, 349, 2160)), ("home_button", "Home", (430, 2028, 650, 2160))))
-
-
-def _tab_bar(package=PKG):
-    tabs = [("feed_tab", "Accueil"), ("clips_tab", "Reels"), ("direct_tab", "Envoyer un message"),
-            ("search_tab", "Rechercher et explorer"), ("profile_tab", "Profil")]
-    return _node(package, "tab_bar", bounds=(0, 1907, 1080, 2028), children="".join(
-        _node(package, rid, desc, (216 * i, 1907, 216 * (i + 1), 2028)) for i, (rid, desc) in enumerate(tabs)))
-
-
-def _screen(*nodes, package=PKG):
-    return ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-            + _node(package, "", bounds=(0, 0, 1080, 2028), children="".join(nodes)) + _nav_bar()
-            + "</hierarchy>")
+FIXTURES = Path(__file__).parents[1] / "fixtures"
+FEED = _capture(FIXTURES / "ig410_fr_home_feed_tab_icon_selected.xml")
+LAUNCHER_SCREEN = _capture(Path(__file__).parents[3] / "shared" / "device" / "fixtures"
+                           / "android12_fr_launcher_home.xml")
 
 
 def home_feed(package=PKG):
-    return _screen(_node(package, "reels_tray_container", bounds=(0, 231, 1080, 578)), _tab_bar(package),
-                   package=package)
+    return FEED if package == PKG else FEED.replace(f'"{PKG}', f'"{package}')
 
 
 def pushed_profile():
-    return _screen(_node(PKG, "action_bar_button_back", "Retour", (0, 77, 132, 231), "android.widget.ImageView"),
-                   _node(PKG, "profile_header_container", bounds=(0, 231, 1080, 900)), _tab_bar())
+    return _capture(FIXTURES / "ig410_fr_profile_opened_from_search.xml")
 
 
 def sheet_over_feed():
-    return _screen(_node(PKG, "reels_tray_container", bounds=(0, 231, 1080, 578)), _tab_bar(),
-                   _node(PKG, "background_dimmer", bounds=(0, 0, 1080, 2028)),
-                   _node(PKG, "layout_container_bottom_sheet", bounds=(0, 700, 1080, 2028)))
+    return _capture(FIXTURES / "ig410_fr_likers_sheet.xml")
 
 
 def keyboard_over_feed():
-    return _screen(_node(PKG, "search_edit_text", bounds=(33, 77, 937, 174), cls="android.widget.EditText",
-                         focused=True), _tab_bar())
+    return _capture(FIXTURES / "ig410_en_search_keyboard_open.xml")
 
 
 def story_viewer():
-    return _screen(_node(PKG, "reel_viewer_root", bounds=(0, 0, 1080, 2028)))
+    return _capture(FIXTURES / "ig410_en_story_viewer.xml")
 
 
 def launcher():
-    return ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-            + _node(LAUNCHER, "accessibility_action_view", "Accueil", (0, 77, 1080, 2028), "android.view.View")
-            + _node(LAUNCHER, "accessibility_action_view", "Home", (0, 77, 1080, 2028), "android.view.View")
-            + _nav_bar() + "</hierarchy>")
+    return LAUNCHER_SCREEN
 
 
 class _Phone:
@@ -179,7 +158,11 @@ def test_the_home_tab_is_still_found_in_instagram():
 
 
 def test_a_clone_is_still_found_through_the_proxy():
-    """`@package` is swapped for the clone's by the proxy, as `@resource-id` is made agnostic."""
+    """`@package` is swapped for the clone's by the proxy, as `@resource-id` is made agnostic.
+
+    Read with the English entry: the home tab of Instagram in French says "Home", and the French
+    entry looks for "Accueil" (see test_tab_selectors_stay_in_instagram.py)."""
+    set_active_locale("en")
     label_only = [s for s in NAVIGATION_SELECTORS.home_tab if "@package" in s]
     assert label_only, "the locale home tab entry is expected to name Instagram's package"
     assert _packages_found(label_only, home_feed(CLONE), package=CLONE) == {CLONE}

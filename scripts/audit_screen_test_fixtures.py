@@ -58,59 +58,31 @@ DUMP_ATTRIBUTES = (
 #: capture instead. Converted files leave the list; nothing enters it.
 HAND_WRITTEN: dict[str, tuple[int, str]] = {
     "tests/unit/agent/test_autopilot_block_stop.py":
-        (2,
-         "Instagram's \"Try again later\" dialog, invented: none in the corpus; capture it (410, "
-         "French and English). The feed post is in fixtures/."),
-    "tests/unit/social_media/instagram/actions/test_back_stays_in_instagram.py":
-        (4,
-         "feed, launcher and navigation bar in the Pixel 3 shape: left for after the "
-         "home-detection lot (feed_tab / tab_icon, corrected in parallel); the launcher "
-         "(shared/device/fixtures/android12_fr_launcher_home.xml) and the feeds are in fixtures/."),
+        (1,
+         "Instagram's Try again later dialog, invented: none in the corpus, and it only shows once "
+         "Instagram refuses a gesture. The ordinary screen is a real feed."),
     "tests/unit/social_media/instagram/test_action_blocked_stops_the_run.py":
         (8,
          "the rate-limit dialog and the contacts request, invented: neither is in the corpus; "
          "capture both (410, French)."),
-    "tests/unit/social_media/instagram/test_comment_sort_selectors.py":
-        (5,
-         "comments sheet and sort menu rebuilt after a 442 capture: no sort menu in the corpus; "
-         "capture the sort menu of a comments sheet (447, French)."),
     "tests/unit/social_media/instagram/test_feed_suggestions_parsing.py":
         (35, "carousel extract, plus discovery-screen rows built by a helper."),
-    "tests/unit/social_media/instagram/test_follow_button_state.py":
-        (2,
-         "English profiles with a \"Follow back\" and a \"Following\" button, written by hand: capture "
-         "both (410, English); the French states and the English \"Follow\" read real profiles."),
-    "tests/unit/social_media/instagram/test_french_reel_selectors.py":
-        (12,
-         "reel viewer and home feed with invented names: the paused and playing reels are in the "
-         "corpus (410, French); the home feed part waits for the home-detection lot (feed_tab "
-         "selection)."),
-    "tests/unit/social_media/instagram/test_grid_thumbnail_tap_opens_the_post.py":
-        (14, "profile grid cells built by a helper from real bounds; the profile fixtures hold a grid."),
-    "tests/unit/social_media/instagram/test_navigation_from_a_real_profile.py":
-        (3,
-         "real profile fixture, plus the navigation bar and home screens by a helper: left for "
-         "after the home-detection lot (feed_tab / tab_icon, corrected in parallel); the launcher "
-         "(shared/device/fixtures/android12_fr_launcher_home.xml) and the feeds are in fixtures/."),
     "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
         (13, "profile header and screen signals built by a helper, invented."),
     "tests/unit/social_media/instagram/test_profile_header_447.py":
         (9,
          "447 and 410 profile headers in the real shapes: no 447 professional profile in the "
          "corpus; capture one (447, French). 447 personal and 410 headers are in the corpus."),
-    "tests/unit/social_media/instagram/test_tab_selectors_stay_in_instagram.py":
-        (3,
-         "launcher and Instagram tab bar by a helper: left for after the home-detection lot "
-         "(feed_tab / tab_icon, corrected in parallel); the launcher "
-         "(shared/device/fixtures/android12_fr_launcher_home.xml) and the feeds are in fixtures/."),
     "tests/unit/social_media/instagram/test_verified_and_business_signals.py":
-        (23, "profile headers built by a helper from 410 shapes; the corpus holds professional profiles."),
-    "tests/unit/social_media/instagram/ui/test_problematic_page_surfaces.py":
-        (3,
-         "QR page and profile options sheet by a helper: neither is in the corpus; capture both "
-         "(410, French and English). Profiles, feeds and the share sheet are in fixtures/."),
+        (7,
+         "two verified signals no capture shows: a profile title whose description carries the "
+         "word Verified, and a certified card in the suggestions of a profile. Every other case "
+         "reads a real profile (410 FR and EN, 447 FR)."),
     "tests/unit/social_media/instagram/ui/test_unfollow_selector_catalogs.py":
-        (14, "follow-list tabs and rows, synthetic."),
+        (2,
+         "the private account's unfollow confirmation, invented: it only shows once a followed "
+         "account's button is tapped, which is the unfollow itself; tabs, categories and the sort "
+         "button read real lists (447 FR, 410 EN and FR)."),
     "tests/unit/social_media/instagram/workflows/management/test_notifications_dump_parsing.py":
         (7, "activity-feed and request rows written inline after 410 dumps."),
     "tests/unit/social_media/instagram/workflows/management/test_notifications_suggestions_parsing.py":
@@ -133,20 +105,14 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (2,
          "unfollow dialog and rows, invented: capture the unfollow dialog (410, French); rows are "
          "in fixtures/."),
-    "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_reciprocity.py":
-        (2,
-         "profile header with its \"Vous suit\" badge, invented: no such badge in the corpus; "
-         "capture a profile that follows us (410, French)."),
-    "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_sort_fr.py":
-        (8, "French sort options and list header, written after a Pixel 3 capture."),
     "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_verification.py":
         (2,
          "unfollow dialog and rows, invented: capture the unfollow dialog (410, French); rows are "
          "in fixtures/."),
     "tests/unit/social_media/tiktok/actions/test_screen_reading.py":
-        (7,
-         "every feed state (video, ad, comments, suggestion, profile, inbox, LIVE, GDPR) invented; "
-         "several are in the corpus."),
+        (1,
+         "TikTok's GDPR notice, invented: it shows once and no capture holds it. Every other "
+         "screen is a real capture (43.1.4 and 46.9.3)."),
     "tests/unit/social_media/tiktok/actions/test_tiktok_dm_send_confirmation.py":
         (6, "DM conversation and composer, invented."),
     "tests/unit/social_media/tiktok/actions/test_tiktok_dm_sends_the_asked_text.py":
@@ -155,13 +121,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (6, "real comment sheet fixture, plus the message banner rebuilt by a helper."),
     "tests/unit/social_media/tiktok/actions/test_tiktok_notification_handles.py":
         (34, "Activity rows (suggestion, wave) invented in the 43.1.4 shape."),
-    "tests/unit/social_media/tiktok/services/test_tiktok_reset_from_search_results.py":
-        (5, "search results and follow list, invented."),
-    "tests/unit/social_media/tiktok/test_following_list_row_button_fr.py":
-        (4,
-         "following-list rows rebuilt after 43.1.4 and 46.6.3 captures: the 43.1.4 list is in the "
-         "corpus (Pixel 3a, \"Suivis\" rows only); capture mutual rows (\"Ami(e)s\" 43.1.4, \"Amis\" "
-         "46.9.3)."),
     "tests/unit/social_media/tiktok/test_french_locale_measured_entries.py":
         (4, "feed, search, comment sheet and inbox rebuilt after captures."),
     "tests/unit/social_media/tiktok/test_profile_enrichment_anchors.py":
@@ -172,7 +131,10 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "launch screen and such a sheet (43.1.4, French); the prompt, the feed and the launcher "
          "are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_comment_sheet_label_route.py":
-        (6, "real 47.0.3 sheet fixture, plus 43.1.4 and 46.6.3 sheets rebuilt by a helper."),
+        (6,
+         "the 46.6.3 sheets (full, empty, with typed text) rebuilt by a helper after their "
+         "captures: no phone runs 46.6.3, and typing is a gesture. The 43.1.4 sheets (full, "
+         "empty), the 43.1.4 and 47.0.3 video pages and the 47.0.3 sheet are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_dm_anchors.py":
         (4, "conversation and inbox rows, invented in the captured shapes."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_search_selector_catalogs.py":
@@ -180,16 +142,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "search result rows rebuilt from the rows a search served: the prefix trap needs handles "
          "that are prefixes of one another, which anonymization erases; next: invented handles on "
          "the real Users tab of 46.9.3."),
-    "tests/unit/social_media/tiktok/ui/test_tiktok_search_view_all_fr.py":
-        (1,
-         "the new followers page of 46.6.3, written by hand after a capture the corpus no longer "
-         "holds: capture it (46.6.3 or later, French); the four other screens are real."),
-    "tests/unit/social_media/tiktok/ui/test_tiktok_send_button_46_9_3.py":
-        (5, "DM composer bar, invented in the 46.9.3 shape."),
-    "tests/unit/social_media/tiktok/ui/test_tiktok_video_liked_state.py":
-        (5,
-         "like button, invented: a liked video exists in 43.1.4 French only (Lab `tt.video.like`, "
-         "Pixel 6a); capture a liked video on 46.6.3 or later, and in English."),
     "tests/unit/social_media/tiktok/workflows/publish/test_tiktok_publish_hashtag_suggestions.py":
         (3,
          "hashtag suggestion list, invented: not in the publish runs of the corpus; capture it "
@@ -214,11 +166,15 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
     "tests/unit/social_media/tiktok/workflows/unfollow/conftest.py":
         (4, "following list of 46.6.3 rendered by a helper."),
     "tests/unit/test_switch_account.py":
-        (5, "account switcher rows, invented."),
+        (4,
+         "account rows by a helper: a sheet of several accounts with the notifications suffix, and "
+         "the logged-out picker (no phone of the bench holds several accounts; the picker needs a "
+         "log out). The one-account sheet, the own profile and the home feed are real (410, "
+         "English)."),
 }
 
 #: The number of entries of HAND_WRITTEN: it only goes down.
-HAND_WRITTEN_CEILING = 48
+HAND_WRITTEN_CEILING = 33
 
 #: (b) A tree that is not a screen: what it computes, and why no screen is needed.
 MINIMAL_TREES: dict[str, tuple[int, str]] = {

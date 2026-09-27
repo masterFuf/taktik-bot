@@ -5,16 +5,29 @@ follow them). It used to be read as the accounts WE follow that do not follow ba
 a following row, and every following absent from the category was marked as a mutual. Now the
 category only records fans, and the last word before an unfollow is the "Follows you" badge read
 on the right profile.
+
+The screens are real dumps, anonymized: the followers list of Instagram 410 in English (Pixel 3a,
+2026-09-23), the profile of an account we follow in French (Pixel 3), and, in English (Pixel 3a,
+2026-09-27), the profile of a MUTUAL: it is in our followers list and we follow it. No profile of
+the corpus (about 2 800 dumps of 410 and 447, French and English) shows a "Follows you" or
+"Vous suit" badge, the mutual's included: the badge that proves it is never read.
 """
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml
+from fake_follow_list import FakeFacade, FakeScreen
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import sync_following
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+
+
+FIXTURES = Path(__file__).parents[2] / "fixtures"
+FOLLOWERS_LIST = (FIXTURES / "ig410_en_own_followers_list_categories.xml").read_text(encoding="utf-8")
+FOLLOWED_PROFILE = (FIXTURES / "ig410_fr_profile_following.xml").read_text(encoding="utf-8")
+MUTUAL_PROFILE_EN = (FIXTURES / "ig410_en_profile_following.xml").read_text(encoding="utf-8")
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +52,7 @@ class _GraphSpy:
 def test_the_fans_category_records_fans_and_never_a_following(monkeypatch):
     graph = _GraphSpy()
     monkeypatch.setattr(sync_following, "InstagramFollowGraphService", graph)
-    business = UnfollowBusiness(FakeFacade(FakeScreen(follow_list_xml([]))))
+    business = UnfollowBusiness(FakeFacade(FakeScreen(FOLLOWERS_LIST)))
     business._get_account_id = lambda: 1
     business.nav_actions = SimpleNamespace(navigate_to_profile_tab=lambda: True, open_followers_list=lambda: True)
     business._click_non_followers_category = lambda: True
@@ -56,15 +69,6 @@ def test_the_fans_category_records_fans_and_never_a_following(monkeypatch):
         assert kwargs["is_following_back"] is False and kwargs["source"] == "fans_category"
 
 
-def _profile_screen(badge: bool) -> str:
-    # A loaded profile: the header's action button says we follow the account ("Suivi(e)").
-    extra = ('<node index="5" text="Vous suit" resource-id="" class="android.widget.TextView" '
-             'content-desc="" bounds="[40,500][300,540]" />') if badge else ""
-    extra += ('<node index="6" text="Suivi(e)" resource-id="com.instagram.android:id/profile_header_follow_button" '
-              'class="android.widget.Button" content-desc="" bounds="[40,600][500,680]" />')
-    return follow_list_xml([], extra=extra)
-
-
 def _business(screen_xml, on_profile=True, shown="alice"):
     screen = FakeScreen(screen_xml)
     facade = FakeFacade(screen)
@@ -77,12 +81,21 @@ def _business(screen_xml, on_profile=True, shown="alice"):
     return business
 
 
-def test_the_badge_is_read_on_the_right_profile():
-    assert _business(_profile_screen(badge=True))._profile_follows_you("alice") is True
-    assert _business(_profile_screen(badge=False))._profile_follows_you("@Alice") is False
+def test_a_loaded_profile_without_the_badge_reads_as_not_following_us():
+    assert _business(FOLLOWED_PROFILE)._profile_follows_you("alice") is False
+    assert _business(FOLLOWED_PROFILE)._profile_follows_you("@Alice") is False
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "no Instagram 410 or 447 profile shows a 'Follows you' / 'Vous suit' badge, a mutual's "
+    "included (unfollow.follows_back_indicators, mixins/decision.py _profile_follows_you): the "
+    "last check before an unfollow never says yes"))
+def test_the_profile_of_a_mutual_says_it_follows_us():
+    set_active_locale("en")
+    assert _business(MUTUAL_PROFILE_EN)._profile_follows_you("alice") is True
 
 
 def test_no_badge_proves_nothing_off_the_right_profile():
     """Absent on another profile, or off any profile, is a doubt, not a 'no'."""
-    assert _business(_profile_screen(badge=False), shown="bob")._profile_follows_you("alice") is None
-    assert _business(_profile_screen(badge=False), on_profile=False)._profile_follows_you("alice") is None
+    assert _business(FOLLOWED_PROFILE, shown="bob")._profile_follows_you("alice") is None
+    assert _business(FOLLOWED_PROFILE, on_profile=False)._profile_follows_you("alice") is None

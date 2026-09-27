@@ -4,9 +4,24 @@ Covers the pure parts of `InstagramSwitchAccount`: enumerating the connected-acc
 rows from the raw hierarchy XML (filtering the non-account buttons, the profile stats
 that leak behind the switcher sheet, and story labels; stripping the trailing
 ",  New notifications" suffix; de-duplicating) and username normalisation.
+
+Real screens, anonymized, where a phone shows them: the account sheet opened from the own profile
+(Instagram 410 in English, Pixel 3a, 2026-09-27: one account, then "Add Instagram account" and
+"Go to Accounts Center"), that own profile, and the home feed. The logged-out picker and a sheet
+of several accounts are still written by hand: no phone of the bench holds several accounts, and
+the picker needs a log out.
 """
 
+from pathlib import Path
+
+import pytest
+
 from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
+
+FIXTURES = Path(__file__).parent / "social_media" / "instagram" / "fixtures"
+ACCOUNT_SHEET = (FIXTURES / "ig410_en_account_switcher.xml").read_text(encoding="utf-8")
+OWN_PROFILE = (FIXTURES / "ig410_en_own_profile_professional.xml").read_text(encoding="utf-8")
+HOME_FEED = (FIXTURES / "ig410_en_home_feed_carousel_post.xml").read_text(encoding="utf-8")
 
 
 def _dump(*content_descs: str) -> str:
@@ -51,15 +66,10 @@ def test_enumerate_accounts_empty_when_no_rows():
 
 def test_enumerate_accounts_drops_profile_stats_and_story_labels():
     # The switcher sheet overlays the profile: header stats + story buttons leak into the dump.
-    switcher = _switcher(
-        "account.one",
-        "1posts",
-        "36followers",
-        "91following",
-        "account.one's story, 0 of 27, Unseen",
-        "account.two",
-    )
-    assert switcher._list_accounts_on_screen() == ["account.one", "account.two"]
+    assert "295followers" in OWN_PROFILE and "'s story" in HOME_FEED
+    for screen in (OWN_PROFILE, HOME_FEED):
+        accounts = InstagramSwitchAccount(_FakeDevice(screen), "device-1")._list_accounts_on_screen()
+        assert not [name for name in accounts if name[0].isdigit() or "story" in name.lower()]
 
 
 def test_enumerate_accounts_no_dump_is_empty():
@@ -71,27 +81,26 @@ def test_enumerate_accounts_no_dump_is_empty():
 def test_enumerate_accounts_drops_android_navbar_buttons():
     # The status/nav bar (com.android.systemui) leaks "Back"/"Home" ("Retour"/"Accueil") into the
     # dump — they must never count as accounts (device-side: "Accueil" was listed as an account).
-    xml = (
-        '<hierarchy rotation="0">'
-        '<node class="android.widget.ImageView" clickable="true" package="com.android.systemui" content-desc="Retour" />'
-        '<node class="android.widget.ImageView" clickable="true" package="com.android.systemui" content-desc="Accueil" />'
-        '<node class="android.view.ViewGroup" clickable="true" package="com.instagram.android" content-desc="account.one,  New notifications" />'
-        '<node class="android.view.ViewGroup" clickable="true" package="com.instagram.android" content-desc="account.two,  New notifications" />'
-        '</hierarchy>'
-    )
-    switcher = InstagramSwitchAccount(_FakeDevice(xml), "device-1")
-    assert switcher._list_accounts_on_screen() == ["account.one", "account.two"]
+    assert 'content-desc="Retour"' in ACCOUNT_SHEET and 'content-desc="Accueil"' in ACCOUNT_SHEET
+    accounts = InstagramSwitchAccount(_FakeDevice(ACCOUNT_SHEET), "device-1")._list_accounts_on_screen()
+    assert "user_1" in accounts
+    assert "Retour" not in accounts and "Accueil" not in accounts
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "the account sheet of 410 opens with a clickable 'Cancel' that has no space: it is listed as "
+    "an account (account_row_exclude_labels, shell/auth.py)"))
+def test_the_real_account_sheet_lists_its_one_account():
+    accounts = InstagramSwitchAccount(_FakeDevice(ACCOUNT_SHEET), "device-1")._list_accounts_on_screen()
+    assert accounts == ["user_1"]
 
 
 def test_enumerate_accounts_drops_home_feed_bottom_nav():
     # On the home feed (an account active) the IG bottom-nav tabs are clickable content-desc'd
     # nodes — they must never be listed as accounts (device-side: Reels/Message/Profile leaked).
-    switcher = _switcher(
-        "Home", "Reels", "Message", "Search and explore", "Profile",
-        "the_mermaid_tavern_metz",  # a post author — has no ",  New notifications" but is a handle
-    )
-    accounts = switcher._list_accounts_on_screen()
-    assert "Reels" not in accounts and "Message" not in accounts and "Profile" not in accounts
+    assert all(f'content-desc="{tab}"' in HOME_FEED for tab in ("Home", "Reels", "Message", "Profile"))
+    accounts = InstagramSwitchAccount(_FakeDevice(HOME_FEED), "device-1")._list_accounts_on_screen()
+    assert not {"Home", "Reels", "Message", "Search and explore", "Profile"} & set(accounts)
 
 
 def test_username_normalisation():

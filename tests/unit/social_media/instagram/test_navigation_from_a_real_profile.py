@@ -1,8 +1,11 @@
 """Going home, and reopening a grid post, from a real profile screen.
 
-The screen is a real dump (Pixel 3, IG 410 in French, a profile opened through the search: no tab
-bar, Instagram's own back arrow), anonymized: every text emptied, content-desc kept only for
-structural labels, grid cells renamed (`fixtures/ig410_fr_profile_opened_from_search.xml`).
+Every screen is a real dump of the same phone (Pixel 3, IG 410 in French), anonymized: a profile
+opened through the search (no tab bar, Instagram's own back arrow,
+`fixtures/ig410_fr_profile_opened_from_search.xml`), the account results of that search, the
+Explore grid behind them, the home feed, and a post opened from a profile grid. The phone plays
+them in the order Instagram shows them: Back from the profile gives the results, Back from the
+results gives Explore, the home tab gives the feed.
 
 Each case is run twice: on a phone that obeys (what must happen) and on one that obeys nothing
 (the screen a run saw for minutes, while its Backs and taps went nowhere): the code must still
@@ -31,9 +34,19 @@ from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import D
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
 
 PKG = "com.instagram.android"
-PROFILE = (Path(__file__).parent / "fixtures" / "ig410_fr_profile_opened_from_search.xml").read_text(encoding="utf-8")
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+PROFILE = _capture("ig410_fr_profile_opened_from_search.xml")
+SEARCH_RESULTS = _capture("ig410_fr_account_search_results.xml")
+EXPLORE = _capture("ig410_fr_explore_grid_1080x2160.xml")
+HOME = _capture("ig410_fr_home_feed_tab_icon_selected.xml")
+POST = _capture("ig410_fr_post_opened_from_grid.xml")
 GRID_CELL = f'//*[@resource-id="{PKG}:id/image_button"]'
-FEED_TAB = (0, 1907, 216, 2028)
 
 
 class _Clock:
@@ -63,39 +76,6 @@ def _french_phone_no_waits(monkeypatch):
     set_active_locale("fr")
     yield
     set_active_locale(None)
-
-
-def _node(rid, desc="", bounds=(0, 0, 10, 10), selected=False, children="", package=PKG):
-    left, top, right, bottom = bounds
-    rid = f"{package}:id/{rid}" if rid else ""
-    return (f'<node index="0" text="" resource-id="{rid}" class="android.widget.FrameLayout" package="{package}" '
-            f'content-desc="{desc}" clickable="true" enabled="true" focused="false" '
-            f'selected="{str(selected).lower()}" bounds="[{left},{top}][{right},{bottom}]">{children}</node>')
-
-
-def _screen(*nodes):
-    nav_bar = (_node("back", "Retour", (129, 2028, 349, 2160), package="com.android.systemui")
-               + _node("home_button", "Accueil", (430, 2028, 650, 2160), package="com.android.systemui"))
-    return ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-            + _node("", bounds=(0, 0, 1080, 2028), children="".join(nodes)) + nav_bar + "</hierarchy>")
-
-
-def _tab_bar(home_selected=False):
-    # IG 410 names its home tab "Home" even in French.
-    tabs = [("feed_tab", "Home", home_selected), ("clips_tab", "Reels", False),
-            ("direct_tab", "Envoyer un message", False), ("search_tab", "Rechercher et explorer", not home_selected),
-            ("profile_tab", "Profil", False)]
-    return _node("tab_bar", bounds=(0, 1907, 1080, 2028), children="".join(
-        _node(rid, desc, (216 * i, 1907, 216 * (i + 1), 2028), selected)
-        for i, (rid, desc, selected) in enumerate(tabs)))
-
-
-SEARCH_RESULTS = _screen(_node("action_bar_button_back", "Retour", (0, 77, 132, 231)),
-                         _node("row_search_user_container", bounds=(0, 300, 1080, 450)))
-EXPLORE = _screen(_node("action_bar_search_edit_text", bounds=(33, 77, 937, 174)), _tab_bar())
-HOME = _screen(_node("reels_tray_container", bounds=(0, 231, 1080, 578)), _tab_bar(home_selected=True))
-POST = _screen(_node("action_bar_button_back", "Retour", (0, 77, 132, 231)),
-               _node("row_feed_button_like", bounds=(0, 1500, 120, 1600)))
 
 
 def _inside(point, bounds):
@@ -151,8 +131,12 @@ def _facade(phone):
 
 # ── navigation.go_home from the profile ──────────────────────────────────────────────────────
 
+def _home_tab_of(screen):
+    return tuple(_Phone(screen).xpath(f'//*[@resource-id="{PKG}:id/feed_tab"]').all()[0].bounds)
+
+
 def _tap_home_tab(screen, point):
-    return HOME if screen is EXPLORE and _inside(point, FEED_TAB) else None
+    return HOME if screen is EXPLORE and _inside(point, _home_tab_of(EXPLORE)) else None
 
 
 def _navigation(phone):
@@ -177,7 +161,7 @@ def test_going_home_from_the_profile_backs_out_to_the_tab_bar_then_taps_home():
     assert _navigation(phone).navigate_to_home() is True
     assert phone.presses == ["back", "back"]
     assert phone.screen is HOME
-    assert _inside(phone.taps[-1], FEED_TAB)
+    assert _inside(phone.taps[-1], _home_tab_of(EXPLORE))
 
 
 def test_on_a_phone_that_obeys_nothing_going_home_sends_its_three_backs_and_stops():

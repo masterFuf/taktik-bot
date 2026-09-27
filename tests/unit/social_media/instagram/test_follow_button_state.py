@@ -11,11 +11,9 @@ The screens are real profiles of Instagram 410.0.0.53.71, anonymized: in French 
 "Suivre en retour" profile, a "Suivi(e)" profile and a "Suivre" profile, the last two with the
 `profile_header_follow_context_text` decoy ("Suivi(e) par X, Y" = mutual friends), a
 NON-clickable TextView sitting just above the button — a bare text match hits it instead of the
-button; in English (Pixel 3) a "Follow" profile under its "Followed by" line. They are read the
-way `d.xpath()` reads them (`parse_ui_dump`).
-
-No capture of the corpus shows an English profile whose button says "Follow back" or
-"Following": those two stay written by hand below, until a phone captures them.
+button; in English (Pixel 3) a "Follow" profile under its "Followed by" line, and (Pixel 3a,
+2026-09-27) a "Follow back" profile and a "Following" profile under its "Followed by" line. They
+are read the way `d.xpath()` reads them (`parse_ui_dump`).
 """
 
 from pathlib import Path
@@ -41,6 +39,8 @@ FR_FOLLOW_BACK = _screen("ig410_fr_profile_follow_back.xml")
 FR_FOLLOWING = _screen("ig410_fr_profile_following.xml")
 FR_FOLLOW = _screen("ig410_fr_profile_follow_with_mutuals.xml")
 EN_FOLLOW = _screen("ig410_en_profile_follow_with_mutuals.xml")
+EN_FOLLOW_BACK = _screen("ig410_en_profile_follow_back.xml")
+EN_FOLLOWING = _screen("ig410_en_profile_following.xml")
 
 
 class _XPathResult:
@@ -93,19 +93,6 @@ def _context_line(xml: str) -> str:
     return parse_ui_dump(xml).xpath(f'//*[@resource-id="{CONTEXT_ID}"]')[0].get("text")
 
 
-def _en_profile(button_text: str) -> str:
-    """An English profile header carrying only the action button. Written by hand: no capture
-    of an English "Follow back" or "Following" profile yet (Instagram 410, English)."""
-    return f"""
-<hierarchy>
-  <node resource-id="com.instagram.android:id/row_profile_header">
-    <node resource-id="com.instagram.android:id/profile_header_follow_button"
-          class="android.widget.Button" clickable="true" text="{button_text}" />
-  </node>
-</hierarchy>
-"""
-
-
 # ── The bug: a profile that already follows US ────────────────────────────────────
 
 def test_fr_follow_back_is_not_read_as_a_fresh_target():
@@ -116,7 +103,7 @@ def test_fr_follow_back_is_not_read_as_a_fresh_target():
 
 def test_en_follow_back_is_not_read_as_a_fresh_target():
     set_active_locale("en")
-    reader = _Reader(_en_profile("Follow back"))
+    reader = _Reader(EN_FOLLOW_BACK)
     assert reader.get_follow_button_state() == "follow_back"
 
 
@@ -129,7 +116,7 @@ def test_fr_following():
 
 def test_en_following():
     set_active_locale("en")
-    assert _Reader(_en_profile("Following")).get_follow_button_state() == "following"
+    assert _Reader(EN_FOLLOWING).get_follow_button_state() == "following"
 
 
 # ── No relationship: the normal target ────────────────────────────────────────────
@@ -165,13 +152,19 @@ def test_mutual_friends_label_does_not_mask_following():
     assert _Reader(FR_FOLLOWING).get_follow_button_state() == "following"
 
 
+def test_mutual_friends_label_does_not_mask_the_english_following():
+    set_active_locale("en")
+    assert _context_line(EN_FOLLOWING).startswith("Followed by ")
+    assert _Reader(EN_FOLLOWING).get_follow_button_state() == "following"
+
+
 # ── Locale-agnostic safety net ────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("xml, state", [
     (FR_FOLLOW_BACK, "follow_back"),
-    (_en_profile("Follow back"), "follow_back"),
+    (EN_FOLLOW_BACK, "follow_back"),
     (FR_FOLLOWING, "following"),
-    (_en_profile("Following"), "following"),
+    (EN_FOLLOWING, "following"),
     (FR_FOLLOW, "follow"),
     (EN_FOLLOW, "follow"),
 ], ids=["fr_follow_back", "en_follow_back", "fr_following", "en_following", "fr_follow",

@@ -11,9 +11,18 @@ two flags they act on meant what they say, and neither did:
 - ``is_verified`` was « Verified » / « Vérifié » in ANY content-desc, or a bare ``verified_badge``.
   The profile header holds the « similar accounts » carousel, whose cards are other people.
 
-The fixtures are anonymized minimal extracts shaped on the real IG 410 profile dumps of the Lab
-corpus (ids, nesting and labels as captured; names and texts invented).
+The screens are real profiles, anonymized, read through the production facade: Instagram 410 in
+French (Pixel 3: our own professional profile; Pixel 3a, June: our own personal profile with its
+« Contacts à découvrir » carousel; a private profile) and in English (Pixel 3a, 2026-09-27: our own
+professional profile, a verified media account with a « Contact » button, the account named
+« Massage Relaxation Professionnel », a plain profile), and Instagram 447 in French (Pixel 6a,
+2026-09-27: the same media account, and our own professional profile without a category line).
+
+Two cases are still written by hand, no capture shows them: a title whose description carries the
+word « Verified », and a certified card in the suggestions of a profile.
 """
+
+from pathlib import Path
 
 import pytest
 
@@ -30,6 +39,22 @@ from taktik.core.social_media.instagram.workflows.core.config_builder import (
 from taktik.core.social_media.instagram.workflows.management.config import WorkflowConfigBuilder
 
 P = "com.instagram.android:id/"
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+#: Per language: our own professional profile with its category line; a professional profile with
+#: a contact button and no category; our own professional profile, its dashboard entry.
+CATEGORY = {"fr": "ig410_fr_own_profile_professional.xml", "en": "ig410_en_own_profile_professional.xml"}
+CONTACT = {"fr": "ig447_fr_profile_verified_business.xml", "en": "ig410_en_profile_verified_business.xml"}
+DASHBOARD = {"fr": "ig447_fr_own_profile_professional.xml", "en": "ig410_en_own_profile_professional.xml"}
+VERIFIED_PROFILE = {"fr": "ig447_fr_profile_verified_business.xml", "en": "ig410_en_profile_verified_business.xml"}
+PLAIN = {"fr": "ig410_fr_profile_follow_back.xml", "en": "ig410_en_profile_follow_back.xml"}
+NAMED_PROFESSIONNEL = "ig410_en_profile_name_professionnel.xml"
+OWN_PERSONAL_WITH_SUGGESTIONS = "ig410_fr_own_profile_with_suggestions.xml"
 
 
 class _Quiet:
@@ -61,45 +86,14 @@ def _flags(xml):
     return _Profile(xml).get_profile_flags_batch()
 
 
-def _screen(*, title="some.account", title_desc="some.account", title_extra="",
-            full_name="Some Name", category=None, bio="", actions=(), carousel=""):
-    category_node = (
-        f'<node resource-id="{P}profile_header_business_category" class="android.widget.TextView"'
-        f' text="{category}" content-desc="" />' if category else ""
+def _invented_header(title_desc="some.account", carousel=""):
+    """Written by hand (see the module docstring): the title and the suggestions carousel only."""
+    return (
+        f'<hierarchy><node resource-id="{P}action_bar_title" class="android.widget.TextView" '
+        f'text="some.account" content-desc="{title_desc}" />'
+        f'<node resource-id="{P}profile_header_container" class="android.widget.LinearLayout" text="" '
+        f'content-desc="">{carousel}</node></hierarchy>'
     )
-    buttons = "".join(
-        f'<node resource-id="{P}button_container" class="android.widget.Button" text=""'
-        f' content-desc="{label}"><node resource-id="" class="android.widget.TextView"'
-        f' text="{label}" content-desc="" /></node>'
-        for label in actions
-    )
-    return f"""<hierarchy>
-<node resource-id="{P}action_bar_username_container" class="android.widget.LinearLayout" text="" content-desc="">
-  <node resource-id="{P}action_bar_title" class="android.widget.TextView" text="{title}" content-desc="{title_desc}" />
-  {title_extra}
-</node>
-<node resource-id="{P}profile_header_container" class="android.widget.LinearLayout" text="" content-desc="">
-  <node resource-id="{P}profile_header_full_name_above_vanity" class="android.widget.TextView" text="{full_name}" content-desc="" />
-  {category_node}
-  <node resource-id="{P}profile_header_bio_text" class="android.widget.TextView" text="{bio}" content-desc="" />
-  <node resource-id="{P}profile_header_actions_top_row" class="android.widget.LinearLayout" text="" content-desc="">
-    {buttons}
-    <node resource-id="{P}row_profile_header_button_chaining" class="android.widget.Button" text="" content-desc="Contacts à découvrir" />
-  </node>
-  {carousel}
-</node>
-</hierarchy>"""
-
-
-def _suggestion_card(name, desc="", badge=False):
-    badge_node = (f'<node resource-id="{P}verified_badge" class="android.widget.ImageView"'
-                  f' text="" content-desc="" />' if badge else "")
-    return f"""<node resource-id="{P}similar_accounts_container" class="android.widget.LinearLayout" text="" content-desc="">
-  <node resource-id="{P}suggested_entity_card_container" class="android.view.ViewGroup" text="" content-desc="">
-    <node resource-id="{P}suggested_entity_card_name" class="android.widget.TextView" text="{name}" content-desc="{desc}" />
-    {badge_node}
-  </node>
-</node>"""
 
 
 @pytest.fixture(params=["fr", "en"])
@@ -121,36 +115,37 @@ def fr():
 # --------------------------------------------------------------------------- professional signal
 
 def test_the_category_line_under_the_name_is_a_professional_account(lang):
-    assert _flags(_screen(category="Graphiste", actions=("Suivre", "Envoyer un message")))["is_business"]
-
-
-def test_a_contact_button_without_category_is_a_professional_account(lang):
-    label = {"fr": "Contacts", "en": "Contact"}[lang]
-    assert _flags(_screen(actions=("Follow", "Message", label)))["is_business"]
-
-
-def test_our_own_professional_dashboard_is_a_professional_account(lang):
-    label = {"fr": "Tableau de bord professionnel", "en": "Professional dashboard"}[lang]
-    xml = _screen(actions=()).replace(
-        "</hierarchy>",
-        f'<node resource-id="" class="android.widget.Button" text="{label}" content-desc="" /></hierarchy>')
+    xml = _capture(CATEGORY[lang])
+    assert "profile_header_business_category" in xml
     assert _flags(xml)["is_business"]
 
 
-def test_the_word_professional_in_a_name_or_a_bio_proves_nothing(fr):
-    xml = _screen(full_name="Massage Relaxation Professionnel",
-                  bio="Professionnel du bien-être depuis 10 ans",
-                  actions=("Suivre", "Envoyer un message"))
+def test_a_contact_button_without_category_is_a_professional_account(lang):
+    xml = _capture(CONTACT[lang])
+    assert "profile_header_business_category" not in xml
+    assert {"fr": 'content-desc="Contacts"', "en": 'content-desc="Contact"'}[lang] in xml
+    assert _flags(xml)["is_business"]
+
+
+def test_our_own_professional_dashboard_is_a_professional_account(lang):
+    """447 in French shows the dashboard entry without a category line; our English own profile
+    shows both."""
+    xml = _capture(DASHBOARD[lang])
+    assert {"fr": "Tableau de bord professionnel", "en": "Professional dashboard"}[lang] in xml
+    assert _flags(xml)["is_business"]
+
+
+def test_the_word_professional_in_a_name_proves_nothing(lang):
+    xml = _capture(NAMED_PROFESSIONNEL)
+    assert "Professionnel" in xml
     assert not _flags(xml)["is_business"]
 
 
 def test_discover_people_is_not_a_contact_button(fr):
-    """Our own profile's « Contacts à découvrir » chaining button carries the word, not the button."""
-    assert not _flags(_screen(actions=("Modifier le profil", "Partager le profil")))["is_business"]
-
-
-def test_a_contact_label_outside_the_header_row_proves_nothing(fr):
-    xml = _screen(actions=("Suivre",), bio="Contacts")
+    """Our own personal profile: its « Contacts à découvrir » chaining button, and the carousel
+    title of the same words, carry the word, not the button."""
+    xml = _capture(OWN_PERSONAL_WITH_SUGGESTIONS)
+    assert xml.count("Contacts à découvrir") == 2
     assert not _flags(xml)["is_business"]
 
 
@@ -158,22 +153,29 @@ def test_a_contact_label_outside_the_header_row_proves_nothing(fr):
 
 def test_the_badge_is_read_on_the_title_of_the_profile(lang):
     word = {"fr": "Vérifié", "en": "Verified"}[lang]
-    assert _flags(_screen(title_desc=f"some.account {word}"))["is_verified"]
+    assert _flags(_invented_header(title_desc=f"some.account {word}"))["is_verified"]
 
 
-def test_a_badge_view_next_to_the_title_is_a_certified_account(fr):
-    badge = f'<node resource-id="{P}action_bar_title_verified_badge" class="android.widget.ImageView" text="" content-desc="" />'
-    assert _flags(_screen(title_extra=badge))["is_verified"]
+def test_a_badge_view_next_to_the_title_is_a_certified_account(lang):
+    xml = _capture(VERIFIED_PROFILE[lang])
+    assert "action_bar_title_verified_badge" in xml
+    assert _flags(xml)["is_verified"]
 
 
 def test_a_certified_suggestion_does_not_certify_the_profile(lang):
     word = {"fr": "Vérifié", "en": "Verified"}[lang]
-    carousel = _suggestion_card("famous.brand", desc=f"famous.brand {word}", badge=True)
-    assert not _flags(_screen(carousel=carousel))["is_verified"]
+    carousel = (
+        f'<node resource-id="{P}similar_accounts_container" class="android.widget.LinearLayout" '
+        f'text="" content-desc=""><node resource-id="{P}suggested_entity_card_name" '
+        f'class="android.widget.TextView" text="famous.brand" content-desc="famous.brand {word}" />'
+        f'<node resource-id="{P}verified_badge" class="android.widget.ImageView" text="" '
+        f'content-desc="" /></node>'
+    )
+    assert not _flags(_invented_header(carousel=carousel))["is_verified"]
 
 
 def test_a_plain_profile_is_neither(lang):
-    flags = _flags(_screen(actions=("Follow", "Message")))
+    flags = _flags(_capture(PLAIN[lang]))
     assert not flags["is_verified"] and not flags["is_business"]
 
 

@@ -1,13 +1,18 @@
 """A TikTok feed decision is read on ONE photo (`DetectionActions.read_screen`).
 
-The screens are invented in the shape of the captures (every element a <node>, the widget type an
-attribute) and read by uiautomator2's own `XPathEntry`; the clock only moves when the code dumps
-or sleeps. Names and counts are invented.
+The screens are captures of TikTok in French, anonymized, read by uiautomator2's own
+`XPathEntry`; the clock only moves when the code dumps or sleeps. On 43.1.4 (Pixel 3a): a For You
+video, an ad, the comment sheet over a video, the suggestion page of the feed, a profile, the
+Messages inbox, the new followers page (a screen the reader does not know) and the update prompt
+(an unlabelled dialog); on 46.9.3 (Pixel 6a): a LIVE preview, and an English ad whose caption ends
+in « more ». The GDPR notice is still written by hand: TikTok shows it once, and no capture holds it.
 """
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 import taktik.core.shared.device.snapshot as snapshot_module
@@ -21,48 +26,33 @@ from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_loca
 
 PKG = "com.zhiliaoapp.musically:id/"
 DUMP_S = 0.25
+FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 
-def _n(cls="TextView", text="", desc="", rid="", selected="false", children=""):
-    rid = f"{PKG}{rid}" if rid else ""
-    attrs = (f'class="android.widget.{cls}" text="{text}" content-desc="{desc}" resource-id="{rid}" '
-             f'package="com.zhiliaoapp.musically" clickable="true" selected="{selected}" bounds="[0,0][10,10]"')
-    return f"<node {attrs}>{children}</node>" if children else f"<node {attrs} />"
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
-def _screen(*nodes):
-    return f'<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">{"".join(nodes)}</hierarchy>'
+VIDEO = _capture("tt4314_fr_for_you_video.xml")
+AD = _capture("tt4314_fr_ad.xml")
+COMMENTS = _capture("tt4314_fr_comment_sheet.xml")
+SUGGESTION = _capture("tt4314_fr_suggestion_page.xml")
+PROFILE = _capture("tt4314_fr_profile.xml")
+INBOX = _capture("tt4314_fr_inbox_messages.xml")
+UNKNOWN = _capture("tt4314_fr_new_followers.xml")
+UPDATE_PROMPT = _capture("tt4314_fr_update_prompt.xml")
+LIVE = _capture("tt4693_fr_live_preview.xml")
+AD_WITH_CAPTION_EN = _capture("tt4693_en_ad_caption_more.xml")
+# Written by hand: see the module docstring.
+GDPR = ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0"><node class="android.widget.TextView" '
+        'text="Nous avons mis à jour les transferts de données des utilisateurs de l\'EEE vers la Chine" '
+        'content-desc="" resource-id="" package="com.zhiliaoapp.musically" clickable="false" '
+        'bounds="[40,1000][1040,1100]" /></hierarchy>')
 
 
-HEADER = _n(desc="Pour toi") + _n(desc="Accueil", selected="true")
-
-
-def _video(author, *extra, caption="Une vidéo inventée #demo"):
-    return _screen(
-        HEADER,
-        _n(text=author, rid="title"),
-        _n(text=caption, rid="desc"),
-        _n("Button", desc=f"Son : son original - {author}", rid="nhe"),
-        _n("Button", desc="Attribuer un « J'aime » à la vidéo. 12", rid="f57"),
-        _n(text="12", rid="f4z"),
-        _n("Button", desc="Partager une vidéo. 3 partages"),
-        *extra,
-    )
-
-
-VIDEO = _video("demo_author")
-OTHER_VIDEO = _video("other_author")
-AD = _video("Marque Demo", _n(text="Publicité"))
-COMMENTS = _video("demo_author", _n("FrameLayout", rid="o3y"))
-SUGGESTION = _screen(HEADER, _n("FrameLayout", rid="bjl"))
-PROFILE = _screen(_n("Button", text="@demo_author"), _n(rid="qh5"))
-INBOX = _screen(_n(text="Messages", rid="title"), _n(desc="Messages", selected="true"))
-GDPR = _video("demo_author", _n(text="Nous avons mis à jour les transferts de données des utilisateurs "
-                                     "de l'EEE vers la Chine"))
-UNKNOWN = _screen(_n(text="Chargement"))
-LIVE = _screen(_n("View", desc="LIVE", rid="long_press_layout"),
-               _n(text="Appuie pour regarder le LIVE", rid="tv_live_tips"),
-               _n("Button", text="demo_host", rid="tv_live_nickname"))
+def _field(xml, rid, attribute="text"):
+    """What a node of the capture says, read without the production readers."""
+    return etree.fromstring(xml.encode("utf-8")).xpath(f'//node[@resource-id="{PKG}{rid}"]')[0].get(attribute)
 
 
 class _Clock:
@@ -123,7 +113,7 @@ def _reader(clock, xml):
 @pytest.mark.parametrize("xml, kind", [
     (VIDEO, "video"), (AD, "ad"), (COMMENTS, "comments"), (SUGGESTION, "suggestion"),
     (PROFILE, "profile"), (INBOX, "inbox"), (GDPR, "popup"),
-])
+], ids=["video", "ad", "comments", "suggestion", "profile", "inbox", "gdpr"])
 def test_each_screen_is_recognised_on_one_photo(clock, xml, kind):
     detection, phone = _reader(clock, xml)
     screen = detection.read_screen()
@@ -181,8 +171,10 @@ def test_every_reader_answers_on_the_photo_without_a_dump(clock):
     info = detection.get_video_info(light_if_ad=True, screen=screen)
     answers = (detection.has_comments_section_open(screen), detection.has_suggestion_page(screen),
                detection.is_on_for_you_page(screen), detection.is_on_inbox_page(screen))
-    assert (info["author"], info["sound"], info["like_count"]) == ("demo_author", "son original - demo_author", "12")
-    assert info["description"] == "Une vidéo inventée" and info["hashtags"] == ["#demo"]
+    sound = _field(VIDEO, "nhe", "content-desc").split(" : ", 1)[1]
+    assert (info["author"], info["sound"], info["like_count"]) == (
+        _field(VIDEO, "title"), sound, _field(VIDEO, "f4z"))
+    assert info["description"] == _field(VIDEO, "desc") and info["hashtags"] == []
     assert answers == (False, False, True, False)
     assert (phone.dumps, clock.now) == (1, started)
 
@@ -196,14 +188,21 @@ def test_video_info_without_a_photo_takes_one(clock):
 
 def test_an_ad_s_caption_is_never_tapped_open(clock):
     set_active_locale("en")
-    ad = _video("Demo Brand", _n(text="Ad"), caption="An invented offer that goes on... more")
-    detection, phone = _reader(clock, ad)
-    screen = detection.read_screen()
-    skipped = detection.get_video_info(light_if_ad=True, screen=screen)
-    kept = detection.get_video_info(light_if_ad=False, screen=screen)
-    assert (skipped["is_ad"], skipped["description"], skipped["author"]) == (True, None, "Demo Brand")
-    assert kept["description"] == "An invented offer that goes on"
-    assert phone.gestures == [] and phone.dumps == 1
+    apply_version_overrides("tiktok", "46.9.3")
+    try:
+        caption = _field(AD_WITH_CAPTION_EN, "desc")
+        assert caption.endswith("…more")
+        detection, phone = _reader(clock, AD_WITH_CAPTION_EN)
+        screen = detection.read_screen()
+        skipped = detection.get_video_info(light_if_ad=True, screen=screen)
+        kept = detection.get_video_info(light_if_ad=False, screen=screen)
+        assert (skipped["is_ad"], skipped["description"]) == (True, None)
+        assert skipped["author"] == _field(AD_WITH_CAPTION_EN, "title")
+        assert kept["description"] and caption.startswith(kept["description"])
+        assert "more" not in kept["description"]
+        assert phone.gestures == [] and phone.dumps == 1
+    finally:
+        apply_version_overrides("tiktok", "43.1.4")
 
 
 def test_the_popup_handler_reads_the_turn_s_photo(clock, monkeypatch):
@@ -221,10 +220,7 @@ def test_the_popup_handler_reads_the_turn_s_photo(clock, monkeypatch):
 
 
 def test_an_unlabelled_dialog_is_seen_on_the_photo_as_by_the_dump_scan(clock):
-    frame = ('<node class="android.widget.FrameLayout" text="" content-desc="" resource-id="" '
-             'package="com.zhiliaoapp.musically" bounds="{}" />')
-    prompt = _screen(frame.format("[0,0][1080,2400]"), frame.format("[152,562][928,1658]"))
-    detection, _ = _reader(clock, prompt)
+    detection, _ = _reader(clock, UPDATE_PROMPT)
     screen = detection.read_screen()
     handler = PopupHandler(None, detection)
     assert screen.popups == frozenset({"unlabelled_overlay"}) and screen.kind == "popup"

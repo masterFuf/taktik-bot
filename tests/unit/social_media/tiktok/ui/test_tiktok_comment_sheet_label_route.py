@@ -10,14 +10,17 @@ The locale route behind them: the sheet's close control, on a screen showing the
 composer affordances had: answering yes on the VIDEO screen, whose comment bar carries the same
 hint but is not clickable.
 
-Screens: extracts of captures (43.1.4 and 46.6.3 sheets, full, empty and with typed text; the
-English sheet of 43.1.4; the video page of 47.0.3), anonymized: structure, ids and bounds of the
-capture, comment rows left out. `_next_build` renames the build ids the way a version bump does.
-And one whole dump: the 47.0.3 sheet as a phone showed it (`fixtures/tt4703_fr_comment_sheet.xml`,
-anonymized: invented names, comments and counts, no system bar). Its close control carries no
-label at all and its header reads « ‎N commentaires ».
-Evaluated by uiautomator2's own `d.xpath()` engine through `first_matching`, as
-`CommentActions.is_comment_sheet_open` reads it.
+Screens, anonymized: the sheet of 43.1.4 in French, full (Pixel 3a, `tt-3a-fr`) and empty (Pixel
+3a, 2026-09-27, opened on a video with no comment and closed by Back), a 43.1.4 video opened from
+the profile, whose comment bar IS clickable and carries the composer's hint (Pixel 3a, same day),
+the video page of 47.0.3 opened from search, whose bar is not clickable (Pixel 6a, 2026-09-25),
+and the 47.0.3 sheet as a phone showed it (`fixtures/tt4703_fr_comment_sheet.xml`: its close
+control carries no label at all and its header reads « ‎N commentaires »). Derived, and said: the
+English sheet is the French 43.1.4 capture with the English labels of 43.1.4 (« Close », « Add
+comment... », « ‎N comments »), measured on a capture the corpus no longer holds. The 46.6.3 sheets
+(full, empty, with typed text) are still rebuilt by hand after their captures: no phone runs 46.6.3.
+`_next_build` renames the build ids the way a version bump does. Evaluated by uiautomator2's own
+`d.xpath()` engine through `first_matching`, as `CommentActions.is_comment_sheet_open` reads it.
 """
 
 import re
@@ -53,24 +56,24 @@ def _next_build(xml):
     return re.sub(r":id/([a-z0-9_]{2,4})\"", lambda m: f':id/q{m.group(1)}9"', xml)
 
 
-def _sheet_43_1_4(close="Fermer", sort="Trier", header="‎12 commentaires",
-                  hint="Ajouter un commentaire…"):
-    """TikTok 43.1.4 sheet: panel `h7t`/`maf`, header row `doj` with sort and close, count `tmr`."""
-    return _screen(_node("android.widget.LinearLayout", "npl", clickable=True, bounds="[0,0][1080,2088]", children=(
-        _node("android.view.View", "drk", clickable=True, bounds="[0,0][1080,669]")
-        + _node("android.widget.FrameLayout", "h7t", bounds="[0,669][1080,2088]", children=(
-            _node("android.widget.LinearLayout", "maf", bounds="[0,669][1080,2088]", children=(
-                _node("android.widget.FrameLayout", "drm", bounds="[0,785][1080,905]", children=_node(
-                    "android.widget.LinearLayout", "tms", clickable=True, bounds="[0,785][1080,905]",
-                    children=_node("android.widget.TextView", "tmr", header, bounds="[369,785][711,905]")))
-                + _node("android.view.ViewGroup", "dpj", bounds="[0,1927][1080,2088]", children=_node(
-                    "android.widget.EditText", "dpl", hint, clickable=True, bounds="[199,1949][704,2030]",
-                    hint=hint))))
-            + _node("android.widget.RelativeLayout", "doj", bounds="[33,669][1047,801]", children=(
-                _node("android.widget.FrameLayout", "dr4", bounds="[33,669][992,801]")
-                + _node("android.widget.ImageView", "dse", desc=sort, clickable=True, bounds="[832,674][953,795]")
-                + _node("android.widget.ImageView", "b9b", desc=close, clickable=True,
-                        bounds="[992,707][1047,762]"))))))))
+FIXTURES = Path(__file__).parents[1] / "fixtures"
+
+
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+SHEET_4314 = _capture("tt4314_fr_comment_sheet.xml")
+SHEET_4314_EMPTY = _capture("tt4314_fr_comment_sheet_empty.xml")
+VIDEO_4314 = _capture("tt4314_fr_liked_video.xml")
+VIDEO_4703 = _capture("tt4703_fr_video_page_comment_bar.xml")
+
+
+def _in_english(xml):
+    """The French 43.1.4 sheet with the English labels of 43.1.4."""
+    return (xml.replace('content-desc="Fermer"', 'content-desc="Close"')
+            .replace("Ajouter un commentaire…", "Add comment...")
+            .replace("\u200e50 commentaires", "\u200e50 comments"))
 
 
 def _sheet_46_6_3(empty=False, typed=""):
@@ -96,23 +99,6 @@ def _sheet_46_6_3(empty=False, typed=""):
                 + _node("android.view.ViewGroup", "egl", bounds="[0,1217][1080,1433]", children=_node(
                     "android.widget.EditText", "egn", typed or hint, clickable=True,
                     bounds="[189,1238][1011,1378]", hint=hint))))))))
-
-
-def _video_page_47_0_3(extra=""):
-    """TikTok 47.0.3 video opened from search: its comment bar `ejs` is NOT clickable (the View
-    `mzp` above it takes the tap) and carries the composer's hint. The row beside it is given the
-    composer affordances' labels, which the video screen is known to show."""
-    return _screen(
-        _node("android.widget.Button", desc="Lire ou ajouter des commentaires. 6 commentaires",
-              clickable=True, bounds="[954,1500][1080,1640]")
-        + _node("android.widget.FrameLayout", "ejr", bounds="[0,2208][1080,2337]", children=_node(
-            "android.view.ViewGroup", "ejq", bounds="[0,2208][1080,2337]", children=(
-                _node("android.view.View", "mzp", clickable=True, bounds="[32,2218][1048,2334]")
-                + _node("android.widget.EditText", "ejs", "Ajouter un commentaire…",
-                        bounds="[64,2219][1037,2300]", hint="Ajouter un commentaire…")
-                + _node("android.widget.LinearLayout", "kjk", bounds="[732,2228][1032,2323]", children=(
-                    _node("android.widget.Button", "l12", desc="Mentionne quelqu'un", clickable=True)
-                    + _node("android.widget.ImageView", "m4_", desc="Stickers", clickable=True)))))) + extra)
 
 
 class _Device:
@@ -146,15 +132,20 @@ def _open(xml):
 
 def test_the_measured_versions_still_answer_from_the_panel(french):
     """43.1.4 and 46.6.3: the panel id wins first, exactly as before."""
-    found = first_matching(_Device(_sheet_43_1_4()), COMMENT_SELECTORS.sheet_indicator)
+    found = first_matching(_Device(SHEET_4314), COMMENT_SELECTORS.sheet_indicator)
     assert found and found[0].attrib.get("resource-id") == ID + "maf"
     found = first_matching(_Device(_sheet_46_6_3()), COMMENT_SELECTORS.sheet_indicator)
     assert found and found[0].attrib.get("resource-id") == ID + "o3y"
 
 
 @pytest.mark.parametrize("xml", [
-    _sheet_43_1_4(), _sheet_46_6_3(), _sheet_46_6_3(empty=True), _sheet_46_6_3(typed="texte"),
-], ids=["43.1.4", "46.6.3", "46.6.3-empty", "46.6.3-typed"])
+    SHEET_4314,
+    pytest.param(SHEET_4314_EMPTY, marks=pytest.mark.xfail(strict=True, reason=(
+        "the real empty sheet of 43.1.4, once Back has closed its keyboard: composer NOT clickable, "
+        "header « Commentaires » without a count, message « Sois le premier... »; none of the three "
+        "entries of comment.sheet_indicator (locales/fr.py) answers once the panel ids move"))),
+    _sheet_46_6_3(), _sheet_46_6_3(empty=True), _sheet_46_6_3(typed="texte"),
+], ids=["43.1.4", "43.1.4-empty", "46.6.3", "46.6.3-empty", "46.6.3-typed"])
 def test_a_sheet_whose_build_ids_moved_is_still_open(french, xml):
     """Panel ids gone: the full sheet, the empty one (no count header) and the one with typed text
     (the hint is gone) are each seen by one half of the route."""
@@ -193,17 +184,16 @@ def test_the_47_0_3_screen_without_a_clickable_composer_is_not_a_sheet(french):
 
 
 def test_the_english_sheet_is_seen_too(english):
-    xml = _sheet_43_1_4(close="Close", sort="Sort", header="‎1 comment", hint="Add comment...")
+    xml = _in_english(SHEET_4314)
+    assert xml != SHEET_4314 and 'content-desc="Fermer"' not in xml
     assert _open(_next_build(xml))
 
 
-@pytest.mark.parametrize("extra", [
-    "",
-    _node("android.widget.ImageView", "b9b", desc="Fermer", clickable=True, bounds="[992,707][1047,762]"),
-], ids=["video-page", "video-page-with-a-close-control"])
-def test_the_video_screen_is_never_an_open_sheet(french, extra):
-    """The bar carries the composer's hint and the affordances sit beside it. Even with a close
-    control on another layer, the sheet reads closed: the bar is not clickable and there is no
-    count header."""
-    assert not _open(_video_page_47_0_3(extra))
-    assert not _open(_next_build(_video_page_47_0_3(extra)))
+@pytest.mark.parametrize("xml", [VIDEO_4703, VIDEO_4314], ids=["47.0.3-bar-not-clickable",
+                                                             "43.1.4-bar-clickable"])
+def test_the_video_screen_is_never_an_open_sheet(french, xml):
+    """The bar carries the composer's hint and the affordances sit beside it; on 43.1.4 it is even
+    clickable. The sheet reads closed: there is no close control of a sheet and no count header."""
+    assert "Ajouter un commentaire…" in xml
+    assert not _open(xml)
+    assert not _open(_next_build(xml))

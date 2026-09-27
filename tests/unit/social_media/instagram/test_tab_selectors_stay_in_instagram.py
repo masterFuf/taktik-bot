@@ -11,11 +11,15 @@ Google search bar the same way (a Lab `navigation.go_search` once ended in the G
 Both fallbacks now look inside Instagram's tab bar, where every real home and search tab of
 the corpus sits, and `navigate_to_home` opens Instagram when it is not in the foreground.
 
-The phone is uiautomator2's own xpath engine behind the facade production mounts
-(`CloneAwareDeviceProxy`); the screens keep the ids and labels of real captures, names are
-invented.
+The screens are real dumps, anonymized: the Pixel launcher (Android 12, French), and Instagram
+410 in French on a Pixel 3 (home feed, own profile, a followers list, the account results of a
+search) and on a Pixel 3a (the likers sheet of a post), and in English on another phone (the story
+camera). No phone holds an English Android:
+the English runs read the French launcher. The phone is uiautomator2's own xpath engine behind the
+facade production mounts (`CloneAwareDeviceProxy`); a tap reaches the clickable node under it.
 """
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -33,74 +37,39 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_S
 
 IG = "com.instagram.android"
 LAUNCHER_PKG = "com.google.android.apps.nexuslauncher"
-UI = "com.android.systemui"
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def _node(pkg, rid="", desc="", text="", bounds="[0,0][1,1]", selected="false", cls="android.view.View",
-          children=""):
-    rid = f"{pkg}:id/{rid}" if rid else ""
-    return (f'<node index="0" text="{text}" resource-id="{rid}" class="{cls}" package="{pkg}" '
-            f'content-desc="{desc}" clickable="true" enabled="true" selected="{selected}" '
-            f'bounds="{bounds}">{children}</node>')
+def _capture(path):
+    return path.read_text(encoding="utf-8")
 
 
-def _nav_bar():
-    return _node(UI, bounds="[0,2028][1080,2160]", cls="android.widget.FrameLayout", children=(
-        _node(UI, "back", desc="Retour", bounds="[129,2028][349,2160]")
-        + _node(UI, "home_button", desc="Accueil", bounds="[430,2028][650,2160]")))
+LAUNCHER = _capture(Path(__file__).parents[2] / "shared" / "device" / "fixtures" / "android12_fr_launcher_home.xml")
+FEED = _capture(FIXTURES / "ig410_fr_home_feed_tab_icon_selected.xml")
+OWN_PROFILE = _capture(FIXTURES / "ig410_fr_own_profile.xml")
+# Instagram 410 shows a followers list without the tab bar.
+FOLLOWERS = _capture(FIXTURES / "ig410_fr_followers_list_top.xml")
 
-
-def _screen(*nodes):
-    return '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">' + "".join(nodes) + "</hierarchy>"
-
-
-def _tab_bar(selected):
-    tabs = (("feed_tab", "Home", "[0,1907][216,2028]"),
-            ("search_tab", "Rechercher et explorer", "[648,1907][864,2028]"),
-            ("profile_tab", "Profil", "[864,1907][1080,2028]"))
-    return _node(IG, "tab_bar", bounds="[0,1907][1080,2028]", cls="android.widget.LinearLayout", children="".join(
-        _node(IG, rid, desc=desc, bounds=bounds, selected=str(rid == selected).lower(),
-              cls="android.widget.FrameLayout")
-        for rid, desc, bounds in tabs))
-
-
-def _instagram(*nodes):
-    return _screen(_node(IG, bounds="[0,0][1080,2028]", cls="android.widget.FrameLayout",
-                         children="".join(nodes)), _nav_bar())
-
-
-LAUNCHER = _screen(
-    _node(LAUNCHER_PKG, bounds="[0,0][1080,2160]", cls="android.widget.FrameLayout", children=(
-        _node(LAUNCHER_PKG, "accessibility_action_view", desc="Accueil", bounds="[0,77][1080,2028]")
-        + _node(LAUNCHER_PKG, desc="Rechercher", bounds="[44,1812][1036,1944]"))),
-    _nav_bar())
-
-FEED = _instagram(_node(IG, "row_feed_photo_profile_name", text="someone.else", bounds="[134,236][958,306]"),
-                  _tab_bar("feed_tab"))
-
-OWN_PROFILE = _instagram(_node(IG, "action_bar_title", text="demo.account", bounds="[176,77][646,231]"),
-                         _node(IG, "profile_header_container", bounds="[0,231][1080,1659]"),
-                         _tab_bar("profile_tab"))
-
-# Instagram 410 shows its own followers list without the tab bar.
-OWN_FOLLOWERS = _instagram(
-    _node(IG, "unified_follow_list_tab_layout", bounds="[0,231][1080,340]", children="".join(
-        _node(IG, text=label, bounds=f"[{i * 360},231][{i * 360 + 360},340]")
-        for i, label in enumerate(("Tous les followers", "À vérifier", "Comptes désactivés")))),
-    _node(IG, "follow_list_username", text="friend.one", bounds="[200,600][700,650]"))
-
-# Instagram's own nodes that hold the words without being a tab.
-CAMERA_AND_CAROUSEL = _instagram(
-    _node(IG, "camera_home_button", desc="Back to Home", bounds="[20,90][140,210]", cls="android.widget.Button"),
-    _node(IG, "suggested_user_card_follow_button", desc="Suivre Demo | Home &amp; Office",
-          bounds="[100,900][500,980]", cls="android.widget.Button"),
-    _node(IG, "search_edit_text", desc="Rechercher", bounds="[100,240][980,330]"))
+# Instagram's own nodes that hold the words without being a tab: the story camera's "Back to Home"
+# button, the search field of the search results, and the likers sheet of a post, whose search
+# glyph and field say "Rechercher" above a tab bar (Pixel 3a, 410 in French, June).
+CAMERA = _capture(FIXTURES / "ig410_en_story_camera.xml")
+SEARCH_RESULTS = _capture(FIXTURES / "ig410_fr_account_search_results.xml")
+LIKERS_SHEET = _capture(FIXTURES / "ig410_fr_likers_sheet.xml")
 
 
 def _matches(xml, selectors):
     tree = etree.fromstring(xml.encode("utf-8"))
     return [node.get("resource-id") or node.get("content-desc")
             for selector in selectors for node in tree.xpath(selector)]
+
+
+def _tabs_without_their_ids(xml):
+    """The same tab bar, its tabs stripped of the ids the base selectors know."""
+    tree = etree.fromstring(xml.encode("utf-8"))
+    for tab in tree.xpath(f'//*[@resource-id="{IG}:id/tab_bar"]/*'):
+        tab.set("resource-id", "")
+    return etree.tostring(tree, encoding="unicode")
 
 
 @pytest.fixture
@@ -118,11 +87,18 @@ def test_no_home_or_search_tab_on_the_launcher(locale, lang):
     assert _matches(LAUNCHER, [FEED_SCROLL_SELECTORS.home_tab_xpath]) == []
 
 
+@pytest.mark.parametrize("screen", [CAMERA, SEARCH_RESULTS], ids=["camera", "search_results"])
 @pytest.mark.parametrize("lang", [None, "fr", "en"])
-def test_the_words_outside_the_tab_bar_are_not_tabs(locale, lang):
+def test_the_words_outside_the_tab_bar_are_not_tabs(locale, lang, screen):
     locale(lang)
-    assert _matches(CAMERA_AND_CAROUSEL, NAVIGATION_SELECTORS.home_tab) == []
-    assert _matches(CAMERA_AND_CAROUSEL, NAVIGATION_SELECTORS.search_tab) == []
+    assert _matches(screen, NAVIGATION_SELECTORS.home_tab) == []
+    assert _matches(screen, NAVIGATION_SELECTORS.search_tab) == []
+
+
+@pytest.mark.parametrize("lang", [None, "fr", "en"])
+def test_a_search_field_above_the_tab_bar_is_not_the_search_tab(locale, lang):
+    locale(lang)
+    assert set(_matches(LIKERS_SHEET, NAVIGATION_SELECTORS.search_tab)) == {f"{IG}:id/search_tab"}
 
 
 @pytest.mark.parametrize("lang", [None, "fr", "en"])
@@ -134,24 +110,28 @@ def test_the_tabs_of_the_tab_bar_are_still_found(locale, lang):
 
 def test_the_localized_fallback_finds_a_tab_without_its_id(locale):
     """What the fallback is for: a tab-bar tab whose id the base selector does not know."""
-    bar = _instagram(_node(IG, "tab_bar", bounds="[0,1907][1080,2028]", children=(
-        _node(IG, desc="Accueil", bounds="[0,1907][216,2028]")
-        + _node(IG, desc="Home", bounds="[216,1907][432,2028]")
-        + _node(IG, desc="Rechercher et explorer", bounds="[648,1907][864,2028]"))))
-    locale("fr")
-    assert _matches(bar, NAVIGATION_SELECTORS.home_tab) == ["Accueil"]
-    assert _matches(bar, NAVIGATION_SELECTORS.search_tab) == ["Rechercher et explorer"]
+    bar = _tabs_without_their_ids(FEED)
     locale("en")
     assert _matches(bar, NAVIGATION_SELECTORS.home_tab) == ["Home"]
+    locale("fr")
+    assert _matches(bar, NAVIGATION_SELECTORS.search_tab) == ["Rechercher et explorer"]
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "the French entry of navigation.home_tab looks for \"Accueil\"; the home tab of Instagram in "
+    "French says \"Home\" (410 on the Pixel 3, 447 on the Pixel 6a): locales/fr.py"))
+def test_the_french_fallback_finds_the_home_tab_of_a_french_tab_bar(locale):
+    locale("fr")
+    assert _matches(_tabs_without_their_ids(FEED), NAVIGATION_SELECTORS.home_tab) == ["Home"]
 
 
 class _Phone:
-    """A Pixel 3: the launcher or Instagram, Back pops one Instagram screen, a tap on the home
-    tab shows the feed, `app_start` opens Instagram on its feed."""
+    """The launcher or Instagram: Back pops one Instagram screen, a tap on the home tab shows the
+    feed, `app_start` opens Instagram on its feed."""
 
     wait_timeout = 1.0
     info = {"displayWidth": 1080, "displayHeight": 2160}
-    BACK = {OWN_FOLLOWERS: OWN_PROFILE, OWN_PROFILE: FEED}
+    BACK = {FOLLOWERS: OWN_PROFILE, OWN_PROFILE: FEED}
 
     def __init__(self, screen):
         self.screen = screen
@@ -177,10 +157,11 @@ class _Phone:
             self.screen = self.BACK.get(self.screen, self.screen)
 
     def _tapped(self, x, y):
+        """The clickable node under the finger, the deepest one: the node Android hands the tap to."""
         hit = None
         for node in etree.fromstring(self.screen.encode("utf-8")).iter("node"):
             left, top, right, bottom = map(int, node.get("bounds").replace("][", ",").strip("[]").split(","))
-            if left <= x < right and top <= y < bottom and (node.get("resource-id") or node.get("content-desc")):
+            if left <= x < right and top <= y < bottom and node.get("clickable") == "true":
                 hit = node
         return hit
 
@@ -225,9 +206,9 @@ def test_from_the_launcher_it_opens_instagram_and_never_taps_the_launcher(no_wai
     assert phone.screen == FEED
 
 
-def test_from_the_own_followers_list_it_backs_out_then_taps_home(no_wait, locale):
+def test_from_a_followers_list_it_backs_out_then_taps_home(no_wait, locale):
     locale("fr")
-    ok, phone = _go_home(OWN_FOLLOWERS)
+    ok, phone = _go_home(FOLLOWERS)
     assert ok
     assert phone.started == []
     assert phone.taps == [(IG, f"{IG}:id/feed_tab")]
