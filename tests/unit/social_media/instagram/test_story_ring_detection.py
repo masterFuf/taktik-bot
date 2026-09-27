@@ -89,10 +89,10 @@ def test_every_profile_shows_highlights():
 
 
 def test_unseen_profile_story_ring_is_detected():
-    # On the real header both branches answer: the avatar's `reel_ring` and the "non vue" image.
+    # The header has both the avatar's `reel_ring` and the "non vue" image: the image decides.
     ring = _matches(_PROFILE_WITH_UNSEEN_STORY, STORY_SELECTORS.profile_unseen_story_avatar)
     assert {node.get("resource-id").rsplit("/", 1)[-1] for node in ring} == {
-        "reel_ring", "row_profile_header_imageview"}
+        "row_profile_header_imageview"}
     assert ScreenDetectionMixin.has_unseen_profile_story(_Detector(_PROFILE_WITH_UNSEEN_STORY)) is True
     assert ScreenDetectionMixin.count_visible_stories(_Detector(_PROFILE_WITH_UNSEEN_STORY)) == 1
 
@@ -104,12 +104,7 @@ def test_highlights_only_profile_reports_no_story():
     assert ScreenDetectionMixin.count_visible_stories(_Detector(_PROFILE_WITH_ONLY_HIGHLIGHTS)) == 0
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Instagram 410 draws the avatar's reel_ring for a SEEN story too (its image says "
-    "'story de <user> vue'), and the selector's first branch takes any reel_ring inside "
-    "profile_header_avatar_container (ui/selectors/surfaces/story_viewer.py, "
-    "profile_unseen_story_avatar): a seen story is reported unseen. Open point, to prove on a "
-    "phone before a selector changes."))
 def test_seen_story_is_not_reported_as_unseen():
+    # 410 draws the avatar's `reel_ring` for a seen story too; only the image says "vue".
     assert _matches(_PROFILE_WITH_SEEN_STORY, STORY_SELECTORS.profile_unseen_story_avatar) == []
     assert ScreenDetectionMixin.count_visible_stories(_Detector(_PROFILE_WITH_SEEN_STORY)) == 0

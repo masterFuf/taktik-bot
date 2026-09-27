@@ -180,11 +180,6 @@ def test_a_broken_dump_does_not_raise():
     assert act.like_comment_in_thread(COMMENTER, max_scrolls=1)["success"] is False
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "On the sheet of a post opened from a grid, the action bar title 'Posts' is a TextView whose "
-    "content-desc repeats its text: `_username_nodes` (workflows/common/comments_thread.py) takes "
-    "it for a Compose username, then drops every 410 author (legacy shape): no row is found. "
-    "Open point, to prove on a phone."))
 def test_a_comment_is_liked_on_a_post_opened_from_a_grid():
     """Instagram 410.0.0.53.71 in English (Pixel 3), real sheet, anonymized."""
     sheet = (FIXTURES / "ig410_en_comment_sheet.xml").read_text(encoding="utf-8")
@@ -194,3 +189,18 @@ def test_a_comment_is_liked_on_a_post_opened_from_a_grid():
 
     assert result["success"] is True
     assert act.device.taps == [(926, 947, 1080, 1112)]
+
+
+def test_a_comment_is_liked_on_a_french_post_opened_from_a_grid():
+    """Instagram 410.0.0.53.71 in French (Pixel 3), real sheet, anonymized.
+
+    "Publications" in the action bar, "Suivre" beside it and the sheet title "Commentaires" all
+    have a handle's shape; none of them is taken for an author.
+    """
+    sheet = (FIXTURES / "ig410_fr_comment_sheet_from_grid.xml").read_text(encoding="utf-8")
+    act = _action(sheet)
+
+    result = act.like_comment_in_thread("user_9", max_scrolls=1)
+
+    assert result["success"] is True
+    assert act.device.taps == [(926, 864, 1080, 981)]

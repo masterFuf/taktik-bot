@@ -101,14 +101,14 @@ def test_the_counts_of_list_requests_and_accept_all(run):
 def test_an_incomplete_command_is_refused_before_the_phone(run, config, error):
     code, lines, calls = run(config)
     assert code == 1
-    assert lines == [{"success": False, "error": error}]
+    assert lines == [{"type": "result", "success": False, "error": error}]
     assert calls == []
 
 
 def test_a_file_that_is_not_an_object_is_refused(run):
     code, lines, _ = run(raw="[1, 2]")
     assert code == 1
-    assert lines == [{"success": False, "error": "The notifications config must be a JSON object"}]
+    assert lines == [{"type": "result", "success": False, "error": "The notifications config must be a JSON object"}]
 
 
 def test_an_unreadable_file_is_refused(run, tmp_path):
@@ -120,4 +120,4 @@ def test_an_unreadable_file_is_refused(run, tmp_path):
 def test_no_file_is_a_usage_error(run):
     code, lines, _ = run(args=[])
     assert code == 1
-    assert lines == [{"success": False, "error": "Usage: notifications_bridge <config.json>"}]
+    assert lines == [{"type": "result", "success": False, "error": "Usage: notifications_bridge <config.json>"}]
