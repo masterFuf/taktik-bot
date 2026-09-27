@@ -11,6 +11,7 @@ the same flow serves a prospect (public) and our own account (connected).
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from bridges.instagram.runtime.ipc import _ipc, logger
 
@@ -49,6 +50,10 @@ def owner_lines_from_comment_descs(desc_author_pairs, owner_username, seen=None,
 
 class PersonaCommentsMixin:
     """Collect comments from a currently opened Persona Analysis post."""
+
+    # What the mixin reads from the bridge it is mixed into (`PersonaAnalysisBridge`).
+    device: Any
+    max_comments: int
 
     def _collect_comments(self, post_idx: int, style_seen: set = None):
         """Open the comments section and collect up to max_comments text comments.

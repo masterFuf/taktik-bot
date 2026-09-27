@@ -58,6 +58,14 @@ class _Phone:
 
 @pytest.fixture(autouse=True)
 def phone_answers(monkeypatch):
+    # The persona reader's module imports the Instagram bridge's IPC, whose first import installs the
+    # process-wide IPC adapter and step telemetry sink: the ones in place before the test come back
+    # after it (as `tests/unit/app/contract/ig_automation_probe.py` does).
+    import taktik.core.shared.telemetry.sink as telemetry
+    from taktik.core.social_media.instagram.actions.core.ipc import emitter
+
+    monkeypatch.setattr(emitter, "_bridge_adapter", emitter._bridge_adapter)
+    monkeypatch.setattr(telemetry, "_sink", telemetry._sink)
     before = locales.active_locale()
     locales.set_active_locale("en")
     register_actions()
@@ -83,7 +91,11 @@ def test_the_thread_reader_reads_the_two_bodies_of_the_sheet():
 
 
 def test_the_persona_reader_reads_the_same_bodies(phone_answers):
-    result = INSTAGRAM_ACTIONS["comment.read_visible_texts"](_bundle(), {})
-    assert result["success"] is True
-    assert result["details"]["texts"] == BODIES
+    # The reader itself, as `comment.read_visible_texts` builds it: the Lab action would also route the
+    # process's loguru to its JSON stdout sink (`configure_logger`) for every test after this one.
+    from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
+
+    reader = type("PersonaCommentReader", (PersonaCommentsMixin,), {})()
+    reader.device = _bundle().device
+    assert reader._visible_comment_texts() == BODIES
     assert phone_answers == [("PHONE-SERIAL", ["dumpsys", "activity", "top"])]
