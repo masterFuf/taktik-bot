@@ -106,7 +106,7 @@
   "taktik/core/social_media/tiktok/actions/atomic/interaction/comment_actions.py": 5,
   "taktik/core/social_media/tiktok/actions/atomic/interaction/feed_training_actions.py": 4,
   "taktik/core/social_media/tiktok/actions/atomic/interaction/popup_actions.py": 4,
-  "taktik/core/social_media/tiktok/actions/atomic/interaction/post_link_actions.py": 5,
+  "taktik/core/social_media/tiktok/actions/atomic/interaction/post_link_actions.py": 4,
   "taktik/core/social_media/tiktok/actions/atomic/interaction/repost_actions.py": 3,
   "taktik/core/social_media/tiktok/actions/atomic/interaction/video_actions.py": 2,
   "taktik/core/social_media/tiktok/actions/atomic/messaging/dm_actions.py": 7,
