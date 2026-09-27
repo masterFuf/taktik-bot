@@ -232,6 +232,8 @@ MINIMAL_TREES: dict[str, tuple[int, str]] = {
         (21, "the layout digest: same tree, same digest."),
     "tests/unit/one_path/conftest.py":
         (3, "the recording phone of the one-path tests: the bridge and the CLI see the same screen."),
+    "tests/unit/scripts/test_leak_guard.py":
+        (4, "the leak guard's clock rule: one status-bar node, its id and its text."),
     "tests/unit/scripts/test_measure_screen_reading.py":
         (3, "the measurement script's read-only guard."),
     "tests/unit/scripts/test_screen_proofs.py":

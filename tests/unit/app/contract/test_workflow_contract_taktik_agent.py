@@ -10,13 +10,13 @@ the model's HTTP transport and the clock are replaced. The lines come from the p
 from __future__ import annotations
 
 import json
-import sys
 from types import SimpleNamespace
 from typing import Any, Dict, List
 
 import pytest
 
 from contract_probe import Recording
+from ig_automation_probe import use_the_bridge_ipc
 from taktik.core.app.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 from test_workflow_contract_bridges import check_lines
 from test_workflow_contract_instagram_bridges import app_file, assert_reads, printed  # noqa: F401
@@ -191,10 +191,8 @@ def agent_bridge(monkeypatch, tmp_path):
 
     import bridges.instagram.agent.runtime.bridge as bridge_runtime
     import bridges.instagram.agent.runtime.commands as commands
-    import bridges.instagram.runtime.ipc as instagram_ipc
     import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
     import taktik.core.shared.diagnostics.action_block as action_block
-    import taktik.core.shared.telemetry.sink as telemetry
     import taktik.core.social_media.instagram.actions.atomic.interaction as interaction
     import taktik.core.social_media.instagram.actions.atomic.navigation as navigation
     import taktik.core.social_media.instagram.actions.business.actions.like as like
@@ -204,7 +202,6 @@ def agent_bridge(monkeypatch, tmp_path):
     import taktik.core.social_media.instagram.ui.language as language
     import taktik.core.social_media.instagram.workflows.common.post_navigation as post_navigation
     from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
-    from taktik.core.social_media.instagram.actions.core.ipc import emitter
 
     state = SimpleNamespace(restarts=True)
 
@@ -222,10 +219,7 @@ def agent_bridge(monkeypatch, tmp_path):
     monkeypatch.setattr(commands, "TaktikAgentBridge", Bridge)
     monkeypatch.setattr(commands, "configure_agent_database", lambda: None)
     monkeypatch.setattr(bridge_runtime, "start_agent_stop_listener", lambda: None)
-    # The bridge's own IPC behind `IPCEmitter` and the step telemetry, whatever ran before.
-    monkeypatch.setattr(emitter, "_bridge_adapter", sys.modules[instagram_ipc.__name__])
-    monkeypatch.setattr(telemetry, "_sink", telemetry._sink)
-    instagram_ipc._register_telemetry_sink()
+    use_the_bridge_ipc(monkeypatch)
 
     monkeypatch.setattr(urllib.request, "urlopen", _OpenRouter())
     monkeypatch.setattr(autopilot, "get_db_service", lambda: SimpleNamespace(
