@@ -12,32 +12,6 @@ class FakeDevice:
     pass
 
 
-def test_tap_create_button_uses_selector_before_fallback(monkeypatch):
-    calls = []
-
-    monkeypatch.setattr(
-        publish_navigation,
-        "tap_element",
-        lambda device, selectors, timeout: calls.append((device, selectors, timeout)) or True,
-    )
-    monkeypatch.setattr(
-        publish_navigation,
-        "tap_create_button_fallback",
-        lambda *_args, **_kwargs: calls.append("fallback") or True,
-    )
-
-    device = FakeDevice()
-    assert tap_create_button(device)
-    assert calls == [(device, publish_navigation.PUBLISH_CREATION_ENTRY_SELECTORS.create_btn, 3.0)]
-
-
-def test_tap_create_button_uses_fallback_after_selector_failure(monkeypatch):
-    monkeypatch.setattr(publish_navigation, "tap_element", lambda *_args, **_kwargs: False)
-    monkeypatch.setattr(publish_navigation, "tap_create_button_fallback", lambda *_args, **_kwargs: True)
-
-    assert tap_create_button(FakeDevice())
-
-
 class ClickRecordingDevice:
     """Records any tap made at a point, with the screen size a coordinate fallback would read."""
 
@@ -48,6 +22,29 @@ class ClickRecordingDevice:
 
     def click(self, x, y):
         self.clicks.append((x, y))
+
+
+def test_tap_create_button_uses_its_selectors(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(
+        publish_navigation,
+        "tap_element",
+        lambda device, selectors, timeout: calls.append((device, selectors, timeout)) or True,
+    )
+
+    device = FakeDevice()
+    assert tap_create_button(device)
+    assert calls == [(device, publish_navigation.PUBLISH_CREATION_ENTRY_SELECTORS.create_btn, 3.0)]
+
+
+def test_tap_create_button_taps_no_point_when_no_selector_answers(monkeypatch):
+    """No coordinate fallback: the point (0.40, 0.94) of the bottom bar was a guess."""
+    monkeypatch.setattr(publish_navigation, "tap_element", lambda *_args, **_kwargs: False)
+    device = ClickRecordingDevice()
+
+    assert not tap_create_button(device, log=lambda level, message: None)
+    assert device.clicks == []
 
 
 def test_tap_upload_button_tries_the_selectors_then_the_dump(monkeypatch):
@@ -117,29 +114,21 @@ def test_ensure_gallery_picker_open_checks_permissions_once_more_after_attempts(
     assert permission_calls == ["permission", "permission"]
 
 
-def test_select_first_gallery_item_uses_selector_before_fallback(monkeypatch):
+def test_select_first_gallery_item_uses_its_selectors(monkeypatch):
     calls = []
 
     monkeypatch.setattr(publish_navigation, "tap_element", lambda *_args, **_kwargs: calls.append("selector") or True)
-    monkeypatch.setattr(
-        publish_navigation,
-        "tap_first_gallery_item_fallback",
-        lambda *_args, **_kwargs: calls.append("fallback") or True,
-    )
 
     assert select_first_gallery_item(FakeDevice())
     assert calls == ["selector"]
 
 
-def test_select_first_gallery_item_uses_fallback_after_selector_failure(monkeypatch):
+def test_select_first_gallery_item_taps_no_point_when_no_selector_answers(monkeypatch):
     monkeypatch.setattr(publish_navigation, "tap_element", lambda *_args, **_kwargs: False)
-    monkeypatch.setattr(
-        publish_navigation,
-        "tap_first_gallery_item_fallback",
-        lambda *_args, **_kwargs: True,
-    )
+    device = ClickRecordingDevice()
 
-    assert select_first_gallery_item(FakeDevice(), sleep=lambda _seconds: None)
+    assert not select_first_gallery_item(device, log=lambda level, message: None)
+    assert device.clicks == []
 
 
 def test_advance_to_post_screen_taps_next_until_post_screen(monkeypatch):

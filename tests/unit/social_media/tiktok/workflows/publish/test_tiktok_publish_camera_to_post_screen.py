@@ -75,7 +75,7 @@ def test_on_47_0_3_the_production_steps_go_from_the_camera_to_the_post_screen(on
 
     assert navigation.tap_upload_button(phone)
     assert navigation.ensure_gallery_picker_open(phone, "device-1", sleep=no_sleep)
-    assert navigation.select_first_gallery_item(phone, sleep=no_sleep)
+    assert navigation.select_first_gallery_item(phone)
     assert navigation.advance_to_post_screen(phone, sleep=no_sleep) == navigation.POST_SCREEN_REACHED
 
     assert [(tap.rid, tap.bounds) for tap in phone.taps] == [
@@ -86,3 +86,12 @@ def test_on_47_0_3_the_production_steps_go_from_the_camera_to_the_post_screen(on
         ("q03", "[545,2192][1048,2308]"),  # Suivant, never Ta Story
     ]
     assert phone.screen == "post_screen"
+
+
+def test_where_no_selector_knows_the_gallery_nothing_is_tapped():
+    """The baseline catalogue on the 47.0.3 gallery: the grid fallback tapped the thumbnail of the
+    first cell, not its selection box, and reported the medium selected."""
+    phone = _phone("gallery")
+
+    assert not navigation.select_first_gallery_item(phone)
+    assert phone.taps == []

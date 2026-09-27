@@ -17,10 +17,6 @@ from taktik.core.social_media.tiktok.services.publish.screen_detector import (
     is_gallery_picker_open,
     is_post_screen,
 )
-from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import (
-    tap_create_button_fallback,
-    tap_first_gallery_item_fallback,
-)
 from taktik.core.social_media.tiktok.services.publish.upload_picker import tap_upload_button_from_dump
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_CREATION_ENTRY_SELECTORS,
@@ -48,10 +44,13 @@ def tap_create_button(
     selectors: PublishCreationEntrySelectors = PUBLISH_CREATION_ENTRY_SELECTORS,
     log: LogFn | None = None,
 ) -> bool:
-    """Tap TikTok's Create button, then use a documented coordinate fallback."""
+    """Tap TikTok's Create button by its selectors. Nothing else: when none answers, nothing is
+    tapped and the workflow stops (create_btn_not_found), rather than tapping a fixed point of the
+    bottom bar."""
     if tap_element(device, selectors.create_btn, timeout=3.0):
         return True
-    return tap_create_button_fallback(device, log=log)
+    _log(log, "error", "[create] no selector found TikTok's Create button: nothing tapped")
+    return False
 
 
 def tap_upload_button(
@@ -111,18 +110,15 @@ def select_first_gallery_item(
     device,
     *,
     selectors: PublishMediaPickerSelectors = PUBLISH_MEDIA_PICKER_SELECTORS,
-    sleep: SleepFn = time.sleep,
     log: LogFn | None = None,
 ) -> bool:
-    """Select the most recent media item from TikTok's gallery picker."""
+    """Select the newest medium of TikTok's gallery by its selectors. Nothing else: when none
+    answers, nothing is tapped and the workflow stops (gallery_item_not_found), rather than
+    tapping a fixed point of the grid (a thumbnail, whatever it held)."""
     if tap_element(device, selectors.gallery_first_item, timeout=5.0):
         return True
-    return tap_first_gallery_item_fallback(
-        device,
-        is_camera_creation_screen=lambda: is_camera_creation_screen(device),
-        sleep=sleep,
-        log=log,
-    )
+    _log(log, "error", "[gallery] no selector found the newest medium of the gallery: nothing tapped")
+    return False
 
 
 def advance_to_post_screen(

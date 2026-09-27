@@ -1,60 +1,20 @@
-"""Last-resort coordinate fallbacks for the TikTok publish workflow."""
+"""Last-resort coordinate fallback of the TikTok publish workflow: the caption field's focus.
+
+The taps of the way to the post screen (Create, the gallery entry, the newest medium) have no
+coordinate fallback any more: a tap aims at a node its selectors find, or the workflow stops.
+"""
 
 from __future__ import annotations
 
-import time
 from typing import Callable
 
 
 LogFn = Callable[[str, str], None]
-SleepFn = Callable[[float], None]
-ScreenCheckFn = Callable[[], bool]
 
 DEFAULT_WIDTH = 720
 DEFAULT_HEIGHT = 1520
 CAPTION_DEFAULT_WIDTH = 576
 CAPTION_DEFAULT_HEIGHT = 1280
-
-
-def tap_create_button_fallback(device, *, log: LogFn | None = None) -> bool:
-    """Tap the bottom navigation Create slot when selectors do not match."""
-    return tap_relative(
-        device,
-        0.40,
-        0.94,
-        label="[create] fallback coord tap",
-        log=log,
-    )
-
-
-def tap_first_gallery_item_fallback(
-    device,
-    *,
-    is_camera_creation_screen: ScreenCheckFn | None = None,
-    sleep: SleepFn = time.sleep,
-    log: LogFn | None = None,
-) -> bool:
-    """Tap the first gallery item when TikTok exposes no usable selector."""
-    try:
-        width, height = _display_size(device)
-        tap_x = width // 6
-        tap_y = int(height * 0.20)
-        _log(
-            log,
-            "warning",
-            f"[gallery] XPath selectors failed - coord fallback ({tap_x},{tap_y}). "
-            "Provide a dump from this device to add the correct resource-id.",
-        )
-        device.click(tap_x, tap_y)
-        sleep(1.0)
-
-        if is_camera_creation_screen and is_camera_creation_screen():
-            _log(log, "warning", "[gallery] coord fallback did not leave the camera screen")
-            return False
-        return True
-    except Exception as exc:
-        _log(log, "error", f"[gallery] coord fallback failed: {exc}")
-        return False
 
 
 def tap_caption_focus_fallback(device, *, log: LogFn | None = None) -> bool:

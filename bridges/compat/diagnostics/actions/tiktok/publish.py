@@ -72,7 +72,7 @@ def open_gallery(a, p):
 
 @action("tt.publish.select_first_media")
 def select_first_media(a, p):
-    """Select the first gallery item (coordinate fallback)."""
+    """Select the newest medium of the gallery, by its selectors only."""
     ok = _nav(a).select_first_gallery_item(_raw(a))
     return {"success": bool(ok), "message": f"first media selected={ok}"}
 
