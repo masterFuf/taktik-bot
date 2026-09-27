@@ -171,25 +171,29 @@
    "configure_db",
    "connect"
   ],
-  "stdout": [
-   {
-    "success": false,
-    "error": "Failed to connect to device"
-   }
+  "stdout": [],
+  "events": [
+   [
+    "error",
+    {
+     "error": "Failed to connect to device"
+    }
+   ]
   ],
-  "events": [],
   "workflows": []
  },
  "no_argument": {
   "exit": 1,
   "calls": [],
-  "stdout": [
-   {
-    "success": false,
-    "error": "No config file provided"
-   }
+  "stdout": [],
+  "events": [
+   [
+    "error",
+    {
+     "error": "No config file provided"
+    }
+   ]
   ],
-  "events": [],
   "workflows": []
  }
 }

@@ -88,6 +88,8 @@ def probe(item: Field, variant: int = 0) -> Any:
         return others[variant % len(others)]
     if isinstance(spec, ListOf) and spec.item == "string":
         return [f"alpha{variant}", f"beta{variant}"]
+    if isinstance(spec, ListOf) and spec.item == "json":
+        return [{"probe": variant}]
     if spec == "json":
         return {"probe": variant}
     if isinstance(spec, MapOf) and spec.value == ListOf("string"):

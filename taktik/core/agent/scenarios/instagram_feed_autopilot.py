@@ -13,7 +13,6 @@ Current implementation: Instagram feed browsing.
   7. Emits IPC events throughout for the Taktik Agent panel
 """
 
-import os
 import time
 import random
 import tempfile
@@ -72,7 +71,11 @@ class TaktikAgentWorkflow:
     ):
         self.device_manager = device_manager
         self.device = device_manager.device if hasattr(device_manager, 'device') else device_manager
-        self.config = config
+        # Imported here: the Instagram package imports the Agent kernel.
+        from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
+
+        # The payload is read once, by the reader the launcher and the app's contract share.
+        self.request = taktik_agent_request_from_payload(config)
         self.ipc = ipc
         self._ai_service = ai_service
         self._ai_service_factory = ai_service_factory
@@ -90,22 +93,15 @@ class TaktikAgentWorkflow:
             "profiles_skipped_relationship": 0,
         }
 
-        # Quotas (overridable from config)
-        self.quotas = {
-            "max_likes": config.get("max_likes", 80),
-            "max_comments": config.get("max_comments", 15),
-            "max_follows": config.get("max_follows", 20),
-            "max_profile_visits": config.get("max_profile_visits", 40),
-            "max_posts_seen": config.get("max_posts_seen", 150),
-            "session_duration_min": config.get("session_duration_min", 25),
-        }
+        self.quotas = self.request.quotas
 
         # The agent is a GROWTH path. A profile already in a relationship is not a target: it
         # is skipped BEFORE the screenshot and the qualification call, which saves the vision
         # cost, and its follow button is never tapped again — tapping an already-following
         # one would unfollow. On by default, and disableable if the agent should one day
         # re-engage its own audience.
-        self._skip_related_profiles = config.get("skip_related_profiles", True)
+        self._skip_related_profiles = self.request.skip_related_profiles
+        self._skip_reels = self.request.skip_reels
 
         self._stop_requested = False
         self._session_start = None
@@ -116,8 +112,8 @@ class TaktikAgentWorkflow:
         self._context = AgentContext(platform="instagram")
         # Premium orchestration is prepared by the desktop app and passed in
         # through config. The open-source bot only consumes this runtime context.
-        self._desktop_orchestration_context = config.get("desktop_orchestration_context") or {}
-        self._agent_plan = self._load_agent_plan(config)
+        self._orchestration = self.request.orchestration
+        self._agent_plan = self._load_agent_plan(self.request.agent_plan)
         self._apply_agent_plan_context()
 
         # Strategy switching
@@ -256,16 +252,9 @@ class TaktikAgentWorkflow:
 
     def _apply_desktop_orchestration_context(self) -> None:
         """Apply premium orchestration context prepared by the desktop app."""
-        context = self._desktop_orchestration_context
-        if not isinstance(context, dict):
-            return
-
-        timeline = context.get("timeline") or []
-        warnings = context.get("patternWarnings") or []
-        if isinstance(timeline, list):
-            self._context.recent_timeline = timeline
-        if isinstance(warnings, list):
-            self._context.pattern_warnings = warnings
+        context = self._orchestration
+        self._context.recent_timeline = context.timeline
+        self._context.pattern_warnings = context.pattern_warnings
 
         logger.info(
             "[TaktikAgent] Desktop orchestration context loaded: "
@@ -273,13 +262,13 @@ class TaktikAgentWorkflow:
             f"{len(self._context.pattern_warnings)} warning(s)"
         )
 
-        intro = context.get("introMessage")
+        intro = context.intro_message
         if intro:
             self._send_status(
                 "orchestration_context",
                 str(intro),
                 stats={
-                    "source": context.get("source") or "desktop",
+                    "source": context.source,
                     "timeline_count": len(self._context.recent_timeline),
                     "pattern_warnings": self._context.pattern_warnings,
                 },
@@ -296,22 +285,19 @@ class TaktikAgentWorkflow:
 
         The desktop-provided step message is already localized (no key); only the English
         fallback carries `message_key` so the desktop can localize it too."""
-        context = self._desktop_orchestration_context
-        steps = context.get("nextSteps") if isinstance(context, dict) else None
-        if isinstance(steps, list):
-            for step in steps:
-                if isinstance(step, dict) and step.get("tool") == tool and step.get("message"):
-                    self._send_status(
-                        "planning",
-                        str(step.get("message")),
-                        stats={"tool": tool, "source": context.get("source") or "desktop"},
-                    )
-                    return
+        context = self._orchestration
+        for step in context.next_steps:
+            if isinstance(step, dict) and step.get("tool") == tool and step.get("message"):
+                self._send_status(
+                    "planning",
+                    str(step.get("message")),
+                    stats={"tool": tool, "source": context.source},
+                )
+                return
         self._send_status("planning", fallback_message, stats={"tool": tool}, message_key=message_key)
 
-    def _load_agent_plan(self, config: Dict[str, Any]) -> Optional[AgentPlan]:
+    def _load_agent_plan(self, payload: Any) -> Optional[AgentPlan]:
         """Parse an optional frontend/CLI AgentPlan payload."""
-        payload = config.get("agent_plan") or config.get("agentPlan")
         if not payload:
             return None
 
@@ -334,8 +320,8 @@ class TaktikAgentWorkflow:
     def _initialize_ai(self) -> bool:
         """Set up the AI service and AgentAI decision engine."""
         try:
-            vision_model = self.config.get("vision_model") or None
-            text_model = self.config.get("text_model") or None
+            vision_model = self.request.vision_model
+            text_model = self.request.text_model
             ai_service = self._ai_service
 
             if ai_service is None:
@@ -343,7 +329,7 @@ class TaktikAgentWorkflow:
                     logger.error("[TaktikAgent] No AI service or factory injected")
                     return False
 
-                api_key = self.config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
+                api_key = self.request.openrouter_api_key
                 if not api_key:
                     logger.error("[TaktikAgent] No OpenRouter API key configured")
                     return False
@@ -356,8 +342,7 @@ class TaktikAgentWorkflow:
                 )
                 self._ai_service = ai_service
 
-            self._ai = AgentAI(ai_service=ai_service, ipc=self.ipc,
-                               language=self.config.get("language", "en"))
+            self._ai = AgentAI(ai_service=ai_service, ipc=self.ipc, language=self.request.language)
             logger.info("[TaktikAgent] AI engine initialized")
             # Generate hashtag pool now that AI is ready
             self._generate_hashtag_pool()
@@ -425,7 +410,7 @@ class TaktikAgentWorkflow:
                 continue
 
             # Skip reels if configured (default: True)
-            if self.config.get("skip_reels", True) and feed._is_reel_post():
+            if self._skip_reels and feed._is_reel_post():
                 logger.debug("[TaktikAgent] Skipping reel")
                 feed._scroll_to_next_post()
                 time.sleep(random.uniform(0.8, 1.5))
@@ -545,7 +530,7 @@ class TaktikAgentWorkflow:
         hashtag = self._hashtag_pool[self._hashtag_index % len(self._hashtag_pool)]
         self._hashtag_index += 1
 
-        skip_reels = self.config.get("skip_reels", True)
+        skip_reels = self._skip_reels
 
         logger.info(
             f"[TaktikAgent] 🏷️ Strategy switch → #{hashtag} "
