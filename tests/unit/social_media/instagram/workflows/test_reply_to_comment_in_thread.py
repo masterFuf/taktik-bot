@@ -3,25 +3,32 @@
 Instagram threads a reply by the "@username " mention it prefills when the row's own Reply
 affordance is tapped. Lose that mention and the reply silently becomes an ordinary top-level
 comment addressed to nobody — published, counted, and wrong.
+
+The thread is real: the comments sheet of a feed post, Instagram 410 in French (Pixel 3a; the
+Lab filed the run under the launcher's version), anonymized, four comments on screen, each with its
+own "Répondre" button.
+
+On the comments sheet of a post opened from a grid ("Posts" in the action bar, Instagram
+410.0.0.53.71 in English, Pixel 3, anonymized), no reply lands: see the strict xfail at the end.
 """
 
 import types
+from pathlib import Path
 
 import pytest
 
 from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
 
-THREAD = """
-<hierarchy>
-  <node class="android.view.ViewGroup" bounds="[0,185][576,302]" content-desc="">
-    <node class="android.view.ViewGroup" bounds="[84,197][492,255]" content-desc="commenter42 ">
-      <node class="android.widget.Button" bounds="[98,197][189,222]" content-desc="" text="commenter42"/>
-    </node>
-    <node class="android.widget.Button" bounds="[98,255][170,302]" content-desc="Reply" text="Reply"/>
-  </node>
-</hierarchy>
-"""
+FIXTURES = Path(__file__).parents[1] / "fixtures"
+THREAD = (FIXTURES / "ig410_fr_comment_sheet.xml").read_text(encoding="utf-8")
+#: The third comment of the sheet: its author, and the "Répondre" button of its own row.
+COMMENTER = "user_3"
+REPLY = (179, 887, 375, 973)
+#: The sheet of a post opened from a grid, and one of its commenters with that row's Reply.
+POSTS_THREAD = (FIXTURES / "ig410_en_comment_sheet.xml").read_text(encoding="utf-8")
+POSTS_COMMENTER = "user_2"
+POSTS_REPLY = (179, 1073, 310, 1159)
 
 
 class _Field:
@@ -70,7 +77,7 @@ def _action(field=None, xml=THREAD, comments_open=True, tap_ok=True,
     from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
     act = CommentAction.__new__(CommentAction)
-    act.device = _Device(xml, field if field is not None else _Field("@commenter42 "), tap_ok=tap_ok)
+    act.device = _Device(xml, field if field is not None else _Field("@" + COMMENTER + " "), tap_ok=tap_ok)
     act.logger = types.SimpleNamespace(
         debug=lambda *a, **k: None, info=lambda *a, **k: None, success=lambda *a, **k: None,
         warning=lambda *a, **k: None, error=lambda *a, **k: None,
@@ -114,31 +121,31 @@ def _no_db(monkeypatch):
 def test_a_reply_taps_the_rows_own_reply_button(_no_db):
     act = _action()
 
-    result = act.reply_to_comment_in_thread("commenter42", "Merci pour ce retour !")
+    result = act.reply_to_comment_in_thread(COMMENTER, "Merci pour ce retour !")
 
     assert result["success"] is True
-    assert act.device.taps == [(98, 255, 170, 302)]  # commenter42's Reply, not a neighbour's
+    assert act.device.taps == [REPLY]  # this commenter's Reply, not a neighbour's
 
 
 def test_the_reply_is_typed_and_checked_after_its_mention(_no_db):
-    """The field must read "@commenter42 Merci !" before the send, not just "Merci !"."""
+    """The field must read "@" + COMMENTER + " Merci !" before the send, not just "Merci !"."""
     act = _action()
     mentions = []
     act._type_comment = lambda _text, mention="": mentions.append(mention) or True
 
-    act.reply_to_comment_in_thread("commenter42", "Merci !")
+    act.reply_to_comment_in_thread(COMMENTER, "Merci !")
 
-    assert mentions == ["@commenter42 "]
+    assert mentions == ["@" + COMMENTER + " "]
 
 
 def test_a_reply_is_stored_as_a_reply_and_keeps_who_it_answers(_no_db):
     act = _action()
 
-    act.reply_to_comment_in_thread("commenter42", "Merci !", reply_to_text="Super post")
+    act.reply_to_comment_in_thread(COMMENTER, "Merci !", reply_to_text="Super post")
 
     assert _no_db["kind"] == "reply"
-    assert _no_db["target_username"] == "commenter42"   # the COMMENTER, not the post author
-    assert _no_db["reply_to_username"] == "commenter42"
+    assert _no_db["target_username"] == COMMENTER   # the COMMENTER, not the post author
+    assert _no_db["reply_to_username"] == COMMENTER
     assert _no_db["reply_to_text"] == "Super post"
     assert _no_db["comment_text"] == "Merci !"
 
@@ -146,30 +153,30 @@ def test_a_reply_is_stored_as_a_reply_and_keeps_who_it_answers(_no_db):
 def test_a_reply_is_ledgered_as_a_comment_with_its_text(_no_db):
     """A reply IS a published text: it consumes the comment budget and shows in the drill-down."""
     act = _action()
-    act.reply_to_comment_in_thread("commenter42", "Merci !")
-    assert act.actions == [("commenter42", "COMMENT", "Merci !")]
+    act.reply_to_comment_in_thread(COMMENTER, "Merci !")
+    assert act.actions == [(COMMENTER, "COMMENT", "Merci !")]
 
 
 # ── The mention is the thread link ──────────────────────────────────────────
 
 def test_a_wiped_mention_is_restored_before_sending(_no_db):
     """The typing helper falls back to set_text, which REPLACES the field — that fallback
-    erases the prefilled "@commenter42 " and the reply would land as a top-level comment."""
+    erases the prefilled "@<commenter> " and the reply would land as a top-level comment."""
     field = _Field("Merci !")  # mention gone: what set_text leaves behind
     act = _action(field=field)
 
-    act.reply_to_comment_in_thread("commenter42", "Merci !")
+    act.reply_to_comment_in_thread(COMMENTER, "Merci !")
 
-    assert field.get_text() == "@commenter42 Merci !"
+    assert field.get_text() == "@" + COMMENTER + " Merci !"
 
 
 def test_an_intact_mention_is_left_untouched(_no_db):
-    field = _Field("@commenter42 Merci !")
+    field = _Field("@" + COMMENTER + " Merci !")
     act = _action(field=field)
 
-    act.reply_to_comment_in_thread("commenter42", "Merci !")
+    act.reply_to_comment_in_thread(COMMENTER, "Merci !")
 
-    assert field.get_text() == "@commenter42 Merci !"  # not rewritten
+    assert field.get_text() == "@" + COMMENTER + " Merci !"  # not rewritten
 
 
 def test_an_unreadable_composer_is_not_overwritten(_no_db):
@@ -178,19 +185,19 @@ def test_an_unreadable_composer_is_not_overwritten(_no_db):
         def get_text(self):
             raise RuntimeError("no text")
 
-    field = _Unreadable("@commenter42 Merci !")
+    field = _Unreadable("@" + COMMENTER + " Merci !")
     act = _action(field=field)
 
-    act.reply_to_comment_in_thread("commenter42", "Merci !")
+    act.reply_to_comment_in_thread(COMMENTER, "Merci !")
 
-    assert field._text == "@commenter42 Merci !"
+    assert field._text == "@" + COMMENTER + " Merci !"
 
 
 # ── Refusals ────────────────────────────────────────────────────────────────
 
 def test_nothing_is_published_when_the_thread_is_not_open(_no_db):
     act = _action(comments_open=False)
-    result = act.reply_to_comment_in_thread("commenter42", "Merci !")
+    result = act.reply_to_comment_in_thread(COMMENTER, "Merci !")
     assert result["success"] is False
     assert act.actions == [] and not _no_db
 
@@ -202,7 +209,7 @@ def test_an_absent_commenter_is_never_answered(_no_db):
     assert act.device.taps == [] and act.actions == []
 
 
-@pytest.mark.parametrize("username,text", [("", "Merci !"), ("commenter42", ""), ("", "")])
+@pytest.mark.parametrize("username,text", [("", "Merci !"), (COMMENTER, ""), ("", "")])
 def test_an_incomplete_request_is_refused_without_touching_the_screen(_no_db, username, text):
     act = _action()
     assert act.reply_to_comment_in_thread(username, text)["success"] is False
@@ -211,7 +218,7 @@ def test_an_incomplete_request_is_refused_without_touching_the_screen(_no_db, us
 
 def test_a_reply_that_could_not_be_typed_is_not_recorded(_no_db):
     act = _action(typed_ok=False)
-    result = act.reply_to_comment_in_thread("commenter42", "Merci !")
+    result = act.reply_to_comment_in_thread(COMMENTER, "Merci !")
     assert result["success"] is False
     assert act.actions == [] and not _no_db
 
@@ -219,6 +226,20 @@ def test_a_reply_that_could_not_be_typed_is_not_recorded(_no_db):
 def test_a_reply_that_could_not_be_sent_is_not_recorded(_no_db):
     """The text is in the box but never left the device — counting it would invent an action."""
     act = _action(sent_ok=False)
-    result = act.reply_to_comment_in_thread("commenter42", "Merci !")
+    result = act.reply_to_comment_in_thread(COMMENTER, "Merci !")
     assert result["success"] is False
     assert act.actions == [] and not _no_db
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "On the sheet of a post opened from a grid, the action bar title 'Posts' is a TextView whose "
+    "content-desc repeats its text: `_username_nodes` (workflows/common/comments_thread.py) takes "
+    "it for a Compose username, then drops every 410 author (legacy shape): no row is found. "
+    "Open point, to prove on a phone."))
+def test_a_reply_lands_under_its_comment_on_a_post_opened_from_a_grid(_no_db):
+    act = _action(xml=POSTS_THREAD, field=_Field("@" + POSTS_COMMENTER + " "))
+
+    result = act.reply_to_comment_in_thread(POSTS_COMMENTER, "Merci !", max_scrolls=1)
+
+    assert result["success"] is True
+    assert act.device.taps == [POSTS_REPLY]

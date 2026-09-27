@@ -1,9 +1,11 @@
 """The hashtag search finds the search bar on Instagram 447, where it is a Button until tapped.
 
 Measured on a Pixel 6a (IG 447, 2026-09-24): every entry of the list required an EditText, found
-nothing, and the hashtag run ended at once on "sources exhausted" with no like. The structure below
-follows that screen (the explore grid under the search bar); texts are Instagram's own. The 447 entry
-is a version override (compat/data/overrides/instagram.yaml), applied here as the patcher does.
+nothing, and the hashtag run ended at once on "sources exhausted" with no like. The screens are real
+dumps, anonymized, all in French: that very screen (the explore grid under a Button search bar), a
+447 hashtag page whose bar holds the hashtag (an EditText by then), and the explore grid of 410
+(Pixel 3a), whose bar is an EditText from the start. The 447 entry is a version override
+(compat/data/overrides/instagram.yaml), applied here as the patcher does.
 """
 
 from pathlib import Path
@@ -26,19 +28,17 @@ def ig_447(monkeypatch):
                         entries["detection._hashtag_search_bar_selectors_base"])
 
 
-def _search_screen(bar_class):
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-        '<node index="0" text="" resource-id="" class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">'
-        f'<node index="0" text="" resource-id="{IG}/action_bar_search_hints_text_layout" '
-        'class="android.widget.FrameLayout" clickable="false" bounds="[32,130][940,222]">'
-        f'<node index="0" text="Rechercher" resource-id="{IG}/action_bar_search_edit_text" '
-        f'class="{bar_class}" content-desc="Rechercher" clickable="true" bounds="[140,140][930,212]" />'
-        '</node>'
-        f'<node index="3" text="" resource-id="{IG}/search_tab" class="android.widget.FrameLayout" '
-        'content-desc="Rechercher et explorer" clickable="true" bounds="[648,2210][864,2330]" />'
-        '</node></hierarchy>'
-    )
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+SCREENS = {
+    "android.widget.Button": "ig447_fr_explore_grid.xml",
+    "android.widget.EditText": "ig447_fr_hashtag_page.xml",
+}
+
+
+def _search_screen(bar_class, name=None):
+    xml = (FIXTURES / (name or SCREENS[bar_class])).read_text(encoding="utf-8")
+    assert f'resource-id="{IG}/action_bar_search_edit_text" class="{bar_class}"' in xml
+    return xml
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +64,8 @@ def test_the_search_bar_is_found_whatever_its_class(ig_447, bar_class):
 
 
 def test_the_410_baseline_keeps_the_edit_text():
-    assert _first_match(_search_screen("android.widget.EditText")) == f"{IG}/action_bar_search_edit_text"
+    xml = _search_screen("android.widget.EditText", "ig410_fr_explore_grid.xml")
+    assert _first_match(xml) == f"{IG}/action_bar_search_edit_text"
 
 
 def test_the_first_entry_is_the_bar_itself_not_the_search_tab(ig_447):

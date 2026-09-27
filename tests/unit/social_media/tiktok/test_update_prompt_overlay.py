@@ -1,9 +1,14 @@
 """TikTok's "update the app" prompt exposes no readable node: it is found by its shape in the
 dump, read by OCR, and dismissed on its "not now" word only.
 
-Screens and OCR results are invented; the shape follows the 43.1.4 capture (app nodes with no
-text or content-desc, a centred dialog frame).
+The prompt is the real 43.1.4 capture (Pixel 3a, French), anonymized: app nodes with no text or
+content-desc, a centred dialog frame. So are the For You feed of the same version and the Pixel
+launcher (Android 12, French). The splash, the loading logo and the unlabelled bottom sheet are
+still written by hand: no capture of the corpus shows them (capture TikTok's launch screen and a
+sheet it draws without labels, 43.1.4, French). The OCR results are invented.
 """
+
+from pathlib import Path
 
 import pytest
 
@@ -32,17 +37,19 @@ def _screen(*nodes):
     return f'<hierarchy rotation="0">{status}{"".join(nodes)}{closing}</hierarchy>'
 
 
-PROMPT = _screen(_node("[0,0][1080,2220]"), _node("[0,0][1080,2220]"), _node("[152,562][928,1658]"))
+FIXTURES = Path(__file__).parent / "fixtures"
+PROMPT = (FIXTURES / "tt4314_fr_update_prompt.xml").read_text(encoding="utf-8")
 SPLASH = _screen(_node("[0,0][1080,2220]"), _node("[0,0][1080,2220]"))
-FEED = _screen(_node("[0,0][1080,2220]"), _node("[152,562][928,1658]", desc="Pour toi"))
-LAUNCHER_ONLY = _screen()
+FEED = (FIXTURES / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
+LAUNCHER_ONLY = (Path(__file__).parents[2] / "shared" / "device" / "fixtures"
+                 / "android12_fr_launcher_home.xml").read_text(encoding="utf-8")
 
 
 def test_the_prompt_is_found_by_its_shape():
     assert unlabelled_overlay_region(parse_ui_dump(PROMPT)) == (152, 562, 928, 1658)
 
 
-@pytest.mark.parametrize("xml", [SPLASH, FEED, LAUNCHER_ONLY])
+@pytest.mark.parametrize("xml", [SPLASH, FEED, LAUNCHER_ONLY], ids=["splash", "feed", "launcher"])
 def test_a_screen_that_is_not_the_prompt_is_left_alone(xml):
     assert unlabelled_overlay_region(parse_ui_dump(xml)) is None
 
@@ -141,6 +148,6 @@ LOADING_LOGO = _screen(_node("[0,0][1080,2220]"), _node("[0,0][1080,2220]"), _no
 BOTTOM_SHEET = _screen(_node("[0,0][1080,2220]"), _node("[0,1200][1080,2220]"))
 
 
-@pytest.mark.parametrize("xml", [LOADING_LOGO, BOTTOM_SHEET])
+@pytest.mark.parametrize("xml", [LOADING_LOGO, BOTTOM_SHEET], ids=["loading_logo", "bottom_sheet"])
 def test_a_small_logo_or_an_edge_sheet_is_not_a_dialog(xml):
     assert unlabelled_overlay_region(parse_ui_dump(xml)) is None

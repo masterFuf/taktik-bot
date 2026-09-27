@@ -1,3 +1,11 @@
+"""A truncated profile bio is found, with its region, on the dump the profile read already took.
+
+The profile is real: Instagram 410.0.0.53.71 in French (Pixel 3a), anonymized, its bio cut by
+Instagram and closed by "… plus".
+"""
+
+from pathlib import Path
+
 from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.atomic.detection.profile_extraction import (
     ProfileExtractionMixin,
@@ -42,14 +50,8 @@ def _host(device):
     return host
 
 
-def _profile_xml(bio):
-    return (
-        '<hierarchy><node resource-id="com.instagram.android:id/action_bar_title" '
-        'text="target"/><node resource-id="com.instagram.android:id/'
-        'profile_user_info_compose_view"><android.widget.TextView '
-        f'text="{bio}" bounds="[120,300][960,520]"/>'
-        '</node></hierarchy>'
-    )
+PROFILE = (Path(__file__).parent / "fixtures" / "ig410_fr_profile_bio_truncated.xml").read_text(encoding="utf-8")
+BIO_BOUNDS = (44, 494, 772, 675)
 
 
 def test_dots_inside_user_bio_do_not_trigger_expensive_expansion():
@@ -74,12 +76,12 @@ def test_localized_expander_suffix_is_truncated():
 
 
 def test_enriched_profile_carries_bio_bounds_from_its_existing_dump():
-    device = _Device(_profile_xml("Long biography... more"))
+    device = _Device(PROFILE)
 
     data = _host(device).get_enriched_profile_data()
 
     assert data["bio_truncated"] is True
-    assert data["_bio_region"] == (120, 300, 960, 520)
+    assert data["_bio_region"] == BIO_BOUNDS
     assert device.dump_calls == [{}]
 
 
@@ -99,7 +101,7 @@ def test_expand_with_known_region_does_not_request_another_dump(monkeypatch):
 
 
 def test_direct_expand_requests_a_bounded_dump():
-    device = _Device(_profile_xml("Long biography... more"))
+    device = _Device(PROFILE)
     host = _host(device)
 
     # No screenshot implementation: expansion fails open after the bounded dump.
