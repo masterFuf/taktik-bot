@@ -45,6 +45,16 @@ _EXPAND_CAPTION_PROB = 0.45
 # row on screen) → no reframe needed after reading.
 _REFRAME_MIN_PX = 120
 
+# The way back after reading is checked on the screen. The first gesture asks for a little less
+# than the reveal did, so the post comes back into view without being passed; the expanded
+# caption, found by its text, then says how far it still is from where it was.
+_REFRAME_FIRST_MOVE = (0.85, 0.95)       # share of the reveal distance asked by the first gesture
+_REFRAME_TOLERANCE_H = 0.03              # the caption is "back" within this share of the screen
+_REFRAME_SEARCH_STEP_H = 0.25            # caption still above the screen: come down this much more
+_REFRAME_CHECKS = 3                      # screen checks, with a correction between two of them
+# Characters of the truncated caption kept to recognise it once expanded.
+_CAPTION_ANCHOR_CHARS = 60
+
 
 class PostReadingMixin:
     """Mixin: human reading of the on-screen post (caption expand/read, carousel browse,
@@ -75,7 +85,7 @@ class PostReadingMixin:
         root = self._dump_root()
         if root is None:
             return False
-        best = None  # (visible_height, (l, t, r, b))
+        best = None  # (visible_height, (l, t, r, b), caption text, caption top)
         for node in root.iter():
             if node.tag != FS.caption_layout_class:
                 continue
@@ -103,10 +113,13 @@ class PostReadingMixin:
             # rank by the caption layout's visible height → the dominant, fully-shown post's caption
             vis_h = int(ml.group(4)) - int(ml.group(2))
             if best is None or vis_h > best[0]:
-                best = (vis_h, (l, t, r, b))
+                best = (vis_h, (l, t, r, b), node.get("text") or "", int(ml.group(2)))
         if best is None:
             return False
         l, t, r, b = best[1]
+        # What the way back checks against: the caption, recognised by its text, and where it sat.
+        prefix = self._caption_anchor_text(best[2])
+        self._reading_anchor = {"caption": prefix, "top": best[3]} if prefix else None
         x = random.randint(min(l + 1, r), max(l + 1, r - 1))
         y = random.randint(min(t + 1, b), max(t + 1, b - 1))
         self.device.click_coordinates(x, y)
@@ -161,7 +174,45 @@ class PostReadingMixin:
             self.logger.debug(f"📖 scrolled {scrolled_px}px to read the expanded caption")
         return scrolled_px
 
-    def _reframe_post_after_reading(self, scrolled_px: int) -> None:
+    @staticmethod
+    def _caption_anchor_text(text: str) -> str:
+        """The start of a truncated caption, as it will still start once expanded: the expander
+        label and the ellipsis removed, cut to `_CAPTION_ANCHOR_CHARS`."""
+        body = (text or "").rstrip()
+        for suffix in FS.caption_expand_suffixes:
+            if body.endswith(suffix):
+                body = body[: -len(suffix)]
+                break
+        return body.rstrip("… .")[:_CAPTION_ANCHOR_CHARS]
+
+    def _anchored_caption_top(self, anchor: dict) -> Optional[int]:
+        """Top of the caption the reading expanded, found by its text on a fresh dump; None when
+        it is not on screen. A caption cut by the top of the list reports its visible top."""
+        root = self._dump_root()
+        if root is None:
+            return None
+        for node in root.iter():
+            if node.tag != FS.caption_layout_class:
+                continue
+            if (node.get("text") or "").startswith(anchor["caption"]):
+                bounds = self._node_bounds(node)
+                if bounds:
+                    return bounds[1]
+        return None
+
+    def _swipe_content_down(self, distance_px: float) -> None:
+        """Bring the content DOWN by about `distance_px`: 1-2 controlled gestures (1:1 track, no
+        fling) starting HIGH so the finger has room to travel down."""
+        h = int(self.screen_height)
+        gestures = 1 if distance_px <= 0.45 * h else 2
+        per = distance_px / gestures
+        for _ in range(gestures):
+            self._human_swipe(direction="down", distance_px=per,
+                              start_band=(0.18 * h, 0.32 * h), controlled=True,
+                              guard_start=True)
+            time.sleep(random.uniform(0.25, 0.55))
+
+    def _reframe_post_after_reading(self, scrolled_px: int) -> bool:
         """Scroll BACK UP after reading a caption so the post is framed again (image +
         like/comment button row on screen) — what a human does before acting on the post.
         Without this, everything after the reading acts on a mis-framed screen: the
@@ -169,25 +220,46 @@ class PostReadingMixin:
         like/comment button selectors can match the next post's row, and the AI
         smart-comment screenshot captures the caption zone instead of the image.
 
-        Returns slightly PAST the read distance (bias 0.95-1.15x) so the post header comes
-        back fully into view — a small overshoot at the top just bounces, which is human."""
+        The way back is checked on the screen, never computed: a drag loses its touch slop and
+        a sampled path can be clamped, so the distance the reveal ASKED for is not the distance
+        the content travelled. The first gesture asks for a little less than the reveal, so the
+        post comes back into view without being passed; then the expanded caption, found by its
+        text, says how far it still is from where it sat, and the next gestures close that gap.
+        Returns True once the caption is back where it was, False when the screen never showed
+        it back: nothing should then act on this screen."""
         if scrolled_px <= 0:
-            return
+            return True
+        h = int(self.screen_height)
+        anchor = getattr(self, "_reading_anchor", None)
         try:
-            remaining = scrolled_px * random.uniform(0.95, 1.15)
-            h = int(self.screen_height)
-            # 1-2 controlled gestures (1:1 track, no fling) starting HIGH so the finger
-            # has room to travel down; second gesture only for long read-scrolls.
-            gestures = 1 if remaining <= 0.45 * h else 2
-            per = remaining / gestures
-            for _ in range(gestures):
-                self._human_swipe(direction="down", distance_px=per,
-                                  start_band=(0.18 * h, 0.32 * h), controlled=True,
-                                  guard_start=True)
-                time.sleep(random.uniform(0.25, 0.55))
-            self.logger.debug(f"📐 reframed post after reading (back ~{int(remaining)}px)")
+            self._swipe_content_down(scrolled_px * random.uniform(*_REFRAME_FIRST_MOVE))
+            if not anchor:
+                self.logger.warning("Post brought back after reading, unchecked: no caption to check")
+                return False
+            offset = None
+            for attempt in range(_REFRAME_CHECKS):
+                top = self._anchored_caption_top(anchor)
+                offset = None if top is None else top - anchor["top"]
+                if offset is not None and abs(offset) <= _REFRAME_TOLERANCE_H * h:
+                    self.logger.debug(f"📐 reframed post after reading (caption {offset:+d}px)")
+                    return True
+                if attempt + 1 >= _REFRAME_CHECKS:
+                    break
+                if offset is None:
+                    # Still above the screen: the first gesture falls short on purpose.
+                    self._swipe_content_down(_REFRAME_SEARCH_STEP_H * h)
+                elif offset > 0:
+                    self._long_drag("up", distance_px=offset, vel_range=_READ_DRAG_VEL_PXS,
+                                    guard_start=True)
+                    time.sleep(random.uniform(0.25, 0.55))
+                else:
+                    self._swipe_content_down(-offset)
+            where = "not on screen" if offset is None else f"{offset:+d}px from where it was"
+            self.logger.warning(f"Post not brought back after reading: caption {where}")
+            return False
         except Exception as e:
-            self.logger.debug(f"post reframe failed: {e}")
+            self.logger.warning(f"Post reframe after reading failed: {e}")
+            return False
 
     def browse_carousel_slides(self) -> int:
         """If the dominant on-screen post is a multi-slide carousel, swipe through 1-2 slides like
@@ -535,6 +607,9 @@ class PostReadingMixin:
         on the post (seconds)."""
         start = time.monotonic()
         self._last_reveal_scroll_px = 0
+        self._reading_anchor = None
+        # None: the reading did not move the post; True: moved and verified back; False: not back.
+        self.last_reading_reframed = None
         if browse_carousels:
             try:
                 self.browse_carousel_slides()
@@ -562,7 +637,7 @@ class PostReadingMixin:
         # before anything acts on it (like / comment / AI screenshot).
         reveal_px = getattr(self, "_last_reveal_scroll_px", 0)
         if reveal_px >= _REFRAME_MIN_PX:
-            self._reframe_post_after_reading(reveal_px)
+            self.last_reading_reframed = self._reframe_post_after_reading(reveal_px)
         self._last_reveal_scroll_px = 0
         total = time.monotonic() - start
         self.logger.debug(f"⏲️ reading: prose={prose}ch target={target:.1f}s "

@@ -20,9 +20,13 @@ class _Host(pr.PostReadingMixin):
         self.swipes = []
         self.hswipes = []
 
+        self.warnings = []
+        warnings = self.warnings
+
         class _Log:
             def debug(self, *_a, **_k): pass
             def error(self, *_a, **_k): pass
+            def warning(self, message, *_a, **_k): warnings.append(message)
         self.logger = _Log()
 
     def _long_drag(self, direction="up", distance_px=None, vel_range=None, guard_start=False,
@@ -103,25 +107,27 @@ def test_reveal_returns_total_scrolled_px(monkeypatch):
 def test_reframe_scrolls_back_down_controlled(monkeypatch):
     host = _Host()
     monkeypatch.setattr(pr.time, "sleep", lambda _s: None)
-    monkeypatch.setattr(pr.random, "uniform", lambda a, b: a)  # bias = 0.95
+    monkeypatch.setattr(pr.random, "uniform", lambda a, b: a)  # first move = 0.85 of the reveal
 
-    host._reframe_post_after_reading(400)
-    assert len(host.swipes) == 1            # 400*0.95=380 <= 0.45*2000 -> one gesture
+    # No caption was expanded: the way back cannot be checked, and says so.
+    assert host._reframe_post_after_reading(400) is False
+    assert len(host.swipes) == 1            # 400*0.85=340 <= 0.45*2000 -> one gesture
     s = host.swipes[0]
     assert s["direction"] == "down" and s["controlled"] is True
-    assert abs(s["distance_px"] - 380) < 1
+    assert abs(s["distance_px"] - 340) < 1
     assert s["start_band"] == (0.18 * 2000, 0.32 * 2000)   # starts HIGH to travel down
+    assert host.warnings
 
 
 def test_reframe_splits_long_return_into_two_gestures(monkeypatch):
     host = _Host()
     monkeypatch.setattr(pr.time, "sleep", lambda _s: None)
-    monkeypatch.setattr(pr.random, "uniform", lambda a, b: b)  # bias = 1.15
+    monkeypatch.setattr(pr.random, "uniform", lambda a, b: b)  # first move = 0.95 of the reveal
 
-    host._reframe_post_after_reading(1000)  # 1150 > 900 -> two gestures
+    host._reframe_post_after_reading(1000)  # 950 > 900 -> two gestures
     assert len(host.swipes) == 2
     assert all(s["direction"] == "down" for s in host.swipes)
-    assert abs(sum(s["distance_px"] for s in host.swipes) - 1150) < 1
+    assert abs(sum(s["distance_px"] for s in host.swipes) - 950) < 1
 
 
 def test_reading_pause_reframes_after_dwell(monkeypatch):
@@ -141,6 +147,7 @@ def test_reading_pause_reframes_after_dwell(monkeypatch):
 
     host.human_reading_pause()
     assert calls == [500]                  # reframed with the revealed distance
+    assert host.last_reading_reframed is None   # the stand-in reframe reports nothing
     assert host._last_reveal_scroll_px == 0  # reset for the next post
 
 

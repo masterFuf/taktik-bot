@@ -216,6 +216,20 @@ def test_a_post_read_and_brought_back_keeps_its_like(monkeypatch):
     assert host.likes == [phone.offset]
 
 
+def test_the_read_post_is_brought_back_where_it_was_as_the_screen_shows(monkeypatch):
+    _a_reading_that_expands_the_caption(monkeypatch)
+    phone = _ProfilePostsPhone()
+    reader = _host(phone).scroll_actions
+
+    reader.human_reading_pause()
+
+    revealed = [g for g in reader.gestures if g[:2] == ("drag", "up")]
+    assert revealed, "the reading must have scrolled the expanded caption into view"
+    # Back where it was, as the screen shows it, not as the drags' arithmetic hopes.
+    assert abs(phone.offset) <= 0.03 * SCREEN_H, f"left {phone.offset} px off after reading"
+    assert reader.last_reading_reframed is True
+
+
 def test_a_post_left_behind_is_still_caught_and_not_liked(monkeypatch):
     # The screen does not follow the way back: the reading leaves the next post framed.
     _a_reading_that_expands_the_caption(monkeypatch)
@@ -226,6 +240,7 @@ def test_a_post_left_behind_is_still_caught_and_not_liked(monkeypatch):
 
     assert liked is False
     assert host.likes == [], "a like landed on a screen that no longer frames the read post"
+    assert host.scroll_actions.last_reading_reframed is False
 
 
 def test_the_visit_tells_the_framed_post_by_its_own_header_and_counters():

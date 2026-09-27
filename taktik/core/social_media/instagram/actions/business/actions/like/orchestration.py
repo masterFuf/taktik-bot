@@ -491,15 +491,16 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         On drift we abort the post's sequence rather than act on the wrong post."""
         liked = commented = False
         sig_before_read = None   # set after a read → the next action must re-verify identity
+        frame_lost = False       # the read moved the post and could not bring it back
 
         for step in sequence:
             if step == 'read':
                 sig_before_read = self._current_post_signature()
-                self._read_post_description()
+                frame_lost = self._read_post_description() is False
             elif step in ('like', 'comment'):
                 # If a read just happened, confirm we're still on the same post.
                 if sig_before_read is not None:
-                    if self._current_post_signature() != sig_before_read:
+                    if frame_lost or self._current_post_signature() != sig_before_read:
                         self.logger.warning("Frame drifted after reading the description — "
                                             "aborting this post's sequence (wrong post)")
                         break
@@ -520,14 +521,16 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         break
         return liked, commented
 
-    def _read_post_description(self) -> None:
+    def _read_post_description(self) -> bool:
         """Open + read the post's description like a human (carousel + caption expand +
         content-aware dwell), then reframe the post so the next action (like/comment)
-        targets the right screen. Reuses the shared PostReadingMixin via scroll_actions."""
+        targets the right screen. Reuses the shared PostReadingMixin via scroll_actions.
+        Returns False when the reading moved the post and the screen never showed it back."""
         try:
             self.scroll_actions.human_reading_pause()
         except Exception as e:
             self.logger.debug(f"read description skipped: {e}")
+        return getattr(self.scroll_actions, "last_reading_reframed", None) is not False
 
     def _comment_current_post(self, username, custom_comments, config) -> bool:
         """Post a comment on the current post. Returns True if a comment was posted."""
