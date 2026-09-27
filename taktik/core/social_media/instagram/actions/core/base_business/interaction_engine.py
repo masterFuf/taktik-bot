@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any, List
 from ..ipc import IPCEmitter
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.behavior.interaction_plan import (
+    allows_follow_alone,
     apply_relevance_gating,
     build_interaction_plan,
     empty_interaction_plan,
@@ -242,6 +243,7 @@ class InteractionEngineMixin:
             if not uses_injected_decision:
                 plan, indisponibles = resolve_against_availability(
                     plan, story_available=story_available, posts_count=posts_count,
+                    follow_alone_allowed=allows_follow_alone(config),
                 )
                 if indisponibles:
                     self.logger.info(

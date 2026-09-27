@@ -9,6 +9,7 @@ reimplementation locale.
 
 from unittest.mock import MagicMock
 
+from taktik.core.shared.behavior.interaction_plan import allows_follow_alone
 from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
@@ -59,6 +60,8 @@ def test_the_default_plan_follows_and_does_nothing_else():
     assert config["like_percentage"] == 0
     assert config["comment_percentage"] == 0
     assert config["story_watch_percentage"] == 0
+    # The follow is then the only gesture: the visit is the one pass allowed to follow alone.
+    assert allows_follow_alone(config)
     # EMPTY criteria: that surface exposes no filter setting, and inventing
     # thresholds would reject suggestions silently.
     assert config["filter_criteria"] == {}
