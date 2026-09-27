@@ -23,10 +23,13 @@ from .shared import (
     ERROR_EVENT,
     LOG_EVENT,
     NETWORK_RESET_COMPLETE_EVENT,
+    SESSION_START_EVENT,
     STATUS_EVENT,
+    STEP_METRIC_EVENT,
     device_field,
     network_reset_field,
 )
+from .stop_reasons import INSTAGRAM_STOP_REASON_CODE
 
 _CORE = "taktik.core.social_media.instagram.workflows.core"
 _BUILDER = f"{_CORE}.config_builder:build_instagram_automation_config"
@@ -482,9 +485,7 @@ EVENTS = (
     Event("session_config", doc="The run's settings as the bot read them.", fields=(
         Field("config", SESSION_CONFIG_ECHO, "The echo."),
     )),
-    Event("session_start", doc="The run's `sessions` row.", fields=(
-        Field("session_id", "int", "Its id."),
-    )),
+    SESSION_START_EVENT,
     Event("active_account", doc="The account the run acts as, read on its profile.", fields=(
         Field("username", "string", "Its handle."),
         Field("followers", "int", "Its followers."),
@@ -511,7 +512,7 @@ EVENTS = (
         Field("status", "string", "COMPLETED, INTERRUPTED, ERROR..."),
         Field("reason", "string", "Why, as an English sentence."),
         Field("duration_seconds", "int", "How long it ran."),
-        Field("reason_code", "string", "Why, as a code the app translates.", optional=True),
+        Field("reason_code", INSTAGRAM_STOP_REASON_CODE, "Why, as a code the app translates.", optional=True),
         Field("reason_params", MapOf("json"), "The code's parameters.", optional=True),
         Field("screenshot", "string", "The last screen, a file.", optional=True),
         Field("hierarchy", "string", "The last screen's tree, a file.", optional=True),
@@ -664,13 +665,7 @@ EVENTS = (
             Field("total_seen", "int", "Read.", optional=True),
         )), "The followers list (`sync_followers_following`).", optional=True),
     )),
-    Event("step_metric", doc="One atomic gesture or decision (`emit_step`), for the step telemetry.", fields=(
-        Field("category", "string", "`tap`, `scroll`, `keystroke`, `follower_decision`..."),
-        Field("action", "string", "A finer label.", nullable=True),
-        Field("target", "string", "What it acted on.", nullable=True),
-        Field("detail", "json", "Its structured payload."),
-        Field("ts", "number", "When, epoch seconds."),
-    )),
+    STEP_METRIC_EVENT,
     *AI_EVENTS,
 )
 

@@ -1,23 +1,23 @@
-"""Run of the Instagram Taktik Agent bridge, from the config `run_bridge_main` read."""
+"""Run of the Instagram Taktik Agent bridge, from the config `run_bridge_main` read.
+
+Every failure of the bridge itself is an `error` line; the session's own lines (`agent_status`...)
+come from the core launcher and the workflow.
+"""
 
 from __future__ import annotations
 
-import json
+from loguru import logger
 
 from bridges.instagram.agent.runtime.bridge import TaktikAgentBridge
 from bridges.instagram.agent.runtime.session import configure_agent_database, connect_agent_bridge
-
-
-def report_agent_entry_error(message: str, _reason: str) -> None:
-    """An entry failure (no file, unreadable file), in the bridge's own final JSON."""
-    print(json.dumps({"success": False, "error": message}), flush=True)
+from bridges.instagram.runtime.ipc import _ipc
 
 
 def run_taktik_agent(config: dict) -> int:
     """Connect the device and run one autonomous Taktik Agent session."""
     device_id = config.get("deviceId")
     if not device_id:
-        print(json.dumps({"success": False, "error": "No deviceId in config"}), flush=True)
+        _ipc.error("No deviceId in config")
         return 1
 
     configure_agent_database()
@@ -31,7 +31,12 @@ def run_taktik_agent(config: dict) -> int:
     if not connect_agent_bridge(bridge):
         return 1
 
-    result = bridge.run()
+    try:
+        result = bridge.run()
+    except ValueError as refused:
+        # Refused by the launcher before Instagram was touched; it said why on stdout.
+        logger.error(f"[TaktikAgentBridge] Session refused: {refused}")
+        return 1
     return 0 if result.get("success") else 1
 
 

@@ -111,7 +111,7 @@ def _is(spec: Any, value: Any) -> bool:
     if spec == "json":
         return True
     if isinstance(spec, OneOf):
-        return value in spec.values
+        return spec.allows(value)
     if isinstance(spec, ListOf):
         return isinstance(value, list) and all(_is(spec.item, v) for v in value)
     if isinstance(spec, MapOf):

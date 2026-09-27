@@ -11,6 +11,7 @@ declaration to the rest of the bot, and the app's generated file to the declarat
 - each launcher, reader and `via` resolves to a function;
 - each declared line `type` is one the bot emits (`audit_bridge_events.py`, the census the app's
   `npm run bridge:events` reads);
+- each diagnostic tool (`TOOL_CONTRACTS`) names a bridge of the manifest, and its lines too;
 - the app's generated file, when the app sits next to the bot (`../app`, or `TAKTIK_APP_PATH`),
   is what `scripts/workflow_contract.py` renders today.
 
@@ -75,7 +76,7 @@ def app_root(root: Path = ROOT) -> Path:
 
 def problems(root: Path = ROOT, app: Path | None = None) -> List[str]:
     import workflow_contract
-    from taktik.core.app.contract import WORKFLOW_CONTRACTS
+    from taktik.core.app.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS
     from taktik.core.app.contract.schema import nested_fields
 
     found: List[str] = []
@@ -106,6 +107,16 @@ def problems(root: Path = ROOT, app: Path | None = None) -> List[str]:
         keys = [item.key for item in (*contract.settings, *contract.bridge_fields)]
         for key in {k for k in keys if keys.count(k) > 1}:
             found.append(f"{where}: key {key} declared twice")
+    for tool in TOOL_CONTRACTS:
+        where = f"tool {tool.name}"
+        if tool.bridge not in bridges:
+            found.append(f"{where}: bridge {tool.bridge} is not in bridges/bridges.manifest.json")
+        types = [event.type for event in tool.events]
+        for event_type in {t for t in types if types.count(t) > 1}:
+            found.append(f"{where}: line `{event_type}` declared twice")
+        for event_type in types:
+            if event_type not in emitted:
+                found.append(f"{where}: line `{event_type}` is emitted nowhere in the bot")
 
     app = app if app is not None else app_root(root)
     target = app / APP_FILE
@@ -124,12 +135,14 @@ def main() -> int:
         for line in found:
             print(f"  - {line}")
         return 1
-    from taktik.core.app.contract import WORKFLOW_CONTRACTS
+    from taktik.core.app.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS
 
     app = app_root()
     checked = "generated file up to date" if app.is_dir() else "app not found, generated file not checked"
     served = sum(len(contract.serves) for contract in WORKFLOW_CONTRACTS)
-    print(f"[workflow-contract] OK: {served} workflows declared ({len(WORKFLOW_CONTRACTS)} declarations); {checked}")
+    tools = len(TOOL_CONTRACTS)
+    print(f"[workflow-contract] OK: {served} workflows declared ({len(WORKFLOW_CONTRACTS)} declarations), "
+          f"{tools} diagnostic tools; {checked}")
     return 0
 
 

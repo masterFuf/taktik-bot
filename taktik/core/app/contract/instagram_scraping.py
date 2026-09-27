@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .schema import HOST, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import AI_ERROR_EVENT, AI_PROFILE_DONE_EVENT, AI_PROFILE_START_EVENT, device_field
+from .stop_reasons import INSTAGRAM_SCRAPING_COMPLETION_REASON
 
 _SCRAPING = "taktik.core.social_media.instagram.workflows.scraping"
 
@@ -143,8 +144,8 @@ _REFUSALS = (
 SCRAPING_RESULT_EVENT = Event("scraping_result", doc="The run's verdict: its last line.", fields=(
     Field("success", "bool", "The run did what it was asked."),
     Field("totalScraped", "int", "Profiles collected (posts, for `profile_posts`).", optional=True),
-    Field("completionReason", "string", "Why the run ended (`limit_reached`, `source_unreachable`...).",
-          optional=True, nullable=True),
+    Field("completionReason", INSTAGRAM_SCRAPING_COMPLETION_REASON,
+          "How the run ended: its surface reached or not, profiles or none.", optional=True, nullable=True),
     Field("error", "string", "What went wrong, for a person.", optional=True, nullable=True),
 ))
 

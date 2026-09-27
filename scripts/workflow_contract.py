@@ -2,7 +2,8 @@
 """Render the bot/app contract (`taktik/core/app/contract/`) for the desktop app.
 
 The app's types for the declared workflows are generated from the declaration, never written by
-hand: the settings each workflow reads, the file its bridge reads, the lines its bridge prints.
+hand: the settings each workflow reads, the file its bridge reads, the lines its bridge prints; the
+lines of the diagnostic tools; the catalogues of why a run ends (named unions).
 The output is deterministic (declaration order, no date), so the app's gate compares it byte for
 byte with the file it commits.
 
@@ -27,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from taktik.core.app.contract import WORKFLOW_CONTRACTS  # noqa: E402
+from taktik.core.app.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS  # noqa: E402
 from taktik.core.app.contract.schema import (  # noqa: E402
     HOST,
     Computed,
@@ -37,6 +38,7 @@ from taktik.core.app.contract.schema import (  # noqa: E402
     MapOf,
     OneOf,
     Shape,
+    ToolContract,
     WorkflowContract,
     scalar_default,
 )
@@ -52,8 +54,11 @@ from taktik.core.app.contract.shared import (  # noqa: E402
     ERROR_EVENT,
     LOG_EVENT,
     NETWORK_RESET_COMPLETE_EVENT,
+    SESSION_START_EVENT,
     STATUS_EVENT,
+    STEP_METRIC_EVENT,
 )
+from taktik.core.app.contract.stop_reasons import CATALOGUES  # noqa: E402
 
 #: Lines every bridge shares get one interface, referenced by each workflow.
 SHARED_LINES = {
@@ -62,6 +67,8 @@ SHARED_LINES = {
     AI_SPEND_EVENT.type: ("BridgeAiSpendLine", AI_SPEND_EVENT),
     LOG_EVENT.type: ("BridgeLogLine", LOG_EVENT),
     NETWORK_RESET_COMPLETE_EVENT.type: ("BridgeNetworkResetCompleteLine", NETWORK_RESET_COMPLETE_EVENT),
+    SESSION_START_EVENT.type: ("BridgeSessionStartLine", SESSION_START_EVENT),
+    STEP_METRIC_EVENT.type: ("BridgeStepMetricLine", STEP_METRIC_EVENT),
     AI_PROFILE_START_EVENT.type: ("BridgeAiProfileStartLine", AI_PROFILE_START_EVENT),
     AI_PROFILE_DONE_EVENT.type: ("BridgeAiProfileDoneLine", AI_PROFILE_DONE_EVENT),
     AI_SCREENSHOT_START_EVENT.type: ("BridgeAiScreenshotStartLine", AI_SCREENSHOT_START_EVENT),
@@ -77,7 +84,8 @@ HEADER = """/**
  * The bot/app contract as the bot declares it (`core/taktik/core/app/contract/`): for each declared
  * workflow, the settings its launcher reads (`<Name>Settings`, `<NAME>_BOT_DEFAULTS` the defaults the
  * bot applies when a key is absent), the file its bridge reads (`<Name>BridgePayload`) and the stdout lines the app
- * reads (`<Name>BridgeLine`). Rendered by `core/scripts/workflow_contract.py`;
+ * reads (`<Name>BridgeLine`); the lines of the diagnostic tools the app runs beside them; the catalogues
+ * of why a run ends, one union each. Rendered by `core/scripts/workflow_contract.py`;
  * `npm run workflow:contract` fails when this file and the bot disagree.
  */
 """
@@ -90,7 +98,8 @@ def ts_type(spec: Any) -> str:
     if isinstance(spec, str):
         return {"int": "number", "number": "number", "bool": "boolean", "string": "string", "json": "unknown"}[spec]
     if isinstance(spec, OneOf):
-        return " | ".join(f"'{value}'" for value in spec.values)
+        named = [spec.name] if spec.name else [f"'{value}'" for value in spec.values]
+        return " | ".join(named + (["''"] if spec.empty else []))
     if isinstance(spec, ListOf):
         inner = ts_type(spec.item)
         return f"({inner})[]" if " | " in inner else f"{inner}[]"
@@ -149,6 +158,44 @@ def member(item: Field, *, force_optional: Optional[bool] = None, indent: str = 
     if text:
         out.append(f"{indent}/** {text} */")
     out.append(f"{indent}{item.key}{'?' if optional else ''}: {field_type(item)}")
+    return out
+
+
+def catalogues_in(spec: Any) -> Iterable[OneOf]:
+    """The named closed sets a type refers to, nested ones included."""
+    if isinstance(spec, OneOf) and spec.name:
+        yield spec
+    elif isinstance(spec, Shape):
+        for item in spec.fields:
+            yield from catalogues_in(item.type)
+    elif isinstance(spec, ListOf):
+        yield from catalogues_in(spec.item)
+    elif isinstance(spec, MapOf):
+        yield from catalogues_in(spec.value)
+
+
+def render_catalogue(catalogue: OneOf) -> List[str]:
+    out = [f"/** {catalogue.doc} */"] if catalogue.doc else []
+    out.append(f"export type {catalogue.name} =")
+    out += [f"  | '{value}'" for value in catalogue.values]
+    return out
+
+
+def lines_interface(name: str, bridge: str, events: Tuple[Event, ...]) -> List[str]:
+    """`<Name>BridgeLines`, one member per `type`, and the union `<Name>BridgeLine`."""
+    out = ["", f"/** The stdout lines of `{bridge}` the app reads, by `type`. */",
+           f"export interface {name}BridgeLines {{"]
+    for event in events:
+        if event.type in SHARED_LINES and SHARED_LINES[event.type][1] is event:
+            out.append(f"  {event.type}: {SHARED_LINES[event.type][0]}")
+            continue
+        out.append(f"  /** {event.doc} */")
+        out.append(f"  {event.type}: {{")
+        for item in event.fields:
+            out += member(item, force_optional=item.optional, indent="    ")
+        out.append("  }")
+    out.append("}")
+    out += ["", f"export type {name}BridgeLine = BridgeLine<{name}BridgeLines>"]
     return out
 
 
@@ -264,24 +311,25 @@ def render_contract(contract: WorkflowContract) -> Tuple[List[str], List[str]]:
     exported.append(f"{name}BridgePayload")
 
     if contract.events:
-        out += ["", f"/** The stdout lines of `{contract.bridge}` the app reads, by `type`. */",
-                f"export interface {name}BridgeLines {{"]
-        for event in contract.events:
-            if event.type in SHARED_LINES and SHARED_LINES[event.type][1] is event:
-                out.append(f"  {event.type}: {SHARED_LINES[event.type][0]}")
-                continue
-            out.append(f"  /** {event.doc} */")
-            out.append(f"  {event.type}: {{")
-            for item in event.fields:
-                out += member(item, force_optional=item.optional, indent="    ")
-            out.append("  }")
-        out.append("}")
-        out += ["", f"export type {name}BridgeLine = BridgeLine<{name}BridgeLines>"]
+        out += lines_interface(name, contract.bridge, contract.events)
         exported += [f"{name}BridgeLines", f"{name}BridgeLine"]
     return out, exported
 
 
-def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Tuple[str, List[str]]:
+def render_tool(tool: ToolContract) -> Tuple[List[str], List[str]]:
+    mode = f", when its file sets `{tool.mode}`" if tool.mode else ""
+    out = [
+        f"// {'-' * 96}",
+        f"// tool {tool.name} ({tool.bridge}{mode})",
+        "",
+        f"/** {tool.doc} Outside the workflow manifest: only its lines are declared. */",
+    ]
+    out += lines_interface(tool.name, tool.bridge, tool.events)[2:]
+    return out, [f"{tool.name}BridgeLines", f"{tool.name}BridgeLine"]
+
+
+def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
+           tools: Tuple[ToolContract, ...] = TOOL_CONTRACTS) -> Tuple[str, List[str]]:
     lines = [HEADER.rstrip("\n"), ""]
     exported = ["BridgeLine"]
     lines += [
@@ -290,17 +338,29 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Tupl
         "",
     ]
     shapes: Dict[str, Shape] = {}
+    catalogues: Dict[str, OneOf] = {catalogue.name: catalogue for catalogue in CATALOGUES}
     settings: set = set()
     filled: set = set()
+    every_field = [
+        *(item for contract in contracts
+          for item in (*contract.settings, *contract.bridge_fields, *(f for e in contract.events for f in e.fields))),
+        *(item for tool in tools for event in tool.events for item in event.fields),
+    ]
+    for item in every_field:
+        for shape in shapes_in(item.type):
+            if shapes.setdefault(shape.name, shape) != shape:
+                raise ValueError(f"two shapes named {shape.name}")
+        for catalogue in catalogues_in(item.type):
+            if catalogues.setdefault(catalogue.name, catalogue).values != catalogue.values:
+                raise ValueError(f"two closed sets named {catalogue.name}")
     for contract in contracts:
-        for item in (*contract.settings, *contract.bridge_fields, *(f for e in contract.events for f in e.fields)):
-            for shape in shapes_in(item.type):
-                if shapes.setdefault(shape.name, shape) != shape:
-                    raise ValueError(f"two shapes named {shape.name}")
         for item in (*contract.settings, *contract.bridge_fields):
             filled |= {shape.name for shape in shapes_in(item.type)}
         for item in contract.settings:
             settings |= {shape.name for shape in shapes_in(item.type)}
+    for catalogue in catalogues.values():
+        lines += render_catalogue(catalogue) + [""]
+        exported.append(catalogue.name)
     for shape in shapes.values():
         lines += render_shape(shape, shape.name in filled)
         if shape.name in settings:
@@ -310,13 +370,17 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Tupl
                 exported.append(f"{constant_name(shape.name)}_BOT_DEFAULTS")
         lines.append("")
         exported.append(shape.name)
-    used = {event.type for contract in contracts for event in contract.events}
+    used = {event.type for owner in (*contracts, *tools) for event in owner.events}
     for event_type, (name, event) in SHARED_LINES.items():
         if event_type in used:
             lines += render_line(name, event) + [""]
             exported.append(name)
     for contract in contracts:
         body, names = render_contract(contract)
+        lines += body + [""]
+        exported += names
+    for tool in tools:
+        body, names = render_tool(tool)
         lines += body + [""]
         exported += names
     return "\n".join(lines).rstrip("\n") + "\n", exported
@@ -351,8 +415,9 @@ def _json_when(when) -> Dict[str, Any]:
     return {key: list(value) if isinstance(value, tuple) else value for key, value in (when or {}).items()}
 
 
-def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dict[str, Any]:
-    _, exported = render(contracts)
+def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
+            tools: Tuple[ToolContract, ...] = TOOL_CONTRACTS) -> Dict[str, Any]:
+    _, exported = render(contracts, tools)
     workflows = {}
     for contract in contracts:
         nest = (contract.nest,) if contract.nest else ()
@@ -393,7 +458,16 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS) -> Dic
     for contract in contracts:
         for workflow_id in contract.also:
             workflows[workflow_id] = {**workflows[contract.workflow_id], "sameAs": contract.workflow_id}
-    return {"workflows": workflows, "exports": exported}
+    tool_data = {
+        tool.name: {
+            "bridge": tool.bridge,
+            "mode": tool.mode,
+            "events": {event.type: [item.key for item in event.fields] for event in tool.events},
+        }
+        for tool in tools
+    }
+    catalogues = {catalogue.name: list(catalogue.values) for catalogue in CATALOGUES}
+    return {"workflows": workflows, "tools": tool_data, "catalogues": catalogues, "exports": exported}
 
 
 def main(argv: Optional[List[str]] = None) -> int:

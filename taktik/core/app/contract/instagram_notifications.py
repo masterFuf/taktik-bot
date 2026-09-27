@@ -13,7 +13,14 @@ from __future__ import annotations
 
 from .instagram_automation import INSTAGRAM_AUTOMATION
 from .schema import HOST, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import AI_ERROR_EVENT, AI_PROFILE_DONE_EVENT, AI_PROFILE_START_EVENT, device_field
+from .shared import (
+    AI_ERROR_EVENT,
+    AI_PROFILE_DONE_EVENT,
+    AI_PROFILE_START_EVENT,
+    STEP_METRIC_EVENT,
+    device_field,
+)
+from .stop_reasons import RUN_HALT_CODE
 
 _NOTIFICATIONS = "taktik.core.social_media.instagram.workflows.management.notifications"
 
@@ -116,7 +123,7 @@ BATCH_ENTRY = Shape(
               optional=True),
         Field("message", "string", "The same, for a person.", optional=True),
         Field("error", "string", "What went wrong.", optional=True),
-        Field("stop_reason", "string", "`action_blocked`: Instagram refuses actions.", optional=True),
+        Field("stop_reason", RUN_HALT_CODE, "`action_blocked`: Instagram refuses actions.", optional=True),
         Field("state", "string", "The relationship read before a follow (`follow_actor`).", optional=True),
     ),
 )
@@ -159,7 +166,7 @@ RESULT_EVENT = Event("result", doc="The command's result, or why it could not ru
     Field("skipped", "int", "Steps skipped by a guard.", optional=True),
     Field("results", ListOf(BATCH_ENTRY), "Each step of the batch.", optional=True),
     Field("message", "string", "The result, for a person.", optional=True),
-    Field("stop_reason", "string", "`action_blocked`: Instagram refuses actions.", optional=True),
+    Field("stop_reason", RUN_HALT_CODE, "`action_blocked`: Instagram refuses actions.", optional=True),
     Field("error", "string", "What went wrong, for a person.", optional=True),
     Field("traceback", "string", "Diagnostic context of a crash.", optional=True),
 ))
@@ -232,8 +239,7 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
     ),
     # `step_metric`: the step telemetry the bridge's IPC module registers (a refused write, a
     # keystroke); the app does not read it from this bridge.
-    events=(NOTIFICATION_STEP_EVENT, RESULT_EVENT, INSTAGRAM_AUTOMATION.event("step_metric"),
-            *SCAN_RUN_EVENTS),
+    events=(NOTIFICATION_STEP_EVENT, RESULT_EVENT, STEP_METRIC_EVENT, *SCAN_RUN_EVENTS),
 )
 
 CONTRACTS = (INSTAGRAM_NOTIFICATIONS,)

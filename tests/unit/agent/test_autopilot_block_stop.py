@@ -196,7 +196,7 @@ def test_the_feed_loop_stops_between_a_refused_like_and_its_comment(monkeypatch)
             return _BLOCK_DIALOG if "like" in gestures else _FEED_SCREEN
 
     agent = _agent(_Screen(_FEED_SCREEN))
-    agent.config = {"skip_reels": True}
+    agent._skip_reels = True
     agent.ipc = None
     agent.device_manager = None
     agent._consecutive_skips = 0

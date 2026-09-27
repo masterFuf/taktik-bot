@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import json
-
 from loguru import logger
 
+from bridges.instagram.runtime.ipc import _ipc
 from taktik.core.database import configure_db_service
 
 
@@ -21,5 +20,5 @@ def connect_agent_bridge(bridge) -> bool:
     if bridge.connect():
         return True
 
-    print(json.dumps({"success": False, "error": "Failed to connect to device"}), flush=True)
+    _ipc.error("Failed to connect to device")
     return False

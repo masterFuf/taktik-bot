@@ -7,14 +7,10 @@ launcher and the bridge to it.
 from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import AI_SPEND_EVENT, device_field, network_reset_field
+from .shared import AI_SPEND_EVENT, SESSION_START_EVENT, device_field, network_reset_field
+from .stop_reasons import RUN_HALT_CODE
 
 _WORKFLOWS = "taktik.core.social_media.instagram.workflows"
-
-#: `IPC.session_start` (`bridges/common/runtime/ipc.py`): the run's `sessions` row.
-SESSION_START_EVENT = Event("session_start", doc="The run's session, as soon as it is opened.", fields=(
-    Field("session_id", "int", "The row's id: the app writes the run's AI spend into it."),
-))
 
 # ------------------------------------------------------------------------------------- cold DM
 
@@ -74,7 +70,7 @@ INSTAGRAM_COLD_DM = WorkflowContract(
             Field("dmsSuccess", "int", "Messages the conversation shows.", optional=True),
             Field("dmsFailed", "int", "Recipients that failed.", optional=True),
             Field("error", "string", "What went wrong, for a person.", optional=True, nullable=True),
-            Field("stopReason", "string", "Why the run stopped early (`action_blocked`...).", optional=True),
+            Field("stopReason", RUN_HALT_CODE, "Why the run stopped early (`action_blocked`...).", optional=True),
         )),
     ),
 )
@@ -191,4 +187,4 @@ INSTAGRAM_DM_SEND = WorkflowContract(
 
 CONTRACTS = (INSTAGRAM_COLD_DM, INSTAGRAM_DM_READ, INSTAGRAM_DM_SEND)
 
-__all__ = ["CONTRACTS", "INSTAGRAM_COLD_DM", "INSTAGRAM_DM_READ", "INSTAGRAM_DM_SEND", "SESSION_START_EVENT"]
+__all__ = ["CONTRACTS", "INSTAGRAM_COLD_DM", "INSTAGRAM_DM_READ", "INSTAGRAM_DM_SEND"]

@@ -8,7 +8,6 @@ path at all.
 The test that matters most here is the quota one: the CLI advertises defaults, and an advertised
 default that has drifted from the workflow is worse than none.
 """
-import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,16 +18,10 @@ from taktik.cli.commands import agent_cmds
 
 def test_advertised_quotas_match_the_workflow():
     """`agent defaults` must not describe numbers the workflow no longer uses."""
-    source = Path(
-        "taktik/core/agent/scenarios/instagram_feed_autopilot.py"
-    ).read_text(encoding="utf-8")
+    from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
 
-    for key, advertised in agent_cmds.QUOTA_DEFAULTS.items():
-        match = re.search(rf'config\.get\(\s*"{key}"\s*,\s*(\d+)\s*\)', source)
-        assert match, f"{key} is advertised by the CLI but not read by the workflow"
-        assert int(match.group(1)) == advertised, (
-            f"{key}: CLI advertises {advertised}, workflow defaults to {match.group(1)}"
-        )
+    applied = taktik_agent_request_from_payload({}).quotas
+    assert agent_cmds.QUOTA_DEFAULTS == applied
 
 
 def test_defaults_command_lists_every_quota():

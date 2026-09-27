@@ -36,9 +36,20 @@ SCALARS = ("int", "number", "bool", "string", "json")
 
 @dataclass(frozen=True)
 class OneOf:
-    """One of a closed set of strings."""
+    """One of a closed set of strings.
+
+    name   a catalogue shared by several fields (the reasons a run ends): the app gets one named
+           union, each field refers to it
+    empty  the empty string also comes, for "none (yet)"
+    """
 
     values: Tuple[str, ...]
+    name: str = ""
+    doc: str = ""
+    empty: bool = False
+
+    def allows(self, value: Any) -> bool:
+        return value in self.values or (self.empty and value == "")
 
 
 @dataclass(frozen=True)
@@ -198,6 +209,30 @@ class WorkflowContract:
         raise KeyError(event_type)
 
 
+@dataclass(frozen=True)
+class ToolContract:
+    """A bridge the app runs outside the workflow manifest (the Lab, the selector bench, the debug
+    tooling): no workflow, no settings declared; the lines of its stdout the app reads.
+
+    name    the prefix of the generated TypeScript names
+    bridge  the name in `bridges/bridges.manifest.json`
+    mode    the key of the bridge's file that sends it to this tool, when the bridge also runs
+            workflows (`debugMode` on `desktop_bridge`)
+    """
+
+    name: str
+    bridge: str
+    events: Tuple[Event, ...]
+    doc: str = ""
+    mode: Optional[str] = None
+
+    def event(self, event_type: str) -> Event:
+        for item in self.events:
+            if item.type == event_type:
+                return item
+        raise KeyError(event_type)
+
+
 def has_default(item: Field) -> bool:
     return item.default is not NO_DEFAULT and not isinstance(item.default, Computed)
 
@@ -236,6 +271,7 @@ __all__ = [
     "Refusal",
     "SCALARS",
     "Shape",
+    "ToolContract",
     "TypeSpec",
     "WorkflowContract",
     "has_default",

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import ERROR_EVENT, STATUS_EVENT, network_reset_field
+from .stop_reasons import RUN_HALT_CODE, TIKTOK_COMPLETION_REASON_OR_NONE
 from .tiktok import TIKTOK_DM_OUTREACH
 from .tiktok_automation import AI_SETTINGS
-from .tiktok_lines import BOT_PROFILE_EVENT
+from .tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 _DM = f"{_WORKFLOWS}.dm.payload"
@@ -56,7 +57,7 @@ SYNC_RUN_STATS = Shape(
             ("errors", "Rows that could not be written."),
         )),
         Field("stopped_early", "bool", "The run stopped before the end of a list."),
-        Field("completion_reason", "string", "Why the run ended."),
+        Field("completion_reason", TIKTOK_COMPLETION_REASON_OR_NONE, "Why the run ended."),
         Field("elapsed_seconds", "number", "Time spent."),
         Field("elapsed_formatted", "string", "The same, for a person."),
     ),
@@ -335,9 +336,12 @@ TIKTOK_NEW_FOLLOWERS = WorkflowContract(
                 Field("error", "string", "Why not (`page_unavailable`).", optional=True),
             )), "The result."),
         )),
-        # The welcome pass prints the cold DM's lines through the same notifier.
+        # The welcome pass prints the cold DM's lines through the same notifier, and the AI's
+        # verdict on each follower it qualifies.
         TIKTOK_DM_OUTREACH.event("dm_result"),
         TIKTOK_DM_OUTREACH.event("stats"),
+        AI_PROFILE_DONE_EVENT,
+        AI_RELEVANCE_EVENT,
     ),
 )
 
@@ -472,7 +476,7 @@ TIKTOK_NOTIFICATIONS = WorkflowContract(
             Field("success", "bool", "Every step it was asked for ran."),
             Field("stats", NOTIFICATIONS_STATS, "What it did."),
             Field("error", "string", "Why it failed.", optional=True),
-            Field("stop_reason", "string", "Why it stopped (a block).", optional=True),
+            Field("stop_reason", RUN_HALT_CODE, "Why the stop latch stopped it (a block).", optional=True),
         )),
     ),
 )
