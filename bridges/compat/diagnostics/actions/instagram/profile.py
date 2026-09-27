@@ -3,6 +3,7 @@
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action, detection_action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import absent_on_screen
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.shared.behavior.interaction_plan import build_interaction_plan
 from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import (
@@ -318,9 +319,17 @@ def expand_bio_more(a, p):
     """Expand a TRUNCATED bio through the production OCR path. Screenshot and
     Tesseract have individual budgets inside a coherent total wall-clock boundary;
     the tap stays on the caller thread."""
-    ok = a.detection.click_bio_more_button()
-    return {"success": bool(ok),
-            "message": "bio expanded via OCR" if ok else "bio not truncated / expander not located"}
+    if a.detection.click_bio_more_button():
+        return {"success": True, "message": "bio expanded via OCR"}
+    # The production reader finds no truncated bio on the profile, read in full (its bounded read
+    # gives up on a slow screen, and "not read" must not pass for "not truncated").
+    xml = a.device.get_xml_dump()
+    if not xml:
+        return {"success": False, "message": "profile.expand_bio_more: the screen was not read, nothing concluded"}
+    if a.detection.is_on_profile_screen() and a.detection._truncated_bio_region(xml) is None:
+        return absent_on_screen("profile.expand_bio_more", device=a.device, platform="instagram", still_there=None,
+                                what="truncated bio", where="on this profile")
+    return {"success": False, "message": "truncated bio, expander not located"}
 
 
 def _avatar_result(data_url):

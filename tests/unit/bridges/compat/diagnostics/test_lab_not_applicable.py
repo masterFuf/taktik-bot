@@ -123,6 +123,17 @@ def test_off_a_profile_no_ring_is_not_declared():
     assert (result["success"], _declared(result)) == (False, None)
 
 
+@pytest.mark.parametrize("name, lang, declared", [
+    ("ig410_en_profile_follow_back.xml", "en", "no truncated bio on this profile"),
+    # Truncated: the expander is OCR'd on a screenshot, which this phone cannot take: a failure.
+    ("ig410_fr_profile_bio_truncated.xml", "fr", None),
+])
+def test_a_bio_not_truncated_is_declared_and_a_truncated_one_is_not(name, lang, declared):
+    bundle, _phone = _instagram(_dump("instagram", name), lang)
+    result = INSTAGRAM_ACTIONS["profile.expand_bio_more"](bundle, {})
+    assert (result["success"], _declared(result)) == (False, declared)
+
+
 def test_nothing_to_close_on_a_video_is_declared():
     bundle, phone = _tiktok(TT_VIDEO)
     result = TIKTOK_ACTIONS["tt.popups.close_popup"](bundle, {})
