@@ -18,7 +18,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from taktik.core.shared.behavior.interaction_plan import (  # noqa: E402
+    FOLLOW_ALONE_ALLOWED,
     InteractionPlan,
+    allows_follow_alone,
     resolve_against_availability,
 )
 
@@ -120,6 +122,50 @@ def test_un_profil_sans_rien_ne_garde_aucun_geste():
     assert resolu.do_comment is False
     assert resolu.do_watch_story is False
     assert set(retires) >= {'like', 'comment', 'story', 'follow (seul)'}
+
+
+# --- l'exception : une passe dont la config autorise le follow seul -----------------------------
+
+def test_une_passe_autorisee_garde_le_follow_seul():
+    resolu, retires = resolve_against_availability(
+        plan(like_target=0, do_follow=True), story_available=False, posts_count=8,
+        follow_alone_allowed=True,
+    )
+
+    assert retires == []
+    assert resolu.do_follow is True
+
+
+def test_l_exception_ne_retablit_pas_ce_que_le_profil_n_offre_pas():
+    resolu, retires = resolve_against_availability(
+        plan(like_target=2, do_follow=True, do_watch_story=True),
+        story_available=False, posts_count=0, follow_alone_allowed=True,
+    )
+
+    assert resolu.do_follow is True
+    assert resolu.like_target == 0 and resolu.do_watch_story is False
+    assert set(retires) == {'like', 'story'}
+
+
+def test_l_exception_ne_cree_jamais_de_follow():
+    resolu, _ = resolve_against_availability(
+        plan(like_target=0, do_follow=False), story_available=False, posts_count=8,
+        follow_alone_allowed=True,
+    )
+
+    assert resolu.do_follow is False
+
+
+@pytest.mark.parametrize('config, attendu', [
+    ({FOLLOW_ALONE_ALLOWED: True}, True),
+    ({FOLLOW_ALONE_ALLOWED: 'true'}, False),
+    ({FOLLOW_ALONE_ALLOWED: 1}, False),
+    ({FOLLOW_ALONE_ALLOWED: False}, False),
+    ({}, False),
+    (None, False),
+])
+def test_seul_un_true_explicite_accorde_l_exception(config, attendu):
+    assert allows_follow_alone(config) is attendu
 
 
 # --- ce qu'il ne doit PAS faire ---------------------------------------------------------------

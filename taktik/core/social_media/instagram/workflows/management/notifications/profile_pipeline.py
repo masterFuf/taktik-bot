@@ -23,10 +23,17 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
+from taktik.core.shared.behavior.interaction_plan import FOLLOW_ALONE_ALLOWED
+
 from ....actions.core.base_business.profile_processing import ProfileProcessingResult
 
 # This run is about ACQUISITION: the follow is certain and nothing else is attempted,
 # since a like or a story on an unknown account would not serve acquisition.
+#
+# That makes the follow the only gesture, which the engine drops for every other pass
+# ("the follow never goes alone"). This visit is the one pass exempt from that rule: its
+# role is to follow in bulk. A visit mode with likes and stories would set the flag to
+# False and raise those percentages.
 #
 # `filter_criteria` is deliberately EMPTY: this surface exposes no filter setting, and
 # inventing thresholds here would reject suggestions silently. A caller with real
@@ -37,6 +44,7 @@ DEFAULT_SUGGESTION_INTERACTION_CONFIG: Dict[str, Any] = {
     "comment_percentage": 0,
     "story_watch_percentage": 0,
     "story_like_percentage": 0,
+    FOLLOW_ALONE_ALLOWED: True,
     "filter_criteria": {},
 }
 
