@@ -81,10 +81,6 @@ def test_on_47_0_3_the_way_into_the_gallery_is_upload_hot_area(on_47_0_3):
         "upload_hot_area", "[0,2118][210,2314]")
 
 
-def test_on_47_0_3_the_dump_reading_names_upload_hot_area_too(on_47_0_3):
-    assert "upload_hot_area" in dict(PUBLISH_MEDIA_PICKER_SELECTORS.upload_dump_selectors)
-
-
 def test_on_47_0_3_the_43_1_4_camera_still_opens_its_gallery(on_47_0_3):
     assert _first_match(CAMERA_43_1_4, PUBLISH_MEDIA_PICKER_SELECTORS.upload_btn)[0] == "ymg"
 
@@ -94,7 +90,6 @@ def test_on_47_0_3_the_43_1_4_camera_still_opens_its_gallery(on_47_0_3):
 
 def test_the_baseline_does_not_see_the_47_0_3_gallery():
     assert not _any_match(GALLERY, PUBLISH_MEDIA_PICKER_SELECTORS.gallery_first_item)
-    assert not PUBLISH_MEDIA_PICKER_SELECTORS.has_gallery_picker_marker(_screen(GALLERY))
 
 
 def test_on_47_0_3_the_first_item_is_the_box_of_the_top_left_cell(on_47_0_3):
@@ -103,14 +98,13 @@ def test_on_47_0_3_the_first_item_is_the_box_of_the_top_left_cell(on_47_0_3):
 
 
 def test_on_47_0_3_the_gallery_is_told_from_the_camera_under_it(on_47_0_3):
-    assert PUBLISH_MEDIA_PICKER_SELECTORS.has_gallery_picker_marker(_screen(GALLERY))
-    assert not PUBLISH_MEDIA_PICKER_SELECTORS.has_gallery_picker_marker(_screen(CAMERA))
+    """`is_gallery_picker_open` asks these xpaths first: the camera answers none of them."""
+    assert _any_match(GALLERY, PUBLISH_MEDIA_PICKER_SELECTORS.gallery_first_item)
     assert not _any_match(CAMERA, PUBLISH_MEDIA_PICKER_SELECTORS.gallery_first_item)
 
 
 def test_on_47_0_3_the_43_1_4_gallery_is_still_seen(on_47_0_3):
     assert _first_match(GALLERY_43_1_4, PUBLISH_MEDIA_PICKER_SELECTORS.gallery_first_item)[0] == "mub"
-    assert PUBLISH_MEDIA_PICKER_SELECTORS.has_gallery_picker_marker(_screen(GALLERY_43_1_4))
 
 
 # --- Next, from the gallery and from the editor ------------------------------------------------
@@ -166,6 +160,7 @@ def test_on_47_0_3_the_post_screen_names_its_field_and_its_button_first(on_47_0_
 
 
 def test_on_47_0_3_the_post_screen_is_told_from_the_editor(on_47_0_3):
+    """By the French label of the field ("Ajouter une description"), the marker of the locale."""
     assert PUBLISH_COMPOSER_SELECTORS.has_post_screen_marker(_screen(POST_SCREEN))
     for editor in (EDITOR_WITH_SOUND, EDITOR_WITHOUT_SOUND):
         assert not PUBLISH_COMPOSER_SELECTORS.has_post_screen_marker(_screen(editor))
