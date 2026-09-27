@@ -38,6 +38,8 @@ from ..repositories._base.base_repository import BaseRepository
 # Convenience alias for redacting sensitive keys before DB storage
 _redact_sensitive = BaseRepository._redact_sensitive
 
+from .paths import get_default_database_path
+
 # Schema DDL and incremental migrations live in their own modules
 from .schema import create_schema
 from .migrations import run_migrations
@@ -57,20 +59,11 @@ class LocalDatabaseService:
         Initialize the database service.
         
         Args:
-            db_path: Optional custom path to the database file.
-                     If not provided, uses the standard APPDATA location.
+            db_path: Optional custom path to the database file. If not provided, the one path of
+                     the installation (`get_default_database_path`: `TAKTIK_DB_PATH`, which the
+                     desktop app injects, else the app's data folder on this platform).
         """
-        if db_path:
-            self.db_path = db_path
-        elif os.environ.get('TAKTIK_DB_PATH'):
-            # Electron injects the exact path it uses so both sides hit the same file.
-            # This handles packaged builds where app.getPath('userData') differs from
-            # the hardcoded 'taktik-desktop' folder name.
-            self.db_path = os.environ['TAKTIK_DB_PATH']
-        else:
-            # Fallback for standalone / dev runs without Electron
-            appdata = os.environ.get('APPDATA', os.path.expanduser('~'))
-            self.db_path = os.path.join(appdata, 'taktik-desktop', 'taktik-data.db')
+        self.db_path = db_path or get_default_database_path()
         
         self._connection: Optional[sqlite3.Connection] = None
         # ORM pilot (Vague D): read-mapping SQLAlchemy engine over the same DB file.

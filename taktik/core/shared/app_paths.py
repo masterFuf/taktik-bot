@@ -23,7 +23,12 @@ from typing import Optional
 APP_FOLDER_NAME = 'taktik-desktop'
 
 
-def _platform_default() -> str:
+def platform_data_dir() -> str:
+    """The folder the desktop app uses on this platform (Electron's `userData`), when nobody names one.
+
+    Windows without `APPDATA` (a process started with a bare environment) falls back to the home
+    folder rather than to a path relative to wherever the process runs.
+    """
     if sys.platform == 'win32':
         appdata = os.environ.get('APPDATA')
         if appdata:
@@ -51,7 +56,7 @@ def get_app_data_dir() -> str:
         if parent:
             return parent
 
-    return _platform_default()
+    return platform_data_dir()
 
 
 def get_app_subdir(*parts: str, create: bool = True) -> Optional[str]:
