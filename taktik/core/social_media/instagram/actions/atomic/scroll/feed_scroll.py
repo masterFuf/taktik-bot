@@ -131,23 +131,30 @@ class FeedScrollMixin(PostReadingMixin):
                 if not m:
                     continue
                 top, bottom = int(m.group(2)), int(m.group(4))
+                # One anchor per node: each kind is kept, then the next node.
                 if short == FS.header_id:
                     headers.append(top)
                     user = (node.get("text") or node.get("content-desc") or "").strip()
                     posts.append((top, user))
-                elif short == FS.profile_header_id:
+                    continue
+                if short == FS.profile_header_id:
                     header_rows.append(top)
-                elif short == FS.post_list_id and list_top is None:
+                    continue
+                if short == FS.post_list_id and list_top is None:
                     list_top = top
-                elif short == FS.like_button_id:
+                    continue
+                if short == FS.like_button_id:
                     likes.append(top)
-                elif short == FS.action_bar_id:
+                    continue
+                if short == FS.action_bar_id:
                     top_bar_bottom = bottom
-                elif short == FS.tab_bar_id:  # tab_bar_shadow has no top we care about
+                    continue
+                if short == FS.tab_bar_id:  # tab_bar_shadow has no top we care about
                     tab_top = top
-                elif short in FS.video_ids:
-                    if video_band is None or (bottom - top) > (video_band[1] - video_band[0]):
-                        video_band = (top, bottom)
+                    continue
+                if short in FS.video_ids and (
+                        video_band is None or (bottom - top) > (video_band[1] - video_band[0])):
+                    video_band = (top, bottom)
         except Exception as e:
             self.logger.debug(f"feed anchor read failed: {e}")
             return {"headers": [], "posts": [], "header_rows": [], "list_top": None,

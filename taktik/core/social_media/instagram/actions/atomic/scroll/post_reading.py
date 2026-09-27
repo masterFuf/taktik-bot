@@ -545,26 +545,33 @@ class PostReadingMixin:
         top_limit, bottom_limit = 0, int(self.screen_height)
         headers, buttons, captions, counters, hearts = [], [], [], [], []
         for node in root.iter():
-            short = node.get("resource-id", "").rsplit("/", 1)[-1]
             bounds = self._node_bounds(node)
-            if short == FS.action_bar_id and bounds:
+            if not bounds:
+                continue
+            # One kind per node: each is kept, then the next node.
+            short = node.get("resource-id", "").rsplit("/", 1)[-1]
+            if short == FS.action_bar_id:
                 top_limit = max(top_limit, bounds[3])
-            elif short == FS.tab_bar_id and bounds:
+                continue
+            if short == FS.tab_bar_id:
                 bottom_limit = min(bottom_limit, bounds[1])
-            elif short == FS.profile_header_id and bounds:
+                continue
+            if short == FS.profile_header_id:
                 headers.append((bounds, node.get("content-desc") or ""))
-            elif short == FS.buttons_row_id and bounds:
+                continue
+            if short == FS.buttons_row_id:
                 buttons.append(bounds)
-            elif short == FS.like_button_id and bounds:
+                continue
+            if short == FS.like_button_id:
                 hearts.append((bounds, node.get("selected") == "true"))
-            elif node.tag == FS.caption_layout_class and bounds:
-                text = node.get("text") or ""
+                continue
+            text = node.get("text") or ""
+            if node.tag == FS.caption_layout_class:
                 if text:
                     captions.append((bounds, text))
-            elif node.tag == FS.counter_button_class and bounds:
-                text = (node.get("text") or "").strip()
-                if count_from_counter_label(text) is not None:
-                    counters.append((bounds, text))
+                continue
+            if node.tag == FS.counter_button_class and count_from_counter_label(text.strip()) is not None:
+                counters.append((bounds, text.strip()))
 
         visible = sorted((h for h in headers if h[0][1] >= top_limit), key=lambda h: h[0][1])
         if not visible:
