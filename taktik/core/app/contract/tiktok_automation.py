@@ -203,9 +203,11 @@ TIKTOK_FOR_YOU = WorkflowContract(
 
 # ------------------------------------------------------------------------------------- search
 
+# The Hashtag page's run. The same launcher runs the account search (`workflowType: search`), which the
+# Cartography Lab alone launches: no page runs it, so it has no workflow id and no CLI command (decision
+# Q18 of 2026-09-27); the bridge keeps reading the value for the Lab.
 TIKTOK_SEARCH = WorkflowContract(
-    workflow_id="tiktok.automation.search",
-    also=("tiktok.automation.hashtag",),
+    workflow_id="tiktok.automation.hashtag",
     name="TikTokSearch",
     bridge="tiktok_bridge",
     doc="Search one or more queries (accounts or hashtags) and act on the videos found; the budgets "

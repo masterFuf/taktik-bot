@@ -78,7 +78,7 @@ def test_every_tiktok_app_reader_of_bot_profile_has_it_declared():
     declared = {c.workflow_id for c in WORKFLOW_CONTRACTS if any(e is BOT_PROFILE_EVENT for e in c.events)}
     # The dispatcher's workflows whose stdout readers read `bot_profile`.
     assert {
-        "tiktok.automation.for_you", "tiktok.automation.search", "tiktok.automation.followers",
+        "tiktok.automation.for_you", "tiktok.automation.hashtag", "tiktok.automation.followers",
         "tiktok.automation.target_profiles", "tiktok.automation.post_url", "tiktok.automation.sync_lists",
         "tiktok.automation.dm_read", "tiktok.automation.dm_send", "tiktok.automation.new_followers",
         "tiktok.automation.dm_unreplied", "tiktok.automation.dm_requests", "tiktok.automation.dm_activity",
@@ -191,7 +191,7 @@ _QUALIFYING = {
 
 def test_every_tiktok_app_reader_of_ai_profile_done_has_it_declared():
     declared = {c.workflow_id for c in WORKFLOW_CONTRACTS if any(e is AI_PROFILE_DONE_EVENT for e in c.events)}
-    assert {"tiktok.automation.for_you", "tiktok.automation.search", *_QUALIFYING} <= declared
+    assert {"tiktok.automation.for_you", "tiktok.automation.hashtag", *_QUALIFYING} <= declared
 
 
 def test_every_tiktok_workflow_that_qualifies_profiles_declares_ai_relevance():

@@ -63,12 +63,12 @@ def test_the_cli_starts_and_moves_between_queries_like_the_bridge(rig, page_payl
     assert "return_home" in cli["calls"]
 
 
-def test_a_search_with_ai_installs_the_same_hooks_from_both_paths(rig, page_payload):
-    payload = _payload(page_payload, workflowType="search", searchQuery="street food",
-                       searchQueries=["street food"], language="fr",
+def test_a_hashtag_run_with_ai_installs_the_same_hooks_from_both_paths(rig, page_payload):
+    # The account search (`workflowType: search`) has no CLI id since decision Q18: the Lab alone
+    # launches it, through the bridge (`tiktok_search_bridge_sequence.json`, `search_ai`).
+    payload = _payload(page_payload, language="fr",
                        ai={"enabled": True, "profileAnalysis": True, "openrouterApiKey": AI_KEY})
-    payload.pop("hashtags")
-    bridge, cli = _run_both(rig, payload, "tiktok.automation.search")
+    bridge, cli = _run_both(rig, payload, "tiktok.automation.hashtag")
 
     assert bridge["ai"], "the bridge installed no AI hooks"
     assert cli["ai"] == bridge["ai"]

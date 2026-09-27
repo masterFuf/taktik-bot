@@ -54,7 +54,6 @@
   "tiktok": {
     "automation": [
       "for_you",
-      "search",
       "hashtag",
       "followers",
       "target_profiles",

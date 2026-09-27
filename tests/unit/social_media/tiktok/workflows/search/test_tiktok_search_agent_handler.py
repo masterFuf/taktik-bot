@@ -3,7 +3,6 @@ import pytest
 from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows.search import (
     TIKTOK_HASHTAG_WORKFLOW_ID,
-    TIKTOK_SEARCH_WORKFLOW_ID,
     SearchStats,
     register_tiktok_search_handlers,
 )
@@ -56,7 +55,7 @@ class FakeNotifier:
         self.calls.append((event_type, payload))
 
 
-def test_register_tiktok_search_handler_executes_single_query_workflow():
+def test_register_tiktok_hashtag_handler_executes_single_query_workflow():
     FakeSearchWorkflow.instances = []
     registry = WorkflowRegistry()
     notifier = FakeNotifier()
@@ -79,7 +78,7 @@ def test_register_tiktok_search_handler_executes_single_query_workflow():
                     step_id="step-1",
                     workflow=WorkflowInvocation(
                         platform="tiktok",
-                        workflow_id=TIKTOK_SEARCH_WORKFLOW_ID,
+                        workflow_id=TIKTOK_HASHTAG_WORKFLOW_ID,
                         params={
                             "searchQuery": "street food",
                             "maxVideos": 12,
@@ -164,7 +163,7 @@ def test_tiktok_hashtag_handler_strips_hash_prefix():
     assert FakeSearchWorkflow.instances[0].config.search_query == "streetfood"
 
 
-def test_tiktok_search_handler_accepts_username_alias():
+def test_tiktok_hashtag_handler_accepts_username_alias():
     FakeSearchWorkflow.instances = []
     registry = WorkflowRegistry()
     register_tiktok_search_handlers(
@@ -182,7 +181,7 @@ def test_tiktok_search_handler_accepts_username_alias():
                     step_id="step-1",
                     workflow=WorkflowInvocation(
                         platform="tiktok",
-                        workflow_id=TIKTOK_SEARCH_WORKFLOW_ID,
+                        workflow_id=TIKTOK_HASHTAG_WORKFLOW_ID,
                         params={"username": "@creator"},
                     ),
                 )
@@ -193,7 +192,7 @@ def test_tiktok_search_handler_accepts_username_alias():
     assert FakeSearchWorkflow.instances[0].config.search_query == "@creator"
 
 
-def test_tiktok_search_handler_rejects_missing_query_before_workflow_creation():
+def test_tiktok_hashtag_handler_rejects_missing_query_before_workflow_creation():
     FakeSearchWorkflow.instances = []
     registry = WorkflowRegistry()
     register_tiktok_search_handlers(
@@ -212,7 +211,7 @@ def test_tiktok_search_handler_rejects_missing_query_before_workflow_creation():
                         step_id="step-1",
                         workflow=WorkflowInvocation(
                             platform="tiktok",
-                            workflow_id=TIKTOK_SEARCH_WORKFLOW_ID,
+                            workflow_id=TIKTOK_HASHTAG_WORKFLOW_ID,
                             params={"maxVideos": 5},
                         ),
                     )

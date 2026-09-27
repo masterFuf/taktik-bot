@@ -2,8 +2,6 @@
 
 from .agent_handler import (
     TIKTOK_HASHTAG_WORKFLOW_ID,
-    TIKTOK_SEARCH_WORKFLOW_ID,
-    TIKTOK_SEARCH_WORKFLOW_IDS,
     SearchQuery,
     build_tiktok_search_handler,
     register_tiktok_search_handlers,
@@ -14,8 +12,6 @@ from .models import SearchConfig
 
 __all__ = [
     "TIKTOK_HASHTAG_WORKFLOW_ID",
-    "TIKTOK_SEARCH_WORKFLOW_ID",
-    "TIKTOK_SEARCH_WORKFLOW_IDS",
     "SearchQuery",
     "SearchWorkflow",
     "SearchConfig",

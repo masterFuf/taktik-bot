@@ -2,8 +2,9 @@
 """
 TikTok Search Bridge - Search/Hashtag workflow
 
-The run is `run_tiktok_search`, the launcher the Agent handlers `tiktok.automation.search` and
-`.hashtag` (and so the CLI) call too. Called by name rather than through the registry so the app's
+The run is `run_tiktok_search`, the launcher the Agent handler `tiktok.automation.hashtag` (and so
+the CLI) calls too. `workflowType: search`, the account search, is launched by the Cartography Lab
+only: it has no workflow id (decision Q18 of 2026-09-27). Called by name rather than through the registry so the app's
 config contract test can follow the payload. This bridge only injects what is specific to the
 desktop: the startup that prints on stdout, the AI hooks wired to stdout, the per-query events and
 live callbacks, the final stats.
