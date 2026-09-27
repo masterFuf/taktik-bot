@@ -17,6 +17,7 @@ from typing import Any, Mapping, Optional
 from loguru import logger
 
 from taktik.cli.common.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
+from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
 
 
 def _log(level: str, message: str) -> None:
@@ -96,7 +97,7 @@ class CliInstagramHost:
         """The phone after the clean restart of the task's Instagram (a clone when it names one), as
         the task bridge restarts it: a one-shot starts from the feed."""
         if not self.start(package_name):
-            raise RuntimeError("Instagram did not start cleanly; the task was not started")
+            raise InstagramStartError("Instagram did not start cleanly; the task was not started")
         return getattr(self.device_manager, "device", None)
 
     def installed_version(self) -> Optional[str]:

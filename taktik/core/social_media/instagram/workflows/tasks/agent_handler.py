@@ -15,11 +15,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
+from loguru import logger
+
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
 from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.tasks.story_relay import (
     DEFAULT_MAX_STORIES,
+    INSTAGRAM_LAUNCH_FAILED,
+    new_relay_report,
     relay_source_stories,
 )
 
@@ -27,7 +32,8 @@ INSTAGRAM_TASK_STORY_RELAY_WORKFLOW_ID = "instagram.task.story_relay"
 INSTAGRAM_TASK_WORKFLOW_IDS = (INSTAGRAM_TASK_STORY_RELAY_WORKFLOW_ID,)
 
 #: `connect(package_name) -> device`: the phone after a clean restart of the Instagram the payload
-#: names (a clone; None: the installed one), so a task starts from the feed.
+#: names (a clone; None: the installed one), so a task starts from the feed. Raises
+#: `InstagramStartError` when that Instagram did not restart.
 Connect = Callable[[Optional[str]], Any]
 
 
@@ -57,9 +63,16 @@ def run_instagram_story_relay(
     relay: Callable[..., dict[str, Any]] = relay_source_stories,
 ) -> dict[str, Any]:
     """The one launcher of the story relay: read the payload, then run one pass on the phone the host
-    connects, on the payload's Instagram."""
+    connects, on the payload's Instagram. An Instagram that did not restart stops the pass before the
+    relay, with its reason: the relay would read whatever screen the phone was left on."""
     request = story_relay_request_from_payload(payload)
-    device = connect(package_name_from_payload(payload))
+    try:
+        device = connect(package_name_from_payload(payload))
+    except InstagramStartError as exc:
+        logger.error(f"Story relay stopped before it started: {exc}")
+        report = new_relay_report(request.source_username)
+        report["reason"] = INSTAGRAM_LAUNCH_FAILED
+        return report
     return relay(
         device=device,
         source_username=request.source_username,
