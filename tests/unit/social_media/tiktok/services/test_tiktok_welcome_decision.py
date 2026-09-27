@@ -3,11 +3,13 @@ from taktik.core.social_media.tiktok.services.welcome.decision import (
     REASON_AI_OFF,
     REASON_BELOW_THRESHOLD,
     REASON_NOT_RELEVANT,
+    REASON_NOTHING_ASKED,
     REASON_NO_MESSAGE,
     REASON_NO_VERDICT,
     REASON_PROFILE_UNREACHABLE,
     REASON_RELEVANT,
     REASON_UNSCORED,
+    REASON_WELCOME_EVERY_FOLLOWER,
     WelcomeDecision,
     WelcomePolicy,
     decide_for_new_follower,
@@ -137,7 +139,7 @@ def test_a_welcome_to_every_new_follower_does_not_wait_for_the_verdict():
     Would have caught the page's "welcome every new follower" reaching the bot and the pass
     writing only to the followers the AI judged relevant.
     """
-    policy = _policy(follow_back=False, dm_requires_follow_back=False)
+    policy = _policy(dm_requires_follow_back=False)
     verdicts = {
         REASON_NO_VERDICT: None,
         REASON_NOT_RELEVANT: _verdict(relevant=False),
@@ -148,6 +150,63 @@ def test_a_welcome_to_every_new_follower_does_not_wait_for_the_verdict():
     for reason, verdict in verdicts.items():
         decision = decide_for_new_follower("creator", verdict, policy)
         assert (decision.follow_back, decision.welcome_dm, decision.reason) == (False, True, reason)
+
+
+def test_only_the_follow_back_asks_the_ai_for_a_verdict():
+    """Product decision of 2026-09-27: the qualification serves the follow-back alone. A DM tied
+    to the follow-back follows it, a DM to every follower does not wait for it.
+
+    Would have caught a pass paying one AI call per follower to decide nothing.
+    """
+    assert _policy(follow_back=True).needs_verdict is True
+    assert _policy(follow_back=True, dm_requires_follow_back=False).needs_verdict is True
+    assert _policy(follow_back=False, dm_requires_follow_back=False).needs_verdict is False
+    assert _policy(follow_back=False, dm_requires_follow_back=True).needs_verdict is False
+    assert _policy(follow_back=False, welcome_dm=False).needs_verdict is False
+
+
+def test_a_welcome_to_every_follower_without_follow_back_ignores_any_verdict():
+    """No follow-back asked: the verdict would decide nothing, so none is read, whatever it says.
+
+    Would have caught the page's welcome (followBack off) still reading a verdict it never needs.
+    """
+    policy = _policy(follow_back=False, dm_requires_follow_back=False)
+
+    for verdict in (None, _verdict(relevant=False), _verdict(score=None), _verdict(score=0.1), _verdict()):
+        decision = decide_for_new_follower("creator", verdict, policy)
+        assert (decision.follow_back, decision.welcome_dm, decision.reason) == (
+            False, True, REASON_WELCOME_EVERY_FOLLOWER)
+        assert (decision.score, decision.relevant) == (None, None)
+
+
+def test_a_dm_tied_to_a_follow_back_nobody_asked_for_decides_nothing_without_the_ai():
+    policy = _policy(follow_back=False, dm_requires_follow_back=True)
+
+    decision = decide_for_new_follower("creator", None, policy)
+
+    assert (decision.follow_back, decision.welcome_dm, decision.reason) == (False, False, REASON_NOTHING_ASKED)
+
+
+def test_a_welcome_to_every_follower_runs_with_the_ai_off():
+    """The page's payload: the AI switch off, the welcome block on. No key, no call, no licence.
+
+    Would have caught `ai.enabled` still gating a pass that asks the AI nothing.
+    """
+    block = {"enabled": True, "welcomeDm": True, "followBack": False, "dmRequiresFollowBack": False,
+             "messages": ["Bienvenue !"]}
+
+    for ai_config in ({"enabled": False, "newFollowers": block}, {"newFollowers": block}):
+        policy = parse_welcome_policy(ai_config)
+        assert (policy.enabled, policy.welcome_dm, policy.follow_back) == (True, True, False)
+        assert policy.needs_verdict is False
+        assert policy.welcomes_every_follower is True
+
+
+def test_a_follow_back_asked_for_with_the_ai_off_decides_nothing():
+    """The verdict is the AI's: without it, a pass that needs one stays off, as before."""
+    for block in ({"enabled": True}, {"enabled": True, "welcomeDm": True, "dmRequiresFollowBack": False,
+                                      "messages": ["Bienvenue !"]}):
+        assert parse_welcome_policy({"enabled": False, "newFollowers": block}).enabled is False
 
 
 def test_welcoming_every_follower_leaves_the_follow_back_to_the_verdict():

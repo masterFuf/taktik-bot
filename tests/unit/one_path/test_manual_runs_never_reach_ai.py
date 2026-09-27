@@ -156,3 +156,22 @@ def test_a_tiktok_new_followers_read(rig, inbox_payload, ai_reached):
     result = rig.run_cli(inbox_payload("new_followers"), workflow_id="tiktok.automation.new_followers")
     assert result.exit_code == 0, result.output
     assert reached == [] and rig.ai_services == []
+
+
+def test_a_tiktok_new_followers_welcome_without_follow_back(rig, inbox_payload, ai_reached):
+    """The page's welcome to every new follower, AI off and no key: the pass decides without it.
+
+    Would have caught the welcome pass staying off without `ai.enabled`, or building the AI
+    service to qualify followers whose verdict decides nothing.
+    """
+    reached, install = ai_reached
+    install()
+    rig.install_dm_database()
+    rig.show_welcome_verdicts()
+    payload = inbox_payload("new_followers", ai={"enabled": False, "newFollowers": {
+        "enabled": True, "welcomeDm": True, "followBack": False, "dmRequiresFollowBack": False,
+        "messages": ["Bienvenue !"]}})
+    result = rig.run_cli(payload, workflow_id="tiktok.automation.new_followers")
+    assert result.exit_code == 0, result.output
+    assert rig.cli_results[-1]["welcome"]["summary"]["welcome_dm"] == 2
+    assert reached == [] and rig.ai_services == []

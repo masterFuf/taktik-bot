@@ -3373,12 +3373,7 @@
     "exit": 0
   },
   "new_followers_welcome_without_follow_back": {
-    "ai_services": [
-      {
-        "api_key": "test-openrouter-key",
-        "has_ipc": true
-      }
-    ],
+    "ai_services": [],
     "calls": [
       "manager emulator-5554",
       "restart",
@@ -3391,11 +3386,7 @@
       "dm_workflow_built",
       "read_new_followers 30",
       "open_follower_profile fan_one",
-      "screenshot",
-      "ai_classify fan_one",
       "open_follower_profile Fan Two",
-      "screenshot",
-      "ai_classify fan_two",
       "open_follower_profile Emile B",
       "force_stop tiktok"
     ],
@@ -3524,85 +3515,15 @@
       [
         "status",
         {
-          "message": "Qualifying 3 new follower(s)",
+          "message": "Opening 3 new follower profile(s)",
           "status": "running"
-        }
-      ],
-      [
-        "ai_profile_done",
-        {
-          "classification": {
-            "engagement": {
-              "comment": false,
-              "follow": true,
-              "like": true,
-              "reason": "fits",
-              "relevant": true,
-              "score": 0.9
-            },
-            "niche": "running",
-            "niche_category": "sport"
-          },
-          "persist_only": true,
-          "platform": "tiktok",
-          "result": "[sport] running",
-          "target_username": "fan_one",
-          "username": "fan_one",
-          "workflow_type": "automation"
-        }
-      ],
-      [
-        "ai_relevance",
-        {
-          "comment": false,
-          "follow": true,
-          "like": true,
-          "reason": "fits",
-          "relevant": true,
-          "score": 0.9,
-          "username": "fan_one"
-        }
-      ],
-      [
-        "ai_profile_done",
-        {
-          "classification": {
-            "engagement": {
-              "comment": false,
-              "follow": true,
-              "like": false,
-              "reason": "close niche",
-              "relevant": true,
-              "score": 0.8
-            },
-            "niche": "running",
-            "niche_category": "sport"
-          },
-          "persist_only": true,
-          "platform": "tiktok",
-          "result": "[sport] running",
-          "target_username": "fan_two",
-          "username": "fan_two",
-          "workflow_type": "automation"
-        }
-      ],
-      [
-        "ai_relevance",
-        {
-          "comment": false,
-          "follow": true,
-          "like": false,
-          "reason": "close niche",
-          "relevant": true,
-          "score": 0.8,
-          "username": "fan_two"
         }
       ],
       [
         "log",
         {
           "level": "info",
-          "message": "AI welcome pass: {'reasons': {'ai_relevant': 2, 'profile_unreachable': 1}, 'follow_back': 0, 'welcome_dm': 0}"
+          "message": "Welcome pass: {'reasons': {'nothing_asked': 2, 'profile_unreachable': 1}, 'follow_back': 0, 'welcome_dm': 0}"
         }
       ],
       [

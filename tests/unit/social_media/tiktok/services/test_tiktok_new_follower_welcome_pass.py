@@ -4,6 +4,7 @@ from taktik.core.social_media.tiktok.services.welcome.decision import (
     REASON_PROFILE_UNREACHABLE,
     REASON_RELEVANT,
     REASON_UNREADABLE_HANDLE,
+    REASON_WELCOME_EVERY_FOLLOWER,
     WelcomePolicy,
 )
 from taktik.core.social_media.tiktok.services.welcome.runner import NewFollowerWelcomePass
@@ -115,6 +116,49 @@ def test_a_pass_with_ai_off_decides_nothing_and_touches_no_profile():
 
     assert visited == []
     assert decisions[0].reason == REASON_AI_OFF
+
+
+def test_a_welcome_without_follow_back_opens_each_profile_and_asks_the_ai_nothing():
+    """The profile is still opened: the page shows display names, the handle is read there. The
+    verdict is not asked: without a follow-back it would decide nothing, and it costs a call.
+
+    Would have caught one paid AI call per follower on the page's "write to every new follower".
+    """
+    visited, qualified = [], []
+
+    welcome_pass = NewFollowerWelcomePass(
+        policy=_policy(follow_back=False, dm_requires_follow_back=False),
+        visit_profile=lambda username: visited.append(username) or True,
+        qualify=lambda username: qualified.append(username) or _relevant(username),
+    )
+    decisions = welcome_pass.decide(["fan_one", "Fan Two"])
+
+    assert visited == ["fan_one", "Fan Two"]
+    assert qualified == []
+    assert [(d.welcome_dm, d.reason) for d in decisions] == [(True, REASON_WELCOME_EVERY_FOLLOWER)] * 2
+
+
+def test_a_welcome_without_follow_back_needs_no_qualifier_at_all():
+    welcome_pass = NewFollowerWelcomePass(
+        policy=_policy(follow_back=False, dm_requires_follow_back=False),
+        visit_profile=lambda username: True,
+    )
+
+    assert [d.welcome_dm for d in welcome_pass.decide(["fan_one"])] == [True]
+
+
+def test_a_follow_back_asked_for_still_qualifies_each_follower():
+    qualified = []
+
+    welcome_pass = NewFollowerWelcomePass(
+        policy=_policy(dm_requires_follow_back=False),
+        visit_profile=lambda username: True,
+        qualify=lambda username: qualified.append(username) or _relevant(username),
+    )
+    decisions = welcome_pass.decide(["fan_one", "Fan Two"])
+
+    assert qualified == ["fan_one", "Fan Two"]
+    assert all(d.follow_back and d.welcome_dm for d in decisions)
 
 
 def test_a_scraped_row_and_a_plain_handle_are_read_the_same_way():

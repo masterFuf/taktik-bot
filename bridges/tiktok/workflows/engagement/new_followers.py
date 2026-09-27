@@ -3,9 +3,11 @@
 
 Two modes, set by the config:
 - scrape, the default: open the new-followers page, list the items and emit them without acting,
-  so the front can display them and the user select. On top, an OPTIONAL AI welcome pass
-  (`ai.enabled` and `ai.newFollowers.enabled`): qualify each follower, record them for the
-  attribution, follow back and send the welcome DM the verdicts allow.
+  so the front can display them and the user select. On top, an OPTIONAL welcome pass
+  (`ai.newFollowers.enabled`): record each follower for the attribution, send the welcome DM the
+  policy allows and, when a follow-back is asked for (then with `ai.enabled`), qualify each
+  follower by the AI and follow back the ones the verdict approves. The page's welcome asks for
+  no follow-back: no AI, no key.
 - follow_back: follow back the selected usernames and emit one result event per username.
 
 The run is `run_tiktok_inbox` (core, flow `new_followers`), the launcher the Agent handler
