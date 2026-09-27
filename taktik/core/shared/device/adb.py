@@ -33,7 +33,18 @@ def run_adb_shell_process(
     if errors is not None:
         kwargs["errors"] = errors
 
-    return subprocess.run([adb_command, "-s", device_id, "shell", *command_args], **kwargs)
+    # One adb round trip for the device io meter, with the gesture it makes (a force-stop, a key).
+    from taktik.core.shared.telemetry.device_io import METER
+
+    started_at = time.perf_counter()
+    failed = False
+    try:
+        return subprocess.run([adb_command, "-s", device_id, "shell", *command_args], **kwargs)
+    except BaseException:
+        failed = True
+        raise
+    finally:
+        METER.record_shell((time.perf_counter() - started_at) * 1000.0, failed, command=list(command_args))
 
 
 def run_adb_shell(device_id: str, command: str) -> str:
@@ -54,7 +65,7 @@ def run_adb_shell(device_id: str, command: str) -> str:
     try:
         return _run_adb_shell(device_id, command)
     finally:
-        METER.record_shell((time.perf_counter() - started_at) * 1000.0)
+        METER.record_shell((time.perf_counter() - started_at) * 1000.0, command=command)
 
 
 def _run_adb_shell(device_id: str, command: str) -> str:

@@ -290,7 +290,8 @@ def compatibility_file_drift(path: Path = COMPATIBILITY_PATH) -> Optional[str]:
 
 
 def as_json(supported: SupportedVersions) -> Dict[str, Any]:
-    """The payload the desktop app generates its version list from."""
+    """The payload the desktop app generates its version list from. `rows` are the rows of
+    COMPATIBILITY.md, status included: the Lab's exit gate asks for a green run on each of them."""
     return {
         "architectures": list(supported.architectures),
         "apps": {
@@ -301,6 +302,9 @@ def as_json(supported: SupportedVersions) -> Dict[str, Any]:
                 "override_versions": list(s.override_versions),
                 "builds": [
                     {"version": b.version, "status": b.status, "recommended": b.recommended} for b in s.builds
+                ],
+                "rows": [
+                    {"version": r.version, "display": r.display, "status": r.status} for r in compatibility_rows(s)
                 ],
             }
             for s in supported.apps

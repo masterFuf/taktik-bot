@@ -204,3 +204,102 @@ def test_the_bot_s_own_adb_shell_is_counted(monkeypatch):
 
     assert adb_module.run_adb_shell("phone", "settings get secure default_input_method") == "ok"
     assert meter.snapshot()["shells"] == 1
+
+
+# ── Every gesture, counted by kind (the census a phone run is reviewed from) ──
+
+def test_every_gesture_the_server_performs_is_counted_by_kind():
+    device, meter = FakeU2Device(), DeviceIoMeter()
+    instrument_device_io(device, meter)
+    device.jsonrpc_call("click", (10, 20))                   # d.click / an element's click
+    device.jsonrpc_call("click", (10, 20, 1000))             # d.long_click: a click with a duration
+    device.jsonrpc_call("swipe", (1, 2, 3, 4, 10))
+    device.jsonrpc_call("swipePoints", ([1, 2, 3, 4], 10))
+    device.jsonrpc_call("drag", (1, 2, 3, 4, 10))
+    device.jsonrpc_call("injectInputEvent", (0, 5, 6, 0))    # d.touch.down
+    device.jsonrpc_call("injectInputEvent", (2, 7, 8, 0))    # touch.move: same touch
+    device.jsonrpc_call("injectInputEvent", (1, 7, 8, 0))    # touch.up
+    device.jsonrpc_call("pressKey", ("back",))
+    device.jsonrpc_call("pressKeyCode", (66,))
+    device.jsonrpc_call("setText", ({}, "hello"))
+    device.jsonrpc_call("dumpWindowHierarchy", (False, 50))  # a read: no gesture
+
+    totals = meter.snapshot()
+    assert (totals["taps"], totals["long_presses"], totals["swipes"], totals["touches"],
+            totals["keys"], totals["texts"]) == (1, 1, 3, 1, 2, 1)
+
+
+def test_every_gesture_sent_through_adb_is_counted_by_kind():
+    device, meter = FakeU2Device(), DeviceIoMeter()
+    device._dev = FakeAdbDevice()
+    instrument_device_io(device, meter)
+    device._dev.shell("input tap 10 20")
+    device._dev.shell(["input", "swipe", "1", "2", "3", "4", "300"])
+    device._dev.shell("input keyevent 4")
+    device._dev.shell("input text hello")
+    device._dev.shell("am broadcast -a ADB_INPUT_B64 --es msg aGVsbG8=")   # the Taktik keyboard types
+    device._dev.shell("am start -n com.instagram.android/.activity.MainTabActivity")
+    device._dev.shell("monkey -p com.zhiliaoapp.musically -c android.intent.category.LAUNCHER 1")
+    device._dev.shell("am force-stop com.instagram.android")
+    device._dev.shell("dumpsys window windows")                          # a read: no gesture
+
+    totals = meter.snapshot()
+    assert (totals["taps"], totals["swipes"], totals["keys"], totals["texts"],
+            totals["launches"], totals["stops"]) == (1, 1, 1, 2, 2, 1)
+
+
+def test_the_bot_s_own_adb_typing_is_counted_as_text(monkeypatch):
+    from taktik.core.shared.device import adb as adb_module
+    from taktik.core.shared.telemetry import device_io
+
+    meter = DeviceIoMeter()
+    monkeypatch.setattr(device_io, "METER", meter)
+    monkeypatch.setattr(adb_module, "_run_adb_shell", lambda _d, _c: "ok")
+
+    adb_module.run_adb_shell("phone", "am broadcast -a ADB_INPUT_B64 --es msg aGk=")
+    adb_module.run_adb_shell("phone", "settings get secure default_input_method")
+    assert (meter.snapshot()["texts"], meter.snapshot()["shells"]) == (1, 2)
+
+
+def test_an_action_emits_the_gestures_it_made(steps):
+    device, meter = FakeU2Device(), DeviceIoMeter()
+    instrument_device_io(device, meter)
+    device.jsonrpc_call("click", (1, 1))  # before the action: not its gesture
+
+    with measure_device_io("navigation.go_home", meter, source="lab"):
+        device.jsonrpc_call("click", (10, 20))
+        device.jsonrpc_call("dumpWindowHierarchy")
+
+    gestures = steps[0].detail["gestures"]
+    assert gestures == {"taps": 1, "long_presses": 0, "swipes": 0, "touches": 0, "keys": 0, "texts": 0,
+                        "launches": 0, "stops": 0}
+
+
+def test_the_bot_s_adb_process_calls_are_counted_with_their_gestures(monkeypatch):
+    from taktik.core.shared.device import adb as adb_module
+    from taktik.core.shared.telemetry import device_io
+
+    meter = DeviceIoMeter()
+    monkeypatch.setattr(device_io, "METER", meter)
+    monkeypatch.setattr(adb_module.subprocess, "run", lambda *_a, **_k: "completed")
+
+    assert adb_module.run_adb_shell_process("phone", ["am", "force-stop", "com.instagram.android"]) == "completed"
+    assert adb_module.run_adb_shell_process("phone", ["pm", "list", "packages"]) == "completed"
+    assert (meter.snapshot()["shells"], meter.snapshot()["stops"]) == (2, 1)
+
+
+def test_a_humanized_tap_that_holds_briefly_is_a_tap_not_a_long_press():
+    """Found on the Pixel 3a on the first auto-test run: every tab tap was counted as a long
+    press. A humanized tap asks for a short hold (`long_click(x, y, ~68 ms)`, never above
+    MAX_TAP_HOLD_MS); only a longer hold is a press the app may take for touch-and-hold."""
+    from taktik.core.shared.behavior.tap import MAX_TAP_HOLD_MS
+
+    device, meter = FakeU2Device(), DeviceIoMeter()
+    instrument_device_io(device, meter)
+    device.jsonrpc_call("click", (10, 20, 68))
+    device.jsonrpc_call("click", (10, 20, int(MAX_TAP_HOLD_MS)))
+    device.jsonrpc_call("click", (10, 20, int(MAX_TAP_HOLD_MS) + 1))
+    device.jsonrpc_call("click", (10, 20, 500))              # d.long_click's own default
+
+    totals = meter.snapshot()
+    assert (totals["taps"], totals["long_presses"]) == (2, 2)
