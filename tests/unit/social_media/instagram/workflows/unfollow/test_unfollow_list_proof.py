@@ -2,7 +2,7 @@
 
 import pytest
 
-from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml, unified_tabs
+from fake_follow_list import FakeFacade, FakeScreen, Graph, follow_list_xml, unified_tabs
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list_proof import (
     PROOF_BY_COUNT,
@@ -14,10 +14,6 @@ from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list
     proof_of_read,
     read_is_complete,
     scrolls_for,
-)
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import (
-    sync_followers as followers_mixin,
-    sync_following as following_mixin,
 )
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
@@ -64,41 +60,6 @@ def _french_and_fast(monkeypatch):
     monkeypatch.setattr(UnfollowBusiness, "list_load_timeout", 0.0)
     yield
     set_active_locale(None)
-
-
-class Graph:
-    """The follow graph service, in memory."""
-
-    def __init__(self, known_followings=(), bot_follows=()):
-        self.known = {name.lower() for name in known_followings}
-        self.bot_follows = {name.lower() for name in bot_follows}
-        self.followings, self.followers, self.unfollowed = [], [], []
-        self.reciprocity = []
-        self.bot_flags, self.display = {}, {}
-
-    def _upsert_following(self, username, **kwargs):
-        self.followings.append(username)
-        self.bot_flags[username] = kwargs.get("followed_by_bot")
-        self.display[username] = kwargs.get("display_name")
-        return "new"
-
-    @staticmethod
-    def _per_row_query(*_a, **_k):
-        raise AssertionError("the bot's follows are read once per sync, never per row")
-
-    def install(self, monkeypatch):
-        for module in (followers_mixin, following_mixin):
-            service = module.InstagramFollowGraphService
-            monkeypatch.setattr(service, "get_active_following_usernames", staticmethod(lambda _a: set(self.known)))
-            monkeypatch.setattr(service, "has_bot_follow_record", staticmethod(self._per_row_query))
-            monkeypatch.setattr(service, "bot_followed_usernames", staticmethod(lambda _a: set(self.bot_follows)))
-            monkeypatch.setattr(service, "upsert_following", staticmethod(self._upsert_following))
-            monkeypatch.setattr(service, "upsert_follower",
-                                staticmethod(lambda username, **_k: self.followers.append(username) or "new"))
-            monkeypatch.setattr(service, "mark_unfollowed",
-                                staticmethod(lambda username, _a: self.unfollowed.append(username)))
-            monkeypatch.setattr(service, "set_followings_reciprocity",
-                                staticmethod(lambda _a, names: self.reciprocity.append(set(names)) or len(names)))
 
 
 def _business(screens, *, graph, monkeypatch):

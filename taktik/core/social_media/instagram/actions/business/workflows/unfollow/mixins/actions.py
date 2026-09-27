@@ -263,8 +263,9 @@ class UnfollowActionsMixin:
             time.sleep(0.3)
 
     following_tab_timeout = 2.0
-    # After a tab switch the new list loads: its first rows are awaited this long.
-    list_load_timeout = 3.0
+    # A list just opened, switched or re-sorted shows its rows after the list itself (only a
+    # loading placeholder before them): its first rows are awaited this long, no more.
+    list_load_timeout = 10.0
 
     def _ensure_following_tab(self) -> bool:
         """Make sure the open list is OUR FOLLOWING tab, not the followers one.
@@ -454,6 +455,13 @@ class UnfollowActionsMixin:
                     # list's header must now name the option.
                     if self._sort_confirmed(chosen):
                         self.logger.info(f"✅ Sort confirmed on screen: {sort_order}")
+                        # The header names the new order before the list has reloaded in it: a
+                        # read in between finds no row and took the list for ended.
+                        if not self._wait_for_list_rows():
+                            self.logger.warning(
+                                f"Sorted by {sort_order}, but no row of the list came back within "
+                                f"{self.list_load_timeout:.0f}s"
+                            )
                         return True
                     self.logger.warning(f"Sort option '{sort_order}' tapped but not confirmed on screen")
                     if self.device.xpath(selector).exists:  # the sheet did not close

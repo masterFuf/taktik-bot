@@ -92,21 +92,10 @@ class SyncFollowersMixin:
             max_scrolls = config.get('max_scrolls') or scrolls_for(expected, 100)
             scroll_failed = False
 
-            # Wait for the list items to be actually loaded
-            d = self.device.device
-            active_package = get_active_package()
-            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
-            wait_attempts = 0
-            while wait_attempts < 10:
-                if d(resourceId=username_resource_id).exists:
-                    self.logger.debug("✅ Followers list elements loaded")
-                    break
-                self.logger.debug(f"⏳ Waiting for followers list to load... ({wait_attempts + 1}/10)")
-                time.sleep(1)
-                wait_attempts += 1
-            else:
+            if not self._wait_for_list_rows():
                 self.logger.error("sync_followers_list: followers list elements never appeared")
                 return stats
+            self.logger.debug("✅ Followers list elements loaded")
 
             # Get known following usernames for mutual detection
             known_followings = InstagramFollowGraphService.get_active_following_usernames(account_id)
