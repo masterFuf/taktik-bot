@@ -2,6 +2,7 @@ import pytest
 
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowRegistry
+from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.core.agent_handler import (
     INSTAGRAM_AUTOMATION_WORKFLOW_IDS,
     InstagramStartError,
@@ -128,7 +129,8 @@ def test_the_payload_keeps_every_key_and_adds_the_terminal_aliases():
     assert payload["target"] == "feed"
     assert payload["feedStories"] == {"enabled": True}
     assert payload["language"] == "fr"
-    assert payload["packageName"] == "com.taktik.ig1"
+    # The clone's terminal name stays as typed: the launcher reads it, as every Instagram launcher.
+    assert package_name_from_payload(payload) == "com.taktik.ig1"
     assert payload["feed"] == {"captureAds": True}
     assert payload["deviceId"] == "emulator-5554"
 
