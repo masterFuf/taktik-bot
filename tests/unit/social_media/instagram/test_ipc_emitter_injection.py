@@ -1,6 +1,8 @@
 """Unit tests for injected Instagram IPC emitter adapters."""
 
-from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+import pytest
+
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter, emitter
 
 
 class RecordingAdapter:
@@ -35,8 +37,10 @@ class RecordingAdapter:
                            model, provider, cost_usd))
 
 
-def teardown_function():
-    IPCEmitter.clear_bridge_adapter()
+@pytest.fixture(autouse=True)
+def keep_the_process_adapter(monkeypatch):
+    """The adapter is process-wide: the one in place before a test comes back after it."""
+    monkeypatch.setattr(emitter, "_bridge_adapter", emitter._bridge_adapter)
 
 
 def test_ipc_emitter_is_noop_without_bridge_adapter():

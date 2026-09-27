@@ -24,7 +24,14 @@ from typing import Any, Dict, List
 
 import pytest
 
-from ig_automation_probe import bridge_file, capture_lines, line_problems, printed_lines, protect_hooks
+from ig_automation_probe import (
+    bridge_file,
+    capture_lines,
+    line_problems,
+    printed_lines,
+    protect_hooks,
+    use_the_bridge_ipc,
+)
 from taktik.core.app.contract.instagram_automation import INSTAGRAM_AUTOMATION, WORKFLOW_TYPES
 
 _BUSINESS = "taktik.core.social_media.instagram.actions.business"
@@ -254,6 +261,7 @@ def _ai_and_decision_lines(monkeypatch, tmp_path) -> List[Dict[str, Any]]:
             desktop.answer(kwargs["requestId"])
 
     monkeypatch.setattr(IPC, "send", send)
+    use_the_bridge_ipc(monkeypatch)
     protect_hooks(monkeypatch)
     answers: List[str] = []
     monkeypatch.setattr("urllib.request.urlopen", _openrouter(answers))
@@ -318,7 +326,7 @@ def _emitter_lines(monkeypatch, capsys) -> List[Dict[str, Any]]:
     from taktik.core.social_media.instagram.media.capture.media_capture import MediaCaptureService
 
     sent = capture_lines(monkeypatch)
-    assert instagram_ipc  # registers the bridge behind IPCEmitter and the step telemetry
+    use_the_bridge_ipc(monkeypatch)
     profile = {"username": "a_profile", "full_name": "A Profile", "followers_count": 120,
                "following_count": 80, "posts_count": 30, "is_private": False, "is_verified": False,
                "biography": "yoga"}
