@@ -10,14 +10,15 @@ Current implementation: Instagram feed browsing.
   4. For each stopped post: takes a screenshot → AI decides (like / skip / comment / save)
   5. If AI says visit_profile: navigate to author → screenshot → AI decides (follow / skip)
   6. Respects its session quotas and the warmup budget of the account's day, counted gesture by
-     gesture; stops when a quota or a warmup cap is reached
+     gesture (one read of the day each), with the warmup's pace floor after each gesture; stops
+     when a quota or a warmup cap is reached, and says which in its final stats
   7. Emits IPC events throughout for the Taktik Agent panel
 """
 
 import time
 import random
 import tempfile
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from loguru import logger
 
 from taktik.core.app.ai.spend import AI_SPEND_HASHTAGS
@@ -51,7 +52,8 @@ CONSECUTIVE_SKIP_THRESHOLD = 7
 # Number of hashtag posts to analyze per burst before returning to feed
 HASHTAG_POSTS_PER_BURST = 5
 
-# Delays between actions (seconds)
+# Delays between actions (seconds). After a gesture (like, comment, follow), never under the
+# warmup's pace floor (`_pause_after_gesture`).
 DELAY_AFTER_LIKE = (1.5, 3.5)
 DELAY_AFTER_COMMENT = (3.0, 6.0)
 DELAY_AFTER_FOLLOW = (2.0, 4.0)
@@ -108,7 +110,8 @@ class TaktikAgentWorkflow:
         # The warmup budget of the account's day, the automation's counter (`WarmupBudget`), handed
         # by the launcher on the caps of the file; None when constructed without one (no cap). It
         # reads the day from the ledger, where each like, comment and follow of this session is
-        # filed: asked before each of them, it counts the session gesture by gesture.
+        # filed: asked before each of them, it counts the session gesture by gesture. Its pace
+        # floor lengthens the pause after each of them.
         self._warmup = warmup
         if warmup is not None:
             warmup.count_against_account(lambda: self._account_id)
@@ -181,10 +184,10 @@ class TaktikAgentWorkflow:
             self._run_feed_loop()
 
             # Finalize. A stop on the run's lock goes in the stats (the status stays "completed":
-            # the app has no status for it yet).
+            # the app has no status for it yet). Its sentences carry no number.
             halt = run_halt.arret_demande()
             if halt:
-                self.stats["stop_reason"] = halt.get("code")
+                self._note_stop_reason(halt["code"], {})
             self._context.update_stats(self.stats)
             self._send_status("completed", "Session completed", stats=self.stats,
                               message_key="agentStatusCompleted")
@@ -790,7 +793,7 @@ class TaktikAgentWorkflow:
         if (decision["follow"] and self.stats["follows"] < self.quotas["max_follows"]
                 and self._warmup_allows("follow")):
             self._do_follow(username)
-            time.sleep(random.uniform(*DELAY_AFTER_FOLLOW))
+            self._pause_after_gesture(DELAY_AFTER_FOLLOW)
             if self._block_seen("follow"):
                 self._navigate_to_feed()
                 return
@@ -798,7 +801,8 @@ class TaktikAgentWorkflow:
         # Extra likes on the profile
         extra = min(decision.get("extra_likes", 0), 2)
         if extra > 0 and self.stats["likes"] < self.quotas["max_likes"]:
-            self._like_profile_posts(username, extra)
+            if self._like_profile_posts(username, extra):
+                self._pause_after_gesture(DELAY_AFTER_LIKE)
             # A refusal here sets the run's lock; `_should_stop` ends the loop on its next turn.
             self._block_seen("like")
 
@@ -857,26 +861,30 @@ class TaktikAgentWorkflow:
         except Exception as exc:
             logger.error(f"[TaktikAgent] Follow of @{username} not recorded: {exc}")
 
-    def _like_profile_posts(self, username: str, count: int):
+    def _like_profile_posts(self, username: str, count: int) -> int:
         """Like up to `count` posts of the profile on screen, through the production sequence
         of the target workflows (`LikeBusiness.like_profile_posts`), which files its likes in
-        one batch at the end of the profile. The autopilot called a `like_next_profile_post`
-        that never existed, from a module that does not export `LikeBusiness`: the exception
-        was swallowed and no extra like was ever given."""
+        one batch at the end of the profile. The likes given (0 on a failure, which is logged).
+
+        The autopilot called a `like_next_profile_post` that never existed, from a module that does
+        not export `LikeBusiness`: the exception was swallowed and no extra like was ever given."""
         count = min(count, self.quotas["max_likes"] - self.stats["likes"])
         # Filed in one batch at the end of the profile: cut to what the warmup leaves first.
         left = self._warmup.actions_left(self._written_actions()) if self._warmup is not None else None
         if left is not None:
             count = min(count, left)
         if count <= 0:
-            return
+            return 0
         try:
             from taktik.core.social_media.instagram.actions.business.actions.like import LikeBusiness
             like_biz = LikeBusiness(self.device_manager, automation=self._automation_identity())
             result = like_biz.like_profile_posts(username, max_likes=count, navigate_to_profile=False)
-            self.stats["likes"] += result.get("posts_liked", 0)
+            liked = int(result.get("posts_liked", 0))
+            self.stats["likes"] += liked
+            return liked
         except Exception as exc:
             logger.error(f"[TaktikAgent] _like_profile_posts({username}, {count}) error: {exc}")
+            return 0
 
     def _automation_identity(self):
         """The account the gestures are filed under. The agent has no session row, so its rows
@@ -915,7 +923,7 @@ class TaktikAgentWorkflow:
                 engaged = True
                 # After the pause that follows a like (the dialog comes from the server and can
                 # take a moment), before the comment touches the screen.
-                time.sleep(random.uniform(*DELAY_AFTER_LIKE))
+                self._pause_after_gesture(DELAY_AFTER_LIKE)
                 if self._block_seen("like"):
                     return engaged, True
 
@@ -942,7 +950,7 @@ class TaktikAgentWorkflow:
             if result.get("commented"):
                 self.stats["comments"] += 1
                 logger.info(f"[TaktikAgent] 💬 Commented on @{author}'s post")
-                time.sleep(random.uniform(*DELAY_AFTER_COMMENT))
+                self._pause_after_gesture(DELAY_AFTER_COMMENT)
                 if self.ipc:
                     self.ipc.send("comment", username=author, comment=comment_text, success=True)
         except Exception as exc:
@@ -1014,30 +1022,51 @@ class TaktikAgentWorkflow:
 
     def _warmup_spent(self) -> bool:
         """Has a warmup cap ended the session: the day's actions, the run's actions, or a day that
-        can no longer be read? The first reason is kept and goes in the final stats."""
+        can no longer be read? One read of the day; the first reason is kept for the final stats."""
         if self._warmup is None:
             return False
         if self._warmup_stop:
             return True
-        reason = self._warmup.stop_reason(self._written_actions())
-        if not reason:
-            return False
-        self._warmup_stop = reason
-        self.stats["stop_reason"] = reason.code
-        logger.info(f"[TaktikAgent] Warmup budget reached: {reason}")
-        return True
+        return self._ends_the_session(self._warmup.stop_reason(self._written_actions()))
 
     def _warmup_allows(self, intent: str) -> bool:
         """May this written gesture (`like`, `comment`, `follow`) be made under the warmup budget?
 
-        Asked just before it: a gesture that would pass a cap is not made. A spent daily quota of
-        follows or comments disables that gesture only, the session goes on (the automation's rule).
+        Asked just before it, on ONE read of the day (`WarmupBudget.check`): a gesture that would
+        pass a cap is not made. A spent daily quota of follows or comments disables that gesture
+        only, the session goes on (the automation's rule). Two reads per gesture doubled the failed
+        reads a busy base counts toward `daily_budget_unreadable`.
         """
         if self._warmup is None:
             return True
-        if self._warmup_spent():
+        if self._warmup_stop:
             return False
-        return intent not in self._warmup.exhausted_intents()
+        check = self._warmup.check(self._written_actions())
+        if self._ends_the_session(check.stop_reason):
+            return False
+        return intent not in check.exhausted_intents
+
+    def _ends_the_session(self, reason) -> bool:
+        """Keep the warmup cap that ends the session, if `reason` is one: no gesture after it."""
+        if not reason:
+            return False
+        self._warmup_stop = reason
+        self._note_stop_reason(reason.code, reason.params)
+        logger.info(f"[TaktikAgent] Warmup budget reached: {reason}")
+        return True
+
+    def _note_stop_reason(self, code: str, params: Dict[str, Any]) -> None:
+        """Why the session stopped before its own quotas, in the final stats: the code the app
+        words, and the numbers its sentence shows ("Budget du jour atteint (50/50)")."""
+        self.stats["stop_reason"] = code
+        self.stats["stop_reason_params"] = dict(params)
+
+    def _pause_after_gesture(self, bounds: Tuple[float, float]) -> None:
+        """The pause after a like, a comment or a follow: its own range, never under the warmup's
+        pace floor (`minActionGapSeconds`, up to 45 s on a cold account). The automation's rule
+        between two actions, the same draw (`WarmupBudget.action_gap`)."""
+        low, high = bounds
+        time.sleep(self._warmup.action_gap(low, high) if self._warmup is not None else random.uniform(low, high))
 
     # ------------------------------------------------------------------
     # IPC helpers

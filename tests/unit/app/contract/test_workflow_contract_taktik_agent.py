@@ -10,6 +10,7 @@ the model's HTTP transport and the clock are replaced. The lines come from the p
 from __future__ import annotations
 
 import json
+import sqlite3
 import urllib.request
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
@@ -381,6 +382,8 @@ def test_the_agent_stops_when_the_day_budget_is_spent_gesture_by_gesture(agent_b
     assert ledger.today()["total"] == WARMUP["maxActionsPerDay"]
     assert (stats["likes"], stats["comments"], stats["follows"]) == (1, 1, 0)
     assert stats["stop_reason"] == "daily_budget"
+    # The numbers of the sentence the app shows for it ("Budget du jour atteint (50/50)").
+    assert stats["stop_reason_params"] == {"count": 50, "limit": 50}
     # The session ends there: no visit of the author, no other post, no model call paid for them.
     assert stats["profile_visits"] == 0
     assert stats["posts_seen"] == 1
@@ -418,6 +421,7 @@ def test_the_agent_stops_at_the_session_cap_of_the_warmup(agent_bridge, ledger, 
     assert ledger.today()["total"] == 4
     assert (stats["likes"], stats["comments"], stats["follows"]) == (2, 1, 1)
     assert stats["stop_reason"] == "session_action_cap"
+    assert stats["stop_reason_params"] == {"count": 4, "limit": 4}
 
 
 def test_the_extra_likes_on_a_profile_stay_under_the_day_budget(agent_bridge, ledger, printed, monkeypatch):
@@ -453,6 +457,78 @@ def test_without_caps_the_agent_keeps_its_own_quotas(agent_bridge, ledger, print
     assert agent_bridge.TaktikAgentRun(data).run() == 0
 
     assert ledger.today()["total"] > WARMUP["maxActionsPerDay"]
+
+
+def test_two_gestures_are_never_closer_than_the_warmup_gap(agent_bridge, ledger, printed, monkeypatch):
+    """The automation's pace floor (`minActionGapSeconds`, 45 s on a cold account) between every two
+    gestures of the session: the like, its comment, the follow, the like on the author's profile.
+    The Agent chained them 1.5 to 6 s apart."""
+    import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
+    from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import StatsRecordingMixin
+
+    clock = SimpleNamespace(now=0.0)
+    monkeypatch.setattr(autopilot.time, "sleep", lambda seconds: setattr(clock, "now", clock.now + seconds))
+    gestures = []
+    file_gesture = StatsRecordingMixin._record_action
+
+    def filed_at(self, username, action_type, count=1, **kwargs):
+        gestures.append((clock.now, action_type))
+        return file_gesture(self, username, action_type, count, **kwargs)
+
+    monkeypatch.setattr(StatsRecordingMixin, "_record_action", filed_at)
+
+    _budget_run(agent_bridge, printed, monkeypatch, WARMUP, engaged=2, extra_likes=1)
+
+    assert [kind for _, kind in gestures] == ["LIKE", "COMMENT", "FOLLOW", "LIKE"] * 2
+    gaps = [later - earlier for (earlier, _), (later, _) in zip(gestures, gestures[1:])]
+    assert min(gaps) >= WARMUP["minActionGapSeconds"], gaps
+
+
+class _SyncHoldsTheBaseFromTheDecision(_OpenRouter):
+    """The model, while the synchronisation takes the base during the first decision."""
+
+    def __init__(self, sync):
+        super().__init__(engaged=1, extra_likes=0)
+        self._sync = sync
+
+    def __call__(self, request, timeout=None):
+        if not self._sync.taken and _FEED_POST in request.data.decode("utf-8"):
+            self._sync.taken = self._sync.holds = True
+        return super().__call__(request, timeout)
+
+
+def test_a_base_busy_through_a_like_and_its_comment_does_not_end_the_session(agent_bridge, ledger, printed,
+                                                                             monkeypatch):
+    """One read of the day per gesture. The sync holding the base while the Agent likes a post and
+    comments it costs two failed reads, under the three in a row that stop a session
+    (`daily_budget_unreadable`). Two reads per gesture ended the session at its second gesture."""
+    import taktik.core.database as database
+    import taktik.core.social_media.instagram.actions.business.workflows.feed as feed
+    import taktik.core.social_media.instagram.workflows.management.session.warmup_budget as warmup_budget
+
+    sync = SimpleNamespace(taken=False, holds=False)
+
+    class Ledger:
+        """The day's totals, which a read cannot get while the sync holds the base."""
+
+        def get_today_totals(self, account_id):
+            if sync.holds:
+                raise sqlite3.OperationalError("database is locked")
+            return database.get_db_service().get_today_totals(account_id)
+
+    class FeedTheSyncLeavesAfterTheComment(feed.FeedBusiness):
+        def _comment_feed_post(self, author, config, comment_text=None):
+            result = super()._comment_feed_post(author, config, comment_text=comment_text)
+            sync.holds = False
+            return result
+
+    monkeypatch.setattr(warmup_budget, "get_db_service", Ledger)
+    monkeypatch.setattr(feed, "FeedBusiness", FeedTheSyncLeavesAfterTheComment)
+
+    stats = _budget_run(agent_bridge, printed, monkeypatch, WARMUP, model=_SyncHoldsTheBaseFromTheDecision(sync))
+
+    assert (stats["likes"], stats["comments"], stats["follows"]) == (1, 1, 1)
+    assert "stop_reason" not in stats
 
 
 def test_every_line_helper_of_the_agent_is_declared():

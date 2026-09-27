@@ -18,7 +18,7 @@ account): those are the automation's declarations, not copies; `step_metric` is 
 from __future__ import annotations
 
 from .instagram_automation import INSTAGRAM_AUTOMATION
-from .schema import HOST, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
+from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
     AI_PROFILE_DONE_EVENT,
     AI_PROFILE_START_EVENT,
@@ -78,6 +78,8 @@ STATUS_STATS = Shape(
         Field("stop_reason", INSTAGRAM_STOP_REASON_CODE, "Why the session stopped before its own quotas, on "
               "`completed`: the stop latch (a block, a lost phone) or a warmup cap (`daily_budget`, "
               "`session_action_cap`, `daily_budget_unreadable`).", optional=True),
+        Field("stop_reason_params", MapOf("json"), "The numbers of its sentence, with `stop_reason` (`count`, "
+              "`limit` of a cap); empty for the stop latch.", optional=True),
         Field("username", "string", "The acting account (`account_detected`).", optional=True),
         Field("niche", "string", "Its niche, as on record (`account_detected`).", optional=True),
         Field("tool", "string", "The step announced (`planning`).", optional=True),
