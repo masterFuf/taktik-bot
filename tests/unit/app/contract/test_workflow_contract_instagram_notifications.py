@@ -207,7 +207,6 @@ def _script_the_profile_screen(monkeypatch) -> None:
 
     screen = {
         (ScreenDetectionMixin, "wait_for_profile_screen"): lambda self, timeout=8.0, interval=0.4: True,
-        (ScreenDetectionMixin, "count_visible_posts"): lambda self: 9,
         (ScreenDetectionMixin, "is_on_profile_screen"): lambda self, *args, **kwargs: True,
         (NavigationActions, "navigate_to_profile_tab"): own_profile,
         (ProfileExtractionMixin, "extract_own_avatar_from_tab"): lambda self, xml_content=None: None,

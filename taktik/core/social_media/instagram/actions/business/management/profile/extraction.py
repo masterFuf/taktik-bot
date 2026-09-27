@@ -93,11 +93,13 @@ class ProfileExtraction(BaseBusinessAction):
             # Get counts (these are fast, ~300ms each)
             followers_count = self._get_followers_count_robust()
             following_count = self._get_following_count_robust()
+            # The header's posts count is also the profile's visible posts: a public profile shows
+            # every post it counts. The visit used to count the thumbnails on screen instead, which
+            # counted the avatar and the header's other images too (never 0: the filters' "No
+            # visible posts" never applied), and showed the grid first, a tap on a profile left on
+            # another sub-tab. None when the header cannot be read: unknown, not "no posts".
             posts_count = self._get_posts_count_robust()
-            
-            # Get visible posts count (skip is_post_grid_visible - redundant)
-            visible_posts = self.detection_actions.count_visible_posts()
-            
+
             # Without the action bar, the handle the caller stands on beats the broad on-screen
             # fallback, which can land on a handle mentioned in the bio.
             extracted_username = profile_text.get('username')
@@ -110,13 +112,15 @@ class ProfileExtraction(BaseBusinessAction):
                 'biography': profile_text.get('biography'),
                 'followers_count': followers_count,
                 'following_count': following_count,
-                'posts_count': posts_count,
+                # 0 for a header that could not be read, as always (its readers count on a
+                # number); the reader said so in the log. The visible posts below keep the doubt.
+                'posts_count': posts_count if posts_count is not None else 0,
                 'is_private': profile_flags.get('is_private', False),
                 'is_verified': profile_flags.get('is_verified', False),
                 'is_business': profile_flags.get('is_business', False),
                 'follow_button_state': self.click_actions.get_follow_button_state(),
-                'has_posts': visible_posts > 0,
-                'visible_posts_count': visible_posts,
+                'has_posts': None if posts_count is None else posts_count > 0,
+                'visible_posts_count': posts_count,
                 'visible_stories_count': 0  # Skipped — costs 13-20s per profile. Story viewing checks this separately.
             }
             
@@ -446,7 +450,9 @@ class ProfileExtraction(BaseBusinessAction):
             self.logger.error(f"Error retrieving following count: {e}")
             return 0
     
-    def _get_posts_count_robust(self, swipe_up_if_needed: bool = False) -> int:
+    def _get_posts_count_robust(self, swipe_up_if_needed: bool = False) -> Optional[int]:
+        """The posts count of the profile's header; None when the header cannot be read (never a
+        0 that would say the profile has no posts)."""
         self.logger.debug("Attempting to get posts count (robust method)...")
         
         try:
@@ -489,12 +495,12 @@ class ProfileExtraction(BaseBusinessAction):
                 self.logger.debug(f"Posts count found via text: {posts}")
                 return posts
             
-            self.logger.warning("Unable to find posts count")
-            return 0
-            
+            self.logger.warning("Unable to find posts count: unknown")
+            return None
+
         except Exception as e:
-            self.logger.error(f"Error retrieving posts count: {e}")
-            return 0
+            self.logger.error(f"Error retrieving posts count, unknown: {e}")
+            return None
     
     def _get_count_from_element_robust(self, element_type: str, resource_id: str = None, text: str = None, description: str = None) -> Optional[int]:
         try:
