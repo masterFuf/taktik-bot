@@ -24,7 +24,7 @@ from typing import List, Optional, Sequence, Tuple
 
 from loguru import logger as _gesture_logger
 
-from .gesture import sample_swipe
+from .gesture import FULL_REACH_H, sample_swipe
 from .sampling import sample_within
 from taktik.core.shared.telemetry import emit_step
 
@@ -349,6 +349,11 @@ def _resample_by_time(
     return out
 
 
+def _requested(distance_px: Optional[float]) -> Optional[int]:
+    """The travel a gesture was asked for, next to the one it covered (`distance_px`)."""
+    return None if distance_px is None else int(round(abs(distance_px)))
+
+
 class GestureMixin:
     """Mixin of humanized scroll/drag/flick primitives. Host must expose `self.device`,
     `self.screen_width`, `self.screen_height`, `self.logger`."""
@@ -379,7 +384,7 @@ class GestureMixin:
                     # Controlled 1:1 gestures often need half to two-thirds of a screen. The
                     # historical 0.34h cap was tuned for the coasting curve and silently shortened
                     # grid/retry drags.
-                    dist_cap_h=0.95 if controlled else 0.34,
+                    dist_cap_h=FULL_REACH_H if controlled else 0.34,
                 )
 
             path, duration = sample()
@@ -416,6 +421,7 @@ class GestureMixin:
                                                   duration if controlled else self._fling_total(path))
             emit_step(
                 "scroll", action="curve", target=direction,
+                requested_px=_requested(distance_px),
                 distance_px=int(abs(path[-1][1] - path[0][1])), points=len(path),
                 controlled=controlled, velocity_scale=round(speed, 3),
                 paced=(getattr(self, "_last_gesture_injection", None) or {}).get("mode"),
@@ -459,7 +465,7 @@ class GestureMixin:
                 self.device.swipe_coordinates(sx, sy, ex, ey, duration)
             emit_step(
                 "scroll", action="flick", target=direction,
-                distance_px=int(dy), duration_ms=round(duration * 1000),
+                requested_px=_requested(distance_px), distance_px=int(dy), duration_ms=round(duration * 1000),
                 velocity_scale=round(speed, 3),
             )
             time.sleep(0.05)
@@ -485,7 +491,7 @@ class GestureMixin:
             # instead of scrolling. The band still leaves the drag room to travel upward.
             path, _ = sample_swipe(int(self.screen_width), h, direction=direction,
                                    distance_px=target, start_band=(0.78 * h, 0.85 * h),
-                                   dist_cap_h=0.95)
+                                   dist_cap_h=FULL_REACH_H)
             path = self._prepare_gesture_path(
                 path, start_point=start_point, guard_start=guard_start
             )
@@ -505,7 +511,7 @@ class GestureMixin:
                     self.device.swipe_coordinates(sx, sy, ex, ey, duration)
             emit_step(
                 "scroll", action="drag", target=direction,
-                distance_px=int(dy), duration_ms=round(duration * 1000),
+                requested_px=_requested(target), distance_px=int(dy), duration_ms=round(duration * 1000),
                 velocity_scale=round(speed, 3),
                 paced=(getattr(self, "_last_gesture_injection", None) or {}).get("mode"),
             )
