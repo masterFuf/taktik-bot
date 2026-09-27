@@ -280,3 +280,33 @@ def test_the_batch_leaves_out_who_wrote_to_us_and_says_why(harness, monkeypatch,
     assert result["results"][0]["reason"] == "wrote_to_us"
     assert result["results"][0]["message"] == "wrote to us first: no welcome message"
     assert steps[-1]["message"].endswith("wrote to us first: no welcome message")
+
+
+def test_a_welcome_dm_walks_to_the_recipient_profile_then_writes(monkeypatch):
+    """The send itself, down the production road: `send_welcome_dm` -> `send_dm(navigate_to_profile=True)`
+    -> the navigation's walk to the profile -> the message -> the look for a block -> home.
+
+    The walk's lazy import aimed at `business/atomic/navigation`, a module that never existed there:
+    `send_dm` caught the ImportError and returned False before any gesture, so no welcome DM ever
+    left. The phone's steps are recorded at the production classes (only the screens are not read).
+    """
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+    from taktik.core.social_media.instagram.actions.business.workflows.messaging.workflow import (
+        MessagingBusiness,
+    )
+    from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
+
+    steps = []
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    monkeypatch.setattr(NavigationActions, "navigate_to_profile",
+                        lambda self, username, **_: steps.append(("profile", username)) or True)
+    monkeypatch.setattr(NavigationActions, "navigate_to_home", lambda self: steps.append(("home",)) or True)
+    monkeypatch.setattr(MessagingBusiness, "send_dm_from_profile",
+                        lambda self, message: steps.append(("write", message)) or True)
+    monkeypatch.setattr(ProblematicPageDetector, "is_action_blocked",
+                        lambda self: steps.append(("block?",)) or False)
+
+    result = welcome_dm.send_welcome_dm(object(), "newbie", "Bienvenue !")
+
+    assert result == {"success": True, "message": "welcome DM sent to @newbie"}
+    assert steps == [("profile", "newbie"), ("write", "Bienvenue !"), ("block?",), ("home",)]

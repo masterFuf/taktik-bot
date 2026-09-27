@@ -127,7 +127,7 @@
   "taktik/core/social_media/tiktok/actions/atomic/messaging/dm_actions.py": 8,
   "taktik/core/social_media/tiktok/actions/business/workflows/_internal/base_workflow.py": 2,
   "taktik/core/social_media/tiktok/actions/business/workflows/_internal/popup_handler.py": 2,
-  "taktik/core/social_media/tiktok/actions/business/workflows/_internal/profile_extractor.py": 4,
+  "taktik/core/social_media/tiktok/actions/business/workflows/_internal/profile_extractor.py": 3,
   "taktik/core/social_media/tiktok/actions/business/workflows/_internal/video_comment.py": 1,
   "taktik/core/social_media/tiktok/actions/business/workflows/dm/workflow.py": 2,
   "taktik/core/social_media/tiktok/actions/business/workflows/followers/interaction.py": 1,

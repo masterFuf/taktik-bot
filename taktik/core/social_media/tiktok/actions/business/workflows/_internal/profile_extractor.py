@@ -8,11 +8,38 @@ Used by both ScrapingWorkflow (enrichment) and ProfileDataMixin (followers).
 
 from typing import Dict, Any, Optional
 
+from loguru import logger
+
 from taktik.core.shared.text import handle_from_screen_text
 
 from ....core.utils import parse_count, first_matching, first_text
 from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from .....ui.labels import classify_profile_stat_label
+
+
+def read_profile_stats(raw_device) -> Dict[str, int]:
+    """The three counts of the open profile, as `followers_count` / `following_count` / `likes_count`.
+
+    Each value (`qfw`) is paired with the label under it (`qfv`) by position, and the label says
+    which count it is (`classify_profile_stat_label`, localized: a French screen writes "Suivis"
+    and "Followers"). A count the screen does not show is absent from the result, never 0.
+    """
+    stats: Dict[str, int] = {}
+    stat_counts = first_matching(raw_device, PROFILE_SELECTORS.stat_value)
+    stat_labels = first_matching(raw_device, PROFILE_SELECTORS.stat_label)
+    for value, label in zip(stat_counts, stat_labels):
+        try:
+            count_text = value.text or '0'
+            label_text = label.text or ''
+        except Exception as exc:
+            logger.warning(f"A profile stat could not be read: {exc}")
+            continue
+        # Same classification as `profile_actions` — shared, and localized: comparing against
+        # English words made every count zero on a French phone, with no error to show for it.
+        stat = classify_profile_stat_label(label_text)
+        if stat in ('following', 'followers', 'likes'):
+            stats[f'{stat}_count'] = parse_count(count_text)
+    return stats
 
 
 def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict[str, Any]]:
@@ -54,25 +81,7 @@ def extract_profile_from_screen(raw_device, username: str = '') -> Optional[Dict
         data['display_name'] = first_text(raw_device, PROFILE_SELECTORS.display_name)
 
         # --- Stats (followers / following / likes) ---
-        stat_counts = first_matching(raw_device, PROFILE_SELECTORS.stat_value)
-        stat_labels = first_matching(raw_device, PROFILE_SELECTORS.stat_label)
-        for i in range(min(len(stat_counts), len(stat_labels))):
-            try:
-                count_text = stat_counts[i].text or '0'
-                label_text = stat_labels[i].text or ''
-                count = parse_count(count_text)
-                # Same classification as `profile_actions` — shared, and localized:
-                # comparing against English words made every count zero on a
-                # French phone, with no error to show for it.
-                stat = classify_profile_stat_label(label_text)
-                if stat == 'following':
-                    data['following_count'] = count
-                elif stat == 'followers':
-                    data['followers_count'] = count
-                elif stat == 'likes':
-                    data['likes_count'] = count
-            except Exception:
-                pass
+        data.update(read_profile_stats(raw_device))
 
         # --- Bio (catalogue selector, or fallback: long button text) ---
         bio_text = first_text(raw_device, PROFILE_SELECTORS.bio_text)

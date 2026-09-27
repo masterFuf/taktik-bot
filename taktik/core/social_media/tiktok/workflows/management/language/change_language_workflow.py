@@ -25,6 +25,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.device.wait import find_element
+from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions import PopupActions
 
 from ....services.navigation.reset import return_to_tiktok_shell
 
@@ -152,14 +153,12 @@ class TikTokChangeLanguageWorkflow:
         this app uses, and a second answer here would miss the next one it learns.
         """
         try:
-            from ....actions.atomic.popup_actions import PopupActions
-
             if PopupActions(self.device).close_popup():
                 self.logger.info("↻ Popup écartée avant de continuer")
                 time.sleep(1.0)
                 return True
         except Exception as exc:
-            self.logger.debug(f"popup check failed: {exc}")
+            self.logger.warning(f"popup check failed: {exc}")
         return False
 
     # ------------------------------------------------------------------
