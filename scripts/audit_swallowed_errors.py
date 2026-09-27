@@ -26,9 +26,10 @@ The rule (read on the ``ast``, never on the text):
   ``continue``, ``break``, ``return``, ``return None``, ``...``) and the default value dressed as a
   measure (``return 0``, ``return []``, ``x = False``) that says nothing.
 
-Ratchet: ``scripts/audit_swallowed_errors_baseline.json`` maps each file to its count. The gate is
-red when a file exceeds its count, when a file absent from the baseline swallows, and when a count
-in the baseline is higher than reality (lower the baseline: the ratchet never goes back up).
+Ratchet (``scripts/ratchet.py``, shared by the counting gates):
+``scripts/audit_swallowed_errors_baseline.json`` maps each file to its count. The gate is red when
+a file exceeds its count, when a file absent from the baseline swallows, and when a count in the
+baseline is higher than reality (lower the baseline: the ratchet never goes back up).
 ``--update-baseline`` rewrites the baseline only when every count goes down or stays (it creates
 the file, freezing the current state, only when the file does not exist).
 
@@ -41,11 +42,12 @@ Usage:
 from __future__ import annotations
 
 import ast
-import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Dict, Iterable, Iterator, List, Optional
+
+from ratchet import Ratchet, enforce, print_listing, read_source, relative, source_files
 
 ROOT = Path(__file__).resolve().parents[1]
 SCAN_ROOTS = ("taktik", "bridges")
@@ -144,106 +146,27 @@ def scan_source(source: str, path: str = "<string>") -> List[Finding]:
 
 def scan_repository(root: Path = ROOT) -> Dict[str, int]:
     counts: Dict[str, int] = {}
-    for scan_root in SCAN_ROOTS:
-        for file in sorted((root / scan_root).rglob("*.py")):
-            if "__pycache__" in file.parts:
-                continue
-            relative = file.relative_to(root).as_posix()
-            findings = scan_source(file.read_text(encoding="utf-8-sig"), relative)
-            if findings:
-                counts[relative] = len(findings)
+    for file in source_files(root, SCAN_ROOTS, (".py",)):
+        path = relative(file, root)
+        findings = scan_source(read_source(file, root), path)
+        if findings:
+            counts[path] = len(findings)
     return counts
-
-
-def compare(actual: Dict[str, int], baseline: Dict[str, int]) -> Tuple[List[str], List[str]]:
-    """Return (failures, stale): stale lines are counts the baseline must lower."""
-    failures: List[str] = []
-    stale: List[str] = []
-    for path, count in sorted(actual.items()):
-        allowed = baseline.get(path)
-        if allowed is None:
-            failures.append(f"{path}: {count} swallowed error(s), file absent from the baseline")
-        elif count > allowed:
-            failures.append(f"{path}: {count} swallowed error(s), baseline {allowed}")
-    for path, allowed in sorted(baseline.items()):
-        count = actual.get(path, 0)
-        if count < allowed:
-            stale.append(f"{path}: baseline {allowed}, actual {count}")
-    return failures, stale
-
-
-def load_baseline(path: Optional[Path] = None) -> Dict[str, int]:
-    path = path or BASELINE
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def write_baseline(counts: Dict[str, int], path: Optional[Path] = None) -> None:
-    (path or BASELINE).write_text(json.dumps(dict(sorted(counts.items())), indent=2) + "\n",
-                    encoding="utf-8", newline="\n")
-
-
-def _zone(path: str) -> str:
-    parts = path.split("/")
-    if parts[0] == "bridges":
-        return "bridges"
-    if parts[:3] == ["taktik", "core", "social_media"] and len(parts) > 4:
-        return f"social_media/{parts[3]}"
-    if parts[:2] == ["taktik", "core"] and len(parts) > 3:
-        return f"core/{parts[2]}"
-    return parts[1] if len(parts) > 2 else parts[0]
-
-
-def print_listing(actual: Dict[str, int]) -> None:
-    zones: Dict[str, int] = {}
-    for path, count in actual.items():
-        zones[_zone(path)] = zones.get(_zone(path), 0) + count
-    print(f"{sum(actual.values())} swallowed error(s) in {len(actual)} file(s).\n")
-    print("By zone:")
-    for zone, count in sorted(zones.items(), key=lambda kv: (-kv[1], kv[0])):
-        print(f"  {count:5d}  {zone}")
-    print("\nHeaviest files:")
-    for path, count in sorted(actual.items(), key=lambda kv: (-kv[1], kv[0]))[:10]:
-        print(f"  {count:5d}  {path}")
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     actual = scan_repository()
     if "--list" in argv:
-        print_listing(actual)
+        print_listing(actual, "swallowed error(s)")
         return 0
-
-    baseline = load_baseline()
-    failures, stale = compare(actual, baseline)
-
-    if "--update-baseline" in argv:
-        if not BASELINE.exists():
-            write_baseline(actual)
-            print(f"Baseline created: {sum(actual.values())} swallowed error(s) in "
-                  f"{len(actual)} file(s).")
-            return 0
-        if failures:
-            for line in failures:
-                print(f"REFUSED: {line}")
-            print("The baseline only goes down: fix the new swallowed errors instead.")
-            return 1
-        write_baseline(actual)
-        print(f"Baseline lowered: {len(stale)} file(s) updated, "
-              f"{sum(actual.values())} swallowed error(s) left.")
-        return 0
-
-    if not failures and not stale:
-        print(f"Swallowed errors OK ({sum(actual.values())} in {len(actual)} file(s), "
-              f"none above the baseline)")
-        return 0
-    for line in failures:
-        print(f"FAIL: {line}. Log it, re-raise it, or catch the precise exception.")
-    for line in stale:
-        print(f"FAIL: {line}. Lower the baseline: python scripts/audit_swallowed_errors.py "
-              f"--update-baseline")
-    return 1
+    return enforce(actual, Ratchet(
+        label="Swallowed errors",
+        noun="swallowed error(s)",
+        remedy="Log it, re-raise it, or catch the precise exception.",
+        command="python scripts/audit_swallowed_errors.py",
+        baseline=BASELINE,
+    ), update="--update-baseline" in argv)
 
 
 if __name__ == "__main__":
