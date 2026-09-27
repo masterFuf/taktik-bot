@@ -272,3 +272,16 @@ def test_an_action_emits_the_gestures_it_made(steps):
 
     detail = steps[0].detail
     assert (detail["taps"], detail["long_presses"], detail["swipes"], detail["keys"], detail["texts"]) == (1, 0, 0, 0, 0)
+
+
+def test_the_bot_s_adb_process_calls_are_counted_with_their_gestures(monkeypatch):
+    from taktik.core.shared.device import adb as adb_module
+    from taktik.core.shared.telemetry import device_io
+
+    meter = DeviceIoMeter()
+    monkeypatch.setattr(device_io, "METER", meter)
+    monkeypatch.setattr(adb_module.subprocess, "run", lambda *_a, **_k: "completed")
+
+    assert adb_module.run_adb_shell_process("phone", ["am", "force-stop", "com.instagram.android"]) == "completed"
+    assert adb_module.run_adb_shell_process("phone", ["pm", "list", "packages"]) == "completed"
+    assert (meter.snapshot()["shells"], meter.snapshot()["stops"]) == (2, 1)
