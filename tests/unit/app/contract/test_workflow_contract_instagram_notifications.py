@@ -417,10 +417,6 @@ def test_the_visit_opens_no_more_profiles_than_followsuggestions(notifications_b
     assert lines[-1]["suggestions"]["visited"] == 2
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "`resolve_against_availability` (shared/behavior/interaction_plan.py, rule 2, 2026-09-05) drops a "
-    "follow that would be the only gesture; the visit's interaction config (profile_pipeline.py, "
-    "follow 100 %, nothing else) is exactly that, so the visit never follows. Decision pending."))
 def test_a_suggestion_visit_follows_the_account_it_qualified(notifications_bridge, printed):
     _run(notifications_bridge, app_file(INSTAGRAM_NOTIFICATIONS, command="scan", **_RUNS["scan"]), set())
 
