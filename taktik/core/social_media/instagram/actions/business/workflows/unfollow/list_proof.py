@@ -14,6 +14,11 @@ the read proves nothing. Pure functions: the screen is read by the mixins.
 A second rule proves a read that falls short of the count because Instagram counts accounts it
 never lists: nothing seen was left out AND the suggestions header ended the list, with a gap to
 the tab's count of 5 % at most. The rule that proved a read is named in the log.
+
+A third one proves less: a read of the following list sorted by latest follow that stopped at the
+first account the base already knows. It proves the base holds every newer follow, not that the
+whole list was seen (no departure can be deduced from it). A read that no rule proves (no row
+read, a read cut short) proves nothing: the unfollow decides nothing on it.
 """
 
 from typing import Iterable, Mapping, Optional
@@ -56,6 +61,8 @@ def count_tolerance(expected: int) -> int:
 # The rules that prove a read complete, as the log and the stats name them.
 PROOF_BY_COUNT = "count"
 PROOF_BY_SUGGESTIONS_END = "suggestions_end"
+# The rule that proves a sorted following read up to date without proving it complete.
+PROOF_BY_KNOWN_ACCOUNT = "known_account"
 
 # The largest gap to the tab's count a read ended by the suggestions header may leave, in percent.
 SUGGESTIONS_END_MAX_GAP_PERCENT = 5
@@ -97,6 +104,8 @@ def describe_proof(rule: Optional[str], seen: int, expected: Optional[int]) -> s
     if rule == PROOF_BY_SUGGESTIONS_END:
         return (f"{seen} read of {total}: complete (suggestions header reached, nothing left out, "
                 f"gap {(expected or 0) - seen} within {SUGGESTIONS_END_MAX_GAP_PERCENT} %)")
+    if rule == PROOF_BY_KNOWN_ACCOUNT:
+        return f"{seen} read of {total}: up to date (stopped at the first account the base knows)"
     return f"{seen} read of {total}: NOT proven complete"
 
 
@@ -127,7 +136,7 @@ def scrolls_for(expected: Optional[int], floor: int, ceiling: int = 3000) -> int
 
 
 __all__ = [
-    "PROOF_BY_COUNT", "PROOF_BY_SUGGESTIONS_END", "SUGGESTIONS_END_MAX_GAP_PERCENT",
+    "PROOF_BY_COUNT", "PROOF_BY_SUGGESTIONS_END", "PROOF_BY_KNOWN_ACCOUNT", "SUGGESTIONS_END_MAX_GAP_PERCENT",
     "INCREMENTAL_STOP_MIN_KNOWN_PERCENT", "incremental_stop_allowed",
     "parse_tab_count", "count_tolerance", "proof_of_read", "read_is_complete", "describe_proof",
     "scrolls_for",

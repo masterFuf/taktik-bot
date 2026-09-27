@@ -369,6 +369,17 @@ def unfollow_unconfirmed(count: Any) -> StopReason:
     )
 
 
+def following_list_unproven(seen: Any, expected: Any) -> StopReason:
+    """The read of our following list proved nothing (no row read, a read cut short): the base
+    it would decide on is unchecked, so no unfollow is decided on it (`unfollow/list_proof.py`)."""
+    total = "?" if expected is None else expected
+    return _reason(
+        "following_list_unproven", FAMILY_FAILED,
+        f"Following list not proven read ({seen} of {total}): no unfollow on an unchecked base",
+        seen=seen, expected=total,
+    )
+
+
 def no_unfollow_candidates(unfollowed: Any, kept: Any) -> StopReason:
     """The unfollow has nobody (left) to unfollow: every account it follows is kept by a rule
     (whitelist, bot follows only, delay, mode) or was handled already. An expected end: a run

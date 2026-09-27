@@ -14,7 +14,7 @@ from taktik.core.social_media.instagram.actions.atomic.interaction.profile_inter
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ..list_proof import parse_tab_count
+from ..list_proof import describe_proof, parse_tab_count
 
 
 # A row button that CONTRADICTS the tab it is read on: its row is not part of that list. A blank
@@ -196,6 +196,18 @@ class UnfollowActionsMixin:
             except Exception:
                 continue
         return min(tops) if tops else None
+
+    def _close_list_read(self, kind: str, stats: Dict[str, Any], seen: int) -> None:
+        """The last word of a list read: `success` only when a rule of `list_proof` proved it, and
+        a log that never calls "complete" a read that proved nothing (no row read, a read cut
+        short by the session)."""
+        stats['success'] = stats['proof'] is not None
+        verdict = describe_proof(stats['proof'], seen, stats['expected'])
+        counts = f"{stats['new_count']} new, {stats['updated_count']} updated"
+        if stats['success']:
+            self.logger.info(f"✅ {kind.capitalize()} sync: {verdict}; {counts}")
+        else:
+            self.logger.warning(f"⚠️ {kind.capitalize()} sync proved nothing: {verdict}; {counts}")
 
     def _session_stop_reason(self):
         """The session's stop reason when one of its limits is reached (its duration, the run's

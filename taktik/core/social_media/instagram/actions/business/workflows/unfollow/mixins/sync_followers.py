@@ -271,11 +271,7 @@ class SyncFollowersMixin:
             stats['left_out'] = left_out.summary(seen_on_screen)
             if stats['left_out']:
                 self.logger.info(f"Followers names seen but not read: {stats['left_out']}")
-            stats['success'] = True
-            self.logger.info(
-                f"✅ Followers sync complete: {stats['new_count']} new, "
-                f"{stats['updated_count']} updated, {stats['total_seen']} seen"
-            )
+            self._close_list_read('followers', stats, len(seen_on_screen))
 
         except Exception as e:
             self.logger.error(f"Error in sync_followers_list: {e}")
