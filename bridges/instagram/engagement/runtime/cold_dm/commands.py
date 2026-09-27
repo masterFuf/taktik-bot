@@ -19,12 +19,17 @@ from bridges.instagram.runtime.bridge import InstagramBridgeBase
 from bridges.instagram.runtime.ipc import _ipc, logger
 
 
+def print_cold_dm_result(success: bool, **fields) -> None:
+    """The bridge's last line: the run's verdict, and its counters when it ran."""
+    print(json.dumps({"type": "cold_dm_result", "success": success, **fields}))
+
+
 def report_cold_dm_entry_error(message: str, reason: str) -> None:
     """An entry failure: a missing file is logged, an unreadable one ends in the final JSON."""
     if reason == MISSING_CONFIG:
         logger.error(message)
         return
-    print(json.dumps({"success": False, "error": message}))
+    print_cold_dm_result(False, error=message)
 
 
 class ColdDmRun:
@@ -51,7 +56,7 @@ def run_cold_dm(config: dict) -> None:
         # The page offers "reset IP before the run"; until now nothing here read it. Done before
         # connecting, so the app is never opened on the IP the previous account just used.
         if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Cold DM"):
-            print(json.dumps({"success": False, "error": "IP rotation failed"}))
+            print_cold_dm_result(False, error="IP rotation failed")
             sys.exit(1)
 
         keyboard = KeyboardService(device_id)
@@ -59,7 +64,7 @@ def run_cold_dm(config: dict) -> None:
 
         if not connection.connect():
             logger.error(f"Failed to connect to device {device_id}")
-            print(json.dumps({"success": False, "error": "Failed to connect to device"}))
+            print_cold_dm_result(False, error="Failed to connect to device")
             sys.exit(1)
 
         from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import (
@@ -80,16 +85,16 @@ def run_cold_dm(config: dict) -> None:
             on_session_start=_ipc.session_start,
         )
 
-        print(json.dumps({
-            "success": result.get("success", False),
-            "dmsSent": result.get("dms_sent", 0),
-            "dmsSuccess": result.get("dms_success", 0),
-            "dmsFailed": result.get("dms_failed", 0),
-            "error": result.get("error"),
+        print_cold_dm_result(
+            result.get("success", False),
+            dmsSent=result.get("dms_sent", 0),
+            dmsSuccess=result.get("dms_success", 0),
+            dmsFailed=result.get("dms_failed", 0),
+            error=result.get("error"),
             **({"stopReason": result["stop_reason"]} if result.get("stop_reason") else {}),
-        }))
+        )
 
     except Exception as e:
         logger.error(f"Cold DM workflow error: {e}", exc_info=True)
-        print(json.dumps({"success": False, "error": str(e)}))
+        print_cold_dm_result(False, error=str(e))
         sys.exit(1)

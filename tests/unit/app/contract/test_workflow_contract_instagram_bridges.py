@@ -15,9 +15,10 @@ from typing import Any, Dict, List
 import pytest
 
 from contract_probe import DEVICE, Recording, leaves, merge, probe, satisfied
+from taktik.core.app.contract.instagram_engagement import INSTAGRAM_COLD_DM, INSTAGRAM_DM_READ, INSTAGRAM_DM_SEND
 from taktik.core.app.contract.instagram_scraping import INSTAGRAM_SCRAPING, SCRAPING_TYPES
-from taktik.core.app.contract.schema import HOST, WorkflowContract, has_default
-from test_workflow_contract_bridges import check_lines, declared_paths, file_paths
+from taktik.core.app.contract.schema import WorkflowContract, has_default
+from test_workflow_contract_bridges import check_lines, declared_paths, file_paths, no_ip_rotation  # noqa: F401
 
 
 def _value(item) -> Any:
@@ -28,22 +29,30 @@ def app_file(contract: WorkflowContract, **chosen: Any) -> Dict[str, Any]:
     """The file the app writes for these choices: every setting read under them, at its wire key.
 
     `chosen` fixes the settings the others depend on (`type`, `deepQualify`, `ai.enabled`); a host
-    field of a nested setting (the AI key) is in the file, the main process fills it."""
+    field (the AI key, the session's account) is in the file: the main process fills it."""
     data: Dict[str, Any] = {}
     for key, value in chosen.items():
         data = merge(data, {key: value})
     for prefix, item in leaves(contract):
         if prefix and prefix[0] not in data:
             continue
-        if (item.by == HOST and not prefix) or not item.app or not satisfied(item, data):
+        if not item.app or not satisfied(item, data):
             continue
         holder = data
         for key in prefix:
             holder = holder[key]
         holder.setdefault(item.key, _value(item))
     for item in contract.bridge_fields:
-        data[item.key] = DEVICE if item.key == "deviceId" else "com.instagram.android"
+        data[item.key] = BRIDGE_VALUES[item.key]
     return data
+
+
+#: What the main process writes for the bridge's own fields.
+BRIDGE_VALUES = {
+    "deviceId": DEVICE,
+    "packageName": "com.instagram.android",
+    "networkReset": {"enabled": True, "method": "data"},
+}
 
 
 def assert_reads(contract: WorkflowContract, data: Dict[str, Any], log: set) -> None:
@@ -190,3 +199,201 @@ def test_a_scraping_run_with_nothing_to_scrape_is_refused_in_its_last_line(scrap
     check_lines(INSTAGRAM_SCRAPING, lines)
     assert [line["type"] for line in lines] == ["scraping_result"]
     assert lines[0]["success"] is False and "hashtags" in lines[0]["error"]
+
+
+# ------------------------------------------------------------------------------------- cold DM
+
+
+class _Response:
+    """What OpenRouter answers a generation: the text and its cost."""
+
+    def __init__(self, *args, **kwargs):
+        self.body = json.dumps({
+            "model": "qwen", "choices": [{"message": {"content": "Hello there"}, "finish_reason": "stop"}],
+            "usage": {"cost": 0.0003, "prompt_tokens": 40, "completion_tokens": 6},
+        }).encode("utf-8")
+
+    def read(self):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _cold_dm_class():
+    from taktik.core.social_media.instagram.workflows.cold_dm import workflow
+
+    class ColdDm(workflow.ColdDMWorkflow):
+        """The production workflow; only what it asks of the phone and of the base answers here."""
+
+        def filter_pending_recipients(self, recipients, account_id):
+            return list(recipients)
+
+        def _detect_app_language(self):
+            return None
+
+        def go_home(self):
+            return None
+
+        def reach_and_send(self, recipient, compose, policy=None):
+            return {"outcome": workflow.SENT, "message": compose(), "send_result": True}
+
+    return ColdDm
+
+
+@pytest.fixture
+def cold_dm_bridge(monkeypatch, no_ip_rotation):
+    import urllib.request
+
+    import bridges.instagram.engagement.runtime.cold_dm.commands as bridge
+    import taktik.core.database.local.service as local
+    from taktik.core.social_media.instagram.workflows.cold_dm import agent_handler, workflow
+
+    connection = SimpleNamespace(connect=lambda: True, device=object(), device_manager=object(), restart=lambda: None)
+    monkeypatch.setattr(bridge, "KeyboardService", lambda device_id: object())
+    monkeypatch.setattr(bridge, "InstagramBridgeBase", lambda device_id, package_name=None: connection)
+    monkeypatch.setattr(agent_handler, "_default_workflow_factory", _cold_dm_class)
+    monkeypatch.setattr(workflow, "apply_cold_dm_send_result",
+                        lambda *, workflow, **kwargs: setattr(workflow, "dms_sent", workflow.dms_sent + 1))
+    monkeypatch.setattr(workflow, "wait_before_next_cold_dm", lambda **kwargs: None)
+    monkeypatch.setattr(local, "get_local_database", lambda: SimpleNamespace(
+        create_session=lambda **kwargs: 11, finalize_session=lambda *args, **kwargs: None))
+    monkeypatch.setattr(urllib.request, "urlopen", _Response)
+    return bridge
+
+
+def test_the_cold_dm_bridge_follows_its_contract(cold_dm_bridge, printed):
+    data = app_file(INSTAGRAM_COLD_DM, messageMode="ai", aiPrompt="Say hello", openrouterApiKey="sk-test",
+                    sessionAccountId=3)
+    log: set = set()
+
+    assert cold_dm_bridge.ColdDmRun(Recording(data, log)).run() == 0
+
+    assert_reads(INSTAGRAM_COLD_DM, data, log)
+    lines = printed()
+    check_lines(INSTAGRAM_COLD_DM, lines)
+    assert {line["type"] for line in lines} == {event.type for event in INSTAGRAM_COLD_DM.events}
+    assert lines[-1]["type"] == "cold_dm_result" and lines[-1]["success"] is True
+
+
+def test_a_cold_dm_without_a_message_is_refused_in_its_last_line(cold_dm_bridge, printed):
+    data = app_file(INSTAGRAM_COLD_DM, messageMode="manual", messages=[])
+
+    with pytest.raises(SystemExit):
+        cold_dm_bridge.ColdDmRun(data).run()
+
+    lines = printed()
+    check_lines(INSTAGRAM_COLD_DM, lines)
+    assert [line["type"] for line in lines] == ["cold_dm_result"]
+    assert lines[0]["success"] is False
+
+
+# ------------------------------------------------------------------------------------ DM inbox
+
+
+def _dm_class():
+    import bridges.instagram.engagement.runtime.dm.bridge as dm_bridge
+    from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_payload import (
+        build_answered_conversation,
+        build_conversation_payload,
+        build_up_to_date_conversation,
+    )
+
+    class Dm(dm_bridge.DMBridge):
+        """The bridge's runtime and its announcements; only the walk of the inbox answers here."""
+
+        device = None
+        _dm_account_username = "acting"
+
+        def connect(self):
+            return True
+
+        def restart_instagram(self):
+            return None
+
+        def navigate_to_dm_inbox(self):
+            return True
+
+        def open_requests_folder(self):
+            return True
+
+        def _reset_inbox_to_top(self, strategy="auto"):
+            return None
+
+        def open_conversation(self, username):
+            return True
+
+        def send_message(self, message):
+            return True
+
+        def read_conversations(self, limit):
+            read = build_conversation_payload(
+                real_username="alice", inbox_username="alice", is_group=False, can_reply=True,
+                messages=[{"type": "text", "text": "Hi", "is_sent": False, "timestamp": "10:02"},
+                          {"type": "reel", "text": "[Reel]", "is_sent": False, "reaction": "like"}])
+            answered = build_answered_conversation(real_username="bob", inbox_username="bob")
+            known = build_up_to_date_conversation(real_username="carol", inbox_username="carol", last_is_ours=False)
+            self._announce_conversation(read, current=1, total=limit)
+            self._announce_conversation(answered, current=2, total=limit)
+            self._announce_conversation(known, current=3, total=limit)
+            self._announce_up_to_date("carol", answered=False, current=3, total=limit)
+            return [read, answered, known]
+
+    return Dm
+
+
+@pytest.fixture
+def dm_bridge(monkeypatch):
+    import bridges.common.device.connection as connection
+    import bridges.instagram.engagement.runtime.dm.bridge as runtime
+    import bridges.instagram.engagement.runtime.dm.commands as bridge
+    from taktik.core.social_media.instagram.workflows.core import runtime_setup
+    from taktik.core.social_media.instagram.workflows.dm_inbox import agent_handler
+
+    monkeypatch.setattr(connection, "ConnectionService", lambda device_id: SimpleNamespace())
+    monkeypatch.setattr(runtime, "KeyboardService", lambda device_id: object())
+    monkeypatch.setattr(runtime_setup, "prepare_instagram_selectors", lambda **kwargs: None)
+    monkeypatch.setattr(bridge, "DMBridge", _dm_class())
+    for name, value in (("account_id_from_inbox_header", 1), ("resolve_account_id", 1),
+                        ("record_conversations", None), ("record_reply", None), ("account_id_for_send", 1),
+                        ("ensure_dm_inbox", True), ("return_to_inbox", None)):
+        monkeypatch.setattr(agent_handler, name, lambda *args, _value=value, **kwargs: _value)
+    monkeypatch.setattr(agent_handler.time, "sleep", lambda seconds: None)
+    return bridge
+
+
+@pytest.mark.parametrize("contract, chosen", [
+    pytest.param(INSTAGRAM_DM_READ, {"command": "read"}, id="read"),
+    pytest.param(INSTAGRAM_DM_READ, {"command": "read_requests"}, id="read_requests"),
+    pytest.param(INSTAGRAM_DM_SEND, {"command": "send"}, id="send"),
+])
+def test_the_dm_bridge_follows_its_contracts(dm_bridge, printed, contract, chosen):
+    data = app_file(contract, **chosen)
+    log: set = set()
+
+    assert dm_bridge.DMCommand(Recording(data, log)).run() == 0
+
+    assert_reads(contract, data, log)
+    lines = printed()
+    check_lines(contract, lines)
+    expected = {event.type for event in contract.events}
+    if chosen["command"] == "read_requests":
+        expected -= {"account_detected"}
+    assert {line["type"] for line in lines} == expected
+    assert lines[-1]["type"] == "result" and lines[-1]["success"] is True
+
+
+def test_a_reply_without_its_text_is_refused_in_its_last_line(dm_bridge, printed):
+    data = app_file(INSTAGRAM_DM_SEND, command="send")
+    data["message"] = ""
+
+    with pytest.raises(SystemExit):
+        dm_bridge.DMCommand(data).run()
+
+    lines = printed()
+    check_lines(INSTAGRAM_DM_SEND, lines)
+    assert [line["type"] for line in lines] == ["result"]
+    assert lines[0]["success"] is False and "traceback" not in lines[0]

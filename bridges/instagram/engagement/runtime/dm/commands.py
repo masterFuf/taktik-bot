@@ -12,8 +12,9 @@ from __future__ import annotations
 import sys
 
 from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
-from bridges.instagram.engagement.runtime.dm.events import emit_dm_error, emit_dm_json
+from bridges.instagram.engagement.runtime.dm.events import emit_dm_error, emit_dm_json, emit_dm_result
 from taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler import run_instagram_dm
+from taktik.core.social_media.instagram.workflows.dm_inbox.payload import DmCommandError
 
 
 def report_dm_entry_error(message: str, _reason: str) -> None:
@@ -47,19 +48,17 @@ def run_dm_command(config: dict) -> None:
 
         result = run_instagram_dm(config, runtime=bridge, emit=lambda payload: emit_dm_json(payload, flush=True))
 
+    except DmCommandError as e:
+        # A command refused before the phone is touched.
+        emit_dm_error(str(e))
+        sys.exit(1)
     except Exception as e:
         import traceback
 
-        emit_dm_json(
-            {
-                "success": False,
-                "error": str(e),
-                "traceback": traceback.format_exc(),
-            }
-        )
+        emit_dm_result({"success": False, "error": str(e), "traceback": traceback.format_exc()})
         sys.exit(1)
 
     if not result.get("success"):
         emit_dm_error(result.get("error") or "DM command failed")
         sys.exit(1)
-    emit_dm_json(result)
+    emit_dm_result(result)

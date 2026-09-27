@@ -32,6 +32,21 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages im
 class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMixin):
     """Read DM conversations and extract visible message history."""
 
+    def _announce_conversation(self, conversation: dict, *, current: int, total: int) -> None:
+        """One conversation read (or restored), for the desktop."""
+        self._emit_dm_event(
+            {"type": "conversation", "current": current, "total": total, "conversation": conversation},
+            flush=True,
+        )
+
+    def _announce_up_to_date(self, username: str, *, answered: bool, current: int, total: int) -> None:
+        """A thread left closed: its last message is already on record."""
+        self._emit_dm_event(
+            {"type": "conversation_skipped", "reason": "up_to_date", "username": username,
+             "last_message_is_ours": answered, "current": current, "total": total},
+            flush=True,
+        )
+
     def read_conversations(self, limit: int) -> list:
         """Read DM conversations. ``limit <= 0`` means read all (until the inbox bottom)."""
         conversations = []
@@ -77,15 +92,7 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         conversations.append(conv)
                         conversations_read += 1
                         new_conversations_in_scroll += 1
-                        self._emit_dm_event(
-                            {
-                                "type": "conversation",
-                                "current": conversations_read,
-                                "total": max(limit, 0),
-                                "conversation": conv,
-                            },
-                            flush=True,
-                        )
+                        self._announce_conversation(conv, current=conversations_read, total=max(limit, 0))
                         logger.info(f"Skipping (already answered, we sent last): {username}")
                         continue
 
@@ -126,26 +133,9 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         conversations.append(conv)
                         conversations_read += 1
                         new_conversations_in_scroll += 1
-                        self._emit_dm_event(
-                            {
-                                "type": "conversation",
-                                "current": conversations_read,
-                                "total": max(limit, 0),
-                                "conversation": conv,
-                            },
-                            flush=True,
-                        )
-                        self._emit_dm_event(
-                            {
-                                "type": "conversation_skipped",
-                                "reason": "up_to_date",
-                                "username": username,
-                                "last_message_is_ours": answered,
-                                "current": conversations_read,
-                                "total": max(limit, 0),
-                            },
-                            flush=True,
-                        )
+                        self._announce_conversation(conv, current=conversations_read, total=max(limit, 0))
+                        self._announce_up_to_date(username, answered=answered, current=conversations_read,
+                                                  total=max(limit, 0))
                         logger.info(f"Skipping (up to date, last message already known): {username}")
                         continue
 
@@ -209,16 +199,8 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                     conversations_read += 1
                     new_conversations_in_scroll += 1
 
-                    self._emit_dm_event(
-                        {
-                            "type": "conversation",
-                            "current": conversations_read,
-                            # 0 total signals "all" to the front (indeterminate progress).
-                            "total": max(limit, 0),
-                            "conversation": conv,
-                        },
-                        flush=True,
-                    )
+                    # 0 total signals "all" to the front (indeterminate progress).
+                    self._announce_conversation(conv, current=conversations_read, total=max(limit, 0))
 
                     self._go_back_from_conversation(delay=1.5)
 

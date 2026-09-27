@@ -30,12 +30,12 @@ from taktik.core.social_media.instagram.workflows.dm_inbox.persistence import (
     record_reply,
     resolve_account_id,
 )
+from taktik.core.social_media.instagram.workflows.dm_inbox.payload import DM_COMMANDS, dm_command_from_payload
 from taktik.core.social_media.instagram.workflows.dm_inbox.session import ensure_dm_inbox, return_to_inbox
 
 
 INSTAGRAM_DM_READ_WORKFLOW_ID = "instagram.engagement.dm_read"
 INSTAGRAM_DM_SEND_WORKFLOW_ID = "instagram.engagement.dm_send"
-DM_COMMANDS = ("read", "read_requests", "send")
 
 RuntimeProvider = Callable[[Optional[str]], Any]
 Emit = Callable[[dict], None]
@@ -48,19 +48,14 @@ def _failure(error: str) -> dict[str, Any]:
 def run_instagram_dm(config: Mapping[str, Any], *, runtime, emit: Optional[Emit] = None) -> dict[str, Any]:
     """Run the DM command a payload describes: `read`, `read_requests` (`limit`, <= 0 for all) or
     `send` (`username`, `message`). Returns the result the desktop reads, or
-    `{"success": False, "error": ...}`."""
-    command = config.get("command")
-    if command == "read":
-        return _read(runtime, int(config.get("limit", 10)), emit)
-    if command == "read_requests":
-        return _read_requests(runtime, int(config.get("limit", 10)))
-    if command == "send":
-        username = config.get("username")
-        message = config.get("message")
-        if not username or not message:
-            return _failure("send needs a username and a message")
-        return _send(runtime, username, message)
-    return _failure(f"Unknown command: {command}")
+    `{"success": False, "error": ...}`. An unknown command, or a reply without its recipient or its
+    text, is refused (`DmCommandError`) before the phone is touched."""
+    request = dm_command_from_payload(config)
+    if request.command == "read":
+        return _read(runtime, request.limit, emit)
+    if request.command == "read_requests":
+        return _read_requests(runtime, request.limit)
+    return _send(runtime, request.username, request.message)
 
 
 def _detect_app_language(runtime) -> None:
@@ -181,7 +176,7 @@ def _send(runtime, username: str, message: str) -> dict[str, Any]:
     # Persist the reply (best-effort). Reuses the account of the thread read earlier;
     # only resolves identity (profile visit) if this conversation was never read.
     record_reply(account_id_for_send(runtime, username), username, message)
-    return {"success": True, "username": username, "message": message}
+    return {"type": "result", "success": True, "username": username, "message": message}
 
 
 def build_instagram_dm_handler(

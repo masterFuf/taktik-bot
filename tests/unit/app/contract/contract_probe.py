@@ -132,9 +132,11 @@ def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -
     parameters = inspect.signature(launcher).parameters
     if "device_id" in parameters:
         kwargs.setdefault("device_id", DEVICE)
-    if "device_manager" in parameters:
-        # A refusal comes before the phone: a launcher that needs one to refuse fails the test.
-        kwargs.setdefault("device_manager", None)
+    # A refusal comes before the phone: what the host injects (device manager, runtime) is None,
+    # and a launcher that needs it to refuse fails the test.
+    for name, parameter in parameters.items():
+        if parameter.kind is parameter.KEYWORD_ONLY and parameter.default is parameter.empty:
+            kwargs.setdefault(name, None)
     return launcher(payload, **kwargs)
 
 
