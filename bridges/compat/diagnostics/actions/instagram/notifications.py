@@ -520,7 +520,7 @@ def run_notifications(a, p):
     try:
         result = agent_handler.run_instagram_notifications(
             config,
-            connect=lambda restart: _connected_runtime(a, device_id, restart),
+            connect=lambda package_name, restart: _connected_runtime(a, device_id, package_name, restart),
             emit=emit,
             # The app never sends an `ai` block, and the bridge's AI service prints on stdout.
             instagram_ai_service=None,
@@ -536,7 +536,10 @@ def run_notifications(a, p):
     return {"success": success, "message": msg, "details": {"result": result, "events": events}}
 
 
-def _connected_runtime(a, device_id: str, restart: bool) -> _SessionRuntime:
+def _connected_runtime(a, device_id: str, package_name, restart: bool) -> _SessionRuntime:
+    # The Lab session already holds its Instagram package (the clone picked for the session).
+    if package_name:
+        logger.info(f"notifications.run: packageName {package_name} ignored, the Lab session keeps its package")
     runtime = _SessionRuntime(a, device_id)
     if restart:
         runtime.restart_instagram()

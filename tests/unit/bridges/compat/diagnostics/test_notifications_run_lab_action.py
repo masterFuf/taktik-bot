@@ -6,6 +6,7 @@ session's device instead of a second connection, and the Lab's clean restart. Th
 come back in the result, never on stdout (the session's own JSON lines).
 """
 
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -85,12 +86,27 @@ def test_the_lab_run_goes_through_the_launcher_with_the_lab_params(monkeypatch, 
     assert result["details"]["result"]["count"] == 4
 
 
+def test_the_lab_connect_takes_what_the_launcher_passes(monkeypatch, lab_lifecycle):
+    # The launcher calls `connect` with the arguments of its declared `Connect` type.
+    seen = {}
+
+    def launcher(config, *, connect, emit=None, instagram_ai_service=None):
+        seen["connect"] = connect
+        return {"type": "result", "command": "scan", "success": True, "message": ""}
+
+    monkeypatch.setattr(agent_handler, "run_instagram_notifications", launcher)
+    ACTION_REGISTRY["notifications.run"](_bundle(), {})
+
+    declared = len(agent_handler.Connect.__args__) - 1
+    assert len(inspect.signature(seen["connect"]).parameters) == declared
+
+
 def test_the_runtime_is_the_session_device_and_the_lab_restart(monkeypatch, lab_lifecycle):
     runtimes = []
 
     def launcher(config, *, connect, emit=None, instagram_ai_service=None):
-        runtimes.append(connect(True))
-        runtimes.append(connect(False))
+        runtimes.append(connect(None, True))
+        runtimes.append(connect(None, False))
         runtimes[0].stop()
         return {"type": "result", "command": "scan", "success": True, "message": ""}
 
