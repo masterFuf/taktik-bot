@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from loguru import logger
 
 from taktik.core.shared.behavior.policy import parse_behavior_policy
@@ -9,7 +9,7 @@ from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
 from taktik.core.shared.diagnostics import run_halt
 from . import stop_reasons
-from .warmup_budget import WarmupBudget
+from .warmup_budget import WarmupBudget, WarmupCheck
 
 
 log = logger.bind(module="session-manager")
@@ -77,6 +77,10 @@ class SessionManager:
         # counted against the account's day. The same counter as the Taktik Agent's; the workflow,
         # which holds the account, points it at the ledger (`warmup.count_against_account`).
         self.warmup = WarmupBudget(session_settings.get('warmup_policy'))
+        # The last read of the day (`WarmupBudget.check`) and the follows and comments this session
+        # had filed then: the plan of a profile reuses the read its loop just made (`_day_check`).
+        self._last_check: Optional[WarmupCheck] = None
+        self._last_check_filed: Optional[Tuple[int, int]] = None
 
     def should_continue(self) -> tuple[bool, str]:
         """Check if session should continue based on defined limits.
@@ -163,8 +167,12 @@ class SessionManager:
         # own action (`exhausted_intents`). A read error does not kill the session, and a cap that
         # can no longer be READ does not silently become "no cap" either: the budget tolerates
         # isolated failures and stops after a few in a row (`warmup_budget.py`). The day is read
-        # once per profile: the read frequency stays negligible.
-        stop_reason = self.warmup.stop_reason(self._written_actions(), day_budget=workflow_type != 'unfollow')
+        # once per profile: this read also answers the plan of the profile that follows
+        # (`exhausted_intents`), so each failed read counts once toward that stop, not twice.
+        if workflow_type == 'unfollow':
+            stop_reason = self.warmup.stop_reason(self._written_actions(), day_budget=False)
+        else:
+            stop_reason = self._read_the_day().stop_reason
         if stop_reason:
             log.info(f"🛑 Session ended: {stop_reason}")
             return False, stop_reason
@@ -176,6 +184,30 @@ class SessionManager:
         session cap."""
         return self.counters['likes'] + self.counters['follows'] + self.counters['comments']
 
+    def _filed_follows_and_comments(self) -> Tuple[int, int]:
+        return self.counters['follows'], self.counters['comments']
+
+    def _read_the_day(self) -> WarmupCheck:
+        """One read of the day (`WarmupBudget.check`): the stop, and the gestures whose daily quota
+        is spent. Kept for the plan of the profile that follows."""
+        self._last_check = self.warmup.check(self._written_actions())
+        self._last_check_filed = self._filed_follows_and_comments()
+        return self._last_check
+
+    def _day_check(self) -> WarmupCheck:
+        """The day as the plan of a profile sees it: the read its loop just made, or a new one.
+
+        The spent gestures of that read (the day's follows and comments against their quotas) are
+        still true while this session has filed no follow and no comment since: nothing else of
+        the day moves them. A like or a story does not; a follow or a comment does, and the day is
+        read again -- the followers workflow asks its loop once per screen, and the profile before
+        this one on the screen may have followed. A failed read is answered like any other read:
+        reading again at once would count a second failure toward `daily_budget_unreadable`.
+        """
+        if self._last_check is not None and self._last_check_filed == self._filed_follows_and_comments():
+            return self._last_check
+        return self._read_the_day()
+
     def exhausted_intents(self) -> set:
         """The actions whose budget is spent — SESSION ceilings and DAILY sub-quotas together.
 
@@ -186,7 +218,8 @@ class SessionManager:
         which killed the run.
 
         Empty in standalone, where no cap is injected, and empty on a read error — fail-open,
-        like the rest of the guard.
+        like the rest of the guard. The day's part comes from the read the workflow's loop just
+        made for this profile (`_day_check`): one read of the day per profile, not two.
         """
         spent = set()
 
@@ -200,7 +233,7 @@ class SessionManager:
             spent.add('like')
 
         # Daily sub-quotas, injected by the desktop guard.
-        return spent | self.warmup.exhausted_intents()
+        return spent | set(self._day_check().exhausted_intents)
 
     def decision_budget_snapshot(self) -> Dict[str, Dict[str, int]]:
         """Return factual live budget state for an injected premium decision provider.
@@ -351,6 +384,8 @@ class SessionManager:
         # Same reason as the pacing profile: refresh the warmup caps on a config swap. The injected
         # usage provider is deliberately NOT touched here — it carries the resolved account_id.
         self.warmup.set_policy(session_settings.get('warmup_policy'))
+        # The last read was evaluated against the old caps: the next plan reads the day again.
+        self._last_check = None
         duration_minutes = session_settings.get('session_duration_minutes', 60)
         log.debug(f"Configuration updated: duration={duration_minutes}min, settings={session_settings}")
     
