@@ -238,19 +238,22 @@ def in_layers(path: str) -> bool:
     return path.split("/")[0] in SCAN_ROOTS
 
 
-def unresolved_imports(modules: Mapping[str, SourceModule]) -> list[str]:
-    """`import-resolves`: each import of `taktik` / `bridges` that names nothing in the tree.
+def importable_names(modules: Mapping[str, SourceModule]) -> frozenset[str]:
+    """Every module and package the tree holds, by dotted name: what an import can name.
 
     A module exists when a file of the tree has its name; a package, when a module lives under it
     (a regular package or a folder of Python files). The tree is what `read_tree` read, so a
     folder that only kept its `__pycache__` after a move is no package: in the checkout, Python
     would still import it (a namespace package), and hide the move.
     """
-    by_name = {module.name: module for module in modules.values()}
-    packages = {name.rsplit(".", depth)[0] for name in by_name for depth in range(1, name.count(".") + 1)}
+    names = {module.name for module in modules.values()}
+    return frozenset(names | {name.rsplit(".", depth)[0] for name in names for depth in range(1, name.count(".") + 1)})
 
-    def exists(name: str) -> bool:
-        return name in by_name or name in packages
+
+def unresolved_imports(modules: Mapping[str, SourceModule]) -> list[str]:
+    """`import-resolves`: each import of `taktik` / `bridges` that names nothing in the tree."""
+    by_name = {module.name: module for module in modules.values()}
+    exists = importable_names(modules).__contains__
 
     failures = []
     for path, module in sorted(modules.items()):
