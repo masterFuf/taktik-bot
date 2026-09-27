@@ -87,7 +87,9 @@ def test_profile_post_navigation_uses_session_mode_choice(monkeypatch):
     assert host.scroll_actions.calls[1][1]["velocity_scale"] == 0.90
     assert host.scroll_actions.calls[1][1]["distance_px"] == 0.80 * 2280 * 1.04
     assert host.scroll_actions.calls[2] == ("frame",)
-    assert sleeps == [12.2]
+    # The move does not glance at the post it reaches: the caller does, once it knows the post is
+    # new (`_glance_at_post`), so a post met again is passed at once.
+    assert sleeps == []
 
 
 def test_profile_post_flick_keeps_session_reach_below_the_safe_cap(monkeypatch):

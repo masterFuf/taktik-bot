@@ -67,7 +67,7 @@
   "taktik/core/social_media/instagram/actions/atomic/story_state.py": 3,
   "taktik/core/social_media/instagram/actions/atomic/text/dm_composer.py": 7,
   "taktik/core/social_media/instagram/actions/business/actions/comment/action.py": 7,
-  "taktik/core/social_media/instagram/actions/business/actions/like/orchestration.py": 2,
+  "taktik/core/social_media/instagram/actions/business/actions/like/orchestration.py": 1,
   "taktik/core/social_media/instagram/actions/business/actions/like/post_navigation.py": 4,
   "taktik/core/social_media/instagram/actions/business/management/profile/extraction.py": 1,
   "taktik/core/social_media/instagram/actions/business/workflows/common/distribution.py": 1,

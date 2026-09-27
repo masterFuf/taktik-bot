@@ -11,7 +11,9 @@ import random
 
 from taktik.core.shared.behavior.grid_entry import (
     GRID_COLUMNS,
+    REENTRY_SPREAD,
     plan_prescroll,
+    reentry_positions,
     sample_entry_index,
     row_weights,
     _NO_SCROLL_MAX_POSTS,
@@ -106,3 +108,23 @@ def test_deterministic_with_seed():
     c = [sample_entry_index(9, rng=random.Random(2)) for _ in range(20)]
     d = [sample_entry_index(9, rng=random.Random(2)) for _ in range(20)]
     assert c == d
+
+
+# ── reentry_positions ────────────────────────────────────────────────────────
+
+def test_reentry_resumes_past_the_furthest_post_over_two_rows():
+    """After a Reel at position 9, a reopen may open 10 to 15, never a cell before 10: the viewer
+    would walk from it through posts already seen."""
+    assert REENTRY_SPREAD == 2 * GRID_COLUMNS
+    assert list(reentry_positions(9)) == [10, 11, 12, 13, 14, 15]
+
+
+def test_reentry_before_any_post_starts_at_the_first_one():
+    assert list(reentry_positions(0)) == [1, 2, 3, 4, 5, 6]
+
+
+def test_reentry_never_goes_past_the_profiles_last_post():
+    assert list(reentry_positions(9, posts_count=11)) == [10, 11]
+    assert list(reentry_positions(11, posts_count=11)) == []
+    # 0 = count unknown: no cap.
+    assert list(reentry_positions(11, posts_count=0)) == [12, 13, 14, 15, 16, 17]

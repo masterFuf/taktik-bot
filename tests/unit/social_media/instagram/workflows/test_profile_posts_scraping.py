@@ -57,6 +57,7 @@ class _Navigator:
         self._advances = list(advances if advances is not None else [True] * 50)
         self.opened_first = 0
         self.advance_calls = []
+        self.glances = 0
 
     def _open_first_post_of_profile(self, username=None):
         self.opened_first += 1
@@ -65,6 +66,9 @@ class _Navigator:
     def _advance_or_exit_reel(self, is_reel, username=None):
         self.advance_calls.append(is_reel)
         return self._advances.pop(0) if self._advances else False
+
+    def _glance_at_post(self):
+        self.glances += 1
 
 
 class _Ipc:
@@ -152,6 +156,8 @@ def test_the_first_post_is_opened_once_then_the_run_advances_in_the_viewer(monke
     assert navigator.opened_first == 1
     # Two advances for three posts: the last one needs none.
     assert navigator.advance_calls == [False, False]
+    # The move does not glance at the post it reaches: this walk does, once per post reached.
+    assert navigator.glances == 2
     assert len(repo.records) == 3
     assert result["targets_info"][0]["collected"] == 3
 

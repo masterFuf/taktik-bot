@@ -9,7 +9,9 @@ post count and the number of grid thumbnails currently rendered, HOW to enter:
      enough that scrolling looks natural — never on a 6-post profile), then
   2. which *visible* thumbnail to open — weighted toward the top rows (where a
      curious visitor naturally starts) but spread, so the exact top-left cell is
-     just one option among many, never a constant.
+     just one option among many, never a constant;
+  3. after leaving a Reel mid-visit, which positions a re-entry may open: past the
+     furthest post already reached, never before it (``reentry_positions``).
 
 Pure functions + a tiny dataclass; the workflow executes the plan with the real
 grid selectors and the shared human gesture/tap primitives. Lives in
@@ -46,6 +48,11 @@ _PRESCROLL_DECAY = 0.5
 # / top row) is the most likely; deeper rows stay possible but rarer. Tuned so the
 # top row is favoured without the exact top-left ever being a near-certainty.
 _ROW_DECAY = 0.55
+
+# A re-entry into a profile's posts (after leaving a Reel) resumes past the furthest post
+# already reached, among the next two rows' worth of posts: not always the very next one, never
+# one whose continuation was already walked, and never so far that it skips half a screen.
+REENTRY_SPREAD = 2 * GRID_COLUMNS
 
 
 def plan_prescroll(posts_count: int, *, rng: Optional[random.Random] = None) -> int:
@@ -88,3 +95,20 @@ def sample_entry_index(visible_count: int, *, rng: Optional[random.Random] = Non
 def row_weights(visible_count: int) -> Sequence[float]:
     """Expose the per-thumbnail weights (for tests / Lab introspection)."""
     return [_ROW_DECAY ** (i // GRID_COLUMNS) for i in range(max(0, visible_count))]
+
+
+def reentry_positions(furthest_reached: int, posts_count: int = 0) -> range:
+    """Absolute grid positions (1-based) a re-entry may open after leaving a Reel.
+
+    The post viewer walks a profile one position at a time, so a cell before the furthest
+    position already reached leads straight back through posts already seen, even when that cell
+    itself was never opened. A re-entry therefore starts at the first position past
+    ``furthest_reached`` and spreads over ``REENTRY_SPREAD`` positions; the caller's chooser
+    (``row_weights``) favours the nearest. Empty when a known ``posts_count`` (0 = unknown) leaves
+    nothing new.
+    """
+    first = max(0, int(furthest_reached)) + 1
+    last = first + REENTRY_SPREAD - 1
+    if int(posts_count or 0) > 0:
+        last = min(last, int(posts_count))
+    return range(first, last + 1)

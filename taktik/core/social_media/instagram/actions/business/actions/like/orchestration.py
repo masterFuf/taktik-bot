@@ -11,7 +11,6 @@ from .post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
-from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.support.debug import DEBUG_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
@@ -233,10 +232,6 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
 
             self.logger.success("Entry post opened, starting sequential scroll")
 
-            # A human glances at the first post on arrival; the deliberate description
-            # read is handled per-post by the engagement sequence (engagement_sequence).
-            time.sleep(content_dwell(0) * self._behavior_reading_scale("profile_post_glance"))
-
             consecutive_identical_posts = 0
             seen_posts_signatures = set()
             unique_posts_seen = 0
@@ -259,7 +254,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                     current_likes = self._extract_likes_count_from_ui(is_reel=is_reel)
                     current_comments = self._extract_comments_count_from_ui(is_reel=is_reel)
                     
-                    signature = post_signature(current_likes, current_comments, is_reel)
+                    signature = self._visit_signature(current_likes, current_comments, is_reel)
 
                     self.logger.debug(f"Extracted signature: {signature} | Already seen: {len(seen_posts_signatures)} posts")
 
@@ -273,6 +268,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         post_type = "Reel" if is_reel else "Post"
                         self.logger.info(f"{post_type} #{unique_posts_seen} UNIQUE (scroll #{posts_seen}) - {current_likes} likes, {current_comments} comments - Likes: {posts_liked}/{max_likes}")
                     else:
+                        # A post met again is passed at once: no glance, no reading.
                         consecutive_identical_posts += 1
                         self.logger.debug(f"Already seen post (signature: {signature}) - scroll #{consecutive_identical_posts}/6")
                         
@@ -293,7 +289,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 if not objectives_pending():
                     self.logger.success("Post interaction objectives reached - stopping scroll")
                     break
-                
+
+                # A human glances at each post the first time they reach it, whatever brought it
+                # on screen (grid entry, vertical advance, reopen after a Reel). The deliberate
+                # description read is an engagement step (engagement_sequence).
+                self._glance_at_post()
+
                 # Decide whether to engage this post (probability gate kept — respects the
                 # user's like_probability + a position factor so not every post is liked).
                 if should_like:
@@ -367,10 +368,6 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         else:
                             self.logger.warning("Unable to navigate to next post - end of scroll")
                         break
-                    if is_reel:
-                        time.sleep(
-                            content_dwell(0) * self._behavior_reading_scale("profile_post_glance")
-                        )
 
                 self._human_like_delay('scroll')
             
@@ -448,18 +445,40 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 self.logger.error(f"Failed to increment like session counter: {exc}")
         self._record_action(username, 'LIKE', 1)
 
+    def _framed_post_reading(self, reader_name: str) -> Optional[str]:
+        """Ask the reading owner (`PostReadingMixin`, through `scroll_actions`) about the framed
+        post; None when this host has no such reader (a bare test host)."""
+        reader = getattr(getattr(self, "scroll_actions", None), reader_name, None)
+        return reader() if callable(reader) else None
+
+    def _visit_signature(self, likes, comments, is_reel) -> str:
+        """How the visit tells its posts apart: the framed post's own header and counters
+        (`framed_post_signature`), read inside its window only. The counters triplet read on the
+        whole screen (`post_signature`) only when no header is framed (full-screen Reel viewer):
+        on a list it takes a neighbour's numbers, and small posts of one account share them."""
+        framed = self._framed_post_reading("framed_post_signature")
+        if framed:
+            return f"framed:{framed}"
+        return post_signature(likes, comments, is_reel)
+
     def _current_post_signature(self) -> str:
-        """A cheap identity signature of the on-screen post (likes_comments_isreel) — used
-        to detect that a description read scrolled the frame onto a DIFFERENT post before we
-        act. Empty string if it can't be read."""
+        """Which post the screen frames, to check that a description read did not move the frame
+        onto ANOTHER post before we act: the description of the framed post's own header
+        (`framed_post_identity`), which no neighbour, carousel slide or like can change. The
+        counters triplet only when no header is framed (full-screen Reel viewer). Empty string
+        when nothing can be read."""
         try:
+            identity = self._framed_post_reading("framed_post_identity")
+            if identity:
+                return f"framed:{identity}"
             is_reel = self._is_current_post_reel()
             return post_signature(
                 self._extract_likes_count_from_ui(is_reel=is_reel),
                 self._extract_comments_count_from_ui(is_reel=is_reel),
                 is_reel,
             )
-        except Exception:
+        except Exception as exc:
+            self.logger.debug(f"Post identity unreadable: {exc}")
             return ""
 
     def _run_engagement_sequence(self, sequence, username, custom_comments, config) -> tuple:
@@ -472,15 +491,16 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         On drift we abort the post's sequence rather than act on the wrong post."""
         liked = commented = False
         sig_before_read = None   # set after a read → the next action must re-verify identity
+        frame_lost = False       # the read moved the post and could not bring it back
 
         for step in sequence:
             if step == 'read':
                 sig_before_read = self._current_post_signature()
-                self._read_post_description()
+                frame_lost = self._read_post_description() is False
             elif step in ('like', 'comment'):
                 # If a read just happened, confirm we're still on the same post.
                 if sig_before_read is not None:
-                    if self._current_post_signature() != sig_before_read:
+                    if frame_lost or self._current_post_signature() != sig_before_read:
                         self.logger.warning("Frame drifted after reading the description — "
                                             "aborting this post's sequence (wrong post)")
                         break
@@ -501,14 +521,16 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         break
         return liked, commented
 
-    def _read_post_description(self) -> None:
+    def _read_post_description(self) -> bool:
         """Open + read the post's description like a human (carousel + caption expand +
         content-aware dwell), then reframe the post so the next action (like/comment)
-        targets the right screen. Reuses the shared PostReadingMixin via scroll_actions."""
+        targets the right screen. Reuses the shared PostReadingMixin via scroll_actions.
+        Returns False when the reading moved the post and the screen never showed it back."""
         try:
             self.scroll_actions.human_reading_pause()
         except Exception as e:
             self.logger.debug(f"read description skipped: {e}")
+        return getattr(self.scroll_actions, "last_reading_reframed", None) is not False
 
     def _comment_current_post(self, username, custom_comments, config) -> bool:
         """Post a comment on the current post. Returns True if a comment was posted."""
