@@ -161,6 +161,11 @@ def value_of(contract: WorkflowContract, item: Field, payload: Dict[str, Any]) -
 
 def launch(contract: WorkflowContract, payload: Dict[str, Any], **kwargs: Any) -> Any:
     launcher = resolve(contract.launcher)
+    if "workflow_id" in inspect.signature(launcher).parameters:
+        # A launcher of params already read (the account flows): its hosts read the payload first.
+        kwargs.setdefault("device", None)
+        kwargs.setdefault("device_id", DEVICE)
+        return launcher(contract.workflow_id, read(contract, payload), **kwargs)
     if "device_id" in inspect.signature(launcher).parameters:
         kwargs.setdefault("device_id", DEVICE)
     return launcher(payload, **kwargs)
