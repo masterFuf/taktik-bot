@@ -414,7 +414,6 @@ class Rig:
                                    text_completion=text_completion)
 
         patch_seam(mp, "taktik.core.app.ai.factory", "build_ai_service", fake_build_ai_service)
-        self._fake_build_ai_service = fake_build_ai_service
 
         from taktik.core.social_media.tiktok.workflows.core import ai_hooks
 
@@ -1147,19 +1146,6 @@ class Rig:
 
         real = self._real_outreach
         mp.setattr(outreach_module, "TikTokDMOutreachWorkflow", real)
-        # Bound by name at import in the old cold-DM bridge and its AI module.
-        try:
-            from bridges.tiktok.engagement.runtime import dm_outreach as old_bridge_runtime
-        except ImportError:
-            old_bridge_runtime = None
-        if old_bridge_runtime is not None and hasattr(old_bridge_runtime, "TikTokDMOutreachWorkflow"):
-            mp.setattr(old_bridge_runtime, "TikTokDMOutreachWorkflow", real)
-        try:
-            from bridges.tiktok.engagement.runtime import dm_outreach_ai as old_bridge_ai
-        except ImportError:
-            old_bridge_ai = None
-        if old_bridge_ai is not None and hasattr(old_bridge_ai, "build_ai_service"):
-            mp.setattr(old_bridge_ai, "build_ai_service", self._fake_build_ai_service)
 
         class FakeOutreachManager:
             def __init__(self, device_id=None):
