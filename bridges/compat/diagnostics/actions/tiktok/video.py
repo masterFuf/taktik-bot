@@ -28,6 +28,9 @@ def double_tap_like(a, p):
 
 @action("tt.video.click_comment")
 def click_comment(a, p):
+    # Asked before looking for the button: a LIVE preview of the For You feed has none.
+    if a.video_detector.is_live_preview():
+        return not_applicable("tt.video.click_comment", "the For You item on screen is a LIVE: no comment button")
     return a.video.click_comment_button()
 
 

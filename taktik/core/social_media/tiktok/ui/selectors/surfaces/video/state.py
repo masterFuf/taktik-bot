@@ -116,9 +116,14 @@ class VideoStateSelectors:
     def subscribe_button(self) -> List[str]:
         return self._subscribe_button_base + L("video_state.subscribe_button")
 
-    #: A LIVE preview in the feed: not a video, nothing to watch, like or follow on it. Empty on the
-    #: baseline, whose preview has not been captured; readable ids per version in the overrides.
-    live_preview: List[str] = field(default_factory=list)
+    #: A LIVE preview in the feed: not a video, nothing to watch, like or follow on it. 43.1.4 (Pixel
+    #: 3a, French, 2026-09-28, two For You previews of the Lab auto-test): the host's name `xro` and
+    #: the "tap to watch the LIVE" line `xs4`, found on those two screens only among the 624 dumps
+    #: 43.1.4 of that phone's Lab and none of the 173 of the capture corpus. Other versions: overrides.
+    live_preview: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/xro")]',
+        '//*[contains(@resource-id, ":id/xs4")]',
+    ])
 
 
 VIDEO_STATE_SELECTORS = VideoStateSelectors()

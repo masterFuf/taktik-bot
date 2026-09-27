@@ -7,7 +7,8 @@ of a video. The plan never guesses it. Declared on the screen the action expects
 anywhere else the action still fails, so a broken selector is never taken for absent content.
 
 The screens are real dumps, anonymized: Instagram 410 (English notifications, home feed; French
-profile with highlights only) and TikTok 43.1.4 in French (For You video, an ad, the inbox).
+profile with highlights only) and TikTok 43.1.4 in French (For You video, an ad, a LIVE preview, the
+inbox).
 """
 
 from pathlib import Path
@@ -42,6 +43,7 @@ IG_FEED = _dump("instagram", "ig410_en_home_feed_carousel_post.xml")
 IG_PROFILE_HIGHLIGHTS_ONLY = _dump("instagram", "ig410_fr_profile_highlights_only.xml")
 TT_VIDEO = _dump("tiktok", "tt4314_fr_for_you_video.xml")
 TT_AD = _dump("tiktok", "tt4314_fr_ad.xml")
+TT_LIVE = _dump("tiktok", "tt4314_fr_for_you_live_preview.xml")
 TT_INBOX = _dump("tiktok", "tt4314_fr_inbox.xml")
 
 
@@ -162,6 +164,26 @@ def test_an_ad_has_no_sound_page_to_open_and_nothing_is_tapped():
     result = TIKTOK_ACTIONS["tt.sound.open_page"](bundle, {})
     assert _declared(result) == "the For You item on screen is an ad: its promoted sound has no page"
     assert phone.taps == []
+
+
+@pytest.mark.parametrize("action_id, declared", [
+    ("tt.sound.read", "the For You item on screen is a LIVE: no sound row"),
+    ("tt.video.click_comment", "the For You item on screen is a LIVE: no comment button"),
+])
+def test_a_live_preview_has_no_sound_row_nor_comment_button_and_nothing_is_tapped(action_id, declared):
+    """43.1.4: a LIVE preview of the For You feed, where the second auto-test pass of the Pixel 3a
+    failed both tests (no sound row, no comment button found)."""
+    bundle, phone = _tiktok(TT_LIVE)
+    result = TIKTOK_ACTIONS[action_id](bundle, {})
+    assert (result["success"], _declared(result)) == (False, declared)
+    assert phone.taps == []
+
+
+def test_on_a_video_the_comment_button_is_not_declared_absent():
+    """The production click answers (a bool): no declaration on a video."""
+    bundle, _phone = _tiktok(TT_VIDEO)
+    result = TIKTOK_ACTIONS["tt.video.click_comment"](bundle, {})
+    assert not isinstance(result, dict)
 
 
 def test_a_video_whose_sound_page_does_not_open_is_a_failure():
