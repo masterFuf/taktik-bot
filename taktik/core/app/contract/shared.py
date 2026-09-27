@@ -1,8 +1,10 @@
-"""Pieces of the contract every bridge shares: the IP rotation, the status, error, log and AI lines."""
+"""Pieces of the contract every bridge shares: the IP rotation, the status, error, log, session and
+AI lines, the step telemetry."""
 
 from __future__ import annotations
 
 from .schema import HOST, Event, Field, OneOf, Shape
+from .stop_reasons import TIKTOK_COMPLETION_REASON
 
 #: `enforce_pre_session_ip_rotation` (`bridges/common/device/network.py`), before the session.
 NETWORK_RESET = Shape(
@@ -37,8 +39,8 @@ STATUS_EVENT = Event(
         Field("message", "string", "The same, for a person."),
         Field(
             "completion_reason",
-            "string",
-            "Why a run ended on its own (`action_blocked`, `max_duration_reached`...).",
+            TIKTOK_COMPLETION_REASON,
+            "Why a run ended on its own (`action_blocked`, `feed_stuck`...); only TikTok bridges send it.",
             optional=True,
         ),
     ),
@@ -63,6 +65,27 @@ LOG_EVENT = Event(
     fields=(
         Field("level", "string", "debug, info, warning, error..."),
         Field("message", "string", "The line."),
+    ),
+)
+
+
+#: `IPC.session_start` (`bridges/common/runtime/ipc.py`), or the same line printed by the Instagram
+#: automation (`workflow_helpers.py`): the run's `sessions` row. One field on every bridge.
+SESSION_START_EVENT = Event("session_start", doc="The run's `sessions` row, as soon as it is opened.", fields=(
+    Field("session_id", "int", "The row's id: the app writes the run's AI spend into it."),
+))
+
+
+#: `emit_step` (`taktik/core/shared/telemetry`), through the sink each bridge configures.
+STEP_METRIC_EVENT = Event(
+    "step_metric",
+    doc="One atomic gesture or decision (`emit_step`), for the step telemetry.",
+    fields=(
+        Field("category", "string", "`tap`, `scroll`, `keystroke`, `follower_decision`..."),
+        Field("action", "string", "A finer label.", nullable=True),
+        Field("target", "string", "What it acted on.", nullable=True),
+        Field("detail", "json", "Its structured payload."),
+        Field("ts", "number", "When, epoch seconds."),
     ),
 )
 
@@ -114,10 +137,13 @@ AI_PROFILE_DONE_EVENT = Event("ai_profile_done", doc="The AI qualified a profile
     Field("username", "string", "The profile."),
     Field("target_username", "string", "The same."),
     Field("result", "string", "The verdict, for a person."),
-    Field("duration_ms", "int", "How long the model took."),
-    Field("model", "string", "The model that answered.", nullable=True),
-    Field("provider", "string", "Who served it.", nullable=True),
+    Field("duration_ms", "int", "How long the model took; absent from a copy for the base.", optional=True),
+    Field("model", "string", "The model that answered; absent from a copy for the base.", nullable=True,
+          optional=True),
+    Field("provider", "string", "Who served it; absent from a copy for the base.", nullable=True, optional=True),
     Field("workflow_type", "string", "The family of the run."),
+    Field("platform", "string", "The profile's platform, on a TikTok copy for the base (`tiktok`).",
+          optional=True),
     Field("event_id", "string", "Pairs it with its start.", optional=True),
     Field("cost_usd", "number", "What the call cost.", optional=True),
     Field("classification", "json", "The qualification, as the model gave it.", optional=True),
@@ -201,7 +227,9 @@ __all__ = [
     "LOG_EVENT",
     "NETWORK_RESET",
     "NETWORK_RESET_COMPLETE_EVENT",
+    "SESSION_START_EVENT",
     "STATUS_EVENT",
+    "STEP_METRIC_EVENT",
     "device_field",
     "network_reset_field",
 ]

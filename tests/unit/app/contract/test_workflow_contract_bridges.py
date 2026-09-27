@@ -29,7 +29,7 @@ _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 
 #: Lines of the session start and of the AI provider, which these runs replace: each is proved on
 #: its own real path (`test_workflow_contract_lines.py`).
-_ELSEWHERE = {"bot_profile", "ai_profile_done"}
+_ELSEWHERE = {"bot_profile", "ai_profile_done", "ai_relevance"}
 
 
 def bridge_file(contract: WorkflowContract, **overrides: Any) -> Dict[str, Any]:
@@ -107,7 +107,7 @@ def _is(spec: Any, value: Any) -> bool:
     if spec == "json":
         return True
     if isinstance(spec, OneOf):
-        return value in spec.values
+        return spec.allows(value)
     if isinstance(spec, ListOf):
         return isinstance(value, list) and all(_is(spec.item, v) for v in value)
     if isinstance(spec, MapOf):

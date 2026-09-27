@@ -3,7 +3,10 @@
 `bot_profile` is the acting account, read on the phone by the session start
 (`workflows/runtime/startup.py`) that every TikTok bridge runs. `ai_profile_done` is the AI
 provider's verdict on a profile (`IPC.ai_profile_analyzed`, from `app/ai/providers/openrouter.py`),
-printed when a run classifies profiles; it is declared in `shared`, with the other AI lines.
+printed when a run classifies profiles, and its copy for the base (`send_profile_classification`);
+it is declared in `shared`, with the other AI lines. `ai_relevance` is the engagement verdict the
+same qualification draws (`send_relevance`), printed by the runs that qualify the profiles they
+visit and by the welcome pass.
 """
 
 from __future__ import annotations
@@ -32,4 +35,19 @@ BOT_PROFILE_EVENT = Event(
     fields=(Field("profile", BOT_PROFILE, "The profile."),),
 )
 
-__all__ = ["AI_PROFILE_DONE_EVENT", "BOT_PROFILE", "BOT_PROFILE_EVENT"]
+#: `send_relevance` (`bridges/tiktok/runtime/ipc_video_events.py`), fed by `qualify_tiktok_profile`.
+AI_RELEVANCE_EVENT = Event(
+    "ai_relevance",
+    doc="The AI's engagement verdict on a profile: worth it or not, and what to do.",
+    fields=(
+        Field("username", "string", "The profile, without @."),
+        Field("relevant", "bool", "Relevant to the account."),
+        Field("score", "number", "Relevance score, as the model gave it.", nullable=True),
+        Field("reason", "string", "Why, in the app's language.", nullable=True),
+        Field("follow", "bool", "Worth a follow."),
+        Field("comment", "bool", "Worth a comment."),
+        Field("like", "bool", "Worth a like."),
+    ),
+)
+
+__all__ = ["AI_PROFILE_DONE_EVENT", "AI_RELEVANCE_EVENT", "BOT_PROFILE", "BOT_PROFILE_EVENT"]

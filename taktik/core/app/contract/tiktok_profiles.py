@@ -15,8 +15,9 @@ from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import ERROR_EVENT, STATUS_EVENT, network_reset_field
+from .stop_reasons import TIKTOK_COMPLETION_REASON_OR_NONE
 from .tiktok_automation import AI_SETTINGS
-from .tiktok_lines import AI_PROFILE_DONE_EVENT, BOT_PROFILE_EVENT
+from .tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 _FOLLOWERS = f"{_WORKFLOWS}.followers.payload"
@@ -118,7 +119,8 @@ PROFILE_RUN_STATS = Shape(
         Field("profiles_filtered", "int", "Profiles the criteria refused.", optional=True),
         Field("comments", "int", "Comments written.", optional=True),
         Field("shares", "int", "Videos shared.", optional=True),
-        Field("completion_reason", "string", "Why the run ended (final stats).", optional=True),
+        Field("completion_reason", TIKTOK_COMPLETION_REASON_OR_NONE, "Why the run ended (final stats); empty before.",
+              optional=True),
         Field("elapsed_seconds", "number", "Time spent.", optional=True),
         Field("elapsed_formatted", "string", "The same, for a person.", optional=True),
         Field("current_target", "string", "The account whose followers are walked (followers).", optional=True),
@@ -132,6 +134,7 @@ PROFILE_EVENTS = (
     ERROR_EVENT,
     BOT_PROFILE_EVENT,
     AI_PROFILE_DONE_EVENT,
+    AI_RELEVANCE_EVENT,
     Event("followers_stats", doc="The run's counters.", fields=(Field("stats", PROFILE_RUN_STATS, "The counters."),)),
     Event("action", doc="An action on the profile being visited.", fields=(
         Field("action", "string", "What was done (like, follow, favorite, comment, story_like...)."),
