@@ -6,14 +6,27 @@ names where the reader puts its value (`attr`, a dotted path in the built config
 it is handed to (`via`: the AI hooks, the AI service, the pacing profile). `tests/unit/app/contract`
 holds the reader and the bridge to it.
 
+The lines the app reads come from the bridge (status, the settings echo, the final counters),
+from the run (session, sources, sync, stop) and from what a run does on a profile or a post
+(`IPCEmitter`, the AI service, the decision round trip). Every line of the family is declared once:
+a workflow prints the lines of what it does.
+
 `instagram.automation.notifications` is not declared here: the reader refuses it, the
-notifications bridge serves it. The bridge's stdout is not declared yet.
+notifications bridge serves it.
 """
 
 from __future__ import annotations
 
-from .schema import HOST, Computed, Field, ListOf, MapOf, OneOf, Shape, WorkflowContract
-from .shared import device_field, network_reset_field
+from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Shape, WorkflowContract
+from .shared import (
+    AI_EVENTS,
+    ERROR_EVENT,
+    LOG_EVENT,
+    NETWORK_RESET_COMPLETE_EVENT,
+    STATUS_EVENT,
+    device_field,
+    network_reset_field,
+)
 
 _CORE = "taktik.core.social_media.instagram.workflows.core"
 _BUILDER = f"{_CORE}.config_builder:build_instagram_automation_config"
@@ -316,6 +329,351 @@ AI = Shape(
     ),
 )
 
+
+# ------------------------------------------------------------------------------------ lines
+
+SESSION_CONFIG_ECHO = Shape(
+    name="InstagramAutomationSessionConfigEcho",
+    doc="`build_instagram_session_config_event`: the run's settings as the bot read them, for display.",
+    fields=(
+        Field("deviceId", "string", "The phone.", nullable=True),
+        Field("workflowType", "string", "The workflow.", nullable=True),
+        Field("target", "string", "The targets, comma-joined.", nullable=True),
+        Field("limits", Shape(name="InstagramAutomationLimitsEcho", fields=(
+            Field("maxProfiles", "number", "Profiles to interact with."),
+            Field("maxLikesPerProfile", "number", "Most posts liked on a profile."),
+        )), "The budget."),
+        Field("probabilities", Shape(name="InstagramAutomationProbabilitiesEcho", fields=(
+            Field("like", "number", "Like, in percent."),
+            Field("follow", "number", "Follow, in percent."),
+            Field("comment", "number", "Comment, in percent."),
+            Field("watchStories", "number", "Watch stories, in percent."),
+            Field("likeStories", "number", "Like a story, in percent."),
+        )), "Chances of each action."),
+        Field("filters", Shape(name="InstagramAutomationFiltersEcho", fields=(
+            Field("minFollowers", "number", "Fewest followers."),
+            Field("maxFollowers", "number", "Most followers."),
+            Field("minPosts", "number", "Fewest posts."),
+            Field("maxFollowing", "number", "Most accounts followed."),
+        )), "Profile filters."),
+        Field("session", Shape(name="InstagramAutomationSessionEcho", fields=(
+            Field("durationMinutes", "number", "Minutes."),
+            Field("minDelay", "number", "Explicit shortest pause; absent when the pacing profile rules.",
+                  optional=True),
+            Field("maxDelay", "number", "Explicit longest pause.", optional=True),
+            Field("maxConsecutiveKnownUsernames", "number", "Known usernames before leaving a source.",
+                  optional=True),
+            Field("maxNoNewUsernamesScrolls", "number", "Scrolls without news before leaving a source.",
+                  optional=True),
+        )), "Duration and pauses."),
+        Field("behaviorPolicy", "json", "The pacing profile, as sent.", optional=True),
+        Field("ai", Shape(name="InstagramAutomationAiEcho", fields=(
+            Field("enabled", "bool", "AI mode."),
+            Field("smartComments", "bool", "The AI writes the comments."),
+            Field("profileAnalysis", "bool", "The AI judges each profile."),
+            Field("postAnalysis", "bool", "The AI reads each post."),
+            Field("relevanceGating", "json", "Acting on the verdict, as sent.", optional=True),
+            Field("decision", "json", "Decision mode, as sent.", optional=True),
+        )), "The AI modes; only when the AI service is on.", optional=True),
+    ),
+)
+
+RUN_STATS = Shape(
+    name="InstagramAutomationRunStats",
+    doc="`BaseStatsManager`'s counters, after each change.",
+    fields=tuple(Field(key, "int", doc) for key, doc in (
+        ("profiles_visited", "Profiles opened."),
+        ("profiles_interacted", "Profiles acted on."),
+        ("profiles_filtered", "Profiles refused by a filter."),
+        ("private_profiles", "Private profiles met."),
+        ("likes", "Likes."),
+        ("follows", "Follows."),
+        ("comments", "Comments."),
+        ("stories_watched", "Stories watched."),
+        ("story_likes", "Stories liked."),
+        ("errors", "Errors."),
+        ("posts_engaged", "Posts engaged without opening a profile (feed, hashtag posts)."),
+    )),
+)
+
+DECISION_ENGAGEMENT = Shape(
+    name="InstagramAgentDecisionEngagement",
+    doc="The AI verdict on the profile.",
+    fields=(
+        Field("relevant", "bool", "Relevant to the account."),
+        Field("score", "number", "Relevance score.", nullable=True),
+        Field("reason", "string", "Why.", nullable=True),
+        Field("relevanceTier", "string", "`direct`, `adjacent`, `weak`, `none`.", nullable=True),
+        Field("evidence", "string", "What it saw.", nullable=True),
+        Field("like", "bool", "Worth a like."),
+        Field("follow", "bool", "Worth a follow."),
+        Field("comment", "bool", "Worth a comment."),
+    ),
+)
+
+DECISION_PROFILE = Shape(
+    name="InstagramAgentDecisionProfile",
+    doc="What the profile shows.",
+    fields=(
+        Field("followersCount", "int", "Followers."),
+        Field("followingCount", "int", "Accounts followed."),
+        Field("postsCount", "int", "Posts."),
+        Field("followButtonState", "string", "The follow button as read.", nullable=True),
+        Field("relationship", "string", "Its relation to the account.", nullable=True),
+        Field("niche", "string", "Its niche.", nullable=True),
+        Field("nicheCategory", "string", "Its niche category.", nullable=True),
+    ),
+)
+
+DECISION_BUDGET = Shape(
+    name="InstagramAgentDecisionBudget",
+    doc="What the account spent and may spend.",
+    fields=(
+        Field("daily", Shape(name="InstagramAgentDecisionDailyUsage", fields=(
+            Field("total", "int", "Actions today."),
+            Field("follows", "int", "Follows today."),
+            Field("comments", "int", "Comments today."),
+        )), "Today."),
+        Field("session", Shape(name="InstagramAgentDecisionSessionUsage", fields=(
+            Field("total", "int", "Actions this run."),
+            Field("likes", "int", "Likes this run."),
+            Field("follows", "int", "Follows this run."),
+            Field("comments", "int", "Comments this run."),
+        )), "This run."),
+        Field("caps", Shape(name="InstagramAgentDecisionCaps", fields=(
+            Field("maxActionsPerDay", "int", "Actions per day; 0: no cap."),
+            Field("maxFollowsPerDay", "int", "Follows per day."),
+            Field("maxCommentsPerDay", "int", "Comments per day."),
+            Field("maxActionsPerSession", "int", "Actions per run."),
+        )), "The warmup caps."),
+    ),
+)
+
+DECISION_LIMITS = Shape(
+    name="InstagramAgentDecisionLimits",
+    doc="The run's per-profile limits.",
+    fields=tuple(Field(key, "int", doc) for key, doc in (
+        ("maxLikesPerProfile", "Most likes."),
+        ("minLikesPerProfile", "Fewest likes."),
+        ("maxCommentsPerProfile", "Most comments."),
+        ("maxStoriesPerProfile", "Most stories watched."),
+        ("maxStoryLikesPerProfile", "Most stories liked."),
+    )),
+)
+
+ACTION_PROFILE = Shape(
+    name="InstagramActionProfileData",
+    doc="A profile's counters, as read before the action (`InteractionEngineMixin._emit_*_event`).",
+    fields=(
+        Field("followers_count", "int", "Its followers."),
+        Field("following_count", "int", "The accounts it follows."),
+        Field("posts_count", "int", "Its posts."),
+    ),
+)
+
+_SOURCE_WORKFLOWS = OneOf(("target", "hashtag", "post_url"))
+_SYNC_LIST = OneOf(("following", "followers"))
+
+EVENTS = (
+    STATUS_EVENT,
+    ERROR_EVENT,
+    LOG_EVENT,
+    NETWORK_RESET_COMPLETE_EVENT,
+    Event("session_config", doc="The run's settings as the bot read them.", fields=(
+        Field("config", SESSION_CONFIG_ECHO, "The echo."),
+    )),
+    Event("session_start", doc="The run's `sessions` row.", fields=(
+        Field("session_id", "int", "Its id."),
+    )),
+    Event("active_account", doc="The account the run acts as, read on its profile.", fields=(
+        Field("username", "string", "Its handle."),
+        Field("followers", "int", "Its followers."),
+        Field("following", "int", "The accounts it follows."),
+        Field("posts", "int", "Its posts."),
+    )),
+    Event("target_account", doc="A target account about to be worked.", fields=(
+        Field("username", "string", "Its handle."),
+        Field("followers", "int", "Its followers."),
+        Field("following", "int", "The accounts it follows."),
+        Field("posts", "int", "Its posts."),
+    )),
+    Event("source_progress", doc="A target, hashtag or post URL of a run with several: started or done.", fields=(
+        Field("workflow", _SOURCE_WORKFLOWS, "The kind of source."),
+        Field("source", "string", "The source."),
+        Field("index", "int", "Its rank, from 1."),
+        Field("total", "int", "Sources of the run."),
+        Field("quota", "int", "Its share of the budget."),
+        Field("processed", "int", "Profiles worked so far (`running`: in the run; `done`: in it)."),
+        Field("status", OneOf(("running", "done")), "Where it is."),
+        Field("failure_code", "string", "Why it could not be worked (`done`).", optional=True),
+    )),
+    Event("session_stop", doc="The run is over, and why.", fields=(
+        Field("status", "string", "COMPLETED, INTERRUPTED, ERROR..."),
+        Field("reason", "string", "Why, as an English sentence."),
+        Field("duration_seconds", "int", "How long it ran."),
+        Field("reason_code", "string", "Why, as a code the app translates.", optional=True),
+        Field("reason_params", MapOf("json"), "The code's parameters.", optional=True),
+        Field("screenshot", "string", "The last screen, a file.", optional=True),
+        Field("hierarchy", "string", "The last screen's tree, a file.", optional=True),
+    )),
+    Event("stats", doc="The run's final counters (`run_instagram_automation`), or the unfollows so far.", fields=(
+        Field("likes", "int", "Likes."),
+        Field("follows", "int", "Follows."),
+        Field("comments", "int", "Comments."),
+        Field("profiles", "int", "Profiles acted on."),
+        Field("unfollows", "int", "Unfollows."),
+    )),
+    Event("instagram_stats", doc="The live counters.", fields=(
+        Field("stats", RUN_STATS, "The counters."),
+    )),
+    Event("instagram_profile_visit", doc="A profile opened.", fields=(
+        Field("username", "string", "Its handle."),
+        Field("followers", "int", "Its followers, if read.", nullable=True),
+        Field("is_private", "bool", "A private account."),
+    )),
+    Event("profile_captured", doc="A profile read: its counters, bio, picture.", fields=(
+        Field("username", "string", "Its handle."),
+        Field("full_name", "string", "Its name.", optional=True, nullable=True),
+        Field("follower_count", "int", "Its followers.", optional=True),
+        Field("following_count", "int", "The accounts it follows.", optional=True),
+        Field("media_count", "int", "Its posts.", optional=True),
+        Field("is_private", "bool", "A private account.", optional=True),
+        Field("is_verified", "bool", "A verified account.", optional=True),
+        Field("is_business", "bool", "A business account (media capture).", optional=True),
+        Field("biography", "string", "Its bio.", optional=True, nullable=True),
+        Field("profile_pic_url", "string", "Its picture: a data URL, or a link (media capture).",
+              optional=True, nullable=True),
+        Field("profile_pic_url_hd", "string", "Its large picture (media capture).", optional=True, nullable=True),
+        Field("external_url", "string", "Its link (media capture).", optional=True, nullable=True),
+        Field("category", "string", "Its category (media capture).", optional=True, nullable=True),
+        Field("captured_at", "string", "When, ISO 8601 (media capture).", optional=True),
+    )),
+    Event("media_captured", doc="A post the app loaded (media capture).", fields=(
+        Field("media_id", "string", "Its id."),
+        Field("media_type", "string", "photo, video, carousel."),
+        Field("image_url", "string", "Its picture."),
+        Field("like_count", "int", "Its likes."),
+        Field("comment_count", "int", "Its comments."),
+        Field("caption", "string", "Its caption, cut."),
+        Field("username", "string", "Its author.", nullable=True),
+        Field("width", "int", "Width.", optional=True),
+        Field("height", "int", "Height.", optional=True),
+        Field("taken_at", "int", "When it was posted.", optional=True, nullable=True),
+        Field("captured_at", "string", "When it was captured, ISO 8601.", optional=True),
+    )),
+    Event("profile_skipped", doc="A profile left out: known already, filtered, unreachable.", fields=(
+        Field("username", "string", "Its handle."),
+        Field("reason", "string", "Why, as a code the app translates or a filter's words."),
+        Field("detail", "string", "A hint appended to the reason.", nullable=True),
+    )),
+    Event("instagram_action", doc="Something the run did or saw on a profile (`IPCEmitter.emit_action`).", fields=(
+        Field("action", "string", "What: `like`, `follow`, `comment`, `greeting`..."),
+        Field("username", "string", "On whom."),
+        Field("details", "json", "What goes with it.", optional=True),
+    )),
+    Event("follow_event", doc="A follow.", fields=(
+        Field("username", "string", "Who."),
+        Field("success", "bool", "It took."),
+        Field("profile_data", ACTION_PROFILE, "The profile's counters, when it was read.", optional=True),
+    )),
+    Event("like_event", doc="Likes on a profile.", fields=(
+        Field("username", "string", "Whose posts."),
+        Field("likes_count", "int", "How many."),
+        Field("profile_data", ACTION_PROFILE, "The profile's counters, when it was read.", optional=True),
+    )),
+    Event("story_event", doc="Stories watched, and liked.", fields=(
+        Field("username", "string", "Whose."),
+        Field("stories_watched", "int", "Watched."),
+        Field("stories_liked", "int", "Liked."),
+        Field("profile_data", ACTION_PROFILE, "The profile's counters, when it was read.", optional=True),
+    )),
+    Event("current_post", doc="The hashtag post being worked.", fields=(
+        Field("author", "string", "Its author."),
+        Field("likes_count", "int", "Its likes.", nullable=True),
+        Field("comments_count", "int", "Its comments.", nullable=True),
+        Field("caption", "string", "Its caption, cut.", nullable=True),
+        Field("hashtag", "string", "The hashtag.", nullable=True),
+    )),
+    Event("post_skipped", doc="A hashtag post left out.", fields=(
+        Field("author", "string", "Its author."),
+        Field("reason", "string", "Why."),
+        Field("hashtag", "string", "The hashtag.", nullable=True),
+    )),
+    Event("agent_decision", doc="A feed post judged: liked, commented or left (feed card).", fields=(
+        Field("action", "string", "`like`, `like_comment`, `skip`."),
+        Field("target_username", "string", "The post's author.", nullable=True),
+        Field("reason", "string", "Why.", nullable=True),
+        Field("visit_profile", "bool", "The author will be visited."),
+        Field("workflow_type", "string", "The family of the card."),
+        Field("comment", "string", "The comment written.", optional=True),
+        Field("screenshot", "string", "The post.", optional=True),
+        Field("cost_usd", "number", "What the call cost.", optional=True),
+        Field("model", "string", "The model.", optional=True),
+    )),
+    Event("agent_profile_decision_request", doc="Decision mode: the facts of one profile, for the desktop's plan.",
+          fields=(
+              Field("requestId", "string", "Pairs it with the answer on stdin."),
+              Field("username", "string", "The profile."),
+              Field("engagement", DECISION_ENGAGEMENT, "The AI verdict."),
+              Field("profile", DECISION_PROFILE, "The profile."),
+              Field("budget", DECISION_BUDGET, "Budgets."),
+              Field("limits", DECISION_LIMITS, "Per-profile limits."),
+          )),
+    Event("unfollow_event", doc="An unfollow.", fields=(
+        Field("username", "string", "Who."),
+        Field("success", "bool", "It took."),
+    )),
+    Event("unfollow_plan", doc="The unfollow run's candidates, decided on data before the first tap.", fields=(
+        Field("mode", "string", "The mode."),
+        Field("candidates", "int", "Accounts it will unfollow at most."),
+        Field("refusals", MapOf("int"), "Rule -> accounts kept for it."),
+    )),
+    Event("sync_step", doc="A list of the two-list sync, started or done.", fields=(
+        Field("step", _SYNC_LIST, "The list."),
+        Field("status", OneOf(("started", "completed")), "Where it is."),
+        Field("new_count", "int", "Accounts new to the base (`completed`).", optional=True),
+        Field("updated_count", "int", "Accounts updated (`completed`).", optional=True),
+        Field("total_seen", "int", "Accounts read (`completed`, followers).", optional=True),
+    )),
+    Event("sync_progress", doc="A list being read.", fields=(
+        Field("list_type", _SYNC_LIST, "The list."),
+        Field("new_count", "int", "New so far."),
+        Field("updated_count", "int", "Updated so far."),
+        Field("total_seen", "int", "Read so far."),
+    )),
+    Event("sync_user_discovered", doc="An account read in a list.", fields=(
+        Field("list_type", _SYNC_LIST, "The list."),
+        Field("username", "string", "Its handle."),
+        Field("display_name", "string", "Its name."),
+        Field("is_new", "bool", "New to the base."),
+    )),
+    Event("sync_complete", doc="The sync is over.", fields=(
+        Field("non_followers_count", "int", "Followed accounts that do not follow back."),
+        Field("mutuals_count", "int", "Mutual follows."),
+        Field("success", "bool", "Every list was read."),
+        Field("new_count", "int", "New followed accounts (`sync_following`).", optional=True),
+        Field("updated_count", "int", "Updated followed accounts (`sync_following`).", optional=True),
+        Field("following", Shape(name="InstagramSyncListCounts", fields=(
+            Field("new_count", "int", "New."),
+            Field("updated_count", "int", "Updated."),
+            Field("total_seen", "int", "Read.", optional=True),
+        )), "The followed list (`sync_followers_following`).", optional=True),
+        Field("followers", Shape(name="InstagramSyncListCounts", fields=(
+            Field("new_count", "int", "New."),
+            Field("updated_count", "int", "Updated."),
+            Field("total_seen", "int", "Read.", optional=True),
+        )), "The followers list (`sync_followers_following`).", optional=True),
+    )),
+    Event("step_metric", doc="One atomic gesture or decision (`emit_step`), for the step telemetry.", fields=(
+        Field("category", "string", "`tap`, `scroll`, `keystroke`, `follower_decision`..."),
+        Field("action", "string", "A finer label.", nullable=True),
+        Field("target", "string", "What it acted on.", nullable=True),
+        Field("detail", "json", "Its structured payload."),
+        Field("ts", "number", "When, epoch seconds."),
+    )),
+    *AI_EVENTS,
+)
+
 INSTAGRAM_AUTOMATION = WorkflowContract(
     workflow_id=f"instagram.automation.{WORKFLOW_TYPES[0]}",
     also=tuple(f"instagram.automation.{workflow_type}" for workflow_type in WORKFLOW_TYPES[1:]),
@@ -371,6 +729,7 @@ INSTAGRAM_AUTOMATION = WorkflowContract(
         network_reset_field(),
         Field("mediaCaptureEnabled", "bool", "Capture the profiles and media the app loads.", default=False),
     ),
+    events=EVENTS,
 )
 
 CONTRACTS = (INSTAGRAM_AUTOMATION,)

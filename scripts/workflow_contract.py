@@ -40,13 +40,35 @@ from taktik.core.app.contract.schema import (  # noqa: E402
     WorkflowContract,
     scalar_default,
 )
-from taktik.core.app.contract.shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT  # noqa: E402
+from taktik.core.app.contract.shared import (  # noqa: E402
+    AI_COMMENT_DONE_EVENT,
+    AI_COMMENT_START_EVENT,
+    AI_ERROR_EVENT,
+    AI_PROFILE_DONE_EVENT,
+    AI_PROFILE_START_EVENT,
+    AI_SCREENSHOT_DONE_EVENT,
+    AI_SCREENSHOT_START_EVENT,
+    AI_SPEND_EVENT,
+    ERROR_EVENT,
+    LOG_EVENT,
+    NETWORK_RESET_COMPLETE_EVENT,
+    STATUS_EVENT,
+)
 
 #: Lines every bridge shares get one interface, referenced by each workflow.
 SHARED_LINES = {
     STATUS_EVENT.type: ("BridgeStatusLine", STATUS_EVENT),
     ERROR_EVENT.type: ("BridgeErrorLine", ERROR_EVENT),
     AI_SPEND_EVENT.type: ("BridgeAiSpendLine", AI_SPEND_EVENT),
+    LOG_EVENT.type: ("BridgeLogLine", LOG_EVENT),
+    NETWORK_RESET_COMPLETE_EVENT.type: ("BridgeNetworkResetCompleteLine", NETWORK_RESET_COMPLETE_EVENT),
+    AI_PROFILE_START_EVENT.type: ("BridgeAiProfileStartLine", AI_PROFILE_START_EVENT),
+    AI_PROFILE_DONE_EVENT.type: ("BridgeAiProfileDoneLine", AI_PROFILE_DONE_EVENT),
+    AI_SCREENSHOT_START_EVENT.type: ("BridgeAiScreenshotStartLine", AI_SCREENSHOT_START_EVENT),
+    AI_SCREENSHOT_DONE_EVENT.type: ("BridgeAiScreenshotDoneLine", AI_SCREENSHOT_DONE_EVENT),
+    AI_COMMENT_START_EVENT.type: ("BridgeAiCommentStartLine", AI_COMMENT_START_EVENT),
+    AI_COMMENT_DONE_EVENT.type: ("BridgeAiCommentDoneLine", AI_COMMENT_DONE_EVENT),
+    AI_ERROR_EVENT.type: ("BridgeAiErrorLine", AI_ERROR_EVENT),
 }
 
 HEADER = """/**
