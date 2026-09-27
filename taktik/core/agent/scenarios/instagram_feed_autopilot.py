@@ -503,7 +503,7 @@ class TaktikAgentWorkflow:
             result = self._ai.ai_service.text_completion(system, user, temperature=0.7, max_tokens=200,
                                                          label='autopilot_hashtags', kind=AI_SPEND_HASHTAGS)
             if result.get("success"):
-                content = result.get("content", "")
+                content = result.get("text", "")
                 match = re.search(r'\[.*?\]', content, re.DOTALL)
                 if match:
                     tags = json.loads(match.group())
@@ -523,7 +523,7 @@ class TaktikAgentWorkflow:
             "marketingdigital", "communitymanager", "marketingstrategy",
             "instagramgrowth",
         ]
-        logger.info(f"[TaktikAgent] Using fallback hashtag pool: {self._hashtag_pool}")
+        logger.warning(f"[TaktikAgent] No hashtags from the model; using the generic fallback pool: {self._hashtag_pool}")
 
     def _run_hashtag_burst(self, session_deadline: float):
         """Browse a hashtag feed for HASHTAG_POSTS_PER_BURST posts when the home feed yields too many skips."""
