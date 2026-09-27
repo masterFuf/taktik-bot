@@ -3,7 +3,7 @@
 import time
 
 from bridges.compat.diagnostics.actions.instagram import action
-from taktik.core.shared.behavior.gesture import sample_swipe
+from taktik.core.shared.behavior.gesture import FULL_REACH_H, sample_swipe
 from taktik.core.shared.behavior.gesture_primitives import _step_cost as _gesture_step_cost
 
 
@@ -379,7 +379,7 @@ def scroll_gesture_bench(a, p):
     for mode, direction, band in (("device", "up", (0.60 * h, 0.70 * h)),
                                   ("rpc", "down", (0.30 * h, 0.38 * h))):
         path, duration = sample_swipe(w, h, direction=direction, distance_px=ratio * h,
-                                      start_band=band, dist_cap_h=0.95)
+                                      start_band=band, dist_cap_h=FULL_REACH_H)
         path = fs._prepare_gesture_path(path, guard_start=True)
         fs._last_gesture_injection = None
         started = time.perf_counter()

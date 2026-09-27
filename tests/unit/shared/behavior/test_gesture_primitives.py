@@ -160,7 +160,19 @@ def test_controlled_human_swipe_allows_long_one_to_one_travel(monkeypatch):
         "up", distance_px=0.68 * 2280, controlled=True
     ) is True
 
-    assert captured["dist_cap_h"] == 0.95
+    assert captured["dist_cap_h"] == gp.FULL_REACH_H
+
+
+def test_the_scroll_step_carries_the_travel_asked_and_the_travel_covered(monkeypatch):
+    steps = []
+    monkeypatch.setattr(gp, "emit_step", lambda *args, **kwargs: steps.append(kwargs))
+    monkeypatch.setattr(gp, "sample_swipe", lambda *_a, **_k: ([p[:] for p in _PATH], 0.6))
+    monkeypatch.setattr(gp.time, "sleep", lambda _seconds: None)
+
+    _Host(_RawTouch())._human_swipe("up", distance_px=0.68 * 2280, controlled=True)
+
+    assert steps[-1]["requested_px"] == round(0.68 * 2280)
+    assert steps[-1]["distance_px"] == abs(_PATH[-1][1] - _PATH[0][1])
 
 
 def test_slop_exit_distance_varies_above_the_floor():
