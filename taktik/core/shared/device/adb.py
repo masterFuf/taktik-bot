@@ -54,7 +54,7 @@ def run_adb_shell(device_id: str, command: str) -> str:
     try:
         return _run_adb_shell(device_id, command)
     finally:
-        METER.record_shell((time.perf_counter() - started_at) * 1000.0)
+        METER.record_shell((time.perf_counter() - started_at) * 1000.0, command=command)
 
 
 def _run_adb_shell(device_id: str, command: str) -> str:
