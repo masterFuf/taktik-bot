@@ -25,7 +25,7 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-from lxml import etree
+from lxml.etree import XPathError
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
@@ -144,7 +144,7 @@ def _matches(tree, xpaths, log) -> bool:
         try:
             if tree.xpath(xpath):
                 return True
-        except etree.XPathError as exc:
+        except XPathError as exc:
             # One broken selector: said, and the next one still reads.
             _log(log, "warning", f"[sound] selector {xpath!r} is invalid: {exc}")
     return False
@@ -154,7 +154,7 @@ def _chip_label(tree, editor, log) -> str:
     for xpath in editor.sound_chip:
         try:
             nodes = tree.xpath(xpath)
-        except etree.XPathError as exc:
+        except XPathError as exc:
             _log(log, "warning", f"[sound] selector {xpath!r} is invalid: {exc}")
             continue
         if nodes:
