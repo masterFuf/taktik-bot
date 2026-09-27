@@ -62,9 +62,11 @@ def build_youtube_account_handler(
     """Build an injectable YouTube account handler without bridge startup."""
 
     def handler(invocation: WorkflowInvocation, payload: dict[str, Any]) -> dict[str, Any]:
+        merged = dict(payload)
+        merged.update(invocation.params)
         return run_youtube_account(
             invocation.workflow_id,
-            _account_params(invocation, payload),
+            youtube_account_params(invocation.workflow_id, merged),
             device=device,
             device_id=device_id,
             notifier=notifier,
@@ -97,21 +99,34 @@ def register_youtube_account_handlers(
     return registry
 
 
-def _account_params(invocation: WorkflowInvocation, payload: Mapping[str, Any]) -> dict[str, str]:
-    merged = dict(payload)
-    merged.update(invocation.params)
+def youtube_account_params(workflow_id: str, payload: Mapping[str, Any]) -> dict[str, str]:
+    """The params of `workflow_id` read from a payload.
 
-    if invocation.workflow_id == YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID:
-        email = _required_string(merged, "email", message="YouTube login requires email")
-        return {
-            "email": email,
-            "password": _optional_string(merged, "password"),
-        }
+    Raises ValueError, before any device work, when a required field is missing.
+    """
+    reader = _READERS.get(workflow_id)
+    if reader is None:
+        raise ValueError(f"Unsupported YouTube account workflow id: {workflow_id}")
+    return reader(payload)
 
-    if invocation.workflow_id == YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID:
-        return {"email": _optional_string(merged, "email")}
 
-    raise ValueError(f"Unsupported YouTube account workflow id: {invocation.workflow_id}")
+def login_params_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
+    """`youtube.account.login`: the Google account YouTube signs in with."""
+    return {
+        "email": _required_string(payload, "email", message="YouTube login requires email"),
+        "password": _optional_string(payload, "password"),
+    }
+
+
+def logout_params_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
+    """`youtube.account.logout`: the account to sign out; empty, the one signed in."""
+    return {"email": _optional_string(payload, "email")}
+
+
+_READERS = {
+    YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID: login_params_from_payload,
+    YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID: logout_params_from_payload,
+}
 
 
 def _required_string(payload: Mapping[str, Any], name: str, *, message: str) -> str:

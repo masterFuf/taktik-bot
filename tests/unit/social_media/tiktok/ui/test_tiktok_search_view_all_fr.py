@@ -4,12 +4,18 @@
 French locale the field held no selector at all, so the control could not be found. The label
 was later captured on the Top results of TikTok 43.1.4 (the reference version) and 47.0.3.
 
-The screens below are extracts of those captures, then anonymized: structure, ids and bounds of
-the capture; no third-party text is kept. Evaluated by uiautomator2's own `d.xpath()` engine,
-through `first_matching`, as production reads a selector list.
+The screens are those captures, anonymized: the Top results of 43.1.4 (Pixel 3a) and of 47.0.3
+(Pixel 6a), and the same label elsewhere, the Activity page (43.1.4, Pixel 6a) and the suggested
+accounts of a profile (47.0.3, Pixel 6a). The new followers page of 46.6.3 is still written by
+hand after its capture (capture it again, TikTok 46.6.3 or later, French). Evaluated by
+uiautomator2's own `d.xpath()` engine, through `first_matching`, as production reads a selector
+list.
 """
 
+from pathlib import Path
+
 import pytest
+from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.tiktok.actions.core.utils import first_matching
@@ -17,66 +23,41 @@ from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_loca
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
 
 ID = "com.zhiliaoapp.musically:id/"
+FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 
-def _node(cls, rid="", text="", desc="", clickable=False, bounds="[0,0][1,1]", children=""):
-    head = (f'class="{cls}" resource-id="{rid and ID + rid}" text="{text}" content-desc="{desc}" '
-            f'clickable="{str(clickable).lower()}" bounds="{bounds}"')
-    return f"<node {head}>{children}</node>" if children else f"<node {head}/>"
-
-
-def _screen(*body):
-    return ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-            f'<node class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">{"".join(body)}</node>'
-            "</hierarchy>")
-
-
-def _users_section(section, header, title, link, label, chevron, rows, bounds):
-    """The Users section of the Top results: a title and a « Tout voir » link in a header row."""
-    top, link_bounds, label_bounds = bounds
-    return _node("android.widget.LinearLayout", section, bounds=top[0], children=(
-        _node("android.view.ViewGroup", header, clickable=True, bounds=top[1], children=(
-            _node("android.widget.TextView", title, "Utilisateurs", bounds=top[2])
-            + _node("android.widget.LinearLayout", link, clickable=True, bounds=link_bounds, children=(
-                _node("android.widget.TextView", label, "Tout voir", bounds=label_bounds)
-                + _node("android.widget.ImageView", chevron)))))
-        + _node("android.widget.LinearLayout", rows, children=_node(
-            "androidx.recyclerview.widget.RecyclerView", children=_node(
-                "android.widget.Button", clickable=True)))))
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
 #: Top results, TikTok 43.1.4 (Pixel 3a, French).
-RESULTS_43_1_4 = _screen(_users_section(
-    "sm4", "n54", "sm3", "sm5", "sm6", "ks1", "sm1",
-    (("[0,330][1080,1088]", "[0,330][1080,435]", "[0,374][853,435]"),
-     "[853,383][1036,427]", "[853,383][1003,427]")))
+RESULTS_43_1_4 = _capture("tt4314_fr_search_top_results.xml")
 
 #: Top results, TikTok 47.0.3 (Pixel 6a, French): same shape, every build id moved.
-RESULTS_47_0_3 = _screen(_users_section(
-    "vj9", "p9e", "vj8", "vj_", "vja", "mhj", "vj6",
-    (("[0,373][1080,710]", "[0,373][1080,473]", "[0,415][862,473]"),
-     "[862,423][1038,465]", "[862,423][1006,465]")))
+RESULTS_47_0_3 = _capture("tt4703_fr_search_top_results.xml")
 
 #: The same label elsewhere: the Activity page (43.1.4), the new followers page (46.6.3) and the
 #: suggested accounts of a profile (47.0.3). None of them sits beside a « Utilisateurs » title.
-ACTIVITY_43_1_4 = _screen(_node(
-    "android.widget.RelativeLayout", "ry0", clickable=True, bounds="[0,1269][1080,1364]", children=_node(
-        "android.widget.RelativeLayout", bounds="[449,1295][630,1337]", children=(
-            _node("android.widget.TextView", "y6h", "Tout voir", bounds="[449,1295][593,1337]")
-            + _node("android.widget.ImageView", "j8p", desc="Défiler vers le bas")))))
-NEW_FOLLOWERS_46_6_3 = _screen(_node(
-    "android.widget.RelativeLayout", "ufg", clickable=True, bounds="[0,903][1080,998]", children=_node(
-        "android.widget.RelativeLayout", bounds="[449,929][630,971]", children=(
-            _node("android.widget.TextView", "tv_see_all", "Tout voir", bounds="[449,929][593,971]")
-            + _node("android.widget.ImageView", "kmr", desc="Défiler vers le bas")))))
-PROFILE_SUGGESTED_47_0_3 = _screen(_node(
-    "android.widget.RelativeLayout", "k2v", bounds="[0,726][1080,768]", children=(
-        _node("android.widget.TextView", "ze8", "Comptes suggérés", bounds="[42,726][351,768]")
-        + _node("android.widget.ImageView", "la1", clickable=True)
-        + _node("android.widget.LinearLayout", "user_card_horizontal_right_widget", clickable=True,
-                bounds="[868,726][1038,768]", children=(
-                    _node("android.widget.TextView", "vpy", "Tout voir", bounds="[868,726][1012,768]")
-                    + _node("android.widget.ImageView", "vpw"))))))
+ACTIVITY_43_1_4 = _capture("tt4314_fr_activity.xml")
+#: Written by hand after the 46.6.3 capture, which the corpus no longer holds.
+NEW_FOLLOWERS_46_6_3 = (
+    '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
+    '<node class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">'
+    '<node class="android.widget.RelativeLayout" resource-id="com.zhiliaoapp.musically:id/ufg" text="" '
+    'content-desc="" clickable="true" bounds="[0,903][1080,998]">'
+    '<node class="android.widget.RelativeLayout" resource-id="" text="" content-desc="" clickable="false" '
+    'bounds="[449,929][630,971]">'
+    '<node class="android.widget.TextView" resource-id="com.zhiliaoapp.musically:id/tv_see_all" '
+    'text="Tout voir" content-desc="" clickable="false" bounds="[449,929][593,971]"/>'
+    '<node class="android.widget.ImageView" resource-id="com.zhiliaoapp.musically:id/kmr" text="" '
+    'content-desc="Défiler vers le bas" clickable="false" bounds="[0,0][1,1]"/>'
+    '</node></node></node></hierarchy>'
+)
+PROFILE_SUGGESTED_47_0_3 = _capture("tt4703_fr_profile_suggested_accounts.xml")
+
+
+def _labels(xml):
+    return {node.get("text") for node in etree.fromstring(xml.encode("utf-8")).iter("node")}
 
 
 class _Device:
@@ -116,4 +97,5 @@ def test_the_link_is_still_found_once_the_build_ids_moved():
 @pytest.mark.parametrize("xml", [ACTIVITY_43_1_4, NEW_FOLLOWERS_46_6_3, PROFILE_SUGGESTED_47_0_3],
                          ids=["activity", "new-followers", "profile-suggested"])
 def test_the_same_label_on_another_screen_is_not_the_search_link(xml):
+    assert "Tout voir" in _labels(xml)
     assert _found(xml) == []

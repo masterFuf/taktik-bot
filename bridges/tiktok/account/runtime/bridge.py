@@ -8,6 +8,7 @@ from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.tiktok.account.runtime.account_session import TikTokAccountSessionMixin
 from bridges.tiktok.account.runtime.account_workflows import TikTokAccountWorkflowMixin
 from bridges.tiktok.runtime.ipc import _ipc, send_error, send_status
+from taktik.core.social_media.tiktok.workflows.management.agent_handler import package_name_from_payload
 
 
 class TikTokAccountBridge(TikTokAccountWorkflowMixin, TikTokAccountSessionMixin):
@@ -17,7 +18,7 @@ class TikTokAccountBridge(TikTokAccountWorkflowMixin, TikTokAccountSessionMixin)
         self.config = config
         self.device_id = config.get("deviceId")
         self.workflow_type = config.get("workflowType")
-        self.package_name = config.get("packageName")
+        self.package_name = package_name_from_payload(config)
         self._connection = None
         self._app = None
 

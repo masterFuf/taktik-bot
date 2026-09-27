@@ -6,6 +6,7 @@ from bridges.gmail.account.runtime.persistence import unpersist_gmail_account
 from bridges.gmail.account.runtime.workflow_result import finish_account_result
 from taktik.core.app.email.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
+    logout_params_from_payload,
     run_gmail_account,
 )
 
@@ -22,10 +23,12 @@ def run_gmail_logout(
     send_message: Callable[..., None],
 ) -> int:
     """Run the Gmail logout workflow and unpersist the account on success."""
-    email = (config.get("email") or "").strip()
-    if not email:
-        send_error("email is required for logout")
+    try:
+        params = logout_params_from_payload(config)
+    except ValueError as exc:
+        send_error(str(exc))
         return 1
+    email = params["email"]
 
     send_status("running", f"Removing Gmail account {email}...")
     send_log("info", f"Gmail logout workflow - {email}")
@@ -33,7 +36,7 @@ def run_gmail_logout(
     try:
         result = run_gmail_account(
             GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
-            {"email": email},
+            params,
             device=device,
             device_id=device_id,
             notifier=notifier,

@@ -2,8 +2,11 @@
 readable ids. The baseline (43.1.4) has not been captured, so its entry is empty and the ids come
 from the 46.9.3 overrides.
 
-Screens are invented; their shape follows the 46.9.3 captures.
+The screens are real captures of TikTok 46.9.3 in French (Pixel 6a), anonymized: a LIVE preview
+of the For You feed, and a video opened from a search.
 """
+
+from pathlib import Path
 
 import pytest
 from uiautomator2.xpath import XPathEntry
@@ -13,24 +16,9 @@ from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector imp
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.models import VideoWorkflowStats
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
 
-PKG = "com.zhiliaoapp.musically:id/"
-
-
-def _n(cls, text="", desc="", rid=""):
-    return (f'<node class="android.widget.{cls}" text="{text}" content-desc="{desc}" '
-            f'resource-id="{PKG}{rid}" bounds="[0,0][10,10]" />')
-
-
-LIVE = ('<hierarchy rotation="0">'
-        + _n("View", desc="LIVE", rid="long_press_layout")
-        + _n("TextView", "Appuie pour regarder le LIVE", rid="tv_live_tips")
-        + _n("Button", "demo_host", rid="tv_live_nickname")
-        + _n("TextView", "Demo title", rid="tv_live_title")
-        + "</hierarchy>")
-VIDEO = ('<hierarchy rotation="0">'
-         + _n("Button", desc="Profil demo_author")
-         + _n("Button", desc="Son : son original - demo par Demo", rid="pmi")
-         + "</hierarchy>")
+FIXTURES = Path(__file__).parent / "fixtures"
+LIVE = (FIXTURES / "tt4693_fr_live_preview.xml").read_text(encoding="utf-8")
+VIDEO = (FIXTURES / "tt4693_fr_search_result_video.xml").read_text(encoding="utf-8")
 
 
 class _Device:

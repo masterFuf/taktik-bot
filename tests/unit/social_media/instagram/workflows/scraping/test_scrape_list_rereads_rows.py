@@ -10,16 +10,21 @@ neighbour. The posts counter itself was right: on the ten 0-post profile capture
 corpus, the node it reads says "0".
 
 The phone is uiautomator2's own xpath engine behind the facade production mounts
-(`CloneAwareDeviceProxy`); the dumps are invented (public repository).
+(`CloneAwareDeviceProxy`). Its screens are two real captures of the same followers list
+(Instagram 410.0.0.53.71 in French, Pixel 3), anonymized together (a name keeps its value across
+both): the top of the list, then the list scrolled up by three rows' worth, as it came back once.
 """
 
 import time
+from pathlib import Path
 
 import pytest
 from loguru import logger
+from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+from taktik.core.shared.device.ui_dump import parse_bounds
 from taktik.core.social_media.instagram.actions.atomic.detection.list_detection import (
     ListDetectionMixin,
 )
@@ -33,36 +38,40 @@ from taktik.core.social_media.instagram.workflows.scraping.list_scraping import 
 from taktik.core.social_media.instagram.workflows.scraping.list_strategy import ListScrapingStrategy
 
 PKG = "com.instagram.android"
-ROW_TOPS = (600, 800, 1000)
+FIXTURES = Path(__file__).parents[2] / "fixtures"
+LIST_TOP = (FIXTURES / "ig410_fr_followers_list_top.xml").read_text(encoding="utf-8")
+LIST_SCROLLED = (FIXTURES / "ig410_fr_followers_list_scrolled.xml").read_text(encoding="utf-8")
 
 
-def _list(names):
-    rows = "".join(
-        f'<node index="{i}" text="{name}" resource-id="{PKG}:id/follow_list_username" '
-        f'class="android.widget.TextView" package="{PKG}" content-desc="" clickable="true" '
-        f'enabled="true" bounds="[200,{top}][700,{top + 50}]" />'
-        for i, (name, top) in enumerate(zip(names, ROW_TOPS)))
-    return ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-            f'<node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="{PKG}" '
-            f'bounds="[0,0][1080,2400]">{rows}</node></hierarchy>')
+def _rows(xml):
+    """(username, row bounds) of each row of a list screen, top to bottom."""
+    rows = []
+    for row in etree.fromstring(xml.encode("utf-8")).iter("node"):
+        if row.get("resource-id", "").endswith("/follow_list_container"):
+            names = [n.get("text") for n in row.iter("node")
+                     if n.get("resource-id", "").endswith("/follow_list_username")]
+            if names:
+                rows.append((names[0], parse_bounds(row.get("bounds"))))
+    return rows
 
 
 class _Phone:
     """A followers list; a tap on a row opens that row's profile."""
 
     wait_timeout = 1.0
-    info = {"displayWidth": 1080, "displayHeight": 2400}
+    info = {"displayWidth": 1080, "displayHeight": 2160}
 
-    def __init__(self, names):
-        self.names = list(names)
+    def __init__(self, screen):
+        self.screen = screen
         self.opened = None
         self.xpath = XPathEntry(self)
 
     def dump_hierarchy(self, *_a, **_k):
-        return _list(self.names)
+        return self.screen
 
     def click(self, x, y):
-        self.opened = next((name for name, top in zip(self.names, ROW_TOPS) if top <= y <= top + 50), None)
+        self.opened = next((name for name, (left, top, right, bottom) in _rows(self.screen)
+                            if left <= x <= right and top <= y <= bottom), None)
 
     def long_click(self, x, y, _duration=0.0):
         self.click(x, y)
@@ -71,7 +80,7 @@ class _Phone:
         pass
 
     def window_size(self):
-        return 1080, 2400
+        return 1080, 2160
 
 
 class _Scraper(ScrapingListMixin):
@@ -94,10 +103,10 @@ class _Scraper(ScrapingListMixin):
         return "posts < 1"
 
     def _back_to_list(self, _strategy):
-        # On the first way back the list comes back one row further down.
+        # On the first way back the list comes back scrolled: its rows sit three rows higher.
         self.returns += 1
         if self.returns == 1:
-            self.device.names = self.device.names[1:] + ["delta_demo"]
+            self.device.screen = LIST_SCROLLED
 
     def _save_profile_immediately(self, _profile, source_post_url=None):
         return None
@@ -109,7 +118,7 @@ def _no_wait(monkeypatch):
 
 
 def test_after_a_profile_set_aside_the_next_tap_opens_the_row_it_names():
-    phone = _Phone(["alpha_demo", "bravo_demo", "charlie_demo"])
+    phone = _Phone(LIST_TOP)
     detection = object.__new__(ListDetectionMixin)
     detection.device = DeviceFacade(CloneAwareDeviceProxy(phone, PKG))
     detection.detection_selectors = DETECTION_SELECTORS
@@ -119,12 +128,15 @@ def test_after_a_profile_set_aside_the_next_tap_opens_the_row_it_names():
                                     is_on_list=lambda: True, scroll_down=lambda: None,
                                     enable_suggestions_check=False)
     scraper = _Scraper(phone, visits=3)
+    first_three = [name for name, _bounds in _rows(LIST_TOP)[:3]]
+    # The trap is on screen: where the second row was, the scrolled list shows another row.
+    second_top = _rows(LIST_TOP)[1][1][1]
+    assert [name for name, b in _rows(LIST_SCROLLED) if b[1] <= second_top + 50 <= b[3]] != first_three[1:2]
 
     scraped = scraper._scrape_list(3, "FOLLOWER", "demo", enrich_on_the_fly=True, strategy=strategy)
 
     assert scraped == []
-    assert scraper.visits == [("alpha_demo", "alpha_demo"), ("bravo_demo", "bravo_demo"),
-                              ("charlie_demo", "charlie_demo")]
+    assert scraper.visits == [(name, name) for name in first_three]
 
 
 class _ProfileManager:

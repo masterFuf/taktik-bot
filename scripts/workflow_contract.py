@@ -117,7 +117,7 @@ def literal(value: Any) -> str:
 
 
 def constant_name(name: str) -> str:
-    return "_".join(token.upper() for token in re.findall(r"TikTok|[A-Z][a-z0-9]*", name))
+    return "_".join(token.upper() for token in re.findall(r"TikTok|YouTube|[A-Z][a-z0-9]*", name))
 
 
 def served(contract: WorkflowContract) -> str:
