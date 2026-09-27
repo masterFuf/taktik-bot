@@ -6,6 +6,7 @@ from typing import Dict, Tuple
 
 from . import (
     accounts,
+    instagram_agent,
     instagram_automation,
     instagram_engagement,
     instagram_notifications,
@@ -29,6 +30,7 @@ WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (
     *instagram_scraping.CONTRACTS,
     *instagram_engagement.CONTRACTS,
     *instagram_notifications.CONTRACTS,
+    *instagram_agent.CONTRACTS,
     *accounts.CONTRACTS,
     *threads.CONTRACTS,
     *tasks.CONTRACTS,

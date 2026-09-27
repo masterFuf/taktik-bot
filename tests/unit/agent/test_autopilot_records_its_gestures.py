@@ -85,7 +85,7 @@ def _agent(author="bob"):
     agent._account_id = 42
     agent.device = _Phone()
     agent.device_manager = None
-    agent.config = {"skip_reels": True}
+    agent._skip_reels = True
     agent.ipc = None
     agent.stats = {"posts_seen": 0, "posts_stopped": 0, "likes": 0, "follows": 0, "comments": 0,
                    "profile_visits": 0, "profiles_skipped_relationship": 0, "session_cost_usd": 0.0}

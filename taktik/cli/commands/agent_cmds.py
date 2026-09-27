@@ -27,18 +27,16 @@ from rich.panel import Panel
 from rich.table import Table
 
 from taktik.cli.common.ai_key import MISSING_KEY_EXIT, MissingAIKeyError, ensure_ai_key, is_interactive
+from taktik.core.app.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 
 console = Console()
 
-#: Quota keys the workflow reads, with the defaults it applies when they are absent. Declared here
-#: so `--show-defaults` cannot drift from the workflow: both are checked by a test.
+#: Quota keys the workflow reads, with the defaults it applies when they are absent: the Agent's
+#: declaration, which the contract tests hold its reader to.
 QUOTA_DEFAULTS: dict[str, int] = {
-    "max_likes": 80,
-    "max_comments": 15,
-    "max_follows": 20,
-    "max_profile_visits": 40,
-    "max_posts_seen": 150,
-    "session_duration_min": 25,
+    key: INSTAGRAM_TAKTIK_AGENT.setting(key).default
+    for key in ("max_likes", "max_comments", "max_follows", "max_profile_visits", "max_posts_seen",
+                "session_duration_min")
 }
 
 #: The Taktik Agent's workflow id, the one its handler is registered under.

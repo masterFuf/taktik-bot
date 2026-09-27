@@ -19,8 +19,8 @@ setup_environment()
 
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 
-from bridges.common.runtime.entrypoint import MISSING_CONFIG, run_bridge_main
-from bridges.instagram.agent.runtime.commands import TaktikAgentRun, report_agent_entry_error
+from bridges.common.runtime.entrypoint import MISSING_CONFIG, report_error_event, run_bridge_main
+from bridges.instagram.agent.runtime.commands import TaktikAgentRun
 
 # Graceful shutdown on SIGINT / SIGTERM
 setup_signal_handlers()
@@ -28,7 +28,7 @@ setup_signal_handlers()
 
 def main():
     run_bridge_main(TaktikAgentRun, usage="taktik_agent_bridge <config.json>",
-                    report_error=report_agent_entry_error, messages={MISSING_CONFIG: "No config file provided"},
+                    report_error=report_error_event, messages={MISSING_CONFIG: "No config file provided"},
                     catch_crashes=False)
 
 
