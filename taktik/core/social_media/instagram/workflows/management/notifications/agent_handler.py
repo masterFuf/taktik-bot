@@ -21,6 +21,11 @@ from loguru import logger
 from taktik.core.agent.kernel.contracts import WorkflowInvocation
 from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.management.notifications import commands
+from taktik.core.social_media.instagram.workflows.management.notifications.payload import (
+    NOTIFICATIONS_COMMANDS,
+    NotificationsCommandError,
+    notifications_request_from_payload,
+)
 
 
 INSTAGRAM_NOTIFICATIONS_WORKFLOW_ID = "instagram.engagement.notifications"
@@ -29,26 +34,6 @@ Connect = Callable[[bool], Any]
 Emit = Callable[[dict], None]
 AIServiceFactory = Callable[[Mapping[str, Any]], Any]
 RuntimeProvider = Callable[[Optional[str], bool], Any]
-
-_NEEDS_USERNAME = (*commands.ROW_ACTIONS, "reply")
-NOTIFICATIONS_COMMANDS = ("scan", "list_requests", "accept_all", "reply", "batch", *commands.ROW_ACTIONS)
-
-
-class NotificationsCommandError(ValueError):
-    """The command is refused before the phone is touched."""
-
-
-def _count(value, default):
-    """A count as written, `default` when absent."""
-    return default if value is None else int(value)
-
-
-def _cap(value):
-    """A daily cap: None (uncapped) when absent or unreadable, never below 0."""
-    try:
-        return None if value is None else max(0, int(value))
-    except (TypeError, ValueError):
-        return None
 
 
 def _log_event(payload: Mapping[str, Any]) -> None:
@@ -65,67 +50,36 @@ def run_instagram_notifications(
 ) -> dict[str, Any]:
     """Run the notifications command a payload describes; return the result the desktop reads.
 
-    The payload: `{"command", "accountUsername"?}` plus, per command,
-    `scroll`, `followSuggestions`, `ai` and `language` (scan), `limit` (list_requests), `max`
-    (accept_all), `username` (accept, ignore, like, follow_back, reply), `text` (reply), and
-    `actions`, `source`, `followBackDailyCap`, `welcomeDmDailyCap`, `followActorDailyCap` (batch).
-    `deviceId` and `packageName` are the host's, read when it connects.
+    The payload is read by `notifications_request_from_payload` (`payload.py`), which refuses
+    an unknown command, a row verb or a reply without `username` and a batch without actions,
+    before the phone is touched. `deviceId` and `packageName` are the host's, read when it
+    connects.
     """
-    command = config.get("command")
-    # The owning account (the desktop resolves it from the device): `scan` persists and
-    # dedups under it (the activity screen has no header), every action records under it.
-    account_username = config.get("accountUsername")
-    username = config.get("username")
-
-    if command not in NOTIFICATIONS_COMMANDS:
-        raise NotificationsCommandError(f"Unknown command: {command}")
-    if command in _NEEDS_USERNAME and not username:
-        raise NotificationsCommandError(f"username is required for {command}")
-
+    request = notifications_request_from_payload(config)
     host = commands.NotificationsHost(connect=connect, emit=emit or _log_event,
                                       ai_service=instagram_ai_service)
+    account_username = request.account_username
 
-    if command == "scan":
-        # Opt-in suggestions visit at the end of the scan; `ai` qualifies the visited
-        # profiles (same block as the automation's), `language` is the AI's wording.
-        try:
-            follow_suggestions = max(0, int(config.get("followSuggestions") or 0))
-        except (TypeError, ValueError):
-            follow_suggestions = 0
-        ai_config = config.get("ai")
-        if ai_config is not None and not isinstance(ai_config, dict):
-            logger.warning("[NOTIF] Unreadable ai config: AI qualification off")
-            ai_config = None
-        return commands.cmd_scan(host, _count(config.get("scroll"), 3),
-                                 follow_suggestions=follow_suggestions,
+    if request.command == "scan":
+        return commands.cmd_scan(host, request.scroll,
+                                 follow_suggestions=request.follow_suggestions,
                                  account_username=account_username,
-                                 ai_config=ai_config, language=config.get("language") or "en")
-
-    if command == "list_requests":
-        return commands.cmd_list_requests(host, _count(config.get("limit"), 50))
-
-    if command == "accept_all":
-        return commands.cmd_accept_all(host, _count(config.get("max"), 50),
-                                       account_username=account_username)
-
-    if command == "reply":
-        return commands.cmd_reply(host, username, config.get("text") or "",
+                                 ai_config=request.ai, language=request.language)
+    if request.command == "list_requests":
+        return commands.cmd_list_requests(host, request.limit)
+    if request.command == "accept_all":
+        return commands.cmd_accept_all(host, request.accept_max, account_username=account_username)
+    if request.command == "reply":
+        return commands.cmd_reply(host, request.username, request.text,
                                   account_username=account_username)
-
-    if command == "batch":
-        actions = config.get("actions")
-        if not isinstance(actions, list) or not actions:
-            raise NotificationsCommandError("Batch actions must be a non-empty list")
-        # 'autopilot' marks a batch a policy triggered, recorded in notification_actions.
-        # The daily caps are enforced here against the audit table; absent = uncapped,
-        # which is what an operator's own selection is.
-        return commands.cmd_batch(host, actions, account_username=account_username,
-                                  source=(config.get("source") or "batch").strip() or "batch",
-                                  follow_back_daily_cap=_cap(config.get("followBackDailyCap")),
-                                  welcome_dm_daily_cap=_cap(config.get("welcomeDmDailyCap")),
-                                  follow_actor_daily_cap=_cap(config.get("followActorDailyCap")))
-
-    return commands.ROW_ACTIONS[command](host, username, account_username=account_username)
+    if request.command == "batch":
+        # The daily caps are enforced here against the audit table.
+        return commands.cmd_batch(host, request.actions, account_username=account_username,
+                                  source=request.source,
+                                  follow_back_daily_cap=request.follow_back_daily_cap,
+                                  welcome_dm_daily_cap=request.welcome_dm_daily_cap,
+                                  follow_actor_daily_cap=request.follow_actor_daily_cap)
+    return commands.ROW_ACTIONS[request.command](host, request.username, account_username=account_username)
 
 
 def build_instagram_notifications_handler(
