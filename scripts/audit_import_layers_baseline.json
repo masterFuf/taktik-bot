@@ -119,7 +119,7 @@
   "taktik/core/social_media/tiktok/actions/business/workflows/_internal/popup_handler.py": 2,
   "taktik/core/social_media/tiktok/actions/business/workflows/_internal/profile_extractor.py": 3,
   "taktik/core/social_media/tiktok/actions/business/workflows/dm/workflow.py": 1,
-  "taktik/core/social_media/tiktok/actions/business/workflows/followers/navigation.py": 2,
+  "taktik/core/social_media/tiktok/actions/business/workflows/followers/navigation.py": 1,
   "taktik/core/social_media/tiktok/actions/business/workflows/followers/page_detection.py": 1,
   "taktik/core/social_media/tiktok/actions/business/workflows/followers/story_handling.py": 1,
   "taktik/core/social_media/tiktok/actions/business/workflows/followers/workflow.py": 3,

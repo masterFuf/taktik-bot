@@ -7,6 +7,9 @@ when navigation fails.
 
 import time
 
+from taktik.core.social_media.tiktok.actions.business.workflows._internal.profile_extractor import (
+    read_profile_stats,
+)
 from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
@@ -134,28 +137,21 @@ class NavigationMixin:
     
     def _click_followers_counter(self) -> bool:
         """Click on the Followers counter to open followers list.
-        
-        Also extracts and stores the followers count for smart scroll logic.
+
+        Reads the target's followers count first, for the smart scroll: through the profile's stats
+        reader, the one the profile extraction uses on the same screen.
         """
         self.logger.debug("Clicking Followers counter")
         selectors = self.followers_selectors.followers_counter
-        
-        # Try to extract followers count before clicking
-        try:
-            for selector in selectors:
-                element = self.device.xpath(selector)
-                if element and element.exists:
-                    # Try to get the text which contains the count
-                    text = element.get_text() or ''
-                    # Parse count from text like "267 Followers" or "1.2K Followers"
-                    count = self._parse_followers_count(text)
-                    if count > 0:
-                        self._target_followers_count = count
-                        self.logger.info(f"📊 Target has {count} followers")
-                        break
-        except Exception as e:
-            self.logger.debug(f"Could not extract followers count: {e}")
-        
+
+        raw_device = self.device._device if hasattr(self.device, '_device') else self.device
+        followers = read_profile_stats(raw_device).get('followers_count')
+        if followers is None:
+            self.logger.warning("Could not read the target's followers count: the smart scroll runs without it")
+        else:
+            self._target_followers_count = followers
+            self.logger.info(f"📊 Target has {followers} followers")
+
         self._already_visited_count = self._followers_repository.count_recent_target_interactions(
             account_id=self._account_id,
             target=self.config.search_query,
@@ -166,16 +162,6 @@ class NavigationMixin:
         
         return self.click._find_and_click(selectors, timeout=5)
     
-    @staticmethod
-    def _parse_followers_count(text: str) -> int:
-        """Parse followers count from text like '267 Followers', '1.2K', '1M'."""
-        if not text:
-            return 0
-        from .....core.utils import parse_count
-        # Remove "Followers"/"Follower" label before parsing
-        cleaned = text.lower().replace('followers', '').replace('follower', '').strip()
-        return parse_count(cleaned)
-
     def _safe_return_to_followers_list(self) -> bool:
         """Safely return to followers list with page verification.
         
