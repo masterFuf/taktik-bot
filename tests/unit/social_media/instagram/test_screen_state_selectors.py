@@ -6,15 +6,19 @@ account's profile in both languages, a profile opened from the search, and the i
 of the story editor, which none of the four signals describes. They are read the way production
 reads a dump (`parse_ui_dump`).
 
-Not asserted here: on some 410 captures (the French home feed of these fixtures among them) the
-selection sits on the tab's icon, not on `feed_tab` itself, and no home signal answers. Open point,
-to be proven on a phone before a selector changes.
+On some 410 home feeds the selection sits on the tab's icon (`tab_icon` under `feed_tab`), not on
+`feed_tab` itself, and `feed_timeline` is not in the tree: proven on a Pixel 3 (FR, "Pour vous"
+feed), whose dump is `ig410_fr_home_feed_tab_icon_selected.xml`; the French home feed
+fixture has the same shape. Those screens are also read through the selector rewrite every
+Instagram bridge applies (`CloneAwareDeviceProxy.rewrite_xpath`), as production reads them.
 """
 
 from pathlib import Path
 
 import pytest
 
+from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.actions.atomic.detection.screen_detection import (
     ScreenDetectionMixin,
@@ -31,6 +35,8 @@ def _screen(name: str) -> str:
 
 HOME_EN = _screen("ig410_en_feed_carousel_framed.xml")
 HOME_FR = _screen("ig410_fr_home_feed.xml")
+# Pixel 3, Instagram 410.0.0.53.71, French, "Pour vous" feed.
+HOME_FR_TAB_ICON = _screen("ig410_fr_home_feed_tab_icon_selected.xml")
 PROFILES = {
     "own_en": _screen("ig410_en_own_profile.xml"),
     "own_fr": _screen("ig410_fr_own_profile.xml"),
@@ -77,18 +83,59 @@ class _LiveOnlyDevice:
     pass
 
 
-@pytest.mark.parametrize("xml", [HOME_EN, HOME_FR], ids=["en", "fr"])
+HOMES = {"en": HOME_EN, "fr": HOME_FR, "fr_tab_icon": HOME_FR_TAB_ICON}
+
+
+def _production_photo(xml: str) -> ScreenSnapshot:
+    """The dump as the facade reads it: every id equality rewritten by the clone proxy."""
+    proxy = CloneAwareDeviceProxy(object(), "com.instagram.android")
+    return ScreenSnapshot(xml, rewrite=proxy.rewrite_xpath)
+
+
+@pytest.mark.parametrize("xml", HOMES.values(), ids=HOMES.keys())
 def test_feed_post_header_does_not_match_profile_surface(xml):
     selectors = DetectionSelectors()
 
     assert _matches(xml, selectors.profile_surface_indicators) is False
 
 
-def test_the_english_home_feed_is_a_home_screen():
-    assert _matches(HOME_EN, DetectionSelectors().home_screen_indicators) is True
+@pytest.mark.parametrize("xml", HOMES.values(), ids=HOMES.keys())
+def test_every_home_feed_is_a_home_screen(xml):
+    assert _matches(xml, DetectionSelectors().home_screen_indicators) is True
 
 
-@pytest.mark.parametrize("xml", [HOME_EN, HOME_FR], ids=["en", "fr"])
+def test_the_home_tab_selected_on_its_icon_only_is_the_home_screen():
+    """The phone's shape: `feed_tab` selected="false", its `tab_icon` selected="true", no
+    `feed_timeline`. Every earlier home signal missed it."""
+    root = parse_ui_dump(HOME_FR_TAB_ICON)
+    assert not root.xpath('//*[@resource-id="com.instagram.android:id/feed_tab" and @selected="true"]')
+    assert not root.xpath('//*[contains(@resource-id, "feed_timeline")]')
+
+    probe = _ScreenProbe(HOME_FR_TAB_ICON, enable_batch=True)
+    assert ScreenDetectionMixin.is_on_home_screen(probe) is True
+    assert ScreenDetectionMixin.is_on_search_screen(probe) is False
+    assert ScreenDetectionMixin.is_on_profile_screen(probe) is False
+
+
+@pytest.mark.parametrize("xml", HOMES.values(), ids=HOMES.keys())
+def test_home_signal_answers_through_the_clone_proxy_rewrite(xml):
+    photo = _production_photo(xml)
+    indicators = filter_selectors(DetectionSelectors().home_screen_indicators, "fr")
+
+    assert photo.exists(indicators) is True
+    assert photo.exists(DetectionSelectors().search_screen_indicators) is False
+
+
+def test_an_unselected_tab_icon_is_not_its_screen():
+    """`search_tab` and its icon are on every screen with the tab bar: on the home feed its icon
+    is not the selected one, so the icon form of the search signal stays silent."""
+    icon_form = [s for s in DetectionSelectors().search_screen_indicators if "tab_icon" in s]
+    assert icon_form
+    for xml in HOMES.values():
+        assert _matches(xml, icon_form) is False
+
+
+@pytest.mark.parametrize("xml", HOMES.values(), ids=HOMES.keys())
 def test_home_feed_with_post_header_is_not_reported_as_profile_screen(xml):
     assert ScreenDetectionMixin.is_on_profile_screen(_ScreenProbe(xml)) is False
 
@@ -141,8 +188,9 @@ def test_french_language_filter_keeps_neutral_selected_feed_tab():
 
     assert '//*[@resource-id="com.instagram.android:id/feed_tab" and @selected="true"]' in filtered
     assert '//*[contains(@content-desc, "Home") and @selected="true"]' not in filtered
+    assert any("tab_icon" in selector for selector in filtered)
 
 
-@pytest.mark.parametrize("xml", [HOME_EN, HOME_FR], ids=["en", "fr"])
+@pytest.mark.parametrize("xml", HOMES.values(), ids=HOMES.keys())
 def test_unselected_search_tabs_do_not_match_search_screen(xml):
     assert _matches(xml, DetectionSelectors().search_screen_indicators) is False

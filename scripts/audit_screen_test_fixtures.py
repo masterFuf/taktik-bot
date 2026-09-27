@@ -59,72 +59,56 @@ DUMP_ATTRIBUTES = (
 HAND_WRITTEN: dict[str, tuple[int, str]] = {
     "tests/unit/agent/test_autopilot_block_stop.py":
         (2,
-         "Instagram's \"Try again later\" dialog and a feed post, invented; capture the dialog on "
-         "a phone."),
-    "tests/unit/agent/test_autopilot_records_its_gestures.py":
-        (1, "a feed post whose author is read, invented; a 410 feed dump holds one."),
-    "tests/unit/bridges/compat/diagnostics/test_instagram_photo_reader_actions.py":
-        (1, "a Compose comment row (442 shape), invented; needs a 442 comments capture."),
+         "Instagram's \"Try again later\" dialog, invented: none in the corpus; capture it (410, "
+         "French and English). The feed post is in fixtures/."),
     "tests/unit/social_media/instagram/actions/test_back_stays_in_instagram.py":
         (4,
-         "feed, launcher and navigation bar rebuilt by hand in the Pixel 3 shape; the corpus holds "
-         "the feed, the launcher needs a capture."),
+         "feed, launcher and navigation bar in the Pixel 3 shape: left for after the "
+         "home-detection lot (feed_tab / tab_icon, corrected in parallel); the launcher "
+         "(shared/device/fixtures/android12_fr_launcher_home.xml) and the feeds are in fixtures/."),
     "tests/unit/social_media/instagram/test_action_blocked_stops_the_run.py":
-        (8, "the rate-limit dialog and the contacts request, invented; capture both."),
+        (8,
+         "the rate-limit dialog and the contacts request, invented: neither is in the corpus; "
+         "capture both (410, French)."),
     "tests/unit/social_media/instagram/test_comment_sort_selectors.py":
-        (5, "comments sheet and sort menu rebuilt after a 442 capture."),
-    "tests/unit/social_media/instagram/test_english_locale_measured_entries.py":
-        (9, "reel viewer, grid and composer rebuilt after 410 captures; the Lab corpus holds them."),
-    "tests/unit/social_media/instagram/test_feed_ad_capture.py":
-        (1, "a toy tree for the sponsored labels; a 410 feed ad dump holds them."),
-    "tests/unit/social_media/instagram/test_feed_suggestions_carousel_framing.py":
-        (1, "real feed fixtures, plus one carousel without its band written by hand."),
+        (5,
+         "comments sheet and sort menu rebuilt after a 442 capture: no sort menu in the corpus; "
+         "capture the sort menu of a comments sheet (447, French)."),
     "tests/unit/social_media/instagram/test_feed_suggestions_parsing.py":
         (35, "carousel extract, plus discovery-screen rows built by a helper."),
     "tests/unit/social_media/instagram/test_follow_button_state.py":
-        (5, "profile header rebuilt by a helper from 410 dumps; the corpus holds each button state."),
-    "tests/unit/social_media/instagram/test_framed_post_context.py":
-        (10, "feed post header, caption and buttons built by helpers; a 410 feed dump holds them."),
+        (2,
+         "English profiles with a \"Follow back\" and a \"Following\" button, written by hand: capture "
+         "both (410, English); the French states and the English \"Follow\" read real profiles."),
     "tests/unit/social_media/instagram/test_french_reel_selectors.py":
-        (12, "reel viewer and home feed rebuilt with invented names."),
+        (12,
+         "reel viewer and home feed with invented names: the paused and playing reels are in the "
+         "corpus (410, French); the home feed part waits for the home-detection lot (feed_tab "
+         "selection)."),
     "tests/unit/social_media/instagram/test_grid_thumbnail_tap_opens_the_post.py":
         (14, "profile grid cells built by a helper from real bounds; the profile fixtures hold a grid."),
-    "tests/unit/social_media/instagram/test_hashtag_page_detection.py":
-        (4, "hashtag page, search results and explore grid reduced to their deciding nodes, by hand."),
-    "tests/unit/social_media/instagram/test_hashtag_reel_caption_sheet.py":
-        (21, "447 reel and caption sheet rewritten from device dumps; bring those dumps in anonymized."),
-    "tests/unit/social_media/instagram/test_language_detection.py":
-        (10, "French and English screens as lists of labels, invented."),
     "tests/unit/social_media/instagram/test_navigation_from_a_real_profile.py":
-        (3, "real profile fixture, plus an Android navigation bar and home screens built by a helper."),
+        (3,
+         "real profile fixture, plus the navigation bar and home screens by a helper: left for "
+         "after the home-detection lot (feed_tab / tab_icon, corrected in parallel); the launcher "
+         "(shared/device/fixtures/android12_fr_launcher_home.xml) and the feeds are in fixtures/."),
     "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
         (13, "profile header and screen signals built by a helper, invented."),
-    "tests/unit/social_media/instagram/test_post_gesture_start_guard.py":
-        (3, "post action row, invented; a 410 feed dump holds it."),
-    "tests/unit/social_media/instagram/test_post_reading_caption.py":
-        (5, "caption nodes built by a helper; a 410 feed dump holds captions."),
-    "tests/unit/social_media/instagram/test_profile_bio_truncation.py":
-        (2, "profile with a bio, invented; the corpus holds truncated bios."),
     "tests/unit/social_media/instagram/test_profile_header_447.py":
-        (9, "447 and 410 profile headers, invented in the real shapes; capture a 447 professional profile."),
-    "tests/unit/social_media/instagram/test_profile_username_reader.py":
-        (4, "action bar and bio lines, invented."),
-    "tests/unit/social_media/instagram/test_row_follow_state.py":
-        (4, "follow-list rows built by a helper; the corpus holds 410 follow lists."),
-    "tests/unit/social_media/instagram/test_story_ring_detection.py":
-        (3, "profile avatar ring and highlights, hand-trimmed and without bounds."),
+        (9,
+         "447 and 410 profile headers in the real shapes: no 447 professional profile in the "
+         "corpus; capture one (447, French). 447 personal and 410 headers are in the corpus."),
     "tests/unit/social_media/instagram/test_tab_selectors_stay_in_instagram.py":
-        (3, "launcher and Instagram tab bar built by a helper; capture the launcher."),
+        (3,
+         "launcher and Instagram tab bar by a helper: left for after the home-detection lot "
+         "(feed_tab / tab_icon, corrected in parallel); the launcher "
+         "(shared/device/fixtures/android12_fr_launcher_home.xml) and the feeds are in fixtures/."),
     "tests/unit/social_media/instagram/test_verified_and_business_signals.py":
         (23, "profile headers built by a helper from 410 shapes; the corpus holds professional profiles."),
-    "tests/unit/social_media/instagram/test_zero_posts_indicator_fr.py":
-        (2, "profile counters, invented; no profile without posts in the corpus, capture one."),
-    "tests/unit/social_media/instagram/ui/test_hashtag_search_bar_447.py":
-        (4, "447 search screen rebuilt after a Pixel 6a capture."),
     "tests/unit/social_media/instagram/ui/test_problematic_page_surfaces.py":
         (3,
-         "QR page, share sheet and options sheet built by a helper; `debug_ui/problematic_pages` "
-         "holds some."),
+         "QR page and profile options sheet by a helper: neither is in the corpus; capture both "
+         "(410, French and English). Profiles, feeds and the share sheet are in fixtures/."),
     "tests/unit/social_media/instagram/ui/test_unfollow_selector_catalogs.py":
         (14, "follow-list tabs and rows, synthetic."),
     "tests/unit/social_media/instagram/workflows/management/test_notifications_dump_parsing.py":
@@ -133,28 +117,32 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (15, "suggestions zone rebuilt by a helper from a capture."),
     "tests/unit/social_media/instagram/workflows/management/test_notifications_suggestions_visit.py":
         (6, "notification rows and profiles as markers, invented."),
-    "tests/unit/social_media/instagram/workflows/scraping/test_scrape_list_rereads_rows.py":
-        (4, "follower rows built by a helper; the corpus holds 410 follow lists."),
-    "tests/unit/social_media/instagram/workflows/scraping/test_scrape_list_row_tap.py":
-        (3, "one follower row, invented."),
     "tests/unit/social_media/instagram/workflows/test_like_comment_in_thread.py":
-        (1, "comment thread written by hand; `test_comments_thread_parsing.py` holds a real one."),
-    "tests/unit/social_media/instagram/workflows/test_publish_deletes_media_once_confirmed.py":
-        (3, "real tray fixtures, plus the pending row and the upload snackbar built by a helper."),
-    "tests/unit/social_media/instagram/workflows/test_reply_to_comment_in_thread.py":
-        (1, "comment thread written by hand; `test_comments_thread_parsing.py` holds a real one."),
+        (1,
+         "a comment WE already liked and a like control with an unknown label, written by hand: "
+         "capture a comments sheet after a like (410, French and English); the like lands on a "
+         "real sheet."),
     "tests/unit/social_media/instagram/workflows/unfollow/fake_follow_list.py":
-        (18, "follow lists of 410 and 447 rendered by a helper; bring anonymized list dumps in."),
+        (18,
+         "follow lists of 410 and 447 rendered by a helper for the engine's scripted runs: the 410 "
+         "lists are in fixtures/ (ig410_*_followers_list*); no unfollow dialog in the corpus: "
+         "capture it (410, French) and a 447 list."),
     "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_list_proof.py":
         (1, "one extra follow-list row, invented."),
     "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_list_rows.py":
-        (2, "unfollow dialog and rows, invented."),
+        (2,
+         "unfollow dialog and rows, invented: capture the unfollow dialog (410, French); rows are "
+         "in fixtures/."),
     "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_reciprocity.py":
-        (2, "profile header with its \"Vous suit\" badge, invented."),
+        (2,
+         "profile header with its \"Vous suit\" badge, invented: no such badge in the corpus; "
+         "capture a profile that follows us (410, French)."),
     "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_sort_fr.py":
         (8, "French sort options and list header, written after a Pixel 3 capture."),
     "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_verification.py":
-        (2, "unfollow dialog and rows, invented."),
+        (2,
+         "unfollow dialog and rows, invented: capture the unfollow dialog (410, French); rows are "
+         "in fixtures/."),
     "tests/unit/social_media/tiktok/actions/test_screen_reading.py":
         (7,
          "every feed state (video, ad, comments, suggestion, profile, inbox, LIVE, GDPR) invented; "
@@ -170,43 +158,59 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
     "tests/unit/social_media/tiktok/services/test_tiktok_reset_from_search_results.py":
         (5, "search results and follow list, invented."),
     "tests/unit/social_media/tiktok/test_following_list_row_button_fr.py":
-        (4, "following-list rows rebuilt after 43.1.4 and 46.6.3 captures."),
+        (4,
+         "following-list rows rebuilt after 43.1.4 and 46.6.3 captures: the 43.1.4 list is in the "
+         "corpus (Pixel 3a, \"Suivis\" rows only); capture mutual rows (\"Ami(e)s\" 43.1.4, \"Amis\" "
+         "46.9.3)."),
     "tests/unit/social_media/tiktok/test_french_locale_measured_entries.py":
         (4, "feed, search, comment sheet and inbox rebuilt after captures."),
     "tests/unit/social_media/tiktok/test_profile_enrichment_anchors.py":
         (11, "profile headers rebuilt after eight captured profiles."),
-    "tests/unit/social_media/tiktok/test_tiktok_ad_label.py":
-        (4, "ad and organic videos, invented in the 46.9.3 shape; `captures/tiktok-pubs` holds real ads."),
-    "tests/unit/social_media/tiktok/test_tiktok_language_detection.py":
-        (7, "French and English screens as lists of labels, invented."),
-    "tests/unit/social_media/tiktok/test_tiktok_live_preview.py":
-        (4, "LIVE preview and video, invented in the 46.9.3 shape."),
     "tests/unit/social_media/tiktok/test_update_prompt_overlay.py":
-        (5, "update prompt shape, invented; `captures/tiktok-update-prompt` holds the real one."),
+        (5,
+         "TikTok's splash, its loading logo and an unlabelled bottom sheet, invented: capture the "
+         "launch screen and such a sheet (43.1.4, French); the prompt, the feed and the launcher "
+         "are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_comment_sheet_label_route.py":
         (6, "real 47.0.3 sheet fixture, plus 43.1.4 and 46.6.3 sheets rebuilt by a helper."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_dm_anchors.py":
         (4, "conversation and inbox rows, invented in the captured shapes."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_search_selector_catalogs.py":
-        (4, "search result rows rebuilt from the rows a search served."),
+        (4,
+         "search result rows rebuilt from the rows a search served: the prefix trap needs handles "
+         "that are prefixes of one another, which anonymization erases; next: invented handles on "
+         "the real Users tab of 46.9.3."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_search_view_all_fr.py":
-        (6, "Top results section rebuilt by a helper from 43.1.4 and 47.0.3 captures."),
+        (1,
+         "the new followers page of 46.6.3, written by hand after a capture the corpus no longer "
+         "holds: capture it (46.6.3 or later, French); the four other screens are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_send_button_46_9_3.py":
         (5, "DM composer bar, invented in the 46.9.3 shape."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_video_liked_state.py":
-        (5, "like button, invented; the feed fixtures hold it."),
+        (5,
+         "like button, invented: a liked video exists in 43.1.4 French only (Lab `tt.video.like`, "
+         "Pixel 6a); capture a liked video on 46.6.3 or later, and in English."),
     "tests/unit/social_media/tiktok/workflows/publish/test_tiktok_publish_hashtag_suggestions.py":
-        (3, "hashtag suggestion list, invented; the publish runs of the corpus hold it."),
-    "tests/unit/social_media/tiktok/workflows/publish/test_tiktok_publish_progress.py":
-        (3, "upload progress badge, invented; the publish runs of the corpus hold it."),
+        (3,
+         "hashtag suggestion list, invented: not in the publish runs of the corpus; capture it "
+         "while typing a caption (43.1.4, French)."),
     "tests/unit/social_media/tiktok/workflows/publish/test_tiktok_publish_screen_detector.py":
-        (6, "publish screens as single markers, invented; the publish runs of the corpus hold them."),
+        (6,
+         "publish screens as markers: gallery, camera and post screens are in the publish runs "
+         "(43.1.4); the one video editor captured is English and is not detected (French markers "
+         "only): capture the French editor."),
     "tests/unit/social_media/tiktok/workflows/publish/test_tiktok_publish_selectors.py":
-        (5, "publish screen markers, invented."),
+        (5,
+         "publish screen markers, invented: the post screen is in the publish runs (43.1.4); "
+         "capture the French video editor."),
     "tests/unit/social_media/tiktok/workflows/publish/test_tiktok_publish_upload_picker.py":
-        (3, "upload picker, invented; the publish runs of the corpus hold it."),
+        (3,
+         "upload picker: the button is in the publish runs (43.1.4); no hidden, disabled or tiny "
+         "candidate in the corpus: capture the picker while it loads."),
     "tests/unit/social_media/tiktok/workflows/test_tiktok_block_stop.py":
-        (4, "TikTok refusal toasts and dialogs, invented; capture one."),
+        (4,
+         "TikTok refusal toasts and dialogs, invented: none in the corpus; capture one (43.1.4, "
+         "French)."),
     "tests/unit/social_media/tiktok/workflows/unfollow/conftest.py":
         (4, "following list of 46.6.3 rendered by a helper."),
     "tests/unit/test_switch_account.py":
@@ -214,7 +218,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
 }
 
 #: The number of entries of HAND_WRITTEN: it only goes down.
-HAND_WRITTEN_CEILING = 73
+HAND_WRITTEN_CEILING = 48
 
 #: (b) A tree that is not a screen: what it computes, and why no screen is needed.
 MINIMAL_TREES: dict[str, tuple[int, str]] = {
@@ -246,8 +250,16 @@ MINIMAL_TREES: dict[str, tuple[int, str]] = {
         (2, "the tree normalisation d.xpath() applies, on the shape of a real dump."),
     "tests/unit/shared/ui/test_language_engine.py":
         (5, "the language scoring rules shared by both platforms."),
+    "tests/unit/social_media/instagram/test_feed_suggestions_carousel_framing.py":
+        (1,
+         "a carousel with no visible band (no feed list, no tab bar): the framing guard; every "
+         "real dump carries the list, and the carousel itself is read on real feeds."),
     "tests/unit/social_media/instagram/test_feed_suggestions_follow_loop.py":
         (15, "which bounds the finger starts from and what is booked; the parsing is proven elsewhere."),
+    "tests/unit/social_media/instagram/test_post_reading_caption.py":
+        (2,
+         "a caption below the screen: the off-screen guard is geometry, and uiautomator clips its "
+         "dump to the screen (no capture holds one); the other readings run on real feeds."),
     "tests/unit/social_media/instagram/test_post_reading_reframe.py":
         (16, "the reframe scroll computed from a caption's bounds."),
     "tests/unit/social_media/tiktok/actions/test_probes_on_one_photo.py":

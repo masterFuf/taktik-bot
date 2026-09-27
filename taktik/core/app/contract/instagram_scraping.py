@@ -246,6 +246,7 @@ _EVENTS = (
 INSTAGRAM_SCRAPING = WorkflowContract(
     workflow_id="instagram.scraping.target",
     also=tuple(f"instagram.scraping.{kind}" for kind in SCRAPING_TYPES if kind != "target"),
+    selector="type",
     name="InstagramScraping",
     bridge="scraping_bridge",
     doc="Collect profiles from accounts' lists, hashtags, posts or a list of names, or the posts of accounts.",

@@ -5,9 +5,10 @@ Rule 3 of the anti-drift doctrine: the contract is declared once and the app's t
 from it. The readers are held to the declaration by `tests/unit/app/contract`; this audit holds the
 declaration to the rest of the bot, and the app's generated file to the declaration:
 
-- each workflow id is a runnable workflow of `workflows.manifest.json`;
+- each workflow id is a runnable workflow of `workflows.manifest.json` (every id a family's
+  declaration serves);
 - each bridge is in `bridges/bridges.manifest.json`;
-- each launcher and reader resolves to a function;
+- each launcher, reader and `via` resolves to a function;
 - each declared line `type` is one the bot emits (`audit_bridge_events.py`, the census the app's
   `npm run bridge:events` reads);
 - the app's generated file, when the app sits next to the bot (`../app`, or `TAKTIK_APP_PATH`),
@@ -75,6 +76,7 @@ def app_root(root: Path = ROOT) -> Path:
 def problems(root: Path = ROOT, app: Path | None = None) -> List[str]:
     import workflow_contract
     from taktik.core.app.contract import WORKFLOW_CONTRACTS
+    from taktik.core.app.contract.schema import nested_fields
 
     found: List[str] = []
     runnable, bridges = _runnable(root), _bridges(root)
@@ -82,16 +84,20 @@ def problems(root: Path = ROOT, app: Path | None = None) -> List[str]:
     seen = set()
     for contract in WORKFLOW_CONTRACTS:
         where = contract.workflow_id
-        if where in seen:
-            found.append(f"{where}: declared twice")
-        seen.add(where)
-        for workflow_id in (where, *contract.also):
+        for workflow_id in contract.serves:
+            if workflow_id in seen:
+                found.append(f"{workflow_id}: declared twice")
+            seen.add(workflow_id)
             if workflow_id not in runnable:
                 found.append(f"{workflow_id}: not a runnable workflow of workflows.manifest.json")
+        if contract.selector and contract.selector not in {item.key for item in contract.settings}:
+            found.append(f"{where}: selector {contract.selector} is not a setting")
         if contract.bridge not in bridges:
             found.append(f"{where}: bridge {contract.bridge} is not in bridges/bridges.manifest.json")
+        nested = [item for _, item, _, _ in nested_fields((*contract.settings, *contract.bridge_fields))]
         for label, dotted in (("launcher", contract.launcher), ("reader", contract.reader),
-                              *(("reader", item.reader) for item in contract.settings if item.reader)):
+                              *(("reader", item.reader) for item in nested if item.reader),
+                              *(("via", item.via) for item in nested if item.via)):
             if not _resolves(dotted):
                 found.append(f"{where}: {label} {dotted} does not resolve")
         for event in contract.events:
@@ -122,8 +128,8 @@ def main() -> int:
 
     app = app_root()
     checked = "generated file up to date" if app.is_dir() else "app not found, generated file not checked"
-    workflows = sum(1 + len(contract.also) for contract in WORKFLOW_CONTRACTS)
-    print(f"[workflow-contract] OK: {workflows} workflows declared by {len(WORKFLOW_CONTRACTS)} declarations; {checked}")
+    served = sum(len(contract.serves) for contract in WORKFLOW_CONTRACTS)
+    print(f"[workflow-contract] OK: {served} workflows declared ({len(WORKFLOW_CONTRACTS)} declarations); {checked}")
     return 0
 
 

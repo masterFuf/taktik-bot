@@ -8,6 +8,7 @@ from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.instagram.account.runtime.session import AccountSessionLifecycleMixin
 from bridges.instagram.account.runtime.workflows import AccountWorkflowRunnerMixin
 from bridges.instagram.runtime.ipc import _ipc, send_error, send_status
+from taktik.core.social_media.instagram.workflows.management.agent_handler import package_name_from_payload
 
 
 class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
@@ -17,7 +18,7 @@ class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
         self.config = config
         self.device_id = config.get("deviceId")
         self.workflow_type = config.get("workflowType")
-        self.package_name = config.get("packageName")
+        self.package_name = package_name_from_payload(config)
         self._connection = None
         self._app = None
 

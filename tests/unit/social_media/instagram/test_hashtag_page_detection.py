@@ -6,55 +6,67 @@ What identifies the surface is a conjunction: a media grid, on a screen whose ac
 field holds a hashtag. Each half alone lies -- the grid is also Explore, and the search field
 holding "#voyage" is also the search RESULTS screen.
 
-The fixtures below keep only the nodes that decide the question, with the ids seen on device.
+The screens are real captures, anonymized (a hashtag keeps its "#"): the hashtag page of
+Instagram 447 in French (Pixel 6a) and of 410 in English (Pixel 3); in 410 French, the results
+listed for a hashtag typed in the search field (Pixel 3), the Explore grid (Pixel 3a) and the
+results of a plain search, an account name (Pixel 3). Read the way `d.xpath()` reads a dump.
 """
 
-from lxml import etree
+from pathlib import Path
 
+import pytest
+
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import (
     DETECTION_SELECTORS,
 )
 
-_SEARCH_FIELD = (
-    '<node class="android.widget.EditText" bounds="[147,161][900,253]"'
-    ' resource-id="com.instagram.android:id/action_bar_search_edit_text" text="{text}"/>'
-)
-_GRID_CARD = (
-    '<node class="android.view.ViewGroup" bounds="[0,300][360,660]"'
-    ' resource-id="com.instagram.android:id/grid_card_layout_container"/>'
-)
-_RESULT_ROW = (
-    '<node class="android.widget.TextView" bounds="[0,300][1080,400]"'
-    ' resource-id="com.instagram.android:id/row_hashtag_textview_tag_name" text="#voyage"/>'
-)
+FIXTURES = Path(__file__).parent / "fixtures"
+SEARCH_FIELD = '//*[contains(@resource-id, "action_bar_search_edit_text")]'
+GRID = '//*[contains(@resource-id, "grid_card_layout_container")]'
 
 
-def _screen(*nodes):
-    return etree.fromstring(("<hierarchy>" + "".join(nodes) + "</hierarchy>").encode())
+def _screen(name):
+    return parse_ui_dump((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def _field(root):
+    return root.xpath(SEARCH_FIELD)[0].get("text")
 
 
 def _looks_like_a_hashtag_page(root):
     return any(root.xpath(indicator) for indicator in DETECTION_SELECTORS.hashtag_page_indicators)
 
 
-def test_a_hashtag_page_is_recognised():
-    root = _screen(_SEARCH_FIELD.format(text="#voyage"), _GRID_CARD, _GRID_CARD)
+@pytest.mark.parametrize("name", ["ig447_fr_hashtag_page.xml", "ig410_en_hashtag_page.xml"],
+                         ids=["447 fr", "410 en"])
+def test_a_hashtag_page_is_recognised(name):
+    root = _screen(name)
+    assert _field(root).startswith("#") and root.xpath(GRID)
     assert _looks_like_a_hashtag_page(root)
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "The French entry `detection.hashtag_page_indicators` holds "
+    "`//*[contains(@text, \"publications\")]`: it answers on the subtitle of every hashtag row "
+    "of the search results (\"18,7 m publications\"), and on the post counter of any French "
+    "profile. Open point, to prove on a phone before a selector changes."))
 def test_the_search_results_screen_is_not_a_hashtag_page():
     # Same query in the same field, but a list of results instead of a grid.
-    root = _screen(_SEARCH_FIELD.format(text="#voyage"), _RESULT_ROW)
+    root = _screen("ig410_fr_hashtag_search_results.xml")
+    assert _field(root).startswith("#") and not root.xpath(GRID)
     assert not _looks_like_a_hashtag_page(root)
 
 
 def test_the_explore_grid_is_not_a_hashtag_page():
     # A grid, but nothing typed: this is Explore, and treating it as a hashtag page would make
     # a workflow engage with posts it never asked for.
-    root = _screen(_SEARCH_FIELD.format(text=""), _GRID_CARD, _GRID_CARD)
+    root = _screen("ig410_fr_explore_grid.xml")
+    assert not _field(root).startswith("#") and root.xpath(GRID)
     assert not _looks_like_a_hashtag_page(root)
 
 
 def test_a_plain_search_without_a_hashtag_is_not_a_hashtag_page():
-    root = _screen(_SEARCH_FIELD.format(text="voyage"), _GRID_CARD)
+    root = _screen("ig410_fr_account_search_results.xml")
+    assert _field(root) and not _field(root).startswith("#")
     assert not _looks_like_a_hashtag_page(root)

@@ -9,7 +9,15 @@ language-independently.
 Measured on a French dump whose only visible strings were "Abonnements" and "Abonnés":
 `en (FR=0.5, EN=2.5)` — a French app declared English. That is worse than 'unknown':
 committing STRIPS the French selectors, where 'unknown' keeps every locale (overlay union).
+
+The screens are real captures, anonymized, on phones whose Android runs in French (so every dump
+also carries the French system bar, "Accueil" and "Retour"): TikTok's update prompt, whose app
+nodes carry no word at all, and a French comment sheet (43.1.4 and 47.0.3); the French and the
+English app on 46.9.3 (Pixel 6a); and the post screen of an English 43.1.4 (Pixel 3a), whose
+English words tie with the French ones of the system bar.
 """
+
+from pathlib import Path
 
 import pytest
 
@@ -44,61 +52,50 @@ def _no_inplace_filtering(monkeypatch):
     monkeypatch.setattr(language._DETECTION, 'optimize_selector_dataclass', lambda inst, lang: 0)
 
 
-# Present on EVERY TikTok dump, whatever the app language.
-_ENGLISH_IDS = (
-    '<node resource-id="com.zhiliaoapp.musically:id/home_tab" />'
-    '<node resource-id="com.zhiliaoapp.musically:id/profile_tab" />'
-    '<node resource-id="com.zhiliaoapp.musically:id/inbox_tab" />'
-    '<node resource-id="com.zhiliaoapp.musically:id/friends_tab" />'
-    '<node resource-id="com.zhiliaoapp.musically:id/create_button" />'
-)
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _screen(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+#: TikTok's English ids and not one word of the app: the 43.1.4 update prompt.
+_ENGLISH_IDS = _screen("tt4314_fr_update_prompt.xml")
+#: A French screen scoring low: the 47.0.3 comment sheet, four French labels and no English one.
+_FRENCH_FEW_WORDS = _screen("tt4703_fr_comment_sheet.xml")
+_FRENCH = _screen("tt4693_fr_inbox.xml")
+_ENGLISH = _screen("tt4693_en_for_you_video.xml")
+_TIED = _screen("tt4314_publish_post_screen.xml")
 
 
 def test_english_resource_ids_alone_never_decide_the_language():
     """The exact regression: this dump used to score EN=2.5 and win."""
+    assert "com.zhiliaoapp.musically" in _ENGLISH_IDS
     assert language.detect_language(_FakeDevice(_ENGLISH_IDS)) == 'unknown'
 
 
 def test_a_french_app_is_not_declared_english_by_its_resource_ids():
-    """The dump that proved the bug: two French words against five English identifiers."""
-    xml = _ENGLISH_IDS + (
-        '<node content-desc="Abonnements" /><node content-desc="Abonnés" />'
-    )
-    assert language.detect_language(_FakeDevice(xml)) != 'en'
+    """The dump that proved the bug: a few French words against the English identifiers."""
+    assert language.detect_language(_FakeDevice(_FRENCH_FEW_WORDS)) != 'en'
 
 
 def test_a_french_screen_is_detected_french():
-    xml = _ENGLISH_IDS + (
-        '<node content-desc="Accueil" /><node content-desc="Profil" />'
-        '<node content-desc="Abonnements" /><node content-desc="Abonnés" />'
-        '<node text="J’aime" />'
-    )
-    assert language.detect_language(_FakeDevice(xml)) == 'fr'
+    assert language.detect_language(_FakeDevice(_FRENCH)) == 'fr'
 
 
 def test_an_english_screen_is_detected_english():
-    xml = _ENGLISH_IDS + (
-        '<node content-desc="Home" /><node content-desc="Profile" />'
-        '<node content-desc="Following" /><node content-desc="Followers" />'
-        '<node text="Likes" />'
-    )
-    assert language.detect_language(_FakeDevice(xml)) == 'en'
+    assert language.detect_language(_FakeDevice(_ENGLISH)) == 'en'
 
 
 def test_ambiguous_scores_stay_unknown():
     """A close call must not strip a locale."""
-    xml = _ENGLISH_IDS + '<node content-desc="Accueil" /><node content-desc="Home" />'
-    assert language.detect_language(_FakeDevice(xml)) == 'unknown'
+    assert 'content-desc="Accueil"' in _TIED and 'text="Post"' in _TIED
+    assert language.detect_language(_FakeDevice(_TIED)) == 'unknown'
 
 
 def test_redetection_only_happens_while_the_language_is_undecided(_no_inplace_filtering):
     language._DETECTION._detected_lang = 'unknown'
-    french = _ENGLISH_IDS + (
-        '<node content-desc="Accueil" /><node content-desc="Profil" />'
-        '<node content-desc="Abonnements" /><node text="J’aime" />'
-    )
-    assert language.redetect_if_unknown(_FakeDevice(french)) == 'fr'
+    assert language.redetect_if_unknown(_FakeDevice(_FRENCH)) == 'fr'
 
     language._DETECTION._detected_lang = 'fr'
-    english = _ENGLISH_IDS + '<node content-desc="Home" /><node content-desc="Followers" />'
-    assert language.redetect_if_unknown(_FakeDevice(english)) == 'fr'
+    assert language.redetect_if_unknown(_FakeDevice(_ENGLISH)) == 'fr'

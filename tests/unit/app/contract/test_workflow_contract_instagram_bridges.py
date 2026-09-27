@@ -14,10 +14,10 @@ from typing import Any, Dict, List
 
 import pytest
 
-from contract_probe import DEVICE, Recording, leaves, merge, probe, satisfied
+from contract_probe import DEVICE, Recording, lookup, merge, probe
 from taktik.core.app.contract.instagram_engagement import INSTAGRAM_COLD_DM, INSTAGRAM_DM_READ, INSTAGRAM_DM_SEND
 from taktik.core.app.contract.instagram_scraping import INSTAGRAM_SCRAPING, SCRAPING_TYPES
-from taktik.core.app.contract.schema import WorkflowContract, has_default
+from taktik.core.app.contract.schema import Shape, WorkflowContract, has_default, nested_fields
 from test_workflow_contract_bridges import check_lines, declared_paths, file_paths, no_ip_rotation  # noqa: F401
 
 
@@ -25,21 +25,28 @@ def _value(item) -> Any:
     return item.default if has_default(item) and not isinstance(item.default, tuple) else probe(item)
 
 
+def _holds(when, data) -> bool:
+    """`data` holds what `when` asks (a tuple: any of its values)."""
+    for dotted, wanted in when.items():
+        present, value = lookup(data, tuple(dotted.split(".")))
+        if not present or not (value in wanted if isinstance(wanted, tuple) else value == wanted):
+            return False
+    return True
+
+
 def app_file(contract: WorkflowContract, **chosen: Any) -> Dict[str, Any]:
     """The file the app writes for these choices: every setting read under them, at its wire key.
 
     `chosen` fixes the settings the others depend on (`type`, `deepQualify`, `ai.enabled`); a host
     field (the AI key, the session's account) is in the file: the main process fills it."""
-    data: Dict[str, Any] = {}
-    for key, value in chosen.items():
-        data = merge(data, {key: value})
-    for prefix, item in leaves(contract):
-        if prefix and prefix[0] not in data:
+    data: Dict[str, Any] = merge(chosen)
+    for path, item, when, _ in nested_fields(contract.settings):
+        if isinstance(item.type, Shape) or not item.app or not _holds(when, data):
             continue
-        if not item.app or not satisfied(item, data):
+        if path[:-1] and not lookup(data, path[:-1])[0]:
             continue
         holder = data
-        for key in prefix:
+        for key in path[:-1]:
             holder = holder[key]
         holder.setdefault(item.key, _value(item))
     for item in contract.bridge_fields:
