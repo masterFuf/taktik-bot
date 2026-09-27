@@ -6,7 +6,12 @@ import re
 from typing import Optional
 from loguru import logger
 
-from taktik.core.shared.behavior.grid_entry import plan_prescroll, sample_entry_index, GRID_COLUMNS
+from taktik.core.shared.behavior.grid_entry import (
+    GRID_COLUMNS,
+    plan_prescroll,
+    reentry_positions,
+    sample_entry_index,
+)
 from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.shared.diagnostics.miss_capture import signaler_ecran_inconnu
 from taktik.core.shared.telemetry import emit_step
@@ -48,8 +53,9 @@ class PostNavigationMixin:
 
         ``posts_count`` is the profile's publication count (already read upstream);
         it drives whether pre-scrolling the grid looks natural at all. A reopen after leaving a
-        Reel is stricter: it never reuses a cell already opened during this profile visit and seeks
-        a new grid row when all currently visible cells have been consumed.
+        Reel is stricter: it resumes past the furthest post reached during this profile visit,
+        swiping the grid down when that part is not on screen (``_find_reentry_cell``), and never
+        falls back to another cell.
         """
         try:
             thumb_selector = self.detection_selectors.post_thumbnail_selectors[0]
@@ -62,65 +68,46 @@ class PostNavigationMixin:
                 self.logger.debug("Grid not visible — using legacy first-post open")
                 return self._open_first_post_of_profile(username=username)
 
-            # 1. Adaptive grid pre-scroll (only on big-enough profiles; human flick).
-            prescroll = 0 if reopening else plan_prescroll(int(posts_count or 0))
-            for _ in range(prescroll):
-                scrolled = self._session_grid_scroll(
-                    "profile_grid_prescroll", distance_ratio=0.40, coast=True
-                )
-                if not scrolled:
-                    break
-            if prescroll:
-                posts = self._visible_grid_thumbnails(thumb_selector)
-                if not posts:
-                    return self._open_first_post_of_profile(username=username)
-
-            # 2. Open a varied visible thumbnail (top-weighted, spread). Re-entry from a Reel
-            # must never pick a cell already visited during this profile pass. If this viewport is
-            # exhausted but the profile has more posts, move the grid and retry with absolute cell
-            # keys from the live content-desc.
-            candidate_posts = posts
-            candidate_indexes = list(range(len(posts)))
-            if not reopening and int(posts_count or 0) > 0 and int(posts_to_inspect or 0) > 0:
-                latest_start = max(
-                    1,
-                    int(posts_count) - min(int(posts_count), int(posts_to_inspect)) + 1,
-                )
-                eligible = [
-                    (visible_index, post)
-                    for visible_index, post in enumerate(posts)
-                    if self._grid_entry_position(post, visible_index) <= latest_start
-                ]
-                if eligible:
-                    candidate_indexes = [visible_index for visible_index, _post in eligible]
-                    candidate_posts = [post for _visible_index, post in eligible]
-
-            candidate_index = self._choose_session_grid_entry(
-                candidate_posts, username=username, require_unseen=reopening
-            )
-            index = (
-                candidate_indexes[candidate_index]
-                if candidate_index is not None
-                else None
-            )
-            if index is None and reopening and int(posts_count or 0) > len(posts):
-                for _ in range(2):
-                    if not self._session_grid_scroll(
-                        "profile_grid_reopen_seek", distance_ratio=0.40, coast=False
-                    ):
-                        break
-                    posts = self._visible_grid_thumbnails(thumb_selector)
-                    index = self._choose_session_grid_entry(
-                        posts, username=username, require_unseen=True
+            prescroll = 0
+            if reopening:
+                found = self._find_reentry_cell(posts, thumb_selector, posts_count, username)
+                if found is None:
+                    self.logger.info(
+                        "No unseen profile-grid thumbnail remains past the furthest post "
+                        "reached; stopping instead of walking posts already seen"
                     )
-                    if index is not None:
+                    return False
+                posts, index = found
+            else:
+                # 1. Adaptive grid pre-scroll (only on big-enough profiles; human flick).
+                prescroll = plan_prescroll(int(posts_count or 0))
+                for _ in range(prescroll):
+                    scrolled = self._session_grid_scroll(
+                        "profile_grid_prescroll", distance_ratio=0.40, coast=True
+                    )
+                    if not scrolled:
                         break
-            if index is None:
-                self.logger.info(
-                    "No unseen profile-grid thumbnail remains; stopping instead of reopening "
-                    "a post already visited"
+                if prescroll:
+                    posts = self._visible_grid_thumbnails(thumb_selector)
+                    if not posts:
+                        return self._open_first_post_of_profile(username=username)
+
+                # 2. Open a varied visible thumbnail (top-weighted, spread), early enough in the
+                # profile to leave the posts the run intends to inspect after it.
+                candidates = None
+                if int(posts_count or 0) > 0 and int(posts_to_inspect or 0) > 0:
+                    latest_start = max(
+                        1,
+                        int(posts_count) - min(int(posts_count), int(posts_to_inspect)) + 1,
+                    )
+                    candidates = [
+                        visible_index
+                        for visible_index, post in enumerate(posts)
+                        if self._grid_entry_position(post, visible_index) <= latest_start
+                    ] or None
+                index = self._choose_session_grid_entry(
+                    posts, username=username, candidates=candidates
                 )
-                return False
             target = posts[index]
             self.logger.info(
                 f"Opening entry post: thumbnail #{index + 1}/{len(posts)} "
@@ -139,7 +126,9 @@ class PostNavigationMixin:
 
             time.sleep(3)
             if self._is_in_post_view():
-                self._remember_session_grid_entry(target, index, username=username)
+                self._remember_session_grid_entry(
+                    target, index, username=username, continuing_visit=reopening
+                )
                 self.logger.success("Entry post opened successfully")
                 return True
 
@@ -319,9 +308,20 @@ class PostNavigationMixin:
         return f"{username or 'current-profile'}:{cell}"
 
     def _choose_session_grid_entry(
-        self, posts, username: str = None, *, require_unseen: bool = False
+        self,
+        posts,
+        username: str = None,
+        *,
+        require_unseen: bool = False,
+        candidates: Optional[list] = None,
     ) -> Optional[int]:
-        keys = [self._grid_entry_key(post, index, username) for index, post in enumerate(posts)]
+        """Index in ``posts`` of the cell to open, drawn among ``candidates`` (indexes into
+        ``posts``; every visible cell by default) with the session's grid memory and row weights.
+        None when ``require_unseen`` leaves nothing to draw."""
+        indexes = list(range(len(posts))) if candidates is None else list(candidates)
+        if not indexes:
+            return None
+        keys = [self._grid_entry_key(posts[index], index, username) for index in indexes]
         chooser = getattr(getattr(self, "behavior_state", None), "choose_grid_entry_index", None)
         if callable(chooser):
             choice = chooser(
@@ -330,22 +330,96 @@ class PostNavigationMixin:
                 avoid_recent=None,
                 require_unseen=require_unseen,
             )
-            return int(choice) if choice is not None else None
-        return sample_entry_index(len(posts))
+            return indexes[int(choice)] if choice is not None else None
+        return indexes[sample_entry_index(len(indexes))]
 
-    def _remember_session_grid_entry(self, target, index: int, username: str = None) -> None:
+    def _find_reentry_cell(self, posts, thumb_selector: str, posts_count: int, username: str = None):
+        """The cell a reopen opens after a Reel exit, as ``(visible cells, index)``, or None.
+
+        The viewer walks a profile one position at a time, so a cell before the furthest position
+        already reached leads straight back through posts already seen, even when that cell itself
+        was never opened. The reopen therefore resumes past that position, among the next few
+        (``reentry_positions``; the chooser's row weights favour the nearest). When none of them
+        is on screen, the grid is swiped down towards them. None when the profile has nothing new,
+        or when the grid stops moving before showing it.
+        """
+        posts_count = int(posts_count or 0)
+        furthest = self._furthest_position_reached(username)
+        wanted = reentry_positions(furthest, posts_count)
+        if not wanted:
+            return None
+        positions = [self._grid_entry_position(post, index) for index, post in enumerate(posts)]
+        # A grid swipe moves about two rows: one per row still to go, and one more, is enough.
+        rows_to_go = (wanted[0] - 1) // GRID_COLUMNS - (max(positions) - 1) // GRID_COLUMNS
+        seeks_left = max(0, rows_to_go) + 1
+        while True:
+            past_furthest = [
+                index for index, position in enumerate(positions)
+                if position > furthest and (posts_count <= 0 or position <= posts_count)
+            ]
+            if past_furthest:
+                in_spread = [index for index in past_furthest if positions[index] in wanted]
+                index = self._choose_session_grid_entry(
+                    posts,
+                    username=username,
+                    require_unseen=True,
+                    candidates=in_spread or past_furthest,
+                )
+                if index is None:
+                    return None
+                self.logger.info(
+                    f"Reel exit: furthest post reached #{furthest}, reopening #{positions[index]}"
+                )
+                return posts, index
+            if seeks_left <= 0:
+                return None
+            seeks_left -= 1
+            if not self._session_grid_scroll(
+                "profile_grid_reopen_seek", distance_ratio=0.40, coast=False
+            ):
+                return None
+            moved = self._visible_grid_thumbnails(thumb_selector)
+            moved_positions = [
+                self._grid_entry_position(post, index) for index, post in enumerate(moved)
+            ]
+            if not moved or moved_positions == positions:
+                # The grid did not move (end of the profile, or cells without their absolute
+                # position): nothing on screen can be told apart from a post already seen.
+                return None
+            posts, positions = moved, moved_positions
+
+    def _furthest_position_reached(self, username: str = None) -> int:
+        """The furthest absolute position reached during this profile visit (0 before any)."""
+        cursor = getattr(self, "_profile_post_cursor", None) or {}
+        if cursor.get("context") != (username or "current-profile"):
+            return 0
+        return int(cursor.get("furthest") or 0)
+
+    def _remember_session_grid_entry(
+        self, target, index: int, username: str = None, *, continuing_visit: bool = False
+    ) -> None:
+        """Remember a grid cell that opened: in the session memory, and in the visit's cursor.
+
+        The cursor holds the position on screen and the furthest position reached so far. Any
+        other entry starts a new visit; a reopen after a Reel (``continuing_visit``) keeps the
+        furthest position of the visit it continues.
+        """
         context = username or "current-profile"
-        key = self._grid_entry_key(target, index, username)
-        position_match = re.search(r":position:(\d+)$", key)
+        position = self._grid_entry_position(target, index)
+        furthest = position
+        cursor = getattr(self, "_profile_post_cursor", None) or {}
+        if continuing_visit and cursor.get("context") == context:
+            furthest = max(position, int(cursor.get("furthest") or 0))
         self._profile_post_cursor = {
             "context": context,
-            "position": int(position_match.group(1)) if position_match else None,
+            "position": position,
+            "furthest": furthest,
         }
         remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
         if callable(remember):
             remember(
                 context=context,
-                key=key,
+                key=self._grid_entry_key(target, index, username),
                 index=index,
             )
 
@@ -363,7 +437,11 @@ class PostNavigationMixin:
         if not context or position is None:
             return
         next_position = int(position) + 1
-        self._profile_post_cursor = {"context": context, "position": next_position}
+        self._profile_post_cursor = {
+            "context": context,
+            "position": next_position,
+            "furthest": max(next_position, int(cursor.get("furthest") or 0)),
+        }
         remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
         if callable(remember):
             remember(
@@ -617,10 +695,9 @@ class PostNavigationMixin:
         loses the profile-scoped Back control. Normal posts therefore remain in sequential viewer
         navigation, while this path is reserved for Reel escape (and its Cartography probe).
 
-        Reuses the humanised entry path while requiring a cell not already opened during this
-        profile visit. If the viewport is exhausted, that path scrolls the grid to seek a new
-        absolute position; it stops instead of looping over an old post. Returns True only if we
-        ended up back in a post view."""
+        Reuses the humanised entry path, which resumes past the furthest post reached during this
+        profile visit (swiping the grid down when that part is off screen) and stops instead of
+        walking posts already seen again. Returns True only if we ended up back in a post view."""
         try:
             self.logger.debug("Navigating via grid: back to profile → reopen another post")
             if not self._return_to_profile_from_post():

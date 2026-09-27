@@ -24,6 +24,7 @@ import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.business.actions.like.post_navigation as post_navigation_module
 import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+from taktik.core.shared.behavior.session_state import BehaviorSessionState
 from taktik.core.shared.diagnostics import miss_capture
 from taktik.core.social_media.instagram.actions.atomic.navigation.tab_navigation import TabNavigationMixin
 from taktik.core.social_media.instagram.actions.business.actions.like.post_navigation import PostNavigationMixin
@@ -214,4 +215,41 @@ def test_on_a_phone_that_obeys_nothing_the_reopen_taps_once_and_gives_up():
 
     assert _reopener(phone)._open_entry_post_of_profile(0, reopening=True) is False
     assert len(phone.taps) == 1
+    assert phone.presses == []
+
+
+class _SeekingPlanner(_Planner):
+    """The gesture owner of a grid seek: records each swipe; the capture itself never moves."""
+
+    def __init__(self):
+        self.swipes = []
+
+    def _human_swipe(self, direction, **_kwargs):
+        self.swipes.append(direction)
+        return True
+
+
+def test_a_reopen_never_taps_a_cell_before_the_furthest_post_reached():
+    # The walk so far on this profile: cell 1 opened, 2 reached (a Reel in this capture), cell 4
+    # reopened, then 5, 6 and 7 reached in the viewer. Every cell of the capture sits at or before
+    # position 7; cell 3 was never opened, and reopening it walks 4, 5, 6 and 7 again.
+    cells = _grid_cells()
+    phone = _Phone(PROFILE, taps=lambda screen, point: POST if any(_inside(point, c) for c in cells) else None)
+    host = _reopener(phone)
+    host.behavior_state = BehaviorSessionState(seed=410)
+    host.scroll_actions = _SeekingPlanner()
+    thumbnails = host._visible_grid_thumbnails(DETECTION_SELECTORS.post_thumbnail_selectors[0])
+    host._remember_session_grid_entry(thumbnails[0], 0, username="profil_exemple")
+    host._remember_sequential_profile_post()
+    host._remember_session_grid_entry(thumbnails[3], 3, username="profil_exemple")
+    for _ in range(3):
+        host._remember_sequential_profile_post()
+
+    opened = host._open_entry_post_of_profile(90, username="profil_exemple", reopening=True)
+
+    # Position 8 is below the screen: the grid is swiped towards it, and since this capture never
+    # moves, the reopen stops there rather than walking posts already seen.
+    assert phone.taps == []
+    assert opened is False
+    assert host.scroll_actions.swipes == ["up"]
     assert phone.presses == []
