@@ -346,6 +346,9 @@ class TikTokUploadWorkflow:
                 _ipc.log("warning", "[gallery] TikTok's copy of this video could not be looked for: it stays in the gallery")
             else:
                 copies = found
+        if copies:
+            _ipc.log("info", "[gallery] saved by TikTok during this publication: "
+                             + ", ".join(os.path.basename(path) for path in copies))
         if not published:
             if copies:
                 _ipc.log("info", f"[gallery] {len(copies)} copy(ies) saved by TikTok recorded; "
@@ -361,7 +364,6 @@ class TikTokUploadWorkflow:
         else:
             _ipc.log("warning", f"[gallery] {removed} of {expected} file(s) of this publication removed; "
                                 "the rest waits for the purge of a later publish")
-
 
     def _wait_for_publish_commit(self, timeout: float = 120.0) -> bool:
         callbacks = PublishCommitCallbacks(

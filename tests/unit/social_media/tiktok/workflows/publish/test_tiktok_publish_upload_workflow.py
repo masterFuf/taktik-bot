@@ -14,9 +14,12 @@ SAVED_IN_JUNE = {"path": "/storage/emulated/0/DCIM/Camera/2026-06-11-010830653.m
 COPY = "/storage/emulated/0/DCIM/Camera/2026-09-28-010203456.mp4"
 
 
-class _Quiet:
-    def log(self, *args, **kwargs):
-        pass
+class _Notes:
+    def __init__(self):
+        self.logs = []
+
+    def log(self, level, message, *args, **kwargs):
+        self.logs.append((level, message))
 
     def status(self, *args, **kwargs):
         pass
@@ -71,9 +74,13 @@ def publish(monkeypatch, tmp_path):
 
     monkeypatch.setattr(module, "tap_element", _tap)
 
+    notes = _Notes()
+
     def _run():
-        workflow = module.TikTokUploadWorkflow(device=object(), device_id="device-1", notifier=_Quiet())
+        workflow = module.TikTokUploadWorkflow(device=object(), device_id="device-1", notifier=notes)
         return workflow.execute(local_path=str(video), caption="")
+
+    _run.notes = notes
 
     _run.seen = seen
     _run.answers = answers
@@ -117,6 +124,7 @@ def test_a_confirmed_publication_deletes_the_video_pushed_and_tiktok_s_copy(publ
     # The copy is what TikTok saved after the first reading: the June copy is known, never touched.
     assert publish.seen["recorded"] == [("com.zhiliaoapp.musically", [SAVED_IN_JUNE["path"]])]
     assert publish.seen["deleted"] == [[PUSHED, COPY]]
+    assert ("info", "[gallery] saved by TikTok during this publication: 2026-09-28-010203456.mp4") in publish.notes.logs
 
 
 def test_a_failed_publication_records_tiktok_s_copy_and_deletes_nothing(publish):
