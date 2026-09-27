@@ -45,6 +45,11 @@ from taktik.core.social_media.instagram.ui.selectors.locales import set_active_l
 PKG = "com.instagram.android"
 FIXTURES = Path(__file__).parent / "fixtures"
 PROFILE_POSTS = (FIXTURES / "ig447_fr_profile_posts_list.xml").read_text(encoding="utf-8")
+#: Home feed, Instagram 410 in French, Pixel 3a (1080x2220): the previous post's truncated
+#: caption still at the top, the framed post's own caption a sliver above the tab bar.
+PREVIOUS_CAPTION_ABOVE = (FIXTURES / "ig410_fr_feed_previous_caption_above_header.xml").read_text(
+    encoding="utf-8"
+)
 SCREEN_W, SCREEN_H = 1080, 2400
 LIST_ID = "android:id/list"
 #: Touch slop of a 2.75-density screen: what a gesture travels before the content follows.
@@ -90,22 +95,27 @@ class _ProfilePostsPhone:
     """uiautomator2 behind the proxy and the facade, replaying the capture at a scroll offset."""
 
     wait_timeout = 1.0
-    info = {"displayWidth": SCREEN_W, "displayHeight": SCREEN_H}
 
-    def __init__(self, obeys_back_swipes=True):
+    def __init__(self, obeys_back_swipes=True, back_swipe_coast=1.0, screen=PROFILE_POSTS,
+                 height=SCREEN_H):
+        self.screen = screen
+        self.height = height
+        self.info = {"displayWidth": SCREEN_W, "displayHeight": height}
         self.offset = 0
         self.obeys_back_swipes = obeys_back_swipes
+        #: > 1: the list coasts on after a downward swipe, as measured on the phone.
+        self.back_swipe_coast = back_swipe_coast
         self.taps = []
         self.xpath = XPathEntry(self)
 
     def dump_hierarchy(self, *_a, **_k):
-        return _scrolled(PROFILE_POSTS, self.offset)
+        return _scrolled(self.screen, self.offset)
 
     def app_current(self):
         return {"package": PKG}
 
     def window_size(self):
-        return SCREEN_W, SCREEN_H
+        return SCREEN_W, self.height
 
     def click(self, x, y):
         self.taps.append((x, y))
@@ -119,16 +129,16 @@ class _ProfilePostsPhone:
 
     def drag_content_down(self, distance_px):
         if self.obeys_back_swipes:
-            self.offset -= max(0, int(distance_px) - TOUCH_SLOP_PX)
+            self.offset -= int(max(0, int(distance_px) - TOUCH_SLOP_PX) * self.back_swipe_coast)
 
 
 class _Reader(PostReadingMixin):
     """The reading owner (`ScrollActions` in production), its gestures moving the phone."""
 
     screen_width = SCREEN_W
-    screen_height = SCREEN_H
 
     def __init__(self, phone, device):
+        self.screen_height = phone.height
         self.phone = phone
         self.device = device
         self.logger = logger.bind(module="test_post_identity_across_reading")
@@ -230,6 +240,19 @@ def test_the_read_post_is_brought_back_where_it_was_as_the_screen_shows(monkeypa
     assert reader.last_reading_reframed is True
 
 
+def test_a_way_back_that_coasts_past_the_post_is_caught_by_its_header(monkeypatch):
+    # Measured on a Pixel 6a (Instagram 447): the list went on after the swipe back and the read
+    # post ended far below where it sat, its caption off the screen, its header still on it.
+    _a_reading_that_expands_the_caption(monkeypatch)
+    phone = _ProfilePostsPhone(back_swipe_coast=2.5)
+    reader = _host(phone).scroll_actions
+
+    reader.human_reading_pause()
+
+    assert abs(phone.offset) <= 0.03 * SCREEN_H, f"left {phone.offset} px off after reading"
+    assert reader.last_reading_reframed is True
+
+
 def test_a_post_left_behind_is_still_caught_and_not_liked(monkeypatch):
     # The screen does not follow the way back: the reading leaves the next post framed.
     _a_reading_that_expands_the_caption(monkeypatch)
@@ -253,3 +276,14 @@ def test_the_visit_tells_the_framed_post_by_its_own_header_and_counters():
     assert " a publié " in header
     # The counters of its own button row, never the next Reel's label (20 144 likes, 44 comments).
     assert counters.split(" ") == ["1 781", "38", "14", "23"]
+
+
+def test_the_reading_never_opens_the_previous_posts_caption(monkeypatch):
+    # The previous post's caption is the taller one on screen, with its expander in full view; the
+    # framed post's own expander runs under the tab bar. Neither may be tapped.
+    _a_reading_that_expands_the_caption(monkeypatch)
+    phone = _ProfilePostsPhone(screen=PREVIOUS_CAPTION_ABOVE, height=2220)
+    reader = _host(phone).scroll_actions
+
+    assert reader.expand_caption_if_truncated() is False
+    assert phone.taps == []

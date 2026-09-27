@@ -45,13 +45,12 @@ _EXPAND_CAPTION_PROB = 0.45
 # row on screen) → no reframe needed after reading.
 _REFRAME_MIN_PX = 120
 
-# The way back after reading is checked on the screen. The first gesture asks for a little less
-# than the reveal did, so the post comes back into view without being passed; the expanded
-# caption, found by its text, then says how far it still is from where it was.
-_REFRAME_FIRST_MOVE = (0.85, 0.95)       # share of the reveal distance asked by the first gesture
+# The way back after reading is measured on the screen: the read post's caption (else its header)
+# says how far it is from where it sat, and each gesture closes that gap, the first one a little
+# short so the post comes back into view without being passed.
+_REFRAME_FIRST_MOVE = (0.85, 0.95)       # share of the measured gap asked by the first gesture
 _REFRAME_TOLERANCE_H = 0.03              # the caption is "back" within this share of the screen
-_REFRAME_SEARCH_STEP_H = 0.25            # caption still above the screen: come down this much more
-_REFRAME_CHECKS = 3                      # screen checks, with a correction between two of them
+_REFRAME_CHECKS = 3                      # gestures at most, each followed by a screen check
 # Characters of the truncated caption kept to recognise it once expanded.
 _CAPTION_ANCHOR_CHARS = 60
 
@@ -81,13 +80,22 @@ class PostReadingMixin:
         is an empty-resource-id `IgTextLayoutView` whose dedicated expander is a child Button with
         content-desc EXACTLY 'plus' (FR) / 'more' (EN). We click that exact button (a random point
         in its bounds, humanised) — never `contains('plus')`, so the Sponsored 'En savoir plus' /
-        'Learn more' ad CTA (a link) is excluded. Returns True if a caption was expanded."""
+        'Learn more' ad CTA (a link) is excluded. Returns True if a caption was expanded.
+
+        When a post is framed, only a caption inside its window is read: the one above belongs to
+        the previous post, whose tail may still show at the top."""
         root = self._dump_root()
         if root is None:
             return False
+        window = self._framed_window(root)
         best = None  # (visible_height, (l, t, r, b), caption text, caption top)
         for node in root.iter():
             if node.tag != FS.caption_layout_class:
+                continue
+            layout = self._node_bounds(node)
+            if window is not None and layout is not None and not (
+                window["header_bounds"][1] <= layout[1] and layout[3] <= window["window_bottom"]
+            ):
                 continue
             target = None
             for child in node.iter():
@@ -110,6 +118,8 @@ class PostReadingMixin:
             l, t, r, b = (int(mc.group(i)) for i in range(1, 5))
             if t < 0 or b > 0.93 * self.screen_height:   # must be fully on screen, off the tab bar
                 continue
+            if window is not None and b > window["window_bottom"]:
+                continue   # the expander runs under the bottom bar (or the next post)
             # rank by the caption layout's visible height → the dominant, fully-shown post's caption
             vis_h = int(ml.group(4)) - int(ml.group(2))
             if best is None or vis_h > best[0]:
@@ -117,9 +127,15 @@ class PostReadingMixin:
         if best is None:
             return False
         l, t, r, b = best[1]
-        # What the way back checks against: the caption, recognised by its text, and where it sat.
+        # What the way back checks against: the caption, recognised by its text, and where it sat;
+        # the post's header too, for when the caption is off screen.
         prefix = self._caption_anchor_text(best[2])
-        self._reading_anchor = {"caption": prefix, "top": best[3]} if prefix else None
+        self._reading_anchor = {
+            "caption": prefix,
+            "top": best[3],
+            "header": window["header_desc"] if window is not None else "",
+            "header_top": window["header_bounds"][1] if window is not None else None,
+        } if prefix else None
         x = random.randint(min(l + 1, r), max(l + 1, r - 1))
         y = random.randint(min(t + 1, b), max(t + 1, b - 1))
         self.device.click_coordinates(x, y)
@@ -185,19 +201,28 @@ class PostReadingMixin:
                 break
         return body.rstrip("… .")[:_CAPTION_ANCHOR_CHARS]
 
-    def _anchored_caption_top(self, anchor: dict) -> Optional[int]:
-        """Top of the caption the reading expanded, found by its text on a fresh dump; None when
-        it is not on screen. A caption cut by the top of the list reports its visible top."""
+    def _read_post_offset(self, anchor: dict) -> Optional[int]:
+        """How far the read post is from where it sat (px, positive = lower), from one fresh dump:
+        by its caption, found by its text, else by its header, found by its description. None
+        when neither is on screen. A node cut by the top of the list reports its visible top."""
         root = self._dump_root()
         if root is None:
             return None
+        header_top = None
         for node in root.iter():
-            if node.tag != FS.caption_layout_class:
-                continue
-            if (node.get("text") or "").startswith(anchor["caption"]):
+            short = node.get("resource-id", "").rsplit("/", 1)[-1]
+            if node.tag == FS.caption_layout_class:
+                if (node.get("text") or "").startswith(anchor["caption"]):
+                    bounds = self._node_bounds(node)
+                    if bounds:
+                        return bounds[1] - anchor["top"]
+            elif (short == FS.profile_header_id and anchor.get("header")
+                  and (node.get("content-desc") or "").strip() == anchor["header"]):
                 bounds = self._node_bounds(node)
-                if bounds:
-                    return bounds[1]
+                if bounds and header_top is None:
+                    header_top = bounds[1]
+        if header_top is not None and anchor.get("header_top") is not None:
+            return header_top - anchor["header_top"]
         return None
 
     def _swipe_content_down(self, distance_px: float) -> None:
@@ -220,42 +245,46 @@ class PostReadingMixin:
         like/comment button selectors can match the next post's row, and the AI
         smart-comment screenshot captures the caption zone instead of the image.
 
-        The way back is checked on the screen, never computed: a drag loses its touch slop and
-        a sampled path can be clamped, so the distance the reveal ASKED for is not the distance
-        the content travelled. The first gesture asks for a little less than the reveal, so the
-        post comes back into view without being passed; then the expanded caption, found by its
-        text, says how far it still is from where it sat, and the next gestures close that gap.
-        Returns True once the caption is back where it was, False when the screen never showed
-        it back: nothing should then act on this screen."""
+        The way back is measured on the screen, never computed: a drag loses its touch slop, a
+        sampled path can be clamped, and a list may coast after a swipe, so neither the distance
+        the reveal ASKED for nor the one the way back asks for is the distance the content
+        travels. The read post's caption (found by its text), else its header (found by its
+        description), says how far the post is from where it sat. Each gesture then closes that
+        gap, the first one a little short of it so the post is not passed. Returns True once the
+        post is back where it was, False when the screen never showed it back: nothing should
+        then act on this screen.
+        """
         if scrolled_px <= 0:
             return True
         h = int(self.screen_height)
         anchor = getattr(self, "_reading_anchor", None)
         try:
-            self._swipe_content_down(scrolled_px * random.uniform(*_REFRAME_FIRST_MOVE))
             if not anchor:
+                self._swipe_content_down(scrolled_px * random.uniform(*_REFRAME_FIRST_MOVE))
                 self.logger.warning("Post brought back after reading, unchecked: no caption to check")
                 return False
             offset = None
-            for attempt in range(_REFRAME_CHECKS):
-                top = self._anchored_caption_top(anchor)
-                offset = None if top is None else top - anchor["top"]
+            for attempt in range(_REFRAME_CHECKS + 1):
+                offset = self._read_post_offset(anchor)
                 if offset is not None and abs(offset) <= _REFRAME_TOLERANCE_H * h:
-                    self.logger.debug(f"📐 reframed post after reading (caption {offset:+d}px)")
+                    self.logger.debug(f"📐 reframed post after reading ({offset:+d}px)")
                     return True
-                if attempt + 1 >= _REFRAME_CHECKS:
+                if attempt >= _REFRAME_CHECKS:
                     break
                 if offset is None:
-                    # Still above the screen: the first gesture falls short on purpose.
-                    self._swipe_content_down(_REFRAME_SEARCH_STEP_H * h)
+                    if attempt:
+                        break   # lost from sight after a gesture: no guess about where it went
+                    # The whole post scrolled away while reading: back by what the reveal asked.
+                    self._swipe_content_down(scrolled_px * random.uniform(*_REFRAME_FIRST_MOVE))
                 elif offset > 0:
                     self._long_drag("up", distance_px=offset, vel_range=_READ_DRAG_VEL_PXS,
                                     guard_start=True)
                     time.sleep(random.uniform(0.25, 0.55))
                 else:
-                    self._swipe_content_down(-offset)
+                    share = random.uniform(*_REFRAME_FIRST_MOVE) if attempt == 0 else 1.0
+                    self._swipe_content_down(-offset * share)
             where = "not on screen" if offset is None else f"{offset:+d}px from where it was"
-            self.logger.warning(f"Post not brought back after reading: caption {where}")
+            self.logger.warning(f"Post not brought back after reading: {where}")
             return False
         except Exception as e:
             self.logger.warning(f"Post reframe after reading failed: {e}")
