@@ -24,7 +24,6 @@
   "bridges/instagram/analysis/runtime/persona_posts.py": 3,
   "bridges/instagram/automation/runtime/decision_client.py": 2,
   "bridges/instagram/automation/runtime/session.py": 1,
-  "bridges/instagram/publish/runtime/bridge.py": 1,
   "bridges/instagram/scraping/runtime/session.py": 1,
   "taktik/cli/common/device_selector.py": 2,
   "taktik/core/agent/scenarios/instagram_feed_autopilot.py": 3,

@@ -5,8 +5,9 @@ open the creation screen, select from the gallery, advance to the composer, fill
 and stops on the last screen without tapping share. Reaching the share button is the measurement;
 not tapping it is what keeps a diagnostic run from posting on a real account.
 
-It calls `InstagramPostWorkflow.execute(..., stop_before_share=True)`, the production path itself.
-A bench that reimplemented the flow to avoid the final tap would be testing the bench.
+It calls `run_instagram_publish` with `stopBeforeShare`, the launcher of the production path
+(`instagram.content.publish`), which runs `InstagramPostWorkflow`. A bench that reimplemented the
+flow to avoid the final tap would be testing the bench.
 
 `upload_reel` stays unwired: a reel needs a video, and generating a valid one without pulling in
 an encoder would be a bigger lie than saying it is not ready.
@@ -49,9 +50,7 @@ def run_instagram_publish(conn, device, ipc, workflow_type):
 
     post_type, media_count = mapping
 
-    from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
-        InstagramPostWorkflow,
-    )
+    from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
 
     def _log(level, message):
         ipc.send("log", level=level, message=message)
@@ -61,18 +60,12 @@ def run_instagram_publish(conn, device, ipc, workflow_type):
 
     media = [make_rehearsal_image() for _ in range(media_count)]
     try:
-        workflow = InstagramPostWorkflow(
-            device,
-            conn.device_id,
+        result = run_instagram_publish(
+            {"postType": post_type, "mediaPaths": media, "stopBeforeShare": True},
+            device_id=conn.device_id,
+            connect=lambda: device,
             log=_log,
             status=_status,
-            post_type=post_type,
-        )
-        result = workflow.execute(
-            caption="",
-            hashtags=[],
-            media_paths=media,
-            stop_before_share=True,
         )
     finally:
         # The media has been pushed to the device; the local copies have served their purpose.

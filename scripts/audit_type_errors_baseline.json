@@ -42,7 +42,7 @@
   "bridges/instagram/engagement/runtime/dm/commands.py": 2,
   "bridges/instagram/engagement/runtime/notifications/bridge.py": 1,
   "bridges/instagram/engagement/runtime/notifications/commands.py": 4,
-  "bridges/instagram/publish/runtime/bridge.py": 3,
+  "bridges/instagram/publish/runtime/bridge.py": 1,
   "bridges/instagram/runtime/ipc_interaction_events.py": 12,
   "bridges/instagram/runtime/ipc_scraping_events.py": 14,
   "bridges/instagram/scraping/runtime/ai.py": 3,

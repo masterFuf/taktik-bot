@@ -23,7 +23,7 @@ class RecordingWorkflow:
     last = None
 
     def __init__(self, device, device_id, *, log=None, status=None, post_type="post",
-                 story_via_feed=False, package_name=None):
+                 story_via_feed=False, package_name=None, account_username=None):
         self.post_type = post_type
         self.story_via_feed = story_via_feed
         self.device_id = device_id

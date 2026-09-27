@@ -38,6 +38,9 @@
     "task": [
       "story_relay"
     ],
+    "content": [
+      "publish"
+    ],
     "panel": [
       "target",
       "hashtag",
@@ -128,6 +131,7 @@
       "engagement": "run",
       "standalone": "run",
       "task": "task",
+      "content": "task",
       "account": "task",
       "publish": "task",
       "panel": "ui",

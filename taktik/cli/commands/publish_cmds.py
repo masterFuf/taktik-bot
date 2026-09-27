@@ -1,8 +1,9 @@
 """Instagram publishing from the terminal, on the production path.
 
 These commands, and the interactive menu's "Post Content" / "Post Story", call
-`InstagramPostWorkflow`, the workflow the publish bridge runs, so the CLI and the desktop publish
-through the same code. It is the only publishing engine: the older `ContentWorkflow` and its
+`run_instagram_publish`, the launcher the publish bridge calls (`instagram.content.publish`), so
+the CLI and the desktop publish through the same code, `InstagramPostWorkflow`. It is the only
+publishing engine: the older `ContentWorkflow` and its
 `management content post|post-bulk|story` commands are gone. That engine had drifted (its
 `post-bulk` published N separate posts, not a carousel; no reels; none of the production fixes on
 slide order and on reclaiming pushed media).
@@ -45,9 +46,8 @@ def _resolve_device(device_id: str | None):
 
 def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption: str,
          hashtags: str, story_via_feed: bool = False, rehearse: bool = False) -> None:
-    from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
-        InstagramPostWorkflow,
-    )
+    from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
+    from taktik.core.social_media.instagram.workflows.publish.payload import PublishRequestError
 
     paths = [str(Path(p)) for p in media]
     missing = [p for p in paths if not Path(p).is_file()]
@@ -68,21 +68,20 @@ def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption:
     def _status(status: str, message: str = "") -> None:
         console.print(f"[blue]{status}[/blue] {message}")
 
-    workflow = InstagramPostWorkflow(
-        device,
-        device_id,
-        log=_log,
-        status=_status,
-        post_type=post_type,
-        story_via_feed=story_via_feed,
-    )
-
-    result = workflow.execute(
-        caption=caption or "",
-        hashtags=tags,
-        media_paths=paths,
-        stop_before_share=rehearse,
-    )
+    payload = {
+        "postType": post_type,
+        "mediaPaths": paths,
+        "caption": caption or "",
+        "hashtags": tags,
+        "storyViaFeed": story_via_feed,
+        "stopBeforeShare": rehearse,
+    }
+    try:
+        result = run_instagram_publish(payload, device_id=device_id, connect=lambda: device,
+                                       log=_log, status=_status)
+    except PublishRequestError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(1)
 
     if result.get("success"):
         console.print(Panel.fit(f"[bold green]{result.get('message', 'Published')}[/bold green]",
