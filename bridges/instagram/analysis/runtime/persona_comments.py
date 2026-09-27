@@ -159,38 +159,46 @@ class PersonaCommentsMixin:
     def _visible_comment_texts(self) -> list:
         """The comment bodies currently on screen, whatever layout IG serves.
 
-        The resource-id path is the fast one and stays first. IG 442 stopped giving the body
-        an id at all, so it returns nothing there and the persona reader came back empty on
-        every post; the fallback re-reads the same rows from a dump, pairing each body to the
-        author above it. Falling back only when the id path is EMPTY leaves every older build
-        and every clone on the path they already use.
+        Three sources, cheapest first; the first that holds bodies answers. The body ids (older
+        builds, clones). The rows of one photo of the screen: IG 442 stopped giving the body an
+        id, its row spells "<author> <text>". The Litho dump: IG 410 renders the bodies with
+        Litho, in no accessibility node, so both reads above find nothing there; the thread's
+        reader (`read_visible_comments`, the one `comment.read_thread` and the replies use) reads
+        them from `dumpsys activity top`.
         """
         from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
+        from taktik.core.social_media.instagram.workflows.common.comment_reading import (
+            read_visible_comments,
+        )
+        from taktik.core.social_media.instagram.workflows.common.comments_thread import (
+            read_comment_texts,
+        )
 
         try:
             nodes = self.device.xpath(POST_COMMENTS_SELECTORS.comment_text_nodes_selector).all()
-        except Exception:
+        except Exception as exc:
+            logger.debug(f"[PersonaAnalysis] comment body ids not read: {exc}")
             nodes = []
-        if nodes:
-            texts = []
-            for node in nodes:
-                try:
-                    texts.append(node.get_text() or "")
-                except Exception:
-                    continue
-            if texts:
-                return texts
+        texts = []
+        for node in nodes:
+            try:
+                texts.append(node.get_text() or "")
+            except Exception as exc:
+                logger.debug(f"[PersonaAnalysis] comment body node not read: {exc}")
+        if texts:
+            return texts
 
         try:
-            from taktik.core.social_media.instagram.workflows.common.comments_thread import (
-                read_comment_texts,
-            )
-
             root = self.device.snapshot().root
             connectors = list(POST_COMMENTS_SELECTORS.comment_said_connectors)
-            return [text for _author, text in read_comment_texts(root, connectors)]
-        except Exception:
-            return []
+            rows = [text for _author, text in read_comment_texts(root, connectors)]
+        except Exception as exc:
+            logger.warning(f"[PersonaAnalysis] comment rows not read from the screen photo: {exc}")
+            rows = []
+        if rows:
+            return rows
+
+        return [comment["text"] for comment in read_visible_comments(self.device)]
 
     def _expand_comment_replies(self, comments_selectors) -> None:
         """Best-effort: tap visible 'View X replies' to reveal replies (where the owner's replies

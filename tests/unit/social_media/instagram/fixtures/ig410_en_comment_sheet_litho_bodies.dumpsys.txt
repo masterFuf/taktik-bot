@@ -1,0 +1,18 @@
+                                              X.6kH{51b0b3b V.E...C. .. 0,0-87,46 text="name_4" props="{"synthetic":true}"}
+                                              X.6lM{a9cb2d8 VFE...C. .. 0,0-47,39 text=" " props="{"synthetic":true}"}
+                                                          X.9zz{869fbdb V.E..... .. 0,0-259,44 text="name_1" props="{"synthetic":true}"}
+                                                        litho.TextComponent{9cefa39 V.E..... .. 0,0-66,44 litho:id/row_comment_textview_time_ago text="25w"}
+                                                          litho.TextComponent{dc1d6c4 V.E..... .. 0,0-747,93 litho:id/row_comment_textview_comment text="First comment body of the thread, read from the Litho dump."}
+                                                    litho.TextComponent{87cf073 V.E...C. .. 0,0-131,86 litho:id/row_comment_textview_reply_button text="Reply"}
+                                                    litho.TextComponent{af3faeb V.E..... .. 0,0-90,42 litho:id/row_comment_textview_like_count text="35.9K"}
+                                                          X.9zz{3051da8 V.E..... .. 0,0-235,44 text="name_2" props="{"synthetic":true}"}
+                                                          X.6lM{2700c1 V.E..... .. 243,0-287,44 text=" " props="{"synthetic":true}"}
+                                                        litho.TextComponent{78aac42 V.E..... .. 0,0-66,44 litho:id/row_comment_textview_time_ago text="25w"}
+                                                          litho.TextComponent{747e1c1 V.E..... .. 0,0-747,137 litho:id/row_comment_textview_comment text="Second comment body, longer, cut by the screen in the dump."}
+                                                    litho.TextComponent{1dd8154 V.E...C. .. 0,0-131,86 litho:id/row_comment_textview_reply_button text="Reply"}
+                                                    litho.TextComponent{fd7a6ec V.E..... .. 0,0-88,42 litho:id/row_comment_textview_like_count text="22.3K"}
+                                                          X.9zz{3594f0a V.E..... .. 0,0-190,44 text="name_3" props="{"synthetic":true}"}
+                                                        litho.TextComponent{a8446c6 V.E..... .. 0,0-66,44 litho:id/row_comment_textview_time_ago text="25w"}
+                                                          litho.TextComponent{79d2423 V.E..... .. 0,0-453,49 litho:id/row_comment_textview_comment}
+                                                    litho.TextComponent{4bf689e V.E...C. .. 0,0-131,86 litho:id/row_comment_textview_reply_button}
+                                                    litho.TextComponent{851ed76 V.E..... .. 0,0-58,42 litho:id/row_comment_textview_like_count}
