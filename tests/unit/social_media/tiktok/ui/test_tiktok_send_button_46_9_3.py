@@ -2,41 +2,39 @@
 holds text; the 46.9.3 override finds it by its place after the stickers button. With an empty
 composer the same slot holds the "+" Button, and the search bar's "Plus" follows no Button.
 
-Shapes follow the 46.9.3 captures; evaluated by uiautomator2's own `d.xpath()` engine. Texts are
-invented.
+The screens are captures of TikTok 46.9.3 in French (Pixel 6a), anonymized: a conversation whose
+composer holds a draft, the same kind of conversation with an empty composer, and the Top results
+of a search. One is derived and says so: the empty composer with its "+" drawn as an ImageView, the
+shape the override must still refuse (an empty field is its placeholder). Evaluated by
+uiautomator2's own `d.xpath()` engine.
 """
 
+from pathlib import Path
+
 import pytest
+from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
 
-STICKERS = "Ouvrir les stickers, les GIF et les émojis"
+FIXTURES = Path(__file__).parents[1] / "fixtures"
+TYPED = (FIXTURES / "tt4693_fr_dm_composer_typed.xml").read_text(encoding="utf-8")
+EMPTY = (FIXTURES / "tt4693_fr_dm_conversation.xml").read_text(encoding="utf-8")
+SEARCH = (FIXTURES / "tt4693_fr_search_results.xml").read_text(encoding="utf-8")
 
 
-def _n(cls, attrs="", children=""):
-    return f'<node class="android.widget.{cls}" resource-id="" bounds="[0,0][10,10]" {attrs}>{children}</node>'
+def _plus_drawn_as_an_image(xml):
+    tree = etree.fromstring(xml.encode("utf-8"))
+    field = tree.xpath('//node[@class="android.widget.EditText"]')[0]
+    plus = field.getparent().getparent().xpath('.//node')[-1]
+    assert plus.get("class") == "android.widget.Button" and plus.get("clickable") == "true"
+    plus.set("class", "android.widget.ImageView")
+    return etree.tostring(tree, encoding="unicode")
 
 
-def _composer(text, hint, last_slot):
-    field = _n("FrameLayout", children=_n("EditText", f'text="{text}" hint="{hint}" clickable="true"'))
-    actions = _n("LinearLayout", children=(
-        _n("FrameLayout", children=_n("Button", f'content-desc="{STICKERS}" clickable="true"'))
-        + _n("FrameLayout", children=last_slot)))
-    return f'<hierarchy rotation="0">{_n("ViewGroup", children=field + actions)}</hierarchy>'
-
-
-TYPED = _composer("Bonjour", "", _n("ImageView", 'content-desc="" clickable="true"'))
-EMPTY = _composer("Message…", "Message…", _n("Button", 'content-desc="" clickable="true"'))
-EMPTY_WITH_IMAGE_SLOT = _composer("Message…", "Message…", _n("ImageView", 'content-desc="" clickable="true"'))
-SEARCH = ('<hierarchy rotation="0">' + _n("RelativeLayout", children=(
-    _n("FrameLayout", children=_n("ImageView", 'clickable="true"'))
-    + _n("FrameLayout", children=_n("EditText", 'text="cinema" hint="" clickable="true"')
-         + _n("ImageView", 'content-desc="Effacer le champ de recherche" clickable="true"'))
-    + _n("FrameLayout", children=_n("LinearLayout", children=_n(
-        "ImageView", 'content-desc="Plus" clickable="true"'))))) + "</hierarchy>")
+EMPTY_WITH_IMAGE_SLOT = _plus_drawn_as_an_image(EMPTY)
 
 
 class _Device:

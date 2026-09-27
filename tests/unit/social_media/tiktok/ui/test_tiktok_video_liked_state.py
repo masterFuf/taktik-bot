@@ -13,45 +13,43 @@ Mesuré sur appareil le 2026-08-30, la même vidéo avant et après : le bouton 
 (« Attribuer un « J'aime » à la vidéo. 35,6 K ») **disparaît**, et l'icône voisine passe à
 `selected="true"`. L'ancre principale lit ce second fait et ne cite aucun id, donc elle survivra au
 prochain renommage : zéro avant le like, exactement un après, rien sur les 117 autres écrans.
+
+Les écrans sont des captures réelles, anonymisées, lues comme `d.xpath()` les lit
+(`parse_ui_dump`) : une vidéo déjà aimée, ouverte depuis l'onglet « Vidéos aimées » du profil
+propre, sur 43.1.4 (Pixel 3a) et 47.0.3 (Pixel 6a), le 2026-09-27 ; des vidéos du fil non aimées
+sur 43.1.4 et 47.0.3 en français, 46.9.3 en anglais. Sur ces deux versions, le bouton d'invitation
+ne disparaît pas : il devient « Vidéo aimée ». Aucun téléphone n'a TikTok en anglais : pas de vidéo
+aimée anglaise.
 """
 
-import pytest
-from lxml import etree
+from pathlib import Path
 
+import pytest
+
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_STATE_SELECTORS
 
+FIXTURES = Path(__file__).parents[1] / "fixtures"
 
-def _rail(liked: bool, icon_id: str = "g2c", button_id: str = "g2w", lang: str = "fr"):
-    """La colonne d'engagement d'une vidéo, dans la forme mesurée sur appareil."""
-    invite = ("Attribuer un « J'aime » à la vidéo. 35,6 K « J'aime »" if lang == "fr"
-              else "Like video. 35.6K likes")
-    label = "J'aime" if lang == "fr" else "Like"
-    # Une fois likée, l'invitation n'est plus rendue du tout.
-    button = (f'<android.widget.Button resource-id="com.zhiliaoapp.musically:id/{button_id}"'
-              f' content-desc="{invite}" clickable="true"/>') if not liked else ""
-    return etree.fromstring(
-        f'<hierarchy><android.widget.FrameLayout>{button}'
-        f'<android.widget.ImageView resource-id="com.zhiliaoapp.musically:id/{icon_id}"'
-        f' content-desc="{label}" selected="{"true" if liked else "false"}"/>'
-        f'</android.widget.FrameLayout></hierarchy>'.encode("utf-8")
-    )
+
+def _screen(name):
+    return parse_ui_dump((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def _reads_liked(tree):
     return any(tree.xpath(selector) for selector in VIDEO_STATE_SELECTORS.video_already_liked)
 
 
-@pytest.mark.parametrize("icon,button", [("g2c", "g2w"), ("f4u", "f57")])
-@pytest.mark.parametrize("lang", ["fr", "en"])
-def test_a_liked_video_is_recognised_on_both_versions(icon, button, lang):
-    assert _reads_liked(_rail(liked=True, icon_id=icon, button_id=button, lang=lang))
+@pytest.mark.parametrize("name", ["tt4314_fr_liked_video.xml", "tt4703_fr_liked_video.xml"])
+def test_a_liked_video_is_recognised_on_both_versions(name):
+    assert _reads_liked(_screen(name))
 
 
-@pytest.mark.parametrize("icon,button", [("g2c", "g2w"), ("f4u", "f57")])
-@pytest.mark.parametrize("lang", ["fr", "en"])
-def test_an_unliked_video_is_not_called_liked(icon, button, lang):
+@pytest.mark.parametrize("name", ["tt4314_fr_for_you_video.xml", "tt4703_fr_for_you_video.xml",
+                                  "tt4693_en_for_you_video.xml"])
+def test_an_unliked_video_is_not_called_liked(name):
     """Le versant qui compte : dire oui à tort ferait SAUTER le like ; dire non à tort le RETIRE."""
-    assert not _reads_liked(_rail(liked=False, icon_id=icon, button_id=button, lang=lang))
+    assert not _reads_liked(_screen(name))
 
 
 def test_the_first_anchor_needs_no_resource_id():

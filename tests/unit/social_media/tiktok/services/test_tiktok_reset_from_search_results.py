@@ -10,8 +10,13 @@ Sur 46.9.3, un retour depuis un onglet de résultats autre que Top ramène à To
 page du champ de recherche (clavier ouvert), et celle-ci au fil.
 
 Le faux téléphone tient la pile de retour de l'application et répond aux vrais sélecteurs par le
-moteur xpath de uiautomator2. Écrans inventés ; leur forme suit les captures 46.9.3 et 47.0.3.
+moteur xpath de uiautomator2. Les écrans sont des captures réelles de 47.0.3 en français (Pixel 6a),
+anonymisées : le fil, la page du champ de recherche (clavier ouvert, 2026-09-27), les résultats
+Top et Utilisateurs, le profil d'une cible et sa liste d'abonnés (2026-09-26) ; et les résultats
+Top de 43.1.4 (Pixel 3a) pour la base.
 """
+
+from pathlib import Path
 
 import pytest
 from uiautomator2.xpath import XPathEntry
@@ -22,65 +27,20 @@ from taktik.core.social_media.tiktok.services.navigation.reset import return_to_
 from taktik.core.social_media.tiktok.ui.selectors.locales import active_locale, set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
 
-PKG = "com.zhiliaoapp.musically:id/"
+FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 
-def _n(cls, rid="", text="", desc="", selected=False, clickable=False, children=""):
-    klass = cls if "." in cls else f"android.widget.{cls}"
-    attrs = (f'class="{klass}" package="com.zhiliaoapp.musically" text="{text}" '
-             f'content-desc="{desc}" resource-id="{PKG + rid if rid else ""}" '
-             f'selected="{str(selected).lower()}" clickable="{str(clickable).lower()}" '
-             'bounds="[0,0][100,100]"')
-    return f"<node {attrs}>{children}</node>" if children else f"<node {attrs} />"
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
-def _screen(*nodes):
-    return '<hierarchy rotation="0">' + "".join(nodes) + "</hierarchy>"
-
-
-def _tab(label, selected):
-    return _n("FrameLayout", desc=label, selected=selected, clickable=not selected,
-              children=_n("TextView", text=label, selected=selected))
-
-
-def _results(selected_tab, pager_id="viewpager_search", field_id="hu0"):
-    header = _n("RelativeLayout", children=(
-        _n("ImageView", rid="bs5", clickable=True)
-        + _n("EditText", rid=field_id, text="demo query", clickable=True)
-        + _n("ImageView", desc="Effacer le champ de recherche", clickable=True)))
-    tabs = _n("HorizontalScrollView", children=_n("LinearLayout", children="".join(
-        _tab(label, label == selected_tab) for label in ("Top", "Utilisateurs", "Vidéos"))))
-    pager = _n("androidx.viewpager.widget.ViewPager", rid=pager_id,
-               children=_n("TextView", rid="tv_username", text="demo_target"))
-    return _screen(header, tabs, pager)
-
-
-FOLLOWERS_LIST = _screen(
-    _n("ImageView", clickable=True),
-    _n("HorizontalScrollView", children=_tab("Followers", True) + _tab("Suivis", False)),
-    _n("TextView", text="demo_follower"),
-    _n("Button", text="Suivre", clickable=True),
-)
-TARGET_PROFILE = _screen(
-    _n("ImageView", clickable=True),
-    _n("TextView", text="@demo_target"),
-    _n("TextView", text="Followers"),
-    _n("Button", text="Suivre", clickable=True),
-)
-SEARCH_FIELD = _screen(
-    _n("EditText", rid="hu0", text="demo query", clickable=True),
-    _n("Button", text="Rechercher", clickable=True),
-    _n("TextView", text="demo suggestion"),
-)
-FEED = _screen(
-    _n("HorizontalScrollView", children=_tab("Pour toi", True) + _tab("Suivis", False)),
-    _n("FrameLayout", desc="Accueil", selected=True, clickable=True),
-    _n("FrameLayout", desc="Ami(e)s", clickable=True),
-    _n("FrameLayout", desc="Messages", clickable=True),
-    _n("FrameLayout", desc="Profil", clickable=True),
-)
-RESULTS_USERS = _results("Utilisateurs")
-RESULTS_TOP = _results("Top")
+FEED = _capture("tt4703_fr_home.xml")
+SEARCH_FIELD = _capture("tt4703_fr_search_field.xml")
+RESULTS_TOP = _capture("tt4703_fr_search_top_results.xml")
+RESULTS_USERS = _capture("tt4703_fr_search_users.xml")
+TARGET_PROFILE = _capture("tt4703_fr_profile_followed.xml")
+FOLLOWERS_LIST = _capture("tt4703_fr_followers_list.xml")
+RESULTS_TOP_43_1_4 = _capture("tt4314_fr_search_top_results.xml")
 
 
 class _Phone:
@@ -177,13 +137,14 @@ def test_on_47_0_3_the_results_page_is_recognised_on_any_tab(on_47_0_3):
     assert _is_results(RESULTS_TOP)
 
 
-@pytest.mark.parametrize("xml", [SEARCH_FIELD, FEED, FOLLOWERS_LIST, TARGET_PROFILE])
+@pytest.mark.parametrize("xml", [SEARCH_FIELD, FEED, FOLLOWERS_LIST, TARGET_PROFILE],
+                         ids=["search_field", "feed", "followers_list", "target_profile"])
 def test_on_47_0_3_no_other_screen_passes_for_a_results_page(on_47_0_3, xml):
     assert not _is_results(xml)
 
 
 def test_the_baseline_recognises_the_43_1_4_results_page():
-    assert _is_results(_results("Top", pager_id="zpl", field_id="giv"))
+    assert _is_results(RESULTS_TOP_43_1_4)
     assert not _is_results(RESULTS_TOP)  # the 46.6.3 id is not the baseline's
 
 

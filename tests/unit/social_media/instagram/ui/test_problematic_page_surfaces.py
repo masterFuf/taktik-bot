@@ -6,9 +6,10 @@ pressed Back: the profile was left before its counters were read. With that patt
 the same profile fell to `profile_share_page` (its avatar's story badge, its share button and
 its Threads badge: three words of five), which swipes down.
 
-The QR page is now known by its own ids, and the share sheet needs a sheet on screen. The
-screens below keep the ids, nesting and interface labels of real IG 410 captures; names and
-texts are invented.
+The QR page is now known by its own ids, and the share sheet needs a sheet on screen. The screens
+are real dumps, anonymized: profiles, the home feed and the share sheet of Instagram 410 (French
+and English), the QR page of the own profile (410 in English on a Pixel 3a, 447 in French on a
+Pixel 6a, both 2026-09-27) and the options sheet of another profile (410, English, same day).
 """
 
 import os
@@ -20,82 +21,22 @@ from loguru import logger
 from taktik.core.social_media.instagram.ui.detectors import problematic_page
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 
-ID = "com.instagram.android:id/"
+FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 
-def _node(rid="", text="", desc="", cls="android.view.View", bounds="[0,0][1,1]", children=""):
-    rid = f"{ID}{rid}" if rid else ""
-    return (f'<node text="{text}" resource-id="{rid}" class="{cls}" package="com.instagram.android" '
-            f'content-desc="{desc}" bounds="{bounds}">{children}</node>')
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
-def _screen(*nodes):
-    return ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
-            + _node(cls="android.widget.FrameLayout", bounds="[0,0][1080,2160]", children="".join(nodes))
-            + "</hierarchy>")
-
-
-def _tab_bar():
-    return _node("tab_bar", cls="android.widget.LinearLayout", bounds="[0,1907][1080,2028]", children=(
-        _node("feed_tab", desc="Home", cls="android.widget.FrameLayout", bounds="[0,1907][216,2028]")
-        + _node("profile_tab", desc="Profil", cls="android.widget.FrameLayout", bounds="[864,1907][1080,2028]")))
-
-
-def _profile(buttons, bio="", badge=""):
-    return _screen(
-        _node("action_bar_title", text="demo.account", desc="demo.account", cls="android.widget.TextView"),
-        _node("profile_header_container", cls="android.widget.LinearLayout", children=(
-            badge
-            + _node("profile_header_familiar_post_count_value", text="12", cls="android.widget.TextView")
-            + _node("profile_header_familiar_post_count_label", text="publications", cls="android.widget.TextView")
-            + (_node(text=bio, cls="android.widget.TextView") if bio else "")
-            + "".join(_node("button_container", desc=label, cls="android.widget.Button",
-                            children=_node(text=label, cls="android.widget.TextView"))
-                      for label in buttons))),
-        _tab_bar())
-
-
-OWN_PROFILE = _profile(
-    ("Modifier le profil", "Partager le profil"),
-    badge=(_node("reel_empty_badge", desc="Ajouter à la story", cls="android.widget.ImageView")
-           + _node(desc="Voir le profil sur Threads", cls="android.widget.ImageView")))
-
-OTHER_PROFILE = _profile(("Suivre", "Envoyer un message"),
-                         bio="Scannez mon QR code en boutique et copiez le lien du menu")
-
-HOME_FEED = _screen(
-    _node("reels_tray_container", children=_node(desc="Ajouter à la story", cls="android.widget.Button")),
-    _node("row_feed_photo_profile_name", text="someone.else", cls="android.widget.TextView"),
-    _node(text="Mon dernier post est aussi sur Threads", cls="android.widget.TextView"),
-    _tab_bar())
-
-
-def _qr_page(share, copy, close):
-    return _screen(_node("nametag_container", cls="android.widget.FrameLayout", children=(
-        _node("card_view", desc="@2131975091")
-        + _node("profile_share_card", cls="android.widget.LinearLayout", children=(
-            _node("profile_share_card_share_button", cls="android.widget.LinearLayout",
-                  children=_node(desc=share, cls="android.widget.ImageView") + _node(text=share, cls="android.widget.TextView"))
-            + _node("profile_share_card_copy_link_button", cls="android.widget.LinearLayout",
-                    children=_node(desc=copy, cls="android.widget.ImageView") + _node(text=copy, cls="android.widget.TextView"))))
-        + _node("close_button", desc=close, cls="android.widget.ImageView"))))
-
-
-QR_PAGE_FR = _qr_page("Partager le profil", "Copier le lien", "Fermer")
-QR_PAGE_EN = _qr_page("Share profile", "Copy link", "Close")
-
-SHARE_SHEET = _screen(_node("direct_private_share_container_view", children=(
-    _node("direct_external_share_container_view", children="".join(
-        _node("direct_external_reshare_row", text=label, cls="android.widget.Button")
-        for label in ("Ajouter à la story", "WhatsApp", "Partager", "Texto", "Threads")))
-    + _node(text="Écrivez un message…", cls="android.widget.EditText"))))
-
-PROFILE_OPTIONS_SHEET = _screen(
-    _node("profile_header_container", cls="android.widget.LinearLayout"),
-    _node("bottom_sheet_container", children=(
-        _node("background_dimmer", desc="@2131954950")
-        + "".join(_node("action_sheet_row_text_view", text=label, cls="android.widget.TextView")
-                  for label in ("Envoyer à…", "Copier le lien", "Afficher le code QR", "Partager sur…")))))
+OWN_PROFILE = _capture("ig410_fr_own_profile.xml")
+OWN_PROFESSIONAL_PROFILE_EN = _capture("ig410_en_own_profile_professional.xml")
+OTHER_PROFILE = _capture("ig410_fr_profile_follow_with_mutuals.xml")
+OTHER_PROFILE_EN = _capture("ig410_en_profile_following.xml")
+HOME_FEED = _capture("ig410_fr_home_feed.xml")
+QR_PAGE_FR = _capture("ig447_fr_qr_page.xml")
+QR_PAGE_EN = _capture("ig410_en_qr_page.xml")
+SHARE_SHEET = _capture("ig410_en_share_sheet_over_sponsored_post.xml")
+PROFILE_OPTIONS_SHEET = _capture("ig410_en_profile_options_sheet.xml")
 
 
 class _Phone:
@@ -146,15 +87,17 @@ def _handle(screen, behind=HOME_FEED):
     return ProblematicPageDetector(phone).detect_and_handle_problematic_pages(), phone
 
 
-@pytest.mark.parametrize("screen", [OWN_PROFILE, OTHER_PROFILE, HOME_FEED],
-                         ids=["own_profile", "other_profile", "home_feed"])
+@pytest.mark.parametrize("screen", [OWN_PROFILE, OWN_PROFESSIONAL_PROFILE_EN, OTHER_PROFILE,
+                                    OTHER_PROFILE_EN, HOME_FEED],
+                         ids=["own_profile", "own_professional_profile_en", "other_profile",
+                              "other_profile_en", "home_feed"])
 def test_a_profile_or_the_feed_is_left_alone(screen):
     result, phone = _handle(screen)
     assert result["detected"] is False
     assert phone.gestures == []
 
 
-@pytest.mark.parametrize("screen", [QR_PAGE_FR, QR_PAGE_EN], ids=["fr", "en"])
+@pytest.mark.parametrize("screen", [QR_PAGE_FR, QR_PAGE_EN], ids=["fr_447", "en_410"])
 def test_the_qr_page_is_known_by_its_ids_in_any_language_and_closed(screen):
     result, phone = _handle(screen, behind=OWN_PROFILE)
     assert result == {"detected": True, "closed": True, "soft_ban": False, "page_type": "qr_code_page"}

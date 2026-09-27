@@ -1,13 +1,17 @@
 """T4: the French row button of TikTok's following list is the row's own Button.
 
 The French entry had been framed on a profile header and found none of the 6 to 9 buttons of the
-list, so the TikTok unfollow unfollowed nobody on a French phone. The screens below follow the
-captures of TikTok 43.1.4 and 46.6.3 in French, as the device dumps them (every element a <node>,
-the widget type an attribute) and evaluated by uiautomator2's own `d.xpath()` engine: a row is
-avatar, names, then a clickable Button "Suivis" or "Ami(e)s" (no trailing space on the rows);
-the tab title "Suivis 39" is a TextView. The usernames are invented: the dumps stay out of this
-public repository.
+list, so the TikTok unfollow unfollowed nobody on a French phone. A row is avatar, names, then a
+clickable Button "Suivis" or, for a mutual, "Ami(e)s" (43.1.4) / "Amis" (47.0.3); the tab titles
+("Suivis 6", "Ami(e)s 1") are TextViews.
+
+The screens are captures, anonymized, evaluated by uiautomator2's own `d.xpath()` engine: the own
+following list of TikTok 43.1.4 (Pixel 3a) and of 47.0.3 (Pixel 6a), both in French and with a
+mutual row (2026-09-27), and the profile of a followed account (47.0.3, 2026-09-26), whose header
+holds "Suivis " (trailing space) beside the profile's Button.
 """
+
+from pathlib import Path
 
 import pytest
 from uiautomator2.xpath import XPathEntry
@@ -24,40 +28,17 @@ def french():
     set_active_locale(None)
 
 
-def _node(cls, text="", clickable="false", children=""):
-    return (f'<node class="{cls}" text="{text}" resource-id="" content-desc="" clickable="{clickable}" '
-            f'bounds="[0,0][10,10]">{children}</node>')
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def _row(username, label):
-    return _node("android.widget.LinearLayout", clickable="true", children=(
-        _node("android.widget.FrameLayout")
-        + _node("android.widget.LinearLayout", children=_node("android.widget.TextView", username))
-        + _node("android.widget.Button", label, clickable="true")
-    ))
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
-def _screen(body):
-    return f'<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">{body}</hierarchy>'
-
-
-FOLLOWING_LIST = _screen(
-    _node("android.widget.LinearLayout", clickable="true",
-          children=_node("android.widget.TextView", "Suivis 39"))
-    + _row("alpha_one", "Suivis") + _row("beta_two", "Ami(e)s") + _row("gamma_three", "Suivis")
-)
-
-# The trap the first entry fell into: a FOLLOWED profile's header. Its "Suivis " (trailing
-# space, as captured) is a TextView inside a clickable container, next to the profile's Button.
-FOLLOWED_PROFILE = _screen(
-    _node("android.widget.LinearLayout", clickable="true", children=(
-        _node("android.widget.TextView", "Suivis ")
-        + _node("android.widget.Button", "@delta_four", clickable="true")
-    ))
-    + _node("android.widget.LinearLayout", clickable="true", children=(
-        _node("android.widget.TextView", "39") + _node("android.widget.TextView", "Suivis")
-    ))
-)
+FOLLOWING_LIST = _capture("tt4314_fr_following_list.xml")
+FOLLOWING_LIST_47 = _capture("tt4703_fr_following_list.xml")
+# The trap the first entry fell into: a FOLLOWED profile's header.
+FOLLOWED_PROFILE = _capture("tt4703_fr_profile_followed.xml")
 
 
 class _Device:
@@ -77,10 +58,12 @@ def _found(xml):
 
 
 def test_every_row_button_of_the_following_list_is_found():
-    assert [el.attrib.get("text") for el in _found(FOLLOWING_LIST)] == ["Suivis", "Ami(e)s", "Suivis"]
+    labels = [el.attrib.get("text") for el in _found(FOLLOWING_LIST)]
+    assert sorted(labels) == ["Ami(e)s", "Suivis", "Suivis", "Suivis", "Suivis"]
 
 
 def test_a_followed_profile_header_is_not_a_row_button():
+    assert 'text="Suivis "' in FOLLOWED_PROFILE
     assert _found(FOLLOWED_PROFILE) == []
 
 
@@ -88,7 +71,7 @@ def test_the_friends_option_recognises_what_the_selector_finds():
     """`include_friends=False` skips mutual rows by their label: it can only work on the
     Button's own text (the old match returned a container whose text is empty)."""
     labels = [el.attrib.get("text") for el in _found(FOLLOWING_LIST)]
-    assert [is_friends_button(label) for label in labels] == [False, True, False]
+    assert [label for label in labels if is_friends_button(label)] == ["Ami(e)s"]
 
 
 def test_the_lab_counts_the_row_buttons_the_unfollow_taps():
@@ -100,17 +83,13 @@ def test_the_lab_counts_the_row_buttons_the_unfollow_taps():
     register_actions()
     bundle = types.SimpleNamespace(device=_Device(FOLLOWING_LIST))
     result = ACTION_REGISTRY["tt.followers.count_anchors"](bundle, {})
-    assert result["details"]["following_or_friends_button"] == 3
+    assert result["details"]["following_or_friends_button"] == 5
 
 
-def test_the_mutual_row_of_46_9_is_found_and_read_as_friends():
-    """TikTok 46.9.3 writes the mutual button « Amis » (43.1.4 and 46.6.3: « Ami(e)s »); the tab
-    title « Amis 6 » stays a TextView."""
-    screen = _screen(
-        _node("android.widget.LinearLayout", clickable="true",
-              children=_node("android.widget.TextView", "Amis 6"))
-        + _row("alpha_one", "Suivis") + _row("epsilon_five", "Amis")
-    )
-    labels = [el.attrib.get("text") for el in _found(screen)]
-    assert labels == ["Suivis", "Amis"]
-    assert [is_friends_button(label) for label in labels] == [False, True]
+def test_the_mutual_row_of_47_is_found_and_read_as_friends():
+    """TikTok 46.9.3 and later write the mutual button « Amis » (43.1.4 and 46.6.3: « Ami(e)s »);
+    the tab title « Amis 7 » stays a TextView."""
+    labels = [el.attrib.get("text") for el in _found(FOLLOWING_LIST_47)]
+    assert sorted(set(labels)) == ["Amis", "Suivis"]
+    assert "Amis 7" not in labels
+    assert [label for label in labels if is_friends_button(label)] == ["Amis", "Amis"]

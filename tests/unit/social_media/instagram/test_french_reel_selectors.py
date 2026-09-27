@@ -2,9 +2,15 @@
 reel media label the hashtag workflow reads its author from.
 
 On the home feed the same "Reel de" label names the author's DISPLAY name, not the handle; the
-hashtag entry must not read it there. The screens below reproduce the structure of the Lab dumps
-with invented names.
+hashtag entry must not read it there.
+
+The screens are real dumps, anonymized: Instagram 410 in French on a Pixel 3a (a reel paused and
+a reel playing, June; the home feed with a reel row, June), Instagram 447 in French on a Pixel 6a
+(the posts of a profile opened from its grid, no tab bar, 2026-09-27), and Instagram 410 in
+English (the home feed with a reel row, a reel playing).
 """
+
+from pathlib import Path
 
 import pytest
 
@@ -18,47 +24,19 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_SELECTORS,
 )
 
-ID = "com.instagram.android:id/"
-MEDIA_LABEL = "Reel de demo_author. Appuyez deux fois pour lire ou mettre en pause."
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def _reel_viewer(extra=""):
-    return f"""<hierarchy>
-<node class="android.widget.FrameLayout" resource-id="{ID}clips_viewer_container" bounds="[0,0][1080,2220]">
-  <node class="android.view.ViewGroup" resource-id="{ID}clips_media_component"
-        content-desc="{MEDIA_LABEL}" bounds="[0,0][1080,2088]">
-    <node class="android.widget.FrameLayout" resource-id="{ID}clips_video_container"
-          content-desc="{MEDIA_LABEL}" bounds="[0,0][1080,2088]"/>
-  </node>
-  {extra}
-</node>
-</hierarchy>"""
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
-PAUSED_REEL = _reel_viewer(
-    f'<node class="android.widget.Button" resource-id="{ID}clips_pause_button"'
-    ' content-desc="Jouer" bounds="[452,978][628,1154]"/>'
-)
-PLAYING_REEL = _reel_viewer()
-
-
-def _list_screen(selected_tab, label):
-    return f"""<hierarchy>
-<node class="android.widget.FrameLayout" resource-id="{ID}layout_container_main_panel" bounds="[0,0][1080,2220]">
-  <node class="android.widget.FrameLayout" resource-id="{ID}row_feed_photo_imageview"
-        content-desc="{label}" bounds="[0,400][1080,1500]"/>
-  <node class="android.widget.LinearLayout" resource-id="{ID}tab_bar" bounds="[0,1967][1080,2088]">
-    <node class="android.widget.FrameLayout" resource-id="{ID}feed_tab" content-desc="Accueil"
-          selected="{str(selected_tab == 'feed_tab').lower()}" bounds="[0,1967][216,2088]"/>
-    <node class="android.widget.FrameLayout" resource-id="{ID}search_tab" content-desc="Rechercher et explorer"
-          selected="{str(selected_tab == 'search_tab').lower()}" bounds="[648,1967][864,2088]"/>
-  </node>
-</node>
-</hierarchy>"""
-
-
-HOME_FEED = _list_screen("feed_tab", "Reel de Jeanne, 12 J’aime, 3 commentaires, 2 mai")
-LIST_FROM_SEARCH = _list_screen("search_tab", "Reel de demo_author, 96 J’aime, 9 commentaires, 9 août")
+PAUSED_REEL = _capture("ig410_fr_reel_viewer_paused.xml")
+PLAYING_REEL = _capture("ig410_fr_reel_viewer.xml")
+HOME_FEED = _capture("ig410_fr_home_feed_reel_row.xml")
+LIST_OUTSIDE_HOME = _capture("ig447_fr_profile_posts_list.xml")
+HOME_FEED_EN = _capture("ig410_en_home_feed_reel_row.xml")
+REEL_VIEWER_EN = _capture("ig410_en_reel_viewer.xml")
 
 
 @pytest.fixture
@@ -96,26 +74,28 @@ def _author(xml):
 
 
 def test_the_reel_viewer_gives_its_author(french):
-    assert _author(PLAYING_REEL) == "demo_author"
+    assert _author(PLAYING_REEL) == "user_1"
+    assert _author(PAUSED_REEL) == "user_1"
 
 
 def test_the_home_feed_label_is_not_read_as_a_reel_author(french):
-    """A one-word display name reads like a handle: "jeanne" would be filed as the author."""
+    """The home feed names the display name: "Reel de <prénom> <nom>, 60 J'aime, ...". A one-word
+    display name reads like a handle and would be filed as the author."""
+    assert "Reel de " in HOME_FEED
     assert not _hits(HOME_FEED, HASHTAG_SELECTORS.reel_author_container[-1:])
     assert _author(HOME_FEED) is None
 
 
 def test_the_same_label_outside_the_home_tab_is_still_read(french):
-    assert _author(LIST_FROM_SEARCH) == "demo_author"
+    assert _author(LIST_OUTSIDE_HOME) == "name_1"
 
 
 def test_the_english_home_feed_label_is_not_read_as_a_reel_author():
     before = locales.active_locale()
     locales.set_active_locale("en")
     try:
-        feed = _list_screen("feed_tab", "Reel by demo_author, 67 likes, 2 hours ago")
-        viewer = _reel_viewer().replace(MEDIA_LABEL, "Reel by demo_author. Double tap to play or pause.")
-        assert not _hits(feed, HASHTAG_SELECTORS.reel_author_container[-1:])
-        assert _author(viewer) == "demo_author"
+        assert "Reel by " in HOME_FEED_EN
+        assert not _hits(HOME_FEED_EN, HASHTAG_SELECTORS.reel_author_container[-1:])
+        assert _author(REEL_VIEWER_EN) == "name_14"
     finally:
         locales.set_active_locale(before)

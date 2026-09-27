@@ -3,9 +3,13 @@
 Its loops only read `_stop_requested`, the deadline and the quotas: a block seen anywhere, or a
 lost phone, never stopped them. Now `_should_stop` reads the run's lock, and `_block_seen` -- the
 real detector, after each like, comment or follow of the autopilot -- is what sets it.
+
+The ordinary screen is a real home feed (Instagram 410, French, anonymized). The "Try again later"
+dialog is written by hand: no capture holds it, and it only shows once Instagram refuses a gesture.
 """
 
 import types
+from pathlib import Path
 
 import pytest
 
@@ -21,11 +25,8 @@ _BLOCK_DIALOG = (
     '<node text="OK" resource-id="com.instagram.android:id/igds_alert_dialog_primary_button"/>'
     '</node></hierarchy>'
 )
-_FEED_SCREEN = (
-    '<hierarchy rotation="0"><node class="android.widget.FrameLayout" package="com.instagram.android">'
-    '<node text="bob" resource-id="com.instagram.android:id/row_feed_photo_profile_name"/>'
-    '</node></hierarchy>'
-)
+_FEED_SCREEN = (Path(__file__).parents[1] / "social_media" / "instagram" / "fixtures"
+                / "ig410_fr_home_feed.xml").read_text(encoding="utf-8")
 
 
 @pytest.fixture(autouse=True)

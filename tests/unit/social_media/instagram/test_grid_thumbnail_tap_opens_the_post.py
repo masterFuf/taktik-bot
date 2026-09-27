@@ -8,12 +8,15 @@ and the release then opens nothing (18 posts out of 18 opened at up to 189 ms, 0
 200 ms). The app sees the requested hold plus the uiautomator2 injection lag (+21 to +49 ms),
 and the human tap asked for up to 220 ms: about 2 to 4 % of grid taps crossed the threshold.
 
-The dumps are anonymized extracts of the real ones: the profile grid (cell bounds, classes and
-labels as dumped) and the post opened from its first cell (action row).
+The screens are real dumps of that phone, anonymized: a profile and its grid
+(`fixtures/ig410_fr_profile_opened_from_search.xml`) and a post opened from a profile grid
+(`fixtures/ig410_fr_post_opened_from_grid.xml`).
 """
 
 import random
 import time
+from functools import lru_cache
+from pathlib import Path
 
 import pytest
 from loguru import logger
@@ -32,56 +35,15 @@ _PEEK_MS = 200.0
 # uiautomator2's plain click() holds 100 ms on the device side.
 _U2_CLICK_HOLD_MS = 100.0
 
-_IG = "com.instagram.android:id/"
+FIXTURES = Path(__file__).parent / "fixtures"
+PROFILE_GRID = (FIXTURES / "ig410_fr_profile_opened_from_search.xml").read_text(encoding="utf-8")
+POST_VIEW = (FIXTURES / "ig410_fr_post_opened_from_grid.xml").read_text(encoding="utf-8")
 
 
-def _cell(bounds: str, desc: str) -> str:
-    return (
-        f'<node resource-id="{_IG}image_button" class="android.widget.Button" text=""'
-        f' content-desc="{desc}" clickable="true" long-clickable="true" bounds="{bounds}" />'
-    )
-
-
-PROFILE_GRID = f"""<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
-<hierarchy rotation="0">
-  <node resource-id="{_IG}profile_tab_layout" class="android.widget.HorizontalScrollView" text=""
-        content-desc="" clickable="false" bounds="[0,1315][1080,1447]" />
-  <node resource-id="android:id/list" class="androidx.recyclerview.widget.RecyclerView" text=""
-        content-desc="" clickable="false" bounds="[0,1448][1080,2028]">
-    <node resource-id="{_IG}media_set_row_content_identifier" class="android.widget.LinearLayout"
-          text="" content-desc="" clickable="false" bounds="[0,1451][1080,1928]">
-      {_cell("[0,1451][358,1928]", "2 photos de Marque, à la ligne 1, colonne 1")}
-      {_cell("[361,1451][719,1928]", "Reel par Marque à la ligne 1, colonne 2")}
-      {_cell("[722,1451][1080,1928]", "Reel par Marque à la ligne 1, colonne 3")}
-    </node>
-    <node resource-id="{_IG}media_set_row_content_identifier" class="android.widget.LinearLayout"
-          text="" content-desc="" clickable="false" bounds="[0,1931][1080,2028]">
-      {_cell("[0,1931][358,2028]", "Reel par Marque à la ligne 2, colonne 1")}
-      {_cell("[361,1931][719,2028]", "Reel par Marque à la ligne 2, colonne 2")}
-      {_cell("[722,1931][1080,2028]", "5 photos de Marque, à la ligne 2, colonne 3")}
-    </node>
-  </node>
-</hierarchy>"""
-
-POST_VIEW = f"""<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
-<hierarchy rotation="0">
-  <node resource-id="{_IG}action_bar_button_back" class="android.widget.ImageView" text=""
-        content-desc="Retour" clickable="true" bounds="[0,77][154,231]" />
-  <node resource-id="{_IG}row_feed_profile_header" class="android.view.ViewGroup" text=""
-        content-desc="marque a publié un(e) carousel le il y a 6 heures" clickable="false"
-        bounds="[0,231][1080,374]" />
-  <node resource-id="{_IG}carousel_media_group" class="android.widget.FrameLayout" text=""
-        content-desc="" clickable="true" bounds="[0,374][1080,1724]" />
-  <node resource-id="{_IG}row_feed_view_group_buttons" class="android.view.ViewGroup" text=""
-        content-desc="" clickable="false" bounds="[0,1724][1080,1906]">
-    <node resource-id="{_IG}row_feed_button_like" class="android.widget.Button" text=""
-          content-desc="J’aime" clickable="false" bounds="[33,1779][99,1906]" />
-    <node resource-id="{_IG}row_feed_button_comment" class="android.widget.Button" text=""
-          content-desc="Commentaire" clickable="false" bounds="[245,1779][311,1906]" />
-    <node resource-id="{_IG}row_feed_button_share" class="android.widget.Button" text=""
-          content-desc="Envoyer la publication" clickable="false" bounds="[572,1779][638,1906]" />
-  </node>
-</hierarchy>"""
+@lru_cache(maxsize=None)
+def _tree(xml):
+    """A whole dump, parsed once: the fake answers hundreds of taps on the same two screens."""
+    return parse_ui_dump(xml)
 
 
 def _bounds(node):
@@ -123,7 +85,7 @@ class _Instagram410Grid:
         self.contacts_ms = []
 
     def xpath(self, selector):
-        return _Selection(self, parse_ui_dump(self.screen).xpath(selector))
+        return _Selection(self, _tree(self.screen).xpath(selector))
 
     def _touch(self, x, y, hold_ms):
         contact = hold_ms + _WORST_LAG_MS
@@ -132,7 +94,7 @@ class _Instagram410Grid:
             left <= x < right and top <= y < bottom
             for left, top, right, bottom in (
                 _bounds(node)
-                for node in parse_ui_dump(self.screen).xpath(
+                for node in _tree(self.screen).xpath(
                     DETECTION_SELECTORS.post_thumbnail_selectors[0]
                 )
             )
