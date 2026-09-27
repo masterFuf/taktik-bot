@@ -117,8 +117,8 @@ def test_the_family_is_the_readers_and_the_manifests():
     automation = manifest["instagram"]["automation"]
 
     assert set(WORKFLOW_TYPES) == set(SUPPORTED_WORKFLOW_TYPES)
-    assert set(WORKFLOW_TYPES) == set(INSTAGRAM_AUTOMATION_WORKFLOW_TYPES) - {"notifications"}
-    assert set(WORKFLOW_TYPES) == set(automation) - {"notifications"}
+    assert set(WORKFLOW_TYPES) == set(INSTAGRAM_AUTOMATION_WORKFLOW_TYPES)
+    assert set(WORKFLOW_TYPES) == set(automation)
     assert INSTAGRAM_AUTOMATION.setting("workflowType").type.values == WORKFLOW_TYPES
     bridges = json.loads((CORE / "bridges" / "bridges.manifest.json").read_text(encoding="utf-8-sig"))
     assert INSTAGRAM_AUTOMATION.bridge in bridges["instagram"]

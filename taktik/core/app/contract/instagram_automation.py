@@ -11,8 +11,8 @@ from the run (session, sources, sync, stop) and from what a run does on a profil
 (`IPCEmitter`, the AI service, the decision round trip). Every line of the family is declared once:
 a workflow prints the lines of what it does.
 
-`instagram.automation.notifications` is not declared here: the reader refuses it, the
-notifications bridge serves it.
+The reader refuses `workflowType: notifications`: reading the activity feed is the notifications
+bridge's (`instagram.engagement.notifications`, `instagram_notifications.py`).
 """
 
 from __future__ import annotations

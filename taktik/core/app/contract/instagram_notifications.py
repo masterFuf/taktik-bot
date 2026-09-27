@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from .instagram_automation import INSTAGRAM_AUTOMATION
 from .schema import HOST, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import device_field
+from .shared import AI_ERROR_EVENT, AI_PROFILE_DONE_EVENT, AI_PROFILE_START_EVENT, device_field
 
 _NOTIFICATIONS = "taktik.core.social_media.instagram.workflows.management.notifications"
 
@@ -164,6 +164,22 @@ RESULT_EVENT = Event("result", doc="The command's result, or why it could not ru
     Field("traceback", "string", "Diagnostic context of a crash.", optional=True),
 ))
 
+#: What the scan prints of the automation's lines, declared there (and in `shared.py`), never here:
+#: - our own profile, read before the feed (`_refresh_own_account`): the account and its counters;
+#: - the qualified visit of the suggested accounts (`followSuggestions`): the per-profile pipeline of
+#:   the automation (`_process_profile_on_screen`: the profile opened and read, the plan, a private or
+#:   filtered profile), and the AI qualification when the CLI passes an `ai` block (the app sends
+#:   none). The app shows them in the automation's live panel.
+SCAN_RUN_EVENTS = (
+    INSTAGRAM_AUTOMATION.event("active_account"),
+    INSTAGRAM_AUTOMATION.event("profile_captured"),
+    INSTAGRAM_AUTOMATION.event("instagram_profile_visit"),
+    INSTAGRAM_AUTOMATION.event("instagram_action"),
+    AI_PROFILE_START_EVENT,
+    AI_PROFILE_DONE_EVENT,
+    AI_ERROR_EVENT,
+)
+
 INSTAGRAM_NOTIFICATIONS = WorkflowContract(
     workflow_id="instagram.engagement.notifications",
     name="InstagramNotifications",
@@ -216,7 +232,8 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
     ),
     # `step_metric`: the step telemetry the bridge's IPC module registers (a refused write, a
     # keystroke); the app does not read it from this bridge.
-    events=(NOTIFICATION_STEP_EVENT, RESULT_EVENT, INSTAGRAM_AUTOMATION.event("step_metric")),
+    events=(NOTIFICATION_STEP_EVENT, RESULT_EVENT, INSTAGRAM_AUTOMATION.event("step_metric"),
+            *SCAN_RUN_EVENTS),
 )
 
 CONTRACTS = (INSTAGRAM_NOTIFICATIONS,)
@@ -228,4 +245,5 @@ __all__ = [
     "INSTAGRAM_NOTIFICATIONS",
     "NOTIFICATION_TYPES",
     "ROW_COMMANDS",
+    "SCAN_RUN_EVENTS",
 ]
