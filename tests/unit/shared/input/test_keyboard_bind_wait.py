@@ -89,11 +89,15 @@ def test_the_android_16_dumpsys_is_read(monkeypatch, cur, connected, bound):
 
 def test_an_unreadable_dumpsys_does_not_hold_the_switch(monkeypatch):
     calls = []
+    phone = {"ime": kb.GBOARD_IME}
 
     def adb(device_id, command):
         calls.append(command)
         if command.startswith("ime set "):
-            return "Input method selected"
+            phone["ime"] = command[len("ime set "):]
+            return f"Input method {phone['ime']} selected for user #0"
+        if command == "settings get secure default_input_method":
+            return phone["ime"]
         return ""
 
     monkeypatch.setattr(kb, "run_adb_shell", adb)

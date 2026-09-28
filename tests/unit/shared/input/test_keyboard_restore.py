@@ -138,7 +138,9 @@ def test_a_phone_already_on_the_adb_keyboard_is_remembered_at_the_first_check(mo
     assert kb.is_taktik_keyboard_active("pixel") is True
     assert kb.restore_original_keyboard("pixel") is True
     assert adb.default == kb.GBOARD_IME
-    assert adb.commands.count("settings get secure default_input_method") == 1
+    # One read to remember it; the next one checks the give-back.
+    before_give_back = adb.commands[:adb.commands.index(f"ime set {kb.GBOARD_IME}")]
+    assert before_give_back.count("settings get secure default_input_method") == 1
 
 
 def test_uiautomator2_s_own_keyboard_is_never_given_back(monkeypatch):
