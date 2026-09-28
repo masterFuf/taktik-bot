@@ -3,6 +3,8 @@
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action
+from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
+from taktik.core.shared.behavior.interaction_plan import build_interaction_plan
 from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import (
     show_profile_posts_grid,
 )
@@ -10,7 +12,49 @@ from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid i
 
 @action("profile.click_follow")
 def click_follow(a, p):
-    return a.click.click_follow_button()
+    """Follow the open profile the way every workflow follows a profile, and write it down.
+
+    The engine is the Lab's `a.popup`, bound to ``account`` by the runner. Its handle and the
+    relationship its header button shows are read by the production readers (the ones that fill a
+    visited profile's data); the follow is the interaction engine's `_do_follow`, under a plan
+    whose only intent is the follow: a profile we already follow or asked is left alone, the
+    follow tapped and checked, then written under the account (the FOLLOW interaction, and our
+    following row marked as the bot's, what the unfollow of "the bot's follows only" reads).
+    Then the one look for "Try again later" that follows a follow in a run.
+
+    Params: account (required: a follow the base does not hold is one that unfollow never
+    undoes). Be on the profile, its header visible.
+    """
+    engine = a.popup
+    account_id = engine._get_account_id()
+    if not account_id:
+        return {"success": False, "message": "account param required: the follow is written under it"}
+    username = engine.detection_actions.get_username_from_profile()
+    if not username:
+        return {"success": False, "message": "profile handle unreadable: no follow, it could not be written"}
+
+    state = engine.click_actions.get_follow_button_state()
+    result = {}
+    tapped = engine._do_follow(username, build_interaction_plan({}, ["follow"]),
+                               {"follow_button_state": state}, result)
+    blocked = bool(tapped) and engine._stop_if_action_blocked(username, "follow")
+    followed = bool(result.get("follows"))
+    recorded = {
+        "follow_interaction": InstagramFollowGraphService.has_bot_follow_record(username, account_id),
+        "following_row": username.lower() in InstagramFollowGraphService.get_active_following_usernames(account_id),
+    }
+    if blocked:
+        message = f"@{username}: Instagram refuses the follow (Try again later)"
+    elif followed:
+        message = f"@{username}: followed" + ("" if all(recorded.values()) else ", NOT fully written in the base")
+    else:
+        message = f"@{username}: not followed (button: {state})"
+    return {
+        "success": followed and not blocked and all(recorded.values()),
+        "message": message,
+        "details": {"username": username, "state_before": state, "tapped": bool(tapped),
+                    "followed": followed, "blocked": blocked, "recorded": recorded},
+    }
 
 
 @action("profile.click_unfollow")
