@@ -3,7 +3,7 @@
 import time
 from typing import Any, List, Optional
 
-from ...ui.selectors.shell.auth import AuthSelectors
+from taktik.core.social_media.instagram.ui.selectors.shell.auth import AuthSelectors
 
 
 class LoginScreenDetectionMixin:
