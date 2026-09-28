@@ -1,9 +1,10 @@
 {
-  "_comment": "Source of the app builds TAKTIK installs, newest first. COMPATIBILITY.md and the desktop app's version list are generated from this file: python scripts/audit_compatibility_file.py --write",
+  "_comment": "Source of the app builds TAKTIK installs, newest first, and of the status of the adjusted versions (override_status: testing = adjusted by the bot, run on none of our phones: Under validation). COMPATIBILITY.md and the desktop app's version lists are generated from this file: python scripts/audit_compatibility_file.py --write",
   "architectures": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"],
   "apps": {
     "instagram": {
       "name": "Instagram",
+      "override_status": { "442.0.0.0": "testing", "417.0.0.0": "testing" },
       "builds": [
         { "version": "444.0.0.46.85", "status": "testing" },
         { "version": "410.0.0.53.71", "status": "validated", "recommended": true }
@@ -11,6 +12,7 @@
     },
     "tiktok": {
       "name": "TikTok",
+      "override_status": { "46.9.3": "testing", "46.6.3": "testing" },
       "builds": [
         { "version": "46.6.3", "status": "testing" },
         { "version": "43.1.4", "status": "validated", "recommended": true }

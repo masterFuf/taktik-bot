@@ -4,14 +4,12 @@ import time
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
-@action("popups.is_comment_open")
+@detection_action("popups.is_comment_open")
 def check_comment_popup(a, p):
-    result = a.popup._is_comments_view_open()
-    logger.info(f"Comment popup open: {result}")
-    return result
+    return a.popup._is_comments_view_open()
 
 
 @action("popups.close_comment")
@@ -19,11 +17,9 @@ def close_comment_popup(a, p):
     return a.comment._close_comment_popup()
 
 
-@action("popups.is_likers_open")
+@detection_action("popups.is_likers_open")
 def check_likers_popup(a, p):
-    result = a.popup._is_likers_popup_open()
-    logger.info(f"Likers popup open: {result}")
-    return result
+    return a.popup._is_likers_popup_open()
 
 
 @action("popups.close_likers")
@@ -60,14 +56,13 @@ def press_back(a, p):
 
 # === Bottom sheets (generic close cascade) ===================================
 
-@action("popups.is_share_sheet_open")
+@detection_action("popups.is_share_sheet_open")
 def is_share_sheet_open(a, p):
     """Detection: is the Direct / share sheet (post share button) currently up?"""
     from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import (
         is_share_sheet_open as _is_open,
     )
-    found = _is_open(a.device)
-    return {"success": True, "found": bool(found), "message": f"share_sheet_open={bool(found)}"}
+    return _is_open(a.device)
 
 
 @action("popups.find_sheet_handle")

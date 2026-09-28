@@ -208,10 +208,10 @@ téléphones.
 L'ordinateur est un PC sous Windows.
 
 Tout le reste est **non testé** : les autres téléphones et marques, les autres versions d'Android, les
-émulateurs, les autres versions listées dans [COMPATIBILITY.md](COMPATIBILITY.md) (le bot porte des
-ajustements de sélecteurs pour elles, mais aucun de ces téléphones ne les fait tourner), Instagram 447
-en anglais, TikTok en anglais, macOS et Linux. Non testé ne promet rien, dans un sens comme dans
-l'autre.
+émulateurs, les versions marquées « Under validation » dans [COMPATIBILITY.md](COMPATIBILITY.md) (le
+bot porte des ajustements de sélecteurs pour certaines, mais aucun de ces téléphones ne les fait
+tourner), Instagram 447 en anglais, TikTok en anglais, macOS et Linux. Non testé ne promet rien, dans
+un sens comme dans l'autre.
 
 ### Tests de développement
 

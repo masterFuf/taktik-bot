@@ -15,7 +15,7 @@ returned (never raw UI element objects).
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
 # === Entry navigations =======================================================
@@ -99,25 +99,22 @@ def open_row_profile(a, p):
             "details": {"username": username}}
 
 
-@action("scraping.is_list_limited")
+@detection_action("scraping.is_list_limited")
 def is_list_limited(a, p):
     """Detection: is the followers list LIMITED (Meta Verified / Business cap)?"""
-    v = a.detection.is_followers_list_limited()
-    return {"success": True, "found": bool(v), "message": f"list_limited={bool(v)}"}
+    return a.detection.is_followers_list_limited()
 
 
-@action("scraping.is_list_end_reached")
+@detection_action("scraping.is_list_end_reached")
 def is_list_end_reached(a, p):
     """Detection: is the followers list END reached ('And X others' footer)? Scrape stop."""
-    v = a.detection.is_followers_list_end_reached()
-    return {"success": True, "found": bool(v), "message": f"list_end_reached={bool(v)}"}
+    return a.detection.is_followers_list_end_reached()
 
 
-@action("scraping.is_suggestions_section")
+@detection_action("scraping.is_suggestions_section")
 def is_suggestions_section(a, p):
     """Detection: are we in the 'Suggested for you' section (2nd scrape stop)?"""
-    v = a.detection.is_in_suggestions_section()
-    return {"success": True, "found": bool(v), "message": f"in_suggestions={bool(v)}"}
+    return a.detection.is_in_suggestions_section()
 
 
 # === List pagination =========================================================
@@ -148,10 +145,9 @@ def read_share_url(a, p):
     return {"success": bool(url), "message": url or "no share URL read", "details": {"url": url}}
 
 
-@action("detection.is_reel_post")
+@detection_action("detection.is_reel_post")
 def is_reel_post(a, p):
     """Detection: is the OPEN post a REEL (vs a feed photo/carousel)? Drives the scrape
     branch. A post must be open."""
     from taktik.core.social_media.instagram.workflows.common.detection import is_reel_post as _is_reel
-    v = _is_reel(a.device)
-    return {"success": True, "found": bool(v), "message": f"is_reel={bool(v)}"}
+    return _is_reel(a.device)

@@ -11,9 +11,10 @@ Status:
 
 - **Reference**: the build the selectors are written against. The safest choice.
 - **Supported**: the bot carries selector adjustments for this version
-  (`taktik/core/compat/data/overrides/<app>.yaml`). A version written `447.x` covers every
-  build of that family.
-- **Under validation**: being tested end to end; expect gaps.
+  (`taktik/core/compat/data/overrides/<app>.yaml`) and it runs on one of our phones. A version
+  written `447.x` covers every build of that family.
+- **Under validation**: being tested end to end, or adjusted by the bot but run on none of our
+  phones today; expect gaps.
 
 Overrides applied: the adjustment sets the bot loads on that version (every key at or below
 it). "Desktop app" tells what the TAKTIK desktop app installs itself.
@@ -36,8 +37,8 @@ Reference build: `410.0.0.53.71`.
 |---|---|---|---|---|---|
 | `447.x` | Supported | `417.0.0.0`, `442.0.0.0`, `447.0.0.0` | - | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=Instagram+447.0.0) |
 | `444.0.0.46.85` | Under validation | `417.0.0.0`, `442.0.0.0` | Installable, under validation | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=Instagram+444.0.0.46.85) |
-| `442.x` | Supported | `417.0.0.0`, `442.0.0.0` | - | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=Instagram+442.0.0) |
-| `417.x` | Supported | `417.0.0.0` | - | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=Instagram+417.0.0) |
+| `442.x` | Under validation | `417.0.0.0`, `442.0.0.0` | - | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=Instagram+442.0.0) |
+| `417.x` | Under validation | `417.0.0.0` | - | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=Instagram+417.0.0) |
 | `410.0.0.53.71` | Reference | none | Installed by default | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=Instagram+410.0.0.53.71) |
 
 ## TikTok (`com.zhiliaoapp.musically`)
@@ -47,6 +48,6 @@ Reference build: `43.1.4`.
 | Version | Status | Overrides applied | Desktop app | Architectures | Download |
 |---|---|---|---|---|---|
 | `47.0.3` | Supported | `46.6.3`, `46.9.3`, `47.0.3` | - | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=TikTok+47.0.3) |
-| `46.9.3` | Supported | `46.6.3`, `46.9.3` | - | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=TikTok+46.9.3) |
-| `46.6.3` | Supported | `46.6.3` | Installable, under validation | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=TikTok+46.6.3) |
+| `46.9.3` | Under validation | `46.6.3`, `46.9.3` | - | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=TikTok+46.9.3) |
+| `46.6.3` | Under validation | `46.6.3` | Installable, under validation | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=TikTok+46.6.3) |
 | `43.1.4` | Reference | none | Installed by default | `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` | [Search on APKMirror](https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s=TikTok+43.1.4) |

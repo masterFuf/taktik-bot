@@ -6,28 +6,22 @@ import time
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
-@action("detection.is_home_screen")
+@detection_action("detection.is_home_screen")
 def is_home_screen(a, p):
-    result = a.detection.is_on_home_screen()
-    logger.info(f"Home screen: {result}")
-    return result
+    return a.detection.is_on_home_screen()
 
 
-@action("detection.is_profile_screen")
+@detection_action("detection.is_profile_screen")
 def is_profile_screen(a, p):
-    result = a.detection.is_on_profile_screen()
-    logger.info(f"Profile screen: {result}")
-    return result
+    return a.detection.is_on_profile_screen()
 
 
-@action("detection.is_post_open")
+@detection_action("detection.is_post_open")
 def is_post_open(a, p):
-    result = a.detection.is_on_post_screen()
-    logger.info(f"Post open: {result}")
-    return result
+    return a.detection.is_on_post_screen()
 
 
 @action("detection.get_current_screen")

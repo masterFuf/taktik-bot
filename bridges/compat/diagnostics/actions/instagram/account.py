@@ -7,7 +7,7 @@ them on a TEST account. Credentials are passed as params for the test and are NE
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
 def _device_id(a):
@@ -71,11 +71,12 @@ def fill_login_credentials(a, p):
     return {"success": bool(ok), "message": f"credentials filled={ok}"}
 
 
-@action("account.detect_login_screen")
+@detection_action("account.detect_login_screen")
 def detect_login_screen(a, p):
-    """Detection: are we on the login screen (profile-tile vs form branch)?"""
-    v = _login(a)._is_on_login_screen()
-    return {"success": True, "found": bool(v), "message": f"on_login_screen={bool(v)}"}
+    """Detection: are we on the login screen (profile-tile vs form branch)? The production reader
+    answers True (the login form), False (a saved profile tile was tapped) or None (neither the form
+    nor the profile picker, the home feed for one): the last two both mean "not on the login screen"."""
+    return _login(a)._is_on_login_screen() is True
 
 
 @action("account.detect_login_result")
@@ -94,21 +95,19 @@ def logout(a, p):
     return _result(_logout(a).logout(), "logout attempted")
 
 
-@action("account.is_logged_out")
+@detection_action("account.is_logged_out")
 def is_logged_out(a, p):
     """Detection: are we logged out (back on the login screen)?"""
-    v = _logout(a)._is_logged_out()
-    return {"success": True, "found": bool(v), "message": f"logged_out={bool(v)}"}
+    return _logout(a)._is_logged_out()
 
 
 # === Switch account (multi-account) =========================================
 
-@action("account.detect_connected_accounts")
+@detection_action("account.detect_connected_accounts")
 def detect_connected_accounts(a, p):
     """Detection: are we already looking at the connected-accounts list (the logged-out account
     picker IG opens on, or an open @username switcher)?"""
-    v = _switch(a)._on_landing_account_list()
-    return {"success": True, "found": bool(v), "message": f"on_account_list={bool(v)}"}
+    return _switch(a)._on_landing_account_list()
 
 
 _NO_ACTIVE_ACCOUNT = {

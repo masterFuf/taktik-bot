@@ -8,10 +8,9 @@ from pathlib import Path
 from typing import Any
 
 
+# The screen an action that MOVES is expected to leave. Never a detection: it moves nothing, and
+# its success no longer says "yes" (a "no" is an answer too, `detection_answer`).
 EXPECTED_SCREEN_AFTER: dict[str, str] = {
-    "detection.is_home_screen": "instagram.home",
-    "detection.is_profile_screen": "instagram.profile",
-    "detection.is_post_open": "instagram.post",
     "navigation.go_home": "instagram.home",
     "navigation.go_search": "instagram.search",
     "navigation.go_profile_tab": "instagram.profile",

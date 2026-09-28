@@ -7,7 +7,8 @@ Three sources, none of them written twice:
   build the Python catalogues of ``ui/selectors/**`` describe;
 - the version adjustments: the version keys of that same YAML, read by the bot's own registry;
 - the installable builds: ``compat/data/app_builds.json`` (version, status, the one recommended
-  build, the CPU architectures builds are installed for).
+  build, the CPU architectures builds are installed for), and in the same file the status of the
+  version adjustments no phone of ours runs yet (``override_status``: ``testing``).
 
 ``COMPATIBILITY.md`` at the repository root and the desktop app's version list are both generated
 from here. ``scripts/audit_compatibility_file.py`` fails when the published file and these sources
@@ -17,7 +18,7 @@ disagree.
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import quote_plus
 
 import yaml
@@ -55,6 +56,9 @@ class AppSupport:
     reference: str
     override_versions: Tuple[str, ...]
     builds: Tuple[AppBuild, ...]
+    #: Every override version and its status: ``validated`` (run on one of our phones: "Supported")
+    #: or ``testing`` (adjusted, not run on any of our phones: "Under validation").
+    override_status: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -133,6 +137,21 @@ def _read_builds(data: Dict[str, Any], app: str) -> Tuple[AppBuild, ...]:
     return tuple(builds)
 
 
+def _read_override_status(data: Dict[str, Any], app: str, overrides: Tuple[str, ...]) -> Dict[str, str]:
+    """The status of each override version: ``validated`` unless `app_builds.json` declares it
+    ``testing`` (adjusted, but no phone of ours runs it). A key that is not an override version, or
+    an unknown status, is refused: a status must never stand for a version the bot does not adjust."""
+    declared = data.get("override_status") or {}
+    if not isinstance(declared, dict):
+        raise CompatibilitySourceError(f"{app}: override_status must map an override version to a status")
+    for version, status in declared.items():
+        if version not in overrides:
+            raise CompatibilitySourceError(f"{app}: override_status names {version}, not a version the bot adjusts for")
+        if status not in BUILD_STATUSES:
+            raise CompatibilitySourceError(f"{app}: override_status gives {version} an unknown status {status!r}")
+    return {version: declared.get(version, "validated") for version in overrides}
+
+
 def _read_meta(app: str, overrides_dir: Path) -> Dict[str, Any]:
     path = overrides_dir / f"{app}.yaml"
     if not path.exists():
@@ -168,6 +187,7 @@ def load_supported_versions(
                 reference=str(meta["baseline_version"]),
                 override_versions=overrides,
                 builds=_read_builds(entry, app),
+                override_status=_read_override_status(entry, app, overrides),
             )
         )
     if not apps:
@@ -196,7 +216,7 @@ def compatibility_rows(support: AppSupport) -> List[CompatibilityRow]:
         if version == support.reference:
             status = "Reference"
         elif version in support.override_versions:
-            status = "Supported"
+            status = "Under validation" if support.override_status.get(version) == "testing" else "Supported"
         elif build is not None and build.status == "validated":
             status = "Validated"
         else:
@@ -244,9 +264,10 @@ def render_compatibility_markdown(supported: SupportedVersions) -> str:
         "",
         "- **Reference**: the build the selectors are written against. The safest choice.",
         "- **Supported**: the bot carries selector adjustments for this version",
-        "  (`taktik/core/compat/data/overrides/<app>.yaml`). A version written `447.x` covers every",
-        "  build of that family.",
-        "- **Under validation**: being tested end to end; expect gaps.",
+        "  (`taktik/core/compat/data/overrides/<app>.yaml`) and it runs on one of our phones. A version",
+        "  written `447.x` covers every build of that family.",
+        "- **Under validation**: being tested end to end, or adjusted by the bot but run on none of our",
+        "  phones today; expect gaps.",
         "",
         "Overrides applied: the adjustment sets the bot loads on that version (every key at or below",
         "it). \"Desktop app\" tells what the TAKTIK desktop app installs itself.",
@@ -293,8 +314,10 @@ def compatibility_file_drift(path: Path = COMPATIBILITY_PATH) -> Optional[str]:
 
 
 def as_json(supported: SupportedVersions) -> Dict[str, Any]:
-    """The payload the desktop app generates its version list from. `rows` are the rows of
-    COMPATIBILITY.md, status included: the Lab's exit gate asks for a green run on each of them."""
+    """The payload the desktop app generates its version lists from. `rows` are the rows of
+    COMPATIBILITY.md, status included: the Lab's exit gate asks for a green run on each of them.
+    `override_status` tells, for each adjusted version, whether it is run on one of our phones
+    (`validated`) or under validation (`testing`): the app says the same of a phone on it."""
     return {
         "architectures": list(supported.architectures),
         "apps": {
@@ -303,6 +326,7 @@ def as_json(supported: SupportedVersions) -> Dict[str, Any]:
                 "package": s.package,
                 "reference": s.reference,
                 "override_versions": list(s.override_versions),
+                "override_status": dict(s.override_status),
                 "builds": [
                     {"version": b.version, "status": b.status, "recommended": b.recommended} for b in s.builds
                 ],

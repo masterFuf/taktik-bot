@@ -2,7 +2,7 @@
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
 @action("story.like")
@@ -51,7 +51,7 @@ def story_open_from_tray(a, p):
     return a.click.click_feed_story(index)
 
 
-@action("story.has_profile_story")
+@detection_action("story.has_profile_story")
 def story_has_profile_story(a, p):
     """Whether the open profile shows an *unseen* story ring on its avatar.
 
@@ -59,13 +59,7 @@ def story_has_profile_story(a, p):
     this is the detector behind the 2026-06-08 fix (highlights were wrongly counted
     as a watchable story). Run it while on a user's profile page.
     """
-    has_story = a.detection.has_unseen_profile_story()
-    logger.info(f"Profile story ring (unseen): {has_story}")
-    return {
-        "success": True,
-        "message": "story en cours" if has_story else "aucune story en cours (ou deja vue)",
-        "details": {"has_unseen_story": has_story},
-    }
+    return a.detection.has_unseen_profile_story()
 
 
 @action("story.open_from_profile")
@@ -168,12 +162,10 @@ def story_react(a, p):
     return a.click.react_to_story(reaction=reaction, emoji_index=emoji_index)
 
 
-@action("story.is_open")
+@detection_action("story.is_open")
 def story_is_open(a, p):
     """Whether the full-screen story viewer is currently open."""
-    result = a.detection.is_story_viewer_open()
-    logger.info(f"Story viewer open: {result}")
-    return result
+    return a.detection.is_story_viewer_open()
 
 
 @action("story.metadata")
@@ -194,16 +186,10 @@ def story_metadata(a, p):
     return {"success": bool(meta.get("is_open")), "message": message, "details": meta}
 
 
-@action("story.is_ad")
+@detection_action("story.is_ad")
 def story_is_ad(a, p):
     """Whether the current story is a sponsored ad (workflows must skip, not interact)."""
-    is_ad = a.detection.is_story_ad()
-    logger.info(f"Story is ad: {is_ad}")
-    return {
-        "success": True,
-        "message": "pub (sponsorisee)" if is_ad else "story normale",
-        "details": {"is_ad": is_ad},
-    }
+    return a.detection.is_story_ad()
 
 
 @action("story.open_share_sheet")

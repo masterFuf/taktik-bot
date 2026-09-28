@@ -2,7 +2,7 @@
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.shared.behavior.interaction_plan import build_interaction_plan
 from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import (
@@ -62,18 +62,14 @@ def click_unfollow(a, p):
     return a.click.click_unfollow_button()
 
 
-@action("profile.is_follow_available")
+@detection_action("profile.is_follow_available")
 def is_follow_available(a, p):
-    result = a.click.is_follow_button_available()
-    logger.info(f"Follow button available: {result}")
-    return result
+    return a.click.is_follow_button_available()
 
 
-@action("profile.is_unfollow_available")
+@detection_action("profile.is_unfollow_available")
 def is_unfollow_available(a, p):
-    result = a.click.is_unfollow_button_available()
-    logger.info(f"Unfollow button available: {result}")
-    return result
+    return a.click.is_unfollow_button_available()
 
 
 @action("profile.get_follow_state")

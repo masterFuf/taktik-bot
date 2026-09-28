@@ -14,7 +14,7 @@ Every UI signature comes from the centralized catalogs
 ``POPUP_SELECTORS``) — no resource-id and no label is written here.
 """
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
 # What the report must say: why it stopped there, and whether the device came
@@ -99,12 +99,10 @@ def detect_carousel(a, p):
     }
 
 
-@action("suggestions.probe_carousel")
+@detection_action("suggestions.probe_carousel")
 def probe_carousel(a, p):
     """Light probe (one device access) used by the feed loop on every post."""
-    found = a.feed.has_feed_suggestions_carousel()
-    return {"success": True, "found": found,
-            "message": f"Sonde carousel: {'present' if found else 'absent'}"}
+    return a.feed.has_feed_suggestions_carousel()
 
 
 @action("suggestions.open_see_all")
@@ -133,12 +131,10 @@ def handle_contacts_dialog(a, p):
     }
 
 
-@action("suggestions.is_discover_screen")
+@detection_action("suggestions.is_discover_screen")
 def is_discover_screen(a, p):
     """Is the people discovery screen shown? (structural surface proof)"""
-    found = a.feed.is_on_discover_people_screen()
-    return {"success": True, "found": found,
-            "message": f"Ecran suggestions: {'affiche' if found else 'absent'}"}
+    return a.feed.is_on_discover_people_screen()
 
 
 @action("suggestions.scan_rows")
