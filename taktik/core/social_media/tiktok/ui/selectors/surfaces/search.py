@@ -236,11 +236,12 @@ class SearchSelectors:
         """The row of ONE named user on the search Users tab — the exact handle, nobody else.
 
         The bidi marks were half the story, and scoping the containment to `tv_username` did not
-        finish it. Measured again on 2026-08-30 on BOTH versions, asking for `@lena_situations`:
+        finish it. Measured again on 2026-08-30 on BOTH versions, asking for a creator's handle
+        (named `@demo_creator` here; the real handles are not written in this public repository):
 
         - the `tv_username`-scoped containment returned **five** rows on 46.6.3
-          (`lena_situations1`, `lena_situations`, `lena_situationss`, `lena_situations_fane`,
-          `lena_situations__`) and the tap takes the first, so the run opened a 12-follower fan
+          (`demo_creator1`, `demo_creator`, `demo_creatorr`, `demo_creator_fan`,
+          `demo_creator__`) and the tap takes the first, so the run opened a 12-follower fan
           account instead of the target — every time, deterministically;
         - on 43.1.4 it returned **nothing at all**: that version names the row `ye2`, not
           `tv_username`, so the whole list fell through to the blind "first row of the list".
