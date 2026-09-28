@@ -361,9 +361,7 @@ class DetectionSelectors:
     def end_of_list_indicators(self) -> List[str]:
         return self._end_of_list_indicators_base + L("detection.end_of_list_indicators")
 
-    # === Hashtag & Grid Navigation ===
-    post_grid_selector: str = '//*[@resource-id="com.instagram.android:id/image_button"]'
-
+    # === Hashtag navigation ===
     @property
     def recent_tab_selectors(self) -> List[str]:
         return L("detection.recent_tab_selectors")
@@ -377,14 +375,6 @@ class DetectionSelectors:
     @property
     def likes_count_selectors(self) -> List[str]:
         return self._likes_count_selectors_base + L("detection.likes_count_selectors")
-
-    # === Post grid selectors (for clicking specific posts) ===
-    post_grid_selectors: List[str] = field(default_factory=lambda: [
-        '//android.widget.ImageView[@clickable="true"]',
-        '//android.widget.FrameLayout//android.widget.ImageView',
-        '//android.view.ViewGroup[@clickable="true"]//android.widget.ImageView',
-        '//android.widget.ImageButton[@resource-id="com.instagram.android:id/image_button"]'
-    ])
 
     # === Carousel selectors (for atomic extraction) ===
     _carousel_selectors_base: List[str] = field(default_factory=lambda: [
