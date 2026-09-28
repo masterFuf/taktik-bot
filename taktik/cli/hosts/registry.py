@@ -117,14 +117,14 @@ def build_registry(
     startup_provider: Callable[..., Any] | None = None,
 ) -> RegistryBuild:
     """Register every available handler, returning the registry and any registrar failures."""
-    from taktik.cli.common.instagram_host import (
+    from taktik.cli.hosts.instagram import (
         CliInstagramHost,
         cli_instagram_agent_ai_service_factory,
         cli_instagram_ai_service,
         cli_instagram_scraping_ai_service,
         cli_openrouter_key,
     )
-    from taktik.cli.common.tiktok_host import (
+    from taktik.cli.hosts.tiktok import (
         cli_tiktok_account_app,
         cli_tiktok_ai_hooks,
         cli_tiktok_outreach_message_generator,

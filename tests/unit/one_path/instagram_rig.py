@@ -250,7 +250,7 @@ class InstagramRig:
         """The standalone path: `taktik workflows run instagram.automation.<type>`."""
         from click.testing import CliRunner
 
-        from taktik.cli.commands import workflow_cmds
+        from taktik.cli.commands import workflows as workflow_cmds
 
         workflow_id = workflow_id or f"instagram.automation.{payload['workflowType']}"
         self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (self.device_manager, DEVICE_ID))

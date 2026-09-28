@@ -22,7 +22,7 @@ class LoginScreenDetectionMixin:
         """Capture a screenshot and a UI dump for debugging, non-blocking."""
         try:
             import os, tempfile
-            from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
+            from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capture_screenshot
             output_dir = os.path.join(tempfile.gettempdir(), 'taktik_debug')
             os.makedirs(output_dir, exist_ok=True)
             sc = capture_screenshot(self.device, output_dir)

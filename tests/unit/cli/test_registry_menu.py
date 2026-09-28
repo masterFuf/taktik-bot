@@ -13,8 +13,8 @@ from unittest.mock import patch
 
 import pytest
 
-from taktik.cli.common import registry_menu
-from taktik.cli.common.registry_builder import build_registry
+from taktik.cli.menus import registry as registry_menu
+from taktik.cli.hosts.registry import build_registry
 
 
 class FakeDeviceManager:

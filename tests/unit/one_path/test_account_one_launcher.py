@@ -198,8 +198,8 @@ def test_instagram_bridge_refuses_a_payload_before_touching_the_phone(monkeypatc
 
 
 def test_cli_auth_login_runs_the_account_launcher(monkeypatch):
-    from taktik.cli.commands import management_cmds
-    from taktik.cli.common.instagram_host import CliInstagramHost
+    from taktik.cli.commands.instagram import management as management_cmds
+    from taktik.cli.hosts.instagram import CliInstagramHost
     from taktik.core.social_media.instagram.workflows.management import agent_handler
 
     calls = []

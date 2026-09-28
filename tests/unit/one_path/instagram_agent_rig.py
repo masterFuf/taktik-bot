@@ -97,7 +97,7 @@ class InstagramAgentRig(InstagramColdDmRig):
         """The standalone path: `taktik agent run --device <serial> --param k=v ...`."""
         from click.testing import CliRunner
 
-        from taktik.cli.commands import agent_cmds
+        from taktik.cli.commands.instagram import agent as agent_cmds
 
         rig = self
 

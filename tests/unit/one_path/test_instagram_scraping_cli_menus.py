@@ -24,7 +24,7 @@ def answer(monkeypatch):
 
 
 def test_the_target_prompts_describe_the_run_like_the_page(answer):
-    from taktik.cli.prompts import scraping as prompts
+    from taktik.cli.menus import instagram_scraping as prompts
 
     answer("alpha, @beta", "2", "40", "15")
 
@@ -40,7 +40,7 @@ def test_the_target_prompts_describe_the_run_like_the_page(answer):
 
 
 def test_the_hashtag_prompts_choose_between_likers_and_commenters(answer):
-    from taktik.cli.prompts import scraping as prompts
+    from taktik.cli.menus import instagram_scraping as prompts
 
     answer("#cuisine", "2", "30", "8", "10")
     payload = prompts.generate_hashtag_scraping_workflow()
@@ -51,7 +51,7 @@ def test_the_hashtag_prompts_choose_between_likers_and_commenters(answer):
 
 
 def test_the_post_url_comments_choice_scrapes_the_commenters(answer):
-    from taktik.cli.prompts import scraping as prompts
+    from taktik.cli.menus import instagram_scraping as prompts
 
     answer("https://www.instagram.com/p/AbC123/", "25", "5")
     payload = prompts.generate_url_scraping_workflow("commenters")
@@ -61,7 +61,7 @@ def test_the_post_url_comments_choice_scrapes_the_commenters(answer):
 
 
 def test_a_menu_run_goes_through_the_launcher(igs_rig):
-    from taktik.cli.common.instagram_host import run_instagram_scraping_payload
+    from taktik.cli.hosts.instagram import run_instagram_scraping_payload
 
     run_instagram_scraping_payload(igs_rig.device_manager, DEVICE_ID, {
         "type": "target", "targetUsernames": ["alpha"], "scrapeType": "followers", "maxProfiles": 5,

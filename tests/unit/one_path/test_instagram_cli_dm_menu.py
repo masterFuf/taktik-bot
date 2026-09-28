@@ -32,7 +32,7 @@ class _Recorder:
 
 
 def test_a_reply_goes_to_the_thread_handle_with_the_page_payloads():
-    from taktik.cli.common import dm_menu
+    from taktik.cli.menus import instagram_dm as dm_menu
 
     run = _Recorder()
     outcome = dm_menu.reply_to_inbox(None, DEVICE_ID, 5, ask=lambda _q: " Yes, from ten ",
@@ -46,7 +46,7 @@ def test_a_reply_goes_to_the_thread_handle_with_the_page_payloads():
 
 
 def test_an_empty_answer_sends_nothing():
-    from taktik.cli.common import dm_menu
+    from taktik.cli.menus import instagram_dm as dm_menu
 
     run = _Recorder()
     dm_menu.reply_to_inbox(None, DEVICE_ID, 5, ask=lambda _q: "", show=lambda _l: None, run=run)
@@ -55,7 +55,7 @@ def test_an_empty_answer_sends_nothing():
 
 
 def test_a_refused_message_stops_the_replies():
-    from taktik.cli.common import dm_menu
+    from taktik.cli.menus import instagram_dm as dm_menu
 
     run = _Recorder(send_result={"success": False, "stop_reason": "action_blocked"})
     run_read = run.__call__
@@ -73,7 +73,7 @@ def test_a_refused_message_stops_the_replies():
 
 
 def test_the_menu_reads_and_replies_through_the_dm_handlers(igd_rig):
-    from taktik.cli.common import dm_menu
+    from taktik.cli.menus import instagram_dm as dm_menu
 
     igd_rig.device_manager.device = igd_rig.phone
     outcome = dm_menu.reply_to_inbox(igd_rig.device_manager, DEVICE_ID, 5, ask=lambda _q: "Yes",

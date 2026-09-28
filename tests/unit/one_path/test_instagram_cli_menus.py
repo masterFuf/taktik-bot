@@ -53,9 +53,9 @@ def test_a_file_in_the_internal_format_is_refused(ig_rig, cli_main, tmp_path):
 def test_the_menu_prompts_describe_the_run_like_a_page(monkeypatch):
     from rich.prompt import Prompt
 
-    from taktik.cli.context import update_language_state
-    from taktik.cli.prompts import instagram as prompts
-    from taktik.locales import en
+    from taktik.cli.support.context import update_language_state
+    from taktik.cli.menus import instagram as prompts
+    from taktik.cli.locales import en
 
     update_language_state(en.TRANSLATIONS, en.BANNER)
     answers = iter([
@@ -83,9 +83,9 @@ def test_the_menu_prompts_describe_the_run_like_a_page(monkeypatch):
 def test_the_hashtag_prompts_keep_their_post_criteria(monkeypatch):
     from rich.prompt import Prompt
 
-    from taktik.cli.context import update_language_state
-    from taktik.cli.prompts import instagram as prompts
-    from taktik.locales import en
+    from taktik.cli.support.context import update_language_state
+    from taktik.cli.menus import instagram as prompts
+    from taktik.cli.locales import en
 
     update_language_state(en.TRANSLATIONS, en.BANNER)
     answers = iter(["#cuisine", "200", "9000", "5", "2", "30", "0", "0", "0", "0",

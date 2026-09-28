@@ -29,7 +29,7 @@ def answer(monkeypatch):
 
 
 def test_likers_and_commenters_of_a_post_is_the_page_post_url_source(answer):
-    from taktik.cli.prompts import scraping as prompts
+    from taktik.cli.menus import instagram_scraping as prompts
 
     answer("https://www.instagram.com/p/AbC123/", "80", "30")
 
@@ -47,7 +47,7 @@ def test_likers_and_commenters_of_a_post_is_the_page_post_url_source(answer):
 
 
 def test_the_posts_of_accounts_prompts_describe_the_page_profile_posts_source(answer):
-    from taktik.cli.prompts import scraping as prompts
+    from taktik.cli.menus import instagram_scraping as prompts
 
     answer("alpha, @beta", "12", "25")
 
@@ -62,8 +62,8 @@ def test_the_posts_of_accounts_prompts_describe_the_page_profile_posts_source(an
 
 
 def test_a_post_menu_run_goes_through_the_scraping_launcher(igs_rig, answer):
-    from taktik.cli.common.instagram_host import run_instagram_scraping_payload
-    from taktik.cli.prompts import scraping as prompts
+    from taktik.cli.hosts.instagram import run_instagram_scraping_payload
+    from taktik.cli.menus import instagram_scraping as prompts
 
     answer("https://www.instagram.com/p/AbC123/", "40", "20")
     run_instagram_scraping_payload(igs_rig.device_manager, DEVICE_ID, prompts.generate_url_scraping_workflow("both"))
@@ -75,8 +75,8 @@ def test_a_post_menu_run_goes_through_the_scraping_launcher(igs_rig, answer):
 
 
 def test_a_posts_of_accounts_menu_run_goes_through_the_scraping_launcher(igs_rig, answer):
-    from taktik.cli.common.instagram_host import run_instagram_scraping_payload
-    from taktik.cli.prompts import scraping as prompts
+    from taktik.cli.hosts.instagram import run_instagram_scraping_payload
+    from taktik.cli.menus import instagram_scraping as prompts
 
     answer("alpha", "12", "25")
     run_instagram_scraping_payload(igs_rig.device_manager, DEVICE_ID,

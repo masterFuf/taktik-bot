@@ -65,7 +65,7 @@ def _bridge(media, monkeypatch):
 
 
 def _cli(media, monkeypatch):
-    from taktik.cli.commands import publish_cmds
+    from taktik.cli.commands.instagram import publish as publish_cmds
 
     monkeypatch.setattr(publish_cmds, "_resolve_device", lambda device_id: (object(), DEVICE_ID))
     result = CliRunner().invoke(publish_cmds.publish, ["carousel", *media, "--caption", "hello",
@@ -74,7 +74,7 @@ def _cli(media, monkeypatch):
 
 
 def _workflows_run(media, monkeypatch):
-    from taktik.cli.commands import workflow_cmds
+    from taktik.cli.commands import workflows as workflow_cmds
 
     manager = SimpleNamespace(device=object())
     monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (manager, DEVICE_ID))

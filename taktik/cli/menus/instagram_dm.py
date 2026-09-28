@@ -17,7 +17,7 @@ Show = Callable[[str], None]
 
 
 def _default_runner() -> Runner:
-    from taktik.cli.common.instagram_host import run_instagram_dm_payload
+    from taktik.cli.hosts.instagram import run_instagram_dm_payload
 
     return run_instagram_dm_payload
 

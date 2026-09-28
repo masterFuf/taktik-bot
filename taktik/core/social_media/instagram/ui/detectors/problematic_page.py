@@ -6,7 +6,7 @@ import re
 import time
 from typing import Optional, Dict, Any
 from loguru import logger
-from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
+from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capture_screenshot
 from taktik.core.shared.diagnostics import run_halt
 from ..selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 from ..selectors.locales import L_all, active_locale, available_locales

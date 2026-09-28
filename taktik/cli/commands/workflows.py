@@ -28,7 +28,7 @@ from rich.console import Console
 from rich.prompt import Confirm
 from rich.table import Table
 
-from taktik.cli.common.ai_key import (
+from taktik.cli.hosts.ai_key import (
     MISSING_KEY_EXIT,
     MissingAIKeyError,
     ensure_ai_key,
@@ -36,7 +36,7 @@ from taktik.cli.common.ai_key import (
     resolve_openrouter_key,
     run_uses_ai,
 )
-from taktik.cli.common.registry_builder import build_registry
+from taktik.cli.hosts.registry import build_registry
 
 console = Console()
 

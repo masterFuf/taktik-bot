@@ -52,7 +52,7 @@ def build_full_registry():
     alone. Reading the production list is also the only way the report can be trusted to
     describe production.
     """
-    from taktik.cli.common.registry_builder import build_registry
+    from taktik.cli.hosts.registry import build_registry
 
     build = build_registry(device=_NullDeviceManager(), device_id="audit-device",
                            startup_provider=lambda *a, **k: None)

@@ -16,7 +16,7 @@ from typing import Any, Mapping, Optional
 
 from loguru import logger
 
-from taktik.cli.common.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
+from taktik.cli.hosts.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
 from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
 
 
@@ -206,8 +206,8 @@ def _run_through_handler(device_manager: Any, device_id: str, workflow_id: str,
     """Run a page payload through the handler registered as `workflow_id`: the same path as
     `taktik workflows run <workflow_id>` and as the desktop bridge's launcher. A run that uses AI
     gets its key first (asked for at a terminal, `MissingAIKeyError` otherwise)."""
-    from taktik.cli.common.ai_key import ensure_ai_key, is_interactive
-    from taktik.cli.common.registry_builder import build_registry
+    from taktik.cli.hosts.ai_key import ensure_ai_key, is_interactive
+    from taktik.cli.hosts.registry import build_registry
     from taktik.core.agent.kernel.contracts import WorkflowInvocation
 
     ensure_ai_key(workflow_id, payload, interactive=is_interactive())

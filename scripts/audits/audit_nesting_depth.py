@@ -39,7 +39,7 @@ TOLERE = {
     # Les trois que l'audit G-04 a nommees : un menu interactif, une machine a etats, un workflow
     # d'inscription. Chacune attend son filet — leurs tests couvrent les sous-commandes ou les
     # handlers, jamais les transitions elles-memes.
-    "taktik/cli/main.py::cli": 12,
+    "taktik/cli/menus/main_menu.py::run_main_menu": 11,
     "taktik/core/app/email/gmail/workflows/account.py::ensure_account_added": 17,
     "taktik/core/social_media/tiktok/workflows/management/signup/signup_workflow.py::execute": 12,
     # Les autres au-dessus du seuil le jour ou ce garde-fou a ete pose (et pas encore redescendues). Les nommer plutot que

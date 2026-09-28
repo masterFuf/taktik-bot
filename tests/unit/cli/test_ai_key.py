@@ -11,8 +11,8 @@ import json
 import pytest
 from click.testing import CliRunner
 
-from taktik.cli.common import ai_key
-from taktik.cli.common.ai_key import (
+from taktik.cli.hosts import ai_key
+from taktik.cli.hosts.ai_key import (
     MISSING_KEY_EXIT,
     MissingAIKeyError,
     ensure_ai_key,
@@ -54,7 +54,7 @@ def test_a_run_uses_ai_when_it_asks_for_it(workflow_id, payload, expected):
 def test_every_registered_workflow_runs_manually_without_a_key():
     """No workflow of the registry needs a key for a manual run, and none asks for one, even in a
     scripted run with no key anywhere. The Agent is the one run that is AI by nature."""
-    from taktik.cli.common.registry_builder import build_registry
+    from taktik.cli.hosts.registry import build_registry
 
     build = build_registry(device=None, device_id="")
     assert build.workflow_ids
@@ -149,7 +149,7 @@ def test_the_api_url_still_lives_in_the_same_file():
 # --- the commands ---------------------------------------------------------------------------
 
 def _connect_spy(monkeypatch):
-    from taktik.cli.commands import workflow_cmds
+    from taktik.cli.commands import workflows as workflow_cmds
 
     connected = []
 
@@ -196,7 +196,7 @@ def test_workflows_run_asks_at_a_terminal_and_saves(monkeypatch):
 
 
 def test_a_dry_run_says_whether_the_key_is_there_without_asking(monkeypatch):
-    from taktik.cli.commands import workflow_cmds
+    from taktik.cli.commands import workflows as workflow_cmds
 
     result = CliRunner().invoke(workflow_cmds.workflows, [
         "run", "instagram.automation.feed", "--dry-run", "--json", json.dumps({"ai": {"enabled": True}})])

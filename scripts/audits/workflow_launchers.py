@@ -119,7 +119,7 @@ def registered_ids() -> list[str]:
 def registrars() -> list[tuple[str, str]]:
     """(launcher module, registrar function), as the CLI registry assembles them."""
     sys.path.insert(0, str(CORE))
-    from taktik.cli.common.registry_builder import REGISTRARS
+    from taktik.cli.hosts.registry import REGISTRARS
 
     return sorted({(module, func) for _label, module, func in REGISTRARS})
 

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from click.testing import CliRunner
 
-from taktik.cli.commands.workflow_cmds import workflows
-from taktik.cli.common.registry_builder import build_registry
+from taktik.cli.commands.workflows import workflows
+from taktik.cli.hosts.registry import build_registry
 from taktik.core.agent.io.manifest import load_workflow_manifest
 from taktik.core.app.contract.registry import contracts_by_id
 

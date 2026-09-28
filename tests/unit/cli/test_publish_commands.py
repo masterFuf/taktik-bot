@@ -14,7 +14,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from taktik.cli.commands import publish_cmds
+from taktik.cli.commands.instagram import publish as publish_cmds
 
 
 class RecordingWorkflow:
@@ -130,7 +130,7 @@ def test_the_cli_has_no_second_publishing_engine():
     """`management content` ran `ContentWorkflow`; publishing goes through `taktik publish` only."""
     import importlib.util
 
-    from taktik.cli.commands.management_cmds import management
+    from taktik.cli.commands.instagram.management import management
 
     assert "content" not in management.commands
     assert importlib.util.find_spec(

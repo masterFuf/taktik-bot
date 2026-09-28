@@ -10,7 +10,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
-from taktik.cli.common.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
+from taktik.cli.hosts.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
 
 
 def _log(level: str, message: str) -> None:

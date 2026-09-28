@@ -1384,7 +1384,7 @@ class Rig:
         """The standalone path: `taktik workflows run <workflow_id>`."""
         from click.testing import CliRunner
 
-        from taktik.cli.commands import workflow_cmds
+        from taktik.cli.commands import workflows as workflow_cmds
 
         manager = SimpleNamespace(device=self.device)
         self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (manager, DEVICE_ID))

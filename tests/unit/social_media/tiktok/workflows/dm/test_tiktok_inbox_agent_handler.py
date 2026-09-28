@@ -207,7 +207,7 @@ def test_activity_read_is_read_only_and_returns_its_notifications():
 
 
 def test_the_four_ids_are_reachable_from_the_standalone_cli_registry():
-    from taktik.cli.common.registry_builder import build_registry
+    from taktik.cli.hosts.registry import build_registry
 
     build = build_registry(device=object(), device_id="agent")
     for workflow_id in (

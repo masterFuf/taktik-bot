@@ -2,7 +2,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt, Confirm
-from taktik.cli.prompts.instagram import _validate_instagram_url, _extract_post_id_from_url
+from taktik.cli.menus.instagram import _validate_instagram_url, _extract_post_id_from_url
 
 console = Console()
 

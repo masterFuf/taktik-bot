@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from taktik.cli.commands import agent_cmds
+from taktik.cli.commands.instagram import agent as agent_cmds
 
 
 def test_advertised_quotas_match_the_workflow():
@@ -38,7 +38,7 @@ def test_the_cli_does_not_import_a_bridge():
     caller shares — bridges included. Building an AIService directly is what let four callers
     drift apart until only one of them injected the premium taxonomy.
     """
-    source = Path("taktik/cli/commands/agent_cmds.py").read_text(encoding="utf-8")
+    source = Path("taktik/cli/commands/instagram/agent.py").read_text(encoding="utf-8")
     assert "bridges" not in source.replace("bridges/", "")  # the word only appears in prose
     assert "taktik.core.app.ai.factory" in source
     assert "AIService(" not in source, "build through the shared factory, never directly"
@@ -70,7 +70,7 @@ def test_the_notifier_absorbs_unknown_events():
 
 def test_the_api_key_never_comes_from_a_flag():
     """A key passed as a flag would land in shell history and in the process list."""
-    source = Path("taktik/cli/commands/agent_cmds.py").read_text(encoding="utf-8")
+    source = Path("taktik/cli/commands/instagram/agent.py").read_text(encoding="utf-8")
     assert "ensure_ai_key(" in source
     assert "--api-key" not in source
 

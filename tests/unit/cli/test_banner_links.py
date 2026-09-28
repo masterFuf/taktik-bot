@@ -32,7 +32,7 @@ def _banner_markup(monkeypatch) -> str:
         def check_for_updates(self):
             return False, None
 
-    import taktik.utils.version_checker as version_checker
+    import taktik.cli.support.version_checker as version_checker
 
     monkeypatch.setattr(version_checker, "VersionChecker", _NoUpdate)
     monkeypatch.setattr(main, "console", Console(file=io.StringIO(), width=200))

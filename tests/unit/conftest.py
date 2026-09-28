@@ -229,7 +229,7 @@ def _no_operator_settings_file(monkeypatch, tmp_path_factory):
     """No test reads or writes the operator's `~/.taktik/api_config.json` (a saved OpenRouter key
     there would turn every "no key" test green or red depending on the machine), and no key typed
     in one test serves the next."""
-    from taktik.cli.common import ai_key
+    from taktik.cli.hosts import ai_key
     from taktik.core.app.config.runtime import user_config
 
     path = str(tmp_path_factory.mktemp("taktik_home") / "api_config.json")

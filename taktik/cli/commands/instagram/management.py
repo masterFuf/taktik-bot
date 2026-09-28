@@ -28,7 +28,7 @@ def auth():
 def login_instagram(device_id, username, password, save_session, save_instagram_login):
     """Log in to an Instagram account, as the desktop does (`instagram.account.login`)."""
     from getpass import getpass
-    from taktik.cli.common.instagram_host import run_instagram_account_payload
+    from taktik.cli.hosts.instagram import run_instagram_account_payload
 
     console.print(Panel.fit("[bold green]🔐 Connexion à Instagram[/bold green]"))
 
@@ -122,7 +122,7 @@ def _dm_device(device_id):
 
 def _run_dm(device_id, workflow_id, payload) -> dict:
     """One DM command through its handler, the path of the desktop's DM bridge."""
-    from taktik.cli.common.instagram_host import run_instagram_dm_payload
+    from taktik.cli.hosts.instagram import run_instagram_dm_payload
 
     manager, device_id = _dm_device(device_id)
     try:

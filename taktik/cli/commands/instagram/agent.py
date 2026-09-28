@@ -26,7 +26,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from taktik.cli.common.ai_key import MISSING_KEY_EXIT, MissingAIKeyError, ensure_ai_key, is_interactive
+from taktik.cli.hosts.ai_key import MISSING_KEY_EXIT, MissingAIKeyError, ensure_ai_key, is_interactive
 from taktik.core.app.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 
 console = Console()
@@ -89,8 +89,8 @@ def show_defaults() -> None:
 @click.option("--param", "params", multiple=True, help="Config entry, key=value. Repeatable.")
 def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     """Start an autonomous Agent session on Instagram."""
-    from taktik.cli.commands.workflow_cmds import _coerce
-    from taktik.cli.common.instagram_host import CliInstagramHost
+    from taktik.cli.commands.workflows import _coerce
+    from taktik.cli.hosts.instagram import CliInstagramHost
     from taktik.core.shared.device.manager import DeviceManager
     from taktik.core.social_media.instagram.workflows.agent.agent_handler import run_instagram_agent
 

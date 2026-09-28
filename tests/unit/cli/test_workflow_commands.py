@@ -13,8 +13,8 @@ import json
 import pytest
 from click.testing import CliRunner
 
-from taktik.cli.commands.workflow_cmds import _coerce, _parse_params, workflows
-from taktik.cli.common.registry_builder import build_registry
+from taktik.cli.commands.workflows import _coerce, _parse_params, workflows
+from taktik.cli.hosts.registry import build_registry
 
 
 # --- registry assembly ------------------------------------------------------

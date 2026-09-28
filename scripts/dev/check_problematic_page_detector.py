@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from loguru import logger
 from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
-from taktik.utils.ui_dump import dump_ui_hierarchy, capture_screenshot
+from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capture_screenshot
 
 
 def _connected_device_ids():

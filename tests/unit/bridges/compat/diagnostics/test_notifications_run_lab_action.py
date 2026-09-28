@@ -175,7 +175,7 @@ def test_the_runtime_is_the_bridge_class_on_the_session_device(monkeypatch, lab_
 
 def test_the_lab_and_the_cli_connect_a_bridge_by_one_helper(monkeypatch):
     from bridges.common.runtime import connected_device
-    from taktik.cli.common import instagram_host
+    from taktik.cli.hosts import instagram as instagram_host
 
     connected = []
     monkeypatch.setattr(connected_device, "on_connected_device",

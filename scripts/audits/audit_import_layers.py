@@ -161,12 +161,12 @@ EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
            "(`tiktok/actions/business/workflows/_internal/agent_runtime.py`), which AGENTS.md keeps for "
            "the handlers of one platform. Shared by two families, they belong with the handler "
            "contract (`agent/kernel/`); moving them removes the entry."),
-    ("cli-no-bridges", "taktik/cli/common/instagram_host.py"): (
+    ("cli-no-bridges", "taktik/cli/hosts/instagram.py"): (
         10, "The Instagram host of the CLI opens its session through `bridges.common.device` "
             "(connection, app lifecycle, IP rotation) and `bridges.instagram.runtime.bridge`, the "
             "device primitives the CLI and the bridges share. They belong in `shared/device` "
             "(AGENTS.md makes it their owner); moving them there removes the entry."),
-    ("cli-no-bridges", "taktik/cli/common/tiktok_host.py"): (
+    ("cli-no-bridges", "taktik/cli/hosts/tiktok.py"): (
         1, "The TikTok host of the CLI reads the device through `bridges.common.device`, for the "
            "same reason as the Instagram host; moving `device` into `shared/device` removes it."),
     ("transverse-no-platform", "taktik/core/compat/selectors/setup.py"): (

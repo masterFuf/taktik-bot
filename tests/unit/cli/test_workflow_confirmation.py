@@ -10,8 +10,8 @@ from __future__ import annotations
 import pytest
 from click.testing import CliRunner
 
-from taktik.cli.commands import workflow_cmds
-from taktik.cli.commands.workflow_cmds import workflows
+from taktik.cli.commands import workflows as workflow_cmds
+from taktik.cli.commands.workflows import workflows
 
 LOGS_OUT = "instagram.account.list_saved_accounts"
 

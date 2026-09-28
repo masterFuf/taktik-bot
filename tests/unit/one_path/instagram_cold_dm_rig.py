@@ -484,7 +484,7 @@ class InstagramColdDmRig:
         """The standalone path: `taktik workflows run instagram.engagement.coldDm`."""
         from click.testing import CliRunner
 
-        from taktik.cli.commands import workflow_cmds
+        from taktik.cli.commands import workflows as workflow_cmds
 
         self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (self.device_manager, DEVICE_ID))
         print_result = workflow_cmds._print_result

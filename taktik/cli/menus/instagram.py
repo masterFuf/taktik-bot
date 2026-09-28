@@ -4,7 +4,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.prompt import Prompt, Confirm
-from taktik.cli.context import get_translations
+from taktik.cli.support.context import get_translations
 
 console = Console()
 
@@ -50,7 +50,7 @@ def generate_dynamic_workflow(target_type):
 
 def generate_target_workflow():
     current_translations = get_translations()
-    from taktik.cli.common.workflow_builder import (
+    from taktik.cli.menus.workflow_builder import (
         automation_payload, collect_probabilities, collect_filters, collect_session_settings,
         display_probabilities_rows, display_filters_rows, display_session_rows,
         display_estimates,
@@ -131,7 +131,7 @@ def generate_target_workflow():
 
 def generate_hashtags_workflow():
     current_translations = get_translations()
-    from taktik.cli.common.workflow_builder import (
+    from taktik.cli.menus.workflow_builder import (
         automation_payload, collect_probabilities, collect_filters, collect_session_settings,
         display_probabilities_rows, display_filters_rows, display_session_rows,
         display_estimates,
@@ -196,7 +196,7 @@ def generate_hashtags_workflow():
 
 def generate_post_url_workflow():
     current_translations = get_translations()
-    from taktik.cli.common.workflow_builder import (
+    from taktik.cli.menus.workflow_builder import (
         automation_payload, collect_probabilities, collect_filters, collect_session_settings,
         display_probabilities_rows, display_filters_rows, display_session_rows,
         display_estimates,

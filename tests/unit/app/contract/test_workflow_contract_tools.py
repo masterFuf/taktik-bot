@@ -291,7 +291,7 @@ def test_the_action_session_prints_its_declared_lines(monkeypatch, capsys, no_te
 def test_the_debug_tooling_prints_its_declared_lines(monkeypatch, lines, tmp_path):
     import taktik.core.shared.device.manager as manager
     import taktik.core.social_media.instagram.ui.detectors.problematic_page as problematic_page
-    import taktik.utils.ui_dump as ui_dump
+    import taktik.core.shared.diagnostics.ui_dump_files as ui_dump
     from bridges.instagram.automation import desktop
 
     connected = {"ok": True}

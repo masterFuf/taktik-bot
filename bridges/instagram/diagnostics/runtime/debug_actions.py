@@ -25,7 +25,7 @@ def analyze_current_screen(device) -> int:
         import os
         import tempfile
 
-        from taktik.utils.ui_dump import capture_screenshot, dump_ui_hierarchy
+        from taktik.core.shared.diagnostics.ui_dump_files import capture_screenshot, dump_ui_hierarchy
 
         output_dir = os.path.join(tempfile.gettempdir(), "taktik_debug")
         os.makedirs(output_dir, exist_ok=True)

@@ -21,9 +21,9 @@ from typing import Any
 import click
 from rich.console import Console
 
-from taktik.cli.commands.workflow_cmds import _coerce
-from taktik.cli.common.ai_key import MissingAIKeyError, ensure_ai_key, is_interactive
-from taktik.cli.common.registry_builder import build_registry
+from taktik.cli.commands.workflows import _coerce
+from taktik.cli.hosts.ai_key import MissingAIKeyError, ensure_ai_key, is_interactive
+from taktik.cli.hosts.registry import build_registry
 
 console = Console()
 

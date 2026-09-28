@@ -28,7 +28,7 @@ def no_phone(monkeypatch):
 
 @pytest.fixture
 def management(igd_rig, monkeypatch):
-    from taktik.cli.commands import management_cmds
+    from taktik.cli.commands.instagram import management as management_cmds
 
     class _Instagram:
         def __init__(self, *a, **k):
