@@ -34,7 +34,8 @@ class KeyboardPhone:
 
     @staticmethod
     def _arg(command, name):
-        return command.split(f"{name} ", 1)[1].split(" ", 1)[0]
+        # The broadcast is the `then` part of the shell command that checks the keyboard first.
+        return command.split(f"{name} ", 1)[1].split(" ", 1)[0].rstrip(";")
 
     def shell(self, device_id, command):
         self._land()

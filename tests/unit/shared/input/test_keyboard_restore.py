@@ -31,7 +31,6 @@ class FakeAdb:
 @pytest.fixture(autouse=True)
 def _clean(monkeypatch):
     monkeypatch.setattr(kb, "_original_ime", {})
-    monkeypatch.setattr(kb, "_active_ime_cache", {})
     monkeypatch.setattr(kb, "_atexit_registered", True)   # no real atexit hook from tests
     yield
 

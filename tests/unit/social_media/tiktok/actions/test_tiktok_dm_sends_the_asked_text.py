@@ -16,6 +16,7 @@ import taktik.core.shared.input.taktik_keyboard as kb
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
+from unit.android_shell import is_keyboard_check, run_keyboard_check
 
 PLACEHOLDER = "Message…"
 
@@ -163,6 +164,8 @@ class _FoldingComposerPhone(_Phone):
         self.steps = []
 
     def shell(self, device_id, command):
+        if is_keyboard_check(command):
+            return run_keyboard_check(command, self.keyboard, lambda guarded: self.shell(device_id, guarded))
         if "default_input_method" in command:
             return self.keyboard
         if command.startswith("ime set "):
@@ -186,7 +189,6 @@ def test_the_keyboard_is_switched_before_the_composer_is_tapped(monkeypatch):
     """Switched after the tap (tap, then the switch inside the clear or the typing), the message
     never reached the composer and nothing could be sent."""
     monkeypatch.setattr(kb, "is_taktik_keyboard_active", _REAL_IS_ACTIVE)
-    monkeypatch.setattr(kb, "_active_ime_cache", {})
     monkeypatch.setattr(kb, "_original_ime", {})
     monkeypatch.setattr(kb, "_atexit_registered", True)
     monkeypatch.setattr(typing_plan, "build_typing_plan", lambda text, rng=None: [("type", text)])
