@@ -239,13 +239,13 @@ def test_the_direct_openings_go_through_the_check(tmp_path, monkeypatch):
 
 
 def test_the_welcome_dm_probe_opening_goes_through_the_check(tmp_path, monkeypatch):
-    from taktik.core.database.tiktok_dm import _open_database
+    from taktik.core.database.messaging import open_existing_database
 
     path = legacy_base(tmp_path / "taktik-data.db")
     monkeypatch.setenv("TAKTIK_DB_PATH", str(path))
     monkeypatch.setenv(UNDER_APP_ENV, "4242")
     with pytest.raises(SchemaNotReady):
-        _open_database()
+        open_existing_database()
 
 
 def test_the_check_runs_once_per_process_and_base(tmp_path, monkeypatch):

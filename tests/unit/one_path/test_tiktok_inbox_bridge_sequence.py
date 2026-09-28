@@ -18,6 +18,14 @@ qualified each reached follower, one screenshot and one paid AI call each, to de
 now opens each profile for its handle and asks the AI nothing (the old record is in the history
 of this file).
 
+Three more were re-recorded on 2026-09-28, by the product decision that someone who wrote to us
+first is answered, never welcomed: `new_followers_welcome`, `new_followers_welcome_thread_exists` and
+`new_followers_welcome_guard_broken`. Each follower the lock leaves out now gets its `dm_result`
+line (skipped, never a failure, with its reason), after the send's own lines, and the journal line
+names them with their reasons; nothing else changed (the old records are in the history of this
+file). `new_followers_welcome_wrote_to_us` was recorded then: a follower whose message is on
+record, filed by the DM read under the display name, is left out.
+
 Every welcome scenario but one sends through a stand-in of the cold-DM workflow.
 `new_followers_welcome_no_message_entry` runs the production one: a follower whose profile offers
 no message entry is skipped, and the bridge prints what the cold DM prints for it.
@@ -82,6 +90,15 @@ def scenario(name, rig, inbox_payload, welcome_ai):
         rig.use_real_outreach()
         rig.no_message_button = {"fan_two"}
         return _welcome(rig, inbox_payload, welcome_ai)
+    if name == "new_followers_welcome_wrote_to_us":
+        # The page's welcome (every new follower, no follow-back, the AI off). Fan Two's message is
+        # on record, filed by the DM read under the name the conversation header shows.
+        rig.threads_from_them = {"fan two"}
+        ai = welcome_ai()
+        ai["enabled"] = False
+        ai.pop("openrouterApiKey")
+        ai["newFollowers"].update({"followBack": False, "dmRequiresFollowBack": False})
+        return inbox_payload("new_followers", ai=ai)
     if name == "new_followers_welcome_without_follow_back":
         return _welcome(rig, inbox_payload, welcome_ai, followBack=False)
     if name == "new_followers_welcome_follow_back_only":
@@ -130,7 +147,7 @@ SCENARIOS = (
     "new_followers_welcome_guard_broken", "new_followers_welcome_no_message",
     "new_followers_welcome_account_unread", "new_followers_welcome_send_fails",
     "new_followers_welcome_no_message_entry", "new_followers_welcome_without_follow_back",
-    "new_followers_welcome_follow_back_only",
+    "new_followers_welcome_follow_back_only", "new_followers_welcome_wrote_to_us",
     "new_followers_follow_back_page", "new_followers_follow_back_empty", "new_followers_no_device",
     "new_followers_start_fails", "unreplied_page", "unreplied_every_conversation", "unreplied_no_device",
     "unreplied_start_fails", "requests_scrape_page", "requests_execute_page", "requests_execute_empty",
@@ -203,3 +220,20 @@ def test_a_pass_without_follow_back_asks_the_ai_nothing():
     assert not [kind for kind, _event in record["events"] if kind.startswith("ai_")]
     assert [call for call in record["calls"] if call.startswith("open_follower_profile ")] == [
         "open_follower_profile fan_one", "open_follower_profile Fan Two", "open_follower_profile Emile B"]
+
+
+def test_a_follower_who_wrote_to_us_first_is_left_out_with_the_reason_on_the_page():
+    """Product decision: whoever wrote to us first is answered, never welcomed. The lock asked only
+    whether WE had written, and by handle only: a message filed by the DM read under the display
+    name was invisible to it, and the welcome went out."""
+    record = SNAPSHOT["new_followers_welcome_wrote_to_us"]
+    welcomed = [call.split(" ", 1)[1] for call in record["calls"] if call.startswith("welcome_dm ")]
+    assert welcomed == ["fan_one"]
+    lines = [(kind, event) for kind, event in record["events"] if kind in ("dm_result", "stats")]
+    assert lines[-1] == ("dm_result", {
+        "error": "Wrote to us first: no welcome message", "reason": "wrote_to_us", "skipped": True,
+        "success": False, "username": "fan_two",
+    })
+    # After the send's own counters, so the page adds it instead of the next `stats` resetting it.
+    assert [kind for kind, _event in lines] == ["dm_result", "stats", "dm_result"]
+    assert record["ai_services"] == []

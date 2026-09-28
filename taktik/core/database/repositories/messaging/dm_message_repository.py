@@ -41,11 +41,19 @@ class DmMessageRepository(BaseRepository):
         """True if WE have at least one message on record in this thread — the reliable
         'we already answered' signal (the denormalised dm_threads.last_message_is_ours can be
         clobbered by an ephemeral re-read that no longer sees our vanished reply)."""
+        return self._has_message(platform, thread_sync_id, "sent")
+
+    def has_received_message(self, platform: str, thread_sync_id: str) -> bool:
+        """True if THEY have at least one message on record in this thread, text or not (a
+        sticker is them writing too)."""
+        return self._has_message(platform, thread_sync_id, "received")
+
+    def _has_message(self, platform: str, thread_sync_id: str, direction: str) -> bool:
         self.ensure_table()
         row = self.query_one(
             "SELECT 1 FROM dm_messages "
-            "WHERE platform = ? AND thread_sync_id = ? AND direction = 'sent' LIMIT 1",
-            (platform, thread_sync_id),
+            "WHERE platform = ? AND thread_sync_id = ? AND direction = ? LIMIT 1",
+            (platform, thread_sync_id, direction),
         )
         return row is not None
 

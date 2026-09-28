@@ -1070,7 +1070,7 @@
         "log",
         {
           "level": "info",
-          "message": "Welcome DM skipped for 1 recipient(s)"
+          "message": "Welcome DM skipped for 1 recipient(s): fan_two (already_dmed)"
         }
       ],
       [
@@ -1096,6 +1096,16 @@
             "sent": 1,
             "success": 1
           }
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": "Already written to: no welcome message",
+          "reason": "already_dmed",
+          "skipped": true,
+          "success": false,
+          "username": "fan_two"
         }
       ],
       [
@@ -1883,7 +1893,27 @@
         "log",
         {
           "level": "info",
-          "message": "Welcome DM skipped for 2 recipient(s)"
+          "message": "Welcome DM skipped for 2 recipient(s): fan_one (guard_unavailable), fan_two (guard_unavailable)"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": "Could not check the conversation: no welcome message",
+          "reason": "guard_unavailable",
+          "skipped": true,
+          "success": false,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": "Could not check the conversation: no welcome message",
+          "reason": "guard_unavailable",
+          "skipped": true,
+          "success": false,
+          "username": "fan_two"
         }
       ],
       [
@@ -3334,7 +3364,7 @@
         "log",
         {
           "level": "info",
-          "message": "Welcome DM skipped for 1 recipient(s)"
+          "message": "Welcome DM skipped for 1 recipient(s): fan_one (conversation_exists)"
         }
       ],
       [
@@ -3360,6 +3390,16 @@
             "sent": 1,
             "success": 1
           }
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": "Already in a conversation: no welcome message",
+          "reason": "conversation_exists",
+          "skipped": true,
+          "success": false,
+          "username": "fan_one"
         }
       ],
       [
@@ -3524,6 +3564,242 @@
         {
           "level": "info",
           "message": "Welcome pass: {'reasons': {'nothing_asked': 2, 'profile_unreachable': 1}, 'follow_back': 0, 'welcome_dm': 0}"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Listed 3 new followers",
+          "status": "completed"
+        }
+      ]
+    ],
+    "exit": 0
+  },
+  "new_followers_welcome_wrote_to_us": {
+    "ai_services": [],
+    "calls": [
+      "manager emulator-5554",
+      "restart",
+      "wait_app_surface",
+      "permission_visible?",
+      "permission_deny",
+      "press_back",
+      "detect_language",
+      "fetch_own_profile",
+      "dm_workflow_built",
+      "read_new_followers 30",
+      "open_follower_profile fan_one",
+      "open_follower_profile Fan Two",
+      "open_follower_profile Emile B",
+      "outreach_built emulator-5554",
+      "outreach_connect",
+      "outreach_run ['fan_one'] ['Bienvenue !'] max=5 delays=30-70 account=42 session=emulator-5554",
+      "welcome_dm fan_one",
+      "force_stop tiktok"
+    ],
+    "configs": [
+      {
+        "close_sticker_suggestions": true,
+        "delay_after_send": 0.5,
+        "delay_between_conversations": 1.0,
+        "mark_as_read": true,
+        "max_conversations": 20,
+        "only_unread": false,
+        "skip_groups": false,
+        "skip_notifications": true
+      }
+    ],
+    "db_writes": [
+      {
+        "account": "acting_account"
+      },
+      {
+        "account_id": 42,
+        "items": [
+          {
+            "label": "fan_one",
+            "time": "2 j",
+            "type": "new_follower",
+            "username": "fan_one"
+          },
+          {
+            "label": "Fan Two",
+            "time": "1 sem.",
+            "type": "new_follower",
+            "username": "fan_two"
+          }
+        ],
+        "platform": "tiktok"
+      },
+      {
+        "account": "acting_account"
+      },
+      {
+        "sent_dm": {
+          "account_id": 42,
+          "error_message": null,
+          "message": "Bienvenue !",
+          "platform": "tiktok",
+          "recipient": "fan_one",
+          "session_id": "emulator-5554",
+          "success": true
+        }
+      },
+      {
+        "profile": "fan_one"
+      },
+      {
+        "dm_sent_message": {
+          "account_id": 42,
+          "partner_profile_id": 7,
+          "partner_username": "fan_one",
+          "platform": "tiktok",
+          "text": "Bienvenue !"
+        }
+      }
+    ],
+    "events": [
+      [
+        "status",
+        {
+          "message": "Connecting to device",
+          "status": "connecting"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Restarting TikTok app",
+          "status": "launching"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Android permission dialog dismissed before starting"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "App language detected: FR"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Fetching your TikTok profile info",
+          "status": "fetching_profile"
+        }
+      ],
+      [
+        "bot_profile",
+        {
+          "profile": {
+            "bio": "bio",
+            "display_name": "Acting",
+            "followers_count": 10,
+            "following_count": 20,
+            "likes_count": 30,
+            "profile_pic_base64": null,
+            "username": "acting_account"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Reading new followers",
+          "status": "running"
+        }
+      ],
+      [
+        "new_follower",
+        {
+          "follower": {
+            "activity": "2 j",
+            "can_follow_back": true,
+            "username": "fan_one"
+          }
+        }
+      ],
+      [
+        "new_follower",
+        {
+          "follower": {
+            "activity": "1 sem.",
+            "can_follow_back": false,
+            "username": "Fan Two"
+          }
+        }
+      ],
+      [
+        "new_follower",
+        {
+          "follower": {
+            "activity": "3 sem.",
+            "can_follow_back": true,
+            "username": "Emile B"
+          }
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Opening 3 new follower profile(s)",
+          "status": "running"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Welcome pass: {'reasons': {'welcome_every_follower': 2, 'profile_unreachable': 1}, 'follow_back': 0, 'welcome_dm': 2}"
+        }
+      ],
+      [
+        "log",
+        {
+          "level": "info",
+          "message": "Welcome DM skipped for 1 recipient(s): fan_two (wrote_to_us)"
+        }
+      ],
+      [
+        "status",
+        {
+          "message": "Welcoming 1 new follower(s)",
+          "status": "running"
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": null,
+          "success": true,
+          "username": "fan_one"
+        }
+      ],
+      [
+        "stats",
+        {
+          "stats": {
+            "failed": 0,
+            "sent": 1,
+            "success": 1
+          }
+        }
+      ],
+      [
+        "dm_result",
+        {
+          "error": "Wrote to us first: no welcome message",
+          "reason": "wrote_to_us",
+          "skipped": true,
+          "success": false,
+          "username": "fan_two"
         }
       ],
       [
