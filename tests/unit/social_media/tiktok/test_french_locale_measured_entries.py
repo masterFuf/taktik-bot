@@ -66,6 +66,7 @@ FEED_SURVEY = _capture("tt4314_fr_feed_survey.xml")
 FEED_PEOPLE_CARD = _capture("tt4314_fr_feed_people_card.xml")
 COUNTRY_PICKER = _capture("tt4314_fr_country_picker.xml")
 LOGIN_PHONE = _capture("tt4314_fr_login_phone.xml")
+COLLECTIONS_POPUP = _capture("tt4314_fr_collections_popup.xml")
 
 
 def test_the_shop_tab_of_the_feed_is_not_the_one_of_search_results():
@@ -157,6 +158,7 @@ def test_other_share_labels_are_not_a_video_page():
     ("video_state.video_page_indicator", "VIDEO_STATE_SELECTORS", "video_page_indicator"),
     ("country_picker.screen_indicator", "COUNTRY_PICKER_SELECTORS", "screen_indicator"),
     ("country_picker.search_input", "COUNTRY_PICKER_SELECTORS", "search_input"),
+    ("popup.collections_not_now", "POPUP_SELECTORS", "collections_not_now"),
 ])
 def test_the_catalogue_field_carries_the_french_entry(key, singleton, prop):
     entries = L(key)
@@ -193,3 +195,23 @@ def test_the_country_search_field_and_cross_are_the_pickers_own():
     assert _found("country_picker.search_input", LOGIN_PHONE) == []
     crosses = _found("country_picker.close_button", COUNTRY_PICKER)
     assert [el.attrib.get("resource-id").rsplit("/", 1)[-1] for el in crosses] == ["b9b"]
+
+
+def test_the_collections_window_is_left_by_its_not_now_button_only():
+    """The sheet a favorite opens (« Crée des collections partagées avec un(e) ami(e) »)."""
+    found = _found("popup.collections_not_now", COLLECTIONS_POPUP)
+    assert [(el.attrib.get("text"), el.attrib.get("resource-id").rsplit("/", 1)[-1]) for el in found] == [
+        ("Pas maintenant", "ny9"),
+    ]
+    for screen in (FEED, INBOX, PROFILE, OWN_PROFILE, COMMENT_SHEET, SUGGESTION_PAGE, CONVERSATION):
+        assert _found("popup.collections_not_now", screen) == []
+
+
+def test_the_collections_window_is_told_by_its_structural_title():
+    """No French entry: the base id `jzb` of the title answers on the French sheet, and nowhere else."""
+    device = _Device(COLLECTIONS_POPUP)
+    found = [el for sel in catalogue.POPUP_SELECTORS.collections_popup for el in device.xpath(sel).all()]
+    assert [el.attrib.get("text") for el in found] == ["Crée des collections partagées avec un(e) ami(e)"]
+    for screen in (FEED, INBOX, PROFILE, COMMENT_SHEET, SUGGESTION_PAGE, CONVERSATION):
+        other = _Device(screen)
+        assert [el for sel in catalogue.POPUP_SELECTORS.collections_popup for el in other.xpath(sel).all()] == []
