@@ -7,7 +7,7 @@ from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_ap
 from taktik.core.shared.behavior.gesture import FULL_REACH_H, sample_swipe
 from taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll import _TAIL_FILLER_RUNS
 from taktik.core.shared.behavior.gesture_primitives import _step_cost as _gesture_step_cost
-from taktik.core.shared.device.ui_dump import parse_bounds, parse_ui_dump, vertical_center
+from taktik.core.shared.device.ui_dump import dump_screen_size, parse_bounds, parse_ui_dump, vertical_center
 
 
 @action("scroll.up")
@@ -278,15 +278,32 @@ _MIN_LABEL_CHARS = 4
 _MIN_SCOPED_LABELS = 3
 
 
+def _cut_by_an_edge(node, bounds, screen) -> bool:
+    """True when the element's box touches the top or bottom edge of a scrolling list that holds it
+    (of the screen when none does): the dump gives the part of it that shows, and the centre of that
+    part is not the element's. A photo running off the list moves its visible centre by less, or
+    more, than the content did (+887 px on the feed of the 2026-09-29, for about 1330 px of travel).
+    With no edge known (no list, no screen size), nothing proves the element whole: cut."""
+    edges = [parse_bounds(holder.get("bounds") or "") for holder in node.iterancestors()
+             if holder.get("scrollable") == "true"]
+    edges = [edge for edge in edges if edge]
+    if not edges and screen is not None:
+        edges = [(0, 0, screen[0], screen[1])]
+    if not edges:
+        return True
+    return any(bounds[1] <= top or bounds[3] >= bottom for _left, top, _right, bottom in edges)
+
+
 def _label_centres(tree, xpath: str) -> dict:
-    """Label -> the vertical centre of each element that shows it, in document order."""
+    """Label -> (vertical centre, cut by an edge) of each element that shows it, in document order."""
+    screen = dump_screen_size(tree)
     centres: dict = {}
     for node in tree.xpath(xpath):
         label = (node.get("content-desc") or node.get("text") or "").strip()
         bounds = parse_bounds(node.get("bounds") or "")
         if len(label) < _MIN_LABEL_CHARS or bounds is None:
             continue
-        centres.setdefault(label, []).append(int(vertical_center(bounds)))
+        centres.setdefault(label, []).append((int(vertical_center(bounds)), _cut_by_an_edge(node, bounds, screen)))
     return centres
 
 
@@ -300,21 +317,33 @@ def _content_moves(before, after) -> dict:
     2026-09-29, where the one unique anchor had moved +887 and +1344). A label unique on each screen
     can still be two elements, one post's leaving and the next one's arriving: that pairing shows
     as a move against the gesture (a scroll "down" moves the content up), and it is set aside in
-    `contrary_px`, never counted as the content moving back.
+    `contrary_px`, never counted as the content moving back. An element cut by the edge of the list,
+    before or after the gesture, is no anchor either (`_cut_by_an_edge`): set aside in
+    `edge_cut_px`, whichever way it moved.
     """
     xpath = _SCROLLED_LABELS_XPATH
     scoped = len(_label_centres(before, xpath)) >= _MIN_SCOPED_LABELS
     if not scoped:
         xpath = _SCREEN_LABELS_XPATH
     was, now = _label_centres(before, xpath), _label_centres(after, xpath)
-    unique_before = {label: ys[0] for label, ys in was.items() if len(ys) == 1}
-    unique_after = {label: ys[0] for label, ys in now.items() if len(ys) == 1}
-    moves = [unique_before[label] - unique_after[label] for label in unique_before if label in unique_after]
+    unique_before = {label: seen[0] for label, seen in was.items() if len(seen) == 1}
+    unique_after = {label: seen[0] for label, seen in now.items() if len(seen) == 1}
+    forward, contrary, edge_cut = [], [], []
+    for label in unique_before:
+        if label not in unique_after:
+            continue
+        (y_before, cut_before), (y_after, cut_after) = unique_before[label], unique_after[label]
+        move = y_before - y_after
+        if cut_before or cut_after:
+            edge_cut.append(move)
+        elif move < 0:
+            contrary.append(move)
+        else:
+            forward.append(move)
     return {
-        "forward_px": sorted(move for move in moves if move >= 0),
-        "contrary_px": sorted(move for move in moves if move < 0),
+        "forward_px": sorted(forward), "contrary_px": sorted(contrary), "edge_cut_px": sorted(edge_cut),
         "anchors_before": len(unique_before), "anchors_after": len(unique_after),
-        "labels_repeated": sum(1 for ys in list(was.values()) + list(now.values()) if len(ys) > 1),
+        "labels_repeated": sum(1 for seen in list(was.values()) + list(now.values()) if len(seen) > 1),
         "scoped_to_scrollable": scoped,
     }
 
@@ -326,7 +355,8 @@ def scroll_controlled_step(a, p):
     Runs `device.human_scroll("down", distance_ratio=R)` — the shared entry point itself, no
     Lab-only path — and compares the position of the labels visible before and after, so it reports
     the displacement the CONTENT underwent, not the one we asked the finger for (`_content_moves`:
-    which labels are anchors, and why a move against the gesture is set aside).
+    which labels are anchors, and why a move against the gesture or an element cut by the edge of
+    the list is set aside).
 
     What it settles: `coast=False` promises a 1:1 gesture with no overshoot. It used to take the
     fling branch, so the content travelled the finger distance PLUS an Android coast, and the
@@ -356,15 +386,18 @@ def scroll_controlled_step(a, p):
                "anchors_before": moves["anchors_before"], "anchors_after": moves["anchors_after"],
                "anchors_matched": len(shifts), "labels_repeated": moves["labels_repeated"],
                "scoped_to_scrollable": moves["scoped_to_scrollable"],
-               "shifts_px": shifts, "contrary_shifts_px": moves["contrary_px"], "injection": injection}
+               "shifts_px": shifts, "contrary_shifts_px": moves["contrary_px"],
+               "edge_cut_shifts_px": moves["edge_cut_px"], "injection": injection}
     scoped = moves["scoped_to_scrollable"]
+    set_aside = "".join(
+        f", {len(moves[key])} {why}" for key, why in (("contrary_px", "ecartee(s) (deplacement contraire au geste)"),
+                                                       ("edge_cut_px", "coupee(s) par le bord"))
+        if moves[key])
 
     if len(shifts) < 3:
         return {"success": False,
-                "message": (f"non concluant: {len(shifts)} ancre(s) unique(s) commune(s)"
-                            + (f", {len(moves['contrary_px'])} ecartee(s) (deplacement contraire au geste)"
-                               if moves["contrary_px"] else "")
-                            + " — le contenu a defile de plus d'un ecran, ou la vue n'offre rien de stable"),
+                "message": (f"non concluant: {len(shifts)} ancre(s) unique(s) commune(s){set_aside}"
+                            " — le contenu a defile de plus d'un ecran, ou la vue n'offre rien de stable"),
                 "details": details}
 
     moved = shifts[len(shifts) // 2]
@@ -392,7 +425,7 @@ def scroll_controlled_step(a, p):
     suffix = "" if scoped else " (hors conteneur scrollable: lecture polluee par le chrome fixe)"
     return {"success": ok,
             "message": (f"demande {requested}px ({ratio:.2f}h), mesure {moved}px sur "
-                        f"{len(shifts)} ancres — {verdict}{suffix}"),
+                        f"{len(shifts)} ancres{set_aside} — {verdict}{suffix}"),
             "details": details}
 
 

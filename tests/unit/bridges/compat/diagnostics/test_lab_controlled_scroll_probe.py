@@ -6,7 +6,10 @@ actions for this post", the author's name) come back with every post: after a sc
 post, the label of the next post was taken for the one that left, and a forward scroll was
 measured as a move backwards (-373 px on the feed, -618 px on a profile's posts, the two failures of
 the Lab auto-test of the 29th). A label pairs only when it shows once before and once after, and a
-move against the gesture is set aside, never counted as the content moving back.
+move against the gesture is set aside, never counted as the content moving back. An element whose
+box touches the edge of the scrolling list, before or after, is cut by it: the box is what shows of
+it, its centre is not the element's, and it is set aside too (the +887 px left on the feed was a
+photo cut by the bottom of the list before the scroll and by its top after it, for about 1330 px of travel).
 
 The screens are the probe's own readings from that auto-test (Instagram 410 in English, Pixel 3a,
 1080x2220), the screen before and after its gesture, anonymized together (`scripts/anonymize_dump.py`,
@@ -88,19 +91,32 @@ def test_on_the_feed_the_header_of_the_post_that_left_is_not_taken_for_the_next_
     details = result["details"]
 
     assert details["contrary_shifts_px"] == [-523, -373]
-    assert details["shifts_px"] == [887]
+    assert details["shifts_px"] == []
     assert "measured_px" not in details
-    assert result["success"] is False and result["message"].startswith("non concluant: 1 ancre")
+    assert result["success"] is False and result["message"].startswith("non concluant: 0 ancre")
+
+
+def test_a_photo_cut_by_the_edge_of_the_list_is_not_an_anchor():
+    # The suggested photo runs off the bottom of the list before the scroll and off its top after
+    # it: what the dump gives is the visible part, whose centre moved 887 px, not the photo.
+    result = _probe("ig410_en_controlled_scroll_feed")
+    details = result["details"]
+
+    assert details["edge_cut_shifts_px"] == [887]
+    assert "1 coupee(s) par le bord" in result["message"]
 
 
 def test_on_a_profiles_posts_the_row_of_the_next_post_is_not_taken_for_the_one_that_left():
     result = _probe("ig410_en_controlled_scroll_profile_posts")
     details = result["details"]
 
-    assert details["contrary_shifts_px"] == [-707, -707, -618, -618, -618]
-    assert details["shifts_px"] == [1344]
+    # The button row of the video that left sits under the top of the list, cut to a few pixels:
+    # cut by the edge, like the "Turn sound on" button cut by the bottom before the scroll.
+    assert details["contrary_shifts_px"] == [-707, -707]
+    assert details["edge_cut_shifts_px"] == [-618, -618, -618, 1344]
+    assert details["shifts_px"] == []
     assert "measured_px" not in details
-    assert result["success"] is False and result["message"].startswith("non concluant: 1 ancre")
+    assert result["success"] is False and result["message"].startswith("non concluant: 0 ancre")
 
 
 def test_a_label_shown_twice_on_a_screen_is_not_paired():
@@ -111,7 +127,9 @@ def test_a_label_shown_twice_on_a_screen_is_not_paired():
     result = _probe("ig410_en_controlled_scroll_feed_two_rows")
     details = result["details"]
 
-    assert details["shifts_px"] == [1137, 1344, 1344]
+    # The photo that leaves by the top of the list (1137 px) is cut by it: two anchors are left,
+    # fewer than the three the probe needs.
+    assert details["shifts_px"] == [1344, 1344]
+    assert details["edge_cut_shifts_px"] == [1137]
     assert details["contrary_shifts_px"] == []
-    assert details["measured_px"] == 1344
-    assert result["success"] is True and "controle x0.98" in result["message"]
+    assert result["success"] is False and result["message"].startswith("non concluant: 2 ancre")
