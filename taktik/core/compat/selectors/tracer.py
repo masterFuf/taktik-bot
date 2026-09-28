@@ -50,14 +50,16 @@ class SelectorTracer:
 
         tracer = self
 
-        def instrumented_xpath(xpath_expr: str):
+        # Same signature as the device's own xpath: a read that answers several selectors from
+        # one dump passes it as `source`, and a wrapper that took the selector only failed it.
+        def instrumented_xpath(xpath_expr: str, *args, **kwargs):
             t0 = time.time()
             result = None
             found = False
             error_msg = None
 
             try:
-                result = tracer._original_xpath(xpath_expr)
+                result = tracer._original_xpath(xpath_expr, *args, **kwargs)
                 if result is not None and hasattr(result, "exists"):
                     try:
                         found = result.exists
