@@ -74,6 +74,9 @@ class UnfollowBusiness(
         # an unfollow the screen did not confirm, or a refused one, is never tapped again by a
         # later batch.
         self._handled: Set[str] = set()
+        # What the screen refused in this SESSION (on the profile, or absent from the list), per
+        # reason: every plan the session emits carries it, so a batch does not erase the last one's.
+        self._session_refusals: Dict[str, int] = {}
         self._unconfirmed_in_a_row = 0
         # The syncs run once per SESSION: a later batch decides again on the base (which our own
         # unfollows keep up to date) instead of scrolling both lists again for minutes.
@@ -167,7 +170,7 @@ class UnfollowBusiness(
                 f"📋 {len(selection.candidates)} candidate(s); refused: {selection.refusals or 'none'}"
             )
             IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates),
-                                          refusals=dict(selection.refusals))
+                                          refusals=self._plan_refusals(selection.refusals))
             # The accounts a batch of this session handled already are out of the window BEFORE it
             # is cut: a window of the oldest candidates held only the ones refused on their profile
             # by the previous batch, and the session ended under its maximum (review 2026-09-24).
@@ -190,13 +193,14 @@ class UnfollowBusiness(
                 stats['success'] = True
             stats['candidates_left'] = sum(1 for name in selection.candidates
                                            if name.lower() not in self._handled)
-            # What the profiles refused goes to the page with what the data refused.
-            refused = dict(selection.refusals)
+            # What the screen refused goes to the page with what the data refused, for the session.
             for reason, count in stats['profile_refusals'].items():
-                refused[reason] = refused.get(reason, 0) + count
+                self._session_refusals[reason] = self._session_refusals.get(reason, 0) + count
             if stats['not_in_list']:
-                refused['not_in_list'] = refused.get('not_in_list', 0) + stats['not_in_list']
-            IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates), refusals=refused)
+                self._session_refusals['not_in_list'] = (self._session_refusals.get('not_in_list', 0)
+                                                         + stats['not_in_list'])
+            IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates),
+                                          refusals=self._plan_refusals(selection.refusals))
             self.logger.info(
                 f"✅ Unfollow done: {stats['unfollows_made']} unfollowed, "
                 f"{stats['unconfirmed']} not confirmed, refused on profile: {stats['profile_refusals'] or 'none'}, "
@@ -207,6 +211,14 @@ class UnfollowBusiness(
             stats['errors'] += 1
             stats['stop_reason'] = stats['stop_reason'] or stop_reasons.navigation_lost()
         return stats
+
+    def _plan_refusals(self, data_refusals: Dict[str, int]) -> Dict[str, int]:
+        """The refusals a plan shows: what the data refuses now, plus what the screen refused in
+        this session so far (the accounts it refused are handled, a later batch never sees them)."""
+        refused = dict(data_refusals)
+        for reason, count in self._session_refusals.items():
+            refused[reason] = refused.get(reason, 0) + count
+        return refused
 
     def _open_list_and_walk(self, cfg: Dict[str, Any], targets: List[str], forced: Set[str],
                             stats: Dict[str, Any]) -> bool:

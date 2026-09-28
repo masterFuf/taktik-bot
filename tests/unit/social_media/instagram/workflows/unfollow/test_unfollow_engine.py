@@ -246,6 +246,33 @@ def test_the_syncs_run_once_per_session(monkeypatch):
     assert (calls["following"], calls["followers"]) == (1, 1) and len(calls["walks"]) == 2
 
 
+def test_every_plan_carries_what_the_screen_refused_in_the_session(monkeypatch):
+    """The plan is sent again at each batch, and the app keeps the last one: what the profiles and
+    the list refused in a batch disappeared at the next (716 accounts kept, then 676, on a run of
+    2026-09-28). The accounts refused on screen are handled, a later batch never sees them again."""
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["a1", "a2", "a3", "a4"])
+    plans = []
+    monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_unfollow_plan",
+                        staticmethod(lambda **plan: plans.append(plan["refusals"])))
+
+    def walk(cfg, targets, forced, stats):
+        calls["walks"].append(list(targets))
+        if len(calls["walks"]) == 1:            # the first batch: one verified, one gone from the list
+            stats["profile_refusals"]["verified"] = 1
+            stats["not_in_list"] = 1
+            business._handled.update({"a1", "a2"})
+        return True
+
+    business._open_list_and_walk = walk
+    business.run_unfollow_workflow({"unfollow_mode": "oldest", "max_unfollows": 1})
+    business.run_unfollow_workflow({"unfollow_mode": "oldest", "max_unfollows": 1})
+
+    assert plans[1] == {"verified": 1, "not_in_list": 1}      # the end of the first batch
+    assert plans[2] == {"verified": 1, "not_in_list": 1}      # the start of the second
+    assert plans[3] == {"verified": 1, "not_in_list": 1}      # its end: nothing more refused
+
+
 def test_nobody_to_unfollow_is_an_ok_end_with_its_reason(monkeypatch):
     business, _screen, _recorded = _business(follow_list_xml([]))
     calls = _engine_on_data(monkeypatch, business, ["a1"])
