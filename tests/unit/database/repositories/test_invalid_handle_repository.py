@@ -127,6 +127,26 @@ def test_a_failure_midway_leaves_the_base_as_it_was(base, monkeypatch):
     assert base.in_transaction is False
 
 
+def test_the_unknown_placeholder_is_marked_like_a_non_handle(conn):
+    """"unknown" is what the bot wrote where it had no handle (an unfollow was filed under it):
+    a handle by its characters, nobody's account (decision A4, 2026-09-27). A handle that only
+    holds the word is left alone."""
+    _stored(conn, "instagram", "unknown", 1)
+    _stored(conn, "tiktok", "unknown", 1)
+    _stored(conn, "instagram", "unknown_studio", 2)
+    conn.commit()
+    repo = InvalidHandleRepository(conn)
+
+    assert [(profile.platform, profile.stored) for profile in repo.plan().profiles] == [
+        ("instagram", "unknown"), ("tiktok", "unknown")]
+
+    repo.apply()
+
+    assert _row(conn, "instagram", "unknown")["unreachable_at"] is not None
+    assert _row(conn, "tiktok", "unknown")["unreachable_at"] is not None
+    assert _row(conn, "instagram", "unknown_studio")["unreachable_at"] is None
+
+
 def test_nothing_stored_under_a_non_handle_means_no_work(conn):
     _stored(conn, "instagram", "lina.photo", 1)
     conn.commit()

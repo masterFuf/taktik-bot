@@ -244,3 +244,111 @@ def test_decision_budget_snapshot_exposes_live_usage_and_hard_caps():
         'max_comments_per_day': 5,
         'max_actions_per_session': 25,
     }
+
+
+# ── One read of the day per profile ─────────────────────────────────────────────
+#
+# A profile of the automation asks two questions: the workflow's loop asks whether the run goes on
+# (`should_continue`), the profile's plan which gestures are spent (`exhausted_intents`). Both are
+# answered by one read of the day (`WarmupBudget.check`), as each gesture of the Taktik Agent is.
+
+
+def _counted_day(day):
+    """The day's reader, and the list of its reads."""
+    reads = []
+
+    def today():
+        reads.append('read')
+        return dict(day)
+
+    return today, reads
+
+
+def test_the_loop_and_the_plan_of_a_profile_read_the_day_once():
+    today, reads = _counted_day({'total': 20, 'follows': 10, 'comments': 1})
+    sm = _sm(warmup={'max_actions_per_day': 500, 'max_follows_per_day': 10})
+    sm.warmup.set_daily_usage_provider(today)
+
+    assert sm.should_continue() == (True, '')
+    assert sm.exhausted_intents() == {'follow'}
+
+    assert reads == ['read']
+
+
+def test_a_like_since_the_read_keeps_the_plan_on_that_read():
+    # A like moves the day's total, not its follows or comments: the spent gestures are the same.
+    today, reads = _counted_day({'total': 20, 'follows': 10, 'comments': 1})
+    sm = _sm(warmup={'max_actions_per_day': 500, 'max_follows_per_day': 10})
+    sm.warmup.set_daily_usage_provider(today)
+
+    sm.should_continue()
+    sm.record_action('like_posts', success=True)
+
+    assert sm.exhausted_intents() == {'follow'}
+    assert reads == ['read']
+
+
+def test_a_follow_filed_since_the_read_is_read_again():
+    # The followers workflow asks its loop once per screen: the profile before this one, on the
+    # same screen, followed. Its follow is in the ledger and spends the day's last follow.
+    day = {'total': 20, 'follows': 9, 'comments': 0}
+    today, reads = _counted_day(day)
+    sm = _sm(warmup={'max_actions_per_day': 500, 'max_follows_per_day': 10})
+    sm.warmup.set_daily_usage_provider(lambda: today())
+
+    sm.should_continue()
+    day.update(total=21, follows=10)
+    sm.record_action('follow_user', success=True)
+
+    assert sm.exhausted_intents() == {'follow'}
+    assert len(reads) == 2
+
+
+def test_a_comment_filed_since_the_read_is_read_again():
+    day = {'total': 20, 'follows': 0, 'comments': 4}
+    today, reads = _counted_day(day)
+    sm = _sm(warmup={'max_actions_per_day': 500, 'max_comments_per_day': 5})
+    sm.warmup.set_daily_usage_provider(lambda: today())
+
+    sm.should_continue()
+    day.update(total=21, comments=5)
+    sm.record_action('comment_posts', success=True)
+
+    assert sm.exhausted_intents() == {'comment'}
+    assert len(reads) == 2
+
+
+def test_new_caps_are_evaluated_by_the_next_plan():
+    today, _ = _counted_day({'total': 20, 'follows': 10, 'comments': 0})
+    sm = _sm(warmup={'max_actions_per_day': 500, 'max_follows_per_day': 20})
+    sm.warmup.set_daily_usage_provider(today)
+    sm.should_continue()
+
+    sm.update_config({'session_settings': {'warmup_policy': {'max_actions_per_day': 500,
+                                                               'max_follows_per_day': 10}}})
+
+    assert sm.exhausted_intents() == {'follow'}
+
+
+def test_a_base_held_through_two_profiles_does_not_end_the_session():
+    """The synchronisation holds the base while two profiles are visited: every read of the day
+    fails meanwhile. One read per profile is two failures, under the three that end the run
+    (`daily_budget_unreadable`); two reads per profile were four, and the run stopped at the
+    second profile."""
+    held = {'on': True}
+
+    def today():
+        if held['on']:
+            raise RuntimeError('database is locked')
+        return {'total': 20, 'follows': 0, 'comments': 0}
+
+    sm = _sm(warmup={'max_actions_per_day': 500, 'max_follows_per_day': 10})
+    sm.warmup.set_daily_usage_provider(today)
+
+    for _ in range(2):
+        running, reason = sm.should_continue()
+        assert running is True, reason
+        assert sm.exhausted_intents() == set()
+    held['on'] = False
+
+    assert sm.should_continue() == (True, '')

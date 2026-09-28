@@ -10,7 +10,8 @@ run files lands: a check made after a gesture sees it.
 What the caps do, the same for both runs:
 - the day's actions (likes + follows + comments + story likes) and this run's written actions
   (likes + follows + comments) STOP the run when reached;
-- the day's follows and comments DISABLE their own gesture (`exhausted_intents`), the run goes on;
+- the day's follows and comments DISABLE their own gesture (`WarmupCheck.exhausted_intents`), the
+  run goes on;
 - the day's unfollows are a budget of their own (`unfollow_room`);
 - the pace floor (`min_action_gap_seconds`) lengthens the pause after an action (`action_gap`):
   between two steps of the automation, after each gesture of the Agent.
@@ -154,9 +155,11 @@ class WarmupBudget:
         """What a gesture asks just before it is made, on ONE read of the day: does a cap end the
         run, and which gestures have spent their daily quota.
 
-        Asking `stop_reason` then `exhausted_intents` read the day twice per gesture. On a base the
-        synchronisation holds, each failed read counts toward `daily_budget_unreadable`: the run
-        could stop at its second gesture.
+        Asking whether the run ends, then which gestures are spent, read the day twice per
+        gesture. On a base the synchronisation holds, each failed read counts toward
+        `daily_budget_unreadable`: the run could stop at its second gesture. The Agent asks it
+        before each gesture; the automation's loop asks it once per profile, and the profile's
+        plan takes its spent gestures from that read (`SessionManager.exhausted_intents`).
         """
         usage = self.read_daily_usage()
         return WarmupCheck(
@@ -206,13 +209,10 @@ class WarmupBudget:
             left.append(max_per_session - session_actions)
         return max(min(left), 0) if left else None
 
-    def exhausted_intents(self) -> Set[str]:
-        """The gestures whose daily quota is spent (`follow`, `comment`): they are disabled, the run
-        goes on. Empty without caps, and on a read error (fail-open, like the rest of the guard)."""
-        return self._exhausted_on(self.read_daily_usage())
-
     def _exhausted_on(self, usage: Optional[Dict[str, int]]) -> Set[str]:
-        """`exhausted_intents` on a day already read (`usage`, None when not read or unreadable)."""
+        """The gestures whose daily quota is spent (`follow`, `comment`) on a day already read
+        (`usage`): they are disabled, the run goes on. Empty without caps, and when the day is not
+        read or unreadable (`usage` None: fail-open, like the rest of the guard)."""
         spent: Set[str] = set()
         if usage is None:
             return spent

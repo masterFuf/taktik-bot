@@ -171,9 +171,13 @@ class BaseAction(SharedBaseAction):
                 continue
         return None
 
-    def _input_text(self, selectors: Union[List[str], str], text: str, 
-                   timeout: float = 5.0, clear_first: bool = True) -> bool:
-        """Input text into element using Taktik Keyboard."""
+    def _input_text(self, selectors: Union[List[str], str], text: str,
+                   timeout: float = 5.0) -> bool:
+        """Empty the field and type `text` through the Taktik Keyboard, checked: the field must
+        then hold exactly it. A keyboard that does not type is a failure, nothing is pasted.
+
+        A `clear_first=False` branch fell back to uiautomator2's `send_keys` (the whole text at
+        once) when the keyboard failed; no caller used it, it is gone."""
         if isinstance(selectors, str):
             selectors = [selectors]
         
@@ -191,18 +195,14 @@ class BaseAction(SharedBaseAction):
                         element.click()
                         time.sleep(0.3)
                         
-                        if clear_first:
-                            # Clear using Taktik Keyboard
-                            self._clear_text_with_taktik_keyboard()
-                            time.sleep(0.2)
-                            # The field must hold exactly `text` (read back, retyped once if not).
-                            if not self._type_text_checked(text):
-                                self.logger.warning("The field does not hold the requested text")
-                                return False
-                        elif not self._type_with_taktik_keyboard(text):
-                            self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
-                            self.device.send_keys(text)
-                        
+                        self._clear_text_with_taktik_keyboard()
+                        time.sleep(0.2)
+                        # The field must hold exactly `text` (read back, retyped once if not).
+                        if not self._type_text_checked(text):
+                            self.logger.warning("The field does not hold the requested text: "
+                                                "nothing pasted")
+                            return False
+
                         self._human_like_delay('typing')
                         return True
                 except Exception as e:

@@ -336,7 +336,9 @@ def test_the_persona_scan_opens_its_posts_from_the_grid(monkeypatch):
     (VISITED_EN, "Reels", "Grid view"),
     (OWN_FR, "Reels", "Vue Grille"),
 ])
-def test_the_profile_visit_counts_the_posts_of_the_grid(screens, shown, grid):
+def test_counting_the_posts_on_screen_counts_the_grid(screens, shown, grid):
+    # `count_visible_posts`, read by the content extraction of a hashtag and the Lab. The profile
+    # visit no longer counts: it takes the header's posts count (test_profile_visit_posts_from_header).
     phone = _Phone(screens, shown)
     count = DetectionActions(_facade(phone)).count_visible_posts()
     assert phone.taps == [grid]

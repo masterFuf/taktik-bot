@@ -60,6 +60,25 @@ def test_the_dry_run_writes_nothing(base, capsys):
     assert repr(LABEL) in out
 
 
+def test_the_dry_run_lists_the_unknown_placeholder_and_writes_nothing(base, capsys):
+    """The placeholder "unknown" is listed with the labels (decision A4, 2026-09-27); a dry run
+    by default, nothing written."""
+    check = sqlite3.connect(base)
+    check.execute(
+        "INSERT INTO social_profiles (platform, legacy_profile_id, username) VALUES ('instagram', 3, 'unknown')"
+    )
+    check.commit()
+    check.close()
+    before = _digest(base)
+
+    assert script.main(["--db", base]) == 0
+
+    assert _digest(base) == before
+    out = capsys.readouterr().out
+    assert "2 a marquer" in out
+    assert "'unknown'" in out
+
+
 def test_apply_backs_up_then_marks(base, capsys):
     assert script.main(["--db", base, "--apply"]) == 0
 

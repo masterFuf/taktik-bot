@@ -146,12 +146,27 @@ def show_posts_grid(a, p):
 
 @action("profile.count_visible_posts")
 def count_visible_posts(a, p):
-    """Count the post thumbnails of the profile on screen, as the profile visit does before its
-    filters (production `count_visible_posts`): the posts grid shown first, then counted on one
-    photo."""
+    """Count the post thumbnails on screen (production `count_visible_posts`, read by the content
+    extraction of a hashtag): the posts grid shown first on a profile, then counted on one photo.
+    Where no thumbnail is shown it counts the header's images (avatar...): the profile visit takes
+    its visible posts from the header's posts count instead (`profile.get_posts_count`)."""
     count = a.detection.count_visible_posts()
     return {"success": True, "message": f"{count} visible post(s) in the grid",
             "details": {"visible_posts": count}}
+
+
+@action("profile.get_posts_count")
+def get_posts_count(a, p):
+    """Read the posts count of the profile's header, as the profile visit does (production
+    `_get_posts_count_robust`, called by `get_complete_profile_info`): the number the filters take
+    as the profile's visible posts. Unknown (None, not 0) when the header cannot be read. Be on a
+    profile, header visible."""
+    count = a.like.profile_business._get_posts_count_robust()
+    if count is None:
+        return {"success": False, "message": "posts count not read: unknown",
+                "details": {"posts_count": None}}
+    return {"success": True, "message": f"{count} post(s) in the header",
+            "details": {"posts_count": count}}
 
 
 @action("profile.scroll_grid")

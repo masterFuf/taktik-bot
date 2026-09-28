@@ -31,7 +31,6 @@ from loguru import logger
 from taktik.core.shared.device.ui_dump import iter_widgets
 from taktik.core.shared.input.taktik_keyboard import (
     ensure_taktik_keyboard,
-    field_holds_text,
     read_focused_text,
     type_text_checked,
 )
@@ -947,10 +946,11 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         return self._element_exists(self.comment_selectors.comment_composer_indicators)
 
     def _type_into(self, field, text: str) -> bool:
-        """Type ``text`` into the open composer ``field``: Taktik Keyboard (humanized cadence),
-        then set_text, each counted only when the composer then reads exactly the reply, after
-        the "@name " Instagram prefills on a reply (`type_text_checked`). Uses the shared CORE
-        keyboard so the workflow never imports the bridge layer (DIP)."""
+        """Type ``text`` into the open composer ``field`` through the Taktik Keyboard
+        (humanized cadence), counted only when the composer then reads exactly the reply, after
+        the "@name " Instagram prefills on a reply (`type_text_checked`). A keyboard that fails is
+        a failure: nothing is pasted (`set_text` would write the whole reply at once). Uses the
+        shared CORE keyboard so the workflow never imports the bridge layer (DIP)."""
         # Before the tap: a keyboard switched after it can cost the field its focus.
         ensure_taktik_keyboard(self.device_id)
         try:
@@ -960,22 +960,13 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         except Exception:
             pass
         mention = _reply_mention(read_focused_text(self.device) or "")
-        # 1) Taktik Keyboard (humanized typing) into the focused composer.
         try:
             if type_text_checked(self.device, self.device_id, text, prefix=mention):
                 return True
-            self.logger.warning("Taktik Keyboard did not leave the exact reply in the composer")
+            self.logger.error("The Taktik Keyboard did not leave the exact reply in the composer: "
+                              "not sent, nothing pasted")
         except Exception as exc:
-            self.logger.warning(f"Taktik Keyboard typing failed: {exc}")
-        # 2) set_text rescue, which replaces the field.
-        try:
-            field.set_text(mention + text)
-            time.sleep(0.5)
-            if field_holds_text(self.device, mention + text):
-                return True
-        except Exception as exc:
-            self.logger.warning(f"set_text fallback failed: {exc}")
-        self.logger.error("The composer does not hold the requested reply: not sent")
+            self.logger.error(f"Taktik Keyboard typing failed ({exc}): not sent, nothing pasted")
         return False
 
     def open_mention(self, username: str = "") -> Dict[str, Any]:

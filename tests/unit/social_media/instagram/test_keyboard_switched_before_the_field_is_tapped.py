@@ -110,6 +110,11 @@ class _Node:
         self._phone.set_texts.append(text)
         self._phone.field = text
 
+    def send_keys(self, text):
+        """uiautomator2's element `send_keys`: the whole text written through its own keyboard."""
+        self._phone.pasted.append(text)
+        self._phone.field = text
+
 
 class _Absent:
     exists = _Exists(False)
@@ -132,12 +137,19 @@ class FoldingFieldPhone:
     `steps` records, in order, each keyboard switch ("switch") and each tap that focuses the
     field ("tap"). Buttons are pressed without entering `steps`, unless pressing one focuses
     the field (a Reply that opens the composer with its "@name " prefilled).
+
+    `keyboard_answers=False`: the Taktik Keyboard is selected but no broadcast to it gets an
+    answer (adb returns nothing), so it types and clears nothing. Every text written another way
+    is listed: `set_texts` (accessibility), `pasted` (`adb shell input text`, uiautomator2's
+    `send_keys`).
     """
 
     device_id = serial = "PIXEL-6A"
 
-    def __init__(self, fields=(), buttons=()):
+    def __init__(self, fields=(), buttons=(), keyboard_answers=True):
         self.keyboard = kb.GBOARD_IME
+        self.keyboard_answers = keyboard_answers
+        self.pasted = []
         self.focused = False
         self.field = ""
         self.steps = []
@@ -179,6 +191,14 @@ class FoldingFieldPhone:
     def shell(self, device_id, command):
         if "default_input_method" in command:
             return self.keyboard
+        if command.startswith("input text "):
+            text = command[len("input text "):].strip('"').replace("%s", " ")
+            self.pasted.append(text)
+            if self.focused:
+                self.field += text
+            return ""
+        if command.startswith("am broadcast") and not self.keyboard_answers:
+            return ""
         if command.startswith("ime set "):
             self.keyboard = command[len("ime set "):]
             self.steps.append("switch")
@@ -233,18 +253,24 @@ class FoldingFieldPhone:
     def press(self, _key):
         return True
 
-    def send_keys(self, *_a, **_k):
-        return None
+    def send_keys(self, text, clear=False):
+        """uiautomator2's `send_keys`: the whole text written through its own keyboard."""
+        if text:
+            self.pasted.append(text)
+        self.field = text if clear else self.field + text
 
 
-@pytest.fixture
-def phone(monkeypatch):
-    phone = FoldingFieldPhone()
+def _on_the_phone(phone, monkeypatch):
     monkeypatch.setattr(adb, "_run_adb_shell", phone.shell)
     monkeypatch.setattr(kb, "_active_ime_cache", {})
     monkeypatch.setattr(kb.time, "sleep", lambda *_: None)
     monkeypatch.setattr(typing_plan, "build_typing_plan", lambda text, rng=None: [("type", text)])
     return phone
+
+
+@pytest.fixture
+def phone(monkeypatch):
+    return _on_the_phone(FoldingFieldPhone(), monkeypatch)
 
 
 def _typed_by_the_keyboard(phone, expected):

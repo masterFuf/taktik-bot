@@ -1,4 +1,4 @@
-"""Keyboard control actions (enter, backspace, hide, paste, select, clipboard)."""
+"""Keyboard control actions (enter, backspace, hide, select)."""
 
 import time
 from typing import Optional
@@ -8,7 +8,10 @@ from ...core.base_action import BaseAction
 
 
 class KeyboardControlMixin(BaseAction):
-    """Mixin: keyboard keys (enter, backspace), hide keyboard, clipboard (paste, select all)."""
+    """Mixin: keyboard keys (enter, backspace), hide keyboard, select all.
+
+    No paste: a text goes through the Taktik Keyboard (`type_text`), or is not typed.
+    """
 
     def press_enter(self) -> bool:
         try:
@@ -54,21 +57,6 @@ class KeyboardControlMixin(BaseAction):
             except Exception as e2:
                 self.logger.error(f"Cannot hide keyboard: {e2}")
                 return False
-    
-    def paste_text(self, text: str = None) -> bool:
-        try:
-            if text:
-                self.logger.debug(f"📋 Pasting text ({len(text)} chars)")
-                return self.type_text(text)
-            else:
-                self.logger.debug("📋 Pasting from clipboard")
-                self.device.press("ctrl+v")
-                self._human_like_delay('typing')
-                return True
-                
-        except Exception as e:
-            self.logger.error(f"Error during paste: {e}")
-            return False
     
     def select_all_text(self) -> bool:
         try:

@@ -3,13 +3,24 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from loguru import logger
+from taktik.core.shared.input.taktik_keyboard import ensure_taktik_keyboard, type_text_checked
+from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import resolve_device_id
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
 class ColdDMSearchMixin:
-    """Search-tab navigation used by the Cold DM outreach flow."""
+    """Search-tab navigation used by the Cold DM outreach flow.
+
+    Reads the host's Taktik Keyboard service (`self._keyboard`, its `device_id`), set by
+    `ColdDMSenderMixin._init_cold_dm_sender`.
+    """
+
+    # What the host gives this mixin, like the fields of a TypeScript interface.
+    device: Any  # the (clone-aware) uiautomator2 device
+    _keyboard: Any  # the host's Taktik Keyboard service
 
     def navigate_to_search(self) -> bool:
         """Navigate to the search/explore tab."""
@@ -55,9 +66,17 @@ class ColdDMSearchMixin:
             logger.error("Search bar not found")
             return False
 
+        # Typed through the Taktik Keyboard, switched before the tap (a switch after it can cost
+        # the field its focus). It was written with `set_text`: the whole handle at once, no key
+        # pressed. A keyboard that does not type is a failed search, nothing pasted.
+        device_id = resolve_device_id(self.device, self._keyboard.device_id)
+        ensure_taktik_keyboard(device_id)
         search_bar.click()
         time.sleep(0.5)
-        search_bar.set_text(username)
+        if not type_text_checked(self.device, device_id, username, typos=False):
+            logger.error(f"The Taktik Keyboard did not type @{username} in the search bar: "
+                         "not searched, nothing pasted")
+            return False
         time.sleep(2)
 
         for text in NAVIGATION_SELECTORS.search_accounts_tab_texts:

@@ -3,8 +3,9 @@
 A handle is letters, digits, "." and "_" within the platform's bounds (Instagram 1-30, TikTok
 2-24). The rows repaired here were stored before the profile writers refused anything else
 (`require_handle`): a button label read as a pseudo ("Send message"), a handle followed by spaces
-or holding control characters, a biography squeezed into one word, a TikTok display name. The
-repair lives in `InvalidHandleRepository` (taktik/core/database/repositories/social_profiles/).
+or holding control characters, a biography squeezed into one word, a TikTok display name, and the
+placeholder "unknown" the bot wrote where it had no handle. The repair lives in
+`InvalidHandleRepository` (taktik/core/database/repositories/social_profiles/).
 
 Each row is MARKED unreachable (`MARK_UNREACHABLE_SQL`), never deleted: the sync carries updates,
 not deletions, so the mark reaches the other installs where a delete would not. What points at a

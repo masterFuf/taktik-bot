@@ -22,7 +22,7 @@ class TextActions(
     Sub-modules:
     - text_input.py        - Core typing (type_text, human delays, clear, generic _type_in_field)
     - content_input.py     - Domain-specific fields (comment, caption, bio, search bar, DM, validate)
-    - keyboard_control.py  - Keys (enter, backspace), hide keyboard, clipboard (paste, select all)
+    - keyboard_control.py  - Keys (enter, backspace), hide keyboard, select all (no paste)
     """
     
     def __init__(self, device):

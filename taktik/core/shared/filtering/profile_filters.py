@@ -12,6 +12,9 @@ its own dialect inside the evaluator:
     username, followers_count, following_count, posts_count, biography, full_name,
     is_private, is_verified, is_business, visible_posts_count, visible_stories_count
 
+`visible_posts_count` is the posts a visitor can see: Instagram takes its header's posts count,
+TikTok its videos. None says it was not read, and is never taken for a profile without posts.
+
 Three account kinds can be refused outright, each by its own criterion: `allow_private` (default
 False: a private account is refused), `allow_verified` and `allow_business` (default True: both are
 let through). The two defaults differ on purpose -- a config that says nothing keeps the behaviour
@@ -321,7 +324,11 @@ def _apply_behavior_filters(
         result['details']['behavior_filters']['recent_activity'] = 'inactive'
 
     visible_posts = profile_info.get('visible_posts_count', 0)
-    if visible_posts == 0 and not profile_info.get('is_private', False):
+    if visible_posts is None:
+        # The caller could not read it (an Instagram header that could not be read): unknown,
+        # never a profile without posts.
+        result['details']['behavior_filters']['content_visibility'] = 'unknown'
+    elif visible_posts == 0 and not profile_info.get('is_private', False):
         result['score'] -= 15
         result['reasons'].append('No visible posts')
         result['details']['behavior_filters']['content_visibility'] = 'no_posts'

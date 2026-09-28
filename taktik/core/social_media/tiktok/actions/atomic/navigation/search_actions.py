@@ -85,7 +85,7 @@ class SearchActions(BaseAction):
             self._human_like_delay('click')
             
             # Type the search query
-            if not self._input_text(self.search_selectors.search_input, query, clear_first=True):
+            if not self._input_text(self.search_selectors.search_input, query):
                 self.logger.warning("Failed to input search query")
                 return False
             

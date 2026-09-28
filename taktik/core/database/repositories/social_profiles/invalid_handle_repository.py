@@ -3,6 +3,8 @@
 Seen in the base: button labels ("Send message", "Envoyer un message"), a handle followed by spaces
 or holding control characters, a biography squeezed into one word, a TikTok display name. The
 profile writers now refuse such a pseudo (`require_handle`); this repairs what was stored before.
+The placeholder "unknown", which the bot wrote where it had no handle, is repaired with them
+(`PLACEHOLDER_HANDLES`): a handle by its characters, nobody's account.
 
 Each row is MARKED unreachable, never deleted nor renamed. The Turso sync keys `social_profiles` on
 (platform, username) and carries inserts and updates, not deletions: a deleted row stays on the
@@ -23,14 +25,24 @@ from ..instagram.profile.profile_repository import MARK_UNREACHABLE_SQL
 
 PLATFORMS = ("instagram", "tiktok")
 
-# SQL prefilter only; `is_platform_handle` decides. Every row outside it is a handle by charset
-# and within both platforms' length bounds.
+#: Pseudos the bot wrote where it had no handle: handles by their characters, nobody's account.
+#: An unfollow was filed under "unknown" (review of 2026-09-23; decision A4 of 2026-09-27).
+PLACEHOLDER_HANDLES = ("unknown",)
+
+# SQL prefilter only; `_is_invalid` decides. Every row outside it is a handle by charset, within
+# both platforms' length bounds, and no placeholder.
 _MAYBE_INVALID_SQL = (
     "SELECT id, platform, legacy_profile_id, username, created_at, unreachable_at "
     "FROM social_profiles WHERE platform = ? "
-    "AND (username GLOB '*[^A-Za-z0-9._]*' OR length(username) NOT BETWEEN 2 AND 24) "
+    "AND (username GLOB '*[^A-Za-z0-9._]*' OR length(username) NOT BETWEEN 2 AND 24 "
+    f"OR username IN ({', '.join('?' for _ in PLACEHOLDER_HANDLES)})) "
     "ORDER BY id"
 )
+
+
+def _is_invalid(username: str, platform: str) -> bool:
+    """No platform would register it as a handle, or it is a placeholder the bot wrote."""
+    return username in PLACEHOLDER_HANDLES or not is_platform_handle(username, platform)
 
 # (table, column, key): what may point at a profile, by its per-platform id or by its pseudo.
 # A table without a platform column only holds Instagram rows.
@@ -89,8 +101,8 @@ class InvalidHandleRepository(BaseRepository):
             return InvalidHandlePlan()
         profiles: List[InvalidHandleProfile] = []
         for platform in PLATFORMS:
-            for row in self.query(_MAYBE_INVALID_SQL, (platform,)):
-                if is_platform_handle(row["username"], platform):
+            for row in self.query(_MAYBE_INVALID_SQL, (platform, *PLACEHOLDER_HANDLES)):
+                if not _is_invalid(row["username"], platform):
                     continue
                 profiles.append(InvalidHandleProfile(
                     row_id=row["id"],
@@ -151,6 +163,7 @@ __all__ = [
     "InvalidHandlePlan",
     "InvalidHandleProfile",
     "InvalidHandleRepository",
+    "PLACEHOLDER_HANDLES",
     "PLATFORMS",
     "REFERENCES",
 ]

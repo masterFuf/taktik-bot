@@ -56,7 +56,6 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
         self._feed_selectors = {
             'feed_post_container': self._feed_sel.post_container,
             'post_author_username': self._feed_sel.post_author_username,
-            'post_author_avatar': self._feed_sel.post_author_avatar,
             'sponsored_indicators': self._feed_sel.sponsored_indicators,
             'reel_indicators': self._feed_sel.reel_indicators,
             'likes_count_button': self._feed_sel.likes_count_button,

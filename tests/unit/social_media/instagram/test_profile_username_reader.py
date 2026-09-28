@@ -145,7 +145,6 @@ def test_without_the_action_bar_the_handle_the_caller_stands_on_wins():
     extraction.detection_actions = SimpleNamespace(
         get_profile_flags_batch=lambda: {},
         get_enriched_profile_data=lambda: {"username": None, "biography": BIO},
-        count_visible_posts=lambda: 3,
         get_username_from_profile=lambda: "marc_studio",
         extract_profile_image=lambda: None,
     )

@@ -1,4 +1,4 @@
-"""Core text input primitives (type, clear, human-like delays)."""
+"""Core text input primitives (type, clear, the login's pasted rescue)."""
 
 import time
 from typing import Optional
@@ -8,35 +8,61 @@ from ...core.base_action import BaseAction
 
 
 class TextInputMixin(BaseAction):
-    """Mixin: core typing (type_text, human delays, clear field, generic _type_in_field)."""
+    """Mixin: core typing (type_text, clear field, generic _type_in_field)."""
 
-    def type_text(self, text: str, clear_first: bool = False, human_typing: bool = True) -> bool:
+    def type_text(self, text: str, clear_first: bool = False, human_typing: bool = True,
+                  paste_if_keyboard_fails: bool = False) -> bool:
+        """Type `text` into the focused field through the Taktik Keyboard.
+
+        A keyboard that does not type is a failure: False, said in the log, and nothing written
+        another way. Pasting (`adb shell input text`, uiautomator2's `send_keys`) writes the whole
+        text at once through another keyboard, a signal no person gives. Only the login asks for
+        its rescue (`paste_if_keyboard_fails`, `_paste_when_keyboard_fails`), until Kevin decides.
+        `human_typing` only shapes that rescue.
+        """
         if not text:
             self.logger.warning("Empty text provided")
             return False
-        
+
         try:
-            self.logger.debug(f"⌨️ Typing text: '{text[:50]}{'...' if len(text) > 50 else ''}'")
-            
+            # The length only: this types passwords too.
+            self.logger.debug(f"⌨️ Typing {len(text)} chars")
+
             if clear_first:
                 self.clear_text_field()
-            
-            # Use Taktik Keyboard for reliable text input
-            if not self._type_with_taktik_keyboard(text):
-                self.logger.warning("Taktik Keyboard failed, falling back to send_keys")
-                if human_typing:
-                    self._type_with_human_delays(text)
-                else:
-                    self.device.send_keys(text)
-            
-            return True
-            
+
+            if self._type_with_taktik_keyboard(text):
+                return True
+            if paste_if_keyboard_fails:
+                return self._paste_when_keyboard_fails(text, human_typing)
+            self.logger.error("The Taktik Keyboard did not type the text: not typed, nothing pasted")
+            return False
+
         except Exception as e:
             self.logger.error(f"Error during typing: {e}")
             return False
-    
+
+    def _paste_when_keyboard_fails(self, text: str, human_typing: bool) -> bool:
+        """The login's rescue when the Taktik Keyboard did not type, kept as it was: `adb shell
+        input text`, then uiautomator2's `send_keys` (the whole text), then `send_keys` letter by
+        letter. Each writes through another keyboard than the bot's; every other text fails
+        instead (`type_text`). Unverified, as before: True once one of them ran."""
+        self.logger.warning("Taktik Keyboard failed: the login's text is pasted (adb input text)")
+        try:
+            if self._adb_input_text(text):
+                return True
+            self.device.send_keys(text)
+            return True
+        except Exception as exc:
+            self.logger.warning(f"send_keys failed ({exc}): typing letter by letter with send_keys")
+        if human_typing:
+            self._type_with_human_delays(text)
+        else:
+            self.device.send_keys(text)
+        return True
+
     def _type_with_human_delays(self, text: str) -> None:
-        """Fallback method using send_keys character by character."""
+        """The login's last rescue: send_keys character by character."""
         for i, char in enumerate(text):
             self.device.send_keys(char)
             
