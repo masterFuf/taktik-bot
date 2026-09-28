@@ -20,6 +20,12 @@ class PublishEditorSelectors:
     _video_edit_cancel_btn_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/xay")]',
     ])
+    # The sound chip of the editor an imported video opens on (its label: the title of the sound
+    # attached, or the invitation to add one), and the cross beside it that takes the sound off.
+    # Measured on 47.0.3 only, where TikTok attaches a sound on its own (override of that version);
+    # the baseline editor was never captured, so the baseline has no entry.
+    _sound_chip_base: List[str] = field(default_factory=list)
+    _sound_remove_btn_base: List[str] = field(default_factory=list)
 
     @property
     def popup_cancel_buttons(self) -> List[str]:
@@ -28,6 +34,14 @@ class PublishEditorSelectors:
     @property
     def video_edit_cancel_btn(self) -> List[str]:
         return self._video_edit_cancel_btn_base + L("publish_editor.video_edit_cancel_btn")
+
+    @property
+    def sound_chip(self) -> List[str]:
+        return self._sound_chip_base
+
+    @property
+    def sound_remove_btn(self) -> List[str]:
+        return self._sound_remove_btn_base
 
     def has_video_edit_screen_marker(self, xml: str) -> bool:
         lowered_xml = xml.lower()

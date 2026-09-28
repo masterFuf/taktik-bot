@@ -17,7 +17,7 @@ meta:
   app: tiktok
   package: com.zhiliaoapp.musically
   baseline_version: "43.1.4"
-  last_updated: "2026-09-25"
+  last_updated: "2026-09-28"
 
 versions:
   # Add version-specific overrides here as new app versions are discovered.
@@ -58,3 +58,60 @@ versions:
     profile._stat_label_base:
       - '//*[contains(@resource-id, ":id/t89")]'
       - '//*[contains(@resource-id, ":id/qfv")]'
+    # Publication of a video (Pixel 6a, French, 2026-09-27: the camera, the gallery, the editor and
+    # the post screen of one publication, piloted by hand node by node). Baseline entries carried
+    # along in each list.
+    # Camera: the way into the gallery is the clickable `upload_hot_area` at the bottom left. None
+    # of the baseline ids (`ymg`, `ce9`, `cl2`) and neither locale label is on the screen, and
+    # the production run of that day found nothing and tapped the effects carousel instead.
+    publish_media_picker._upload_btn_base:
+      - '//*[contains(@resource-id, ":id/upload_hot_area") and @clickable="true"]'
+      - '//*[contains(@resource-id, ":id/ymg") and @clickable="true"]'
+      - '//*[contains(@resource-id, ":id/ce9") and @clickable="true"]'
+      - '//*[contains(@resource-id, ":id/cl2") and @clickable="true"]'
+      - '//*[contains(@resource-id, ":id/ymg")]'
+      - '//*[contains(@resource-id, ":id/ce9")]'
+      - '//*[contains(@resource-id, ":id/cl2")]'
+    # Gallery: the grid is `jmm`, a cell holds the thumbnail `owc` and the selection box `l34`.
+    # Ticking the box of the first cell selects the newest medium (the box reads "1", the gallery's
+    # Next reads "Suivant (1)"), the gesture proven on the phone; the same xpath tells the gallery
+    # open. The baseline taps the thumbnail `mub` of 43.1.4, which opens a preview there.
+    # Only xpaths here: the plain markers of the catalogue (`_gallery_picker_xml_markers`,
+    # `_post_screen_xml_markers_base`) are fallbacks this flow never reaches on 47.0.3, and an
+    # override entry must be a selector the snapshot-equality proof can check.
+    publish_media_picker._gallery_first_item_rids:
+      - '(//*[contains(@resource-id, ":id/l34")])[1]'
+      - '(//android.widget.ImageView[contains(@resource-id, ":id/mub")])[1]'
+      - '(//android.widget.GridView[contains(@resource-id, ":id/i8o")]//android.widget.ImageView)[1]'
+      - '(//android.widget.ImageView[contains(@resource-id, ":id/nm8")])[1]'
+      - '(//android.widget.GridView[contains(@resource-id, ":id/ir_")]//android.widget.ImageView)[1]'
+      - '//*[contains(@resource-id, ":id/ir_")]//android.widget.ImageView[1]'
+    # Next: the gallery's "Suivant (1)" is the Button `xyk`, the editor's "Suivant" the clickable
+    # `q03`. "Ta Story" (`tq4`, a quick publication to the story) sits beside `q03` and is never
+    # named here.
+    publish_media_picker._next_btn_base:
+      - '//*[contains(@resource-id, ":id/xyk")]'
+      - '//*[contains(@resource-id, ":id/q03")]'
+      - '//*[contains(@resource-id, ":id/uyb")]'
+      - '//*[contains(@resource-id, ":id/ooo")]'
+      - '//*[contains(@resource-id, ":id/w51")]'
+      - '//*[contains(@resource-id, ":id/next_btn")]'
+    # Editor: TikTok attaches a sound to the imported video on its own. The label of the sound chip
+    # is `tv_top_text` (the title of that sound, or "Ajouter un son" once there is none); the cross
+    # that takes the sound off is the clickable `e1d`, whose description is an unresolved resource
+    # number. Tapped, the chip reads "Ajouter un son" and `e1d` is gone. No baseline entry.
+    publish_editor._sound_chip_base:
+      - '//*[contains(@resource-id, ":id/tv_top_text")]'
+    publish_editor._sound_remove_btn_base:
+      - '//*[contains(@resource-id, ":id/e1d") and @clickable="true"]'
+    # Post screen: the description is the EditText `h8e`, "Publier" the Button `tiq` ("Brouillons"
+    # `ght` beside it). The baseline `g19` and `qrb` are absent; only the French locale found them.
+    publish_composer._caption_input_base:
+      - '//*[contains(@resource-id, ":id/h8e")]'
+      - '//*[contains(@resource-id, ":id/g19")]'
+      - '//android.widget.EditText[@clickable="true"][1]'
+      - '(//android.widget.EditText)[1]'
+    publish_composer._post_btn_base:
+      - '//*[contains(@resource-id, ":id/tiq")]'
+      - '//*[contains(@resource-id, ":id/qrb")]'
+      - '//*[contains(@resource-id, ":id/post_btn")]'

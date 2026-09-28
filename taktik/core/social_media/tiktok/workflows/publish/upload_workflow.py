@@ -9,9 +9,12 @@ Flow :
   3. open the app and tap the create button
   4. tap the upload entry to open the gallery, rather than the camera
   5. select the first file, the most recent being the one just pushed
-  6. tap the next button as many times as needed
+  6. tap the next button as many times as needed, taking off first the sound TikTok attached
+     to the video on its own
   7. type the description, caption and hashtags
   8. Tape "Post" / "Publier"
+  9. once TikTok confirmed the publication, delete from the camera folder the file pushed and the
+     copy TikTok saved of the video (after a failure, both wait for the purge of a later publish)
 """
 
 from __future__ import annotations
@@ -21,8 +24,11 @@ import time
 
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.shared.device.media_store import (
+    delete_pushed_media,
+    list_media_saved_by,
     purge_pushed_media,
     push_media,
+    record_new_media_saved_by,
     trigger_media_scan,
     scan_wait_for,
 )
@@ -49,6 +55,8 @@ from taktik.core.social_media.tiktok.services.publish.hashtag_suggestions import
     tap_hashtag_suggestion_from_dump,
 )
 from taktik.core.social_media.tiktok.services.publish.navigation import (
+    POST_SCREEN_REACHED,
+    SOUND_NOT_REMOVED,
     advance_to_post_screen,
     ensure_gallery_picker_open,
     select_first_gallery_item,
@@ -166,6 +174,14 @@ class TikTokUploadWorkflow:
             except Exception as e:
                 _ipc.log("warning", f"Media purge skipped: {e}")
 
+            # What TikTok already saved in the camera folder, read before it can save its copy of
+            # this video: the copy is what appears after, under TikTok's package.
+            tiktok_pkg = package_name or resolve_tiktok_package(self.device_id)
+            saved_before = list_media_saved_by(self.device_id, tiktok_pkg)
+            if saved_before is None:
+                _ipc.log("warning", "[gallery] the media TikTok saved could not be listed: "
+                                    "its copy of this video will not be found")
+
             # 2-3. Push file + trigger MediaStore indexing (shared service)
             _ipc.log("info", f"📤 Pushing file to device: {os.path.basename(local_path)}")
             remote_path = push_media(self.device_id, local_path)
@@ -177,131 +193,177 @@ class TikTokUploadWorkflow:
             # Wait for MediaStore to index (videos take longer due to metadata extraction)
             time.sleep(scan_wait_for(local_path))
 
-            # 4-5. Force-stop TikTok and relaunch — same pattern as automation workflows.
-            # TikTokManager.restart() calls device.app_start(pkg, SplashActivity, stop=True),
-            # which translates to `am start -S -n pkg/SplashActivity` (fast, non-blocking).
-            # We replicate that here so publish and automation share the same boot path.
-            tiktok_pkg = package_name or resolve_tiktok_package(self.device_id)
-            _ipc.log("info", "🔄 Restarting TikTok (force stop + fresh launch)...")
-            _ipc.status("navigating", "Restarting TikTok...")
-            restart_tiktok_package(self.device, self.device_id, tiktok_pkg, log=_ipc.log)
-            # Wait for TikTok to fully load — 4s matches the automation bridge delay.
-            # For very slow devices, also poll for the Create button before proceeding.
-            time.sleep(4)
-            wait_for_tiktok_home(self.device, timeout=30.0, log=_ipc.log)
-            _ipc.status("navigating", "TikTok ready")
-            self._capture("01_home")
-
-            # 5b. Detect app language and prune wrong-language selectors in-place.
-            # Home/For-You screen exposes bottom-nav labels used by language detection.
-            # Non-fatal: failure leaves all selectors in place.
+            published = False
             try:
-                from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
-                lang = detect_and_optimize(self.device)
-                _ipc.log("info", f"🌐 TikTok language detected: {lang.upper()}")
-            except Exception as e:
-                _ipc.log("warning", f"Language detection failed (non-fatal): {e}")
-
-            dismiss_post_popups(self.device, log=_ipc.log)
-
-            # 6. Tap the create button
-            _ipc.status("navigating", "Tapping Create button...")
-            if not tap_create_button(self.device, log=_ipc.log):
-                return self._error("create_btn_not_found", "Create button not found")
-            time.sleep(1.0)
-            if handle_permission_dialog(self.device, self.device_id, log=_ipc.log):
-                time.sleep(1.0)
-            self._capture("02_create")
-
-            # 7. Tap the upload entry of the camera creation panel
-            _ipc.status("navigating", "Tapping Upload/Gallery button...")
-            if not tap_upload_button(self.device, log=_ipc.log):
-                dismiss_post_popups(self.device, log=_ipc.log)
-                if handle_permission_dialog(self.device, self.device_id, log=_ipc.log):
-                    time.sleep(0.8)
-                if not tap_upload_button(self.device, log=_ipc.log):
-                    return self._error("upload_btn_not_found", "Upload button not found in creation panel")
-            if not ensure_gallery_picker_open(self.device, self.device_id, log=_ipc.log):
-                return self._error("gallery_not_opened", "TikTok gallery did not open after tapping Upload")
-            self._capture("03_gallery")
-
-            # 8. Select the first file of the gallery
-            _ipc.status("selecting", "Selecting media from gallery...")
-            if not select_first_gallery_item(self.device, log=_ipc.log):
-                return self._error("gallery_item_not_found", "Could not select media from gallery")
-            time.sleep(1.2)  # wait for TikTok to enable the Next button after item selection
-            self._capture("04_media_selected")
-
-            # 8. Taper "Next" jusqu'à l'écran de description (max 3 fois)
-            _ipc.status("navigating", "Navigating to post screen...")
-            if not advance_to_post_screen(self.device):
-                return self._error("post_screen_not_reached", "TikTok post description screen was not reached")
-            self._capture("05_post_screen")
-
-            # 9. Type the description
-            full_caption = build_caption(caption, hashtags)
-            if full_caption:
-                _ipc.status("filling", "Entering caption...")
-                if not self._fill_caption(caption, hashtags):
-                    return self._error("caption_fill_failed", "Could not enter TikTok caption")
-                time.sleep(0.5)
-                self._capture("06_caption")
-
-            # 10. Taper "Post"
-            _ipc.status("publishing", "Publishing...")
-            self._capture("07_before_post")
-            self._recover_from_video_edit_screen()
-            if not tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=5.0):
-                self._recover_from_video_edit_screen()
-                if tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=3.0):
-                    time.sleep(3.0)
-                    if self._refused():
-                        return self._refused_error()
-                    dismiss_post_popups(self.device, log=_ipc.log)
-                    _ipc.status("success", "Post published successfully!")
-                    _ipc.log("info", "✅ TikTok post published")
-                    self._capture("08_posted")
-                    force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
-                    return {"success": True, "message": "Post published successfully", "error_type": None}
-                return self._error("post_btn_not_found", "Post button not found")
-
-            time.sleep(1.8)
-            # The one look after a write, before any popup is dismissed: a refusal is no timeout.
-            if self._refused():
-                return self._refused_error()
-
-            # TikTok can ask for an extra confirmation before the real publication.
-            if handle_publish_confirmation_dialog(self.device, log=_ipc.log):
-                time.sleep(1.2)
-
-            # 11. Dismiss any system dialogs that may appear after posting
-            # (e.g. Android "Add to Home Screen" / widget install prompt from TikTok)
-            committed = self._wait_for_publish_commit()
-            if self._refused():
-                return self._refused_error()
-            if not committed:
-                return self._error(
-                    "publish_not_committed",
-                    "TikTok did not appear to finish publishing before timeout",
-                )
-
-            dismiss_post_popups(self.device, log=_ipc.log)
-
-            # 12. Vérification succès (best-effort)
-            _ipc.status("success", "Post published successfully!")
-            _ipc.log("info", "✅ TikTok post published")
-            self._capture("08_posted")
-
-            # 13. Close TikTok after successful post
-            force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
-
-            return {"success": True, "message": "Post published successfully", "error_type": None}
+                result = self._publish_from_gallery(caption, hashtags, tiktok_pkg)
+                published = bool(result.get("success"))
+                return result
+            finally:
+                self._release_gallery(tiktok_pkg, saved_before, remote_path, published)
         finally:
             _CURRENT_NOTIFIER.reset(token)
 
     # ------------------------------------------------------------------
     # Publish stage helpers
     # ------------------------------------------------------------------
+
+    def _publish_from_gallery(self, caption: str, hashtags: list[str], tiktok_pkg: str) -> dict:
+        """From a fresh start of TikTok to the confirmed publication of the medium just pushed."""
+        # 4-5. Force-stop TikTok and relaunch — same pattern as automation workflows.
+        # TikTokManager.restart() calls device.app_start(pkg, SplashActivity, stop=True),
+        # which translates to `am start -S -n pkg/SplashActivity` (fast, non-blocking).
+        # We replicate that here so publish and automation share the same boot path.
+        _ipc.log("info", "🔄 Restarting TikTok (force stop + fresh launch)...")
+        _ipc.status("navigating", "Restarting TikTok...")
+        restart_tiktok_package(self.device, self.device_id, tiktok_pkg, log=_ipc.log)
+        # Wait for TikTok to fully load — 4s matches the automation bridge delay.
+        # For very slow devices, also poll for the Create button before proceeding.
+        time.sleep(4)
+        wait_for_tiktok_home(self.device, timeout=30.0, log=_ipc.log)
+        _ipc.status("navigating", "TikTok ready")
+        self._capture("01_home")
+
+        # 5b. Detect app language and prune wrong-language selectors in-place.
+        # Home/For-You screen exposes bottom-nav labels used by language detection.
+        # Non-fatal: failure leaves all selectors in place.
+        try:
+            from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
+            lang = detect_and_optimize(self.device)
+            _ipc.log("info", f"🌐 TikTok language detected: {lang.upper()}")
+        except Exception as e:
+            _ipc.log("warning", f"Language detection failed (non-fatal): {e}")
+
+        dismiss_post_popups(self.device, log=_ipc.log)
+
+        # 6. Tap the create button
+        _ipc.status("navigating", "Tapping Create button...")
+        if not tap_create_button(self.device, log=_ipc.log):
+            return self._error("create_btn_not_found", "Create button not found")
+        time.sleep(1.0)
+        if handle_permission_dialog(self.device, self.device_id, log=_ipc.log):
+            time.sleep(1.0)
+        self._capture("02_create")
+
+        # 7. Tap the upload entry of the camera creation panel
+        _ipc.status("navigating", "Tapping Upload/Gallery button...")
+        if not tap_upload_button(self.device, log=_ipc.log):
+            dismiss_post_popups(self.device, log=_ipc.log)
+            if handle_permission_dialog(self.device, self.device_id, log=_ipc.log):
+                time.sleep(0.8)
+            if not tap_upload_button(self.device, log=_ipc.log):
+                return self._error("upload_btn_not_found", "Upload button not found in creation panel")
+        if not ensure_gallery_picker_open(self.device, self.device_id, log=_ipc.log):
+            return self._error("gallery_not_opened", "TikTok gallery did not open after tapping Upload")
+        self._capture("03_gallery")
+
+        # 8. Select the first file of the gallery
+        _ipc.status("selecting", "Selecting media from gallery...")
+        if not select_first_gallery_item(self.device, log=_ipc.log):
+            return self._error("gallery_item_not_found", "Could not select media from gallery")
+        time.sleep(1.2)  # wait for TikTok to enable the Next button after item selection
+        self._capture("04_media_selected")
+
+        # 8. Tap Next up to the post screen, taking off the sound TikTok attached to the video
+        _ipc.status("navigating", "Navigating to post screen...")
+        reached = advance_to_post_screen(self.device, log=_ipc.log)
+        if reached == SOUND_NOT_REMOVED:
+            return self._error(
+                "sound_not_removed",
+                "The sound TikTok attached to the video could not be taken off: nothing was published",
+            )
+        if reached != POST_SCREEN_REACHED:
+            return self._error("post_screen_not_reached", "TikTok post description screen was not reached")
+        self._capture("05_post_screen")
+
+        # 9. Type the description
+        full_caption = build_caption(caption, hashtags)
+        if full_caption:
+            _ipc.status("filling", "Entering caption...")
+            if not self._fill_caption(caption, hashtags):
+                return self._error("caption_fill_failed", "Could not enter TikTok caption")
+            time.sleep(0.5)
+            self._capture("06_caption")
+
+        # 10. Taper "Post"
+        _ipc.status("publishing", "Publishing...")
+        self._capture("07_before_post")
+        self._recover_from_video_edit_screen()
+        if not tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=5.0):
+            self._recover_from_video_edit_screen()
+            if tap_element(self.device, PUBLISH_COMPOSER_SELECTORS.post_btn, timeout=3.0):
+                time.sleep(3.0)
+                if self._refused():
+                    return self._refused_error()
+                dismiss_post_popups(self.device, log=_ipc.log)
+                _ipc.status("success", "Post published successfully!")
+                _ipc.log("info", "✅ TikTok post published")
+                self._capture("08_posted")
+                force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
+                return {"success": True, "message": "Post published successfully", "error_type": None}
+            return self._error("post_btn_not_found", "Post button not found")
+
+        time.sleep(1.8)
+        # The one look after a write, before any popup is dismissed: a refusal is no timeout.
+        if self._refused():
+            return self._refused_error()
+
+        # TikTok can ask for an extra confirmation before the real publication.
+        if handle_publish_confirmation_dialog(self.device, log=_ipc.log):
+            time.sleep(1.2)
+
+        # 11. Dismiss any system dialogs that may appear after posting
+        # (e.g. Android "Add to Home Screen" / widget install prompt from TikTok)
+        committed = self._wait_for_publish_commit()
+        if self._refused():
+            return self._refused_error()
+        if not committed:
+            return self._error(
+                "publish_not_committed",
+                "TikTok did not appear to finish publishing before timeout",
+            )
+
+        dismiss_post_popups(self.device, log=_ipc.log)
+
+        # 12. Vérification succès (best-effort)
+        _ipc.status("success", "Post published successfully!")
+        _ipc.log("info", "✅ TikTok post published")
+        self._capture("08_posted")
+
+        # 13. Close TikTok after successful post
+        force_stop_app_package(self.device_id, tiktok_pkg, log=_ipc.log)
+
+        return {"success": True, "message": "Post published successfully", "error_type": None}
+
+    def _release_gallery(self, tiktok_pkg: str, saved_before, pushed_path: str, published: bool) -> None:
+        """What this publication left in the camera folder: the video pushed, and the copy TikTok
+        saved of it (a new file under TikTok's package in MediaStore). Both are recorded as media of
+        this bot; deleted at once when TikTok confirmed the publication, and otherwise left to the
+        purge of a later publish, which takes only what is several hours old (as for a pushed file)."""
+        copies: list[str] = []
+        if saved_before is not None:
+            found = record_new_media_saved_by(self.device_id, tiktok_pkg, [row["path"] for row in saved_before])
+            if found is None:
+                _ipc.log("warning", "[gallery] TikTok's copy of this video could not be looked for: it stays in the gallery")
+            else:
+                copies = found
+        if copies:
+            _ipc.log("info", "[gallery] saved by TikTok during this publication: "
+                             + ", ".join(os.path.basename(path) for path in copies))
+        if not published:
+            if copies:
+                _ipc.log("info", f"[gallery] {len(copies)} copy(ies) saved by TikTok recorded; "
+                                 "the purge of a later publish removes them with the video pushed")
+            return
+        if not copies:
+            _ipc.log("info", "[gallery] TikTok saved no copy of this video in the camera folder")
+        expected = 1 + len(copies)
+        removed = delete_pushed_media(self.device_id, [pushed_path, *copies], log=_ipc.log)
+        if removed == expected:
+            _ipc.log("info", f"[gallery] camera folder as before the publication: video pushed "
+                             f"and {len(copies)} copy(ies) saved by TikTok removed")
+        else:
+            _ipc.log("warning", f"[gallery] {removed} of {expected} file(s) of this publication removed; "
+                                "the rest waits for the purge of a later publish")
 
     def _wait_for_publish_commit(self, timeout: float = 120.0) -> bool:
         callbacks = PublishCommitCallbacks(

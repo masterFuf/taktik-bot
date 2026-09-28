@@ -1,8 +1,10 @@
-"""Which files this bot pushed into a device's gallery, so cleaning up never has to guess.
+"""Which files this bot left in a device's gallery, so cleaning up never has to guess.
 
 Pushed media are named the way the stock camera names its own shots (`IMG_…`, `VID_…`), so a name
 no longer tells our files from the user's. The cleanup therefore works from this list of exact
 paths, written at push time, and never from a pattern: a path that is not in here is not ours.
+The copy an app saves of what the bot publishes (TikTok's, in the camera folder) is written here
+too, once MediaStore names it as that app's new file (`media_store.record_new_media_saved_by`).
 
 One small JSON file per device in the data folder. Losing or corrupting it only means some of our
 files stay on the phone; it can never make the cleanup delete anything else.
