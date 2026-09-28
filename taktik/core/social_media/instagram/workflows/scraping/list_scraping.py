@@ -21,8 +21,13 @@ from .list_strategy import (
     make_commenters_strategy,
 )
 from .deep_qualify import DeepQualifyMixin
+from .persistence import SCRAPED_PROFILE_FIELDS
 
 console = Console()
+
+#: What a profile visit reads into the scraped profile: the fields the base keeps, the linked
+#: accounts and the picture.
+ENRICHED_PROFILE_FIELDS = SCRAPED_PROFILE_FIELDS + ('linked_accounts', 'profile_pic_base64')
 
 
 # The one skip reason that describes the ACCOUNT rather than a choice made about it: the profile
@@ -106,22 +111,13 @@ class ScrapingListMixin(DeepQualifyMixin):
             return OTHER_PROFILE_REASON
 
         if enriched_data:
-            profile_data['followers_count'] = enriched_data.get('followers_count', 0)
-            profile_data['following_count'] = enriched_data.get('following_count', 0)
-            profile_data['posts_count'] = enriched_data.get('posts_count', 0)
-            profile_data['is_private'] = enriched_data.get('is_private', False)
-            profile_data['biography'] = enriched_data.get('biography', '')
-            profile_data['full_name'] = enriched_data.get('full_name', '')
-            profile_data['is_verified'] = enriched_data.get('is_verified', False)
-            profile_data['is_business'] = enriched_data.get('is_business', False)
-            profile_data['business_category'] = enriched_data.get('business_category', '')
-            profile_data['website'] = enriched_data.get('website', '')
-            profile_data['linked_accounts'] = enriched_data.get('linked_accounts', [])
-            profile_data['date_joined'] = enriched_data.get('date_joined', '')
-            profile_data['account_based_in'] = enriched_data.get('account_based_in', '')
-            profile_data['profile_pic_base64'] = enriched_data.get('profile_pic_base64')
+            # What the visit read, and only that: a key it did not return (or returned as None)
+            # stays absent, never 0, false or empty (see `scraped_profile_row`).
+            for key in ENRICHED_PROFILE_FIELDS:
+                if enriched_data.get(key) is not None:
+                    profile_data[key] = enriched_data[key]
 
-            self.logger.debug(f"✅ Enriched @{username}: {profile_data['followers_count']} followers, category={profile_data.get('business_category')}")
+            self.logger.debug(f"✅ Enriched @{username}: {profile_data.get('followers_count')} followers, category={profile_data.get('business_category')}")
             # Re-emit the visit with complete profile stats immediately, so the desktop live card
             # updates before deep qualify starts.
             IPCEmitter.emit_scraping_profile_visit(username, profile_data)
