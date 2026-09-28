@@ -74,7 +74,6 @@ from taktik.core.social_media.tiktok.services.publish.text_input import (
     type_caption_checked,
     type_caption_text,
 )
-from taktik.core.social_media.tiktok.services.publish.touch_fallbacks import tap_caption_focus_fallback
 from taktik.core.social_media.tiktok.ui.detectors.keyboard import dismiss_keyboard
 from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_COMPOSER_SELECTORS,
@@ -403,16 +402,19 @@ class TikTokUploadWorkflow:
 
     def _fill_caption(self, caption: str, hashtags: list[str]) -> bool:
         """Fill caption and validate TikTok hashtag suggestions one by one."""
-        # ── Focus the EditText ───────────────────────────────────────────────
+        # ── Focus the EditText, found by its selectors or not at all ─────────
         el = find_element(self.device, PUBLISH_COMPOSER_SELECTORS.caption_input, timeout=5.0)
+        if el is None:
+            _ipc.log("error", "[caption] caption field not found on the screen: nothing typed, "
+                              "the publication stops before Publish")
+            return False
         try:
-            if el:
-                el.click()
-            else:
-                tap_caption_focus_fallback(self.device, log=_ipc.log)
+            el.click()
             time.sleep(0.5)
         except Exception as e:
-            _ipc.log("warning", f"[caption] focus failed: {e}")
+            _ipc.log("error", f"[caption] caption field could not be tapped ({e}): nothing typed, "
+                              "the publication stops before Publish")
+            return False
 
         if not clear_caption_text(self.device_id, log=_ipc.log):
             _ipc.log("debug", "[caption] clear text skipped or failed")
