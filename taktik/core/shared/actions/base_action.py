@@ -13,15 +13,14 @@ import random
 from typing import Optional, Dict, Any, List, Union
 from loguru import logger
 
-from taktik.core.shared.device.adb import run_adb_shell
 from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.shared.actions.utils import ActionUtils
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.shared.input.taktik_keyboard import (
-    IME_CLEAR_TEXT,
     is_taktik_keyboard_active,
     activate_taktik_keyboard,
+    clear_text_with_taktik_keyboard,
     ensure_taktik_keyboard,
     type_text_checked,
     type_with_taktik_keyboard,
@@ -495,19 +494,20 @@ class SharedBaseAction:
             return False
     
     def _clear_text_with_taktik_keyboard(self) -> bool:
-        """Clear the current text field using Taktik Keyboard."""
+        """Empty the focused field through Taktik Keyboard (`clear_text_with_taktik_keyboard`).
+
+        False when the phone cannot be put on Taktik Keyboard (`ensure_taktik_keyboard`): nothing
+        is sent then, and the caller knows the field was not emptied.
+        """
         try:
-            device_serial = self._get_device_serial()
-            
-            # Ensure Taktik Keyboard is active
-            if not self._is_taktik_keyboard_active():
-                self._activate_taktik_keyboard()
-            
-            result = run_adb_shell(device_serial, f'am broadcast -a {IME_CLEAR_TEXT}')
+            if not self._ensure_taktik_keyboard():
+                self.logger.error("❌ Taktik Keyboard not active: the field was not emptied")
+                return False
+            cleared = clear_text_with_taktik_keyboard(self._get_device_serial())
             time.sleep(0.3)
-            return bool(result) and 'error' not in result.lower()
+            return cleared
         except Exception as e:
-            self.logger.debug(f"Error clearing text: {e}")
+            self.logger.error(f"❌ Error clearing text: {e}")
             return False
     
     # =========================================================================

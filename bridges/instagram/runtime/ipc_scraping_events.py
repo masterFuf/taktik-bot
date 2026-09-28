@@ -5,19 +5,30 @@ from __future__ import annotations
 from bridges.common.runtime.bridge_base import _ipc
 
 
+#: `profile_captured` key <- key of the profile data the workflows read.
+_PROFILE_CAPTURED_FIELDS = (
+    ("full_name", "full_name"),
+    ("follower_count", "followers_count"),
+    ("following_count", "following_count"),
+    ("media_count", "posts_count"),
+    ("is_private", "is_private"),
+    ("is_verified", "is_verified"),
+    ("biography", "biography"),
+)
+
+
 def send_profile_captured(username: str, profile_data: dict = None, profile_pic_base64: str = None):
-    """Send captured profile data (with optional base64 image) to desktop app."""
+    """Send captured profile data (with optional base64 image) to desktop app.
+
+    Only what was read goes out: a key the profile data does not hold, or holds as None (not
+    read), is left out of the line, never sent as 0 or false; a profile not read must not pass for
+    a public profile with 0 followers. The app reads every key but `username` as optional.
+    """
     data = {"username": username}
-    if profile_data:
-        data.update({
-            "full_name": profile_data.get("full_name"),
-            "follower_count": profile_data.get("followers_count", 0),
-            "following_count": profile_data.get("following_count", 0),
-            "media_count": profile_data.get("posts_count", 0),
-            "is_private": profile_data.get("is_private", False),
-            "is_verified": profile_data.get("is_verified", False),
-            "biography": profile_data.get("biography"),
-        })
+    for line_key, data_key in _PROFILE_CAPTURED_FIELDS:
+        value = (profile_data or {}).get(data_key)
+        if value is not None:
+            data[line_key] = value
     if profile_pic_base64:
         data["profile_pic_url"] = profile_pic_base64
     _ipc.send("profile_captured", **data)

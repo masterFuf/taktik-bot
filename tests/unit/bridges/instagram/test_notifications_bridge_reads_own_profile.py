@@ -23,10 +23,12 @@ from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 import bridges.common.device.app_manager as app_manager
+import taktik.core.database as database
 import bridges.common.device.connection as connection
 from bridges.common.runtime.connected_device import ConnectedDevice
 from bridges.instagram.engagement.runtime.notifications import commands as bridge_commands
 from taktik.core.social_media.instagram.workflows.management.notifications import commands
+from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler
 
 PKG = "com.instagram.android"
 FIXTURES = Path(__file__).parents[2] / "social_media" / "instagram" / "fixtures"
@@ -117,9 +119,8 @@ class _Phone:
         return Image.new("RGB", (1080, 2220))
 
 
-@pytest.fixture
-def bridge_runtime(monkeypatch, tmp_path):
-    """The notifications bridge connected the way the desktop connects it, on the phone above."""
+def _bridge_phone(monkeypatch, tmp_path) -> _Phone:
+    """The phone above behind the bridge's connection, and a base of its own for the run."""
     import time
 
     phone = _Phone()
@@ -129,6 +130,13 @@ def bridge_runtime(monkeypatch, tmp_path):
                         lambda device_id: ConnectedDevice(SimpleNamespace(device=phone), device_id))
     # The installed version is read by adb; this phone has none, and the selectors stay the base.
     monkeypatch.setattr(app_manager.AppService, "get_installed_version", lambda self: None)
+    return phone
+
+
+@pytest.fixture
+def bridge_runtime(monkeypatch, tmp_path):
+    """The notifications bridge connected the way the desktop connects it, on the phone above."""
+    phone = _bridge_phone(monkeypatch, tmp_path)
     runtime = bridge_commands._connect("phone-1", None, restart=False)
     return runtime, phone
 
@@ -147,3 +155,36 @@ def test_the_scan_reads_our_own_profile_on_the_bridge_s_phone(bridge_runtime):
         {"type": "active_account", "username": "user_4", "followers": 22, "following": 57, "posts": 1}]
     # Back on the feed, where the activity entry lives.
     assert phone.screen is HOME
+
+
+def test_the_counters_the_scan_reads_on_the_bridge_are_written_to_the_base(monkeypatch, tmp_path):
+    """Seen on the Pixel 4a: the step read the counters, then "Database service not configured":
+    the other bridges configure the base in their session, this one never did.
+
+    The whole path of the bridge: its command (`run_notifications_command`, a new bridge process:
+    no base configured), the core launcher (`run_instagram_notifications`), and the scan cut down
+    to its first step, `_refresh_own_account` on the bridge's connection, as `cmd_scan` calls it
+    (the connection without the restart: this phone cannot relaunch Instagram)."""
+    import sqlite3
+
+    _bridge_phone(monkeypatch, tmp_path)
+    monkeypatch.setattr(database, "db_service", None)
+    events = []
+
+    def scan_first_step(host, limit, **_options):
+        runtime = host.connect(False)
+        commands._refresh_own_account(host, runtime, None)
+        return {"success": True}
+
+    monkeypatch.setattr(commands, "cmd_scan", scan_first_step)
+    monkeypatch.setattr(bridge_commands, "emit_notif_json", lambda payload, flush=False: events.append(payload))
+    assert agent_handler.run_instagram_notifications is bridge_commands.run_instagram_notifications
+
+    bridge_commands.run_notifications_command({"deviceId": "phone-1", "command": "scan", "scroll": 0})
+
+    steps = [(e["step"], e["step_status"]) for e in events if e.get("type") == "notification_step"]
+    assert steps == [("own_profile", "running"), ("own_profile", "done")]
+    with sqlite3.connect(tmp_path / "notifications.db") as base:
+        row = base.execute("SELECT followers_count, following_count, posts_count FROM instagram_profiles "
+                           "WHERE username = ?", ("user_4",)).fetchone()
+    assert row == (22, 57, 1)

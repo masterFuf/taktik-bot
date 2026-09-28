@@ -28,7 +28,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from taktik.core.shared.device.ui_dump import iter_widgets
+from taktik.core.shared.device.ui_dump import band_clear_of, iter_widgets
 from taktik.core.shared.input.taktik_keyboard import (
     ensure_taktik_keyboard,
     read_focused_text,
@@ -239,13 +239,17 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         if not point:
             self.logger.warning(f"{name}: no tap point")
             return False
+        # The parser keeps only the affordance CENTRE (center(box)), not the box, so sample a
+        # human point within a small box AROUND the centre + a varied finger-down time —
+        # removes the "exact same pixel + instant click" fingerprint without needing the bounds.
+        x0, y0 = int(point[0]), int(point[1])
+        r = 18
+        return self._tap_box((x0 - r, y0 - r, x0 + r, y0 + r), name)
+
+    def _tap_box(self, box: tuple, name: str) -> bool:
+        """A human tap sampled inside ``box``, with a varied finger-down time."""
         try:
-            # The parser keeps only the affordance CENTRE (center(box)), not the box, so sample a
-            # human point within a small box AROUND the centre + a varied finger-down time —
-            # removes the "exact same pixel + instant click" fingerprint without needing the bounds.
-            x0, y0 = int(point[0]), int(point[1])
-            r = 18
-            x, y = sample_tap_point((x0 - r, y0 - r, x0 + r, y0 + r))
+            x, y = sample_tap_point(box)
             try:
                 self.device.long_click(x, y, sample_tap_down_ms() / 1000.0)
             except Exception:
@@ -447,10 +451,17 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
             )
             if not matches:
                 return True  # tried this row (no OCR hit / OCR unavailable); move on
-            self._notify("expand", "running", "Expanding a comment")
             # Lowest match = the expander sits on the last line of the truncated text.
-            point = max(matches, key=lambda m: m.top).center
-            self._tap_point(point, "expand more (ocr)")
+            word = max(matches, key=lambda m: m.top)
+            # The tap stays on the word and off the row's buttons: the text node and « Répondre »
+            # overlap, and a tap there could open the reply field of a scan that only reads.
+            clear = band_clear_of((word.left, word.top, word.left + word.width, word.top + word.height),
+                                  target["buttons"])
+            if clear is None:
+                self.logger.warning("expand more: the word lies under a button of its row, not tapped")
+                return True
+            self._notify("expand", "running", "Expanding a comment")
+            self._tap_box(clear, "expand more (ocr)")
             time.sleep(0.7)
             if not self._on_notifications_screen():
                 self.logger.info("expand more: tap opened the post, recovering")

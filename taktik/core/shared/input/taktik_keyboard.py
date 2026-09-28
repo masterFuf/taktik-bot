@@ -10,7 +10,7 @@ import base64
 import os
 import threading
 import time
-from typing import Dict, Optional
+from typing import Dict, NamedTuple, Optional
 
 from loguru import logger
 
@@ -28,8 +28,10 @@ GBOARD_IME = "com.google.android.inputmethod.latin/com.android.inputmethod.latin
 # keyboard too, never a keyboard to give back.
 UIAUTOMATOR_IME = "com.github.uiautomator/.AdbKeyboard"
 ADB_IMES = frozenset({TAKTIK_KEYBOARD_IME, UIAUTOMATOR_IME})
-_ACTIVE_CACHE_TTL_SECONDS = 120.0
-_active_ime_cache: dict[str, float] = {}
+_READ_DEFAULT_IME = "settings get secure default_input_method"
+# What the phone's shell answers, followed by its input method, instead of broadcasting to a
+# Taktik Keyboard it is not on.
+_NOT_ON_TAKTIK_KEYBOARD = "NOT_ON_TAKTIK_KEYBOARD"
 
 # The keyboard each phone had before this process first switched it to the ADB one (None: it could
 # not be read), given back at the end so the phone is not left on the ADB keyboard.
@@ -53,7 +55,37 @@ def _clean_ime(value: Optional[str]) -> Optional[str]:
 
 
 def _read_default_ime(device_id: str) -> Optional[str]:
-    return _clean_ime(run_adb_shell(device_id, "settings get secure default_input_method"))
+    return _clean_ime(run_adb_shell(device_id, _READ_DEFAULT_IME))
+
+
+class KeyboardBroadcast(NamedTuple):
+    """What became of a broadcast to the Taktik Keyboard (`_broadcast_to_taktik_keyboard`)."""
+
+    #: False: the phone was on another input method, nothing was broadcast.
+    sent: bool
+    #: Android's answer to the broadcast when sent; otherwise the input method the phone is on.
+    answer: str
+
+
+def _broadcast_to_taktik_keyboard(device_id: str, intent: str) -> KeyboardBroadcast:
+    """`am broadcast <intent>` to the Taktik Keyboard, only if the phone is on it at that moment.
+
+    The phone's shell reads its input method and broadcasts in the SAME adb command: a keyboard is
+    never trusted from an earlier look. uiautomator2 switches the phone to its own keyboard for
+    `send_keys`, `clear_text` and `hide_keyboard`; a text broadcast after that reaches no one, and
+    nothing says so. The check adds no adb command (checked on a Pixel 4a, Android 13: a read of
+    the keyboard alone takes 77 ms, median of 20).
+    """
+    answer = run_adb_shell(
+        device_id,
+        f'ime=$({_READ_DEFAULT_IME}); if [ "$ime" = "{TAKTIK_KEYBOARD_IME}" ]; '
+        f'then am broadcast {intent}; else echo "{_NOT_ON_TAKTIK_KEYBOARD} $ime"; fi',
+    ) or ""
+    if answer.strip().startswith(_NOT_ON_TAKTIK_KEYBOARD):
+        current = answer.strip()[len(_NOT_ON_TAKTIK_KEYBOARD):].strip()
+        logger.debug(f"Phone {device_id} is on {current or 'no input method'}, not Taktik Keyboard: nothing broadcast")
+        return KeyboardBroadcast(sent=False, answer=current)
+    return KeyboardBroadcast(sent=True, answer=answer)
 
 
 def _android_selected(answer: Optional[str], ime: str) -> bool:
@@ -135,7 +167,6 @@ def restore_original_keyboard(device_id: str) -> bool:
             logger.warning(f"No keyboard to give back to {device_id}: the ADB keyboard stays")
             return False
         restored = _switch_input_method(device_id, target)
-        _active_ime_cache.pop(device_id, None)
         if restored:
             logger.info(f"Keyboard of {device_id} given back: {target}")
         else:
@@ -152,21 +183,15 @@ def restore_all_keyboards() -> int:
 
 
 def is_taktik_keyboard_active(device_id: str) -> bool:
-    """Check if Taktik Keyboard (ADB Keyboard) is the active IME."""
-    cached_at = _active_ime_cache.get(device_id)
-    if cached_at and (time.time() - cached_at) < _ACTIVE_CACHE_TTL_SECONDS:
-        return True
-
+    """Is Taktik Keyboard (ADB Keyboard) the phone's input method? Read on the phone every time:
+    uiautomator2 may have switched it since the last look."""
     try:
         current = _read_default_ime(device_id)
         # The first look at this phone's keyboard in this process: what the session will give back.
         remember_original_keyboard(device_id, current=current, known=True)
-        active = current == TAKTIK_KEYBOARD_IME
-        if active:
-            _active_ime_cache[device_id] = time.time()
-        return active
+        return current == TAKTIK_KEYBOARD_IME
     except Exception as exc:
-        logger.debug(f"Cannot check keyboard status: {exc}")
+        logger.warning(f"Cannot read the keyboard of {device_id}, taken as not Taktik Keyboard: {exc}")
         return False
 
 
@@ -281,6 +306,10 @@ def type_with_taktik_keyboard(
     Type text using Taktik Keyboard via ADB broadcast. Returns once the keyboard has
     finished typing, worst case included (`typing_seconds`).
 
+    The broadcast leaves only if the phone is on Taktik Keyboard at that moment
+    (`_broadcast_to_taktik_keyboard`); otherwise the keyboard is switched back and the text sent
+    again, once.
+
     Args:
         device_id: ADB device serial/ID.
         text: Text to type.
@@ -294,19 +323,28 @@ def type_with_taktik_keyboard(
         return True
 
     try:
-        if not is_taktik_keyboard_active(device_id):
+        text_b64 = base64.b64encode(text.encode("utf-8")).decode("utf-8")
+        intent = (
+            f"-a {IME_MESSAGE_B64} --es msg {text_b64} "
+            f"--ei delay_mean {delay_mean} --ei delay_deviation {delay_deviation}"
+        )
+        started_at = time.time()
+        broadcast = _broadcast_to_taktik_keyboard(device_id, intent)
+        if broadcast.answer:
+            # The first look at this phone's keyboard in this process: what the session gives back.
+            remember_original_keyboard(
+                device_id, current=TAKTIK_KEYBOARD_IME if broadcast.sent else broadcast.answer, known=True)
+        if not broadcast.sent:
             logger.debug("Taktik Keyboard not active, activating")
             if not activate_taktik_keyboard(device_id):
                 logger.warning("Could not activate Taktik Keyboard")
                 return False
-
-        text_b64 = base64.b64encode(text.encode("utf-8")).decode("utf-8")
-        broadcast_cmd = (
-            f"am broadcast -a {IME_MESSAGE_B64} --es msg {text_b64} "
-            f"--ei delay_mean {delay_mean} --ei delay_deviation {delay_deviation}"
-        )
-        started_at = time.time()
-        result = run_adb_shell(device_id, broadcast_cmd)
+            started_at = time.time()
+            broadcast = _broadcast_to_taktik_keyboard(device_id, intent)
+            if not broadcast.sent:
+                logger.error(f"Phone {device_id} left Taktik Keyboard right after its activation: nothing typed")
+                return False
+        result = broadcast.answer
         ack_duration = time.time() - started_at
 
         if result and "error" not in result.lower():
@@ -322,7 +360,6 @@ def type_with_taktik_keyboard(
                 length=len(text), delay_mean=delay_mean, delay_deviation=delay_deviation,
                 typing_s=round(typing_time, 3), ack_s=round(ack_duration, 3),
             )
-            _active_ime_cache[device_id] = time.time()
             time.sleep(typing_time + settle_buffer)
             return True
 
@@ -334,10 +371,14 @@ def type_with_taktik_keyboard(
 
 
 def clear_text_with_taktik_keyboard(device_id: str) -> bool:
-    """Clear the current text field using Taktik Keyboard."""
+    """Clear the current text field using Taktik Keyboard. False when the phone is not on it
+    (nothing sent): the caller switches the keyboard first (`ensure_taktik_keyboard`)."""
     try:
-        result = run_adb_shell(device_id, f"am broadcast -a {IME_CLEAR_TEXT}")
-        return bool(result) and "error" not in result.lower()
+        broadcast = _broadcast_to_taktik_keyboard(device_id, f"-a {IME_CLEAR_TEXT}")
+        if not broadcast.sent:
+            logger.warning(f"Field not emptied on {device_id}: the phone is on {broadcast.answer or 'no input method'}")
+            return False
+        return bool(broadcast.answer) and "error" not in broadcast.answer.lower()
     except Exception as exc:
         logger.error(f"Error clearing text: {exc}")
         return False

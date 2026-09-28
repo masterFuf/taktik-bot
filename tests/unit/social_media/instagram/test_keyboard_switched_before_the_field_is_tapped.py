@@ -14,6 +14,7 @@ import pytest
 import taktik.core.shared.behavior.typing as typing_plan
 import taktik.core.shared.device.adb as adb
 import taktik.core.shared.input.taktik_keyboard as kb
+from unit.android_shell import is_keyboard_check, run_keyboard_check
 from bridges.common.input.keyboard import KeyboardService
 from taktik.core.social_media.instagram.workflows.dm_inbox.sender import DMSenderMixin
 from taktik.core.social_media.instagram.actions.atomic.interaction.story_interaction import (
@@ -189,6 +190,8 @@ class FoldingFieldPhone:
         return then
 
     def shell(self, device_id, command):
+        if is_keyboard_check(command):
+            return run_keyboard_check(command, self.keyboard, lambda guarded: self.shell(device_id, guarded))
         if "default_input_method" in command:
             return self.keyboard
         if command.startswith("input text "):
@@ -262,7 +265,6 @@ class FoldingFieldPhone:
 
 def _on_the_phone(phone, monkeypatch):
     monkeypatch.setattr(adb, "_run_adb_shell", phone.shell)
-    monkeypatch.setattr(kb, "_active_ime_cache", {})
     monkeypatch.setattr(kb.time, "sleep", lambda *_: None)
     monkeypatch.setattr(typing_plan, "build_typing_plan", lambda text, rng=None: [("type", text)])
     return phone

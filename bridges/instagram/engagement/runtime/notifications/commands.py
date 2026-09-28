@@ -16,6 +16,7 @@ from bridges.instagram.engagement.runtime.notifications.ai import notifications_
 from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
 from bridges.instagram.engagement.runtime.notifications.events import emit_notif_error, emit_notif_json
 from bridges.instagram.runtime.ipc import logger
+from taktik.core.database import configure_db_service
 from taktik.core.social_media.instagram.workflows.management.notifications.agent_handler import (
     NotificationsCommandError,
     run_instagram_notifications,
@@ -63,6 +64,9 @@ def run_notifications_command(config: dict) -> None:
         _fail("deviceId is required")
 
     try:
+        # The base, configured as every bridge configures it for its run: the scan writes through
+        # it, the counters of our own profile included (`save_profile_to_database`).
+        configure_db_service()
         result = run_instagram_notifications(
             config,
             connect=lambda package_name, restart: _connect(device_id, package_name, restart=restart),

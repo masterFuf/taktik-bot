@@ -39,6 +39,31 @@ def center(bounds: Sequence[int]) -> Tuple[int, int]:
     return ((bounds[0] + bounds[2]) // 2, (bounds[1] + bounds[3]) // 2)
 
 
+def band_clear_of(box: Sequence[int], obstacles: Sequence[Sequence[int]]) -> Optional[Tuple[int, int, int, int]]:
+    """The tallest full-width band of ``box`` that no box of ``obstacles`` overlaps, or None when
+    they cover it all. Boxes as the dump gives them, ``(left, top, right, bottom)``, the right and
+    bottom edges outside the box (a point on ``bottom`` is below it)."""
+    left, top, right, bottom = box
+    bands = [(top, bottom)]
+    for o_left, o_top, o_right, o_bottom in obstacles:
+        if o_right <= left or o_left >= right:
+            continue  # beside the box
+        kept = []
+        for low, high in bands:
+            if o_bottom <= low or o_top >= high:
+                kept.append((low, high))  # above or below this band
+                continue
+            if o_top > low:
+                kept.append((low, o_top))  # the part above the obstacle
+            if o_bottom < high:
+                kept.append((o_bottom, high))  # the part below it
+        bands = kept
+    if not bands:
+        return None
+    low, high = max(bands, key=lambda band: band[1] - band[0])
+    return (left, low, right, high)
+
+
 def index_of_closest_row(target_y: float, candidate_ys: List[float]) -> Optional[int]:
     """Index of the candidate whose vertical centre is closest to ``target_y``.
 
@@ -132,6 +157,6 @@ def dump_screen_size(root) -> Optional[Tuple[int, int]]:
 
 
 __all__ = [
-    "parse_bounds", "vertical_center", "center", "index_of_closest_row", "parse_ui_dump",
+    "parse_bounds", "vertical_center", "center", "band_clear_of", "index_of_closest_row", "parse_ui_dump",
     "iter_widgets", "dump_screen_size",
 ]

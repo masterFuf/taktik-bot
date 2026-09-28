@@ -55,7 +55,6 @@ class Phone:
 @pytest.fixture(autouse=True)
 def _clean(monkeypatch):
     monkeypatch.setattr(kb, "_original_ime", {})
-    monkeypatch.setattr(kb, "_active_ime_cache", {})
     monkeypatch.setattr(kb, "_atexit_registered", True)
     monkeypatch.setattr(kb, "_BIND_POLL_SECONDS", 0, raising=False)
     monkeypatch.setattr(kb.time, "sleep", lambda s: None)

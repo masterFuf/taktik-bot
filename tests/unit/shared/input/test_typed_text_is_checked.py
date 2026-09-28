@@ -34,7 +34,8 @@ class KeyboardPhone:
 
     @staticmethod
     def _arg(command, name):
-        return command.split(f"{name} ", 1)[1].split(" ", 1)[0]
+        # The broadcast is the `then` part of the shell command that checks the keyboard first.
+        return command.split(f"{name} ", 1)[1].split(" ", 1)[0].rstrip(";")
 
     def shell(self, device_id, command):
         self._land()
@@ -117,11 +118,9 @@ def test_every_typing_entry_point_waits_out_the_keyboard(phone, monkeypatch, act
     """The base actions each had their own broadcast and their own, shorter, wait."""
     from loguru import logger
 
-    import taktik.core.shared.actions.base_action as shared_base
     from taktik.core.shared.actions.base_action import SharedBaseAction
     from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
 
-    monkeypatch.setattr(shared_base, "run_adb_shell", phone.shell)
     cls = SharedBaseAction if action_class == "shared" else BaseAction
     action = cls.__new__(cls)
     action.logger = logger

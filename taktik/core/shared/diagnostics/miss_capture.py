@@ -25,11 +25,14 @@ peut demander plus tard « quel écran affichait quelque chose qu'on ne savait p
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 from loguru import logger
 
+from taktik.core.shared.device.adb import run_adb_shell
+from taktik.core.shared.device.app_inspection import app_version_read
 from taktik.core.shared.diagnostics.surface_capture import capture_surface
+from taktik.core.shared.ui.language_detection import detected_language
 
 #: Assez pour qu'un run rapporte du neuf, assez peu pour que le coût reste borné.
 MAX_PAR_RUN = 6
@@ -43,6 +46,8 @@ SURFACE = "selector_miss"
 SEUIL_BLOCAGE = 8
 
 _captures = 0
+#: Le modèle de chaque téléphone, par série : lu une fois par processus (`getprop`).
+_modeles: Dict[str, str] = {}
 _dernier_selecteur: Optional[str] = None
 _repetitions = 0
 _blocage_signale = False
@@ -75,6 +80,24 @@ def _compter_repetition(selecteur: str) -> int:
     else:
         _repetitions += 1
     return _repetitions
+
+
+def _appareil(device: Any) -> Tuple[str, str]:
+    """(série adb, modèle) du téléphone de la capture ; vides quand il ne les dit pas.
+
+    La série est celle du device uiautomator2 (aucun appel) ; le modèle se lit une fois par série
+    (`getprop ro.product.model`, ~60 ms) : une capture d'échec paie déjà son `dump_hierarchy`.
+    """
+    serie = str(getattr(device, "serial", "") or "")
+    if not serie:
+        return "", ""
+    if serie not in _modeles:
+        try:
+            _modeles[serie] = (run_adb_shell(serie, "getprop ro.product.model") or "").strip()
+        except Exception as exc:  # noqa: BLE001 — un diagnostic ne fait jamais echouer un run
+            logger.debug(f"[miss] modele illisible pour {serie} : {exc}")
+            _modeles[serie] = ""
+    return serie, _modeles[serie]
 
 
 def blocage_a_signaler() -> bool:
@@ -139,12 +162,18 @@ def capturer_echec(
 
     try:
         cherche = str(selectors[0])[:110]
+        # Ce que l'appelant ne sait pas, le processus l'a lu : la version à la connexion
+        # (`get_installed_app_version`), la langue par la détection de la plateforme. Sans eux,
+        # une capture ne se rangeait sous aucune version ni langue.
+        serie, modele = _appareil(device)
         record = capture_surface(
             device,
             platform=platform,
             surface=SURFACE,
-            app_version=app_version,
-            language=language,
+            app_version=app_version or app_version_read(platform),
+            language=language or detected_language(platform) or "",
+            device_model=modele,
+            device_serial=serie,
             # Le champ est libre, et c'est ce qui donne son sens a la capture : sans lui on garde
             # une image, avec lui on garde une QUESTION.
             action_outcome=(

@@ -152,12 +152,28 @@ def _find_row_control(
     return None
 
 
+def _row_buttons(row, text_box) -> List[Tuple[int, int, int, int]]:
+    """Bounds of the row's clickable nodes other than the row itself and the nodes that hold the
+    text node (its containers)."""
+    buttons = []
+    for node in row.iter():
+        if node is row or node.get("clickable") != "true":
+            continue
+        box = parse_bounds(node.get("bounds", ""))
+        holds_text = box and box[0] <= text_box[0] and box[1] <= text_box[1]             and box[2] >= text_box[2] and box[3] >= text_box[3]
+        if box and not holds_text:
+            buttons.append(box)
+    return buttons
+
+
 def find_truncated_targets(root, row_bare_id: str) -> List[Dict[str, Any]]:
     """Truncated comment/mention rows whose text ends with "… more" / "… suite".
 
-    Returns ``[{key, region}]`` where ``region`` is the REAL bounds of the row's text
+    Returns ``[{key, region, buttons}]`` where ``region`` is the REAL bounds of the row's text
     node (from the dump — no coordinate estimate) to constrain the OCR that locates the
-    "more"/"suite" expander word; ``key`` is the truncated text (dedup / re-tap guard).
+    "more"/"suite" expander word; ``key`` is the truncated text (dedup / re-tap guard);
+    ``buttons`` are the bounds of the row's other clickable nodes (like, « Répondre », avatar,
+    thumbnail), which the expand tap must stay off: the text node and « Répondre » overlap.
     """
     out: List[Dict[str, Any]] = []
     for row in _iter_rows(root, row_bare_id):
@@ -166,7 +182,7 @@ def find_truncated_targets(root, row_bare_id: str) -> List[Dict[str, Any]]:
             if value and _TRUNCATION_RE.search(value):
                 box = parse_bounds(descendant.get("bounds", ""))
                 if box:
-                    out.append({"key": value, "region": box})
+                    out.append({"key": value, "region": box, "buttons": _row_buttons(row, box)})
                 break
     return out
 
