@@ -45,6 +45,7 @@ from loguru import logger
 
 from taktik.core.shared.ui.selectors.system.permission_prompt import PERMISSION_PROMPT_SELECTORS
 
+from .facade import as_device_facade
 # Reuse the SDK-version helper already present in this package
 from .media_store import get_android_sdk_version
 
@@ -478,7 +479,7 @@ def allow_prompts_this_time_only(
     within `wait_s`, or when `unless_on_screen` shows first. At most `max_prompts` taps.
     `device`: a device facade, or a uiautomator2 device (wrapped in the shared facade).
     """
-    facade = _as_facade(device)
+    facade = as_device_facade(device)
     say = log or _log_to_logger
     sel = PERMISSION_PROMPT_SELECTORS
     answered, question = 0, ""
@@ -511,15 +512,6 @@ def allow_prompts_this_time_only(
     if still is not None:
         return OneTimeAnswer(answered, TOO_MANY_PROMPTS, _question(still))
     return OneTimeAnswer(answered, "", question)
-
-
-def _as_facade(device):
-    # Looked up on the class: a mock answering every attribute is not taken for a facade.
-    if callable(getattr(type(device), "wait_for_snapshot", None)):
-        return device
-    from .facade import BaseDeviceFacade
-
-    return BaseDeviceFacade(device)
 
 
 def _question(photo) -> str:

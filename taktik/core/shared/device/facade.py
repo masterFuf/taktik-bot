@@ -521,3 +521,16 @@ class BaseDeviceFacade:
     
     def __repr__(self) -> str:
         return f"{self._facade_name}(device={self._device!r})"
+
+
+def as_device_facade(device, facade_class=None):
+    """`device` when it already is a facade, else `device` wrapped in `facade_class`
+    (`BaseDeviceFacade` when none is named).
+
+    For the functions a workflow calls with its own device, which may be the facade or the bare
+    device behind it (a uiautomator2 device, or the clone-aware proxy a bridge mounts). Looked up
+    on the class: a mock answering every attribute is not taken for a facade.
+    """
+    if callable(getattr(type(device), "wait_for_snapshot", None)):
+        return device
+    return (facade_class or BaseDeviceFacade)(device)

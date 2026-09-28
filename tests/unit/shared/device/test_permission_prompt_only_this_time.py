@@ -241,14 +241,14 @@ def test_a_raw_device_is_wrapped_in_the_shared_facade(monkeypatch):
         def dump_hierarchy(self):
             return CREATION_SCREEN
 
-    real_facade = permissions._as_facade
+    real_facade = permissions.as_device_facade
 
-    def spy(device):
-        facade = real_facade(device)
+    def spy(device, facade_class=None):
+        facade = real_facade(device, facade_class)
         seen.append(type(facade).__name__)
         return facade
 
-    monkeypatch.setattr(permissions, "_as_facade", spy)
+    monkeypatch.setattr(permissions, "as_device_facade", spy)
     started = time.monotonic()
 
     outcome = allow_prompts_this_time_only(RawDevice(), wait_s=0.0)
