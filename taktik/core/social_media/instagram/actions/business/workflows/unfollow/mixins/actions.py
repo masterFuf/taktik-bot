@@ -109,6 +109,7 @@ class UnfollowActionsMixin:
     # never set here.
     logger: Any
     device: Any
+    detection_actions: Any
     _unfollow_selectors: Dict[str, Any]
 
     # ─── Rows of an open follow list ──────────────────────────────────────────

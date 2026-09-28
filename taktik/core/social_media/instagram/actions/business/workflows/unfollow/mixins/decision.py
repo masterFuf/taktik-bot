@@ -13,9 +13,10 @@ import time
 from typing import Any, Dict, Optional
 
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from .actions import UnfollowActionsMixin
 
 
-class UnfollowDecisionMixin:
+class UnfollowDecisionMixin(UnfollowActionsMixin):
     """Mixin: checks run on the candidate's profile, opened from its row of the following list."""
 
     # Bounded wait for the profile to open after a tap on the row (class attribute for tests).
@@ -69,8 +70,13 @@ class UnfollowDecisionMixin:
                 name_element.click()
             if not self._wait_profile_of(username):
                 return 'profile_unreadable'
-            # A profile opened to be checked: the live panel counts them.
+            # A profile opened to be checked is a visit (the live panel counts them), and a visit
+            # ends with the profile read, as in every workflow that opens a profile: the picture
+            # Target crops, by the same extractor. It closes the Agent panel's card and shows the
+            # picture in both panels. No profile data: the checks below read none.
             IPCEmitter.emit_profile_visit(username)
+            IPCEmitter.emit_profile_captured(
+                username, profile_pic_base64=self.detection_actions.extract_profile_image())
             if skip_verified and self.detection_actions.is_verified_account():
                 return 'verified'
             if skip_business and self.detection_actions.is_business_account():

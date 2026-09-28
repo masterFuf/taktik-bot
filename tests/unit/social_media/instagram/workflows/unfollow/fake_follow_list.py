@@ -289,6 +289,9 @@ def derived_row_button(xml: str, username: str, text: Optional[str]) -> str:
 class FakeDetection:
     """The detection facade, reading the fake screen: profile, list, and row state."""
 
+    # The avatar crop cuts a screenshot, which no dump carries: a marker stands for the picture.
+    AVATAR = "data:image/jpeg;base64,YXZhdGFy"
+
     def __init__(self, screen: FakeScreen, business):
         self.screen = screen
         self.business = business
@@ -311,6 +314,9 @@ class FakeDetection:
 
     def is_business_account(self):
         return False
+
+    def extract_profile_image(self, xml_content=None):
+        return self.AVATAR
 
     def get_row_follow_state(self, username):
         for row in self.business._visible_follow_rows():

@@ -354,6 +354,7 @@ class UnfollowBusiness(
                 if row is None:
                     stats['profile_refusals']['row_lost'] = stats['profile_refusals'].get('row_lost', 0) + 1
                     self.logger.info(f"⏭ @{username}: its row is no longer on screen after the profile")
+                    emit_step('unfollow_decision', action='skip', target=username, reason='row_lost')
                     continue
 
             if not self._unfollow_row(row, cfg, stats):
