@@ -414,9 +414,6 @@ STRINGS: Dict[str, List[str]] = {
         "Suggestions pour vous",
     ],
     # --- navigation ---
-    "navigation.activity_tab": [
-        "//*[contains(@content-desc, \"Activité\")]",
-    ],
     # Tabs and back arrows: Instagram's own nodes only. Every dump also holds the Android
     # navigation bar (com.android.systemui:id/back "Retour", :id/home_button "Accueil") and can
     # hold the launcher (accessibility_action_view "Accueil"): a tap there leaves Instagram.
@@ -474,9 +471,6 @@ STRINGS: Dict[str, List[str]] = {
     # --- notification ---
     "notification.activity_entry": [
         "//*[contains(@content-desc, \"Notifications\")]",
-    ],
-    "notification.activity_tab": [
-        "//*[contains(@content-desc, \"Activité\")]",
     ],
     "notification.notifications_screen_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/action_bar_title\" and @text=\"Notifications\"]",
@@ -1003,10 +997,6 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Abonné\")]",
         "//*[contains(@text, \"Suivi(e)\")]",
         "//*[@resource-id=\"com.instagram.android:id/profile_header_follow_button\" and contains(@text, \"Abonné\")]",
-    ],
-    "unfollow.following_tab": [
-        "//android.widget.Button[contains(@text, \"abonnements\")]",
-        "//*[contains(@content-desc, \"abonnements\")]",
     ],
     "unfollow.follows_back_indicators": [
         "//*[contains(@text, \"Vous suit\")]",

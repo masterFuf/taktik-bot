@@ -140,11 +140,6 @@ class UnfollowSelectors:
         '//*[@resource-id="com.instagram.android:id/follow_list_username"]'
     ])
 
-    # === Onglet following/abonnements (overlay locales/) ===
-    @property
-    def following_tab(self) -> List[str]:
-        return L("unfollow.following_tab")
-
     # === List sorting ===
     _sort_button_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/sorting_entry_row_icon"]',

@@ -8,7 +8,9 @@ class NavigationSelectors:
     """Selectors for navigation and system buttons."""
 
     # === Main navigation (lists, for fallbacks) ===
-    # Use resource-id selectors first to avoid clicking Android system buttons
+    # Use resource-id selectors first to avoid clicking Android system buttons. The home tab's
+    # `contains` names the bottom bar's `feed_tab` and nothing else on the 2 527 Instagram dumps of
+    # the corpus and the captures (no other id holds "feed_tab").
     _home_tab_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "com.instagram.android:id/feed_tab")]',
     ])
@@ -26,8 +28,11 @@ class NavigationSelectors:
     def home_tab_description_contains(self) -> List[str]:
         return L("navigation.home_tab_description_contains")
 
+    # The bottom bar's tab, by its exact id: `contains(@resource-id, ".../search_tab")` also names
+    # `search_tab_bar_layout`, the tab bar of a hashtag page (For you, Accounts, Not personalized,
+    # Audio), which hides the bottom bar; a tap in its middle opened one of its tabs.
     _search_tab_base: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, "com.instagram.android:id/search_tab")]',
+        '//*[@resource-id="com.instagram.android:id/search_tab"]',
     ])
 
     @property
@@ -42,15 +47,6 @@ class NavigationSelectors:
     @property
     def search_tab_description_contains(self) -> List[str]:
         return L("navigation.search_tab_description_contains")
-
-    reels_tab: List[str] = field(default_factory=lambda: [
-        '//*[contains(@content-desc, "Reels")]',
-        '//*[contains(@content-desc, "Shorts")]'
-    ])
-
-    @property
-    def activity_tab(self) -> List[str]:
-        return L("navigation.activity_tab")
 
     # The bottom bar's tab, by its exact id: `contains(@resource-id, "profile_tab")` also names
     # the grid tabs of a profile page (profile_tabs_container, profile_tab_layout,

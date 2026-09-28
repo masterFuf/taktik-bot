@@ -230,3 +230,28 @@ def test_from_a_followers_list_it_backs_out_then_taps_home(no_wait, locale):
     assert phone.started == []
     assert phone.taps == [(IG, f"{IG}:id/feed_tab")]
     assert phone.screen == FEED
+
+
+# A hashtag page hides the bottom bar and has a tab bar of its own, `search_tab_bar_layout` (For
+# you, Accounts, Not personalized, Audio), whose id begins like the search tab's. The search tab's
+# `contains(@resource-id, "...:id/search_tab")` named it first on the 9 hashtag pages of the
+# corpus and the captures (410 in French and in English, 447 in French): a tap in its middle opened
+# one of its tabs.
+HASHTAG_PAGES = ["ig410_fr_hashtag_page.xml", "ig410_en_hashtag_page.xml", "ig447_fr_hashtag_page.xml"]
+
+
+@pytest.mark.parametrize("name", HASHTAG_PAGES)
+@pytest.mark.parametrize("lang", [None, "fr", "en"])
+def test_the_tab_bar_of_a_hashtag_page_is_not_the_search_tab(locale, lang, name):
+    locale(lang)
+    assert _matches(_capture(FIXTURES / name), NAVIGATION_SELECTORS.search_tab) == []
+
+
+@pytest.mark.parametrize("name", HASHTAG_PAGES)
+def test_on_a_hashtag_page_the_search_tab_is_not_tapped(no_wait, locale, name):
+    locale("fr")
+    phone = _Phone(_capture(FIXTURES / name))
+    nav = NavigationActions(DeviceFacade(CloneAwareDeviceProxy(phone, IG)))
+    nav.logger = logger
+    assert nav._find_and_click(NAVIGATION_SELECTORS.search_tab, timeout=3) is False
+    assert phone.taps == []

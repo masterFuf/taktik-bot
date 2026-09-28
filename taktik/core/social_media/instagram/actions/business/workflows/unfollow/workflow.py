@@ -89,7 +89,6 @@ class UnfollowBusiness(
             'following_button': self._unfollow_sel.following_button,
             'unfollow_confirm': self._unfollow_sel.unfollow_confirm,
             'following_list_item': self._unfollow_sel.following_list_item,
-            'following_tab': self._unfollow_sel.following_tab,
             'sort_button': self._unfollow_sel.sort_button,
             'sort_option_default': self._unfollow_sel.sort_option_default,
             'sort_option_latest': self._unfollow_sel.sort_option_latest,
