@@ -8,6 +8,13 @@ the follow under the displayed label; these tests forbid its return.
 
 The device primitives are replaced; the sequencing under test — what to tap, what to
 refuse, what to hand to the pipeline — is the production one.
+
+The descent to the zone reads real activity screens (Instagram 410 in French, Pixel 4a,
+2026-09-28), anonymized: the top of the list, a screen of rows, and an older screen whose
+section header reads « Antérieures ». No capture holds the bottom of the list: on that account
+(weeks of notifications) 220 scrolls did not reach it. The screen that shows the zone, and the one
+that ends on another people section, are the older screen with its real header renamed
+(derived, said where they are built).
 """
 
 import pytest
@@ -251,21 +258,43 @@ def test_no_state_other_than_follow_is_ever_opened(state):
 # existed further down.
 # ---------------------------------------------------------------------------
 
+from pathlib import Path
+
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
+FIXTURES = Path(__file__).parents[2] / "fixtures"
+OLDER_HEADER = 'text="Antérieures" resource-id="activity_feed_header_row"'
 
-def _screen_xml(marker, with_header=False):
-    """One notifications screen; ``marker`` makes it differ from the previous one."""
-    header = ('<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
-              ' text="Suggestions" bounds="[44,1498][306,1551]"/>') if with_header else ""
-    return parse_ui_dump(
-        "<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
-        f'<node class="android.widget.TextView" text="notification {marker}"'
-        f' bounds="[253,300][893,460]"/>' + header + "</hierarchy>"
-    )
+
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
+
+
+#: Three real screens of the list, in the order a descent meets them; consecutive ones differ.
+REAL_SCREENS = [parse_ui_dump(_capture(name)) for name in (
+    "ig410_fr_notifications_top.xml",
+    "ig410_fr_notifications_rows.xml",
+    "ig410_fr_notifications_older.xml",
+)]
+
+
+def _screens(count):
+    """``count`` real screens as a descent meets them, each different from the one before."""
+    return [REAL_SCREENS[i % len(REAL_SCREENS)] for i in range(count)]
+
+
+def _older_screen_with_header(header):
+    """The real older screen, its section header renamed (derived: no capture reaches the
+    bottom of the list, where Instagram serves its people section)."""
+    xml = _capture("ig410_fr_notifications_older.xml")
+    assert xml.count(OLDER_HEADER) == 1
+    return parse_ui_dump(xml.replace(OLDER_HEADER, OLDER_HEADER.replace("Antérieures", header)))
+
+
+ZONE = _older_screen_with_header("Suggestions")
 
 
 class _Descent(_Workflow):
@@ -277,13 +306,13 @@ class _Descent(_Workflow):
         self.selectors = NOTIFICATION_SELECTORS
         self.show_more_taps = 0
 
-    def reach_suggestions_zone(self, max_scrolls=60):  # on teste la VRAIE methode
+    def reach_suggestions_zone(self, max_scrolls=60):  # the REAL method is under test
         return NotificationsEngagementWorkflow.reach_suggestions_zone(self, max_scrolls)
 
     def _dump_root(self):
         return self._screens[min(self.scrolls, len(self._screens) - 1)]
 
-    def _tap_show_more(self):  # pragma: no cover — doit rester non appele
+    def _tap_show_more(self):  # pragma: no cover — must stay uncalled
         self.show_more_taps += 1
         return True
 
@@ -295,10 +324,17 @@ def _french():
     set_active_locale(None)
 
 
+def test_a_real_section_header_that_is_not_the_zone_is_passed_by():
+    """« Antérieures » is a section header of the list, not the suggestions one."""
+    wf = _Descent([REAL_SCREENS[2], ZONE])
+
+    assert wf.reach_suggestions_zone() is True
+    assert wf.scrolls == 1
+
+
 def test_the_descent_goes_far_past_the_old_fixed_budget():
     """Thirty screens before the zone: a fixed small budget stopped halfway."""
-    screens = [_screen_xml(i) for i in range(30)] + [_screen_xml(30, with_header=True)]
-    wf = _Descent(screens)
+    wf = _Descent(_screens(30) + [ZONE])
 
     assert wf.reach_suggestions_zone() is True
     assert wf.scrolls == 30
@@ -306,8 +342,7 @@ def test_the_descent_goes_far_past_the_old_fixed_budget():
 
 def test_the_descent_stops_when_the_list_stops_moving():
     """Two identical screens mean the bottom. Insisting would change nothing."""
-    screens = [_screen_xml(0), _screen_xml(1)] + [_screen_xml(1)] * 20
-    wf = _Descent(screens)
+    wf = _Descent(_screens(2) + [REAL_SCREENS[1]] * 20)
 
     assert wf.reach_suggestions_zone() is False
     # One identical screen proves nothing, since a render in progress looks the same;
@@ -318,7 +353,7 @@ def test_the_descent_stops_when_the_list_stops_moving():
 def test_the_descent_never_taps_show_more():
     """The load-more entry loads OLDER notifications: they insert themselves between
     us and the zone, so tapping it moves us away."""
-    wf = _Descent([_screen_xml(0), _screen_xml(1), _screen_xml(1), _screen_xml(1)])
+    wf = _Descent(_screens(2) + [REAL_SCREENS[1]] * 2)
 
     wf.reach_suggestions_zone()
 
@@ -327,33 +362,21 @@ def test_the_descent_never_taps_show_more():
 
 def test_the_safety_cap_is_a_guard_rail_not_a_stop_policy():
     """When the screen still changes at the cap, say so; do not claim to be at the bottom."""
-    wf = _Descent([_screen_xml(i) for i in range(50)])
+    wf = _Descent(_screens(50))
 
     assert wf.reach_suggestions_zone(max_scrolls=5) is False
     assert wf.scrolls == 6
 
 
-def _people_section_xml(marker, header):
+def test_a_bottom_without_suggestions_is_reported_as_such_not_as_a_failure():
     """The bottom of the screen: a PEOPLE section that is not the suggestions one.
 
-    Instagram sert a cet endroit une section dont l'identite VARIE — "Suggestions"
-    one pass, another people section the next, nothing sometimes. Reading them as a
-    navigation failure would send someone looking for a bug where
-    il n'y en a pas.
+    Instagram serves there a section whose identity VARIES — "Suggestions" one pass,
+    another people section the next, nothing sometimes. Reading them as a navigation
+    failure would send someone looking for a bug where there is none.
     """
-    return parse_ui_dump(
-        "<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
-        f'<node class="android.widget.TextView" text="notification {marker}"'
-        f' bounds="[253,300][893,460]"/>'
-        f'<node class="android.widget.TextView" resource-id="activity_feed_header_row"'
-        f' text="{header}" bounds="[44,949][737,1002]"/>'
-        "</hierarchy>"
-    )
-
-
-def test_a_bottom_without_suggestions_is_reported_as_such_not_as_a_failure():
-    other = "Followers que vous ne suivez pas"
-    wf = _Descent([_people_section_xml(0, other)] + [_people_section_xml(1, other)] * 5)
+    other = _older_screen_with_header("Followers que vous ne suivez pas")
+    wf = _Descent([REAL_SCREENS[0]] + [other] * 5)
 
     assert wf.reach_suggestions_zone() is False
     assert wf.descent_outcome == "no_suggestions_offered"
@@ -361,14 +384,14 @@ def test_a_bottom_without_suggestions_is_reported_as_such_not_as_a_failure():
 
 def test_hitting_the_guard_rail_is_not_reported_as_an_absent_section():
     """The list was still moving: we do NOT know whether the zone existed further down."""
-    wf = _Descent([_screen_xml(i) for i in range(50)])
+    wf = _Descent(_screens(50))
 
     assert wf.reach_suggestions_zone(max_scrolls=5) is False
     assert wf.descent_outcome == "cap_hit"
 
 
 def test_reaching_the_zone_is_reported_as_reached():
-    wf = _Descent([_screen_xml(0), _screen_xml(1, with_header=True)])
+    wf = _Descent([REAL_SCREENS[0], ZONE])
 
     assert wf.reach_suggestions_zone() is True
     assert wf.descent_outcome == "reached"

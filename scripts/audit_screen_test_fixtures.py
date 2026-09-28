@@ -82,11 +82,16 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "account's button is tapped, which is the unfollow itself; tabs, categories and the sort "
          "button read real lists (447 FR, 410 EN and FR)."),
     "tests/unit/social_media/instagram/workflows/management/test_notifications_dump_parsing.py":
-        (7, "activity-feed and request rows written inline after 410 dumps."),
+        (2,
+         "the follow-requests screen (with and without its row containers), invented: the Pixel 4a "
+         "account is public and the 3a shows the entry but no capture opened it; capture it on a "
+         "private account with a pending request (410, French). The activity rows are real (410 "
+         "FR and EN)."),
     "tests/unit/social_media/instagram/workflows/management/test_notifications_suggestions_parsing.py":
-        (15, "suggestions zone rebuilt by a helper from a capture."),
-    "tests/unit/social_media/instagram/workflows/management/test_notifications_suggestions_visit.py":
-        (6, "notification rows and profiles as markers, invented."),
+        (14,
+         "the suggestions zone at the bottom of the activity screen, rebuilt by helpers from an "
+         "old capture: no capture reaches it (Pixel 4a, 410 FR: 220 scrolls without it); capture "
+         "it on an account with few notifications. The list above it is real."),
     "tests/unit/social_media/instagram/workflows/test_like_comment_in_thread.py":
         (1,
          "a comment WE already liked and a like control with an unknown label, written by hand: "
@@ -172,7 +177,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
 }
 
 #: The number of entries of HAND_WRITTEN: it only goes down.
-HAND_WRITTEN_CEILING = 32
+HAND_WRITTEN_CEILING = 31
 
 #: (b) A tree that is not a screen: what it computes, and why no screen is needed.
 MINIMAL_TREES: dict[str, tuple[int, str]] = {
