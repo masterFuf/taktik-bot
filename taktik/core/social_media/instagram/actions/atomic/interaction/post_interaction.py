@@ -53,9 +53,6 @@ class PostInteractionMixin(BaseAction):
     def click_save_button(self) -> bool:
         return self._click_button(self.selectors.save_button, "Save button", "🔖")
 
-    def is_post_already_liked(self) -> bool:
-        return self._is_element_present(self.selectors.like_button)
-
     def click_likes_count(self) -> bool:
         try:
             self.logger.debug("❤️ Clicking likes count")

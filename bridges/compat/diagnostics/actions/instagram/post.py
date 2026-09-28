@@ -72,7 +72,11 @@ def read_commenters(a, p):
 
 @detection_action("post.is_liked")
 def is_liked(a, p):
-    return a.click.is_post_already_liked()
+    """Is the framed post liked? The production like's own reading before it likes
+    (`LikeOrchestration._is_post_already_liked`): on a list, the heart of the framed post's row,
+    never the post above's, its row shown first when it runs under the bottom; off a list, the
+    viewer's heart. None when that heart cannot be shown."""
+    return a.like._is_post_already_liked()
 
 
 @action("post.read_stats")
