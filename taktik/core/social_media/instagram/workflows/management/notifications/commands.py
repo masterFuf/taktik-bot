@@ -537,6 +537,8 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
                     "no_recipient": "no recipient",
                     "already_dmed": "already messaged",
                     "conversation_exists": "conversation already started",
+                    "wrote_to_us": "wrote to us first: no welcome message",
+                    "guard_unavailable": "could not check the conversation: no welcome message",
                 }.get(welcome_skip, welcome_skip))
                 continue
 

@@ -10,7 +10,12 @@ visible by reading a happy path:
 - nothing is recorded under an unresolved account -- that is the case where the same
   message would be re-sent at every scan;
 - a FAILED send leaves no duplicate marker, so a retry stays possible.
+
+And one decided by the product: someone who wrote to us first is not welcomed (they get an answer
+to their message, not "Bienvenue !").
 """
+
+import sqlite3
 
 import pytest
 
@@ -197,3 +202,81 @@ def test_an_empty_message_is_refused_before_any_navigation(monkeypatch):
 
     assert result["success"] is False
     assert navigated == []
+
+
+# ---------------------------------------------------------------------------
+# Someone who already wrote to us (product decision): no welcome
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def dm_record(tmp_path, monkeypatch):
+    """A real conversation record, written by the production writers."""
+    from taktik.core.database.local.schemas.messaging import (
+        create_messaging_indexes,
+        create_messaging_tables,
+    )
+
+    path = tmp_path / "taktik.db"
+    connection = sqlite3.connect(path)
+    create_messaging_tables(connection.cursor())
+    create_messaging_indexes(connection.cursor())
+    connection.commit()
+    connection.close()
+    monkeypatch.setenv("TAKTIK_DB_PATH", str(path))
+
+    from taktik.core.database.messaging import DmConversationService
+    return DmConversationService
+
+
+def _their_message(record, partner="newbie", text="salut, j'adore ton compte"):
+    """What the Instagram DM reader records for a conversation where only they have written."""
+    record.record_conversation(platform="instagram", account_id=7, partner_username=partner,
+                               messages=[{"direction": "received", "text": text}])
+
+
+def test_someone_who_wrote_to_us_first_is_not_welcomed(dm_record):
+    """The lock used to ask only whether WE had written (`has_sent`): a follower whose message was
+    waiting for an answer read as a stranger and got the welcome."""
+    _their_message(dm_record)
+
+    assert welcome_dm.welcome_dm_skip_reason(7, "newbie") == "wrote_to_us"
+
+
+def test_a_conversation_we_are_in_is_still_refused_as_before(dm_record):
+    _their_message(dm_record)
+    dm_record.record_sent_message(platform="instagram", account_id=7, partner_username="newbie",
+                                  text="merci !")
+
+    assert welcome_dm.welcome_dm_skip_reason(7, "newbie") == "conversation_exists"
+
+
+def test_a_stranger_is_still_welcomed(dm_record):
+    _their_message(dm_record, partner="someone_else")
+
+    assert welcome_dm.welcome_dm_skip_reason(7, "newbie") is None
+
+
+def test_a_record_that_cannot_be_read_refuses_the_welcome(tmp_path, monkeypatch):
+    """A lock that cannot read answered "never contacted" and the message left: a private message
+    on a guess. It now refuses, as the TikTok welcome always did."""
+    monkeypatch.setenv("TAKTIK_DB_PATH", str(tmp_path / "missing.db"))
+
+    assert welcome_dm.welcome_dm_skip_reason(7, "newbie") == "guard_unavailable"
+
+
+def test_the_batch_leaves_out_who_wrote_to_us_and_says_why(harness, monkeypatch, dm_record):
+    _their_message(dm_record)
+    monkeypatch.setattr(commands, "welcome_dm_skip_reason", welcome_dm.welcome_dm_skip_reason)
+    steps = []
+    host = commands.NotificationsHost(connect=lambda restart: harness["bridge"], emit=steps.append)
+
+    result = commands.cmd_batch(host, [
+        {"action": "welcome_dm", "username": "newbie", "text": "Bienvenue !"},
+    ], account_username="me")
+
+    assert harness["sent"] == []
+    assert harness["recorded"] == []
+    assert result["skipped"] == 1
+    assert result["results"][0]["reason"] == "wrote_to_us"
+    assert result["results"][0]["message"] == "wrote to us first: no welcome message"
+    assert steps[-1]["message"].endswith("wrote to us first: no welcome message")

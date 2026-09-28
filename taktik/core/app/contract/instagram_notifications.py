@@ -119,8 +119,8 @@ BATCH_ENTRY = Shape(
         Field("username", "string", "The account of the row."),
         Field("success", "bool", "Done, or skipped by a guard."),
         Field("skipped", "bool", "Nothing done: a guard, or nothing to do on screen.", optional=True),
-        Field("reason", "string", "Why it was skipped: `already_done`, `daily_cap`, `already_dmed`...",
-              optional=True),
+        Field("reason", "string", "Why it was skipped: `already_done`, `daily_cap`, `already_dmed`, "
+              "`wrote_to_us`...", optional=True),
         Field("message", "string", "The same, for a person.", optional=True),
         Field("error", "string", "What went wrong.", optional=True),
         Field("stop_reason", RUN_HALT_CODE, "`action_blocked`: Instagram refuses actions.", optional=True),

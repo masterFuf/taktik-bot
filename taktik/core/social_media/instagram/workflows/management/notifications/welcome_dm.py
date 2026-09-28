@@ -18,6 +18,11 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from taktik.core.database.messaging import (
+    NOBODY_HAS_WRITTEN,
+    ONLY_THEY_HAVE_WRITTEN,
+    WE_HAVE_WRITTEN,
+)
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.cold_dm.timing import wait_before_next_cold_dm
 from taktik.core.social_media.instagram.workflows.management.notifications.follow_actor import (
@@ -25,7 +30,7 @@ from taktik.core.social_media.instagram.workflows.management.notifications.follo
 )
 from taktik.core.social_media.instagram.workflows.management.notifications.persistence import (
     dm_already_sent,
-    dm_conversation_exists,
+    dm_thread_writer,
 )
 
 WELCOME_DM_ACTION = "welcome_dm"
@@ -59,12 +64,25 @@ def order_batch_actions(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(actions, key=rank)
 
 
+#: What the thread's answer means for a welcome (`who_has_written`); None: the record could not
+#: be read, and a lock that cannot read refuses.
+_THREAD_SKIP = {
+    NOBODY_HAS_WRITTEN: None,
+    WE_HAVE_WRITTEN: "conversation_exists",
+    ONLY_THEY_HAVE_WRITTEN: "wrote_to_us",
+}
+
+
 def welcome_dm_skip_reason(account_id: Optional[int], recipient: str) -> Optional[str]:
     """Why this recipient must NOT be welcomed, or None to proceed.
 
     Ordered by cost: an unresolved account first (nothing could be recorded, so the same
     DM would be re-sent at every scan — the one case worth a hard refusal), then the two
     database reads.
+
+    Someone who wrote to us first is not welcomed (product decision): they are answered, never
+    greeted. The answer is not written by this verb (see `welcome-dm-spec.md`), so today they
+    are left out with their reason, `wrote_to_us`.
     """
     if not account_id:
         return "no_account"
@@ -72,9 +90,10 @@ def welcome_dm_skip_reason(account_id: Optional[int], recipient: str) -> Optiona
         return "no_recipient"
     if dm_already_sent(account_id, recipient):
         return "already_dmed"
-    if dm_conversation_exists(account_id, recipient):
-        return "conversation_exists"
-    return None
+    written = dm_thread_writer(account_id, recipient)
+    if written not in _THREAD_SKIP:
+        return "guard_unavailable"
+    return _THREAD_SKIP[written]
 
 
 def send_welcome_dm(device, recipient: str, message: str) -> Dict[str, Any]:

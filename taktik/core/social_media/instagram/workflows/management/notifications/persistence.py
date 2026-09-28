@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from taktik.core.database import configure_db_service, get_db_service
-from taktik.core.database.messaging import DmConversationService, SentDMService
+from taktik.core.database.messaging import DmConversationService, SentDMService, who_has_written
 from taktik.core.database.notifications import NotificationService
 from taktik.core.database.repositories.notifications import NotificationRepository
 
@@ -215,21 +215,20 @@ def dm_already_sent(account_id: int, recipient: str) -> bool:
         return False
 
 
-def dm_conversation_exists(account_id: int, recipient: str) -> bool:
-    """True when a thread with ``recipient`` already carries a message WE sent.
+def dm_thread_writer(account_id: int, recipient: str) -> Optional[str]:
+    """Who has written in our thread with ``recipient`` (`who_has_written`), or None when the
+    record cannot be read.
 
-    Welcoming someone we are already talking to reads as a bot. `sent_dms` alone misses
-    this: a conversation started from the inbox (auto-reply, manual answer) never writes
-    that marker.
+    Welcoming someone we are already talking to reads as a bot, and so does greeting someone
+    whose message is waiting for our answer. `sent_dms` alone misses both: a conversation
+    started from the inbox (their message, an auto-reply, a manual answer) never writes that
+    marker. None is not "nobody": the caller refuses rather than write on a guess.
     """
-    if not account_id or not recipient:
-        return False
     try:
-        state = DmConversationService.thread_answer_state(_PLATFORM, account_id, recipient.strip().lower())
-        return bool(state.get("has_sent"))
+        return who_has_written(_PLATFORM, account_id, [recipient])
     except Exception as exc:
         logger.warning(f"[NOTIF] DM thread check failed for @{recipient}: {exc}")
-        return False
+        return None
 
 
 def record_welcome_dm(account_id: int, recipient: str, message: str) -> None:
@@ -262,7 +261,7 @@ __all__ = [
     "build_known_checker",
     "count_actions_today",
     "dm_already_sent",
-    "dm_conversation_exists",
+    "dm_thread_writer",
     "load_actioned_hashes",
     "record_notification_action",
     "record_scan_notifications",
