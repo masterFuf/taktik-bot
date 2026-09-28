@@ -36,6 +36,8 @@ from .shell import (
 )
 from .support import ScrollSelectors, SCROLL_SELECTORS
 from .surfaces import (
+    ActivitySelectors,
+    ACTIVITY_SELECTORS,
     CommentSelectors,
     COMMENT_SELECTORS,
     ConversationSelectors,
@@ -75,6 +77,7 @@ __all__ = [
     "VideoDetailSelectors",
     "VideoSelectors",
     "InboxSelectors",
+    "ActivitySelectors",
     "ConversationSelectors",
     "CommentSelectors",
     "VideoCommentsSelectors",
@@ -107,6 +110,7 @@ __all__ = [
     "VIDEO_MEDIA_SELECTORS",
     "SEARCH_SELECTORS",
     "INBOX_SELECTORS",
+    "ACTIVITY_SELECTORS",
     "CONVERSATION_SELECTORS",
     "POPUP_SELECTORS",
     "SCROLL_SELECTORS",
