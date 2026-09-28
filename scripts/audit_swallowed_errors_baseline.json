@@ -31,7 +31,6 @@
   "taktik/core/app/config/runtime/api_endpoints.py": 2,
   "taktik/core/app/email/gmail/workflows/_otp_reading.py": 2,
   "taktik/core/app/email/gmail/workflows/account.py": 20,
-  "taktik/core/app/security/protection/runtime.py": 1,
   "taktik/core/compat/selectors/tracer.py": 2,
   "taktik/core/database/local/service.py": 1,
   "taktik/core/database/repositories/instagram/scraping/scraped_profile_repository.py": 1,
