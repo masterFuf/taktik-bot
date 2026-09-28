@@ -14,11 +14,11 @@ from instagram_rig import DEVICE_ID, INSTAGRAM, feed_payload
 
 
 @pytest.fixture
-def cli_main(ig_rig, monkeypatch):
-    from taktik.cli import main
+def cli_automation(ig_rig, monkeypatch):
+    from taktik.cli.commands.instagram import automation
 
-    monkeypatch.setattr(main, "DeviceManager", lambda *a, **k: ig_rig.device_manager)
-    return main
+    monkeypatch.setattr(automation, "DeviceManager", lambda *a, **k: ig_rig.device_manager)
+    return automation
 
 
 def _write(tmp_path, payload) -> str:
@@ -27,9 +27,9 @@ def _write(tmp_path, payload) -> str:
     return str(path)
 
 
-def test_a_page_file_runs_through_the_launcher(ig_rig, cli_main, tmp_path):
+def test_a_page_file_runs_through_the_launcher(ig_rig, cli_automation, tmp_path):
     result = CliRunner().invoke(
-        cli_main.workflow_instagram, ["--device-id", DEVICE_ID, "--config", _write(tmp_path, feed_payload())]
+        cli_automation.workflow_instagram, ["--device-id", DEVICE_ID, "--config", _write(tmp_path, feed_payload())]
     )
 
     assert result.exit_code == 0, result.output
@@ -39,11 +39,11 @@ def test_a_page_file_runs_through_the_launcher(ig_rig, cli_main, tmp_path):
     assert ig_rig.built_config["session_settings"]["warmup_policy"]["max_actions_per_day"] == 40
 
 
-def test_a_file_in_the_internal_format_is_refused(ig_rig, cli_main, tmp_path):
+def test_a_file_in_the_internal_format_is_refused(ig_rig, cli_automation, tmp_path):
     internal = {"session_settings": {"total_profiles_limit": 5}, "actions": [{"type": "feed"}]}
 
     result = CliRunner().invoke(
-        cli_main.workflow_instagram, ["--device-id", DEVICE_ID, "--config", _write(tmp_path, internal)]
+        cli_automation.workflow_instagram, ["--device-id", DEVICE_ID, "--config", _write(tmp_path, internal)]
     )
 
     assert result.exit_code == 1, result.output

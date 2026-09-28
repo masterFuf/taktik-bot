@@ -12,7 +12,7 @@ import re
 
 from rich.console import Console
 
-from taktik.cli import main
+from taktik.cli.support import banner
 
 _CORE_ROOT = pathlib.Path(__file__).resolve().parents[3]
 _INVITE = re.compile(r"discord\.(?:com/invite|gg)/([A-Za-z0-9]+)")
@@ -35,16 +35,16 @@ def _banner_markup(monkeypatch) -> str:
     import taktik.cli.support.version_checker as version_checker
 
     monkeypatch.setattr(version_checker, "VersionChecker", _NoUpdate)
-    monkeypatch.setattr(main, "console", Console(file=io.StringIO(), width=200))
+    monkeypatch.setattr(banner, "console", Console(file=io.StringIO(), width=200))
     shown = []
-    real_fit = main.Panel.fit
+    real_fit = banner.Panel.fit
 
     def _fit(renderable, *args, **kwargs):
         shown.append(renderable)
         return real_fit(renderable, *args, **kwargs)
 
-    monkeypatch.setattr(main.Panel, "fit", _fit)
-    main.display_banner()
+    monkeypatch.setattr(banner.Panel, "fit", _fit)
+    banner.display_banner()
     assert len(shown) == 1
     return shown[0]
 

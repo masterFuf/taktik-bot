@@ -13,12 +13,13 @@ import pytest
 from click.testing import CliRunner
 
 from taktik.cli import main
+from taktik.cli.support import database as cli_database
 
 
 @pytest.fixture
 def opened(monkeypatch, tmp_path):
     path = str(tmp_path / "throwaway.db")
-    monkeypatch.setattr(main, "configure_db_service",
+    monkeypatch.setattr(cli_database, "configure_db_service",
                         lambda: SimpleNamespace(local_db=SimpleNamespace(db_path=path)))
     return path
 

@@ -96,7 +96,7 @@ def test_the_interactive_menu_builds_no_engine_of_its_own():
     inputs = workflow_launchers.collect_inputs()
     launchers = workflow_launchers.launcher_functions(inputs.launcher_trees)
     engines = workflow_launchers.engine_names(inputs.launcher_trees, launchers)
-    tree = ast.parse((CORE / "taktik" / "cli" / "main.py").read_text(encoding="utf-8"))
+    tree = ast.parse((CORE / "taktik" / "cli" / "menus" / "main_menu.py").read_text(encoding="utf-8"))
 
     built = {name for name, _line in workflow_launchers.engine_calls(tree, engines, launchers)}
 
