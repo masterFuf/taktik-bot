@@ -5,11 +5,15 @@ a dead process and an exit code, never a cause. These tests pin the event it emi
 """
 
 import json
+import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 from bridges.common.runtime import crash_hooks
+
+CORE = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture
@@ -92,3 +96,20 @@ def test_ipc_failure_never_raises(monkeypatch):
 
     # A closed stdout must not turn a reportable crash into a second, unreportable one.
     crash_hooks.report_unhandled(exc_type, exc_value, exc_tb)
+
+
+def test_importing_the_hooks_loads_nothing_of_the_product():
+    # The launcher imports the hooks before the bridge, so that an import error of the bridge is
+    # reported. What importing the hooks loads on the way (the package inits on their path) fails
+    # before they exist: it must not reach the engine nor the device stack.
+    probe = (
+        "import json, sys\n"
+        f"sys.path.insert(0, {str(CORE)!r})\n"
+        "from bridges.common.runtime.crash_hooks import install_crash_hooks\n"
+        "print(json.dumps(sorted(sys.modules)))\n"
+    )
+    result = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
+    loaded = json.loads(result.stdout.strip().splitlines()[-1])
+
+    product = [name for name in loaded if name.split(".")[0] in {"taktik", "uiautomator2", "adbutils", "requests", "PIL"}]
+    assert product == []
