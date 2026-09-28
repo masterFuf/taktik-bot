@@ -30,7 +30,7 @@ module. Une variable partagée aurait fait passer la langue d'une application à
 from __future__ import annotations
 
 from dataclasses import is_dataclass
-from typing import Any, Callable, Iterable, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 from loguru import logger
 
@@ -43,6 +43,16 @@ log = logger.bind(module="shared.ui.language")
 #: point à bas niveau ne suffit pas à trancher.
 DEFAULT_MIN_SCORE = 3.0
 DEFAULT_MIN_RATIO = 2.0
+
+#: The detection of each platform, by platform in lower case ("instagram"): one instance each.
+_detections: Dict[str, "LanguageDetection"] = {}
+
+
+def detected_language(platform: str) -> Optional[str]:
+    """The language the detection of `platform` found in this process, or None when it has not
+    run (or `platform` has no detection)."""
+    detection = _detections.get(platform.lower())
+    return detection.get_detected_language() if detection else None
 
 
 class LanguageDetection:
@@ -66,6 +76,7 @@ class LanguageDetection:
         self._en_patterns = engine.compile_vocabulary(en_words)
         # Par INSTANCE, jamais par module : voir l'en-tête.
         self._detected_lang: Optional[str] = None
+        _detections[platform.lower()] = self
 
     # ── État ──────────────────────────────────────────────────────────────────
 
@@ -211,4 +222,4 @@ class LanguageDetection:
         return out
 
 
-__all__ = ["LanguageDetection", "DEFAULT_MIN_SCORE", "DEFAULT_MIN_RATIO"]
+__all__ = ["LanguageDetection", "DEFAULT_MIN_SCORE", "DEFAULT_MIN_RATIO", "detected_language"]

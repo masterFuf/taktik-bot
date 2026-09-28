@@ -6,10 +6,13 @@ version reader to apply selector version overrides without importing a desktop
 bridge adapter. `bridges/common/device/app_inspection.py` re-exports for compat.
 """
 
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from loguru import logger
 from taktik.core.shared.device.adb import run_adb_shell_process
+
+#: The version of each platform's app this process last read on its phone, by platform ("instagram").
+_versions_read: Dict[str, str] = {}
 
 
 def foreground_package(device: Any) -> Optional[str]:
@@ -87,6 +90,12 @@ def is_package_installed(device_id: str, package_name: str) -> bool:
         return False
 
 
+def app_version_read(platform: str) -> str:
+    """The version of `platform`'s app this process last read (`get_installed_app_version`, which
+    every connection goes through), or "" when it read none: unknown, never a guessed version."""
+    return _versions_read.get(platform.lower(), "")
+
+
 def get_installed_app_version(device_id: str, package_name: str, platform: str) -> Optional[str]:
     """Detect the installed app version via ADB dumpsys.
 
@@ -108,6 +117,7 @@ def get_installed_app_version(device_id: str, package_name: str, platform: str) 
             if line.startswith("versionName="):
                 version = line.split("=", 1)[1].strip()
                 logger.info(f"[AppService] {platform} installed version: {version}")
+                _versions_read[platform.lower()] = version
                 return version
         logger.warning(f"[AppService] versionName not found in dumpsys output for {package_name}")
         return None
