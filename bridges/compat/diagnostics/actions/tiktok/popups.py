@@ -2,14 +2,12 @@
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.tiktok import action
+from bridges.compat.diagnostics.actions.tiktok import action, detection_action
 
 
-@action("tt.popups.has_popup")
+@detection_action("tt.popups.has_popup")
 def has_popup(a, p):
-    result = a.popup_detector.has_popup()
-    logger.info(f"Has popup: {result}")
-    return result
+    return a.popup_detector.has_popup()
 
 
 @action("tt.popups.close_popup")
@@ -57,18 +55,14 @@ def dismiss_update_prompt(a, p):
     return a.popup.dismiss_update_prompt(region)
 
 
-@action("tt.popups.has_collections")
+@detection_action("tt.popups.has_collections")
 def has_collections(a, p):
-    result = a.popup_detector.has_collections_popup()
-    logger.info(f"Has collections popup: {result}")
-    return result
+    return a.popup_detector.has_collections_popup()
 
 
-@action("tt.popups.has_comments")
+@detection_action("tt.popups.has_comments")
 def has_comments(a, p):
-    result = a.popup_detector.has_comments_section_open()
-    logger.info(f"Has comments open: {result}")
-    return result
+    return a.popup_detector.has_comments_section_open()
 
 
 @action("tt.popups.click_follow_back")

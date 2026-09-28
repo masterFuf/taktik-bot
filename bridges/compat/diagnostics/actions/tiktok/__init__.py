@@ -3,9 +3,12 @@
 from bridges.compat.diagnostics.runtime.registry.actions import ActionRegistry
 
 
-_registry = ActionRegistry()
+_registry = ActionRegistry(platform="tiktok")
 ACTION_REGISTRY = _registry.actions
 action = _registry.action
+#: A yes/no question of the screen: the Lab reports its answer, yes or no (`detection_answer`).
+detection_action = _registry.detection
+DETECTIONS = _registry.detections
 
 
 def register_actions() -> None:
@@ -31,5 +34,5 @@ def register_actions() -> None:
     action("app.capture_surface")(_capture)
 
 
-__all__ = ["ACTION_REGISTRY", "action", "register_actions"]
+__all__ = ["ACTION_REGISTRY", "DETECTIONS", "action", "detection_action", "register_actions"]
 

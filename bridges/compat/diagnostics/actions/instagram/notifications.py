@@ -20,7 +20,7 @@ from bridges.compat.diagnostics.runtime.action_test.action_bundle import (
     resolve_lab_account_id,
 )
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS as N
 
 
@@ -77,13 +77,6 @@ def lab_suggestion_session(p, source):
         yield session_id
 
 
-def _detected(label, found):
-    """Detection result dict for a screen described by a prod predicate."""
-    logger.info(f"{label}: {'found' if found else 'not found'}")
-    return {"success": True, "found": found,
-            "message": f"{label}: {'found' if found else 'not found'}"}
-
-
 def _tap_first(a, selectors, label):
     """Tap the FIRST element matching any selector, through the production finder.
 
@@ -120,17 +113,16 @@ def go_notifications(a, p):
 # Detection  (prod: _on_notifications_screen / _on_follow_requests_screen)
 # =============================================================================
 
-@action("notifications.is_open")
+@detection_action("notifications.is_open")
 def is_open(a, p):
     """Is the notifications screen shown? (prod ``_on_notifications_screen``)."""
-    return _detected("notifications.is_open", _workflow(a)._on_notifications_screen())
+    return _workflow(a)._on_notifications_screen()
 
 
-@action("notifications.is_follow_requests_open")
+@detection_action("notifications.is_follow_requests_open")
 def is_follow_requests_open(a, p):
     """Is the follow-requests sub-screen shown? (prod ``_on_follow_requests_screen``)."""
-    return _detected("notifications.is_follow_requests_open",
-                     _workflow(a)._on_follow_requests_screen())
+    return _workflow(a)._on_follow_requests_screen()
 
 
 # =============================================================================

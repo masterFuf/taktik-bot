@@ -2,7 +2,7 @@
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
 @action("post.like")
@@ -62,11 +62,9 @@ def read_commenters(a, p):
     }
 
 
-@action("post.is_liked")
+@detection_action("post.is_liked")
 def is_liked(a, p):
-    result = a.click.is_post_already_liked()
-    logger.info(f"Post liked: {result}")
-    return result
+    return a.click.is_post_already_liked()
 
 
 @action("post.read_stats")

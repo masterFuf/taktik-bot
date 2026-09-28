@@ -13,7 +13,7 @@ exact path the workflows run. No hardcoded selectors here.
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
 @action("engagement.like_current_post")
@@ -217,8 +217,7 @@ def engage_likers(a, p):
     return {"success": bool(count), "message": f"{count} liker(s) engaged", "details": {"interactions": count}}
 
 
-@action("engagement.has_likes")
+@detection_action("engagement.has_likes")
 def has_likes(a, p):
     """Detection: does the OPEN post have likes (gate before opening the likers popup)?"""
-    v = _ui_helpers(a).has_likes_on_current_post()
-    return {"success": True, "found": bool(v), "message": f"has_likes={bool(v)}"}
+    return _ui_helpers(a).has_likes_on_current_post()

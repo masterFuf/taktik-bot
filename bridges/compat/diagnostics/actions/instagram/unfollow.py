@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.actions.instagram import action, detection_action
 
 
 def unfollow_config_from_params(p):
@@ -120,10 +120,10 @@ def plan(a, p):
             "details": {"candidates": selection.candidates[:100], "refusals": selection.refusals}}
 
 
-@action("detection.is_action_blocked")
+@detection_action("detection.is_action_blocked")
 def is_action_blocked(a, p):
     """Is Instagram showing its "Try again later" dialog now? Reads only (production
-    `is_action_blocked`, the check that stops the unfollow and the followers workflow)."""
+    `is_action_blocked`, the check that stops the unfollow and the followers workflow). No
+    detector on the navigation: no answer, never "not blocked"."""
     detector = getattr(a.unfollow.nav_actions, "problematic_page_detector", None)
-    blocked = bool(detector and detector.is_action_blocked())
-    return {"success": True, "message": f"blocked={blocked}", "details": {"blocked": blocked}}
+    return detector.is_action_blocked() if detector else None

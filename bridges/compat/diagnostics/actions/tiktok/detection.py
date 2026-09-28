@@ -2,7 +2,7 @@
 
 from loguru import logger
 
-from bridges.compat.diagnostics.actions.tiktok import action
+from bridges.compat.diagnostics.actions.tiktok import action, detection_action
 
 
 @action("tt.detection.read_screen")
@@ -17,55 +17,41 @@ def read_screen(a, p):
     return {"success": screen.recognised, "message": screen.kind, "details": details}
 
 
-@action("tt.detection.is_action_blocked")
+@detection_action("tt.detection.is_action_blocked")
 def is_action_blocked(a, p):
     """Is TikTok refusing the account's actions now? Reads only (production
     `DetectionActions.is_action_blocked`, the look every TikTok writing path makes)."""
-    blocked = bool(a.detection.is_action_blocked())
-    logger.info(f"Action blocked: {blocked}")
-    return {"success": True, "message": f"blocked={blocked}", "details": {"blocked": blocked}}
+    return a.detection.is_action_blocked()
 
 
-@action("tt.detection.is_for_you")
+@detection_action("tt.detection.is_for_you")
 def is_for_you(a, p):
-    result = a.detection.is_on_for_you_page()
-    logger.info(f"For You page: {result}")
-    return result
+    return a.detection.is_on_for_you_page()
 
 
-@action("tt.detection.is_inbox")
+@detection_action("tt.detection.is_inbox")
 def is_inbox(a, p):
-    result = a.detection.is_on_inbox_page()
-    logger.info(f"Inbox page: {result}")
-    return result
+    return a.detection.is_on_inbox_page()
 
 
-@action("tt.detection.is_ad")
+@detection_action("tt.detection.is_ad")
 def is_ad(a, p):
-    result = a.video_detector.is_ad_video()
-    logger.info(f"Is ad: {result}")
-    return result
+    return a.video_detector.is_ad_video()
 
 
-@action("tt.detection.is_live_preview")
+@detection_action("tt.detection.is_live_preview")
 def is_live_preview(a, p):
-    result = a.video_detector.is_live_preview()
-    logger.info(f"Is a LIVE preview: {result}")
-    return result
+    return a.video_detector.is_live_preview()
 
 
-@action("tt.detection.is_liked")
+@detection_action("tt.detection.is_liked")
 def is_liked(a, p):
-    result = a.video_detector.is_video_liked()
-    logger.info(f"Video liked: {result}")
-    return result
+    return a.video_detector.is_video_liked()
 
 
-@action("tt.detection.is_followed")
+@detection_action("tt.detection.is_followed")
 def is_followed(a, p):
-    result = a.video_detector.is_user_followed()
-    logger.info(f"User followed: {result}")
-    return result
+    return a.video_detector.is_user_followed()
 
 
 @action("tt.detection.get_video_info")
