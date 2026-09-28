@@ -326,22 +326,22 @@ def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
 # =============================================================================
 
 def is_discover_people_screen(root, selectors) -> bool:
-    """Surface proof: at least one recommendation row WITH its button.
+    """Surface proof: at least one recommendation row WITH its button, outside a follow list.
 
     Deliberately structural rather than textual: the action-bar title is
     language-dependent, and the list stays recognisable once scrolled, when the
-    titre a disparu du dump.
+    title is gone from the dump. The suggestions tail Instagram appends to a followers or
+    following list renders the very same rows, so a row inside the follow list's pager proves
+    that list, not this screen.
     """
     if root is None:
         return False
-    has_row = False
-    has_button = False
     for node in iter_widgets(root):
-        if _has_id(node, selectors.row_container_id):
-            has_row = True
-        elif _has_id(node, selectors.row_follow_button_id):
-            has_button = True
-        if has_row and has_button:
+        if not _has_id(node, selectors.row_container_id):
+            continue
+        if any(_has_id(ancestor, selectors.follow_list_pager_id) for ancestor in node.iterancestors()):
+            continue
+        if _find_descendant(node, selectors.row_follow_button_id) is not None:
             return True
     return False
 

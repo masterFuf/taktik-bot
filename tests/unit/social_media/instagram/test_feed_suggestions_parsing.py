@@ -1,28 +1,32 @@
-"""Parsing of the account suggestions (feed carousel and discovery screen).
+"""Parsing of the account suggestions (feed carousel and discovery screen), on real screens.
 
-The dumps below are ANONYMISED extracts of a real capture
-(Instagram v410.0.0.53.71): the structure, the
-resource-ids and the button labels are the device ones, the account names
-ont ete remplaces.
+The screens are real captures, anonymized:
+
+- Instagram 410 in French (Pixel 4a, 2026-09-28): the feed carousel « Suggestions pour vous »
+  and the « Contacts à découvrir » screen opened by its « Voir tout »;
+- Instagram 410 in English (Pixel 3a): the framed feed carousel and « Discover people »;
+- Instagram 410 in French (Pixel 3, 2026-09-24): the end of a following list, where Instagram
+  appends a « Suggestions » tail, and the search screen with its « Récent · Voir tout » row;
+- Instagram 447 in French (Pixel 6a): the feed carousel rebuilt without a resource-id (first
+  seen on 442, 2026-08-26).
 
 What is locked here:
 - the carousel CTA is read with its bounds, being the entry point of the mode;
 - a follow-back row is NEVER offered to the follow, since follow-back belongs
-    to the notifications workflow;
-- an already-followed or requested row is not tapped again;
+  to the notifications workflow;
+- an already-followed row is not tapped again;
 - the section a row belongs to is resolved by vertical position;
 - the call-to-action rows are not taken for suggestions.
-  
+
+No capture holds a « Requested » row (it needs a follow request sent) nor the other French verb
+family (« S'abonner ») on a list: those labels are tested on their own, as labels.
 """
+
+from pathlib import Path
 
 import pytest
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
-
-from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import (
-    FEED_SUGGESTIONS_SELECTORS,
-)
-
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
     classify_follow_state,
 )
@@ -39,143 +43,145 @@ from taktik.core.social_media.instagram.ui.selectors import (
     FEED_SUGGESTIONS_SELECTORS,
     PROFILE_SELECTORS,
 )
+from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
-IG = "com.instagram.android:id"
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
-FEED_CAROUSEL_DUMP = f"""<?xml version='1.0' encoding='UTF-8'?>
-<hierarchy>
-  <node resource-id="{IG}/netego_carousel_container_view" bounds="[0,1150][1080,1967]">
-    <node resource-id="{IG}/netego_carousel_header" bounds="[0,1150][1080,1260]">
-      <node resource-id="{IG}/netego_carousel_title" text="Suggested for you" bounds="[39,1172][381,1222]"/>
-      <node resource-id="{IG}/netego_carousel_cta" text="See all" bounds="[880,1172][1036,1222]"/>
-    </node>
-    <node resource-id="{IG}/netego_carousel_view" bounds="[0,1260][1080,1967]">
-      <node resource-id="{IG}/suggested_entity_card_container" bounds="[39,1260][657,1967]">
-        <node resource-id="{IG}/suggested_entity_card_name" text="Account One" bounds="[227,1734][469,1780]"/>
-        <node resource-id="{IG}/suggested_entity_card_context" text="1 mutual" bounds="[325,1799][453,1838]"/>
-        <node resource-id="{IG}/suggested_user_card_follow_button" text="Follow"
-              content-desc="Follow Account One" bounds="[72,1887][624,1967]"/>
-      </node>
-      <node resource-id="{IG}/suggested_entity_card_container" bounds="[690,1260][1080,1967]">
-        <node resource-id="{IG}/suggested_entity_card_name" text="Account Two" bounds="[834,1734][1080,1780]"/>
-        <node resource-id="{IG}/suggested_user_card_follow_button" text="Follow"
-              content-desc="Follow Account Two" bounds="[723,1887][1080,1967]"/>
-      </node>
-    </node>
-  </node>
-</hierarchy>
-"""
+def _root(name):
+    return parse_ui_dump(_capture(name))
 
 
-def _row(top, name, button_text, context="1 mutual"):
-    """A recommendation row as it is rendered, with the button inside the subtree."""
-    bottom = top + 220
-    return f"""
-      <node resource-id="{IG}/recommended_user_row_content_identifier" bounds="[0,{top}][1080,{bottom}]">
-        <node resource-id="{IG}/row_recommended_user_username" text="{name}"
-              bounds="[231,{top + 52}][620,{top + 102}]"/>
-        <node resource-id="{IG}/row_recommended_social_context" text="{context}"
-              bounds="[297,{top + 119}][425,{top + 161}]"/>
-        <node resource-id="{IG}/row_recommended_user_follow_button" text="{button_text}"
-              content-desc="{button_text}" bounds="[653,{top + 66}][959,{top + 154}]"/>
-        <node resource-id="{IG}/row_recommended_hide_icon_button" content-desc="Dismiss"
-              bounds="[1003,{top + 93}][1036,{top + 126}]"/>
-      </node>"""
-
-
-DISCOVER_DUMP = f"""<?xml version='1.0' encoding='UTF-8'?>
-<hierarchy>
-  <node resource-id="{IG}/action_bar_title" text="Discover people" bounds="[198,121][619,186]"/>
-  <node resource-id="{IG}/recycler_view" bounds="[0,231][1080,2088]">
-    <node resource-id="{IG}/contacts_button" bounds="[0,440][1080,638]">
-      <node resource-id="{IG}/find_people_title" text="Connect contacts" bounds="[231,490][554,539]"/>
-      <node resource-id="{IG}/find_people_action_button" text="Connect" bounds="[790,495][1036,583]"/>
-    </node>
-    <node resource-id="{IG}/row_header_textview" text="Suggested for you" bounds="[0,683][1080,815]"/>
-    {_row(815, "Known Follower", "Follow back")}
-    {_row(1035, "Fresh Account", "Follow")}
-    {_row(1255, "Pending Account", "Requested")}
-    <node resource-id="{IG}/row_header_textview" text="More suggestions" bounds="[0,1475][1080,1607]"/>
-    {_row(1607, "Second Fresh", "Follow", context="Suggested for you")}
-    {_row(1827, "Already Followed", "Following")}
-  </node>
-</hierarchy>
-"""
-
-
-def _root(xml):
-    return parse_ui_dump(xml)
+@pytest.fixture
+def app_language():
+    yield set_active_locale
+    set_active_locale(None)
 
 
 # --- feed carousel -----------------------------------------------------------
 
-def test_carousel_exposes_its_cta_and_cards():
-    carousel = parse_feed_suggestions_carousel(_root(FEED_CAROUSEL_DUMP),
-                                               FEED_SUGGESTIONS_SELECTORS)
+CAROUSELS = {
+    "fr": ("ig410_fr_feed_suggestions_carousel.xml", "Suggestions pour vous", (498, 306, 660, 356),
+           [("name_8 and name_9 and name_10", "Suivre", (72, 1021, 624, 1109)),
+            ("name_11 name_12", "Suivre", (723, 1021, 1080, 1109))]),
+    "en": ("ig410_en_feed_carousel_framed.xml", "Suggested for you", (880, 787, 1036, 837),
+           [("Mara Quill", "Follow", (72, 1502, 624, 1590)),
+            ("Teo Varnish", "Follow", (723, 1502, 1080, 1590))]),
+}
+
+
+@pytest.mark.parametrize("language", ["fr", "en"])
+def test_carousel_exposes_its_cta_and_cards(app_language, language):
+    name, title, cta, cards = CAROUSELS[language]
+    app_language(language)
+    carousel = parse_feed_suggestions_carousel(_root(name), FEED_SUGGESTIONS_SELECTORS)
     assert carousel["present"] is True
-    assert carousel["title"] == "Suggested for you"
+    assert carousel["title"] == title
     # The CTA is tapped on its real bounds, never on a hardcoded coordinate.
-    assert carousel["cta_bounds"] == (880, 1172, 1036, 1222)
-    assert [card["name"] for card in carousel["cards"]] == ["Account One", "Account Two"]
-    assert all(card["follow_bounds"] for card in carousel["cards"])
+    assert carousel["cta_bounds"] == cta
+    assert [(c["name"], c["state_label"], c["follow_bounds"]) for c in carousel["cards"]] == cards
 
 
 def test_carousel_absent_from_a_plain_feed_dump():
-    carousel = parse_feed_suggestions_carousel(
-        _root(f"<hierarchy><node resource-id='{IG}/row_feed_button_like'/></hierarchy>"),
-        FEED_SUGGESTIONS_SELECTORS,
-    )
+    carousel = parse_feed_suggestions_carousel(_root("ig410_fr_home_feed.xml"), FEED_SUGGESTIONS_SELECTORS)
     assert carousel["present"] is False
     assert carousel["cta_bounds"] is None
 
 
 # --- people discovery screen -------------------------------------------------
 
-def test_discover_screen_is_recognised_structurally():
-    assert is_discover_people_screen(_root(DISCOVER_DUMP), DISCOVER_PEOPLE_SELECTORS) is True
-    assert read_screen_title(_root(DISCOVER_DUMP)) == "Discover people"
+DISCOVER = {"fr": ("ig410_fr_discover_people.xml", "Contacts à découvrir"),
+            "en": ("ig410_en_discover_people.xml", "Discover people")}
 
 
-def test_a_username_alone_is_not_the_discover_screen():
-    """An isolated recommended-user row, in the tail of a followers list, must not be
-    taken for the suggestions screen."""
-    xml = f"<hierarchy><node resource-id='{IG}/row_recommended_user_username' text='X'/></hierarchy>"
-    assert is_discover_people_screen(_root(xml), DISCOVER_PEOPLE_SELECTORS) is False
+@pytest.mark.parametrize("language", ["fr", "en"])
+def test_discover_screen_is_recognised_structurally(app_language, language):
+    name, title = DISCOVER[language]
+    app_language(language)
+    assert is_discover_people_screen(_root(name), DISCOVER_PEOPLE_SELECTORS) is True
+    assert read_screen_title(_root(name)) == title
 
 
-def test_rows_are_read_with_their_state_and_section():
-    rows = parse_suggestion_rows(_root(DISCOVER_DUMP), DISCOVER_PEOPLE_SELECTORS,
+def test_a_screen_without_recommendation_rows_is_not_the_discover_screen():
+    """The feed carousel holds suggestion cards, not recommendation rows."""
+    root = _root("ig410_fr_feed_suggestions_carousel.xml")
+    assert is_discover_people_screen(root, DISCOVER_PEOPLE_SELECTORS) is False
+
+
+def test_the_suggestions_tail_of_a_following_list_is_not_the_discover_screen():
+    """Instagram appends suggestion rows, container and button included, at the end of a
+    following list. The surface proof used to be « a row container with its button », which it
+    assumed only the discovery screen shows: the real tail proved it wrong."""
+    root = _root("ig410_fr_following_list_suggestions_tail.xml")
+    assert parse_suggestion_rows(root, DISCOVER_PEOPLE_SELECTORS, PROFILE_SELECTORS,
+                                 classify_follow_state)
+    assert is_discover_people_screen(root, DISCOVER_PEOPLE_SELECTORS) is False
+
+
+ROWS = {
+    "fr": [
+        ("name_6 name_7 name_8 boutique", "follow", "Suggestions pour vous"),
+        ("name_9 name_10", "follow", "Suggestions pour vous"),
+        ("name_11 J name_12", "follow", "Suggestions pour vous"),
+        ("user_1", "follow", "Suggestions pour vous"),
+        ("name_13 name_14", "follow", "Suggestions pour vous"),
+        ("user_2", "follow_back", "Suivre en retour"),
+    ],
+    "en": [
+        ("name_2 name_3", "follow_back", "Suggested for you"),
+        ("..", "following", "Suggested for you"),
+        ("3 name_4 name_5", "follow_back", "Suggested for you"),
+        ("name_7 name_8", "follow_back", "Suggested for you"),
+        ("name_9 name_10", "following", "Suggested for you"),
+    ],
+}
+
+
+def _rows(language):
+    set_active_locale(language)
+    return parse_suggestion_rows(_root(DISCOVER[language][0]), DISCOVER_PEOPLE_SELECTORS,
                                  PROFILE_SELECTORS, classify_follow_state)
-    labels = [(row["label"], row["state"], row["section"]) for row in rows]
-    assert labels == [
-        ("Known Follower", "follow_back", "Suggested for you"),
-        ("Fresh Account", "follow", "Suggested for you"),
-        ("Pending Account", "requested", "Suggested for you"),
-        ("Second Fresh", "follow", "More suggestions"),
-        ("Already Followed", "following", "More suggestions"),
-    ]
 
 
-def test_connect_rows_are_not_suggestions():
-    rows = parse_suggestion_rows(_root(DISCOVER_DUMP), DISCOVER_PEOPLE_SELECTORS,
-                                 PROFILE_SELECTORS, classify_follow_state)
-    assert all("Connect" not in (row["label"] or "") for row in rows)
+@pytest.mark.parametrize("language", ["fr", "en"])
+def test_rows_are_read_with_their_state_and_section(app_language, language):
+    rows = _rows(language)
+    assert [(row["label"], row["state"], row["section"]) for row in rows] == ROWS[language]
 
 
-def test_only_plain_follow_rows_are_followable():
-    """Business rule: no follow-back, no pending request, no already-followed."""
-    rows = parse_suggestion_rows(_root(DISCOVER_DUMP), DISCOVER_PEOPLE_SELECTORS,
-                                 PROFILE_SELECTORS, classify_follow_state)
-    targets = followable_rows(rows)
-    assert [row["label"] for row in targets] == ["Fresh Account", "Second Fresh"]
+def test_connect_rows_are_not_suggestions(app_language):
+    """The « Se connecter à Facebook » and « Importer vos contacts » rows head the French
+    screen, each with its own button."""
+    xml = _capture(DISCOVER["fr"][0])
+    assert "Se connecter à Facebook" in xml and "Importer vos contacts" in xml
+    labels = [row["label"] for row in _rows("fr")]
+    assert not any("Facebook" in label or "contacts" in label for label in labels)
+
+
+@pytest.mark.parametrize("language, followable", [
+    ("fr", ["name_6 name_7 name_8 boutique", "name_9 name_10", "name_11 J name_12", "user_1",
+            "name_13 name_14"]),
+    ("en", []),
+])
+def test_only_plain_follow_rows_are_followable(app_language, language, followable):
+    """Business rule: no follow-back, no already-followed. The French screen mixes follow rows
+    and a follow-back one; the English screen holds only follow-back and following rows."""
+    targets = followable_rows(_rows(language))
+    assert [row["label"] for row in targets] == followable
     assert all(row["follow_bounds"] for row in targets)
 
 
-def test_section_headers_are_ordered_top_down():
-    headers = parse_section_headers(_root(DISCOVER_DUMP), DISCOVER_PEOPLE_SELECTORS)
-    assert [header["label"] for header in headers] == ["Suggested for you", "More suggestions"]
+@pytest.mark.parametrize("language, headers", [
+    ("fr", ["Suggestions pour vous", "Suivre en retour"]),
+    ("en", ["Suggested for you", "Follow requests"]),
+])
+def test_section_headers_are_ordered_top_down(language, headers):
+    found = parse_section_headers(_root(DISCOVER[language][0]), DISCOVER_PEOPLE_SELECTORS)
+    assert [header["label"] for header in found] == headers
 
 
 @pytest.mark.parametrize("root", [None])
@@ -196,191 +202,116 @@ def test_french_follow_labels_are_classified():
 
     The apostrophe matters as much as the word: the app renders a TYPOGRAPHIC one while
     the catalogs are typed with the ASCII one."""
-    from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-
     set_active_locale('fr')
     try:
         assert classify_follow_state("Suivre", PROFILE_SELECTORS) == 'follow'
         assert classify_follow_state("S'abonner", PROFILE_SELECTORS) == 'follow'
-        assert classify_follow_state("S\u2019abonner", PROFILE_SELECTORS) == 'follow'
+        assert classify_follow_state("S’abonner", PROFILE_SELECTORS) == 'follow'
         # The order still matters: the follow-back label contains the follow one.
         assert classify_follow_state("Suivre en retour", PROFILE_SELECTORS) == 'follow_back'
-        assert classify_follow_state("S\u2019abonner en retour", PROFILE_SELECTORS) == 'follow_back'
-        assert classify_follow_state("Abonn\u00e9", PROFILE_SELECTORS) == 'following'
+        assert classify_follow_state("S’abonner en retour", PROFILE_SELECTORS) == 'follow_back'
+        assert classify_follow_state("Abonné", PROFILE_SELECTORS) == 'following'
     finally:
         set_active_locale(None)
 
 
-def test_only_the_french_follow_rows_are_followable():
-    """The same screen in the other language: only the followable rows are tapped."""
-    from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-
-    following, follow_back, follow = "Abonné", "S’abonner en retour", "S’abonner"
-    body = (_row(400, "Deja abonne", following) + _row(620, "Me suit", follow_back)
-            + _row(840, "Inconnu", follow))
-    xml = "<?xml version='1.0' encoding='UTF-8'?><hierarchy>" + body + "</hierarchy>"
-
-    set_active_locale('fr')
-    try:
-        rows = parse_suggestion_rows(_root(xml), DISCOVER_PEOPLE_SELECTORS,
-                                     PROFILE_SELECTORS, classify_follow_state)
-        assert [row['state'] for row in rows] == ['following', 'follow_back', 'follow']
-        assert [row['label'] for row in followable_rows(rows)] == ['Inconnu']
-    finally:
-        set_active_locale(None)
-
-
-# ── IG 442: the carousel kept its shape and lost every resource-id ───────────────────────
+# ── IG 442 and later: the carousel kept its shape and lost every resource-id ─────────────
 #
-# Structure from a real 442 capture (2026-08-26). `netego_carousel_*` is absent from the dump
-# ENTIRELY -- header and CTA are two labelled ViewGroups on one row, and nothing else marks the
-# block. Since that CTA is the only entry point to the people-discovery screen in the whole
-# codebase, losing it made the surface unreachable rather than merely undetected.
-COMPOSE_CAROUSEL = """
-<hierarchy>
-  <node class="android.view.ViewGroup" bounds="[0,1560][1080,1700]" content-desc="">
-    <node class="android.view.ViewGroup" bounds="[42,1604][595,1655]"
-          text="Suggestions pour vous" content-desc="Suggestions pour vous"/>
-    <node class="android.view.ViewGroup" bounds="[790,1604][963,1655]"
-          text="Voir tout" content-desc="Voir tout"/>
-  </node>
-</hierarchy>
-"""
-
-# The same labels, but belonging to two different rows: a "See all" that heads another feed
-# section must never be taken for the suggestions CTA.
-COMPOSE_OTHER_SECTION = """
-<hierarchy>
-  <node class="android.view.ViewGroup" bounds="[0,900][1080,1040]" content-desc="">
-    <node class="android.view.ViewGroup" bounds="[42,944][595,995]"
-          text="Reels populaires" content-desc="Reels populaires"/>
-    <node class="android.view.ViewGroup" bounds="[790,944][963,995]"
-          text="Voir tout" content-desc="Voir tout"/>
-  </node>
-</hierarchy>
-"""
+# `netego_carousel_*` is absent from the dump ENTIRELY -- header and CTA are two labelled
+# ViewGroups on one row, and nothing else marks the block. Since that CTA is the only entry point
+# to the people-discovery screen in the whole codebase, losing it made the surface unreachable
+# rather than merely undetected. Seen on 442 (2026-08-26), the capture below is 447.
+COMPOSE = "ig447_fr_feed_suggestions_carousel.xml"
+COMPOSE_CTA = (790, 454, 963, 505)
+# A « Voir tout » heading another block: the search screen's « Récent » row (410, French).
+OTHER_SECTION = "ig410_fr_search_recent_see_all.xml"
 
 
 def test_the_compose_carousel_is_found_without_a_single_resource_id():
-    carousel = parse_feed_suggestions_carousel(
-        parse_ui_dump(COMPOSE_CAROUSEL), FEED_SUGGESTIONS_SELECTORS
-    )
+    xml = _capture(COMPOSE)
+    assert "netego_carousel" not in xml
+    carousel = parse_feed_suggestions_carousel(parse_ui_dump(xml), FEED_SUGGESTIONS_SELECTORS)
     assert carousel["present"] is True
     assert carousel["title"] == "Suggestions pour vous"
-    assert carousel["cta_bounds"] == (790, 1604, 963, 1655)
+    assert carousel["cta_bounds"] == COMPOSE_CTA
 
 
 def test_a_see_all_heading_another_section_is_not_the_carousel():
-    carousel = parse_feed_suggestions_carousel(
-        parse_ui_dump(COMPOSE_OTHER_SECTION), FEED_SUGGESTIONS_SELECTORS
-    )
+    xml = _capture(OTHER_SECTION)
+    assert 'text="Voir tout"' in xml and 'text="Récent"' in xml
+    carousel = parse_feed_suggestions_carousel(parse_ui_dump(xml), FEED_SUGGESTIONS_SELECTORS)
     assert carousel["present"] is False
     assert carousel["cta_bounds"] is None
-
-
-@pytest.fixture
-def app_language():
-    from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-
-    yield set_active_locale
-    set_active_locale(None)
 
 
 # The carousel's words come from the server, not from the app's language: an English app
 # (Pixel 3a, IG 410) showed "Suggestions pour vous" / "Voir tout", and 31 carousels of French
 # apps read "Suggested for you" / "See all". On 410 the CTA's id finds it whatever the words;
-# on 442 the words are all there is.
-ENGLISH_COMPOSE_CAROUSEL = (COMPOSE_CAROUSEL.replace("Suggestions pour vous", "Suggested for you")
-                            .replace("Voir tout", "See all"))
+# from 442 on the words are all there is. The English-worded Compose carousel is the real 447
+# capture with its two labels translated (derived, no capture holds it).
+def _english_worded_compose():
+    return (_capture(COMPOSE).replace('"Suggestions pour vous"', '"Suggested for you"')
+            .replace('"Voir tout"', '"See all"'))
 
 
-@pytest.mark.parametrize("language, xml", [
-    ("en", COMPOSE_CAROUSEL),
-    ("fr", ENGLISH_COMPOSE_CAROUSEL),
-], ids=["french-words-english-app", "english-words-french-app"])
-def test_the_compose_carousel_is_found_in_the_other_language(app_language, language, xml):
+@pytest.mark.parametrize("language, words", [("en", "french"), ("fr", "english")],
+                         ids=["french-words-english-app", "english-words-french-app"])
+def test_the_compose_carousel_is_found_in_the_other_language(app_language, language, words):
     app_language(language)
-    root = parse_ui_dump(xml)
+    root = parse_ui_dump(_capture(COMPOSE) if words == "french" else _english_worded_compose())
 
     carousel = parse_feed_suggestions_carousel(root, FEED_SUGGESTIONS_SELECTORS)
 
-    assert carousel["cta_bounds"] == (790, 1604, 963, 1655)
+    assert carousel["cta_bounds"] == COMPOSE_CTA
     assert any(root.xpath(selector) for selector in FEED_SUGGESTIONS_SELECTORS.carousel_see_all)
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
 def test_a_see_all_heading_another_section_is_not_the_carousel_in_either_language(app_language, language):
     app_language(language)
-    carousel = parse_feed_suggestions_carousel(
-        parse_ui_dump(COMPOSE_OTHER_SECTION), FEED_SUGGESTIONS_SELECTORS
-    )
+    carousel = parse_feed_suggestions_carousel(parse_ui_dump(_capture(OTHER_SECTION)),
+                                               FEED_SUGGESTIONS_SELECTORS)
     assert carousel["cta_bounds"] is None
 
 
 def test_a_cta_left_of_its_header_is_not_paired():
     # Guards the geometry rather than the labels: the CTA sits at the right end of the row.
-    mirrored = COMPOSE_CAROUSEL.replace('bounds="[790,1604][963,1655]"', 'bounds="[10,1604][40,1655]"')
-    carousel = parse_feed_suggestions_carousel(
-        parse_ui_dump(mirrored), FEED_SUGGESTIONS_SELECTORS
-    )
+    # The real 447 carousel with its CTA moved to the left edge (derived).
+    mirrored = _capture(COMPOSE).replace('bounds="[790,454][963,505]"', 'bounds="[10,454][40,505]"')
+    assert mirrored != _capture(COMPOSE)
+    carousel = parse_feed_suggestions_carousel(parse_ui_dump(mirrored), FEED_SUGGESTIONS_SELECTORS)
     assert carousel["cta_bounds"] is None
 
 
-# The inline cards on 442: only the follow control kept an id, and it names its own target.
-COMPOSE_CARDS = """
-<hierarchy>
-  <node class="android.view.ViewGroup" bounds="[0,1350][1080,2211]" content-desc="">
-    <node class="android.view.ViewGroup" bounds="[42,1399][595,1450]"
-          text="Suggestions pour vous" content-desc="Suggestions pour vous"/>
-    <node class="android.view.ViewGroup" bounds="[790,1399][963,1450]"
-          text="Voir tout" content-desc="Voir tout"/>
-    <node class="android.view.ViewGroup" resource-id="com.instagram.android:id/recycler_view_container_id"
-          bounds="[0,1498][1080,2211]">
-      <node class="android.view.ViewGroup" bounds="[37,1498][675,2211]">
-        <node class="android.view.ViewGroup" bounds="[336,1933][377,1984]" text="LV" content-desc="LV"/>
-        <node class="android.widget.TextView" resource-id="com.instagram.android:id/inline_follow_button"
-              bounds="[69,2099][643,2183]" text="Suivre" content-desc="Suivre LV"/>
-      </node>
-      <node class="android.view.ViewGroup" bounds="[707,1498][1080,2211]">
-        <node class="android.view.ViewGroup" bounds="[927,1933][1080,1984]"
-              text="Rae Lyn Lee" content-desc="Rae Lyn Lee"/>
-        <node class="android.widget.TextView" resource-id="com.instagram.android:id/inline_follow_button"
-              bounds="[739,2099][1080,2183]" text="Suivre" content-desc="Suivre Rae Lyn Lee"/>
-      </node>
-    </node>
-  </node>
-</hierarchy>
-"""
-
-
 def test_the_compose_cards_are_read_from_their_follow_control():
-    carousel = parse_feed_suggestions_carousel(
-        parse_ui_dump(COMPOSE_CARDS), FEED_SUGGESTIONS_SELECTORS
-    )
+    """Only the follow control kept an id, and it names its own target: « Suivre <name> ». The
+    follow-back card of the real carousel names nobody (its description is the label alone), so
+    it yields no name rather than a wrong one."""
+    carousel = parse_feed_suggestions_carousel(_root(COMPOSE), FEED_SUGGESTIONS_SELECTORS)
     assert carousel["cards"] == [
-        {"name": "LV", "state_label": "Suivre", "follow_bounds": (69, 2099, 643, 2183)},
-        {"name": "Rae Lyn Lee", "state_label": "Suivre", "follow_bounds": (739, 2099, 1080, 2183)},
+        {"name": "", "state_label": "Suivre en retour", "follow_bounds": (69, 1154, 643, 1238)},
+        {"name": "name_16 name_17 name_18", "state_label": "Suivre",
+         "follow_bounds": (739, 1154, 1080, 1238)},
     ]
 
 
 def test_the_account_name_is_the_difference_between_desc_and_text():
-    # No label list and therefore no language: the control says "Suivre Rae Lyn Lee" and reads
-    # "Suivre", so what is left is the account. An English phone works the same way.
-    english = COMPOSE_CARDS.replace('text="Suivre" content-desc="Suivre Rae Lyn Lee"',
-                                    'text="Follow" content-desc="Follow Rae Lyn Lee"')
-    carousel = parse_feed_suggestions_carousel(
-        parse_ui_dump(english), FEED_SUGGESTIONS_SELECTORS
-    )
-    assert carousel["cards"][1]["name"] == "Rae Lyn Lee"
+    # No label list and therefore no language: the control says "Suivre <name>" and reads
+    # "Suivre", so what is left is the account. The real card, its words in English (derived).
+    english = _capture(COMPOSE).replace('text="Suivre" resource-id="com.instagram.android:id/inline_follow_button"',
+                                        'text="Follow" resource-id="com.instagram.android:id/inline_follow_button"')
+    english = english.replace('content-desc="Suivre name_16 name_17 name_18"',
+                              'content-desc="Follow name_16 name_17 name_18"')
+    assert english.count('"Follow"') == 1 and "Follow name_16" in english
+    carousel = parse_feed_suggestions_carousel(parse_ui_dump(english), FEED_SUGGESTIONS_SELECTORS)
+    assert carousel["cards"][1]["name"] == "name_16 name_17 name_18"
     assert carousel["cards"][1]["state_label"] == "Follow"
 
 
 def test_a_control_whose_description_does_not_start_with_its_label_yields_no_name():
     # Better an empty name than a wrong one: the caller records who it followed.
-    odd = COMPOSE_CARDS.replace('content-desc="Suivre LV"', 'content-desc="Abonnement a LV"')
-    carousel = parse_feed_suggestions_carousel(
-        parse_ui_dump(odd), FEED_SUGGESTIONS_SELECTORS
-    )
-    assert carousel["cards"][0]["name"] == ""
-    assert carousel["cards"][0]["follow_bounds"] == (69, 2099, 643, 2183)
-
+    odd = _capture(COMPOSE).replace('content-desc="Suivre name_16 name_17 name_18"',
+                                    'content-desc="Abonnement a name_16 name_17 name_18"')
+    carousel = parse_feed_suggestions_carousel(parse_ui_dump(odd), FEED_SUGGESTIONS_SELECTORS)
+    assert carousel["cards"][1]["name"] == ""
+    assert carousel["cards"][1]["follow_bounds"] == (739, 1154, 1080, 1238)

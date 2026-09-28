@@ -65,8 +65,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (8,
          "the rate-limit dialog and the contacts request, invented: neither is in the corpus; "
          "capture both (410, French)."),
-    "tests/unit/social_media/instagram/test_feed_suggestions_parsing.py":
-        (35, "carousel extract, plus discovery-screen rows built by a helper."),
     "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
         (12, "profile header and screen signals built by a helper, invented."),
     "tests/unit/social_media/instagram/test_profile_header_447.py":
@@ -174,7 +172,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
 }
 
 #: The number of entries of HAND_WRITTEN: it only goes down.
-HAND_WRITTEN_CEILING = 33
+HAND_WRITTEN_CEILING = 32
 
 #: (b) A tree that is not a screen: what it computes, and why no screen is needed.
 MINIMAL_TREES: dict[str, tuple[int, str]] = {
