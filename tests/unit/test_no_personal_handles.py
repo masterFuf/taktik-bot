@@ -15,6 +15,16 @@ _CORE = pathlib.Path(__file__).resolve().parents[2]
 #: Guarded in every source file of the repository.
 _EVERYWHERE = {
     "bc079ff1d680112a4f65c1f1f2b6c18d00562c3e8a45c738714f08d65360bd21",
+    # A public creator and the fan accounts a TikTok search served next to hers.
+    "1a04b344228d6ca6efc4d962b39e7b89976bf92e394de86441438a1ca2453f4b",
+    "d227f250d0385626bdf9dd1336693bbf986c6757e9b6987632acec77f36554fa",
+    "339c9a03a45f76d2bbc96d3e6be11b59076d2abc550a02adc72db90a0713c356",
+    "1e6e133808f32e4272a5c793ee9078914296289cbd51097dce55247160b2342c",
+    "4cdbb049a0b6785e2ab60037faf7c2d4106f481acf8e5bbbaa469d285f7aa0f8",
+    "d94cf837c4b2dce73ad5ad82242426eb7d9ed3d65130371f5f37f77fa3dfe6f0",
+    "fa6465ab4a53ecff1bb586e0cbeee43e520e5b0bde9a11e5e0d6cd61ca342f73",
+    "b1c1a4b336761961d59e2a900247a0a70ed1aba1d12e1849364f7420ba33e3b3",
+    "95b92868858b53bd92fd0f537f22050bb581a8a061586845bf21a3627cd2ba25",
 }
 
 #: Guarded in the tests. Some still appear in code comments.

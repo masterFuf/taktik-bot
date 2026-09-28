@@ -390,8 +390,8 @@ class InboxSelectors:
         And the name is wrapped in directional isolates, exactly like the search results:
         `U+200E U+2068 <name> U+2069`. Containing `⁨name⁩` therefore means "this row's name is
         exactly this", because anything longer puts a character where the closing isolate has to
-        be — the same anchor that stopped the search opening `@lena_situations1` for
-        `@lena_situations`.
+        be — the same anchor that stopped the search opening `@demo_creator1` for
+        `@demo_creator`.
         """
         escaped = str(name or "").replace('"', "")
         isolated = f"⁨{escaped}⁩"
