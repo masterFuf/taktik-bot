@@ -7,7 +7,8 @@ and the first halt of the run becomes one row of `account_restriction_signals` w
 `action_blocked`, next to the `private_first_ordering` rows the followers walk already writes.
 
 One row per blocked run, not per sighting: the latch keeps only its first reading, so the witness
-is told once. Written through the repository, never raises.
+is told once. Written through the repository, never raises: a failed write is logged as an error,
+with its cause, since without the row the desktop app never rests the blocked account.
 """
 
 from __future__ import annotations
@@ -46,8 +47,11 @@ def record_action_block(
             source_type=source_type,
             session_id=session_id,
         ))
-    except Exception as exc:  # noqa: BLE001 - losing a measurement must not lose the run
-        logger.debug(f"Could not record the block in the account's history: {exc}")
+    except Exception as exc:  # noqa: BLE001 - losing the entry must not lose the run
+        logger.error(
+            f"Block on {platform} account @{account} not written to its health history, "
+            f"so the desktop app will not rest it: {exc}"
+        )
         return False
 
 
