@@ -4,6 +4,15 @@ from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action
 from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_applicable
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+
+
+def _stories_card(action_id, a):
+    """Why the For You item on screen has no video, when the feed served a followed account's
+    « Voir les Stories » card in its place (47.0.3); else None."""
+    if first_matching(a.device, a.video_detector.video_selectors.stories_card):
+        return not_applicable(action_id, "the For You item on screen is a Stories card: no video to link")
+    return None
 
 
 def _no_sound_of_its_own(action_id, a):
@@ -56,12 +65,16 @@ def collect_post(a, p):
     The two halves are reported apart on purpose. A link that comes back without a key means the
     author could not be read, and such a post must NOT be stored: TikTok mints a new short link on
     every copy, so a row keyed on the URL would be created afresh on every visit.
+
+    A « Voir les Stories » card served in place of a video has no share button: the production
+    answers nothing, and the action says the card was there (not applicable).
     """
     from taktik.core.social_media.tiktok.actions.atomic.interaction.post_link_actions import PostLinkActions
 
     collected = PostLinkActions(a.device).collect_post()
     if not collected:
-        return {"success": False, "message": "no link or no identity for this video"}
+        return (_stories_card("tt.video.collect_post", a)
+                or {"success": False, "message": "no link or no identity for this video"})
 
     logger.info(
         f"tt.video.collect_post: {collected['post_key']} -> {collected['post_url']}"

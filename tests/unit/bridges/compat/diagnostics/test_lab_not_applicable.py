@@ -7,8 +7,9 @@ of a video. The plan never guesses it. Declared on the screen the action expects
 anywhere else the action still fails, so a broken selector is never taken for absent content.
 
 The screens are real dumps, anonymized: Instagram 410 (English notifications, home feed; French
-profile with highlights only) and TikTok 43.1.4 in French (For You video, a video without a
-description, an ad, a LIVE preview, the inbox).
+profile with highlights only), TikTok 43.1.4 in French (For You video, a video without a
+description, an ad, a LIVE preview, the inbox) and TikTok 47.0.3 in French (For You video, the
+« Voir les Stories » card the feed serves in place of a video).
 """
 
 from pathlib import Path
@@ -46,6 +47,8 @@ TT_VIDEO_NO_DESCRIPTION = _dump("tiktok", "tt4314_fr_for_you_video_no_descriptio
 TT_AD = _dump("tiktok", "tt4314_fr_ad.xml")
 TT_LIVE = _dump("tiktok", "tt4314_fr_for_you_live_preview.xml")
 TT_INBOX = _dump("tiktok", "tt4314_fr_inbox.xml")
+TT4703_VIDEO = _dump("tiktok", "tt4703_fr_for_you_video.xml")
+TT4703_STORIES_CARD = _dump("tiktok", "tt4703_fr_for_you_stories_card.xml")
 
 
 class _Phone:
@@ -81,6 +84,16 @@ def quick(monkeypatch):
     yield
     tiktok_locale(None)
     instagram_locale(None)
+
+
+@pytest.fixture
+def on_47_0_3():
+    """The catalogues patched for TikTok 47.0.3, as at the connection of a phone that runs it."""
+    from taktik.core.compat.selectors.setup import apply_version_overrides
+
+    apply_version_overrides("tiktok", "47.0.3")
+    yield
+    apply_version_overrides("tiktok", "43.1.4")
 
 
 def _instagram(xml, lang):
@@ -193,21 +206,15 @@ def test_a_video_whose_sound_page_does_not_open_is_a_failure():
     assert (result["success"], _declared(result)) == (False, None)
 
 
-def test_a_profile_without_a_message_entry_declares_none_and_a_feed_is_a_failure():
+def test_a_profile_without_a_message_entry_declares_none_and_a_feed_is_a_failure(on_47_0_3):
     """TikTok 47.0.3: a profile that follows us, not followed back, has no « Message » (fixture of
     `test_tiktok_dm_outreach_no_message_entry.py`); the For You feed is not a profile at all."""
-    from taktik.core.compat.selectors.setup import apply_version_overrides
-
-    apply_version_overrides("tiktok", "47.0.3")
-    try:
-        bundle, phone = _tiktok(_dump("tiktok", "tt47_fr_profile_follows_us_no_message_entry.xml"))
-        result = TIKTOK_ACTIONS["tt.profile.click_message"](bundle, {})
-        assert _declared(result) == "the open profile offers no message entry"
-        bundle, phone = _tiktok(_dump("tiktok", "tt4703_fr_home.xml"))
-        result = TIKTOK_ACTIONS["tt.profile.click_message"](bundle, {})
-        assert (result["success"], _declared(result)) == (False, None)
-    finally:
-        apply_version_overrides("tiktok", "43.1.4")
+    bundle, phone = _tiktok(_dump("tiktok", "tt47_fr_profile_follows_us_no_message_entry.xml"))
+    result = TIKTOK_ACTIONS["tt.profile.click_message"](bundle, {})
+    assert _declared(result) == "the open profile offers no message entry"
+    bundle, phone = _tiktok(_dump("tiktok", "tt4703_fr_home.xml"))
+    result = TIKTOK_ACTIONS["tt.profile.click_message"](bundle, {})
+    assert (result["success"], _declared(result)) == (False, None)
 
 
 def test_a_video_without_a_description_declares_none_and_nothing_is_tapped():
@@ -245,6 +252,24 @@ def test_off_a_video_no_description_is_declared_absent(xml):
     """Nothing was read where no video is: a failure, never « no description »."""
     bundle, _phone = _tiktok(xml)
     result = TIKTOK_ACTIONS["tt.detection.get_video_description"](bundle, {})
+    assert (result["success"], _declared(result)) == (False, None)
+
+
+def test_a_stories_card_served_in_place_of_a_video_has_no_link(on_47_0_3):
+    """47.0.3, For You surface of the Pixel 6a pass of 2026-09-29: the feed served a followed
+    account's « Voir les Stories » card. The production finds no share button and answers nothing,
+    which is right; the Lab says why."""
+    bundle, phone = _tiktok(TT4703_STORIES_CARD)
+    result = TIKTOK_ACTIONS["tt.video.collect_post"](bundle, {})
+    assert (result["success"], _declared(result)) == (
+        False, "the For You item on screen is a Stories card: no video to link")
+    assert phone.taps == []
+
+
+def test_a_video_whose_link_is_not_had_is_not_declared(on_47_0_3):
+    """A video has a link to copy: when the copy fails, the action fails."""
+    bundle, _phone = _tiktok(TT4703_VIDEO)
+    result = TIKTOK_ACTIONS["tt.video.collect_post"](bundle, {})
     assert (result["success"], _declared(result)) == (False, None)
 
 
