@@ -17,6 +17,9 @@ A type counts as emitted when it is written as a literal at an emission point:
 Standalone, the audit fails when an emission point carries a type it cannot read
 statically (a variable that is neither a module constant nor the parameter of a
 declared forwarder): the app gate would be blind to it.
+
+A module whose JSON lines never reach a bridge's stdout is left out by name, with
+why (``NOT_BRIDGE_OUTPUT``); a listed file that is gone fails the audit.
 """
 
 from __future__ import annotations
@@ -58,6 +61,13 @@ FORWARDERS = {
 
 # A dict reaches stdout when it is handed to a call with one of these words in its name.
 EMITTING_CALL = re.compile(r"emit|print|send|write|notify|publish", re.IGNORECASE)
+
+# Modules of SCANNED whose JSON lines go to another process than a bridge's stdout, and why.
+NOT_BRIDGE_OUTPUT = {
+    "taktik/core/social_media/instagram/media/proxy/mitm_addon.py":
+        "mitmproxy addon: mitmdump runs it in its own process and ProxyManager reads its lines; what reaches "
+        "the app goes through MediaCaptureService._send_to_desktop, a sink above",
+}
 
 
 def _callee(node: ast.Call) -> tuple[str, str] | None:
@@ -177,7 +187,11 @@ def scan(root: Path = ROOT) -> tuple[dict[str, list[str]], list[str]]:
     unresolved: list[str] = []
     for folder in SCANNED:
         for path in sorted((root / folder).rglob("*.py")):
-            scan_source(path.read_text(encoding="utf-8-sig"), path.relative_to(root).as_posix(), emitted, unresolved)
+            rel = path.relative_to(root).as_posix()
+            if rel not in NOT_BRIDGE_OUTPUT:
+                scan_source(path.read_text(encoding="utf-8-sig"), rel, emitted, unresolved)
+    unresolved += [f"{rel}: listed in NOT_BRIDGE_OUTPUT but gone, drop the entry"
+                   for rel in sorted(NOT_BRIDGE_OUTPUT) if not (root / rel).is_file()]
     return dict(emitted), unresolved
 
 

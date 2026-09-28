@@ -66,6 +66,15 @@ def test_a_type_it_cannot_read_is_reported():
     assert unresolved == ["x.py:2: kind"]
 
 
+def test_a_file_listed_as_not_bridge_output_that_is_gone_is_reported(tmp_path):
+    (tmp_path / "taktik").mkdir()
+
+    _emitted, unresolved = audit.scan(tmp_path)
+
+    assert [item for item in unresolved if "NOT_BRIDGE_OUTPUT" in item] == [
+        f"{path}: listed in NOT_BRIDGE_OUTPUT but gone, drop the entry" for path in sorted(audit.NOT_BRIDGE_OUTPUT)]
+
+
 def test_the_bot_tree_is_fully_readable():
     emitted, unresolved = audit.scan()
     assert unresolved == []
