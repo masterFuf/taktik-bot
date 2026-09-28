@@ -61,6 +61,9 @@ OWN_FR = {
     "Reels": _capture("ig410_fr_own_profile_left_on_reels.xml"),
 }
 POST_OPENED = _capture("ig410_fr_post_opened_from_grid.xml")
+# The own profile's grid while it loads (`shimmer_content`), on the same phone and in the same
+# session, taken on arrival on the profile: its empty state came after.
+OWN_EN_GRID_LOADING = _capture("ig410_en_own_profile_grid_loading.xml")
 
 LEFT_ON_ANOTHER_SUB_TAB = [
     (OWN_EN, "Reels", "Grid view"),
@@ -113,20 +116,26 @@ class _Clock:
 class _Phone:
     """uiautomator2's own xpath engine on the captures of one profile.
 
-    A tap on a sub-tab shows that sub-tab's capture; a tap on a thumbnail opens a post. Every tap
-    is listed by what it landed on, every scroll of the page too."""
+    A tap on a sub-tab shows that sub-tab's capture, after `loading` (label: capture, seconds) for
+    a sub-tab whose content comes later; a tap on a thumbnail opens a post. Every tap is listed by
+    what it landed on, every scroll of the page too."""
 
     wait_timeout = 1.0
     info = {"displayWidth": 1080, "displayHeight": 2220}
 
-    def __init__(self, screens, shown):
+    def __init__(self, screens, shown, clock=None, loading=None):
         self.screens = screens
         self.screen = screens[shown]
+        self.clock = clock
+        self.loading = loading or {}
+        self.loaded = None
         self.taps = []
         self.scrolls = []
         self.xpath = XPathEntry(self)
 
     def dump_hierarchy(self, *_a, **_k):
+        if self.loaded is not None and self.clock.now >= self.loaded[1]:
+            self.screen, self.loaded = self.loaded[0], None
         return self.screen
 
     def app_current(self):
@@ -143,7 +152,10 @@ class _Phone:
         sub_tab = self._sub_tab_under(tree, x, y)
         if sub_tab is not None:
             self.taps.append(sub_tab)
-            if sub_tab in self.screens:
+            if sub_tab in self.loading:
+                placeholder, seconds = self.loading[sub_tab]
+                self.screen, self.loaded = placeholder, (self.screens[sub_tab], self.clock.now + seconds)
+            elif sub_tab in self.screens:
                 self.screen = self.screens[sub_tab]
             return
         for cell in tree.xpath(THUMBNAIL):
@@ -248,6 +260,16 @@ def test_nothing_is_tapped_where_there_is_no_sub_tab(screen):
     result = show_profile_posts_grid(_facade(phone))
     assert phone.taps == []
     assert (result.has_sub_tabs, result.shown) == (False, False)
+
+
+def test_the_grid_is_handed_over_once_its_content_is_shown(_clock):
+    """The grid tab turns selected at once, its content follows: what a reader reads next is the
+    grid, not its loading placeholder."""
+    phone = _Phone(OWN_EN, "Reels", clock=_clock, loading={"Grid view": (OWN_EN_GRID_LOADING, 1.2)})
+    result = show_profile_posts_grid(_facade(phone))
+    assert phone.taps == ["Grid view"]
+    assert result.shown
+    assert result.photo is not None and result.photo.exists(PROFILE_SELECTORS.posts_grid_empty_state)
 
 
 def test_the_bare_device_of_a_workflow_is_served_too():
