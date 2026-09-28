@@ -15,13 +15,11 @@ from loguru import logger
 
 
 def resolve_media_scripts_dir(module_file: Path) -> Path:
-    """Resolve the repo `scripts/` directory regardless of package depth."""
-    module_path = module_file.resolve()
-    for parent in module_path.parents:
-        scripts_dir = parent / "scripts"
-        if (scripts_dir / "mitm_addon.py").exists() and (scripts_dir / "frida_ssl_bypass.js").exists():
-            return scripts_dir
-    raise FileNotFoundError(f"Could not resolve TAKTIK scripts directory from {module_path}")
+    """The folder of the mitmproxy addon and the Frida script: the folder of the proxy module, where both ship."""
+    folder = module_file.resolve().parent
+    if (folder / "mitm_addon.py").exists() and (folder / "frida_ssl_bypass.js").exists():
+        return folder
+    raise FileNotFoundError(f"mitm_addon.py and frida_ssl_bypass.js not found next to {module_file.resolve()}")
 
 
 class ProxyManager:
@@ -53,7 +51,7 @@ class ProxyManager:
         self.reader_thread: Optional[threading.Thread] = None
         self.running = False
         
-        # Runtime assets live under the repo-level `scripts/` directory.
+        # The mitmproxy addon and the Frida script ship next to this module.
         self.scripts_dir = resolve_media_scripts_dir(Path(__file__))
         self.addon_path = self.scripts_dir / "mitm_addon.py"
         self.frida_script_path = self.scripts_dir / "frida_ssl_bypass.js"
