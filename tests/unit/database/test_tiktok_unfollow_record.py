@@ -6,7 +6,8 @@ bot had just unfollowed from one still followed, and the day's unfollows were ne
 
 The follow date: the bot's last FOLLOW, else the first sighting by a following sync; with both,
 the younger (a sync reopens the row of an account followed again after an unfollow). Real schema,
-temporary base.
+temporary base. A date moved by hand is committed, as a repository write is: the repositories read
+through the ORM's own connection when the ORM is up.
 """
 
 import pytest
@@ -60,6 +61,7 @@ def test_a_sync_sighting_dates_a_follow_made_by_hand(base):
         "UPDATE social_graph_sync SET first_seen_at = datetime('now', '-10 days') "
         "WHERE platform = 'tiktok' AND username = 'by_hand'"
     )
+    db._connection.commit()
 
     assert TikTokFollowGraphService.get_follow_age_days("by_hand", account_id) == 10
 
@@ -82,5 +84,6 @@ def test_with_both_dates_the_younger_wins(base):
         "UPDATE social_graph_sync SET first_seen_at = datetime('now', '-1 days') "
         "WHERE platform = 'tiktok' AND username = 'gamma'"
     )
+    db._connection.commit()
 
     assert TikTokFollowGraphService.get_follow_age_days("gamma", account_id) == 1

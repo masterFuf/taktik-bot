@@ -2,8 +2,9 @@
 
 Under the desktop app (TAKTIK_DESKTOP_PID set), the app brings the base to this build's version
 before it starts any bridge: a bot that finds another version refuses instead of changing the
-schema behind the app's back. On its own (CLI), the bot stamps or migrates a base it recognises,
-and keeps its old un-numbered steps for a base it does not (new, bot-only or older than 1.9.8).
+schema behind the app's back. On its own (CLI), the bot creates a new base at this build's version,
+stamps or migrates a base it recognises, and keeps its old un-numbered steps for a version-0 base it
+does not recognise (built by the bot's old steps alone, or older than 1.9.8).
 """
 
 from __future__ import annotations
@@ -69,12 +70,15 @@ def ensure_schema(db_path, env: Optional[Mapping[str, str]] = None) -> str:
                 f"the database is at schema version {status.user_version} ({status.state}), this bot "
                 f"expects {status.target_version}: restart the desktop app, which updates it first"
             )
-        elif status.state in (LEGACY_RECOGNIZED, BEHIND):
+        elif status.state in (ABSENT, EMPTY, LEGACY_RECOGNIZED, BEHIND):
+            # A new base gets the numbered schema too, as when the app creates it: the bot's old
+            # steps alone built a schema of their own, without the columns the app adds to the
+            # bot's tables, that nothing could stamp afterwards.
             result = migrate_database(db_path, applied_by="bot")
             if not result.success:
                 raise SchemaNotReady(f"schema migration failed: {result.message}")
             mode = NUMBERED
-        elif status.state in (ABSENT, EMPTY, LEGACY_UNRECOGNIZED):
+        elif status.state == LEGACY_UNRECOGNIZED:
             mode = LEGACY
         else:
             raise SchemaNotReady(f"unknown schema state {status.state}")
