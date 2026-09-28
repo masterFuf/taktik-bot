@@ -18,11 +18,11 @@ from taktik.core.compat.selectors.supported_versions import (
 )
 
 
-def _builds_file(tmp_path, instagram_builds):
-    data = {
-        "architectures": ["arm64-v8a", "x86_64"],
-        "apps": {"instagram": {"name": "Instagram", "builds": instagram_builds}},
-    }
+def _builds_file(tmp_path, instagram_builds, override_status=None):
+    instagram = {"name": "Instagram", "builds": instagram_builds}
+    if override_status is not None:
+        instagram["override_status"] = override_status
+    data = {"architectures": ["arm64-v8a", "x86_64"], "apps": {"instagram": instagram}}
     path = tmp_path / "app_builds.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     return path
@@ -127,3 +127,55 @@ def test_the_json_the_app_reads_carries_the_published_rows(tmp_path):
     ]
     assert {"version": "447.0.0.0", "display": "447.x", "status": "Supported"} in rows
     assert {"version": "444.0.0.46.85", "display": "444.0.0.46.85", "status": "Under validation"} in rows
+
+
+BUILDS = [
+    {"version": "444.0.0.46.85", "status": "testing"},
+    {"version": "410.0.0.53.71", "status": "validated", "recommended": True},
+]
+
+
+def test_an_adjusted_version_under_validation_keeps_its_adjustments(tmp_path):
+    """Decision of Kevin (2026-09-28): a version the bot adjusts for but no phone of ours runs is
+    "Under validation", not "Supported". Its adjustments still apply, to it and to the versions
+    above it."""
+    path = _builds_file(tmp_path, BUILDS, {"442.0.0.0": "testing"})
+    rows = {r.version: r for r in compatibility_rows(load_supported_versions(path, OVERRIDES_DIR).app("instagram"))}
+    assert rows["442.0.0.0"].status == "Under validation"
+    assert rows["442.0.0.0"].overrides_applied == ("417.0.0.0", "442.0.0.0")
+    assert rows["447.0.0.0"].status == "Supported"
+    assert "442.0.0.0" in rows["447.0.0.0"].overrides_applied
+    assert rows["417.0.0.0"].status == "Supported"
+
+
+@pytest.mark.parametrize("override_status, message", [
+    ({"443.0.0.0": "testing"}, "not a version the bot adjusts for"),
+    ({"442.0.0.0": "stable"}, "unknown status"),
+])
+def test_an_inconsistent_override_status_is_refused(tmp_path, override_status, message):
+    with pytest.raises(CompatibilitySourceError, match=message):
+        load_supported_versions(_builds_file(tmp_path, BUILDS, override_status), OVERRIDES_DIR)
+
+
+def test_only_the_versions_our_phones_run_are_announced_supported():
+    """Decision 4 of Kevin (2026-09-28): Instagram 442.x and 417.x, TikTok 46.9.3 and 46.6.3, which
+    no phone of ours runs, are under validation; 447.x and 47.0.3 (Pixel 6a) stay supported."""
+    supported = load_supported_versions()
+    status = {(app, r.display): r.status for app in ("instagram", "tiktok")
+              for r in compatibility_rows(supported.app(app))}
+    assert status[("instagram", "447.x")] == "Supported"
+    assert status[("instagram", "442.x")] == "Under validation"
+    assert status[("instagram", "417.x")] == "Under validation"
+    assert status[("tiktok", "47.0.3")] == "Supported"
+    assert status[("tiktok", "46.9.3")] == "Under validation"
+    assert status[("tiktok", "46.6.3")] == "Under validation"
+
+
+def test_the_json_carries_the_status_of_each_adjusted_version(tmp_path):
+    """The desktop app shows a phone on an adjusted version under validation as under validation,
+    from this very status (`npm run appversions:adjusted`)."""
+    from taktik.core.compat.selectors.supported_versions import as_json
+
+    path = _builds_file(tmp_path, BUILDS, {"442.0.0.0": "testing"})
+    app = as_json(load_supported_versions(path, OVERRIDES_DIR))["apps"]["instagram"]
+    assert app["override_status"] == {"417.0.0.0": "validated", "442.0.0.0": "testing", "447.0.0.0": "validated"}
