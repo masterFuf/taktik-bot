@@ -7,6 +7,7 @@ from loguru import logger
 from taktik.core.shared.vision import count_progress_segments, screenshot_pil
 
 from ...core.base_action import BaseAction
+from ..navigation.profile_grid import show_profile_posts_grid
 from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 from ..story_state import parse_story_position
 
@@ -523,15 +524,13 @@ class ScreenDetectionMixin(BaseAction):
     # === Post grid detection ===
 
     def count_visible_posts(self) -> int:
-        count = 0
-        for selector in self.detection_selectors.post_thumbnail_selectors:
-            try:
-                elements = self.device.xpath(selector)
-                if elements.exists:
-                    count = len(elements.all())
-                    break
-            except Exception:
-                continue
-        
+        """The post thumbnails on screen, counted on one photo. On a profile, the posts grid is
+        shown first: a profile left on its Reels, Reposts or Tagged sub-tab shows none, and gets
+        one tap on its grid tab. 0, said in the log, when the screen cannot be read."""
+        grid = show_profile_posts_grid(self.device)
+        if grid.photo is None:
+            self.logger.warning("Visible posts not counted, the screen could not be read: 0 assumed")
+            return 0
+        count = len(grid.photo.find(self.detection_selectors.post_thumbnail_selectors))
         self.logger.debug(f"{count} visible posts in grid")
         return count

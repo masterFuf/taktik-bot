@@ -27,7 +27,7 @@ from rich.console import Console
 
 from ...ui.language import detect_and_optimize
 from ..common.detection import is_reel_post
-from ..common.post_navigation import ensure_profile_grid_tab, get_post_url_from_share
+from ..common.post_navigation import get_post_url_from_share
 
 console = Console()
 
@@ -103,7 +103,6 @@ class ProfilePostsScrapingMixin:
         time.sleep(1.5)
 
         navigator = self._post_navigator()
-        ensure_profile_grid_tab(self.device, self.logger)
         if not navigator._open_first_post_of_profile(username=target):
             # No thumbnail could be opened: an empty grid, or an account whose posts are not
             # served to us (private). Either way there is nothing to collect here.

@@ -32,11 +32,6 @@ class NotificationSelectors:
     def activity_entry(self) -> List[str]:
         return self._activity_entry_base + L("notification.activity_entry")
 
-    # Backwards-compatible alias for legacy callers expecting `activity_tab`.
-    @property
-    def activity_tab(self) -> List[str]:
-        return self.activity_entry + L("notification.activity_tab")
-
     # --- Notifications screen signal (action_bar_title + list container) ---
     _notifications_screen_base: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/activity_feed_list"]',

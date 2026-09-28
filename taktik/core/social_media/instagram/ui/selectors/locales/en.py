@@ -434,9 +434,6 @@ STRINGS: Dict[str, List[str]] = {
         "Suggested for you",
     ],
     # --- navigation ---
-    "navigation.activity_tab": [
-        "//*[contains(@content-desc, \"Activity\")]",
-    ],
     # Tabs and back arrows: Instagram's own nodes only. Every dump also holds the Android
     # navigation bar (com.android.systemui:id/back "Back", :id/home_button "Home") and can hold
     # the launcher (accessibility_action_view "Home"): a tap there leaves Instagram.
@@ -473,11 +470,6 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.home_tab_descriptions": [
         "Home",
     ],
-    "navigation.posts_tab_options": [
-        "//*[@content-desc=\"Posts\"]",
-        "//*[@text=\"Posts\"]",
-        "//android.widget.ImageView[@content-desc=\"Grid view\"]",
-    ],
     "navigation.profile_tab": [
         # Inside Instagram's tab bar only: outside it, "Profile" is every avatar's "Profile
         # picture of ..." (feed, follow lists, another profile's header, a story).
@@ -507,9 +499,6 @@ STRINGS: Dict[str, List[str]] = {
     # --- notification ---
     "notification.activity_entry": [
         "//*[contains(@content-desc, \"Notifications\")]",
-    ],
-    "notification.activity_tab": [
-        "//*[contains(@content-desc, \"Activity\")]",
     ],
     "notification.notifications_screen_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/action_bar_title\" and @text=\"Notifications\"]",
@@ -1051,10 +1040,6 @@ STRINGS: Dict[str, List[str]] = {
     "unfollow.following_button": [
         "//*[contains(@text, \"Following\")]",
         "//*[@resource-id=\"com.instagram.android:id/profile_header_follow_button\" and contains(@text, \"Following\")]",
-    ],
-    "unfollow.following_tab": [
-        "//android.widget.Button[contains(@text, \"following\")]",
-        "//*[contains(@content-desc, \"following\")]",
     ],
     "unfollow.follows_back_indicators": [
         "//*[contains(@text, \"Follows you\")]",

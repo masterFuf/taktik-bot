@@ -15,6 +15,7 @@ from taktik.core.shared.behavior.grid_entry import (
 from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.shared.diagnostics.miss_capture import signaler_ecran_inconnu
 from taktik.core.shared.telemetry import emit_step
+from ....atomic.navigation.profile_grid import show_profile_posts_grid
 from ....core.ipc.emitter import IPCEmitter
 
 if TYPE_CHECKING:
@@ -249,11 +250,14 @@ class PostNavigationMixin:
             self.logger.debug(f"entry decision narration failed: {e}")
 
     def _visible_grid_thumbnails(self, thumb_selector: str):
-        """Return the currently rendered grid thumbnails, revealing the grid with a
-        small scroll if none are on screen yet (mirrors the legacy reveal logic)."""
+        """Return the currently rendered grid thumbnails, the posts grid shown first (a profile
+        can show its Reels, Reposts or Tagged sub-tab, which hold none), revealing the grid
+        with a small scroll if none are on screen yet."""
+        show_profile_posts_grid(self.device)
         posts = self.device.xpath(thumb_selector).all()
         if posts:
             return posts
+        self.logger.debug("No thumbnail on screen, scrolling down to reveal the grid")
         # Humanized controlled scroll to reveal the grid (was facade swipe_ext / Direction.UP).
         self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.30)
         posts = self.device.xpath(thumb_selector).all()
@@ -475,36 +479,11 @@ class PostNavigationMixin:
     def _open_first_post_of_profile(self, username: Optional[str] = None) -> bool:
         try:
             self.logger.info("Opening first post of profile...")
-            
-            posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
 
-            if not posts:
-                # Before assuming the grid is merely scrolled out of view, check it is DISPLAYED at
-                # all: Instagram remembers the last sub-tab, and a device run found "Reposted"
-                # active. No thumbnail selector can match then, so the two scrolls below were
-                # chasing a grid that was not on the page — and on a short profile they only pushed
-                # it around. Shared with the standalone flows, one implementation.
-                # Absolute on purpose: the relative form from this depth is easy to get wrong, and
-                # an import inside a function body is not exercised by an import-time check.
-                from taktik.core.social_media.instagram.workflows.common.post_navigation import (
-                    ensure_profile_grid_tab,
-                )
-                if ensure_profile_grid_tab(self.device, self.logger):
-                    posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
+            # The grid shown, then revealed by a scroll or two when it sits below the header (after
+            # a follow, a hidden suggestions popup can leave the page scrolled up).
+            posts = self._visible_grid_thumbnails(self.detection_selectors.post_thumbnail_selectors[0])
 
-            # If no posts visible, try scrolling down slightly to reveal the grid
-            # This can happen after follow when suggestions popup was hidden by scrolling up
-            if not posts:
-                self.logger.debug("No posts visible, scrolling down to reveal grid...")
-                self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.30)
-                posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
-
-            if not posts:
-                # Try one more time with a bigger scroll
-                self.logger.debug("Still no posts, trying bigger scroll...")
-                self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.50)
-                posts = self.device.xpath(self.detection_selectors.post_thumbnail_selectors[0]).all()
-            
             if not posts:
                 self.logger.error("No posts found in grid after scrolling")
                 # Les deux revelations ont echoue : la grille n'est pas « plus bas », elle n'est

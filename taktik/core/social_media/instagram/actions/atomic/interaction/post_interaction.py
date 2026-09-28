@@ -110,27 +110,6 @@ class PostInteractionMixin(BaseAction):
             self.logger.error(f"Error clicking post: {e}")
             return False
 
-    def click_first_post_in_grid(self) -> bool:
-        self.logger.debug("📸 Clicking first post in grid")
-        
-        try:
-            posts = self.device.xpath(self.detection_selectors.post_grid_selector).all()
-            
-            if not posts:
-                self.logger.warning("❌ No posts found in grid with image_button selector")
-                return False
-            
-            self.logger.info(f"✅ Found {len(posts)} posts in grid")
-            
-            first_post = posts[0]
-            first_post.click()
-            self.logger.info("✅ Successfully clicked first post")
-            return True
-                
-        except Exception as e:
-            self.logger.error(f"❌ Error clicking first post: {e}")
-            return False
-    
     def click_recent_posts_tab(self) -> bool:
         try:
             self.logger.debug("📋 Clicking Recent tab")
@@ -146,30 +125,6 @@ class PostInteractionMixin(BaseAction):
             self.logger.error(f"❌ Error clicking Recent tab: {e}")
             return False
     
-    def click_post_in_grid(self, post_index: int = 0) -> bool:
-        try:
-            self.logger.debug(f"📸 Clicking post {post_index} in grid")
-            
-            for selector in self.detection_selectors.post_grid_selectors:
-                try:
-                    posts = self.device.xpath(selector).all()
-                    if posts and len(posts) > post_index:
-                        target_post = posts[post_index]
-                        if target_post.exists:
-                            target_post.click()
-                            self.logger.debug(f"✅ Successfully clicked post {post_index}")
-                            return True
-                except Exception as ex:
-                    self.logger.debug(f"Selector {selector} failed: {ex}")
-                    continue
-            
-            self.logger.warning(f"❌ Cannot click post {post_index}")
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error clicking post {post_index}: {e}")
-            return False
-
     # === Navigation buttons (used from post context) ===
 
     def click_close_button(self) -> bool:

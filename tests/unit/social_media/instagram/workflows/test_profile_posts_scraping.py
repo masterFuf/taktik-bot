@@ -124,7 +124,6 @@ class _Harness(ProfilePostsScrapingMixin):
 def _quiet_device(monkeypatch):
     monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
     monkeypatch.setattr(mod, "detect_and_optimize", lambda device: "fr")
-    monkeypatch.setattr(mod, "ensure_profile_grid_tab", lambda device, logger=None: True)
     monkeypatch.setattr(mod, "is_reel_post", lambda device, logger=None: False)
 
 

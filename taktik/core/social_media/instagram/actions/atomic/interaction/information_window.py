@@ -19,6 +19,9 @@ from typing import Callable, Optional, Sequence
 
 from loguru import logger
 
+from taktik.core.shared.device.facade import as_device_facade
+
+from ...core.device.facade import DeviceFacade
 from ....ui.selectors.shell.popups import POPUP_SELECTORS
 
 # A window that follows another one comes up quickly, if at all.
@@ -53,7 +56,7 @@ def acknowledge_information_windows(
     caller is after), and touches nothing then. At most `max_windows` taps.
     `device`: the Instagram device facade, or a uiautomator2 device (wrapped in it).
     """
-    facade = _as_facade(device)
+    facade = as_device_facade(device, DeviceFacade)
     say = log or _log_to_logger
     sel = POPUP_SELECTORS
     wanted = [unless_on_screen] if isinstance(unless_on_screen, str) else list(unless_on_screen)
@@ -79,15 +82,6 @@ def acknowledge_information_windows(
         facade.wait_for_snapshot(lambda p: not p.exists(sel.information_window), settle_s)
         wait_s = _NEXT_WINDOW_WAIT_S
     return InformationWindows(acknowledged)
-
-
-def _as_facade(device):
-    # Looked up on the class: a mock answering every attribute is not taken for a facade.
-    if callable(getattr(type(device), "wait_for_snapshot", None)):
-        return device
-    from ...core.device.facade import DeviceFacade
-
-    return DeviceFacade(device)
 
 
 def _headline(photo) -> str:
