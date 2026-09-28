@@ -14,11 +14,23 @@ costs the account, and a refused run costs a run.
 That is why the probes injected here MUST RAISE when they cannot answer. A probe that returns
 False on failure hands this guard the exact bug it exists to prevent, and the guard cannot tell
 the difference from the outside.
+
+The thread probe says WHO has written (`who_has_written`), not only whether we have. Product
+decision: someone who wrote to us first is answered, never greeted with the welcome; the lock that
+asked only "have WE written?" let a follower whose message was waiting for an answer through as a
+stranger. The answer to their message is not written by this pass (see `welcome-dm-spec.md`), so
+today they are left out, with their reason (`wrote_to_us`).
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+
+from taktik.core.database.messaging import (
+    NOBODY_HAS_WRITTEN,
+    ONLY_THEY_HAVE_WRITTEN,
+    WE_HAVE_WRITTEN,
+)
 
 # What is known about "have we written to this person before".
 CONTACTED = "contacted"
@@ -31,13 +43,24 @@ SKIP_NO_RECIPIENT = "no_recipient"
 SKIP_ALREADY_DMED = "already_dmed"
 SKIP_CONVERSATION_EXISTS = "conversation_exists"
 SKIP_GUARD_UNAVAILABLE = "guard_unavailable"
+SKIP_WROTE_TO_US = "wrote_to_us"
 
 PLATFORM = "tiktok"
 
 # (account_id, handle) -> True when a DM was already sent. Raises when it cannot answer.
 SentDmProbe = Callable[[int, str], bool]
-# (account_id, handle) -> True when a thread already carries a message WE sent. Raises likewise.
-ThreadProbe = Callable[[int, str], bool]
+# (account_id, handle) -> who has written in the thread: NOBODY_HAS_WRITTEN, WE_HAVE_WRITTEN or
+# ONLY_THEY_HAVE_WRITTEN (`taktik.core.database.messaging`). Raises likewise.
+ThreadProbe = Callable[[int, str], str]
+
+# What the thread's answer means for a welcome; any other answer is a probe that did not answer.
+_THREAD_SKIP = {
+    NOBODY_HAS_WRITTEN: None,
+    WE_HAVE_WRITTEN: SKIP_CONVERSATION_EXISTS,
+    ONLY_THEY_HAVE_WRITTEN: SKIP_WROTE_TO_US,
+}
+# Reasons that say the question could not be asked, rather than answered.
+_CANNOT_TELL = (SKIP_NO_ACCOUNT, SKIP_NO_RECIPIENT, SKIP_GUARD_UNAVAILABLE)
 
 
 def _noop_log(_level: str, _message: str) -> None:
@@ -59,37 +82,16 @@ class WelcomeDmGuard:
         self._log = log
 
     def contact_state(self, account_id: Optional[int], recipient: str) -> str:
-        """CONTACTED / CLEAR / UNKNOWN for one recipient.
+        """CONTACTED / CLEAR / UNKNOWN for one recipient: `skip_reason`, summed up.
 
         UNKNOWN is returned for anything that prevents an answer, including a missing account:
         without one, nothing could be recorded afterwards either, so the same welcome would be
         re-sent at every run.
         """
-        handle = _clean(recipient)
-        if not account_id or not handle:
-            return UNKNOWN
-
-        try:
-            if self._sent_dm_probe(account_id, handle):
-                return CONTACTED
-        except Exception as exc:  # noqa: BLE001 — the whole point: a failed check is not a "no"
-            self._log("warning", f"[WELCOME] Sent-DM check unavailable for @{handle}: {exc}")
-            return UNKNOWN
-
-        if self._thread_probe is None:
+        reason = self.skip_reason(account_id, recipient)
+        if reason is None:
             return CLEAR
-
-        # `sent_dms` alone misses a conversation started anywhere else — an inbox reply, a
-        # manual answer, the DM read workflow. Welcoming someone we are already talking to
-        # reads as a bot to the only person who can report us.
-        try:
-            if self._thread_probe(account_id, handle):
-                return CONTACTED
-        except Exception as exc:  # noqa: BLE001
-            self._log("warning", f"[WELCOME] DM thread check unavailable for @{handle}: {exc}")
-            return UNKNOWN
-
-        return CLEAR
+        return UNKNOWN if reason in _CANNOT_TELL else CONTACTED
 
     def skip_reason(self, account_id: Optional[int], recipient: str) -> Optional[str]:
         """Why this recipient must NOT be welcomed, or None to proceed."""
@@ -102,19 +104,26 @@ class WelcomeDmGuard:
         try:
             if self._sent_dm_probe(account_id, handle):
                 return SKIP_ALREADY_DMED
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — the whole point: a failed check is not a "no"
             self._log("warning", f"[WELCOME] Sent-DM check unavailable for @{handle}: {exc}")
             return SKIP_GUARD_UNAVAILABLE
 
-        if self._thread_probe is not None:
-            try:
-                if self._thread_probe(account_id, handle):
-                    return SKIP_CONVERSATION_EXISTS
-            except Exception as exc:  # noqa: BLE001
-                self._log("warning", f"[WELCOME] DM thread check unavailable for @{handle}: {exc}")
-                return SKIP_GUARD_UNAVAILABLE
+        if self._thread_probe is None:
+            return None
 
-        return None
+        # `sent_dms` alone misses a conversation started anywhere else — an inbox reply, a
+        # manual answer, the DM read, their own first message. Welcoming someone we are already
+        # talking to, or who is waiting for our answer, reads as a bot to the only person who
+        # can report us.
+        try:
+            written = self._thread_probe(account_id, handle)
+        except Exception as exc:  # noqa: BLE001
+            self._log("warning", f"[WELCOME] DM thread check unavailable for @{handle}: {exc}")
+            return SKIP_GUARD_UNAVAILABLE
+        if written not in _THREAD_SKIP:
+            self._log("warning", f"[WELCOME] DM thread check gave no answer for @{handle}: {written!r}")
+            return SKIP_GUARD_UNAVAILABLE
+        return _THREAD_SKIP[written]
 
     def filter_recipients(
         self, account_id: Optional[int], recipients: Sequence[str]
@@ -170,6 +179,7 @@ __all__ = [
     "SKIP_GUARD_UNAVAILABLE",
     "SKIP_NO_ACCOUNT",
     "SKIP_NO_RECIPIENT",
+    "SKIP_WROTE_TO_US",
     "SentDmProbe",
     "ThreadProbe",
     "UNKNOWN",

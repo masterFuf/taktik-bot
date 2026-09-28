@@ -35,6 +35,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional
 
 from loguru import logger
 
+from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import notify
 from taktik.core.social_media.tiktok.services.welcome import (
     NewFollowerWelcomePass,
     WelcomeDmGuard,
@@ -42,6 +43,12 @@ from taktik.core.social_media.tiktok.services.welcome import (
     follow_back_targets,
     summarize,
     welcome_dm_targets,
+)
+from taktik.core.social_media.tiktok.services.welcome.duplicate_guard import (
+    SKIP_ALREADY_DMED,
+    SKIP_CONVERSATION_EXISTS,
+    SKIP_GUARD_UNAVAILABLE,
+    SKIP_WROTE_TO_US,
 )
 
 #: (device, username) -> the engagement verdict, or None.
@@ -153,9 +160,13 @@ def _run(followers, policy, *, workflow, started, device_id, ai_config, language
     _record_followers_as_notifications(started.bot_username, followers, resolved_handles)
 
     followed_back = _follow_back_decided(workflow, follow_back_targets(decisions), notifier)
+    shown_names: Dict[str, List[str]] = {}
+    for shown, handle in resolved_handles.items():
+        shown_names.setdefault(handle, []).append(shown)
     welcome = _welcome_decided(
         welcome_dm_targets(decisions), policy, started=started, device_id=device_id, notifier=notifier,
         outreach_notifier=outreach_notifier, workflow_hook=workflow_hook, send_welcome_dms=send_welcome_dms,
+        shown_names=shown_names,
     )
     return {
         "summary": stats,
@@ -240,7 +251,8 @@ def _follow_back_decided(workflow, handles: List[str], notifier) -> List[Dict[st
 
 
 def _welcome_decided(handles: List[str], policy: WelcomePolicy, *, started, device_id, notifier,
-                     outreach_notifier, workflow_hook, send_welcome_dms) -> Dict[str, Any]:
+                     outreach_notifier, workflow_hook, send_welcome_dms,
+                     shown_names: Optional[Mapping[str, List[str]]] = None) -> Dict[str, Any]:
     """Send the welcome DMs the pass decided on, through the production cold-DM path.
 
     Two guards stand between a decision and a message. The account must be resolvable -- without
@@ -248,6 +260,10 @@ def _welcome_decided(handles: List[str], policy: WelcomePolicy, *, started, devi
     run -- and the anti-duplicate guard must be able to ANSWER. `WelcomeDmGuard` returns UNKNOWN
     when it cannot, and UNKNOWN is refused: an outreach with no duplicate protection is worse
     than no outreach.
+
+    The guard also leaves out whoever wrote to us first (product decision): they are answered,
+    never greeted. `shown_names` maps each handle to the names the page showed for it: the DM read
+    files a thread under the conversation header, a display name, and the guard asks under both.
     """
     if not handles:
         return {"sent": False, "recipients": []}
@@ -264,7 +280,7 @@ def _welcome_decided(handles: List[str], policy: WelcomePolicy, *, started, devi
         record_welcome_dm,
         resolve_account_id,
         sent_dm_already_recorded,
-        thread_carries_our_message,
+        who_has_written_to,
     )
 
     account_id = resolve_account_id(started.bot_username)
@@ -273,15 +289,35 @@ def _welcome_decided(handles: List[str], policy: WelcomePolicy, *, started, devi
         _emit(notifier, "log", "warning", "Welcome DM cancelled: the logged-in account could not be resolved")
         return {"sent": False, "recipients": list(handles), "reason": "account_unresolved"}
 
+    names_by_handle = {handle.lower(): names for handle, names in (shown_names or {}).items()}
     guard = WelcomeDmGuard(
         sent_dm_probe=sent_dm_already_recorded,
-        thread_probe=thread_carries_our_message,
+        thread_probe=lambda account, handle: who_has_written_to(
+            account, [handle, *names_by_handle.get(handle.lower(), [])]
+        ),
         log=_log,
     )
     allowed, skipped = guard.filter_recipients(account_id, handles)
     if skipped:
-        logger.info(f"✉️ Welcome DM ignoré pour {len(skipped)} destinataire(s): {skipped}")
-        _emit(notifier, "log", "info", f"Welcome DM skipped for {len(skipped)} recipient(s)")
+        left_out = ", ".join(f"{handle} ({reason})" for handle, reason in skipped.items())
+        logger.info(f"✉️ Welcome DM ignoré pour {len(skipped)} destinataire(s): {left_out}")
+        _emit(notifier, "log", "info", f"Welcome DM skipped for {len(skipped)} recipient(s): {left_out}")
+
+    lines = outreach_notifier if outreach_notifier is not None else notifier
+    outcome = _send_to_allowed(
+        allowed, skipped, handles, policy, guard, account_id, record_welcome_dm,
+        started=started, device_id=device_id, notifier=notifier, lines=lines, workflow_hook=workflow_hook,
+    )
+    # After the send's own lines, not before: the page takes each `stats` line of the send as the
+    # reference for its counters, and a skip printed earlier would be reset by the next one.
+    _report_left_out(skipped, lines)
+    return outcome
+
+
+def _send_to_allowed(allowed: List[str], skipped: Dict[str, str], handles: List[str], policy: WelcomePolicy,
+                     guard: WelcomeDmGuard, account_id: int, record_welcome_dm, *, started, device_id,
+                     notifier, lines, workflow_hook) -> Dict[str, Any]:
+    """The cold-DM path, for the recipients the guard cleared."""
     if not allowed:
         return {"sent": False, "recipients": list(handles), "skipped": skipped, "reason": "all_skipped"}
 
@@ -290,7 +326,7 @@ def _welcome_decided(handles: List[str], policy: WelcomePolicy, *, started, devi
     manager = started.manager
     outreach_workflow = outreach.TikTokDMOutreachWorkflow(
         device_id,
-        notifier=outreach_notifier if outreach_notifier is not None else notifier,
+        notifier=lines,
         # The guard runs again inside the workflow, right before each send. The list was
         # filtered minutes and several profile visits ago; the last word belongs to the check
         # that happens where the message would actually leave.
@@ -322,6 +358,22 @@ def _welcome_decided(handles: List[str], policy: WelcomePolicy, *, started, devi
         f"{result.get('dms_failed', 0)} échec(s)"
     )
     return {"sent": True, "recipients": list(allowed), "skipped": skipped, "result": result}
+
+
+#: What the operator reads for a follower the guard left out; the reason code travels beside it.
+_LEFT_OUT_BECAUSE = {
+    SKIP_ALREADY_DMED: "Already written to: no welcome message",
+    SKIP_CONVERSATION_EXISTS: "Already in a conversation: no welcome message",
+    SKIP_WROTE_TO_US: "Wrote to us first: no welcome message",
+    SKIP_GUARD_UNAVAILABLE: "Could not check the conversation: no welcome message",
+}
+
+
+def _report_left_out(skipped: Dict[str, str], lines: Any) -> None:
+    """One `dm_result` per follower the guard left out: skipped, never a failure, with its reason."""
+    for handle, reason in skipped.items():
+        notify(lines, "dm_result", username=handle, success=False,
+               error=_LEFT_OUT_BECAUSE.get(reason, reason), skipped=True, reason=reason)
 
 
 __all__ = ["Qualifier", "QualifierFactory", "run_welcome_pass"]

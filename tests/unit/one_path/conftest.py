@@ -66,10 +66,12 @@ class Rig:
         #: The AI's engagement verdict per handle; absent: the classification carries none.
         self.verdicts: dict[str, dict] = {}
         #: What the database already knows: our own texts per partner, who already had a DM,
-        #: whose thread holds a message of ours, and whether the duplicate guard can be asked.
+        #: whose thread holds a message of ours, whose thread holds only theirs (under the name the
+        #: thread is filed under), and whether the duplicate guard can be asked.
         self.known_sent: dict[str, list[str]] = {}
         self.already_dmed: set[str] = set()
         self.threads_with_us: set[str] = set()
+        self.threads_from_them: set[str] = set()
         self.guard_broken = False
         #: Welcome DMs that fail (privacy-blocked), and the outreach workflows built.
         self.welcome_send_failures: set[str] = set()
@@ -1323,12 +1325,21 @@ class Rig:
             return recipient.lower() in rig.already_dmed
 
         def find_sync_id_for_inbox(_self, platform, account_id, handle):
-            return f"thread-{handle}" if handle.lower() in rig.threads_with_us else None
+            known = rig.threads_with_us | rig.threads_from_them
+            return f"thread-{handle.lower()}" if handle.lower() in known else None
+
+        def has_message(direction):
+            # Read at call time: a scenario sets the rig's sets after this is installed.
+            def answer(_self, platform, sync_id):
+                filed = rig.threads_with_us if direction == "sent" else rig.threads_from_them
+                return sync_id.removeprefix("thread-") in filed
+            return answer
 
         mp.setattr(SentDMRepository, "check_already_sent", check_already_sent)
         mp.setattr(DmThreadRepository, "ensure_table", lambda _self: None)
         mp.setattr(DmThreadRepository, "find_sync_id_for_inbox", find_sync_id_for_inbox)
-        mp.setattr(DmMessageRepository, "has_sent_message", lambda _self, platform, sync_id: True)
+        mp.setattr(DmMessageRepository, "has_sent_message", has_message("sent"))
+        mp.setattr(DmMessageRepository, "has_received_message", has_message("received"))
 
     def show_dm_inbox(self) -> None:
         """Two conversations: one with a handle, whose last bubble is ours but was not read as ours,

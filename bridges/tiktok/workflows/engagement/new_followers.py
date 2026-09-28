@@ -17,8 +17,10 @@ desktop: the startup that prints on stdout, its IPC, the stop signal, the AI ver
 stdout and the permission to send the welcome DM.
 
 The welcome DM prints the cold DM's lines (`progress`, `dm_result` with `skipped`/`reason` for a
-follower with no message entry, `stats`) through `BridgeNotifier`; the desktop reads its
-`dm_result` and `stats` (`TikTokNewFollowersStdoutService.handleScrapeOutput`).
+follower with no message entry, `stats`) through `BridgeNotifier`, then one skipped `dm_result` per
+follower its lock left out (`wrote_to_us`, `already_dmed`, `conversation_exists`,
+`guard_unavailable`); the desktop reads its `dm_result` and `stats`
+(`TikTokNewFollowersStdoutService.handleScrapeOutput`).
 """
 
 from typing import Any, Dict

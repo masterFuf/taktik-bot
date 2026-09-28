@@ -30,14 +30,16 @@ already accepts for its content hash, and without effect on the answered/unanswe
 
 from __future__ import annotations
 
-import os
 import re
-import sqlite3
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from taktik.core.database.messaging import DmConversationService
+from taktik.core.database.messaging import (
+    DmConversationService,
+    open_existing_database,
+    who_has_written,
+)
 
 _PLATFORM = "tiktok"
 
@@ -220,17 +222,6 @@ def record_sent_results(
 # turns a raise into UNKNOWN and refuses the send; a False here would be a blind outreach.
 
 
-def _open_database() -> sqlite3.Connection:
-    """Open the local database, or raise. A missing file is a refusal, not an empty answer."""
-    from taktik.core.database.local.paths import get_default_database_path
-    from taktik.core.database.local.versions.opening import open_connection
-
-    db_path = get_default_database_path()
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(f"local database not found at {db_path}")
-    return open_connection(db_path)
-
-
 def sent_dm_already_recorded(account_id: int, handle: str) -> bool:
     """Has this account already written to @handle on TikTok? Raises when it cannot answer.
 
@@ -239,36 +230,22 @@ def sent_dm_already_recorded(account_id: int, handle: str) -> bool:
     """
     from taktik.core.database.repositories.messaging import SentDMRepository
 
-    connection = _open_database()
+    connection = open_existing_database()
     try:
         return SentDMRepository(connection).check_already_sent(account_id, handle, _PLATFORM)
     finally:
         connection.close()
 
 
-def thread_carries_our_message(account_id: int, handle: str) -> bool:
-    """Does a thread with @handle already hold a message WE sent? Raises when it cannot answer.
+def who_has_written_to(account_id: int, names: List[str]) -> str:
+    """Who has written in our TikTok thread with this person (`who_has_written`). Raises when it
+    cannot answer.
 
-    `sent_dms` alone misses a conversation started from the inbox -- a manual answer, an
-    auto-reply, the DM read workflow -- and none of those write that marker.
+    `sent_dms` alone misses a conversation started from the inbox -- a manual answer, the DM read,
+    their own first message -- and none of those write that marker. `names` are the handle AND the
+    name the page showed: the DM read files a thread under the conversation header, a display name.
     """
-    from taktik.core.database.repositories.messaging import (
-        DmMessageRepository,
-        DmThreadRepository,
-    )
-
-    connection = _open_database()
-    try:
-        threads = DmThreadRepository(connection)
-        # `find_sync_id_for_inbox` does not create the tables itself; on a standalone database
-        # the desktop has never opened, the lookup would raise and refuse every recipient.
-        threads.ensure_table()
-        sync_id = threads.find_sync_id_for_inbox(_PLATFORM, account_id, handle)
-        if not sync_id:
-            return False
-        return DmMessageRepository(connection).has_sent_message(_PLATFORM, sync_id)
-    finally:
-        connection.close()
+    return who_has_written(_PLATFORM, account_id, names)
 
 
 def record_welcome_dm(
@@ -364,5 +341,5 @@ __all__ = [
     "record_welcome_dm",
     "resolve_account_id",
     "sent_dm_already_recorded",
-    "thread_carries_our_message",
+    "who_has_written_to",
 ]

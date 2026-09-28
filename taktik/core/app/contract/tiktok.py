@@ -140,7 +140,9 @@ TIKTOK_DM_OUTREACH = WorkflowContract(
             Field("success", "bool", "The message was sent."),
             Field("error", "string", "Why not.", nullable=True),
             Field("skipped", "bool", "Left out on purpose: neither sent nor failed.", optional=True),
-            Field("reason", "string", "Why it was left out (`no_message_entry`).", optional=True),
+            Field("reason", "string", "Why it was left out: `no_message_entry`; for a welcome, also the "
+                  "guard's `already_dmed`, `conversation_exists`, `wrote_to_us`, `guard_unavailable`.",
+                  optional=True),
         )),
         Event("stats", doc="The run's counters, after each recipient.", fields=(
             Field("stats", DM_OUTREACH_STATS, "The counters."),

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from loguru import logger
 
@@ -15,6 +15,70 @@ from taktik.core.database.repositories.messaging import (
     DmThreadRepository,
     DmMessageRepository,
 )
+
+
+# Who has written in our DM thread with someone, as the conversation record knows it
+# (`who_has_written`). A string union, like a TypeScript `'nobody' | 'us' | 'them'`.
+#: No thread on record, or one with no message in it.
+NOBODY_HAS_WRITTEN = "nobody"
+#: We have written in it, whoever started it.
+WE_HAVE_WRITTEN = "us"
+#: They have written in it, and we never have.
+ONLY_THEY_HAVE_WRITTEN = "them"
+
+
+def open_existing_database() -> sqlite3.Connection:
+    """Open the local database, or raise. A missing file is a refusal, not an empty answer.
+
+    For the questions a lock asks before writing to someone: the services below catch every
+    failure and answer "nothing on record", which a lock would read as "go ahead".
+    """
+    db_path = get_default_database_path()
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"local database not found at {db_path}")
+    return open_connection(db_path)
+
+
+def who_has_written(platform: str, account_id: int, partner_names: Iterable[str]) -> str:
+    """Who has written in our thread with this person: `NOBODY_HAS_WRITTEN`, `WE_HAVE_WRITTEN`
+    or `ONLY_THEY_HAVE_WRITTEN`. RAISES when the record cannot be read.
+
+    `partner_names` are the names the same person may be filed under. A thread is keyed by the
+    name its writer saw: the TikTok DM read files it under the conversation header, which shows a
+    DISPLAY NAME, while our sends file it under the handle. Asked with one name only, the record
+    would miss half of what it knows.
+
+    Our message anywhere wins: a conversation we are in is ours, whoever started it. The record
+    is what the conversation readers have read and what we have sent; a message that arrived
+    since the last read is not in it.
+    """
+    # The case is kept: the lookup matches the inbox row's name as stored, and lowercased.
+    names: List[str] = []
+    seen = set()
+    for name in partner_names:
+        cleaned = (name or "").strip().lstrip("@").strip()
+        if cleaned and cleaned.lower() not in seen:
+            seen.add(cleaned.lower())
+            names.append(cleaned)
+
+    connection = open_existing_database()
+    try:
+        threads = DmThreadRepository(connection)
+        # The lookup does not create the tables itself; a standalone database the desktop has
+        # never opened would make it raise, and refuse every recipient.
+        threads.ensure_table()
+        messages = DmMessageRepository(connection)
+        they_wrote = False
+        for name in names:
+            sync_id = threads.find_sync_id_for_inbox(platform, account_id, name)
+            if not sync_id:
+                continue
+            if messages.has_sent_message(platform, sync_id):
+                return WE_HAVE_WRITTEN
+            they_wrote = they_wrote or messages.has_received_message(platform, sync_id)
+        return ONLY_THEY_HAVE_WRITTEN if they_wrote else NOBODY_HAS_WRITTEN
+    finally:
+        connection.close()
 
 
 class SentDMService:
@@ -312,4 +376,12 @@ class DmConversationService:
             conn.close()
 
 
-__all__ = ["SentDMService", "DmConversationService"]
+__all__ = [
+    "NOBODY_HAS_WRITTEN",
+    "ONLY_THEY_HAVE_WRITTEN",
+    "WE_HAVE_WRITTEN",
+    "DmConversationService",
+    "SentDMService",
+    "open_existing_database",
+    "who_has_written",
+]

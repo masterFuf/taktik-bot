@@ -6,6 +6,7 @@ that an unanswerable guard sends nothing at all, that a failed send leaves no ma
 that a host which does not send welcome DMs sends none.
 """
 
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +15,10 @@ import taktik.core.database.messaging as messaging
 import taktik.core.database.tiktok_dm as tiktok_dm
 import taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach as outreach_module
 from taktik.core.social_media.tiktok.actions.business.workflows.dm import welcome_pass
+from taktik.core.database.local.schemas.messaging import (
+    create_messaging_indexes,
+    create_messaging_tables,
+)
 from taktik.core.social_media.tiktok.services.welcome.decision import WelcomePolicy
 
 
@@ -82,7 +87,7 @@ def test_a_guard_that_cannot_answer_sends_no_welcome_at_all(monkeypatch, fake_ou
         raise RuntimeError("no such table: sent_dms")
 
     monkeypatch.setattr(tiktok_dm, "sent_dm_already_recorded", boom)
-    monkeypatch.setattr(tiktok_dm, "thread_carries_our_message", boom)
+    monkeypatch.setattr(tiktok_dm, "who_has_written_to", boom)
 
     outcome = _welcome(["creator"])
 
@@ -94,7 +99,7 @@ def test_a_guard_that_cannot_answer_sends_no_welcome_at_all(monkeypatch, fake_ou
 def test_the_outreach_only_ever_sees_the_recipients_the_guard_cleared(monkeypatch, fake_outreach):
     monkeypatch.setattr(tiktok_dm, "resolve_account_id", lambda username: 7)
     monkeypatch.setattr(tiktok_dm, "sent_dm_already_recorded", lambda account_id, handle: handle == "known")
-    monkeypatch.setattr(tiktok_dm, "thread_carries_our_message", lambda account_id, handle: False)
+    monkeypatch.setattr(tiktok_dm, "who_has_written_to", lambda account_id, names: messaging.NOBODY_HAS_WRITTEN)
     manager = object()
     hooked = []
 
@@ -124,7 +129,7 @@ def test_the_guard_runs_again_inside_the_workflow_right_before_each_send(monkeyp
     # checker must see it, which it only does if it re-reads at call time.
     contacted = set()
     monkeypatch.setattr(tiktok_dm, "sent_dm_already_recorded", lambda account_id, handle: handle in contacted)
-    monkeypatch.setattr(tiktok_dm, "thread_carries_our_message", lambda account_id, handle: False)
+    monkeypatch.setattr(tiktok_dm, "who_has_written_to", lambda account_id, names: messaging.NOBODY_HAS_WRITTEN)
 
     _welcome(["fresh"])
 
@@ -245,7 +250,7 @@ def test_a_welcome_to_every_follower_without_follow_back_builds_no_ai_service(mo
                         lambda account, followers, handles: recorded.append(dict(handles)))
     monkeypatch.setattr(tiktok_dm, "resolve_account_id", lambda username: 7)
     monkeypatch.setattr(tiktok_dm, "sent_dm_already_recorded", lambda account_id, handle: False)
-    monkeypatch.setattr(tiktok_dm, "thread_carries_our_message", lambda account_id, handle: False)
+    monkeypatch.setattr(tiktok_dm, "who_has_written_to", lambda account_id, names: messaging.NOBODY_HAS_WRITTEN)
     asked = []
 
     outcome = welcome_pass.run_welcome_pass(
@@ -262,3 +267,107 @@ def test_a_welcome_to_every_follower_without_follow_back_builds_no_ai_service(mo
     assert outcome["welcome_dm"]["sent"] is True
     # The attribution's raw material is still written: it needs the handles, not the AI.
     assert recorded == [{"fan_one": "fan_one", "Fan Two": "fan_two"}]
+
+
+# ---------------------------------------------------------------------------
+# Someone who already wrote to us (product decision): no welcome
+# ---------------------------------------------------------------------------
+
+
+class _Lines:
+    """The outreach notifier: the lines the desktop reads (`dm_result`, `stats`...)."""
+
+    def __init__(self):
+        self.lines = []
+
+    def send(self, event_type, **payload):
+        self.lines.append((event_type, payload))
+
+
+@pytest.fixture
+def dm_record(tmp_path, monkeypatch):
+    """A real conversation record, written by the production writers of the DM read."""
+    import taktik.core.database as database
+
+    path = tmp_path / "taktik.db"
+    connection = sqlite3.connect(path)
+    create_messaging_tables(connection.cursor())
+    create_messaging_indexes(connection.cursor())
+    connection.commit()
+    connection.close()
+    monkeypatch.setenv("TAKTIK_DB_PATH", str(path))
+    monkeypatch.setattr(database, "configure_db_service", lambda: None)
+    monkeypatch.setattr(tiktok_dm, "_partner_profile_id", lambda handle: None)
+    return tiktok_dm
+
+
+@pytest.fixture
+def followers_page(monkeypatch):
+    """Each row opens a profile whose handle is the shown name, lowercased, spaces as `_`."""
+    import taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions as dm_actions_module
+
+    class _Profiles:
+        def __init__(self, device):
+            self.device = device
+
+        def open_new_follower_profile(self, shown_name):
+            return shown_name.lower().replace(" ", "_")
+
+    monkeypatch.setattr(dm_actions_module, "DMActions", _Profiles)
+    monkeypatch.setattr(welcome_pass, "_record_followers_as_notifications", lambda *args: None)
+    monkeypatch.setattr(tiktok_dm, "resolve_account_id", lambda username: 7)
+
+
+def _welcome_every_follower(followers, lines):
+    return welcome_pass.run_welcome_pass(
+        [{"username": name} for name in followers], _policy(dm_requires_follow_back=False),
+        workflow=SimpleNamespace(follow_back_users=lambda handles: pytest.fail("followed back")),
+        started=SimpleNamespace(device=object(), bot_username="acting_account", manager=object()),
+        device_id="device-1", ai_config={"enabled": False}, language="fr", notifier=_Notifier(),
+        qualifier_factory=None, outreach_notifier=lines,
+    )
+
+
+def test_a_follower_whose_message_is_on_record_is_not_welcomed(dm_record, followers_page, fake_outreach):
+    """The TikTok DM read filed the thread under the header's DISPLAY NAME, with their message
+    only. The lock used to ask by handle alone whether WE had written: it found nothing, and
+    "Bienvenue !" went to someone whose message was waiting for an answer.
+    """
+    dm_record.record_conversations(
+        7, [{"name": "Fan Two", "messages": [{"text": "salut, j'adore tes videos", "is_sent": False}]}]
+    )
+    lines = _Lines()
+
+    outcome = _welcome_every_follower(["fan_one", "Fan Two"], lines)
+
+    assert fake_outreach.instances[0].run_args[0] == ["fan_one"]
+    assert outcome["welcome_dm"]["skipped"] == {"fan_two": "wrote_to_us"}
+
+
+def test_a_thread_filed_under_the_handle_is_found_too(dm_record, followers_page, fake_outreach):
+    """A header that shows the handle files the thread under it."""
+    dm_record.record_conversations(7, [{"name": "fan_one", "messages": [{"text": "coucou"}]}])
+
+    outcome = _welcome_every_follower(["fan_one", "Fan Two"], _Lines())
+
+    assert fake_outreach.instances[0].run_args[0] == ["fan_two"]
+    assert outcome["welcome_dm"]["skipped"] == {"fan_one": "wrote_to_us"}
+
+
+def test_every_follower_the_lock_leaves_out_is_reported_with_its_reason(dm_record, followers_page,
+                                                                        fake_outreach):
+    """The operator reads why, on the page: one `dm_result` per follower left out, skipped (never a
+    failure), with its reason. They come after the send's own lines: the page takes each `stats`
+    line as the reference for the send's counters, and these must add to it, not be reset by it.
+    """
+    dm_record.record_conversations(7, [{"name": "Fan Two", "messages": [{"text": "coucou"}]}])
+    dm_record.record_welcome_dm(7, "fan_three", "Bienvenue !", True)
+    lines = _Lines()
+
+    _welcome_every_follower(["fan_one", "Fan Two", "Fan Three"], lines)
+
+    skipped = [payload for kind, payload in lines.lines if kind == "dm_result" and payload.get("skipped")]
+    assert [(line["username"], line["reason"], line["success"]) for line in skipped] == [
+        ("fan_two", "wrote_to_us", False), ("fan_three", "already_dmed", False),
+    ]
+    assert all(line["error"] for line in skipped)

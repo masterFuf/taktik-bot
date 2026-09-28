@@ -1,3 +1,8 @@
+from taktik.core.database.messaging import (
+    NOBODY_HAS_WRITTEN,
+    ONLY_THEY_HAVE_WRITTEN,
+    WE_HAVE_WRITTEN,
+)
 from taktik.core.social_media.tiktok.services.welcome.duplicate_guard import (
     CLEAR,
     CONTACTED,
@@ -6,6 +11,7 @@ from taktik.core.social_media.tiktok.services.welcome.duplicate_guard import (
     SKIP_GUARD_UNAVAILABLE,
     SKIP_NO_ACCOUNT,
     SKIP_NO_RECIPIENT,
+    SKIP_WROTE_TO_US,
     UNKNOWN,
     WelcomeDmGuard,
 )
@@ -18,7 +24,7 @@ def _raising(_account_id, _handle):
 def test_a_never_contacted_recipient_is_cleared():
     guard = WelcomeDmGuard(
         sent_dm_probe=lambda account_id, handle: False,
-        thread_probe=lambda account_id, handle: False,
+        thread_probe=lambda account_id, handle: NOBODY_HAS_WRITTEN,
     )
 
     assert guard.contact_state(7, "creator") == CLEAR
@@ -40,7 +46,7 @@ def test_a_recipient_we_already_have_a_thread_with_is_skipped():
     """
     guard = WelcomeDmGuard(
         sent_dm_probe=lambda account_id, handle: False,
-        thread_probe=lambda account_id, handle: True,
+        thread_probe=lambda account_id, handle: WE_HAVE_WRITTEN,
     )
 
     assert guard.contact_state(7, "creator") == CONTACTED
@@ -132,7 +138,66 @@ def test_the_duplicate_checker_handed_to_the_outreach_workflow_skips_on_unknown(
 def test_the_duplicate_checker_lets_a_clear_recipient_through():
     checker = WelcomeDmGuard(
         sent_dm_probe=lambda account_id, handle: False,
-        thread_probe=lambda account_id, handle: False,
+        thread_probe=lambda account_id, handle: NOBODY_HAS_WRITTEN,
     ).as_duplicate_checker()
 
     assert checker(7, "creator", "tiktok") is False
+
+
+def test_someone_who_wrote_to_us_is_not_greeted_as_a_stranger():
+    """Product decision: whoever wrote to us first gets an answer to their message, never the
+    welcome. The lock used to ask only whether WE had written, so a follower whose message was
+    waiting for an answer read as a stranger and got "Bienvenue !" instead.
+    """
+    guard = WelcomeDmGuard(
+        sent_dm_probe=lambda account_id, handle: False,
+        thread_probe=lambda account_id, handle: ONLY_THEY_HAVE_WRITTEN,
+    )
+
+    assert guard.skip_reason(7, "creator") == SKIP_WROTE_TO_US
+    assert guard.contact_state(7, "creator") == CONTACTED
+
+
+def test_a_conversation_we_are_already_in_stays_a_conversation_whoever_started_it():
+    guard = WelcomeDmGuard(
+        sent_dm_probe=lambda account_id, handle: False,
+        thread_probe=lambda account_id, handle: WE_HAVE_WRITTEN,
+    )
+
+    assert guard.skip_reason(7, "creator") == SKIP_CONVERSATION_EXISTS
+
+
+def test_a_thread_probe_answering_something_else_refuses_the_send():
+    """Three answers are known; anything else is a probe that did not answer the question --
+    the old yes/no signature, for one. Letting it through would be writing on a guess."""
+    guard = WelcomeDmGuard(
+        sent_dm_probe=lambda account_id, handle: False,
+        thread_probe=lambda account_id, handle: True,
+    )
+
+    assert guard.skip_reason(7, "creator") == SKIP_GUARD_UNAVAILABLE
+    assert guard.contact_state(7, "creator") == UNKNOWN
+
+
+def test_the_duplicate_checker_skips_someone_who_wrote_to_us():
+    """The last check, where the message would leave, asks the same question."""
+    checker = WelcomeDmGuard(
+        sent_dm_probe=lambda account_id, handle: False,
+        thread_probe=lambda account_id, handle: ONLY_THEY_HAVE_WRITTEN,
+    ).as_duplicate_checker()
+
+    assert checker(7, "creator", "tiktok") is True
+
+
+def test_filter_recipients_names_the_ones_who_wrote_to_us():
+    guard = WelcomeDmGuard(
+        sent_dm_probe=lambda account_id, handle: False,
+        thread_probe=lambda account_id, handle: (
+            ONLY_THEY_HAVE_WRITTEN if handle == "writer" else NOBODY_HAS_WRITTEN
+        ),
+    )
+
+    allowed, skipped = guard.filter_recipients(7, ["fresh", "writer"])
+
+    assert allowed == ["fresh"]
+    assert skipped == {"writer": SKIP_WROTE_TO_US}
