@@ -253,10 +253,13 @@ def render_compatibility_markdown(supported: SupportedVersions) -> str:
         "",
         "## Architectures",
         "",
-        f"Every version below is supported on {archs} (`x86_64` and `x86` cover desktop emulators).",
+        f"Every version below is listed for {archs}.",
         "The bot reads the screen and does not depend on the CPU architecture, but the APK does:",
         "on the mirror, pick the variant matching `adb shell getprop ro.product.cpu.abi`.",
         "A mirror may not publish every architecture for every build.",
+        "",
+        "Tested on real arm64 phones only: the phones, Android versions, app versions and languages",
+        "are in the README, section \"Tested on\". Emulators (`x86_64`, `x86`) are not tested.",
         "",
     ]
     for support in supported.apps:

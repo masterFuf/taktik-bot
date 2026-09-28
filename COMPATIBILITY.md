@@ -20,10 +20,13 @@ it). "Desktop app" tells what the TAKTIK desktop app installs itself.
 
 ## Architectures
 
-Every version below is supported on `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` (`x86_64` and `x86` cover desktop emulators).
+Every version below is listed for `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`.
 The bot reads the screen and does not depend on the CPU architecture, but the APK does:
 on the mirror, pick the variant matching `adb shell getprop ro.product.cpu.abi`.
 A mirror may not publish every architecture for every build.
+
+Tested on real arm64 phones only: the phones, Android versions, app versions and languages
+are in the README, section "Tested on". Emulators (`x86_64`, `x86`) are not tested.
 
 ## Instagram (`com.instagram.android`)
 

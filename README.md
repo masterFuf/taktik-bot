@@ -177,7 +177,7 @@ The command line reference (parameters, AI key, one example per workflow) is in 
 
 ### Requirements
 
-- An **Android** device reachable by **ADB**
+- An **Android** phone reachable by **ADB** (the phones TAKTIK is tested on: [Tested on](#tested-on))
 - **Instagram** and/or **TikTok** installed, in a version listed in [COMPATIBILITY.md](COMPATIBILITY.md)
 - **Python 3.10+** for the command line
 
@@ -188,8 +188,26 @@ the original APK of each, are listed in **[COMPATIBILITY.md](COMPATIBILITY.md)**
 generated from the bot's own selector data (`python scripts/audit_compatibility_file.py --write`)
 and checked by the same script, so it always matches the code.
 
-The apps may be in **English or French**: the bot reads the app's language at the start of a run
-and uses the matching labels. The command line itself speaks English and French (`--lang en|fr`).
+The bot reads the app's language, English or French, at the start of a run and uses the matching
+labels. The command line itself speaks English and French (`--lang en|fr`).
+
+### Tested on
+
+What TAKTIK is tested on, as of 2026-09-28: real runs and the Lab's test bench, on these four phones.
+
+| Phone | Android | Instagram | TikTok |
+|---|---|---|---|
+| Pixel 3 | 12 | 410.0.0.53.71, in French | not tested |
+| Pixel 3a | 12 | 410.0.0.53.71, in English | 43.1.4, in French |
+| Pixel 4a | 13 | 410.0.0.53.71, in French | not tested |
+| Pixel 6a | 16 | 447.0.0.55.81, in French | 47.0.3, in French |
+
+The computer is a Windows PC.
+
+Everything else is **not tested**: other phones and brands, other Android versions, emulators, the
+other versions listed in [COMPATIBILITY.md](COMPATIBILITY.md) (the bot carries selector adjustments
+for them, but none of these phones runs them), Instagram 447 in English, TikTok in English, macOS
+and Linux. Not tested promises nothing, either way.
 
 ### Development tests
 

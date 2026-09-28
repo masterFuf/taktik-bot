@@ -80,6 +80,21 @@ def test_inconsistent_builds_are_refused(tmp_path, builds, message):
         load_supported_versions(_builds_file(tmp_path, builds), OVERRIDES_DIR)
 
 
+def test_the_public_file_announces_no_emulator_and_points_to_what_is_tested():
+    """Decision of 2026-09-27 (Q10): announce exactly what is tested, say the rest is not. The
+    architectures a build is listed for are not tested architectures: only real arm64 phones are,
+    and the README's "Tested on" section names them."""
+    from taktik.core.compat.selectors.supported_versions import REPO_ROOT
+
+    text = render_compatibility_markdown(load_supported_versions())
+    not_tested = "Emulators (`x86_64`, `x86`) are not tested."
+    assert not_tested in text
+    assert "emulator" not in text.replace(not_tested, "").lower()
+    assert "supported on" not in text
+    assert 'in the README, section "Tested on"' in text
+    assert "\n### Tested on\n" in (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+
 def test_family_keys_and_search_terms():
     assert version_family("447.0.0.0") == "447"
     assert version_family("46.9.3") == "46.9.3"
