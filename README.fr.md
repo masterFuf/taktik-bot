@@ -178,7 +178,8 @@ documentation.
 
 ### Prérequis
 
-- Un appareil **Android** joignable par **ADB**
+- Un téléphone **Android** joignable par **ADB** (les téléphones sur lesquels TAKTIK est testé :
+  [Testé sur](#testé-sur))
 - **Instagram** et/ou **TikTok** installés, dans une version listée dans [COMPATIBILITY.md](COMPATIBILITY.md)
 - **Python 3.10+** pour la ligne de commande
 
@@ -189,9 +190,28 @@ téléchargement de l'APK d'origine pour chacune, sont dans **[COMPATIBILITY.md]
 (en anglais). Ce fichier est généré depuis les données de sélecteurs du bot
 (`python scripts/audit_compatibility_file.py --write`) et vérifié par le même script.
 
-Les applications peuvent être en **anglais ou en français** : le bot lit la langue de l'app au
-début d'un run et prend les libellés qui vont avec. La ligne de commande elle-même parle anglais et
-français (`--lang en|fr`).
+Le bot lit la langue de l'app, anglais ou français, au début d'un run et prend les libellés qui vont
+avec. La ligne de commande elle-même parle anglais et français (`--lang en|fr`).
+
+### Testé sur
+
+Ce sur quoi TAKTIK est testé au 2026-09-28 : des runs réels et le banc de test du Lab, sur ces quatre
+téléphones.
+
+| Téléphone | Android | Instagram | TikTok |
+|---|---|---|---|
+| Pixel 3 | 12 | 410.0.0.53.71, en français | non testé |
+| Pixel 3a | 12 | 410.0.0.53.71, en anglais | 43.1.4, en français |
+| Pixel 4a | 13 | 410.0.0.53.71, en français | non testé |
+| Pixel 6a | 16 | 447.0.0.55.81, en français | 47.0.3, en français |
+
+L'ordinateur est un PC sous Windows.
+
+Tout le reste est **non testé** : les autres téléphones et marques, les autres versions d'Android, les
+émulateurs, les autres versions listées dans [COMPATIBILITY.md](COMPATIBILITY.md) (le bot porte des
+ajustements de sélecteurs pour elles, mais aucun de ces téléphones ne les fait tourner), Instagram 447
+en anglais, TikTok en anglais, macOS et Linux. Non testé ne promet rien, dans un sens comme dans
+l'autre.
 
 ### Tests de développement
 
