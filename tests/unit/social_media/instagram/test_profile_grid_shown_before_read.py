@@ -3,7 +3,7 @@
 The row under a profile's header has up to four sub-tabs: the posts grid, Reels, Reposts, Tagged.
 Instagram keeps the one our own profile was left on until the app restarts (Pixel 3a, Instagram
 410 in English: left on Reels, the own profile came back on Reels from the home feed), and a
-visited profile shows the last one tapped on it. Only the grid holds post thumbnails. The readers
+visited profile keeps its own while it stays open. Only the grid holds post thumbnails. The readers
 that looked for them on another sub-tab scrolled the page twice for nothing, stopped a Reel exit,
 opened no post for the persona analysis, or counted the header's avatars as posts.
 
