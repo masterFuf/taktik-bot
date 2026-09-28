@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from taktik.core.shared.actions.base_action import SharedBaseAction
+from taktik.core.shared.device import adb
 from taktik.core.shared.input import taktik_keyboard as kb
 from unit.android_shell import is_keyboard_check, run_keyboard_check
 
@@ -143,3 +145,39 @@ def test_a_keyboard_android_refuses_is_not_given_back(monkeypatch):
 
     assert kb.restore_original_keyboard("a6") is False
     assert phone.current == TAKTIK
+
+
+# -- Emptying a field from an action (SharedBaseAction) -------------------------------------------
+# The Instagram search empties its field this way before each username (`search_navigation`), and
+# `clear_text_field` falls back on uiautomator2's clear only when this one says it did not empty.
+
+def _action():
+    action = SharedBaseAction.__new__(SharedBaseAction)
+    action.logger = kb.logger
+    action._get_device_serial = lambda: "4a"
+    return action
+
+
+def _on_every_adb_path(monkeypatch, phone):
+    """The phone behind `run_adb_shell` wherever it was imported (the action imported its own)."""
+    monkeypatch.setattr(adb, "_run_adb_shell", phone)
+    return phone
+
+
+def test_an_action_does_not_say_a_field_emptied_on_a_phone_without_taktik_keyboard(monkeypatch):
+    phone = _on_every_adb_path(monkeypatch, Android13Phone(installed={GBOARD}))
+
+    assert _action()._clear_text_with_taktik_keyboard() is False
+    assert phone.broadcasts == []
+    assert phone.current == GBOARD
+    # It tried the switch (`ensure_taktik_keyboard`), and stopped there: no clear was even tried.
+    assert f"ime set {TAKTIK}" in phone.commands
+    assert not any(is_keyboard_check(command) for command in phone.commands)
+
+
+def test_an_action_empties_a_field_through_the_keyboard_it_switched_to(monkeypatch):
+    phone = _on_every_adb_path(monkeypatch, Android13Phone(installed={GBOARD, TAKTIK}))
+
+    assert _action()._clear_text_with_taktik_keyboard() is True
+    assert phone.current == TAKTIK
+    assert phone.broadcasts == [f"am broadcast -a {kb.IME_CLEAR_TEXT}"]
