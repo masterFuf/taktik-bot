@@ -58,6 +58,18 @@ versions:
     profile._stat_label_base:
       - '//*[contains(@resource-id, ":id/t89")]'
       - '//*[contains(@resource-id, ":id/qfv")]'
+    # Back arrow (Pixel 6a, French, 2026-09-28, a run of target profiles): on the player of a
+    # video opened from a profile's grid, the arrow is the clickable ImageView `bs4` at the top
+    # left; none of the baseline entries resolves there. In the 47.0.3 captures, `bs4` is the back
+    # arrow of every screen that has one, and the close cross of the comment sheet. Baseline
+    # entries carried along.
+    followers.back_button:
+      - '//*[contains(@resource-id, ":id/bs4")]'
+      - '//*[contains(@resource-id, ":id/b9b")]'
+      - '//*[contains(@resource-id, ":id/bqo")]'
+      - '//*[contains(@resource-id, ":id/b9c")]'
+      - '//android.widget.ImageView[contains(@resource-id, ":id/b9b")]'
+      - '//*[@clickable="true"][starts-with(@content-desc, "Suivis ")]/ancestor::android.widget.HorizontalScrollView[1]/preceding-sibling::*[1]//android.widget.ImageView[@clickable="true"][not(@content-desc) or @content-desc=""]'
     # Publication of a video (Pixel 6a, French, 2026-09-27: the camera, the gallery, the editor and
     # the post screen of one publication, piloted by hand node by node). Baseline entries carried
     # along in each list.

@@ -273,10 +273,10 @@ class NavigationMixin:
         fleche est la, elle est trouvee au premier sondage et rien ne change ; quand elle n'y est
         pas, on arretait de l'attendre 1,4 s plus tard.
 
-        Mesure sur un run reel (Pixel 6a, 10 profils) : 9 sondes infructueuses, 22,7 s. Les cinq
-        selecteurs sont bons — l'ecran n'avait tout simplement pas de fleche, et le retour systeme
-        a fait le travail a chaque fois. Sur les runs de 200 profils, c'est huit minutes d'attente
-        pour un bouton absent.
+        Mesure sur un run reel (Pixel 6a, 10 profils) : 9 sondes infructueuses, 22,7 s, et le retour
+        systeme a fait le travail a chaque fois. Sur les runs de 200 profils, c'est huit minutes
+        d'attente. En 47.0.3, le lecteur ouvert depuis une grille a pourtant une fleche (`bs4`) que
+        la liste ne nommait pas : elle est dans les ecarts de version de TikTok.
         """
         try:
             if self.click._find_and_click(self.followers_selectors.back_button, timeout=0.6):
