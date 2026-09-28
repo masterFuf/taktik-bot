@@ -23,7 +23,11 @@ The result is printed, value by value: read it before the fixture enters the rep
 the vocabulary happens to hold (a first name that is also a label) is kept, and only a reader
 sees it; `--drop WORD` replaces it anyway.
 
-    python scripts/anonymize_dump.py IN.xml OUT.xml [--drop WORD ...] [--quiet]
+Several captures of one scene (the screen before and after a gesture) go in one call: a word gets
+the same placeholder in all of them, so a name seen before and after the gesture still reads the
+same in both, which is what a test that pairs the two screens compares.
+
+    python scripts/anonymize_dump.py IN.xml OUT.xml [IN2.xml OUT2.xml ...] [--drop WORD ...] [--quiet]
 """
 
 from __future__ import annotations
@@ -215,11 +219,20 @@ class Anonymizer:
 
 
 def anonymize(xml: bytes | str, drop: tuple[str, ...] = ()) -> bytes:
-    raw = xml.encode("utf-8") if isinstance(xml, str) else xml
-    raw = re.sub(rb"\r+\n", b"\n", raw)  # a dump saved on Windows ends its lines with \r\r\n
-    root = etree.fromstring(raw, etree.XMLParser(remove_blank_text=False))
-    Anonymizer(drop).tree(root)
-    return etree.tostring(root, encoding="UTF-8", xml_declaration=True, standalone=True)
+    return anonymize_series([xml], drop)[0]
+
+
+def anonymize_series(xmls: list[bytes | str], drop: tuple[str, ...] = ()) -> list[bytes]:
+    """Captures of one scene, one placeholder per word across all of them."""
+    anonymizer = Anonymizer(drop)
+    out = []
+    for xml in xmls:
+        raw = xml.encode("utf-8") if isinstance(xml, str) else xml
+        raw = re.sub(rb"\r+\n", b"\n", raw)  # a dump saved on Windows ends its lines with \r\r\n
+        root = etree.fromstring(raw, etree.XMLParser(remove_blank_text=False))
+        anonymizer.tree(root)
+        out.append(etree.tostring(root, encoding="UTF-8", xml_declaration=True, standalone=True))
+    return out
 
 
 def read_values(xml: bytes) -> list[str]:
@@ -229,17 +242,21 @@ def read_values(xml: bytes) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("source")
-    parser.add_argument("target")
+    parser.add_argument("paths", nargs="+", metavar="SOURCE TARGET",
+                        help="one or more pairs: a capture, then the fixture it becomes")
     parser.add_argument("--drop", action="append", default=[], help="a kept word to replace anyway")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
-    out = anonymize(Path(args.source).read_bytes(), tuple(args.drop))
-    Path(args.target).write_bytes(out)
-    if not args.quiet:
-        print("Values left in the fixture (read them all):")
-        for value in read_values(out):
-            print(f"  {value}")
+    if len(args.paths) % 2:
+        parser.error("give the paths in pairs: SOURCE TARGET [SOURCE TARGET ...]")
+    sources, targets = args.paths[0::2], args.paths[1::2]
+    outs = anonymize_series([Path(source).read_bytes() for source in sources], tuple(args.drop))
+    for target, out in zip(targets, outs):
+        Path(target).write_bytes(out)
+        if not args.quiet:
+            print(f"Values left in {target} (read them all):")
+            for value in read_values(out):
+                print(f"  {value}")
     return 0
 
 

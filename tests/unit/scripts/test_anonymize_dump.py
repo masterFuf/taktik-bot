@@ -83,3 +83,36 @@ def test_the_command_writes_the_fixture_and_lists_what_is_left(tmp_path, capsys)
 
     assert "Pour toi" in _values(target.read_bytes())
     assert "Pour toi" in capsys.readouterr().out
+
+
+def _capture_of(handle):
+    """The same screen, its title carrying another handle (the next capture of a scene)."""
+    root = etree.fromstring(_capture())
+    root.xpath(f'//node[@resource-id="{TITLE}"]')[0].set("text", handle)
+    return etree.tostring(root, encoding="UTF-8", xml_declaration=True)
+
+
+def test_a_scene_keeps_one_name_per_person_across_its_captures():
+    # Before the gesture the title shows jeanne, after it paul, whom the description of the first
+    # capture already names: paul must read the same in both, or a test pairing them breaks.
+    first = etree.fromstring(_capture())
+    first.xpath(f'//node[@resource-id="{DESC}"]')[0].set("text", "avec paul.durand_33")
+    before, after = anonymize_dump.anonymize_series(
+        [etree.tostring(first, encoding="UTF-8"), _capture_of("paul.durand_33")])
+
+    in_before = _root(before).xpath(f'//node[@resource-id="{DESC}"]')[0].get("text").split()[-1]
+    in_after = _root(after).xpath(f'//node[@resource-id="{TITLE}"]')[0].get("text")
+    assert in_before == in_after and in_after.startswith("user_")
+
+
+def test_the_command_takes_the_captures_of_a_scene_in_pairs(tmp_path):
+    sources = [tmp_path / "before.xml", tmp_path / "after.xml"]
+    targets = [tmp_path / "before_fixture.xml", tmp_path / "after_fixture.xml"]
+    sources[0].write_bytes(_capture())
+    sources[1].write_bytes(_capture_of("jeanne.martin_75"))
+
+    assert anonymize_dump.main([str(sources[0]), str(targets[0]), str(sources[1]), str(targets[1]), "--quiet"]) == 0
+
+    title = f'//node[@resource-id="{TITLE}"]'
+    assert (_root(targets[0].read_bytes()).xpath(title)[0].get("text")
+            == _root(targets[1].read_bytes()).xpath(title)[0].get("text"))
