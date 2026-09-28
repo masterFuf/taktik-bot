@@ -1,7 +1,7 @@
-"""Taktik Agent — autonomous social media workflow (Instagram-first).
+"""Taktik Agent — the autonomous session on Instagram (`TaktikAgentWorkflow`).
 
-Platform-agnostic orchestration layer: inject the right `device_manager`
-and the appropriate platform actions, and it works on Instagram, TikTok, etc.
+It drives Instagram's screens and actions, so it lives with them; `agent_handler.run_instagram_agent`
+launches it for the bridge, the CLI and the workflow registry.
 
 Current implementation: Instagram feed browsing.
   1. Visits own profile → loads account context (niche, persona) from SQLite

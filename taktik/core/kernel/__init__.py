@@ -1,4 +1,5 @@
-"""Agent runtime kernel owners."""
+"""The workflow kernel: the registry of every workflow's handler, the handlers' contract, plans and
+their executor. `manifest`, `plan`, `events` and `handler_params` are imported from their module."""
 
 from taktik.core.kernel.context import AgentContext
 from taktik.core.kernel.contracts import (

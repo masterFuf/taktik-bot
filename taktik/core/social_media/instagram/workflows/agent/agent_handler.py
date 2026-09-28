@@ -86,7 +86,7 @@ def run_instagram_agent(
         config=config,
         ipc=ipc,
         ai_service_factory=ai_service_factory,
-        # Handed in, not built by the session: the Agent kernel does not import a platform.
+        # Built here, from the warmup policy of the payload the launcher read, and handed in.
         warmup=WarmupBudget(request.warmup_policy),
     )
     if on_workflow is not None:
