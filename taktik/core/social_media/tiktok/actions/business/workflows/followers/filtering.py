@@ -27,7 +27,7 @@ from taktik.core.shared.filtering import apply_comprehensive_filter
 
 
 #: camelCase name sent by the app -> snake_case name read by the evaluator. Only the criteria the
-#: evaluator actually reads are listed; anything already in snake_case passes straight through.
+#: evaluator actually reads are listed; their snake_case names pass straight through.
 _CRITERIA_ALIASES = {
     "minFollowers": "min_followers",
     "maxFollowers": "max_followers",
@@ -47,6 +47,15 @@ _CRITERIA_ALIASES = {
 
 #: Handled apart from the aliases: this one is inverted, not renamed.
 _SKIP_PRIVATE_KEYS = ("skipPrivateAccounts", "skip_private_accounts")
+
+#: The names under which a FLAT key of a TikTok config is a criterion. The criteria are read off
+#: the whole payload: any other flat key is a setting of the run (`likeProbability`, `profiles`,
+#: `language`...), not a criterion. Taken as one, it made the criteria never empty, and a run that
+#: asked for no filter was filtered with the evaluator's defaults. Inside a filter block, every key
+#: is a criterion: that is the only reason to put it there.
+_FLAT_CRITERION_NAMES = (
+    frozenset(_CRITERIA_ALIASES) | frozenset(_CRITERIA_ALIASES.values()) | frozenset(_SKIP_PRIVATE_KEYS)
+)
 
 #: Names the TikTok workflow config OWNS at its top level, and which mean something else there.
 #:
@@ -74,6 +83,8 @@ def resolve_tiktok_filter_criteria(config: Optional[Mapping[str, Any]]) -> Dict[
     declared = _names_declared_in_a_block(config)
     criteria: Dict[str, Any] = {}
     for key, value in resolved.items():
+        if key not in declared and key not in _FLAT_CRITERION_NAMES:
+            continue  # a setting of the run, not a criterion. See `_FLAT_CRITERION_NAMES`.
         if value is None or value == "":
             continue
         if key in _SKIP_PRIVATE_KEYS:

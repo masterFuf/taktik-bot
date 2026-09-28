@@ -8,6 +8,10 @@ same order, same config per target, same exit code.
 
 The fixed `posts_per_profile` became a range in every recording, on purpose: the page sends
 `minPostsPerProfile`/`maxPostsPerProfile`, the config carries `min_`/`max_posts_per_profile`.
+
+The `filters` of every recorded config were re-recorded on purpose: they held every flat key of
+the payload (`likeProbability`, `profiles`...), a defect; none of these payloads asks for a
+criterion, so each one now carries none.
 """
 import json
 from dataclasses import asdict

@@ -5,10 +5,11 @@ The three read their interaction settings, their session budgets and their filte
 `followers/payload.py`, then what is their own: the accounts whose followers to walk, the list of
 profiles, the video whose commenters to visit.
 
-The filter criteria are not read key by key: `resolve_tiktok_filter_criteria` merges every flat key
-of the payload, and the `filters` block over them, into the criteria the shared evaluator
-(`shared/filtering`) reads. Declared here are the criteria the evaluator reads, under the app's
-names; when two names of one criterion are both sent, the last one of the payload wins.
+The filter criteria are not read key by key: `resolve_tiktok_filter_criteria` merges the flat keys
+of the payload that name a criterion, and the `filters` block over them, into the criteria the
+shared evaluator (`shared/filtering`) reads; any other flat key is a setting, never a criterion.
+Declared here are the criteria the evaluator reads, under the app's names; when two names of one
+criterion are both sent, the last one of the payload wins.
 """
 
 from __future__ import annotations
