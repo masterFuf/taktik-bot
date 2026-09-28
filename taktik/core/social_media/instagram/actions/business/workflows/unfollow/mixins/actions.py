@@ -187,7 +187,8 @@ class UnfollowActionsMixin:
                 for row in rows:
                     row['display_name'] = display.get(row['username'], '') if row['username'] else ''
         except Exception as e:
-            self.logger.debug(f"Error reading the follow list rows: {e}")
+            # An unreadable list is not an empty one: the caller gets no row, and the journal says why.
+            self.logger.warning(f"Error reading the follow list rows (no row returned): {e}")
         return rows
 
     @staticmethod
