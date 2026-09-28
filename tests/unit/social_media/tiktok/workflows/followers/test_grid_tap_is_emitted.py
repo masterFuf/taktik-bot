@@ -56,11 +56,11 @@ class _Visit(interaction.VideoInteractionMixin):
 
 
 @pytest.fixture
-def metrics():
+def metrics(monkeypatch):
+    """The metrics emitted during the test; the sink a bridge installed before is put back after."""
     sent = []
-    sink.configure_telemetry_sink(sent.append)
-    yield sent
-    sink.clear_telemetry_sink()
+    monkeypatch.setattr(sink, "_sink", sent.append)
+    return sent
 
 
 @pytest.fixture(autouse=True)
