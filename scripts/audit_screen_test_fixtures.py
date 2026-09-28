@@ -65,10 +65,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (8,
          "the rate-limit dialog and the contacts request, invented: neither is in the corpus; "
          "capture both (410, French)."),
-    "tests/unit/social_media/instagram/test_feed_suggestions_parsing.py":
-        (35, "carousel extract, plus discovery-screen rows built by a helper."),
-    "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
-        (12, "profile header and screen signals built by a helper, invented."),
     "tests/unit/social_media/instagram/test_profile_header_447.py":
         (9,
          "447 and 410 profile headers in the real shapes: no 447 professional profile in the "
@@ -76,19 +72,26 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
     "tests/unit/social_media/instagram/test_verified_and_business_signals.py":
         (7,
          "two verified signals no capture shows: a profile title whose description carries the "
-         "word Verified, and a certified card in the suggestions of a profile. Every other case "
-         "reads a real profile (410 FR and EN, 447 FR)."),
+         "word Verified, and a certified card in the suggestions of a profile. A certified 410 FR "
+         "profile (Pixel 4a) shows neither: its title's description is the handle, and the "
+         "certified accounts of its suggestions carry no mark. Every other case reads a real "
+         "profile (410 FR and EN, 447 FR)."),
     "tests/unit/social_media/instagram/ui/test_unfollow_selector_catalogs.py":
         (2,
          "the private account's unfollow confirmation, invented: it only shows once a followed "
          "account's button is tapped, which is the unfollow itself; tabs, categories and the sort "
          "button read real lists (447 FR, 410 EN and FR)."),
     "tests/unit/social_media/instagram/workflows/management/test_notifications_dump_parsing.py":
-        (7, "activity-feed and request rows written inline after 410 dumps."),
+        (2,
+         "the follow-requests screen (with and without its row containers), invented: the Pixel 4a "
+         "account is public and the 3a shows the entry but no capture opened it; capture it on a "
+         "private account with a pending request (410, French). The activity rows are real (410 "
+         "FR and EN)."),
     "tests/unit/social_media/instagram/workflows/management/test_notifications_suggestions_parsing.py":
-        (15, "suggestions zone rebuilt by a helper from a capture."),
-    "tests/unit/social_media/instagram/workflows/management/test_notifications_suggestions_visit.py":
-        (6, "notification rows and profiles as markers, invented."),
+        (14,
+         "the suggestions zone at the bottom of the activity screen, rebuilt by helpers from an "
+         "old capture: no capture reaches it (Pixel 4a, 410 FR: 220 scrolls without it); capture "
+         "it on an account with few notifications. The list above it is real."),
     "tests/unit/social_media/instagram/workflows/test_like_comment_in_thread.py":
         (1,
          "a comment WE already liked and a like control with an unknown label, written by hand: "
@@ -121,15 +124,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (6, "real comment sheet fixture, plus the message banner rebuilt by a helper."),
     "tests/unit/social_media/tiktok/actions/test_tiktok_notification_handles.py":
         (34, "Activity rows (suggestion, wave) invented in the 43.1.4 shape."),
-    "tests/unit/social_media/tiktok/test_french_locale_measured_entries.py":
-        (4, "feed, search, comment sheet and inbox rebuilt after captures."),
-    "tests/unit/social_media/tiktok/test_profile_enrichment_anchors.py":
-        (11, "profile headers rebuilt after eight captured profiles."),
-    "tests/unit/social_media/tiktok/test_update_prompt_overlay.py":
-        (5,
-         "TikTok's splash, its loading logo and an unlabelled bottom sheet, invented: capture the "
-         "launch screen and such a sheet (43.1.4, French); the prompt, the feed and the launcher "
-         "are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_comment_sheet_label_route.py":
         (6,
          "the 46.6.3 sheets (full, empty, with typed text) rebuilt by a helper after their "
@@ -137,11 +131,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "empty), the 43.1.4 and 47.0.3 video pages and the 47.0.3 sheet are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_dm_anchors.py":
         (4, "conversation and inbox rows, invented in the captured shapes."),
-    "tests/unit/social_media/tiktok/ui/test_tiktok_search_selector_catalogs.py":
-        (4,
-         "search result rows rebuilt from the rows a search served: the prefix trap needs handles "
-         "that are prefixes of one another, which anonymization erases; next: invented handles on "
-         "the real Users tab of 46.9.3."),
     "tests/unit/social_media/tiktok/workflows/publish/test_tiktok_publish_hashtag_suggestions.py":
         (3,
          "hashtag suggestion list, invented: not in the publish runs of the corpus; capture it "
@@ -174,7 +163,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
 }
 
 #: The number of entries of HAND_WRITTEN: it only goes down.
-HAND_WRITTEN_CEILING = 33
+HAND_WRITTEN_CEILING = 26
 
 #: (b) A tree that is not a screen: what it computes, and why no screen is needed.
 MINIMAL_TREES: dict[str, tuple[int, str]] = {
@@ -212,6 +201,11 @@ MINIMAL_TREES: dict[str, tuple[int, str]] = {
         (1,
          "a carousel with no visible band (no feed list, no tab bar): the framing guard; every "
          "real dump carries the list, and the carousel itself is read on real feeds."),
+    "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
+        (1,
+         "an empty hierarchy, what the device answers when it cannot read a screen: the guard of "
+         "every reader. The screens read are real (a professional profile, a cut bio, the "
+         "activity list) or their clone (the package renamed)."),
     "tests/unit/social_media/instagram/test_feed_suggestions_follow_loop.py":
         (15, "which bounds the finger starts from and what is booked; the parsing is proven elsewhere."),
     "tests/unit/social_media/instagram/test_post_reading_caption.py":

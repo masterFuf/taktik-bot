@@ -2,10 +2,12 @@
 dump, read by OCR, and dismissed on its "not now" word only.
 
 The prompt is the real 43.1.4 capture (Pixel 3a, French), anonymized: app nodes with no text or
-content-desc, a centred dialog frame. So are the For You feed of the same version and the Pixel
-launcher (Android 12, French). The splash, the loading logo and the unlabelled bottom sheet are
-still written by hand: no capture of the corpus shows them (capture TikTok's launch screen and a
-sheet it draws without labels, 43.1.4, French). The OCR results are invented.
+content-desc, a centred dialog frame. So are the For You feed of the same version, the Pixel
+launcher (Android 12, French) and TikTok's launch screen (Pixel 4a, 43.1.4, a cold start dumped
+every few hundredths of a second): a starting window that exposes no app node at all, before the
+first labelled screen. No capture shows an unlabelled loading logo, an unlabelled sheet, or a page
+of empty full-screen frames: those three are the real prompt with its dialog frame moved (derived,
+said below), since the frame's geometry is all the detector reads. The OCR results are invented.
 """
 
 from pathlib import Path
@@ -23,23 +25,20 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 
-APP = "com.zhiliaoapp.musically"
-
-
-def _node(bounds, package=APP, text="", desc=""):
-    return (f'<node class="android.widget.FrameLayout" package="{package}" text="{text}" '
-            f'content-desc="{desc}" resource-id="" bounds="{bounds}">')
-
-
-def _screen(*nodes):
-    closing = "</node>" * len(nodes)
-    status = '<node class="android.widget.TextView" package="com.android.systemui" text="00:50" content-desc="00:50" bounds="[50,0][161,66]"/>'
-    return f'<hierarchy rotation="0">{status}{"".join(nodes)}{closing}</hierarchy>'
-
-
 FIXTURES = Path(__file__).parent / "fixtures"
 PROMPT = (FIXTURES / "tt4314_fr_update_prompt.xml").read_text(encoding="utf-8")
-SPLASH = _screen(_node("[0,0][1080,2220]"), _node("[0,0][1080,2220]"))
+SPLASH = (FIXTURES / "tt4314_fr_launch_starting_window.xml").read_text(encoding="utf-8")
+PROMPT_FRAME = 'bounds="[152,562][928,1658]"'
+
+
+def _prompt_with_frame(bounds):
+    """The real prompt, its dialog frame (two nested nodes) moved to ``bounds`` (derived)."""
+    assert PROMPT.count(PROMPT_FRAME) == 2
+    return PROMPT.replace(PROMPT_FRAME, f'bounds="{bounds}"')
+
+
+#: Empty frames over the whole screen, the page a loading app shows before its content.
+EMPTY_PAGE = _prompt_with_frame("[0,0][1080,2220]")
 FEED = (FIXTURES / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
 LAUNCHER_ONLY = (Path(__file__).parents[2] / "shared" / "device" / "fixtures"
                  / "android12_fr_launcher_home.xml").read_text(encoding="utf-8")
@@ -49,7 +48,8 @@ def test_the_prompt_is_found_by_its_shape():
     assert unlabelled_overlay_region(parse_ui_dump(PROMPT)) == (152, 562, 928, 1658)
 
 
-@pytest.mark.parametrize("xml", [SPLASH, FEED, LAUNCHER_ONLY], ids=["splash", "feed", "launcher"])
+@pytest.mark.parametrize("xml", [SPLASH, EMPTY_PAGE, FEED, LAUNCHER_ONLY],
+                         ids=["splash", "empty_page", "feed", "launcher"])
 def test_a_screen_that_is_not_the_prompt_is_left_alone(xml):
     assert unlabelled_overlay_region(parse_ui_dump(xml)) is None
 
@@ -144,8 +144,10 @@ def test_a_normal_screen_never_reaches_the_ocr():
     assert click.regions == []
 
 
-LOADING_LOGO = _screen(_node("[0,0][1080,2220]"), _node("[0,0][1080,2220]"), _node("[498,1192][582,1276]"))
-BOTTOM_SHEET = _screen(_node("[0,0][1080,2220]"), _node("[0,1200][1080,2220]"))
+#: A logo on an empty page, and a sheet anchored to the bottom edge: the real prompt's frame
+#: shrunk to a logo in the middle, or stretched to the bottom edge (derived).
+LOADING_LOGO = _prompt_with_frame("[498,1068][582,1152]")
+BOTTOM_SHEET = _prompt_with_frame("[0,1200][1080,2220]")
 
 
 @pytest.mark.parametrize("xml", [LOADING_LOGO, BOTTOM_SHEET], ids=["loading_logo", "bottom_sheet"])

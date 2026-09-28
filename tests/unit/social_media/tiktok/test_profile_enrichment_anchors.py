@@ -12,25 +12,39 @@ disait la vérité avant même qu'on regarde l'écran : 783 profils TikTok, **68
    téléphone français l'entrée de locale correspondante était **vide**, ce qui n'est pas neutre :
    la liste de sélecteurs devenait vide et la réponse était « non » pour tout le monde.
 
-Les fixtures reproduisent la hiérarchie réelle, en tenant compte du renommage de balises que fait
-uiautomator2 (`<node class="X">` devient `<X>`), et gardent le PIÈGE mesuré : un compte porte la
-même icône `ss1` que le badge vérifié, pour le marqueur « Compte non recommandé », sous un autre
-parent. Une ancre qui ne sait pas la refuser n'est pas un indicateur.
+Les écrans sont de vraies captures anonymisées, en français, lues comme `d.xpath()` les lit
+(`parse_ui_dump`) : TikTok 43.1.4 (Pixel 3a : un compte média certifié, notre propre profil) et
+47.0.3 (Pixel 6a : le même compte certifié, un compte sans bio, notre propre profil). Le PIÈGE
+mesuré y est réel : sur 47.0.3, notre propre profil porte le marqueur « Compte non recommandé »,
+dont l'icône a le MÊME id (`t3x`) que le badge vérifié du compte certifié, sous un autre parent
+(sur 46.6.3, c'était `ss1`). Une ancre qui ne sait pas la refuser n'est pas un indicateur.
 """
 
+from pathlib import Path
+
 import pytest
-from lxml import etree
 
 from taktik.core.shared.actions.utils import parse_count
+from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
+FIXTURES = Path(__file__).parent / "fixtures"
+
+#: Un compte média certifié, sa bio courte (43.1.4 et 47.0.3).
+CERTIFIED = {"43.1.4": "tt4314_fr_profile.xml", "47.0.3": "tt4703_fr_profile_followed.xml"}
+#: Notre propre profil, avec sa bio (43.1.4) ; avec sa bio et « Compte non recommandé » (47.0.3).
+OWN = {"43.1.4": "tt4314_fr_own_profile.xml", "47.0.3": "tt4703_fr_own_profile_not_recommended.xml"}
+#: Un compte sans bio, ni certifié (47.0.3).
+PLAIN = "tt47_fr_profile_follows_us_no_message_entry.xml"
+
 
 class _Screen:
-    """Un arbre uiautomator2, interrogé par les sélecteurs RÉELS du catalogue."""
+    """Un vrai écran, interrogé par les sélecteurs RÉELS du catalogue, sur l'arbre de `d.xpath()`."""
 
-    def __init__(self, xml: str):
-        self._tree = etree.fromstring(xml.encode("utf-8"))
+    def __init__(self, name: str, xml: str = ""):
+        self.xml = xml or (FIXTURES / name).read_text(encoding="utf-8")
+        self._tree = parse_ui_dump(self.xml)
 
     def first_text(self, selectors):
         for selector in selectors:
@@ -43,39 +57,8 @@ class _Screen:
     def matches(self, selectors):
         return any(self._tree.xpath(selector) for selector in selectors)
 
-
-def _profile(handle, *, display="Quelqu'un", bio=None, verified=False,
-             website=None, not_recommended=False, own=False):
-    """Un en-tête de profil TikTok 46.6.3, dans la forme que le téléphone envoie."""
-    badge = '<android.widget.ImageView resource-id="com.zhiliaoapp.musically:id/ss1" text=""/>' if verified else ""
-    warning = (
-        '<android.widget.LinearLayout>'
-        '<android.widget.ImageView resource-id="com.zhiliaoapp.musically:id/ss1" text=""/>'
-        '<android.widget.TextView text="Compte non recommandé"/>'
-        '</android.widget.LinearLayout>'
-    ) if not_recommended else ""
-    # Sur notre PROPRE profil, TikTok pose un bouton « Edit » entre le handle et la bio. C'est
-    # lui que « le premier bouton après le handle » attrapait.
-    edit = '<android.widget.Button text="Edit" clickable="true" long-clickable="false"/>' if own else ""
-    bio_node = (
-        f'<android.widget.Button text="{bio}" clickable="true" long-clickable="true"/>'
-    ) if bio else ""
-    site = f'<android.widget.TextView text="{website}"/>' if website else ""
-    return (
-        '<hierarchy>'
-        '<android.widget.FrameLayout>'
-        f'<android.widget.Button text="{display}" clickable="true" long-clickable="false"/>'
-        '<android.widget.LinearLayout>'
-        f'<android.widget.Button resource-id="com.zhiliaoapp.musically:id/ss2" text="{handle}"'
-        ' clickable="true" long-clickable="false"/>'
-        f'{badge}'
-        '</android.widget.LinearLayout>'
-        f'{warning}'
-        '<android.widget.TextView resource-id="com.zhiliaoapp.musically:id/fij" text="Message"/>'
-        f'{edit}{bio_node}{site}'
-        '</android.widget.FrameLayout>'
-        '</hierarchy>'
-    )
+    def nodes(self, xpath):
+        return self._tree.xpath(xpath)
 
 
 @pytest.fixture(autouse=True)
@@ -92,69 +75,105 @@ def _french_phone():
 # --- la bio -----------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("bio", [
-    "Paris",                                    # 5 caractères : perdue par l'ancienne règle
-    "Coach sportif",                            # 13
-    "J'explique comment ouvrir un atelier de réparation",   # 50
+@pytest.mark.parametrize("version, bio", [
+    ("43.1.4", "name_3 name_4 name_5 name_6 .. .. .."),
+    ("47.0.3", "name_12 name_13 name_14 name_15 .. .. .."),
 ])
-def test_a_short_bio_is_not_lost(bio):
-    """La règle de longueur jetait tout ce qui faisait moins de 40 caractères, sans rien dire.
+def test_a_short_bio_is_not_lost(version, bio):
+    """La règle de longueur jetait tout ce qui faisait 40 caractères ou moins, sans rien dire.
 
     Sur TikTok la bio est plafonnée à 80 caractères : la règle ne gardait donc pas les cas rares,
-    elle gardait la minorité."""
-    screen = _Screen(_profile("@quelquun", bio=bio))
-    assert screen.first_text(PROFILE_SELECTORS.bio_text) == bio
+    elle gardait la minorité. La bio du compte certifié en fait 36 et 40."""
+    assert len(bio) <= 40
+    assert _Screen(CERTIFIED[version]).first_text(PROFILE_SELECTORS.bio_text) == bio
 
 
 def test_an_account_without_a_bio_reads_as_empty():
-    """Le deuxième versant : une ancre qui trouve toujours quelque chose n'indique rien."""
-    screen = _Screen(_profile("@neydi0920"))
+    """Le deuxième versant : une ancre qui trouve toujours quelque chose n'indique rien. Le
+    compte a un nom affiché et « Suivre en retour », aucune bio."""
+    screen = _Screen(PLAIN)
+    assert screen.nodes('//*[@text="Suivre en retour"]')
     assert screen.first_text(PROFILE_SELECTORS.bio_text) == ""
 
 
-def test_the_edit_button_of_our_own_profile_is_not_a_bio():
-    """« Le premier bouton après le handle » ramenait « Edit » sur notre propre profil — un
-    libellé d'action enregistré comme biographie."""
-    screen = _Screen(_profile("@demo_creator", own=True, bio="Voitures, montagne et café"))
-    assert screen.first_text(PROFILE_SELECTORS.bio_text) == "Voitures, montagne et café"
+@pytest.mark.parametrize("version, bio", [
+    ("43.1.4", ".. name_9 name_10 name_11 les plus name_12 & les plus name_13, name_14 name_15 name_16"),
+    ("47.0.3", "name_16 comment name_17 name_18 name_19 name_20"),
+])
+def test_our_own_profile_gives_its_bio_not_an_action_button(version, bio):
+    """« Le premier bouton après le handle » ramenait un libellé d'action sur notre propre
+    profil. Sur le vrai profil, des boutons sans texte (photo, story, un bouton vide en 43.1.4)
+    suivent le handle avant la bio : c'est la bio qui est lue."""
+    assert _Screen(OWN[version]).first_text(PROFILE_SELECTORS.bio_text) == bio
 
 
-def test_what_separates_the_bio_from_a_button_is_that_it_can_be_copied():
+#: The unlabelled button that follows the handle on our own 43.1.4 profile.
+UNLABELLED_BUTTON = 'NAF="true" index="0" text="" resource-id="" class="android.widget.Button"'
+
+
+def test_a_labelled_action_button_after_the_handle_is_not_a_bio():
+    """On 46.6.3 our own profile carried an « Edit » button between the handle and the bio, and
+    « the first button after the handle » recorded it as the biography. No phone of the bench runs
+    46.6.3: the real 43.1.4 own profile, its unlabelled button after the handle given that label
+    (derived), keeps giving the bio, because only the bio can be copied."""
+    real = _Screen(OWN["43.1.4"]).xml
+    assert real.count(UNLABELLED_BUTTON) == 1
+    labelled = UNLABELLED_BUTTON.replace('text=""', 'text="Edit"')
+    screen = _Screen(OWN["43.1.4"], xml=real.replace(UNLABELLED_BUTTON, labelled))
+    assert screen.nodes('//android.widget.Button[@text="Edit"]')
+    assert screen.first_text(PROFILE_SELECTORS.bio_text).startswith(".. name_9 name_10")
+
+
+@pytest.mark.parametrize("name", [CERTIFIED["43.1.4"], OWN["47.0.3"], PLAIN])
+def test_what_separates_the_bio_from_a_button_is_that_it_can_be_copied(name):
     """La bio est du texte sélectionnable (`long-clickable`), un bouton d'action ne l'est pas.
-    C'est le seul attribut qui les distingue : ni l'un ni l'autre ne porte de resource-id."""
-    screen = _Screen(_profile("@quelquun", own=True))
-    assert screen.first_text(PROFILE_SELECTORS.bio_text) == ""
+    C'est le seul attribut qui les distingue : ni l'un ni l'autre ne porte de resource-id. Sur
+    chaque vrai profil, le texte lu est celui du seul bouton copiable, ou rien."""
+    screen = _Screen(name)
+    copiable = [n.get("text") for n in screen.nodes('//android.widget.Button[@long-clickable="true"]')
+                if (n.get("text") or "").strip()]
+    assert screen.first_text(PROFILE_SELECTORS.bio_text) == (copiable[0] if copiable else "")
+    assert screen.nodes('//android.widget.Button[@long-clickable="false"][string-length(@text) > 0]')
 
 
 # --- le badge vérifié -------------------------------------------------------------------------
 
 
-def test_a_verified_account_is_seen_as_verified():
-    """Rien sur l'écran ne DIT « vérifié » : le balayage de toute la hiérarchie d'un compte
-    vérifié ne rend aucun nœud portant le mot, dans aucun attribut. Le badge est une petite
-    ImageView sans libellé, posée en frère immédiat du handle."""
-    assert _Screen(_profile("@charlidamelio", verified=True)).matches(PROFILE_SELECTORS.verified_badge)
+@pytest.mark.parametrize("version", ["43.1.4", "47.0.3"])
+def test_a_verified_account_is_seen_as_verified(version):
+    """Le badge est une petite ImageView posée en frère immédiat du handle. Sur 47.0.3 (comme sur
+    46.6.3), rien sur l'écran ne DIT « vérifié » : aucun nœud ne porte le mot. Sur 43.1.4, la
+    description du badge le dit (« <nom> vérifié ») : l'ancre structurelle lit les deux."""
+    screen = _Screen(CERTIFIED[version])
+    says_it = [n.get("content-desc") for n in screen.nodes('//*[contains(@content-desc, "vérifié")]')]
+    assert says_it == ({"43.1.4": ["name_2 vérifié"], "47.0.3": []}[version])
+    assert screen.matches(PROFILE_SELECTORS.verified_badge)
 
 
-def test_an_ordinary_account_is_not_called_verified():
-    assert not _Screen(_profile("@neydi0920")).matches(PROFILE_SELECTORS.verified_badge)
+@pytest.mark.parametrize("name", [PLAIN, OWN["43.1.4"]])
+def test_an_ordinary_account_is_not_called_verified(name):
+    assert not _Screen(name).matches(PROFILE_SELECTORS.verified_badge)
 
 
 def test_the_not_recommended_icon_is_refused():
-    """Le piège mesuré : un compte porte la MÊME icône `ss1`, pour le marqueur
-    « Compte non recommandé », sous un autre parent. S'ancrer sur l'id d'icône aurait déclaré
-    ce compte vérifié."""
-    screen = _Screen(_profile("@compte.demo.extraits", not_recommended=True))
-    assert not screen.matches(PROFILE_SELECTORS.verified_badge)
+    """Le piège mesuré : notre compte (47.0.3) porte la MÊME icône `t3x` que le badge du compte
+    certifié, pour le marqueur « Compte non recommandé », sous un autre parent. S'ancrer sur
+    l'id d'icône aurait déclaré ce compte vérifié."""
+    marked = _Screen(OWN["47.0.3"])
+    certified = _Screen(CERTIFIED["47.0.3"])
+    icon = '//android.widget.ImageView[contains(@resource-id, ":id/t3x")]'
+    assert marked.nodes('//*[@text="Compte non recommandé"]')
+    assert marked.nodes(icon) and certified.nodes(icon)
+    assert not marked.matches(PROFILE_SELECTORS.verified_badge)
 
 
 def test_the_badge_anchor_does_not_depend_on_the_language():
     """Une ancre structurelle ne doit pas changer de réponse quand la langue change — c'est tout
     l'intérêt de ne pas l'écrire avec un mot."""
-    xml = _profile("@charlidamelio", verified=True)
     for locale in ("fr", "en", None):
         set_active_locale(locale)
-        assert _Screen(xml).matches(PROFILE_SELECTORS.verified_badge), locale
+        assert _Screen(CERTIFIED["43.1.4"]).matches(PROFILE_SELECTORS.verified_badge), locale
+        assert not _Screen(OWN["47.0.3"]).matches(PROFILE_SELECTORS.verified_badge), locale
 
 
 # --- les compteurs français -------------------------------------------------------------------

@@ -45,8 +45,9 @@ class DiscoverPeopleSelectors:
     # === Surface proof: at least one recommendation row rendered ===
     # NB (regle AGENTS "preuve de surface specifique") : `row_recommended_user_username`
     # On its own it is too broad, since it also appears in the suggestions tail of a
-    # followers list. The proof used is the row CONTAINER plus its action button, which
-    # only exist together on a recommendation list.
+    # followers list. The proof used is the row CONTAINER plus its action button, OUTSIDE a
+    # follow list: the tail Instagram appends to a following list renders the same container
+    # and button (410 FR, Pixel 3, 2026-09-24), inside `follow_list_pager_id`.
     suggestion_row: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, "recommended_user_row_content_identifier")]',
     ])
@@ -68,6 +69,9 @@ class DiscoverPeopleSelectors:
     row_dismiss_id: str = "row_recommended_hide_icon_button"
     section_header_id: str = "row_header_textview"
     section_header_action_id: str = "row_header_action"
+    # The pager of the followers / following list: a recommendation row inside it is the
+    # list's suggestions tail, not the discovery screen (410 FR, Pixel 3, 2026-09-24).
+    follow_list_pager_id: str = "unified_follow_list_view_pager"
 
     # Call-to-action rows at the top of the screen. They carry an action button but are
     # NOT suggestions, so they are never touched.

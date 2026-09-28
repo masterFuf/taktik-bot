@@ -1,14 +1,18 @@
 """The suggestions zone at the bottom of the notifications screen.
 
-ANONYMISED extract of a real capture. What the dump imposed, and what this test
-locks: the FIELDS of this surface carry no resource-id, so a row cannot be read as
-a subtree in that layout; it is rebuilt by vertical proximity around its
-
-bouton.
+What the dump imposed, and what this test locks: the FIELDS of this surface carry no
+resource-id, so a row cannot be read as a subtree in that layout; it is rebuilt by vertical
+proximity around its button.
 
 The measured step between two rows is reproduced exactly by this test, since the
 geometry is what the parsing depends on.
+
+The zone itself is still written by hand, after an old capture: no capture of the corpus
+reaches it, and on the Pixel 4a (Instagram 410, French, 2026-09-28, weeks of notifications) 220
+scrolls did not either. A real screen of the list above it is read where no header is on screen.
 """
+
+from pathlib import Path
 
 import pytest
 
@@ -27,6 +31,8 @@ from taktik.core.social_media.instagram.workflows.management.notifications.sugge
     followable_suggestions,
     parse_notification_suggestions,
 )
+
+FIXTURES = Path(__file__).parents[2] / "fixtures"
 
 
 def _text(value, x1, y1, x2, y2):
@@ -95,11 +101,15 @@ def test_notifications_above_the_header_are_never_read_as_suggestions():
 
 
 def test_without_the_header_nothing_is_read():
-    """No header on screen means we did not go deep enough. Invent nothing."""
-    xml = ("<?xml version='1.0' encoding='UTF-8'?><hierarchy>"
-           + _row(1701, "Spa Echo", "Suivre", "4 ami(e)s en commun") + "</hierarchy>")
+    """No header on screen means we did not go deep enough. Invent nothing.
+
+    A real screen of the list (410, French, Pixel 4a): rows of new followers, some with their
+    « Suivre en retour » button in the right column, and no suggestions header."""
+    xml = (FIXTURES / "ig410_fr_notifications_rows.xml").read_text(encoding="utf-8")
+    assert "Suivre en retour" in xml
     assert find_suggestions_header_y(_root(xml), NOTIFICATION_SELECTORS.suggestions_header_texts) is None
     assert _parse(xml) == []
+    assert _parse_real(xml) == []
 
 
 def test_only_plain_follow_rows_are_followable():

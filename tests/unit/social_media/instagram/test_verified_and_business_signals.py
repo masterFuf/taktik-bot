@@ -19,7 +19,10 @@ professional profile, a verified media account with a « Contact » button, the 
 2026-09-27: the same media account, and our own professional profile without a category line).
 
 Two cases are still written by hand, no capture shows them: a title whose description carries the
-word « Verified », and a certified card in the suggestions of a profile.
+word « Verified », and a certified card in the suggestions of a profile. The Pixel 4a (Instagram
+410 in French, 2026-09-28) shows neither: on a certified profile the title's description is the
+handle alone and the badge is its own node, and the certified accounts of its « Suggestions »
+carousel carry no mark at all (read below).
 """
 
 from pathlib import Path
@@ -172,6 +175,25 @@ def test_a_certified_suggestion_does_not_certify_the_profile(lang):
         f'content-desc="" /></node>'
     )
     assert not _flags(_invented_header(carousel=carousel))["is_verified"]
+
+
+def test_a_certified_profile_in_french_410_and_its_certified_suggestions(fr):
+    """A certified media account (410, French, Pixel 4a), its « Suggestions » carousel open on
+    three certified accounts of the same publisher. Only the title's badge node certifies: the
+    title's description is the handle, and the cards carry neither a badge nor the word."""
+    from lxml import etree
+
+    xml = _capture("ig410_fr_profile_verified_similar_accounts.xml")
+    root = etree.fromstring(xml.encode("utf-8"))
+    badges = root.xpath('//*[contains(@resource-id, "verified_badge")]')
+    assert [b.get("resource-id").rsplit("/", 1)[-1] for b in badges] == ["action_bar_title_verified_badge"]
+    title = root.xpath(f'//*[@resource-id="{P}action_bar_title"]')[0]
+    assert title.get("content-desc") == title.get("text")
+    cards = root.xpath(f'//*[@resource-id="{P}similar_accounts_container"]//*')
+    assert len(root.xpath(f'//*[@resource-id="{P}suggested_entity_card_name"]')) == 3
+    assert not any("Vérifié" in (n.get("content-desc") or "") + (n.get("text") or "") for n in cards)
+    flags = _flags(xml)
+    assert flags["is_verified"] and not flags["is_private"]
 
 
 def test_a_plain_profile_is_neither(lang):
