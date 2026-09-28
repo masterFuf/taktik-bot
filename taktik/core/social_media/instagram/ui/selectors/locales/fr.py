@@ -995,11 +995,6 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Suivi(e)\")]",
         "//*[@resource-id=\"com.instagram.android:id/profile_header_follow_button\" and contains(@text, \"Abonné\")]",
     ],
-    "unfollow.follows_back_indicators": [
-        "//*[contains(@text, \"Vous suit\")]",
-        "//*[contains(@text, \"vous suit\")]",
-        "//*[contains(@content-desc, \"Vous suit\")]",
-    ],
     # Icône de tri de la liste d'abonnements : content-desc relevé en 410 (Pixel 3a, 2026-06-19)
     # et en 447 (Pixel 6a, 2026-09-23). Options de la feuille de tri relevées en 410 (Pixel 3,
     # 2026-09-24) : « Par défaut », « Date de suivi : plus récent », « Date de suivi : plus

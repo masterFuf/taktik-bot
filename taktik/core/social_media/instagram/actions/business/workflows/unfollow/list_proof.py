@@ -19,6 +19,11 @@ A third one proves less: a read of the following list sorted by latest follow th
 first account the base already knows. It proves the base holds every newer follow, not that the
 whole list was seen (no departure can be deduced from it). A read that no rule proves (no row
 read, a read cut short) proves nothing: the unfollow decides nothing on it.
+
+A fourth one proves the followers the BASE knows, after a read of the followers list from its top:
+the list shows the newest follower first, the read stopped after `KNOWN_IN_A_ROW_TO_STOP` followers
+the base knows, in a row, and the base's followers plus the new ones match the tab's count within
+`count_tolerance`. See `base_matches_count`.
 """
 
 from typing import Iterable, Mapping, Optional
@@ -63,6 +68,31 @@ PROOF_BY_COUNT = "count"
 PROOF_BY_SUGGESTIONS_END = "suggestions_end"
 # The rule that proves a sorted following read up to date without proving it complete.
 PROOF_BY_KNOWN_ACCOUNT = "known_account"
+# The rule that proves the base's followers, plus the new ones a read from the top saw, complete.
+PROOF_BY_BASE_COUNT = "base_count"
+# The rules under which a read itself saw the whole list: only they can show who left it.
+READ_TO_THE_END = (PROOF_BY_COUNT, PROOF_BY_SUGGESTIONS_END)
+
+# Followers the base knows, in a row, after which a read of the followers list from its top may
+# stop. On Instagram 410 the list shows the newest follower first (measured over five whole reads
+# of one account: no inversion, new followers above the first known one). A follower who left and
+# came back is known and shows among the new ones at the top: the stop needs a run of known rows,
+# and 10 is about one screen of them.
+KNOWN_IN_A_ROW_TO_STOP = 10
+
+
+def base_matches_count(known_after: int, expected: Optional[int]) -> bool:
+    """Do the followers the base knows, plus the new ones a read saw (`known_after`), match the
+    count of the followers tab, within `count_tolerance`, on both sides?
+
+    More than the count: followers left since the last complete read and are still in the base
+    (safe for the non-followers mode, which keeps them, but the base drifts). Fewer: the read
+    missed new followers, or the base was never read whole. Either way, beyond the tolerance, the
+    whole list is read again. Without a count, nothing matches.
+    """
+    if expected is None:
+        return False
+    return abs(expected - known_after) <= count_tolerance(expected)
 
 # The largest gap to the tab's count a read ended by the suggestions header may leave, in percent.
 SUGGESTIONS_END_MAX_GAP_PERCENT = 5
@@ -96,7 +126,8 @@ def read_is_complete(seen: int, expected: Optional[int], scroll_failed: bool, *,
                          left_out=left_out) is not None
 
 
-def describe_proof(rule: Optional[str], seen: int, expected: Optional[int]) -> str:
+def describe_proof(rule: Optional[str], seen: int, expected: Optional[int],
+                   known_after: Optional[int] = None) -> str:
     """The end of a read, for the log: which rule proved it, or that none did."""
     total = expected if expected is not None else "?"
     if rule == PROOF_BY_COUNT:
@@ -106,6 +137,9 @@ def describe_proof(rule: Optional[str], seen: int, expected: Optional[int]) -> s
                 f"gap {(expected or 0) - seen} within {SUGGESTIONS_END_MAX_GAP_PERCENT} %)")
     if rule == PROOF_BY_KNOWN_ACCOUNT:
         return f"{seen} read of {total}: up to date (stopped at the first account the base knows)"
+    if rule == PROOF_BY_BASE_COUNT:
+        return (f"{seen} read of {total}: up to date ({KNOWN_IN_A_ROW_TO_STOP} known followers in a row, "
+                f"base plus new {known_after} within {count_tolerance(expected or 0)} of the count)")
     return f"{seen} read of {total}: NOT proven complete"
 
 
@@ -136,7 +170,8 @@ def scrolls_for(expected: Optional[int], floor: int, ceiling: int = 3000) -> int
 
 
 __all__ = [
-    "PROOF_BY_COUNT", "PROOF_BY_SUGGESTIONS_END", "PROOF_BY_KNOWN_ACCOUNT", "SUGGESTIONS_END_MAX_GAP_PERCENT",
+    "PROOF_BY_COUNT", "PROOF_BY_SUGGESTIONS_END", "PROOF_BY_KNOWN_ACCOUNT", "PROOF_BY_BASE_COUNT",
+    "READ_TO_THE_END", "SUGGESTIONS_END_MAX_GAP_PERCENT", "KNOWN_IN_A_ROW_TO_STOP", "base_matches_count",
     "INCREMENTAL_STOP_MIN_KNOWN_PERCENT", "incremental_stop_allowed",
     "parse_tab_count", "count_tolerance", "proof_of_read", "read_is_complete", "describe_proof",
     "scrolls_for",

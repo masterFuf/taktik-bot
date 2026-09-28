@@ -359,7 +359,6 @@ def _child_instagram_decisions(files, version, language, dump_ms, only=None):
         if not username:
             return None
         return {"on_profile": unfollow._on_profile_of(username),
-                "follows_you": unfollow._profile_follows_you(username),
                 "verified": detection.is_verified_account(), "business": detection.is_business_account()}
 
     probes = {

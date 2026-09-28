@@ -94,7 +94,7 @@ def test_the_following_sync_records_nothing_from_the_followers_tab(monkeypatch):
     business.nav_actions.navigate_to_profile_tab = lambda: True
     business.nav_actions.open_following_list = lambda: True
     departures = []
-    business._record_following_departures = lambda *a, **k: departures.append(a) or 0
+    business._record_departures = lambda *a, **k: departures.append(a) or 0
 
     stats = business.sync_following_list({"mode": "fast"})
 

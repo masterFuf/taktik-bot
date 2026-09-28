@@ -1,17 +1,18 @@
 """The on-screen half of the unfollow decision: what the base cannot know.
 
-The candidates come from the base (`unfollow/candidates.py`). Before an unfollow, the engine opens
-the candidate's profile from its list row and checks what only the screen shows: the "Follows you"
-badge (the modes that depend on reciprocity), and verified or business accounts. In doubt, no
-unfollow.
+The candidates come from the base (`unfollow/candidates.py`), reciprocity included: who follows us
+is what the followers list says (`sync_followers_list`). Before an unfollow, the engine opens the
+candidate's profile from its list row only for what the profile alone shows: verified and business
+accounts. In doubt, no unfollow.
 
-Until 2026-09-24 this module held a decision nobody called, which reached each profile through
-the search, took a missing badge as "does not follow back" ("in doubt, unfollow"), and stopped its
-extraction after one scroll.
+No "Follows you" badge is read: no Instagram 410 or 447 profile of the capture corpus shows one, a
+mutual's included; read, it never said yes, and the mutual mode refused every candidate.
 """
 
 import time
 from typing import Any, Dict, Optional
+
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 
 
 class UnfollowDecisionMixin:
@@ -19,47 +20,6 @@ class UnfollowDecisionMixin:
 
     # Bounded wait for the profile to open after a tap on the row (class attribute for tests).
     profile_open_timeout = 4.0
-    # Bounded wait for the relationship of the open profile (badge, header button) to load.
-    badge_wait_timeout = 2.0
-
-    def _profile_follows_you(self, username: str) -> Optional[bool]:
-        """Does @username follow us, read on its open profile: True, False, or None (unknown).
-
-        The last check before an unfollow (U6, 2026-09-24): the base chose the candidate, the
-        profile confirms. The badge is read through the localized `unfollow.follows_back_indicators`
-        ("Follows you", "Vous suit"). None whenever the screen is not @username's profile: the
-        ABSENCE of a badge proves something only on the right, loaded profile. The caller treats
-        None as a doubt, and a doubt as no unfollow.
-
-        The header and the name come from the list row's cache and show first; the badge comes
-        with the relationship data, like the header's action button. An absence read before that
-        button was read as "does not follow back", so the unfollow went on (review of
-        2026-09-24): the badge is now awaited, and its absence counts only once the header button
-        says what our relationship is. Neither within the wait: None.
-        """
-        try:
-            if not self._on_profile_of(username):
-                return None
-            deadline = time.time() + self.badge_wait_timeout
-            while True:
-                if self._is_element_present(self._unfollow_sel.follows_back_indicators):
-                    return True
-                if self._relationship_loaded():
-                    # Loaded with the same data as the badge: look once more, then conclude.
-                    return bool(self._is_element_present(self._unfollow_sel.follows_back_indicators))
-                if time.time() >= deadline:
-                    return None
-                time.sleep(0.3)
-        except Exception as e:
-            self.logger.debug(f"Could not read the follows-you badge of @{username}: {e}")
-            return None
-
-    def _relationship_loaded(self) -> bool:
-        """Does the profile header's action button say what our relationship is (loaded)?"""
-        try:
-            return self.click_actions.get_follow_button_state() != 'unknown'
-        except Exception:
-            return False
 
     def _on_profile_of(self, username: str) -> bool:
         """Is the screen the profile of @username (not another one, not the list)?"""
@@ -81,22 +41,21 @@ class UnfollowDecisionMixin:
                 return False
             time.sleep(0.5)
 
-    def _profile_refusal(self, row: Dict[str, Any], mode: str, forced: bool,
+    def _profile_refusal(self, row: Dict[str, Any], forced: bool,
                          config: Dict[str, Any]) -> Optional[str]:
         """Open the row's profile, run the checks the base cannot, come back to the list.
 
         Returns None when the unfollow may go on, else the reason for NOT unfollowing:
-        'profile_unreadable' (the profile did not open, or is someone else's), 'follows_back'
-        (non-followers mode, badge shown), 'not_mutual' (mutual mode, badge absent), 'verified',
-        'business'. A blacklisted account is forced: no check. With neither reciprocity to confirm
-        nor account kind to check, the profile is not opened at all.
+        'profile_unreadable' (the profile did not open, or is someone else's), 'verified',
+        'business'. Reciprocity takes no part: it was decided on the followers list. A
+        blacklisted account is forced: no check. With no account kind to check, the profile is not
+        opened at all.
         """
         if forced:
             return None
-        needs_badge = mode in ('non-followers', 'mutual')
         skip_verified = bool(config.get('skip_verified', True))
         skip_business = bool(config.get('skip_business', False))
-        if not (needs_badge or skip_verified or skip_business):
+        if not (skip_verified or skip_business):
             return None
 
         username = row['username']
@@ -110,14 +69,8 @@ class UnfollowDecisionMixin:
                 name_element.click()
             if not self._wait_profile_of(username):
                 return 'profile_unreadable'
-            if needs_badge:
-                follows = self._profile_follows_you(username)
-                if follows is None:
-                    return 'profile_unreadable'
-                if mode == 'non-followers' and follows:
-                    return 'follows_back'
-                if mode == 'mutual' and not follows:
-                    return 'not_mutual'
+            # A profile opened to be checked: the live panel counts them.
+            IPCEmitter.emit_profile_visit(username)
             if skip_verified and self.detection_actions.is_verified_account():
                 return 'verified'
             if skip_business and self.detection_actions.is_business_account():

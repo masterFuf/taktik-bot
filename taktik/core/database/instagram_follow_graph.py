@@ -105,6 +105,11 @@ class InstagramFollowGraphService:
         return cls._repository().list_active_followings(account_id)
 
     @classmethod
+    def mark_follower_gone(cls, username: str, account_id: int) -> None:
+        """A follower that no longer follows the account, seen missing by a COMPLETE read (repository)."""
+        cls._repository().mark_follower_gone(username=username, account_id=account_id)
+
+    @classmethod
     def set_followings_reciprocity(cls, account_id: int, follower_usernames) -> int:
         """Reciprocity of every active following, from a COMPLETE followers read (repository)."""
         return cls._repository().set_followings_reciprocity(account_id, follower_usernames)
@@ -177,7 +182,7 @@ class InstagramFollowGraphService:
 
     @classmethod
     def get_follower_usernames(cls, account_id: int) -> set[str]:
-        """Return known followers for an account as lowercase usernames."""
+        """Return the followers the base knows for an account (not marked gone), lowercased."""
         if not account_id:
             return set()
 

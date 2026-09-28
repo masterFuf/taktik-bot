@@ -1,16 +1,21 @@
-"""U6: reciprocity, for real.
+"""U6: reciprocity, for real: the followers list says who follows us, and nothing else.
 
 The "don't follow back" category of the followers tab lists FANS (they follow us, we do not
 follow them). It used to be read as the accounts WE follow that do not follow back: every fan got
 a following row, and every following absent from the category was marked as a mutual. Now the
-category only records fans, and the last word before an unfollow is the "Follows you" badge read
-on the right profile.
+category only records fans.
+
+The profile of a candidate used to be opened to read a "Follows you" badge before the unfollow, in
+the non-followers and mutual modes. No profile of the capture corpus (about 2 800 dumps of 410 and
+447, French and English) shows one, a mutual's included (Pixel 3a, 2026-09-27): read, it never said
+yes, and the mutual mode refused every candidate. The badge is no longer read; the profile opens
+only for the verified and business checks.
 
 The screens are real dumps, anonymized: the followers list of Instagram 410 in English (Pixel 3a,
-2026-09-23), the profile of an account we follow in French (Pixel 3), and, in English (Pixel 3a,
-2026-09-27), the profile of a MUTUAL: it is in our followers list and we follow it. No profile of
-the corpus (about 2 800 dumps of 410 and 447, French and English) shows a "Follows you" or
-"Vous suit" badge, the mutual's included: the badge that proves it is never read.
+2026-09-23), our following list of Instagram 410 in French (Pixel 3, sorted by default), and the
+profile of an account we follow in French (Pixel 3). Two are DERIVED from them, said where they are
+built: the list after the unfollow (the candidate's button reads « Suivre »), and the profile whose
+title is the candidate's name.
 """
 
 from pathlib import Path
@@ -18,7 +23,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from fake_follow_list import FakeFacade, FakeScreen
+from fake_follow_list import FakeDetection, FakeFacade, FakeScreen, derived_row_button, walk_list
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import sync_following
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
@@ -26,14 +32,25 @@ from taktik.core.social_media.instagram.ui.selectors.locales import set_active_l
 
 FIXTURES = Path(__file__).parents[2] / "fixtures"
 FOLLOWERS_LIST = (FIXTURES / "ig410_en_own_followers_list_categories.xml").read_text(encoding="utf-8")
+FOLLOWING_LIST = (FIXTURES / "ig410_fr_following_list_sorted_default.xml").read_text(encoding="utf-8")
 FOLLOWED_PROFILE = (FIXTURES / "ig410_fr_profile_following.xml").read_text(encoding="utf-8")
-MUTUAL_PROFILE_EN = (FIXTURES / "ig410_en_profile_following.xml").read_text(encoding="utf-8")
+CANDIDATE = "user_2"   # the first row of the following list
+
+# Derived: the list once the candidate is unfollowed, its button offering to follow again.
+LIST_AFTER_THE_UNFOLLOW = derived_row_button(FOLLOWING_LIST, CANDIDATE, "Suivre")
+# Derived: the profile of an account we follow, with the candidate's name in its title.
+CANDIDATE_PROFILE = FOLLOWED_PROFILE.replace('text="name_27"', f'text="{CANDIDATE}"')
 
 
 @pytest.fixture(autouse=True)
 def _french(monkeypatch):
     set_active_locale("fr")
     monkeypatch.setattr(sync_following.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(UnfollowBusiness, "confirm_dialog_timeout", 0.0)
+    monkeypatch.setattr(UnfollowBusiness, "row_state_timeout", 0.0)
+    monkeypatch.setattr(UnfollowBusiness, "profile_open_timeout", 0.0)
+    for name in ("emit_unfollow", "emit_stats", "emit_unfollow_plan"):
+        monkeypatch.setattr(unfollow_workflow.IPCEmitter, name, staticmethod(lambda *a, **k: None))
     yield
     set_active_locale(None)
 
@@ -69,33 +86,49 @@ def test_the_fans_category_records_fans_and_never_a_following(monkeypatch):
         assert kwargs["is_following_back"] is False and kwargs["source"] == "fans_category"
 
 
-def _business(screen_xml, on_profile=True, shown="alice"):
-    screen = FakeScreen(screen_xml)
-    facade = FakeFacade(screen)
-    facade.xpath = screen.xpath
-    business = UnfollowBusiness(facade)
-    business.detection_actions = SimpleNamespace(
-        is_on_profile_screen=lambda: on_profile,
-        get_username_from_profile=lambda: shown,
-    )
-    return business
+def _walk(screens, config):
+    screen = FakeScreen(*screens)
+    business = UnfollowBusiness(FakeFacade(screen))
+    business.detection_actions = FakeDetection(screen, business)
+    business.nav_actions.problematic_page_detector = SimpleNamespace(is_action_blocked=lambda: False)
+    recorded = []
+    business._record_action = lambda username, action, count=1: recorded.append(username)
+    stats = walk_list(business, config, names=[CANDIDATE])
+    return stats, recorded, screen
 
 
-def test_a_loaded_profile_without_the_badge_reads_as_not_following_us():
-    assert _business(FOLLOWED_PROFILE)._profile_follows_you("alice") is False
-    assert _business(FOLLOWED_PROFILE)._profile_follows_you("@Alice") is False
+def test_the_mutual_mode_unfollows_a_mutual_of_the_followers_list():
+    """The candidate came from the followers list (a mutual). Its profile opens for the verified
+    check only, and nothing on it refuses the unfollow: it used to answer `not_mutual` to every
+    candidate, the badge that says "follows you" not being on any profile."""
+    stats, recorded, screen = _walk([FOLLOWING_LIST, CANDIDATE_PROFILE, FOLLOWING_LIST, LIST_AFTER_THE_UNFOLLOW],
+                                    {"unfollow_mode": "mutual", "skip_verified": True})
+
+    assert stats["profile_refusals"] == {}
+    assert recorded == [CANDIDATE] and stats["unfollows_made"] == 1
+    assert screen.presses == ["back"]            # back from the profile
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "no Instagram 410 or 447 profile shows a 'Follows you' / 'Vous suit' badge, a mutual's "
-    "included (unfollow.follows_back_indicators, mixins/decision.py _profile_follows_you): the "
-    "last check before an unfollow never says yes"))
-def test_the_profile_of_a_mutual_says_it_follows_us():
-    set_active_locale("en")
-    assert _business(MUTUAL_PROFILE_EN)._profile_follows_you("alice") is True
+def test_a_profile_opened_for_its_check_is_a_profile_visit(monkeypatch):
+    """The live panel counts the profiles the unfollow checked: one `instagram_profile_visit` per
+    profile that opened, none when no profile opens."""
+    visits = []
+    monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_profile_visit", staticmethod(visits.append))
+
+    _walk([FOLLOWING_LIST, CANDIDATE_PROFILE, FOLLOWING_LIST, LIST_AFTER_THE_UNFOLLOW],
+          {"unfollow_mode": "non-followers", "skip_verified": True})
+    assert visits == [CANDIDATE]
+
+    _walk([FOLLOWING_LIST, LIST_AFTER_THE_UNFOLLOW],
+          {"unfollow_mode": "non-followers", "skip_verified": False, "skip_business": False})
+    assert visits == [CANDIDATE]
 
 
-def test_no_badge_proves_nothing_off_the_right_profile():
-    """Absent on another profile, or off any profile, is a doubt, not a 'no'."""
-    assert _business(FOLLOWED_PROFILE, shown="bob")._profile_follows_you("alice") is None
-    assert _business(FOLLOWED_PROFILE, on_profile=False)._profile_follows_you("alice") is None
+@pytest.mark.parametrize("mode", ["non-followers", "mutual"])
+def test_without_an_account_kind_to_check_no_profile_is_opened(mode):
+    """The reciprocity modes used to open every candidate's profile for the badge."""
+    stats, recorded, screen = _walk([FOLLOWING_LIST, LIST_AFTER_THE_UNFOLLOW],
+                                    {"unfollow_mode": mode, "skip_verified": False, "skip_business": False})
+
+    assert recorded == [CANDIDATE] and stats["profile_refusals"] == {}
+    assert screen.presses == []                  # no profile, no way back to take

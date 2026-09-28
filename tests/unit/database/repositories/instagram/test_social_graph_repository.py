@@ -264,3 +264,40 @@ def test_reciprocity_is_written_for_every_active_following_after_a_complete_read
     rows = {r["username"]: r["is_reciprocal"] for r in conn.execute(
         "SELECT username, is_reciprocal FROM social_graph_sync WHERE account_id = 16 AND direction = 'following'")}
     assert rows == {"mutual": 1, "one_way": 0, "gone": None}
+
+
+def test_a_follower_marked_gone_is_no_longer_a_follower_of_the_base(conn):
+    """2026-09-28: a follower missing from a complete read of our followers list left us. The base
+    kept every follower ever seen, and the followers it knows are what an incremental read of the
+    list is checked against."""
+    repo = SocialGraphRepository(conn)
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 17, 'b17', 1)")
+    conn.commit()
+    for name in ("stays", "Leaves"):
+        repo.upsert_follower(name, 17)
+    repo.upsert_following("leaves", "", 17)
+
+    repo.mark_follower_gone("leaves", 17)
+
+    assert repo.get_follower_usernames(17) == {"stays"}
+    # the following row of the same account is another side of the graph: untouched
+    assert repo.get_active_following_usernames(17) == {"leaves"}
+
+
+def test_a_gone_follower_seen_again_follows_us_again_from_now(conn):
+    repo = SocialGraphRepository(conn)
+    conn.execute("INSERT INTO accounts (platform, legacy_account_id, username, is_bot) VALUES ('instagram', 18, 'b18', 1)")
+    conn.commit()
+    repo.upsert_follower("back_again", 18, source="full_sync")
+    repo.mark_follower_gone("back_again", 18)
+    conn.execute("UPDATE social_graph_sync SET first_seen_at = '2026-01-01 00:00:00' WHERE account_id = 18")
+    conn.commit()
+
+    assert repo.upsert_follower("back_again", 18, source="full_sync") == "updated"
+
+    assert repo.get_follower_usernames(18) == {"back_again"}
+    row = conn.execute(
+        "SELECT first_seen_at, source FROM social_graph_sync WHERE account_id = 18 AND direction = 'follower'"
+    ).fetchone()
+    assert datetime.utcnow() - datetime.fromisoformat(str(row["first_seen_at"])) < timedelta(minutes=5)
+    assert row["source"] == "full_sync"

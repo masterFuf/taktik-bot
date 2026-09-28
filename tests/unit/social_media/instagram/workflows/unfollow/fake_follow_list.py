@@ -243,24 +243,47 @@ def walk_list(business, config=None, names=None):
     return stats
 
 
-def profile_xml(username: str, follows_you: bool = False, loaded: bool = True) -> str:
-    """A profile screen: its action bar names the account; "Vous suit" when it follows us.
+def profile_xml(username: str, loaded: bool = True) -> str:
+    """A profile screen: its action bar names the account.
 
     `loaded`: the relationship data arrived, so the header's action button says "Suivi(e)". Before
-    that, the name shows and neither the badge nor the button does.
+    that, the name shows and the button does not.
     """
-    badge = ('<node index="3" text="Vous suit" resource-id="" class="android.widget.TextView" '
-             'content-desc="" bounds="[40,520][300,560]" />') if follows_you and loaded else ""
-    if loaded:
-        badge += (f'<node index="4" text="Suivi(e)" resource-id="{PKG}:id/profile_header_follow_button" '
-                  'class="android.widget.Button" content-desc="" bounds="[40,600][500,680]" />')
+    button = (f'<node index="4" text="Suivi(e)" resource-id="{PKG}:id/profile_header_follow_button" '
+              'class="android.widget.Button" content-desc="" bounds="[40,600][500,680]" />') if loaded else ""
     return (
         '<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
         '<node index="0" text="" resource-id="" class="android.widget.FrameLayout" bounds="[0,0][1080,2400]">'
         f'<node index="1" text="{username}" resource-id="{PKG}:id/action_bar_title" '
         'class="android.widget.TextView" content-desc="" bounds="[200,100][800,160]" />'
-        + badge + "</node></hierarchy>"
+        + button + "</node></hierarchy>"
     )
+
+
+def row_button_of(root, username: str):
+    """The row button of a real follow-list dump paired to @username: the closest centre, as the
+    production reader pairs them. For the tests that DERIVE a screen from a real dump."""
+    def centre(node):
+        top, bottom = (int(v) for v in node.get("bounds")[1:-1].replace("][", ",").split(",")[1::2])
+        return (top + bottom) / 2
+
+    name = next(n for n in root.iter("node") if n.get("text") == username
+                and n.get("resource-id", "").endswith("follow_list_username"))
+    buttons = [n for n in root.iter("node")
+               if n.get("resource-id", "").endswith("follow_list_row_large_follow_button")]
+    return min(buttons, key=lambda n: abs(centre(n) - centre(name)))
+
+
+def derived_row_button(xml: str, username: str, text: Optional[str]) -> str:
+    """A real follow-list dump with the button of @username's row reading `text`, or taken out
+    (`text` None): a screen DERIVED from a real one, the only change."""
+    root = etree.fromstring(xml.encode("utf-8"))
+    button = row_button_of(root, username)
+    if text is None:
+        button.getparent().remove(button)
+    else:
+        button.set("text", text)
+    return etree.tostring(root, encoding="unicode")
 
 
 class FakeDetection:
@@ -299,10 +322,12 @@ class FakeDetection:
 class Graph:
     """The follow graph service, in memory."""
 
-    def __init__(self, known_followings=(), bot_follows=()):
+    def __init__(self, known_followings=(), bot_follows=(), known_followers=()):
         self.known = {name.lower() for name in known_followings}
         self.bot_follows = {name.lower() for name in bot_follows}
+        self.known_followers = {name.lower() for name in known_followers}
         self.followings, self.followers, self.unfollowed = [], [], []
+        self.followers_gone = []
         self.reciprocity = []
         self.bot_flags, self.display = {}, {}
 
@@ -327,6 +352,10 @@ class Graph:
                                 staticmethod(lambda username, **_k: self.followers.append(username) or "new"))
             monkeypatch.setattr(service, "mark_unfollowed",
                                 staticmethod(lambda username, _a: self.unfollowed.append(username)))
+            monkeypatch.setattr(service, "get_follower_usernames",
+                                staticmethod(lambda _a: set(self.known_followers)))
+            monkeypatch.setattr(service, "mark_follower_gone",
+                                staticmethod(lambda username, _a: self.followers_gone.append(username)))
             monkeypatch.setattr(service, "set_followings_reciprocity",
                                 staticmethod(lambda _a, names: self.reciprocity.append(set(names)) or len(names)))
 

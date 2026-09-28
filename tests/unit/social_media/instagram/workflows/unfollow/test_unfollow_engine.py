@@ -26,7 +26,6 @@ def _french_and_fast(monkeypatch):
     monkeypatch.setattr(UnfollowBusiness, "confirm_dialog_timeout", 0.0)
     monkeypatch.setattr(UnfollowBusiness, "row_state_timeout", 0.0)
     monkeypatch.setattr(UnfollowBusiness, "profile_open_timeout", 0.0)
-    monkeypatch.setattr(UnfollowBusiness, "badge_wait_timeout", 0.0)
     monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_unfollow", staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_stats", staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_unfollow_plan", staticmethod(lambda *a, **k: None))
@@ -117,15 +116,18 @@ def test_a_later_batch_never_taps_again_what_an_earlier_one_handled():
 
 # ── The whole engine, non-followers mode ───────────────────────────────────────
 
-def test_non_followers_run_decides_on_data_and_checks_the_badge(monkeypatch):
+def test_non_followers_run_decides_on_the_followers_list(monkeypatch):
+    """Who follows us is what the followers list says: no badge is read on a profile (none shows
+    on Instagram 410 or 447). The profile is opened only for the account kind checks."""
     rows = follow_list_xml([("ghost", "Suivi(e)"), ("hidden_fan", "Suivi(e)"), ("friend", "Suivi(e)")])
     screens = [
         rows,
-        profile_xml("ghost", follows_you=False),       # its profile, opened from the row
+        profile_xml("ghost"),                           # its profile, opened from the row
         rows,                                           # back to the list
         follow_list_xml([("ghost", "Suivre"), ("hidden_fan", "Suivi(e)"), ("friend", "Suivi(e)")]),
-        profile_xml("hidden_fan", follows_you=True),    # the badge the followers sync missed
-        rows,
+        profile_xml("hidden_fan"),
+        follow_list_xml([("ghost", "Suivre"), ("hidden_fan", "Suivi(e)"), ("friend", "Suivi(e)")]),
+        follow_list_xml([("ghost", "Suivre"), ("hidden_fan", "Suivre"), ("friend", "Suivi(e)")]),
     ]
     business, screen, recorded = _business(*screens)
     business.detection_actions = FakeDetection(screen, business)
@@ -145,10 +147,10 @@ def test_non_followers_run_decides_on_data_and_checks_the_badge(monkeypatch):
     stats = business.run_unfollow_workflow({"unfollow_mode": "non-followers", "max_unfollows": 5,
                                             "min_days_since_follow": 3})
 
-    assert recorded == ["ghost"]
-    assert stats["unfollows_made"] == 1
+    assert recorded == ["ghost", "hidden_fan"]
+    assert stats["unfollows_made"] == 2
     assert stats["candidates"] == 2 and stats["refusals"] == {"not_followed_by_bot": 1}
-    assert stats["profile_refusals"] == {"follows_back": 1}
+    assert stats["profile_refusals"] == {}
     # Back from each profile with the key the device obeys, never the Instagram facade's
     # press('back'), which uiautomator2 ignores (C2, 2026-09-23).
     assert screen.presses == ["back", "back"]
@@ -244,6 +246,33 @@ def test_the_syncs_run_once_per_session(monkeypatch):
     assert (calls["following"], calls["followers"]) == (1, 1) and len(calls["walks"]) == 2
 
 
+def test_every_plan_carries_what_the_screen_refused_in_the_session(monkeypatch):
+    """The plan is sent again at each batch, and the app keeps the last one: what the profiles and
+    the list refused in a batch disappeared at the next (716 accounts kept, then 676, on a run of
+    2026-09-28). The accounts refused on screen are handled, a later batch never sees them again."""
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["a1", "a2", "a3", "a4"])
+    plans = []
+    monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_unfollow_plan",
+                        staticmethod(lambda **plan: plans.append(plan["refusals"])))
+
+    def walk(cfg, targets, forced, stats):
+        calls["walks"].append(list(targets))
+        if len(calls["walks"]) == 1:            # the first batch: one verified, one gone from the list
+            stats["profile_refusals"]["verified"] = 1
+            stats["not_in_list"] = 1
+            business._handled.update({"a1", "a2"})
+        return True
+
+    business._open_list_and_walk = walk
+    business.run_unfollow_workflow({"unfollow_mode": "oldest", "max_unfollows": 1})
+    business.run_unfollow_workflow({"unfollow_mode": "oldest", "max_unfollows": 1})
+
+    assert plans[1] == {"verified": 1, "not_in_list": 1}      # the end of the first batch
+    assert plans[2] == {"verified": 1, "not_in_list": 1}      # the start of the second
+    assert plans[3] == {"verified": 1, "not_in_list": 1}      # its end: nothing more refused
+
+
 def test_nobody_to_unfollow_is_an_ok_end_with_its_reason(monkeypatch):
     business, _screen, _recorded = _business(follow_list_xml([]))
     calls = _engine_on_data(monkeypatch, business, ["a1"])
@@ -334,21 +363,3 @@ def test_the_all_mode_unfollows_the_first_candidate_rows_of_the_list():
         follow_list_xml([("newest", "Suivre"), ("middle", "Suivre"), ("oldest", "Suivi(e)")]))
     walk_list(business, {"unfollow_mode": "all", "max_unfollows": 2}, names=["oldest", "middle", "newest"])
     assert recorded == ["newest", "middle"]
-
-
-# ── The badge is read on a loaded profile only (review of 2026-09-24) ───────────
-
-def test_a_profile_still_loading_is_a_doubt_not_a_missing_badge():
-    business, screen, _recorded = _business(profile_xml("ghost", follows_you=True, loaded=False))
-    business.detection_actions = FakeDetection(screen, business)
-    assert business._profile_follows_you("ghost") is None
-
-
-def test_on_a_loaded_profile_the_badge_says_yes_or_no():
-    business, screen, _recorded = _business(profile_xml("ghost", follows_you=False))
-    business.detection_actions = FakeDetection(screen, business)
-    assert business._profile_follows_you("ghost") is False
-
-    business, screen, _recorded = _business(profile_xml("fan", follows_you=True))
-    business.detection_actions = FakeDetection(screen, business)
-    assert business._profile_follows_you("fan") is True

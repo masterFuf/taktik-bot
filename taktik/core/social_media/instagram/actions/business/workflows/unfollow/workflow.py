@@ -10,7 +10,7 @@ unfollowed a given list through the search. One engine is left:
    following read that `list_proof` does not prove stops the run before any decision;
 2. choose the candidates from the base, rule by rule (`candidates.py`); in doubt, nobody;
 3. walk the following list; for each row of a candidate still followed: check its profile when a
-   rule needs the screen (the "Follows you" badge, verified or business accounts), tap the row
+   rule needs the screen (verified or business accounts), tap the row
    button, confirm a private account, read the row again (an unfollow counts only if the row now
    offers to follow), stop at the first sign of a block, count it in the session, the day and
    the warmup, pause the configured time.
@@ -74,6 +74,9 @@ class UnfollowBusiness(
         # an unfollow the screen did not confirm, or a refused one, is never tapped again by a
         # later batch.
         self._handled: Set[str] = set()
+        # What the screen refused in this SESSION (on the profile, or absent from the list), per
+        # reason: every plan the session emits carries it, so a batch does not erase the last one's.
+        self._session_refusals: Dict[str, int] = {}
         self._unconfirmed_in_a_row = 0
         # The syncs run once per SESSION: a later batch decides again on the base (which our own
         # unfollows keep up to date) instead of scrolling both lists again for minutes.
@@ -150,7 +153,9 @@ class UnfollowBusiness(
                     stats['followers_sync'] = {'total_seen': followers_sync.get('total_seen'),
                                                'expected': followers_sync.get('expected'),
                                                'complete': self._followers.complete,
-                                               'proof': followers_sync.get('proof')}
+                                               'proof': followers_sync.get('proof'),
+                                               'incremental': followers_sync.get('incremental'),
+                                               'departures': followers_sync.get('departures')}
                 self._synced = True
             followers = self._followers
 
@@ -165,7 +170,7 @@ class UnfollowBusiness(
                 f"📋 {len(selection.candidates)} candidate(s); refused: {selection.refusals or 'none'}"
             )
             IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates),
-                                          refusals=dict(selection.refusals))
+                                          refusals=self._plan_refusals(selection.refusals))
             # The accounts a batch of this session handled already are out of the window BEFORE it
             # is cut: a window of the oldest candidates held only the ones refused on their profile
             # by the previous batch, and the session ended under its maximum (review 2026-09-24).
@@ -188,13 +193,14 @@ class UnfollowBusiness(
                 stats['success'] = True
             stats['candidates_left'] = sum(1 for name in selection.candidates
                                            if name.lower() not in self._handled)
-            # What the profiles refused goes to the page with what the data refused.
-            refused = dict(selection.refusals)
+            # What the screen refused goes to the page with what the data refused, for the session.
             for reason, count in stats['profile_refusals'].items():
-                refused[reason] = refused.get(reason, 0) + count
+                self._session_refusals[reason] = self._session_refusals.get(reason, 0) + count
             if stats['not_in_list']:
-                refused['not_in_list'] = refused.get('not_in_list', 0) + stats['not_in_list']
-            IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates), refusals=refused)
+                self._session_refusals['not_in_list'] = (self._session_refusals.get('not_in_list', 0)
+                                                         + stats['not_in_list'])
+            IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates),
+                                          refusals=self._plan_refusals(selection.refusals))
             self.logger.info(
                 f"✅ Unfollow done: {stats['unfollows_made']} unfollowed, "
                 f"{stats['unconfirmed']} not confirmed, refused on profile: {stats['profile_refusals'] or 'none'}, "
@@ -205,6 +211,14 @@ class UnfollowBusiness(
             stats['errors'] += 1
             stats['stop_reason'] = stats['stop_reason'] or stop_reasons.navigation_lost()
         return stats
+
+    def _plan_refusals(self, data_refusals: Dict[str, int]) -> Dict[str, int]:
+        """The refusals a plan shows: what the data refuses now, plus what the screen refused in
+        this session so far (the accounts it refused are handled, a later batch never sees them)."""
+        refused = dict(data_refusals)
+        for reason, count in self._session_refusals.items():
+            refused[reason] = refused.get(reason, 0) + count
+        return refused
 
     def _open_list_and_walk(self, cfg: Dict[str, Any], targets: List[str], forced: Set[str],
                             stats: Dict[str, Any]) -> bool:
@@ -281,7 +295,6 @@ class UnfollowBusiness(
     def _unfollow_in_open_list(self, cfg: Dict[str, Any], targets: List[str], forced: Set[str],
                                stats: Dict[str, Any]) -> None:
         """Act on the rows of `targets` that the open following list shows, top to bottom."""
-        mode = cfg.get('unfollow_mode', 'non-followers')
         max_unfollows = int(cfg.get('max_unfollows') or 0)
         pending = {name.lower() for name in targets}
         # A row is handled once per session: an unfollow the screen did not confirm is not retried
@@ -328,13 +341,13 @@ class UnfollowBusiness(
             handled.add(key)
             pending.discard(key)
 
-            refusal = self._profile_refusal(row, mode, key in forced, cfg)
+            refusal = self._profile_refusal(row, key in forced, cfg)
             if refusal:
                 stats['profile_refusals'][refusal] = stats['profile_refusals'].get(refusal, 0) + 1
                 self.logger.info(f"⏭ @{username} kept: {refusal}")
                 emit_step('unfollow_decision', action='skip', target=username, reason=refusal)
                 continue
-            if row.get('name_element') is not None and self._profile_was_opened(mode, key in forced, cfg):
+            if row.get('name_element') is not None and self._profile_was_opened(key in forced, cfg):
                 # Back from the profile: the rows were redrawn, read the candidate's row again.
                 row = next((r for r in self._visible_follow_rows()
                             if r['username'].lower() == key and r['state'] == 'following'), None)
@@ -346,13 +359,11 @@ class UnfollowBusiness(
             if not self._unfollow_row(row, cfg, stats):
                 break
 
-    def _profile_was_opened(self, mode: str, forced: bool, cfg: Dict[str, Any]) -> bool:
+    def _profile_was_opened(self, forced: bool, cfg: Dict[str, Any]) -> bool:
         """Did `_profile_refusal` open the profile for this row (so the list was redrawn)?"""
         if forced:
             return False
-        return (mode in ('non-followers', 'mutual')
-                or bool(cfg.get('skip_verified', True))
-                or bool(cfg.get('skip_business', False)))
+        return bool(cfg.get('skip_verified', True)) or bool(cfg.get('skip_business', False))
 
     def _unfollow_row(self, row: Dict[str, Any], cfg: Dict[str, Any], stats: Dict[str, Any]) -> bool:
         """Tap the row button, confirm, check the row, check for a block, count, pause.

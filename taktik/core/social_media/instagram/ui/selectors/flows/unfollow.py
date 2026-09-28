@@ -167,11 +167,6 @@ class UnfollowSelectors:
     def sort_option_earliest(self) -> List[str]:
         return L("unfollow.sort_option_earliest")
 
-    # === Détection "follows you back" (overlay locales/) ===
-    @property
-    def follows_back_indicators(self) -> List[str]:
-        return L("unfollow.follows_back_indicators")
-
     # === Follow-button detection after an unfollow (locales overlay) ===
     @property
     def follow_button_after_unfollow(self) -> List[str]:

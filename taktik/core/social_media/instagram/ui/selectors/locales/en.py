@@ -1038,10 +1038,6 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"Following\")]",
         "//*[@resource-id=\"com.instagram.android:id/profile_header_follow_button\" and contains(@text, \"Following\")]",
     ],
-    "unfollow.follows_back_indicators": [
-        "//*[contains(@text, \"Follows you\")]",
-        "//*[contains(@content-desc, \"Follows you\")]",
-    ],
     "unfollow.sort_button": [
         "//*[@content-desc=\"Sort by\"]",
     ],
