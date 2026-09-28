@@ -7,14 +7,26 @@ the posts of the home feed with no ledger row and no session counter at all: its
 aggregated to zero likes, its likes escaped the session and daily caps, and its comment
 published text that nothing recorded, then closed the sheet with a back key uiautomator2
 ignores.
+
+Since the Feed likes through the like of a list of posts (`LikeOrchestration.like_framed_post`), a
+like is filed once the framed post's heart is seen turned, never for a gesture that did not turn it.
+The screen is a real home feed (Pixel 3a, Instagram 410 in French), anonymized, replayed by
+`profile_posts_phone.py`.
 """
 
+import inspect
 import types
 
 import pytest
+from lxml import etree
 
-import taktik.core.social_media.instagram.actions.business.workflows.feed.post_actions as pa
+import taktik.core.shared.device.facade as shared_facade_module
+import taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll as feed_scroll
+import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
+import taktik.core.social_media.instagram.actions.business.actions.like.orchestration as orchestration
 import taktik.core.social_media.instagram.actions.business.workflows.feed.workflow as feed_module
+import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+from profile_posts_phone import HEART_ID, ProfilePostsPhone, bounds_of, capture, like_on_phone
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
     LikeOrchestration,
@@ -24,7 +36,10 @@ from taktik.core.social_media.instagram.actions.business.workflows.feed.post_act
     FeedPostActionsMixin,
 )
 from taktik.core.social_media.instagram.actions.business.workflows.feed.workflow import FeedBusiness
-from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FeedSelectors
+from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+
+FEED_POST = capture("ig410_fr_feed_heart_of_post_above_at_top.xml")
+PIXEL_3A_H = 2220
 
 
 def _log():
@@ -34,115 +49,81 @@ def _log():
     )
 
 
-class _Session:
-    def __init__(self):
-        self.actions = []
-
-    def record_action(self, action_type, success=True, source=None):
-        self.actions.append((action_type, source))
-
-
-def _like_business():
-    """The real recording function, with its two writes captured."""
-    like = LikeOrchestration.__new__(LikeOrchestration)
-    like.logger = _log()
-    like.session_manager = _Session()
-    like.rows = []
-    like._record_action = lambda u, k, c=1, **kw: like.rows.append((u, k, c))
-    return like
+@pytest.fixture(autouse=True)
+def _french_phone_no_waits(monkeypatch):
+    for module in (facade_module, shared_facade_module, post_reading, feed_scroll, orchestration):
+        monkeypatch.setattr(module.time, "sleep", lambda *_: None)
+    set_active_locale("fr")
+    yield
+    set_active_locale(None)
 
 
 # ─────────────────────────────────────────────────────────────── the like gesture
 
-class _El:
-    def __init__(self, exists=False, content_desc=""):
-        self.exists = exists
-        self.attrib = {"content-desc": content_desc}
+def _feed_on_phone(phone):
+    """The Feed whose like is the production like of a list, on the replayed phone."""
+    feed = object.__new__(FeedBusiness)
+    feed.logger = _log()
+    feed.like_business = like_on_phone(phone)
+    return feed
 
 
-class _FeedSel:
-    like_button = ["like_sel"]
-    already_liked_indicators = ["already_sel"]
-    liked_button_desc_fragments = FeedSelectors().liked_button_desc_fragments
+def _hearts(xml):
+    """(bounds, selected) of each heart of the screen, top to bottom: the framed post's is the last."""
+    root = etree.fromstring(xml.encode("utf-8"))
+    return sorted(((bounds_of(n), n.get("selected")) for n in root.iter()
+                   if n.get("resource-id") == HEART_ID), key=lambda item: item[0][1])
 
 
-class _Device:
-    def __init__(self, elements):
-        self._elements = elements
-
-    def xpath(self, selector):
-        return self._elements.get(selector, _El(exists=False))
-
-    @property
-    def info(self):
-        return {"displayWidth": 1080, "displayHeight": 1920}
-
-    def human_double_tap(self, bounds, *, rng=None):
-        return (1, 2)
-
-    def double_click(self, x, y):
-        pass
-
-
-class _Probe(FeedPostActionsMixin):
-    def __init__(self, elements):
-        self.device = _Device(elements)
-        self._feed_sel = _FeedSel()
-        self.logger = _log()
-        self.like_business = _like_business()
-
-    def _human_tap_element(self, element):
-        return True
-
-    def _human_like_delay(self, kind):
-        pass
+def _framed_heart_liked(phone) -> bool:
+    return _hearts(phone.dump_hierarchy())[-1][1] == "true"
 
 
 @pytest.mark.parametrize("double_tap", [False, True])
-def test_a_feed_like_given_its_author_is_filed_at_the_gesture(monkeypatch, double_tap):
-    """Button or image double-tap: one ledger row and one session count, under the author."""
-    monkeypatch.setattr(pa, "_should_double_tap_like", lambda rng=None: double_tap)
-    probe = _Probe({"like_sel": _El(exists=True, content_desc="Like")})
+def test_a_feed_like_given_its_author_is_filed_once_its_heart_turns(monkeypatch, double_tap):
+    """Button or double tap: one ledger row and one session count, under the author."""
+    monkeypatch.setattr(orchestration, "should_double_tap_like", lambda: double_tap)
+    phone = ProfilePostsPhone(screen=FEED_POST, height=PIXEL_3A_H, likes_on_tap=True)
+    feed = _feed_on_phone(phone)
 
-    assert probe._like_current_post(record_as="bob") is True
+    assert feed._like_current_post(record_as="bob") is True
 
-    assert probe.like_business.rows == [("bob", "LIKE", 1)]
-    assert probe.like_business.session_manager.actions == [("like_posts", "bob")]
+    assert _framed_heart_liked(phone)
+    assert feed.like_business.rows == [("bob", "LIKE", 1)]
+    assert feed.like_business.session_actions == [("like_posts", "bob")]
 
 
-def test_a_feed_like_is_filed_before_the_pause_that_follows_it(monkeypatch):
-    """A run stopped during the pause after the tap keeps the row of the like it gave."""
-    class _Stopped(BaseException):
-        pass
+@pytest.mark.parametrize("double_tap", [False, True])
+def test_a_feed_gesture_whose_heart_does_not_turn_files_nothing(monkeypatch, double_tap):
+    """The heart is what says the like took: a gesture Instagram did not take is no like, no row."""
+    monkeypatch.setattr(orchestration, "should_double_tap_like", lambda: double_tap)
+    phone = ProfilePostsPhone(screen=FEED_POST, height=PIXEL_3A_H, likes_on_tap=False)
+    feed = _feed_on_phone(phone)
 
-    monkeypatch.setattr(pa, "_should_double_tap_like", lambda rng=None: False)
-    probe = _Probe({"like_sel": _El(exists=True, content_desc="Like")})
+    assert feed._like_current_post(record_as="bob") is False
 
-    def _stopped(_kind):
-        raise _Stopped()
-
-    probe._human_like_delay = _stopped
-    with pytest.raises(_Stopped):
-        probe._like_current_post(record_as="bob")
-
-    assert probe.like_business.rows == [("bob", "LIKE", 1)]
+    assert phone.taps, "no gesture was made"
+    assert feed.like_business.rows == [] and feed.like_business.session_actions == []
 
 
 def test_an_already_liked_feed_post_is_no_gesture_and_no_row():
-    probe = _Probe({"like_sel": _El(exists=True, content_desc="Unlike")})
+    phone = ProfilePostsPhone(screen=FEED_POST, height=PIXEL_3A_H, likes_on_tap=True)
+    own = _hearts(FEED_POST)[-1][0]
+    phone._liked_hearts.add(f"[{own[0]},{own[1]}][{own[2]},{own[3]}]")
+    feed = _feed_on_phone(phone)
 
-    assert probe._like_current_post(record_as="bob") is False
+    assert feed._like_current_post(record_as="bob") is False
 
-    assert probe.like_business.rows == [] and probe.like_business.session_manager.actions == []
+    assert phone.taps == []
+    assert feed.like_business.rows == [] and feed.like_business.session_actions == []
 
 
 def test_the_feed_records_through_the_function_the_hashtag_pass_uses():
-    """One way of filing a post like. The Feed keeps its own gesture, not its own ledger."""
-    import inspect
-
-    source = inspect.getsource(FeedPostActionsMixin._record_feed_like)
-    assert "record_post_like" in source
-    assert "record_post_like" in inspect.getsource(LikeOrchestration.like_current_post)
+    """One way of liking a post of a list and filing it: the Feed has neither gesture nor ledger
+    of its own."""
+    assert "like_framed_post" in inspect.getsource(FeedPostActionsMixin._like_current_post)
+    assert "record_post_like" in inspect.getsource(LikeOrchestration._like_framed_post)
+    assert "_like_framed_post" in inspect.getsource(LikeOrchestration.like_current_post)
 
 
 # ─────────────────────────────────────────────────────────────── the feed loop
@@ -250,17 +231,14 @@ def test_a_post_whose_author_cannot_be_read_is_not_engaged(cards):
 
 
 def test_the_whole_chain_leaves_one_row_per_like(cards, monkeypatch):
-    """The loop with the real like recording: the session sees every like of the run."""
-    monkeypatch.setattr(pa, "_should_double_tap_like", lambda rng=None: False)
+    """The loop with the real like on the real screen: the session sees the like of the run."""
+    monkeypatch.setattr(orchestration, "should_double_tap_like", lambda: False)
     feed = _feed()
     del feed._like_current_post
-    feed.device = _Device({"like_sel": _El(exists=True, content_desc="Like")})
-    feed._feed_sel = _FeedSel()
-    feed._human_tap_element = lambda element: True
-    feed._human_like_delay = lambda kind: None
-    feed.like_business = _like_business()
+    phone = ProfilePostsPhone(screen=FEED_POST, height=PIXEL_3A_H, likes_on_tap=True)
+    feed.like_business = like_on_phone(phone)
 
-    feed.interact_with_feed({**_RUN, "comment_percentage": 0})
+    feed.interact_with_feed({**_RUN, "comment_percentage": 0, "max_interactions": 1, "max_posts_to_check": 1})
 
-    assert feed.like_business.rows == [("bob", "LIKE", 1)] * 2
-    assert feed.like_business.session_manager.actions == [("like_posts", "bob")] * 2
+    assert feed.like_business.rows == [("bob", "LIKE", 1)]
+    assert feed.like_business.session_actions == [("like_posts", "bob")]

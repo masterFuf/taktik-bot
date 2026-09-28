@@ -110,7 +110,8 @@ def navigate_next(a, p):
 def like_target(a, p):
     """Where a like of the framed post would go, without liking: its media (double tap) and the
     heart of its own row, read by the production like (`LikeOrchestration._framed_like_target`,
-    `PostReadingMixin.framed_post_like_target`). No like when that heart is off the screen."""
+    `PostReadingMixin.framed_post_like_target`). When that heart is off the screen, the like first
+    tries to bring its row up (`post.show_framed_buttons`)."""
     target = a.like._framed_like_target()
     if target is None:
         return {"success": False, "message": "ecran illisible : aucun like"}
@@ -119,7 +120,8 @@ def like_target(a, p):
                 "details": target}
     if target.get("heart") is None:
         return {"success": False,
-                "message": f"aucun like : le coeur du post cadre n'est pas a l'ecran ({target.get('identity') or 'aucun post cadre'})",
+                "message": (f"le coeur du post cadre n'est pas a l'ecran ({target.get('identity') or 'aucun post cadre'}) : "
+                            f"le like montrera d'abord sa rangee (post.show_framed_buttons)"),
                 "details": target}
     region = a.like._double_tap_region(target["media"]) if target.get("media") else None
     return {
@@ -127,6 +129,37 @@ def like_target(a, p):
         "message": (f"{target.get('identity')} | double tap {region} | coeur {target.get('heart')} | "
                     f"deja aime={target.get('liked')}"),
         "details": {**target, "double_tap_region": region},
+    }
+
+
+@action("post.show_framed_buttons")
+def show_framed_buttons(a, p):
+    """The framed post's heart runs under the bottom of the list: the short drag the like takes
+    first to bring its button row up, and the check that the post is still the same, without
+    liking (`LikeOrchestration._show_framed_post_heart`, `PostReadingMixin.show_framed_post_buttons`).
+    Reports where the header was and went, the drag, and the heart then."""
+    before = a.like._framed_like_target()
+    if before is None or not before.get("list"):
+        return {"success": False, "message": "hors liste de posts ou ecran illisible : rien a montrer",
+                "details": {"before": before}}
+    if before.get("heart") is not None:
+        return {"success": True, "message": f"coeur deja a l'ecran, aucun geste ({before.get('identity')})",
+                "details": {"before": before}}
+    shown = a.like._show_framed_post_heart(before.get("identity"))
+    reveal = dict(getattr(a.like.scroll_actions, "_last_buttons_reveal", None) or {})
+    reveal.pop("target", None)
+    details = {"before": before, "after": shown, "reveal": reveal}
+    if shown is None:
+        return {"success": False,
+                "message": (f"aucun like : coeur non montre ({reveal.get('reason')}, "
+                            f"en-tete {reveal.get('header_before')} -> {reveal.get('header_after')})"),
+                "details": details}
+    return {
+        "success": True,
+        "message": (f"{shown.get('identity')} | glisser {reveal.get('lifted_px')} px, en-tete "
+                    f"{reveal.get('header_before')} -> {reveal.get('header_after')} | coeur {shown.get('heart')} | "
+                    f"deja aime={shown.get('liked')}"),
+        "details": details,
     }
 
 

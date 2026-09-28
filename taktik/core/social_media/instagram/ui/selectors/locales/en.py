@@ -392,9 +392,6 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@content-desc, \"Post\")]",
         "//*[contains(@text, \"Post\")]",
     ],
-    "feed.like_button": [
-        "//*[contains(@content-desc, \"Like\")]",
-    ],
     "feed.likes_count_button": [
         "//*[contains(@text, \"likes\")]",
     ],
