@@ -166,15 +166,14 @@ def test_every_yes_no_question_of_the_lab_is_answered_the_same_way():
     assert INSTAGRAM_DETECTIONS <= set(INSTAGRAM_ACTIONS) and TIKTOK_DETECTIONS <= set(TIKTOK_ACTIONS)
 
 
-@pytest.mark.parametrize("production, answer", [(True, True), (False, False), (None, False)],
-                         ids=["login-form", "profile-tile-tapped", "neither-login-nor-picker"])
+@pytest.mark.parametrize("production, answer", [("login_form", True), ("profile_picker", True), (None, False)],
+                         ids=["login-form", "saved-profiles", "neither-login-screen"])
 def test_the_login_screen_detection_reads_the_three_answers_of_production(monkeypatch, production, answer):
-    """`InstagramLogin._is_on_login_screen` answers True (the login form), False (a saved profile
-    tile was tapped) or None (neither the form nor the profile picker: the home feed, found on the
-    Pixel 3a on 2026-09-28, where the Lab said "no answer"). The last two both say "not on the
-    login screen"; the screen is still checked to be Instagram's and readable."""
+    """`InstagramLogin._read_login_screen` answers the login form, the saved profiles, or neither
+    (the home feed, found on the Pixel 3a on 2026-09-28, where the Lab said "no answer"). The first
+    two are login screens; the screen is still checked to be Instagram's and readable."""
     from taktik.core.social_media.instagram.auth.login import InstagramLogin
 
-    monkeypatch.setattr(InstagramLogin, "_is_on_login_screen", lambda self, target_username=None: production)
+    monkeypatch.setattr(InstagramLogin, "_read_login_screen", lambda self: production)
     result = INSTAGRAM_ACTIONS["account.detect_login_screen"](_instagram(IG_FEED), {})
     assert (result["success"], result["details"]) == (True, {"found": answer})

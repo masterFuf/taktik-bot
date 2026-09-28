@@ -3,6 +3,11 @@
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action, detection_action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_applicable
+from taktik.core.social_media.instagram.actions.core.base_business.popup_handling import (
+    COMMENTS_EMPTY,
+    COMMENTS_OPENED,
+)
 
 
 @action("post.like")
@@ -20,7 +25,10 @@ def open_comments(a, p):
     # Mirror production exactly, like post.open_likers below: the bot opens the thread via
     # the shared _open_comments_view flow (tap + empty-state guard + verifies the thread
     # actually opened), not the bare click_comment_button atomic which prod never calls.
-    return a.popup._open_comments_view()
+    outcome = a.popup._open_comments_thread()
+    if outcome == COMMENTS_EMPTY:
+        return not_applicable("post.open_comments", "the post on screen has no comment yet (its empty thread closed again)")
+    return outcome == COMMENTS_OPENED
 
 
 @action("post.open_share")

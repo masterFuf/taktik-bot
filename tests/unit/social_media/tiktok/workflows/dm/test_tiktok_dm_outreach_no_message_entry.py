@@ -188,7 +188,9 @@ def test_the_lab_action_runs_the_same_step_on_the_session_device():
         SimpleNamespace(device=phone, device_id="device-1"), {})
 
     assert result["success"] is False
-    assert result["details"] == {"outcome": "no_message_entry"}
+    # The profile, read, offers none: the Lab counts the test not applicable.
+    assert result["details"] == {"outcome": "no_message_entry",
+                                 "not_applicable": "the open profile offers no message entry"}
     assert phone.taps == []
 
 

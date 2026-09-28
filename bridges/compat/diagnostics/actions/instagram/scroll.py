@@ -3,7 +3,9 @@
 import time
 
 from bridges.compat.diagnostics.actions.instagram import action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_applicable
 from taktik.core.shared.behavior.gesture import FULL_REACH_H, sample_swipe
+from taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll import _TAIL_FILLER_RUNS
 from taktik.core.shared.behavior.gesture_primitives import _step_cost as _gesture_step_cost
 
 
@@ -150,14 +152,31 @@ def scroll_reveal_post(a, p):
     metadata, else advance to the next real post (skips ads/suggested), framed with its
     bar visible. Success = the bar is genuinely visible (a precondition for post.is_liked,
     post.like, post.open_comments…); a failure lets those tests be flagged "blocked"
-    instead of a false broken-selector red."""
+    instead of a false broken-selector red.
+
+    A gesture that only met ads and suggested posts (`filler_run`) is followed by another, as the
+    production reading does (`browse_feed`): a real post may sit right behind the block. After
+    `_TAIL_FILLER_RUNS` of them in a row the production calls the followed feed exhausted, and so
+    does this action: not applicable, no real post to frame."""
     fs = a.scroll
     fs._reveal_current_metadata()
     anchors = fs._read_feed_anchors()
     if anchors.get("on_feed") and fs._metadata_visible(anchors)[0] and not fs._dominant_is_ad(anchors):
         return {"success": True, "message": "barre d'engagement du post visible (post courant)",
                 "details": {"advanced": False}}
-    res = fs.scroll_feed_to_next_post(skip_ads=True, skip_suggested=True)
+    filler_runs = 0
+    while True:
+        res = fs.scroll_feed_to_next_post(skip_ads=True, skip_suggested=True)
+        if not (res.get("on_feed") and res.get("filler_run")):
+            break
+        filler_runs += 1
+        if filler_runs < _TAIL_FILLER_RUNS:
+            continue
+        return not_applicable(
+            "scroll.reveal_post",
+            f"the feed served only ads and suggested posts for {_TAIL_FILLER_RUNS} gestures in a row "
+            "(the production calls it exhausted)",
+            **res)
     ok = bool(res.get("metadata_visible") or res.get("full_post"))
     return {"success": ok,
             "message": ("barre d'engagement du post visible" if ok else "barre d'engagement non atteinte (pub/suggestion ?)"),

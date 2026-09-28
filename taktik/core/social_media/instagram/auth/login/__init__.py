@@ -124,7 +124,7 @@ class InstagramLogin(
                 # For now, fall through to the regular login
         
         # Step 2: confirm the login screen, with the profile selection
-        is_on_login = self._is_on_login_screen(target_username=username)
+        is_on_login = self._reach_login_form(target_username=username)
 
         # None means an unrecognised screen, neither login nor profile picker: give up
         if is_on_login is None:

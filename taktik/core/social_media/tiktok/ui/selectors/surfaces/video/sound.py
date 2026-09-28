@@ -79,9 +79,11 @@ class VideoSoundSelectors:
     ])
 
     #: One video cell of a sound page. No language at all: the cells carry `content-desc="Vidéo"`
-    #: on a French phone, and the cover id is what actually addresses them.
+    #: on a French phone, and the cover id is what actually addresses them. Clickable: on 43.1.4
+    #: the sound's own artwork, in the page header, is a `:id/cover` too, first in the tree and
+    #: not clickable.
     sound_video_cell: List[str] = field(default_factory=lambda: [
-        '//*[contains(@resource-id, ":id/cover")]',
+        '//*[contains(@resource-id, ":id/cover")][@clickable="true"]',
     ])
 
 

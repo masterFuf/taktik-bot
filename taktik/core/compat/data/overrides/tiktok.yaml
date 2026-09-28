@@ -36,10 +36,13 @@ versions:
       - '//*[contains(@resource-id, ":id/tvProgress")]'
       - '//*[contains(@resource-id, ":id/x44")]'
   "46.9.3":
-    # LIVE preview in the For You feed (Pixel 6a, 2 captures): readable ids, no author.
+    # LIVE preview in the For You feed (Pixel 6a, 2 captures): readable ids, no author. Baseline
+    # entries carried along (absent from every 46.x and 47.0.3 dump of the Lab and the corpus).
     video_state.live_preview:
       - '//*[contains(@resource-id, ":id/tv_live_nickname")]'
       - '//*[contains(@resource-id, ":id/tv_live_tips")]'
+      - '//*[contains(@resource-id, ":id/xro")]'
+      - '//*[contains(@resource-id, ":id/xs4")]'
     # DM send arrow: an ImageView with no content-desc, shown only once the composer holds text
     # (text differs from the hint). It follows the stickers Button in the composer's action row;
     # with an empty composer the same slot holds the "+" Button and no ImageView.

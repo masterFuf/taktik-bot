@@ -1,10 +1,22 @@
 """Login screen detection and profile selection logic."""
 
 import time
+from typing import Any, List, Optional
+
+from ...ui.selectors.shell.auth import AuthSelectors
 
 
 class LoginScreenDetectionMixin:
-    """Mixin: login screen detection and profile selection."""
+    """Mixin: login screen detection and profile selection.
+
+    Reading and acting are apart: `_read_login_screen` only reads which login screen is up;
+    `_reach_login_form`, the login step, may tap a saved profile tile to get there.
+    """
+
+    # What the mixin reads from the class it is mixed into (`InstagramLogin`).
+    device: Any
+    logger: Any
+    auth_selectors: AuthSelectors
 
     def _debug_snapshot(self, label: str) -> None:
         """Capture a screenshot and a UI dump for debugging, non-blocking."""
@@ -41,35 +53,49 @@ class LoginScreenDetectionMixin:
         except Exception as e:
             self.logger.debug(f"Log clickable elements failed: {e}")
 
-    def _is_on_login_screen(self, target_username: str = None) -> bool:
+    def _first_present(self, selectors: List[str]) -> Optional[str]:
+        """The first selector that finds something on the screen, or None. Reads only."""
+        for selector in selectors:
+            try:
+                if self.device.xpath(selector).exists:
+                    return selector
+            except Exception as exc:
+                self.logger.debug(f"Login screen selector failed ({selector}): {exc}")
+        return None
+
+    def _read_login_screen(self) -> Optional[str]:
+        """Which login screen is up, read without touching anything.
+
+        "profile_picker": the saved profiles ("Use another profile"); "login_form": the username
+        and password form; None: neither (the home feed, a popup...). A check that must not act
+        (the login result, the Lab's detection) reads this; only `_reach_login_form` taps.
         """
-        Check whether we are on the login screen.
-        On the profile picker screen:
-        - look for the requested profile in the list
-        - Si trouvé : clique dessus directement
-        - otherwise, tap the use-another-profile entry
+        picker = self._first_present(self.auth_selectors.profile_selection_screen)
+        if picker:
+            self.logger.debug(f"Saved profiles screen (selector: {picker})")
+            return "profile_picker"
+        form = self._first_present(self.auth_selectors.login_screen_indicators)
+        if form:
+            self.logger.debug(f"Login form (indicator: {form})")
+            return "login_form"
+        return None
+
+    def _reach_login_form(self, target_username: str = None) -> Optional[bool]:
+        """The login step before the credentials. On the saved profiles screen, tap the account's
+        tile when it is saved, else "Use another profile"; then read whether the form is up.
 
         Args:
             target_username: the account to log in, used for the selection
 
         Returns:
-            True on the login screen; False when a profile tile was tapped
+            True when the login form is up; False when the account's saved tile was tapped (the
+            home feed comes next); None when neither the form nor the saved profiles are up.
         """
         self.logger.info(f"🔍 Checking login screen state (target: @{target_username})...")
         self._debug_snapshot("before_screen_detection")
 
-        # Are we on the profile picker?
-        matched_profile_selector = None
-        for selector in self.auth_selectors.profile_selection_screen:
-            try:
-                if self.device.xpath(selector).exists:
-                    matched_profile_selector = selector
-                    break
-            except Exception:
-                continue
-
-        if matched_profile_selector:
-            self.logger.info(f"📱 Profile selection screen detected (selector: {matched_profile_selector})")
+        if self._read_login_screen() == "profile_picker":
+            self.logger.info("📱 Profile selection screen detected")
             self._log_all_clickable_elements()
 
             if target_username:
@@ -123,14 +149,9 @@ class LoginScreenDetectionMixin:
         else:
             self.logger.info("🔍 No profile selection screen detected — checking for login screen directly...")
 
-        # Are we on the login screen now?
-        for indicator in self.auth_selectors.login_screen_indicators:
-            try:
-                if self.device.xpath(indicator).exists:
-                    self.logger.info(f"✅ Login screen confirmed (indicator: {indicator})")
-                    return True
-            except Exception:
-                continue
+        if self._read_login_screen() == "login_form":
+            self.logger.info("✅ Login screen confirmed")
+            return True
 
         self.logger.warning("⚠️ Login screen NOT detected — returning None (screen unrecognized)")
         self._debug_snapshot("login_screen_not_detected")

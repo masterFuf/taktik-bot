@@ -2,9 +2,22 @@
 
 import time
 
+#: What opening a post's comments thread found (`_open_comments_thread`): the thread is open, or why not.
+COMMENTS_OPENED = "opened"
+#: The thread is empty ("No comments yet"): closed again, nobody to engage there.
+COMMENTS_EMPTY = "no_comments"
+#: No comment button on the post on screen.
+COMMENTS_NO_BUTTON = "no_button"
+#: The button was tapped and no thread came up, or an empty thread stayed open.
+COMMENTS_NOT_OPENED = "not_opened"
+
 
 class PopupHandlingMixin:
     """Mixin: popup handling — likers, comments, follow suggestions, swipe-to-close."""
+
+    #: Back presses a comments sheet may take: an empty thread gives its composer the focus and the
+    #: keyboard, and the first Back only hides the keyboard (Pixel 3a, Instagram 410, 2026-09-28).
+    _COMMENTS_SHEET_BACK_PRESSES = 3
 
     def _is_likers_popup_open(self) -> bool:
         # Fast path: single combined XPath query for likers popup (1 round-trip)
@@ -40,12 +53,19 @@ class PopupHandlingMixin:
         return self.ui_extractors.find_like_count_element(logger_instance=self.logger)
 
     def _open_comments_view(self) -> bool:
-        """Open the comments thread of the current post.
+        """Open the comments thread of the current post; True once it is showing.
 
         Canonical production flow (workflows + Cartography Lab), the counterpart of
-        `_open_likers_popup`: tap the post's comment button, then confirm the thread is
-        actually showing. A post with no comments at all is closed again and reported as
-        not opened — there is nobody to engage there.
+        `_open_likers_popup`. The reason it did not open is `_open_comments_thread`'s answer.
+        """
+        return self._open_comments_thread() == COMMENTS_OPENED
+
+    def _open_comments_thread(self) -> str:
+        """Tap the post's comment button, then confirm the thread is actually showing.
+
+        A post with no comments at all is closed again (`COMMENTS_EMPTY`): there is nobody to
+        engage there. Closed means checked: the sheet of an empty thread focuses its composer, and
+        one Back only hid the keyboard, leaving the sheet over the post for every step after it.
         """
         from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
             POST_COMMENTS_SELECTORS,
@@ -63,23 +83,24 @@ class PopupHandlingMixin:
 
             if not opened:
                 self.logger.warning("⚠️ No comment button found on this post")
-                return False
+                return COMMENTS_NO_BUTTON
 
             if self.device.xpath(POST_COMMENTS_SELECTORS.comment_empty_state_view).exists:
                 self.logger.info("Post has no comments — nothing to engage with here")
-                self.device.press("back")
-                time.sleep(0.5)
-                return False
+                if not self._close_comments_view():
+                    self.logger.warning("⚠️ The empty comments thread stayed open")
+                    return COMMENTS_NOT_OPENED
+                return COMMENTS_EMPTY
 
             if not self._is_comments_view_open():
                 self.logger.warning("⚠️ Comment button tapped but the thread did not open")
-                return False
+                return COMMENTS_NOT_OPENED
 
             self.logger.info("💬 Comments thread opened")
-            return True
+            return COMMENTS_OPENED
         except Exception as exc:
             self.logger.error(f"Error opening comments view: {exc}")
-            return False
+            return COMMENTS_NOT_OPENED
 
     def _open_likers_popup(self, is_reel: bool = False) -> bool:
         """Open the likers popup of the current post.
@@ -118,7 +139,8 @@ class PopupHandlingMixin:
             return False
 
     def _close_comments_view(self) -> bool:
-        """Close comments view if accidentally opened."""
+        """Close the comments sheet; True once it is gone. An Instagram back arrow first, else Back,
+        checked after each press (the first one may only hide the keyboard)."""
         try:
             for selector in self.navigation_selectors.back_buttons[:3]:
                 try:
@@ -132,9 +154,12 @@ class PopupHandlingMixin:
                 except Exception:
                     continue
 
-            self.device.press('back')
-            time.sleep(0.5)
-            return not self._is_comments_view_open()
+            for _ in range(self._COMMENTS_SHEET_BACK_PRESSES):
+                self.device.press('back')
+                time.sleep(0.5)
+                if not self._is_comments_view_open():
+                    return True
+            return False
         except Exception as e:
             self.logger.debug(f"Error closing comments view: {e}")
             return False

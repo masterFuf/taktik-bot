@@ -75,7 +75,6 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "auth.profile_selection_screen": [
         "//android.widget.Button[@content-desc=\"Use another profile\"]",
-        "//android.widget.Button[@content-desc=\"Create new account\"]",
         "//*[contains(@text, \"Use another profile\")]",
     ],
     "auth.profile_tab_button": [
@@ -280,10 +279,6 @@ STRINGS: Dict[str, List[str]] = {
         "//*[contains(@text, \"not found\")]",
         "//*[contains(@text, \"unavailable\")]",
         "//*[contains(@text, \"private\")]",
-    ],
-    "detection.post_screen_indicators": [
-        "//*[contains(@content-desc, \"Like\")]",
-        "//*[contains(@content-desc, \"Comment\")]",
     ],
     "detection.private_account_indicators": [
         "//*[@resource-id=\"com.instagram.android:id/igds_headline_emphasized_headline\" and contains(@text, \"private\")]",

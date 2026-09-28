@@ -3,6 +3,17 @@
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_applicable
+
+
+def _no_sound_of_its_own(action_id, a):
+    """Why the item on screen has no sound to read or open, when the production detector says it is
+    an ad or a LIVE preview (a promoted sound opens no page, a LIVE has no sound row); else None."""
+    if a.video_detector.is_live_preview():
+        return not_applicable(action_id, "the For You item on screen is a LIVE: no sound row")
+    if a.video_detector.is_ad_video():
+        return not_applicable(action_id, "the For You item on screen is an ad: its promoted sound has no page")
+    return None
 
 
 @action("tt.video.like")
@@ -17,6 +28,9 @@ def double_tap_like(a, p):
 
 @action("tt.video.click_comment")
 def click_comment(a, p):
+    # Asked before looking for the button: a LIVE preview of the For You feed has none.
+    if a.video_detector.is_live_preview():
+        return not_applicable("tt.video.click_comment", "the For You item on screen is a LIVE: no comment button")
     return a.video.click_comment_button()
 
 
@@ -117,7 +131,9 @@ def read_sound(a, p):
     from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
 
     label = SoundActions(a.device).read_current_sound()
-    return {"success": bool(label), "message": label or "no sound row on this screen"}
+    if not label:
+        return _no_sound_of_its_own("tt.sound.read", a) or {"success": False, "message": "no sound row on this screen"}
+    return {"success": True, "message": label}
 
 
 @action("tt.sound.open_page")
@@ -130,6 +146,10 @@ def open_sound_page(a, p):
     from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
 
     actions = SoundActions(a.device)
+    # Asked before the tap: on an ad, the tap unfolds its "learn more" instead of a sound page.
+    absent = _no_sound_of_its_own("tt.sound.open_page", a)
+    if absent:
+        return absent
     if not actions.open_sound_page():
         return {"success": False, "message": "the sound page did not come up"}
 

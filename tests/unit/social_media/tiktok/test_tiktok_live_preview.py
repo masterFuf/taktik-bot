@@ -1,9 +1,9 @@
-"""A LIVE preview in the For You feed is not a video: it has no author, and on 46.9.3 it carries
-readable ids. The baseline (43.1.4) has not been captured, so its entry is empty and the ids come
-from the 46.9.3 overrides.
+"""A LIVE preview in the For You feed is not a video: it has no author, and it carries readable ids,
+per version: the baseline (43.1.4) in the catalogue, 46.9.3 in the overrides.
 
-The screens are real captures of TikTok 46.9.3 in French (Pixel 6a), anonymized: a LIVE preview
-of the For You feed, and a video opened from a search.
+The screens are real captures, anonymized: TikTok 46.9.3 in French (Pixel 6a), a LIVE preview of
+the For You feed and a video opened from a search; TikTok 43.1.4 in French (Pixel 3a), a LIVE
+preview and a video of the For You feed.
 """
 
 from pathlib import Path
@@ -19,6 +19,8 @@ from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SE
 FIXTURES = Path(__file__).parent / "fixtures"
 LIVE = (FIXTURES / "tt4693_fr_live_preview.xml").read_text(encoding="utf-8")
 VIDEO = (FIXTURES / "tt4693_fr_search_result_video.xml").read_text(encoding="utf-8")
+LIVE_4314 = (FIXTURES / "tt4314_fr_for_you_live_preview.xml").read_text(encoding="utf-8")
+VIDEO_4314 = (FIXTURES / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
 
 
 class _Device:
@@ -44,8 +46,10 @@ def _found(xml):
     return any(device.xpath(sel).exists for sel in VIDEO_SELECTORS.live_preview)
 
 
-def test_the_baseline_does_not_claim_a_live_preview_shape():
-    assert VIDEO_SELECTORS.live_preview == []
+def test_on_the_baseline_the_live_preview_is_found_and_a_video_is_not():
+    """43.1.4, Pixel 3a in French: the For You preview the Lab auto-test landed on (anonymized)."""
+    assert _found(LIVE_4314)
+    assert not _found(VIDEO_4314)
 
 
 def test_on_46_9_3_the_live_preview_is_found_and_a_video_is_not(on_46_9_3):
