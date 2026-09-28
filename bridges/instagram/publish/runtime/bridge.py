@@ -1,9 +1,10 @@
 """Instagram publish bridge runtime class.
 
-The one Instagram publisher of the desktop app: post, reel, carousel and story all go
-through this bridge, which connects the device, delegates to `InstagramPostWorkflow`
-and translates its result into JSON events. The config file carries `deviceId`,
-`mediaPaths` (or `localPath`), `caption`, `hashtags`, `postType` and `packageName`.
+The one Instagram publisher of the desktop app: post, reel, carousel and story all go through
+this bridge. It connects the device when the launcher asks for it and translates the result into
+JSON events; the request is read, refused or run by the launcher the CLI and the Lab call too,
+`run_instagram_publish` (`instagram.content.publish`). The config file carries `deviceId`,
+`mediaPaths` (or `localPath`), `caption`, `hashtags`, `postType`, `packageName` and `botUsername`.
 """
 
 from __future__ import annotations
@@ -15,7 +16,8 @@ from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.instagram.runtime.ipc import _ipc, send_error, send_log, send_status
 
 
-SUPPORTED_POST_TYPES = ("post", "reel", "carousel", "story")
+class DeviceConnectionFailed(RuntimeError):
+    """The bridge could not connect the phone the launcher asked for."""
 
 
 class InstagramPublishBridge:
@@ -24,24 +26,6 @@ class InstagramPublishBridge:
     def __init__(self, config: dict):
         self.config = config
         self.device_id = config.get("deviceId")
-        # Single or multi-media input (carousel uses several paths).
-        self.media_paths = config.get("mediaPaths") or (
-            [config["localPath"]] if config.get("localPath") else []
-        )
-        self.caption = config.get("caption", "")
-        self.hashtags = config.get("hashtags", [])
-        self.post_type = (config.get("postType") or "post").lower()
-        # Several media on a feed post IS a carousel; Instagram has no other meaning for it.
-        # A caller that sends every path but leaves the type at "post" gets the single-media
-        # branch, which selects one thumbnail and publishes one image while the rest sit unused
-        # in the gallery — silently, since nothing about that looks like a failure. The desktop
-        # app derives this too; it is repeated here because this bridge is a public entry point
-        # and must not depend on its caller getting it right.
-        if self.post_type == "post" and len(self.media_paths) > 1:
-            self.post_type = "carousel"
-        self.package_name = config.get("packageName")
-        # The operated account (`botUsername`, the key the other config bridges read).
-        self.account_username = config.get("botUsername")
         self._connection = None
         self._stop_requested = False
 
@@ -53,80 +37,48 @@ class InstagramPublishBridge:
         self._stop_requested = True
         send_status("stopping", "Received shutdown signal")
 
+    def _connected_device(self):
+        send_status("connecting", f"Connecting to device {self.device_id}...")
+        self._connection = ConnectionService(self.device_id)
+        if not self._connection.connect():
+            raise DeviceConnectionFailed("Failed to connect to device")
+        return self._connection.device
+
     def run(self) -> int:
+        from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
+        from taktik.core.social_media.instagram.workflows.publish.payload import PublishRequestError
+
         if not self.device_id:
             send_error("deviceId is required")
             return 1
-        if self.post_type not in SUPPORTED_POST_TYPES:
-            send_error(f"Unsupported postType '{self.post_type}' (expected one of {SUPPORTED_POST_TYPES})")
-            return 1
-        if self.post_type != "story" and not self.media_paths:
-            send_error("At least one media path is required (mediaPaths/localPath)")
-            return 1
-
-        send_status("connecting", f"Connecting to device {self.device_id}...")
-        self._connection = ConnectionService(self.device_id)
 
         try:
-            dispatch = {
-                "post": self._run_post,
-                "reel": self._run_reel,
-                "carousel": self._run_carousel,
-                "story": self._run_story,
-            }
-            return dispatch[self.post_type]()
-        finally:
-            try:
-                if self._connection is not None:
-                    self._connection.disconnect()
-            except Exception:
-                pass
-
-    # --- Flow owners, one per postType ---
-
-    def _run_post(self) -> int:
-        return self._publish("post")
-
-    def _run_reel(self) -> int:
-        return self._publish("reel")
-
-    def _run_carousel(self) -> int:
-        return self._publish("carousel")
-
-    def _run_story(self) -> int:
-        return self._publish("story")
-
-    def _publish(self, post_type: str) -> int:
-        """Publish via the core Instagram publish workflow.
-
-        Thin adapter: connect the device, delegate to InstagramPostWorkflow (which owns
-        the selector flow and media push for post/reel/carousel/story), and translate
-        its result into IPC events.
-        """
-        if not self._connection.connect():
-            send_error("Failed to connect to device", "device_connection_failed")
+            result = run_instagram_publish(
+                self.config,
+                device_id=self.device_id,
+                connect=self._connected_device,
+                log=send_log,
+                status=send_status,
+            )
+        except PublishRequestError as exc:
+            send_error(str(exc))
             return 1
+        except DeviceConnectionFailed as exc:
+            send_error(str(exc), "device_connection_failed")
+            return 1
+        finally:
+            self._disconnect()
 
-        from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
-            InstagramPostWorkflow,
-        )
-
-        workflow = InstagramPostWorkflow(
-            self._connection.device,
-            self.device_id,
-            log=send_log,
-            status=send_status,
-            package_name=self.package_name,
-            post_type=post_type,
-            account_username=self.account_username,
-        )
-        result = workflow.execute(
-            caption=self.caption,
-            hashtags=self.hashtags,
-            media_paths=self.media_paths,
-        )
         if result.get("success"):
-            send_status("completed", result.get("message", f"{post_type} published"))
+            send_status("completed", result.get("message", "Published"))
             return 0
         send_error(result.get("message", "Publish failed"), result.get("error_type"))
         return 1
+
+    def _disconnect(self) -> None:
+        if self._connection is None:
+            return
+        try:
+            self._connection.disconnect()
+        except Exception as exc:  # noqa: BLE001 - the publication is over either way
+            send_log("warning", f"Device disconnect failed: {exc}")

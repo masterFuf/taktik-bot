@@ -63,7 +63,7 @@ from taktik.core.social_media.tiktok.services.publish.navigation import (
     tap_create_button,
     tap_upload_button,
 )
-from taktik.core.social_media.tiktok.services.publish.progress import get_publish_progress_percent
+from taktik.core.social_media.tiktok.services.publish.progress import read_publish_progress
 from taktik.core.social_media.tiktok.services.publish.screen_detector import (
     is_post_screen,
     is_video_edit_screen,
@@ -129,11 +129,13 @@ class TikTokUploadWorkflow:
         self._step_hook = step_hook
 
     def _capture(self, phase: str) -> None:
+        """Hand the phase to the host's capture hook. A capture is diagnostic: its failure is said,
+        and the publication goes on."""
         if self._step_hook:
             try:
                 self._step_hook(phase)
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - any failure of a host's hook
+                _ipc.log("warning", f"Step capture {phase} failed: {exc}")
 
     # ------------------------------------------------------------------
     # Public entrypoint
@@ -369,7 +371,7 @@ class TikTokUploadWorkflow:
         callbacks = PublishCommitCallbacks(
             handle_publish_confirmation=lambda: handle_publish_confirmation_dialog(self.device, log=_ipc.log),
             dismiss_popups=lambda: dismiss_post_popups(self.device, log=_ipc.log),
-            get_progress_percent=lambda: get_publish_progress_percent(self.device, log=_ipc.log),
+            read_progress=lambda: read_publish_progress(self.device, log=_ipc.log),
             is_on_post_screen=lambda: is_post_screen(self.device),
             # "Published" signal: a success toast OR — far more reliable, since TikTok shows
             # no lasting success text — being back on a main feed screen (the bottom nav bar

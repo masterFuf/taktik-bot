@@ -25,7 +25,7 @@ import random
 import time
 from typing import Any, Dict, List, Optional
 
-from taktik.core.shared.device.ui_dump import iter_widgets, parse_bounds
+from taktik.core.shared.device.ui_dump import dump_screen_size
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from ....atomic.interaction.profile_interaction import classify_follow_state
@@ -139,18 +139,16 @@ class FeedSuggestionsMixin:
         return True
 
     def _suggestions_screen_height(self, root) -> int:
-        """Screen height as the scroll gesture measures it, else the dump's own extent."""
+        """Screen height as the scroll gesture measures it, else the screen the dump describes
+        (`dump_screen_size`, the one reading of a dump's screen); 0 when neither says."""
         try:
             height = int(self.device.get_screen_size()[1])
             if height > 0:
                 return height
         except Exception as exc:
             self.logger.debug(f"Screen size unavailable: {exc}")
-        if root is None:
-            return 0
-        bottoms = [bounds[3] for bounds in
-                   (parse_bounds(node.get("bounds") or "") for node in iter_widgets(root)) if bounds]
-        return max(bottoms, default=0)
+        size = dump_screen_size(root)
+        return size[1] if size else 0
 
     @staticmethod
     def _carousel_cta_cut(carousel: Dict[str, Any]) -> bool:

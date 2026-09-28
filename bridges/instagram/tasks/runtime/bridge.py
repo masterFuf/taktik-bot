@@ -20,6 +20,7 @@ from bridges.common.device.app_manager import AppService
 from bridges.common.device.connection import ConnectionService
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.instagram.runtime.ipc import _ipc, send_error, send_message, send_status
+from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
 
 TASK_ID_PREFIX = "instagram.task."
 
@@ -95,7 +96,9 @@ class TaskBridge:
             package_override=package_name,
         )
         send_status("initializing", "Restarting Instagram...")
-        app_service.restart()
+        if not app_service.restart():
+            # The launcher stops the pass with its reason; going on would relay from any screen.
+            raise InstagramStartError("Instagram did not start cleanly; the task was not started")
         return device
 
     def _run_task(self, device) -> int:

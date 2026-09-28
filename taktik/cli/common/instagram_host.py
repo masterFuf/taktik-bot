@@ -17,41 +17,11 @@ from typing import Any, Mapping, Optional
 from loguru import logger
 
 from taktik.cli.common.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
+from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
 
 
 def _log(level: str, message: str) -> None:
     getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
-
-
-class _ConnectedDevice:
-    """The CLI's connected manager, as the connection the bridges' Instagram base expects."""
-
-    def __init__(self, device_manager, device_id):
-        self.device_manager = device_manager
-        self.device_id = device_id
-        self._device = getattr(device_manager, "device", None)
-
-    @property
-    def device(self):
-        return self._device
-
-    @property
-    def screen_size(self):
-        from bridges.common.device.screen import read_screen_size
-
-        return read_screen_size(self._device)
-
-    def connect(self) -> bool:
-        return self._device is not None
-
-
-def _on_connected_device(base, device_manager, device_id: str):
-    """Connect a bridges' Instagram base on the device the CLI already connected: the clone-aware
-    proxy, the device facade and the selector overrides of the installed version, as a bridge."""
-    base._connection = _ConnectedDevice(device_manager, device_id)
-    if not base.connect():
-        raise RuntimeError(f"No connected device for {device_id}")
-    return base
 
 
 def _log_dm_event(payload: Mapping[str, Any]) -> None:
@@ -96,7 +66,7 @@ class CliInstagramHost:
         """The phone after the clean restart of the task's Instagram (a clone when it names one), as
         the task bridge restarts it: a one-shot starts from the feed."""
         if not self.start(package_name):
-            raise RuntimeError("Instagram did not start cleanly; the task was not started")
+            raise InstagramStartError("Instagram did not start cleanly; the task was not started")
         return getattr(self.device_manager, "device", None)
 
     def installed_version(self) -> Optional[str]:
@@ -109,11 +79,12 @@ class CliInstagramHost:
         clone-aware proxy, the device facade, the selector overrides of the installed version and
         the clean restart through `AppService`, on the device the CLI already connected."""
         from bridges.common.input.keyboard import KeyboardService
+        from bridges.common.runtime.connected_device import on_connected_device
         from bridges.instagram.runtime.bridge import InstagramBridgeBase
         from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
 
-        base = _on_connected_device(InstagramBridgeBase(self.device_id, package_name=package_name),
-                                    self.device_manager, self.device_id)
+        base = on_connected_device(InstagramBridgeBase(self.device_id, package_name=package_name),
+                                   self.device_manager, self.device_id)
         return ColdDmRuntime(
             device=base.device,
             device_manager=base.device_manager,
@@ -124,11 +95,12 @@ class CliInstagramHost:
     def agent_runtime(self, package_name: Optional[str]):
         """The device a Taktik Agent session drives, prepared by the bridges' own Instagram base,
         and its clean restart, on the device the CLI already connected."""
+        from bridges.common.runtime.connected_device import on_connected_device
         from bridges.instagram.runtime.bridge import InstagramBridgeBase
         from taktik.core.social_media.instagram.workflows.agent.agent_handler import AgentRuntime
 
-        base = _on_connected_device(InstagramBridgeBase(self.device_id, package_name=package_name),
-                                    self.device_manager, self.device_id)
+        base = on_connected_device(InstagramBridgeBase(self.device_id, package_name=package_name),
+                                   self.device_manager, self.device_id)
         # The app service's restart, which says whether Instagram came back, as the bridge uses it.
         return AgentRuntime(device_manager=base.device_manager, restart=base._app.restart)
 
@@ -136,10 +108,11 @@ class CliInstagramHost:
         """The DM inbox runtime of the desktop's DM bridge (`DMBridge`: the core runtime on the
         bridges' Instagram device, with the Taktik Keyboard and the clean restart), on the device
         the CLI already connected. A read's events go to the log."""
+        from bridges.common.runtime.connected_device import on_connected_device
         from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
 
-        runtime = _on_connected_device(DMBridge(self.device_id, package_name=package_name),
-                                       self.device_manager, self.device_id)
+        runtime = on_connected_device(DMBridge(self.device_id, package_name=package_name),
+                                      self.device_manager, self.device_id)
         runtime.dm_events = _log_dm_event
         return runtime
 
@@ -147,10 +120,11 @@ class CliInstagramHost:
         """The notifications bridge's runtime (`NotificationsBridge`: the bridges' Instagram
         device, clone-aware, and its clean restart), on the device the CLI already connected;
         Instagram restarted first when the command asks for it (a scan)."""
+        from bridges.common.runtime.connected_device import on_connected_device
         from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
 
-        runtime = _on_connected_device(NotificationsBridge(self.device_id, package_name=package_name),
-                                       self.device_manager, self.device_id)
+        runtime = on_connected_device(NotificationsBridge(self.device_id, package_name=package_name),
+                                      self.device_manager, self.device_id)
         if restart:
             runtime.restart_instagram()
         return runtime

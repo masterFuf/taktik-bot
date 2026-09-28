@@ -21,7 +21,6 @@ from bridges.compat.diagnostics.runtime.action_test.action_bundle import (
 )
 
 from bridges.compat.diagnostics.actions.instagram import action
-from bridges.compat.diagnostics.actions.instagram.app import launch, stop_instagram
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS as N
 
 
@@ -461,27 +460,6 @@ def leave_suggestion_profile(a, p):
 # The whole run  (prod: run_instagram_notifications, the notifications bridge's launcher)
 # =============================================================================
 
-class _SessionRuntime:
-    """The Lab session's phone as the runtime the launcher connects to.
-
-    The bridge hands the launcher its own connection (`NotificationsBridge`), the CLI the device
-    it connected; the Lab hands it the device the session already holds, with the Lab's clean
-    restart (`app.launch`), so a run costs no second connection.
-    """
-
-    def __init__(self, a, device_id: str):
-        self._bundle = a
-        self.device = a.device
-        self.device_id = device_id
-
-    def restart_instagram(self) -> None:
-        if not launch(self._bundle, {}):
-            logger.warning("notifications.run: Instagram did not come back to the foreground after its restart")
-
-    def stop(self) -> bool:
-        return stop_instagram(self._bundle)
-
-
 def _log_run_event(payload: dict) -> None:
     # The step and its narration only, never a message body.
     logger.info(f"notifications.run: {payload.get('step', payload.get('type', 'event'))} "
@@ -536,11 +514,19 @@ def run_notifications(a, p):
     return {"success": success, "message": msg, "details": {"result": result, "events": events}}
 
 
-def _connected_runtime(a, device_id: str, package_name, restart: bool) -> _SessionRuntime:
-    # The Lab session already holds its Instagram package (the clone picked for the session).
-    if package_name:
-        logger.info(f"notifications.run: packageName {package_name} ignored, the Lab session keeps its package")
-    runtime = _SessionRuntime(a, device_id)
+def _connected_runtime(a, device_id: str, package_name, restart: bool):
+    """The desktop bridge's runtime (`NotificationsBridge`) on the phone the Lab session holds: the
+    same clone-aware device and the same clean restart (`AppService`) as the bridge and the CLI,
+    through the helper the CLI uses, without a second connection."""
+    from bridges.common.runtime.connected_device import on_connected_device
+    from bridges.compat.diagnostics.actions.instagram.app import _session_app_manager
+    from bridges.instagram.engagement.runtime.notifications.bridge import NotificationsBridge
+
+    # The session's app manager (the bridge's `AppService` stops and launches through it), on the
+    # raw device under the session's facade: the bridge puts its own proxy and facade on it.
+    manager = _session_app_manager(a)
+    manager.device = getattr(a.device, "_device", None) or a.device
+    runtime = on_connected_device(NotificationsBridge(device_id, package_name=package_name), manager, device_id)
     if restart:
         runtime.restart_instagram()
     return runtime

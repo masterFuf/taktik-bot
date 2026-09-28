@@ -5,6 +5,9 @@ their host had already connected: the bridge read `packageName` itself, and a CL
 clone only when its handler thought of reading it (the story relay never did). The launcher now
 reads the package with the rest of the payload (`package_name_from_payload`, the account flows'
 reading) and asks the injected `connect` for the phone on that package, after its refusals.
+
+The automation read `packageName` on its own (no `package_name`, no trimming), its CLI handler adding
+the alias for it; it reads through the same helper since decision D3 of 2026-09-27.
 """
 
 from __future__ import annotations
@@ -58,7 +61,15 @@ def _story_relay(payload, connect):
     return run_instagram_story_relay({"source_username": "source", **payload}, connect=connect)
 
 
+def _automation(payload, connect):
+    from taktik.core.social_media.instagram.workflows.core.agent_handler import run_instagram_automation
+
+    return run_instagram_automation({"workflowType": "feed", **payload}, device_manager=object(),
+                                    instagram_start=connect)
+
+
 LAUNCHERS = {
+    "automation": (_automation, {}),
     "dm_read": (_dm, {"command": "read"}),
     "dm_send": (_dm, {"command": "send", "username": "ana", "message": "hi"}),
     "notifications": (_notifications, {"command": "scan"}),
@@ -75,6 +86,17 @@ def test_the_clone_of_the_payload_is_the_one_connected(name):
 
     with pytest.raises(Connected):
         launch({**payload, "packageName": CLONE}, _connect(seen))
+
+    assert seen == [CLONE]
+
+
+@pytest.mark.parametrize("name", LAUNCHERS)
+def test_the_clone_under_its_cli_name_is_the_one_connected(name):
+    launch, payload = LAUNCHERS[name]
+    seen = []
+
+    with pytest.raises(Connected):
+        launch({**payload, "package_name": f" {CLONE} "}, _connect(seen))
 
     assert seen == [CLONE]
 

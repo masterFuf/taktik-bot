@@ -1,4 +1,4 @@
-__version__ = '1.2.1'
+__version__ = '1.9.9'
 __author__ = 'masterFuf'
 
 import logging

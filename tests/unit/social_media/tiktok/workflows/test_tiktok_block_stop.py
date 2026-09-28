@@ -135,7 +135,7 @@ class _Walker(VideoInteractionMixin, BaseTikTokWorkflow):
     def __init__(self, detector):
         self.config = types.SimpleNamespace(
             like_probability=1.0, favorite_probability=1.0, comment_probability=1.0,
-            share_probability=0.0, max_likes_per_session=50, max_comments_per_session=50,
+            max_likes_per_session=50, max_comments_per_session=50,
         )
         self.stats = types.SimpleNamespace(likes=0, favorites=0, comments=0)
         self.detection = detector

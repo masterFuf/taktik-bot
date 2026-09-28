@@ -2,6 +2,7 @@ from taktik.core.social_media.tiktok.services.publish.commit import (
     PublishCommitCallbacks,
     wait_for_publish_commit,
 )
+from taktik.core.social_media.tiktok.services.publish.progress import PublishProgress
 
 
 class FakeClock:
@@ -19,16 +20,16 @@ class FakeClock:
 
 def test_wait_for_publish_commit_settles_after_progress_badge_disappears():
     clock = FakeClock()
-    progress_values = [12, 60, None, None]
+    progress_values = [PublishProgress(12), PublishProgress(60), PublishProgress(), PublishProgress()]
     dismiss_calls = []
 
     def get_progress():
-        return progress_values.pop(0) if progress_values else None
+        return progress_values.pop(0) if progress_values else PublishProgress()
 
     callbacks = PublishCommitCallbacks(
         handle_publish_confirmation=lambda: False,
         dismiss_popups=lambda: dismiss_calls.append("dismiss"),
-        get_progress_percent=get_progress,
+        read_progress=get_progress,
         is_on_post_screen=lambda: False,
         has_success_indicator=lambda: False,
     )
@@ -49,7 +50,7 @@ def test_wait_for_publish_commit_accepts_success_indicator():
     callbacks = PublishCommitCallbacks(
         handle_publish_confirmation=lambda: False,
         dismiss_popups=lambda: None,
-        get_progress_percent=lambda: None,
+        read_progress=PublishProgress,
         is_on_post_screen=lambda: False,
         has_success_indicator=lambda: True,
     )
@@ -68,7 +69,7 @@ def test_wait_for_publish_commit_times_out_when_caption_screen_never_leaves():
     callbacks = PublishCommitCallbacks(
         handle_publish_confirmation=lambda: False,
         dismiss_popups=lambda: None,
-        get_progress_percent=lambda: None,
+        read_progress=PublishProgress,
         is_on_post_screen=lambda: True,
         has_success_indicator=lambda: False,
     )

@@ -145,7 +145,7 @@ def display_banner():
     banner_content += "[blue]🌐 Website:[/blue] [link=https://taktik-bot.com/]taktik-bot.com[/link]\n"
     banner_content += "[blue]📚 Documentation:[/blue] [link=https://taktik-bot.com/en/docs]taktik-bot.com/en/docs[/link]\n"
     banner_content += "[blue]💻 GitHub:[/blue] [link=https://github.com/masterFuf/taktik-bot]github.com/masterFuf/taktik-bot[/link]\n"
-    banner_content += "[blue]💬 Discord:[/blue] [link=https://discord.com/invite/bb7MuMmpKS]discord.gg/bb7MuMmpKS[/link]"
+    banner_content += "[blue]💬 Discord:[/blue] [link=https://discord.com/invite/6tTBRTMhBj]discord.gg/6tTBRTMhBj[/link]"
     
     console.print(Panel.fit(
         banner_content,

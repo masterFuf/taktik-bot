@@ -14,7 +14,7 @@ from typing import Any, Dict
 import pytest
 
 from contract_probe import DEVICE, Recording, expected, merge, nest, payload_for, probe, skeleton, value_of
-from taktik.core.app.contract.publish import TIKTOK_UPLOAD, YOUTUBE_UPLOAD
+from taktik.core.app.contract.publish import INSTAGRAM_PUBLISH, TIKTOK_UPLOAD, YOUTUBE_UPLOAD
 from taktik.core.app.contract import WORKFLOW_CONTRACTS
 from taktik.core.app.contract.schema import OneOf, Shape, WorkflowContract, has_default, nested_fields
 from taktik.core.app.contract.tasks import INSTAGRAM_STORY_RELAY
@@ -269,3 +269,65 @@ def test_the_tiktok_publish_bridge_follows_its_contract(monkeypatch, lines, tmp_
     check_lines(TIKTOK_UPLOAD, lines)
     expected = {"status", "error", "log"} if fail else {"status", "log", "upload_result"}
     assert printed(lines) == expected
+
+
+# ------------------------------------------------------------------------------- Instagram
+
+
+def _instagram_workflow(fail: bool):
+    class Post:
+        def __init__(self, device, device_id, *, log=None, status=None, package_name=None,
+                     post_type="post", story_via_feed=False, account_username=None):
+            self.log, self.status = log, status
+
+        def execute(self, caption="", hashtags=None, media_paths=None, stop_before_share=False):
+            self.log("info", "Pushing media")
+            self.status("publishing", "Publishing...")
+            if fail:
+                return {"success": False, "message": "Could not select media from gallery",
+                        "error_type": "gallery_item_not_found", "confirmed": False}
+            return {"success": True, "message": "post published", "error_type": None, "confirmed": True}
+
+    return Post
+
+
+@pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
+def test_the_instagram_publish_bridge_follows_its_contract(monkeypatch, lines, fail):
+    import bridges.instagram.publish.runtime.bridge as bridge
+    from taktik.core.social_media.instagram.workflows.publish import agent_handler
+
+    class Connection:
+        def __init__(self, device_id):
+            self.device = object()
+
+        def connect(self):
+            return True
+
+        def disconnect(self):
+            pass
+
+    monkeypatch.setattr(bridge, "ConnectionService", Connection)
+    monkeypatch.setitem(agent_handler.run_instagram_publish.__kwdefaults__, "workflow_factory", _instagram_workflow(fail))
+    data = app_file(INSTAGRAM_PUBLISH, packageName="com.instagram.android")
+    log: set = set()
+
+    assert bridge.InstagramPublishBridge(Recording(data, log)).run() == (1 if fail else 0)
+
+    assert_reads(INSTAGRAM_PUBLISH, data, log)
+    check_lines(INSTAGRAM_PUBLISH, lines)
+    expected_lines = {"status", "log", "error"} if fail else {"status", "log"}
+    assert printed(lines) == expected_lines
+
+
+def test_the_instagram_publish_bridge_refuses_nothing_to_publish_before_the_phone(monkeypatch, lines):
+    import bridges.instagram.publish.runtime.bridge as bridge
+
+    def no_phone(*args, **kwargs):
+        raise AssertionError("the phone was touched")
+
+    monkeypatch.setattr(bridge, "ConnectionService", no_phone)
+    data = app_file(INSTAGRAM_PUBLISH, mediaPaths=[])
+
+    assert bridge.InstagramPublishBridge(data).run() == 1
+    check_lines(INSTAGRAM_PUBLISH, lines)
+    assert [line["error"] for line in lines] == ["At least one media path is required (mediaPaths/localPath)"]

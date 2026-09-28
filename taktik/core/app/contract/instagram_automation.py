@@ -27,6 +27,7 @@ from .shared import (
     STATUS_EVENT,
     STEP_METRIC_EVENT,
     device_field,
+    instagram_package_field,
     network_reset_field,
 )
 from .stop_reasons import INSTAGRAM_STOP_REASON_CODE
@@ -717,8 +718,7 @@ INSTAGRAM_AUTOMATION = WorkflowContract(
         Field("behaviorPolicy", BEHAVIOR_POLICY, "The pacing profile.", via=_PACING),
         Field("warmupPolicy", WARMUP_POLICY, "The warmup caps; injected by the host.", by=HOST),
         Field("language", "string", "The language the AI writes its content in.", default="en", via=_AI_HOOKS),
-        Field("packageName", "string", "The Instagram app to run (a clone). Absent: the installed Instagram.",
-              via=_LAUNCHER),
+        instagram_package_field("The Instagram app to run (a clone). Absent: the installed Instagram."),
         Field("ai", AI, "The AI of the run."),
     ),
     bridge_fields=(

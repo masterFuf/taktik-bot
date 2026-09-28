@@ -3,11 +3,15 @@ dump, read by OCR, and dismissed on its "not now" word only.
 
 The prompt is the real 43.1.4 capture (Pixel 3a, French), anonymized: app nodes with no text or
 content-desc, a centred dialog frame. So are the For You feed of the same version, the Pixel
-launcher (Android 12, French) and TikTok's launch screen (Pixel 4a, 43.1.4, a cold start dumped
-every few hundredths of a second): a starting window that exposes no app node at all, before the
-first labelled screen. No capture shows an unlabelled loading logo, an unlabelled sheet, or a page
-of empty full-screen frames: those three are the real prompt with its dialog frame moved (derived,
-said below), since the frame's geometry is all the detector reads. The OCR results are invented.
+launcher (Android 12, French) and two real cold-start captures of TikTok's launch screen: a
+starting window on the Pixel 4a that exposes no app node at all, before the first labelled screen
+(`tt4314_fr_launch_starting_window.xml`), and, captured on the Pixel 3a right after a force-stop
+(decision D16 of 2026-09-27), a black screen where uiautomator sees no node of the app either, only
+the status bar (`tt4314_fr_launch_black.xml`); dumped every 0.07 s from the launch, the 3a went
+from it straight to the feed, with no loading logo in between. No capture shows an unlabelled
+loading logo, an unlabelled sheet, or a page of empty full-screen frames: those three are the real
+prompt with its dialog frame moved (derived, said below), since the frame's geometry is all the
+detector reads. The OCR results are invented.
 """
 
 from pathlib import Path
@@ -28,6 +32,7 @@ from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELE
 FIXTURES = Path(__file__).parent / "fixtures"
 PROMPT = (FIXTURES / "tt4314_fr_update_prompt.xml").read_text(encoding="utf-8")
 SPLASH = (FIXTURES / "tt4314_fr_launch_starting_window.xml").read_text(encoding="utf-8")
+SPLASH_BLACK = (FIXTURES / "tt4314_fr_launch_black.xml").read_text(encoding="utf-8")
 PROMPT_FRAME = 'bounds="[152,562][928,1658]"'
 
 
@@ -48,8 +53,8 @@ def test_the_prompt_is_found_by_its_shape():
     assert unlabelled_overlay_region(parse_ui_dump(PROMPT)) == (152, 562, 928, 1658)
 
 
-@pytest.mark.parametrize("xml", [SPLASH, EMPTY_PAGE, FEED, LAUNCHER_ONLY],
-                         ids=["splash", "empty_page", "feed", "launcher"])
+@pytest.mark.parametrize("xml", [SPLASH, SPLASH_BLACK, EMPTY_PAGE, FEED, LAUNCHER_ONLY],
+                         ids=["splash", "splash_black", "empty_page", "feed", "launcher"])
 def test_a_screen_that_is_not_the_prompt_is_left_alone(xml):
     assert unlabelled_overlay_region(parse_ui_dump(xml)) is None
 

@@ -41,6 +41,10 @@ log = logger.bind(module="instagram-story-relay")
 #: standing still.
 DEFAULT_MAX_STORIES = 5
 
+#: The reason of a pass whose Instagram did not restart: the shared startup's code for the same fact
+#: (`INSTAGRAM_LAUNCH_FAILED`, `workflows/core/startup.py`), in the relay's own lower-case vocabulary.
+INSTAGRAM_LAUNCH_FAILED = "instagram_launch_failed"
+
 
 def _signature(author: Optional[str], timestamp: Optional[str], index: int) -> Optional[str]:
     """Dedup key for one story slide.
@@ -54,17 +58,9 @@ def _signature(author: Optional[str], timestamp: Optional[str], index: int) -> O
     return f"{author}|{timestamp or '?'}|{index}"
 
 
-def relay_source_stories(
-    *,
-    device,
-    source_username: str,
-    account_id: Optional[int] = None,
-    max_stories: int = DEFAULT_MAX_STORIES,
-    session_manager: Any = None,
-    automation: Any = None,
-) -> Dict[str, Any]:
-    """Run one relay pass. Never raises: a relay must not be able to end a device session."""
-    report: Dict[str, Any] = {
+def new_relay_report(source_username: str) -> Dict[str, Any]:
+    """The report of a pass that has not relayed anything yet."""
+    return {
         "success": False,
         "source_username": source_username,
         "considered": 0,
@@ -76,6 +72,19 @@ def relay_source_stories(
         "reason": None,
         "outcomes": [],
     }
+
+
+def relay_source_stories(
+    *,
+    device,
+    source_username: str,
+    account_id: Optional[int] = None,
+    max_stories: int = DEFAULT_MAX_STORIES,
+    session_manager: Any = None,
+    automation: Any = None,
+) -> Dict[str, Any]:
+    """Run one relay pass. Never raises: a relay must not be able to end a device session."""
+    report = new_relay_report(source_username)
 
     if not source_username:
         report["reason"] = "no_source_username"
@@ -194,4 +203,4 @@ def relay_source_stories(
             log.debug(f"Could not leave the story viewer: {exc}")
 
 
-__all__ = ["relay_source_stories", "DEFAULT_MAX_STORIES"]
+__all__ = ["relay_source_stories", "new_relay_report", "DEFAULT_MAX_STORIES", "INSTAGRAM_LAUNCH_FAILED"]

@@ -1,16 +1,48 @@
-"""Publications with a bridge of their own: the YouTube upload and the TikTok post.
-
-The Instagram publication (`publish_bridge`) has no manifest id nor launcher yet and is not
-declared.
+"""Publications with a bridge of their own: the Instagram publication, the YouTube upload and the
+TikTok post.
 """
 
 from __future__ import annotations
 
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, WorkflowContract
-from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT, device_field
+from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT, device_field, instagram_package_field
 
+_INSTAGRAM = "taktik.core.social_media.instagram.workflows.publish"
 _YOUTUBE = "taktik.core.social_media.youtube.workflows.publish"
 _TIKTOK = "taktik.core.social_media.tiktok.workflows.publish"
+_MEDIA_READER = f"{_INSTAGRAM}.payload:media_paths_from_payload"
+
+# ---------------------------------------------------------------------------------- Instagram
+
+INSTAGRAM_PUBLISH = WorkflowContract(
+    workflow_id="instagram.content.publish",
+    name="InstagramPublish",
+    bridge="publish_bridge",
+    doc="Publish on Instagram: a post, a reel, a carousel or a story, from files on this computer.",
+    launcher=f"{_INSTAGRAM}.agent_handler:run_instagram_publish",
+    reader=f"{_INSTAGRAM}.payload:publish_request_from_payload",
+    settings=(
+        Field("postType", OneOf(("post", "reel", "carousel", "story")),
+              "What to publish; the launcher publishes a post of several media as a carousel.",
+              default="post", aliases=("post_type",), attr="post_type"),
+        Field("mediaPaths", ListOf("string"), "The media files on this computer, in order.", default=(),
+              aliases=("media_paths",), reader=_MEDIA_READER),
+        Field("localPath", "string", "One media file, when no list is sent (the app sends the list).",
+              aliases=("local_path",), reader=_MEDIA_READER, unit="in_list", app=False),
+        Field("caption", "string", "The caption.", default="", attr="caption"),
+        Field("hashtags", ListOf("string"), "Hashtags, without #.", default=(), attr="hashtags"),
+        instagram_package_field("The Instagram to publish with, for a clone; the official app when absent."),
+        Field("botUsername", "string", "The operated account: a refused publication joins its health history.",
+              aliases=("bot_username",), attr="bot_username", by=HOST),
+        Field("storyViaFeed", "bool", "A story entered through the feed's story tray, not the create button.",
+              default=False, aliases=("story_via_feed",), attr="story_via_feed", app=False),
+        Field("stopBeforeShare", "bool", "Rehearse: the whole flow, stopped before the share button.",
+              default=False, aliases=("stop_before_share",), attr="stop_before_share", app=False),
+    ),
+    bridge_fields=(device_field("deviceId"),),
+    refusals=(Refusal("mediaPaths", unless=("localPath",), doc="Nothing to publish: no media."),),
+    events=(STATUS_EVENT, ERROR_EVENT, LOG_EVENT),
+)
 
 # ------------------------------------------------------------------------------------ YouTube
 
@@ -91,6 +123,6 @@ TIKTOK_UPLOAD = WorkflowContract(
     ),
 )
 
-CONTRACTS = (YOUTUBE_UPLOAD, TIKTOK_UPLOAD)
+CONTRACTS = (INSTAGRAM_PUBLISH, YOUTUBE_UPLOAD, TIKTOK_UPLOAD)
 
-__all__ = ["CONTRACTS", "TIKTOK_UPLOAD", "YOUTUBE_UPLOAD"]
+__all__ = ["CONTRACTS", "INSTAGRAM_PUBLISH", "TIKTOK_UPLOAD", "YOUTUBE_UPLOAD"]

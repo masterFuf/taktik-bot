@@ -8,11 +8,16 @@ repository is public. What a dump shows of other people goes; what the app itsel
   catalogues, locales, version overrides) hold it next to one of its neighbours, or hold it as a
   label on its own: "Suivre en retour" or "Attribuer un « J'aime » à la vidéo. 12" survive, a
   message made of common words does not;
+- the words of the screens are learned too: what a fixture already in the repository keeps (it was
+  read value by value before it entered) is an app word, beside its neighbours or alone ("Trié par
+  Par défaut", "Appuyez deux fois pour lire ou mettre en pause"); its placeholders are not;
 - any other word is replaced, the same word by the same value across the dump: a handle-like
   word (`@`, `_`, `.` or a digit inside) becomes `user_1`, `user_2`..., any other word `name_1`,
-  `name_2`...;
+  `name_2`...; a word made of letters and a long digit run ("marie123456") is a handle, replaced
+  whole; a possessive keeps its mark (`user_1's story`);
 - clock times become `12:00`, numeric dates `01/01/2000`, phone numbers and digit runs of six or
-  more become zeros; short counts stay, the parsers read them.
+  more become zeros; short counts stay, the parsers read them, and so does a count glued to an app
+  label ("295followers"); a resource reference (`@2131974114`, an `@` and digits only) stays.
 
 The result is printed, value by value: read it before the fixture enters the repository. A word
 the vocabulary happens to hold (a first name that is also a label) is kept, and only a reader
@@ -39,6 +44,8 @@ VOCABULARY_ROOTS = (
     "taktik/core/shared/ui",
     "taktik/core/compat/data/overrides",
 )
+#: Where the reviewed screens live: every `fixtures/*.xml` under it.
+FIXTURES_ROOT = "tests"
 READ_ATTRIBUTES = ("text", "content-desc", "hint")
 
 WORD = re.compile(r"@?\w(?:[\w.'’-]*\w)?")
@@ -46,7 +53,16 @@ TIME = re.compile(r"\b\d{1,2}[:h]\d{2}\b")
 DATE = re.compile(r"\b\d{1,4}[/.-]\d{1,2}[/.-]\d{2,4}\b")
 COUNT = re.compile(r"\d{1,5}(?:[.,]\d{1,3})?[kKmM]?")
 LONG_DIGITS = re.compile(r"\d{6,}")
-PHONE = re.compile(r"\+?\d(?:[ .-]?\d){7,}")
+#: A phone number; never the digits of a resource reference (`@2131974114`).
+PHONE = re.compile(r"(?<![@\d])\+?\d(?:[ .-]?\d){7,}")
+#: What this tool writes in place of a word: never an app word to learn.
+PLACEHOLDER = re.compile(r"(?:user|name)_\d+")
+#: A possessive: the word, then its mark ("karine's", "karine’s").
+POSSESSIVE = re.compile(r"(.+?)(['’]s)")
+#: A reference to an Android resource, as TikTok writes some descriptions: not a number of anyone.
+RESOURCE_REFERENCE = re.compile(r"@\d+")
+#: A count glued to its label, as a counter is sometimes read ("295followers").
+GLUED_COUNT = re.compile(r"\d{1,5}(?:[.,]\d{1,3})?[kKmM]?([^\W\d_]+)")
 
 
 def _strings(path: Path):
@@ -72,9 +88,50 @@ def _words(value: str) -> list[str]:
     return [w.lstrip("@").casefold() for w in WORD.findall(value)]
 
 
+def _possessive(word: str) -> tuple[str, str]:
+    """The word and its possessive mark, or the word and nothing."""
+    match = POSSESSIVE.fullmatch(word)
+    return (match.group(1), match.group(2)) if match else (word, "")
+
+
+def _fixture_values():
+    """The text of every reviewed screen: the attribute values of the repository's fixtures."""
+    for path in sorted((CORE / FIXTURES_ROOT).rglob("*.xml")):
+        if "fixtures" not in path.parts:
+            continue
+        try:
+            root = etree.parse(str(path)).getroot()
+        except etree.XMLSyntaxError as exc:
+            print(f"anonymize_dump: {path} does not parse, its words are not learned: {exc}", file=sys.stderr)
+            continue
+        for node in root.iter():
+            for attribute in READ_ATTRIBUTES:
+                value = node.get(attribute)
+                if value:
+                    yield value
+
+
+def _learn(part: str, labels: set, pairs: set) -> None:
+    """The words of one app string: a label alone, pairs of neighbours, never across a placeholder."""
+    words = [w for w in _words(part) if not COUNT.fullmatch(w)]
+    runs, run = [], []
+    for word in words:
+        if PLACEHOLDER.fullmatch(_possessive(word)[0]):
+            runs.append(run)
+            run = []
+        else:
+            run.append(word)
+    runs.append(run)
+    if len(words) == 1 and words == run and len(part.strip()) <= 40:
+        labels.add(words[0])
+    for run in runs:
+        pairs.update(zip(run, run[1:]))
+
+
 @lru_cache(maxsize=1)
 def vocabulary() -> tuple[frozenset[str], frozenset[tuple[str, str]]]:
-    """The app's labels: the words it writes alone, and the pairs of words it writes side by side."""
+    """The app's labels: the words it writes alone, and the pairs of words it writes side by side,
+    in its own strings and on the screens already reviewed."""
     labels, pairs = set(), set()
     for root in VOCABULARY_ROOTS:
         for path in (CORE / root).rglob("*"):
@@ -82,10 +139,9 @@ def vocabulary() -> tuple[frozenset[str], frozenset[tuple[str, str]]]:
                 continue
             for value in _strings(path):
                 for part in [value] + [a or b for a, b in QUOTED.findall(value)]:
-                    words = [w for w in _words(part) if not COUNT.fullmatch(w)]
-                    if len(words) == 1 and len(part.strip()) <= 40:
-                        labels.add(words[0])
-                    pairs.update(zip(words, words[1:]))
+                    _learn(part, labels, pairs)
+    for value in _fixture_values():
+        _learn(value, labels, pairs)
     return frozenset(labels), frozenset(pairs)
 
 
@@ -133,12 +189,18 @@ class Anonymizer:
             word = match.group(0)
             out.append(text[last:match.start()])
             last = match.end()
-            if LONG_DIGITS.search(word):
+            glued = GLUED_COUNT.fullmatch(word)
+            stem, mark = _possessive(word)
+            if RESOURCE_REFERENCE.fullmatch(word) or COUNT.fullmatch(word):
+                out.append(word)
+            elif LONG_DIGITS.search(word) and not any(c.isalpha() for c in word):
                 out.append(LONG_DIGITS.sub(lambda m: "0" * len(m.group(0)), word))
-            elif COUNT.fullmatch(word):
+            elif glued and glued.group(1).casefold() in self.labels:
+                out.append(word)
+            elif index in kept:
                 out.append(word)
             else:
-                out.append(word if index in kept else self._replacement(word))
+                out.append(self._replacement(stem) + mark)
             if not COUNT.fullmatch(word):
                 index += 1
         out.append(text[last:])

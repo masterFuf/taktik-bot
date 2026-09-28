@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Callable, Optional
 
 from loguru import logger
@@ -34,6 +35,19 @@ BADGE_MAX_LEFT = 0.15
 BADGE_MAX_TOP = 0.40
 BADGE_MAX_WIDTH = 0.11
 BADGE_MAX_HEIGHT = 0.035
+
+
+@dataclass(frozen=True)
+class PublishProgress:
+    """What one look at the screen says of TikTok's upload badge.
+
+    `percent` is the badge's value, None when no badge is shown. `readable` is False when the screen
+    itself could not be read (no dump, or a dump that does not parse): then nothing is known, and
+    in particular not that the badge went away.
+    """
+
+    percent: Optional[int] = None
+    readable: bool = True
 
 
 def _log_to_logger(level: str, message: str) -> None:
@@ -105,29 +119,30 @@ def _percent_from_badge_position(tree, selectors: PublishProgressSelectors, log:
     return None
 
 
-def get_publish_progress_percent(
+def read_publish_progress(
     device,
     selectors: PublishProgressSelectors = PUBLISH_PROGRESS_SELECTORS,
     log: LogFn | None = None,
-) -> Optional[int]:
+) -> PublishProgress:
     """Read TikTok's upload progress badge while publish is running.
 
-    None when no badge is on screen, and also when the screen could not be read: that case is
-    logged as a warning, so an unread screen never passes silently for a finished upload.
+    The badge's percent; no percent when no badge is on screen; not readable when the screen could
+    not be read, logged as a warning. The wait for the commit tells the last two apart: an unread
+    screen is never a badge that went away.
     """
     report = log or _log_to_logger
     try:
         xml = device.dump_hierarchy(compressed=False)
     except Exception as exc:
         report("warning", f"[publishing] progress unread: the screen could not be dumped: {exc}")
-        return None
+        return PublishProgress(readable=False)
 
     tree = parse_ui_dump(xml)
     if tree is None:
         report("warning", "[publishing] progress unread: the dump is empty or does not parse")
-        return None
+        return PublishProgress(readable=False)
 
     percent = _percent_from_badge_ids(tree, selectors, report)
-    if percent is not None:
-        return percent
-    return _percent_from_badge_position(tree, selectors, report)
+    if percent is None:
+        percent = _percent_from_badge_position(tree, selectors, report)
+    return PublishProgress(percent=percent)

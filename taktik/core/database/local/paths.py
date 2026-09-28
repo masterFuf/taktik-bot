@@ -1,22 +1,29 @@
-"""Filesystem paths for the local TAKTIK SQLite database."""
+"""Filesystem paths for the local TAKTIK SQLite database.
+
+The one computation of where the base is: the CLI's service (`LocalDatabaseService`), the bridges
+and the database facades all read `get_default_database_path` (decision D2 of 2026-09-27).
+"""
 
 from __future__ import annotations
 
 import os
-import sys
+
+from taktik.core.shared.app_paths import platform_data_dir
+
+DATABASE_FILE_NAME = "taktik-data.db"
 
 
 def get_default_database_path() -> str:
-    """Return the default SQLite path used by standalone bridges."""
-    if os.environ.get("TAKTIK_DB_PATH"):
-        return os.environ["TAKTIK_DB_PATH"]
+    """The SQLite file of this installation.
 
-    if sys.platform == "win32":
-        appdata = os.environ.get("APPDATA", "")
-        return os.path.join(appdata, "taktik-desktop", "taktik-data.db")
-    if sys.platform == "darwin":
-        return os.path.expanduser("~/Library/Application Support/taktik-desktop/taktik-data.db")
-    return os.path.expanduser("~/.config/taktik-desktop/taktik-data.db")
+    `TAKTIK_DB_PATH` when it is set: the desktop app always sets it for the processes it starts, to
+    the file it opens itself. Otherwise the file of the desktop app's data folder on this platform
+    (`%APPDATA%/taktik-desktop` on Windows, the folder Electron uses on Linux and macOS).
+    """
+    explicit = os.environ.get("TAKTIK_DB_PATH")
+    if explicit:
+        return explicit
+    return os.path.join(platform_data_dir(), DATABASE_FILE_NAME)
 
 
-__all__ = ["get_default_database_path"]
+__all__ = ["DATABASE_FILE_NAME", "get_default_database_path"]

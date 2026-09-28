@@ -77,7 +77,6 @@ def test_register_tiktok_followers_handler_executes_a_single_target_run():
                             "maxWatchTime": 9.5,
                             "likeProbability": 75,
                             "commentProbability": 10,
-                            "shareProbability": 5,
                             "favorite_probability": 0.25,
                             "followProbability": 40,
                             "storyLikeProbability": 20,
@@ -109,7 +108,6 @@ def test_register_tiktok_followers_handler_executes_a_single_target_run():
     assert workflow.config.max_watch_time == 9.5
     assert workflow.config.like_probability == 0.75
     assert workflow.config.comment_probability == 0.1
-    assert workflow.config.share_probability == 0.05
     assert workflow.config.favorite_probability == 0.25
     assert workflow.config.follow_probability == 0.4
     assert workflow.config.story_like_probability == 0.2

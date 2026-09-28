@@ -58,19 +58,10 @@ EXCEPTIONS: dict[str, dict[tuple[str, ...], str]] = {
     "manifest_without_launcher": {
     },
     "entry_point_engine": {
-        # Instagram publication (Q4, postponed): no manifest id, three hosts build the engine.
-        ("bridges/instagram/publish/runtime/bridge.py", "InstagramPostWorkflow"):
-            "Q4 postponed: publication has no manifest id nor launcher.",
-        ("taktik/cli/commands/publish_cmds.py", "InstagramPostWorkflow"):
-            "Q4 postponed: CLI `publish` builds the engine itself.",
-        ("bridges/compat/diagnostics/runtime/workflow_test/platforms/instagram/workflows/publish.py",
-         "InstagramPostWorkflow"):
-            "Q4 postponed: the Lab publish run builds the engine itself.",
     },
     "bridge_without_launcher": {
         ("persona_analysis_bridge",):
             "persona analysis: no manifest id, no CLI; left as is by decision (Q6).",
-        ("publish_bridge",): "Q4 postponed: publication stays as is for now.",
     },
     "app_extra_launch_module": {
         ("desktop_bridge", "electron/services/tools/debug/bridge/DesktopDebugBridgeService.ts"):
