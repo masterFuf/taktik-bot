@@ -65,8 +65,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (8,
          "the rate-limit dialog and the contacts request, invented: neither is in the corpus; "
          "capture both (410, French)."),
-    "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
-        (12, "profile header and screen signals built by a helper, invented."),
     "tests/unit/social_media/instagram/test_profile_header_447.py":
         (9,
          "447 and 410 profile headers in the real shapes: no 447 professional profile in the "
@@ -74,8 +72,10 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
     "tests/unit/social_media/instagram/test_verified_and_business_signals.py":
         (7,
          "two verified signals no capture shows: a profile title whose description carries the "
-         "word Verified, and a certified card in the suggestions of a profile. Every other case "
-         "reads a real profile (410 FR and EN, 447 FR)."),
+         "word Verified, and a certified card in the suggestions of a profile. A certified 410 FR "
+         "profile (Pixel 4a) shows neither: its title's description is the handle, and the "
+         "certified accounts of its suggestions carry no mark. Every other case reads a real "
+         "profile (410 FR and EN, 447 FR)."),
     "tests/unit/social_media/instagram/ui/test_unfollow_selector_catalogs.py":
         (2,
          "the private account's unfollow confirmation, invented: it only shows once a followed "
@@ -177,7 +177,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
 }
 
 #: The number of entries of HAND_WRITTEN: it only goes down.
-HAND_WRITTEN_CEILING = 31
+HAND_WRITTEN_CEILING = 30
 
 #: (b) A tree that is not a screen: what it computes, and why no screen is needed.
 MINIMAL_TREES: dict[str, tuple[int, str]] = {
@@ -215,6 +215,11 @@ MINIMAL_TREES: dict[str, tuple[int, str]] = {
         (1,
          "a carousel with no visible band (no feed list, no tab bar): the framing guard; every "
          "real dump carries the list, and the carousel itself is read on real feeds."),
+    "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
+        (1,
+         "an empty hierarchy, what the device answers when it cannot read a screen: the guard of "
+         "every reader. The screens read are real (a professional profile, a cut bio, the "
+         "activity list) or their clone (the package renamed)."),
     "tests/unit/social_media/instagram/test_feed_suggestions_follow_loop.py":
         (15, "which bounds the finger starts from and what is booked; the parsing is proven elsewhere."),
     "tests/unit/social_media/instagram/test_post_reading_caption.py":

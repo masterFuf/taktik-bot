@@ -7,8 +7,15 @@ Compose screen's bare id, and a uiautomator2 shorthand was rejected. They now as
 answers as `d.xpath()` does through the proxy, still on one dump. The readers that walk the tree
 get the photo's tree: the same nodes as before, taken through the facade.
 
-Dumps are invented, shaped on the real profile header (ids and nesting), texts made up.
+The screens are real captures, anonymized: a visited professional profile (Instagram 410, French:
+category line, bio cut by « … plus », website, a linked-account banner), a profile whose bio is
+cut, and the notifications list (Pixel 4a, 2026-09-28), whose ids are bare. A clone's screen is
+the real profile with the clone's package in place of Instagram's (derived: no clone is installed
+on the phones of the bench). An empty hierarchy is not a screen: it is what the device answers
+when it cannot read one.
 """
+
+from pathlib import Path
 
 import pytest
 from lxml import etree
@@ -25,31 +32,17 @@ from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS,
 
 STOCK = "com.instagram.android"
 CLONE = "com.taktik.ig1"
+FIXTURES = Path(__file__).parent / "fixtures"
+EMPTY = '<hierarchy rotation="0" />'
+
+
+def _capture(name):
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
 def _profile(package: str) -> str:
-    """A professional profile's header, its ids under `package` (a clone renames the prefix)."""
-    p = f"{package}:id/"
-
-    def node(rid, cls="android.widget.TextView", text="", children="", bounds="[0,0][10,10]"):
-        return (f'<node resource-id="{p + rid if rid else ""}" class="{cls}" package="{package}" '
-                f'text="{text}" content-desc="" bounds="{bounds}">{children}</node>')
-
-    header = node("profile_header_container", "android.widget.LinearLayout", children=(
-        node("avatar_on_profile_header_view", "android.widget.Button", bounds="[40,300][240,500]",
-             children=node("profilePic", "android.widget.ImageView", bounds="[50,310][230,490]"))
-        + node("profile_header_full_name_above_vanity", text="Demo Studio")
-        + node("profile_header_business_category", text="Artist")
-        + node("profile_user_info_compose_view", "com.facebook.compose.view.MetaComposeView", children=(
-            node("", "android.view.View", children=node("", text="Paints walls, answers mail")))
-        )
-        + node("banner_row", "android.widget.LinearLayout", children=node(
-            "profile_header_banner_item_layout", "android.widget.LinearLayout",
-            children=node("profile_header_banner_item_title", text="demo.studio")))
-    ))
-    bar = node("action_bar_username_container", "android.widget.LinearLayout",
-               children=node("action_bar_title", text="demo.studio"))
-    return f'<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">{bar}{header}</hierarchy>'
+    """A visited professional profile, its ids under `package` (a clone renames the prefix)."""
+    return _capture("ig410_fr_profile_highlights_only.xml").replace(STOCK, package)
 
 
 class _Phone:
@@ -92,26 +85,28 @@ class _Reader(ProfileExtractionMixin):
 def test_the_batch_check_is_one_photo_answered_through_the_proxy():
     """An id equality now finds a clone's prefix and a bare id, as `d.xpath()` behind the proxy
     does; plain lxml on the dump found neither."""
-    dump = ('<hierarchy rotation="0">'
-            f'<node class="android.widget.FrameLayout" resource-id="{CLONE}:id/profile_header_container" />'
-            '<node class="android.view.View" resource-id="activity_feed_list" /></hierarchy>')
-    facade, phone = _facade(dump)
-    answers = facade.batch_xpath_check({
+    clone, phone = _facade(_profile(CLONE))
+    assert f'{STOCK}:id/' not in phone.xml
+    assert clone.batch_xpath_check({
         "clone": [f'//*[@resource-id="{STOCK}:id/profile_header_container"]'],
-        "bare": [f'//*[@resource-id="{STOCK}:id/activity_feed_list"]'],
         "absent": [f'//*[@resource-id="{STOCK}:id/row_feed_button_like"]'],
-    })
-    assert answers == {"clone": True, "bare": True, "absent": False}
+    }) == {"clone": True, "absent": False}
+    assert phone.dumps == 1
+
+    notifications = _capture("ig410_fr_notifications_rows.xml")
+    assert 'resource-id="activity_feed_list"' in notifications
+    bare, phone = _facade(notifications)
+    assert bare.batch_xpath_check({"bare": [f'//*[@resource-id="{STOCK}:id/activity_feed_list"]']}) == {"bare": True}
     assert phone.dumps == 1
 
 
 def test_the_batch_check_reads_shorthands_and_skips_a_rejected_selector():
-    dump = f'<hierarchy rotation="0"><node class="android.widget.TextView" resource-id="{STOCK}:id/title" /></hierarchy>'
-    facade, _phone = _facade(dump)
-    assert facade.batch_xpath_check({"title": ["//*[", f"@{STOCK}:id/title"]}) == {"title": True}
+    facade, _phone = _facade(_profile(STOCK))
+    assert facade.batch_xpath_check({"title": ["//*[", f"@{STOCK}:id/action_bar_title"]}) == {"title": True}
 
 
-@pytest.mark.parametrize("xml", ['<hierarchy rotation="0" />', "", "<not xml"])
+# « ERROR: could not get idle state. » is what uiautomator printed instead of a dump on 2026-09-26.
+@pytest.mark.parametrize("xml", [EMPTY, "", "ERROR: could not get idle state."])
 def test_an_unreadable_screen_answers_false_for_every_name(xml):
     facade, phone = _facade(xml)
     assert facade.batch_xpath_check({"a": ["//*"], "b": ["//node"]}) == {"a": False, "b": False}
@@ -119,6 +114,11 @@ def test_an_unreadable_screen_answers_false_for_every_name(xml):
 
 
 # --------------------------------------------------------------------------- profile readers
+
+#: The bio of the real profile, as the dump carries it: two bullet lines, cut by « … plus ».
+BIO = ("• name_5 Privé à name_6, name_7, name_8 ..\n• name_9 name_10 : \n-@user_4 -code name_11: "
+       "user_5 :       -… plus")
+
 
 def _read_all(package):
     facade, phone = _facade(_profile(package))
@@ -135,10 +135,11 @@ def _read_all(package):
 def test_the_profile_readers_read_the_stock_header():
     answers, phone = _read_all(STOCK)
     assert answers["flags"] == {"is_private": False, "is_verified": False, "is_business": True}
-    assert answers["text"] == {"username": "demo.studio", "full_name": "Demo Studio",
-                               "biography": "Paints walls, answers mail"}
-    assert answers["enriched"]["business_category"] == "Artist"
-    assert answers["enriched"]["linked_accounts"] == [{"name": "demo.studio", "platform": "unknown"}]
+    assert answers["text"] == {"username": "name_1", "full_name": "name_2 name_3", "biography": BIO}
+    assert answers["enriched"]["business_category"] == "name_4"
+    assert answers["enriched"]["website"] == "user_6/name_12/"
+    assert answers["enriched"]["linked_accounts"] == [{"name": "name_2 name_13", "platform": "unknown"}]
+    assert answers["enriched"]["bio_truncated"] is True
     assert answers["avatar"] is True
     assert phone.dumps == 4  # one photo per reader call
 
@@ -149,8 +150,13 @@ def test_a_clone_reads_like_the_stock_app():
     assert _read_all(CLONE)[0] == _read_all(STOCK)[0]
 
 
-def test_the_bounded_bio_read_is_one_dump_through_the_timeout():
-    facade, phone = _facade(_profile(STOCK).replace("Paints walls, answers mail", "A long bio cut short…"))
+@pytest.mark.parametrize("name, region", [
+    ("ig410_fr_profile_highlights_only.xml", (44, 543, 933, 680)),
+    ("ig410_fr_profile_bio_truncated.xml", (44, 494, 772, 675)),
+])
+def test_the_bounded_bio_read_is_one_dump_through_the_timeout(name, region):
+    """Two real bios cut by « … plus »: the region is the bio node's own bounds."""
+    facade, phone = _facade(_capture(name))
     calls = []
     real = facade.get_xml_dump
 
@@ -159,7 +165,7 @@ def test_the_bounded_bio_read_is_one_dump_through_the_timeout():
         return real()
 
     facade.get_xml_dump = bounded
-    assert _Reader(facade)._truncated_bio_region() == (0, 0, 10, 10)
+    assert _Reader(facade)._truncated_bio_region() == region
     assert calls == [5.0] and phone.dumps == 1
 
 
@@ -207,7 +213,7 @@ def test_a_walker_gets_the_tree_parse_ui_dump_built_in_one_dump(walker):
 def test_an_empty_hierarchy_is_no_tree(walker):
     """`<hierarchy/>` is a screen that could not be read, not a screen without the thing looked
     for: a walker gets None, as for a failed dump (it got an empty tree)."""
-    phone = _Phone('<hierarchy rotation="0" />')
+    phone = _Phone(EMPTY)
     assert _walkers(BaseDeviceFacade(phone))[walker]() is None
 
 
@@ -217,6 +223,6 @@ def test_the_comment_reader_asks_nothing_more_of_a_screen_it_cannot_read(monkeyp
     litho_asked = []
     monkeypatch.setattr(comment_reading, "run_adb_shell_process",
                         lambda *a, **k: litho_asked.append(a))
-    facade = BaseDeviceFacade(_Phone('<hierarchy rotation="0" />'))
+    facade = BaseDeviceFacade(_Phone(EMPTY))
     assert comment_reading.read_visible_comments(facade, device_id="serial") == []
     assert litho_asked == []
