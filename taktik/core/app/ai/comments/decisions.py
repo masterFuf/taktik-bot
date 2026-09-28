@@ -93,16 +93,10 @@ def resolve_comment_language(base_lang: Optional[str], post_language: Any) -> Op
     When base_lang is unknown, the post's own language is the only credible choice; with no
     signal at all we publish nothing rather than guess.
 
-    **How far that third branch actually reaches.** `detect_text_language` answers `fr`, `en`, or
-    None — and None for every other language, by design and by its own docstring. Measured
-    2026-08-30: a Spanish caption and a German caption both come back None. So "post in ANY other
-    detected language" cannot fire today, and such a post takes the *undetected* branch instead:
-    a Spanish video gets a comment in the account's own language. The rule is written for a
-    detector that knows more languages, and the alias table above already names the six it would
-    need. Widening the detector is a change on Instagram's production path with a failure mode in
-    the other direction (going silent on French posts when a Romance language wins by accident),
-    so it is a deliberate decision, not a tidy-up. Until then this branch is dormant, and this
-    paragraph is here so nobody reads the list above as a protection that already holds.
+    **How far that third branch reaches.** `detect_text_language` reads French, English, Spanish,
+    German, Italian and Portuguese, so the branch fires on a caption in any of the four others. A
+    caption too short or too mixed to decide, or in any other language (Dutch, Czech, Turkish, a
+    non-Latin script), still takes the undetected branch.
     """
     base = str(base_lang or "").strip().lower() or None
     detected = detect_language_code(str(post_language).strip().lower()) if post_language else None

@@ -42,6 +42,14 @@ def test_persona_text_is_the_anchor_when_no_explicit_language():
     assert _resolve_base_language(EN_PERSONA) == "en"
 
 
+def test_a_persona_written_in_another_language_anchors_that_language():
+    """A persona written in Spanish anchors Spanish. Read as unknown, the account would follow
+    every caption it can read — French included."""
+    persona = {"niche": "Fotografía de bodas en la costa", "tonePersonality": "Cercano y muy natural, con humor"}
+    assert _resolve_base_language(persona) == "es"
+    assert _resolve_comment_language(_resolve_base_language(persona), "fr") is None
+
+
 def test_unknown_stays_unknown_and_is_never_invented():
     assert _resolve_base_language({}) is None
     assert _resolve_base_language(None) is None

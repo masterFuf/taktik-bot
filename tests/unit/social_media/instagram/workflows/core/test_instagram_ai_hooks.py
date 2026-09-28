@@ -219,6 +219,18 @@ def test_resolve_comment_language_policy(base_lang, post_language, expected):
         # account doesn't claim to speak French, so commenting in French isn't credible).
         ("en", "The new collection is finally here, check it out", "en"),
         ("en", "Venez nous voir pour deux concepts avec les amis", None),
+        # A caption in another language the detector reads: the "third language -> skip"
+        # branch fires on the caption itself, not only on a vision veto.
+        ("fr", "Nuestra nueva colección ya está disponible, ven a verla este sábado", None),
+        ("fr", "Unsere neue Kollektion ist endlich da, schaut am Samstag vorbei", None),
+        ("fr", "La nuova collezione è finalmente arrivata, venite a trovarci con tutti gli amici", None),
+        ("en", "A nova coleção já está disponível, venha conhecer na loja", None),
+        # An account that speaks the caption's language answers in it.
+        ("es", "Nuestra nueva colección ya está disponible, ven a verla este sábado", "es"),
+        ("de", "Unsere neue Kollektion ist endlich da, schaut am Samstag vorbei", "de"),
+        # An account whose language is unknown follows the caption, as the rule is written: it
+        # used to stay silent under these captions only because the detector could not read them.
+        (None, "Nuestra nueva colección ya está disponible, ven a verla este sábado", "es"),
     ],
 )
 def test_effective_comment_language_from_caption(base_lang, caption, expected):
@@ -840,6 +852,65 @@ def test_verified_framing_always_runs_vision_and_passes_publish_date(monkeypatch
     assert "16 juillet" in gen["post_published"]
     # The account's recent comments reached the anti-tic guard.
     assert gen["recent_comments"] == ["Le rendu est top 🔥"]
+
+
+def test_an_italian_caption_is_not_commented_by_a_french_account(monkeypatch):
+    """The image guard only speaks when the caption says nothing. An Italian caption used to
+    SAY something — French, with confidence ("la", "un", the grave accents) — so the guard
+    stood aside and the French account wrote a French comment under an Italian post, even with
+    the image analysis naming the language correctly."""
+    from types import SimpleNamespace
+
+    captured = {}
+
+    class FakeAI:
+        def analyze_post(self, **kwargs):
+            return {"success": True, "description": "Una vetrina di vestiti", "post_language": "italian"}
+
+        def generate_smart_comment(self, **kwargs):
+            captured["generation"] = kwargs
+            return {"success": True, "should_comment": True, "comment": "Superbe vitrine", "reasoning": "r"}
+
+    action_cls = _install_comment_hook(monkeypatch, FakeAI(), captured)
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks."
+        "InstagramPostedComments.recent_texts",
+        staticmethod(lambda account_id=None, limit=12: []),
+    )
+    host = SimpleNamespace(
+        scroll_actions=_FramedScroll(
+            "jane_doe La nuova collezione è finalmente arrivata, venite a trovarci in negozio sabato "
+            "con tutti gli amici"
+        ),
+        _get_account_id=lambda: None,
+    )
+    result = action_cls.comment_on_post(host, username="jane_doe")
+
+    assert result["skipped"] is True
+    assert "generation" not in captured, "no comment is written in a language the account does not speak"
+    assert "posted" not in captured
+
+
+def test_a_french_account_does_not_answer_a_german_comment_in_a_thread(monkeypatch):
+    """Same rule for a reply as for a comment: {account language, English}. A German comment
+    used to come back None, and the reply was written in the account's own language."""
+    from taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow import (
+        PostUrlBusiness,
+    )
+
+    asked = []
+
+    class FakeAI:
+        def generate_comment_reply(self, **kwargs):
+            asked.append(kwargs)
+            return {"success": True, "should_reply": True, "reply": "Merci beaucoup !"}
+
+    _install_comment_hook(monkeypatch, FakeAI(), {})
+    writer = PostUrlBusiness.in_thread_reply_writer
+
+    assert writer("someone", "Wunderschöne Bilder, wir waren auch letzte Woche dort und es war toll") is None
+    assert asked == []
+    assert writer("someone", "Magnifique lumière, on y était aussi la semaine dernière")["language"] == "fr"
 
 
 def test_no_context_at_all_is_skipped_not_invented(monkeypatch):

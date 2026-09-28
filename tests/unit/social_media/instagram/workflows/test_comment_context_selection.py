@@ -99,7 +99,7 @@ def test_structural_spam_goes_without_a_word_list():
 
 
 def test_a_foreign_script_is_dropped_before_the_language_filter():
-    """`detect_text_language` only ever answers fr / en / None.
+    """`detect_text_language` reads six Latin-script languages and answers None for the rest.
 
     A CJK, Cyrillic or Arabic comment would sail straight through the language check, eat the
     character budget and teach the model nothing — so the script test runs first.
@@ -109,6 +109,20 @@ def test_a_foreign_script_is_dropped_before_the_language_filter():
 
     assert selection.items == []
     assert selection.dropped.get("foreign_script") == 1
+
+
+def test_a_stranger_writing_another_latin_language_is_dropped_under_a_french_post():
+    """The language filter drops a comment only on a CONFIDENT verdict outside {comment
+    language, account language, English}. Kept, a Spanish comment shows the writer of a French
+    comment Spanish material to imitate."""
+    thread = [
+        rec("ana", "Que bonito, me encanta todo lo que haces con las flores"),
+        rec("sam", "La texture a l air incroyable, je vais tester avec du curcuma"),
+    ]
+    selection = select_thread_comments(thread, comment_lang="fr", base_lang="fr")
+
+    assert [entry["text"][:9] for entry in selection.items] == ["La textur"]
+    assert selection.dropped.get("other_language") == 1
 
 
 def test_screen_order_is_kept_and_likes_never_re_sort():
