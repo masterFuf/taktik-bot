@@ -46,7 +46,10 @@ class SharedBaseAction:
     _platform: Optional[str] = None
     
     def __init__(self, device):
-        if isinstance(device, BaseDeviceFacade):
+        # The facade these actions are written for, and no other: a facade of another class (the
+        # shared one a bridge exposes) lacks what the platform's adds, so its device is wrapped in
+        # ours, as a bare device is.
+        if isinstance(device, self._device_facade_class):
             self.device = device
         else:
             self.device = self._device_facade_class(device)
