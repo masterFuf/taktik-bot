@@ -8,7 +8,6 @@
   "bridges/common/runtime/signal_handler.py": 2,
   "bridges/compat/diagnostics/actions/instagram/dm.py": 1,
   "bridges/compat/diagnostics/actions/instagram/publish.py": 3,
-  "bridges/compat/diagnostics/actions/instagram/scroll.py": 2,
   "bridges/compat/diagnostics/actions/instagram/tap.py": 1,
   "bridges/compat/diagnostics/actions/tiktok/app.py": 1,
   "bridges/compat/diagnostics/actions/tiktok/profile.py": 2,

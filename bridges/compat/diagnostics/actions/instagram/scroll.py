@@ -7,6 +7,7 @@ from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_ap
 from taktik.core.shared.behavior.gesture import FULL_REACH_H, sample_swipe
 from taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll import _TAIL_FILLER_RUNS
 from taktik.core.shared.behavior.gesture_primitives import _step_cost as _gesture_step_cost
+from taktik.core.shared.device.ui_dump import parse_bounds, parse_ui_dump, vertical_center
 
 
 @action("scroll.up")
@@ -263,49 +264,59 @@ def scroll_feed_drag(a, p):
     }
 
 
-def _anchors_for(device, selectors, limit: int = 80):
-    anchors = {}
-    for selector in selectors:
-        try:
-            for node in device.xpath(selector).all()[:limit]:
-                try:
-                    key = (node.attrib.get("content-desc") or node.text or "").strip()
-                    if len(key) < 4:
-                        continue
-                    _, top, _, bottom = node.bounds
-                    anchors.setdefault(key, (top + bottom) // 2)
-                except Exception:
-                    continue
-        except Exception:
+#: The labels the probe pairs: those of the content a scroll moves, inside the scrollable container.
+#: Content-desc as well as text: a photo feed carries almost no TextView, and Instagram labels its
+#: media ("Photo by ... on ..."). Inside the container because the static chrome (Android nav bar,
+#: Instagram tab bar, status bar) lives outside it by construction: on a feed that had scrolled
+#: 1297px, 11 of 21 whole-screen anchors were that chrome, all at +0, and the median read zero.
+_SCROLLED_LABELS_XPATH = ('//*[@scrollable="true"]//*[@content-desc]'
+                          ' | //*[@scrollable="true"]//android.widget.TextView')
+#: Without a scrollable container (a dialog, a full-screen viewer): the whole screen, flagged,
+#: because the reading is then chrome-contaminated and must be read as such.
+_SCREEN_LABELS_XPATH = '//*[@content-desc] | //android.widget.TextView'
+_MIN_LABEL_CHARS = 4
+_MIN_SCOPED_LABELS = 3
+
+
+def _label_centres(tree, xpath: str) -> dict:
+    """Label -> the vertical centre of each element that shows it, in document order."""
+    centres: dict = {}
+    for node in tree.xpath(xpath):
+        label = (node.get("content-desc") or node.get("text") or "").strip()
+        bounds = parse_bounds(node.get("bounds") or "")
+        if len(label) < _MIN_LABEL_CHARS or bounds is None:
             continue
-    return anchors
+        centres.setdefault(label, []).append(int(vertical_center(bounds)))
+    return centres
 
 
-def _screen_anchors(device):
-    """Map SCROLLABLE-CONTENT items to their vertical centre, and say whether scoping worked.
+def _content_moves(before, after) -> dict:
+    """How far the content moved UP between two readings of one screen (`parse_ui_dump` trees).
 
-    Two lessons are baked in here, both from device runs.
-
-    Keys on text OR content-desc: a photo feed carries almost no TextView, so a text-only probe
-    found one common anchor there and had to call itself inconclusive. Instagram labels its media
-    ("Photo by ... on ..."), so content-desc is what makes the measurement possible on the surface
-    that needs it most.
-
-    But content-desc also drags in the STATIC chrome, and that produced a flatly wrong answer: on a
-    feed that had genuinely scrolled 1297px, 11 of 21 matched anchors were the Android nav bar, the
-    Instagram tab bar and the status bar, all at +0 — so the median landed on zero and the probe
-    reported a motionless screen. Scoping to the scrollable container removes them structurally
-    rather than by guessing at screen regions: chrome lives outside the RecyclerView by
-    construction. Replayed on the two real dumps, it goes from 21 anchors / median 0px to
-    10 anchors / median 1297px.
+    An anchor is a label shown ONCE before and ONCE after the gesture. A post's labels ("Like",
+    "Comment", "More actions for this post", the author's name) come back with every post: paired by
+    label alone, after a scroll of about one post the next post's were taken for the ones that left,
+    and a forward scroll read as a move backwards (-373 and -618 px in the Lab auto-test of the
+    2026-09-29, where the one unique anchor had moved +887 and +1344). A label unique on each screen
+    can still be two elements, one post's leaving and the next one's arriving: that pairing shows
+    as a move against the gesture (a scroll "down" moves the content up), and it is set aside in
+    `contrary_px`, never counted as the content moving back.
     """
-    scoped = _anchors_for(device, ('//*[@scrollable="true"]//*[@content-desc]',
-                                   '//*[@scrollable="true"]//android.widget.TextView'))
-    if len(scoped) >= 3:
-        return scoped, True
-    # No scrollable container exposed (a dialog, a full-screen viewer): fall back to the whole
-    # screen and flag it, because the reading is then chrome-contaminated and must be read as such.
-    return _anchors_for(device, ('//*[@content-desc]', '//android.widget.TextView')), False
+    xpath = _SCROLLED_LABELS_XPATH
+    scoped = len(_label_centres(before, xpath)) >= _MIN_SCOPED_LABELS
+    if not scoped:
+        xpath = _SCREEN_LABELS_XPATH
+    was, now = _label_centres(before, xpath), _label_centres(after, xpath)
+    unique_before = {label: ys[0] for label, ys in was.items() if len(ys) == 1}
+    unique_after = {label: ys[0] for label, ys in now.items() if len(ys) == 1}
+    moves = [unique_before[label] - unique_after[label] for label in unique_before if label in unique_after]
+    return {
+        "forward_px": sorted(move for move in moves if move >= 0),
+        "contrary_px": sorted(move for move in moves if move < 0),
+        "anchors_before": len(unique_before), "anchors_after": len(unique_after),
+        "labels_repeated": sum(1 for ys in list(was.values()) + list(now.values()) if len(ys) > 1),
+        "scoped_to_scrollable": scoped,
+    }
 
 
 @action("scroll.controlled_step")
@@ -313,37 +324,47 @@ def scroll_controlled_step(a, p):
     """Measure what ONE production controlled scroll really moves on screen.
 
     Runs `device.human_scroll("down", distance_ratio=R)` — the shared entry point itself, no
-    Lab-only path — and compares the position of the texts visible before and after, so it reports
-    the displacement the CONTENT underwent, not the one we asked the finger for.
+    Lab-only path — and compares the position of the labels visible before and after, so it reports
+    the displacement the CONTENT underwent, not the one we asked the finger for (`_content_moves`:
+    which labels are anchors, and why a move against the gesture is set aside).
 
     What it settles: `coast=False` promises a 1:1 gesture with no overshoot. It used to take the
     fling branch, so the content travelled the finger distance PLUS an Android coast, and the
     callers that advance one post per scroll could sail past one. Displacement close to the request
     means the contract holds; a large excess means a fling is still happening.
 
-    Run it in the view you care about — the hashtag flows use R=0.62 in the post viewer.
+    A measuring bench, not a screen capability: the Lab auto-test leaves it out (catalogue flag
+    `measurementBench`), it runs one by one, in the view you care about.
     """
     ratio = max(0.10, min(0.95, float(p.get("distance_ratio", 0.62))))
     h = int(a.scroll.screen_height)
     requested = int(ratio * h)
 
-    before, scoped = _screen_anchors(a.device)
+    before = parse_ui_dump(a.device.get_xml_dump())
     a.device.human_scroll("down", distance_ratio=ratio)
     time.sleep(0.9)
-    after, _ = _screen_anchors(a.device)
+    after = parse_ui_dump(a.device.get_xml_dump())
+    if before is None or after is None:
+        unread = "avant" if before is None else "apres"
+        return {"success": False, "message": f"ecran illisible {unread} le geste — rien de mesure",
+                "details": {"requested_px": requested, "distance_ratio": ratio, "screen_height": h}}
 
-    common = [k for k in before if k in after]
-    shifts = sorted(before[k] - after[k] for k in common)
+    moves = _content_moves(before, after)
+    shifts = moves["forward_px"]
     injection = dict(getattr(a.scroll, "_last_gesture_injection", None) or {})
     details = {"requested_px": requested, "distance_ratio": ratio, "screen_height": h,
-               "anchors_before": len(before), "anchors_after": len(after),
-               "anchors_matched": len(shifts), "scoped_to_scrollable": scoped,
-               "shifts_px": shifts, "injection": injection}
+               "anchors_before": moves["anchors_before"], "anchors_after": moves["anchors_after"],
+               "anchors_matched": len(shifts), "labels_repeated": moves["labels_repeated"],
+               "scoped_to_scrollable": moves["scoped_to_scrollable"],
+               "shifts_px": shifts, "contrary_shifts_px": moves["contrary_px"], "injection": injection}
+    scoped = moves["scoped_to_scrollable"]
 
     if len(shifts) < 3:
         return {"success": False,
-                "message": (f"non concluant: {len(shifts)} ancre(s) commune(s) — le contenu a "
-                            f"defile de plus d'un ecran, ou la vue n'offre rien de stable"),
+                "message": (f"non concluant: {len(shifts)} ancre(s) unique(s) commune(s)"
+                            + (f", {len(moves['contrary_px'])} ecartee(s) (deplacement contraire au geste)"
+                               if moves["contrary_px"] else "")
+                            + " — le contenu a defile de plus d'un ecran, ou la vue n'offre rien de stable"),
                 "details": details}
 
     moved = shifts[len(shifts) // 2]
