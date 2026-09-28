@@ -329,6 +329,10 @@ STRINGS: Dict[str, List[str]] = {
     "inbox.activity_section": [
         "//*[contains(@resource-id, \":id/b8h\")][@text=\"Activité\"]",
         "//*[@text=\"Activité\"]",
+        # 47.0.3 (Pixel 6a, 2026-09-29): the row reads « Activité et nouveaux abonnés » (`brb`), the
+        # new followers having moved into Activity (banner « Les nouveaux followers déménagent.
+        # Retrouve-le dans Activité »); the 43.1.4 label above answers nothing there.
+        "//*[@text=\"Activité et nouveaux abonnés\"]",
     ],
     "inbox.activity_status": [
         "//*[(contains(@content-desc, \"Statut d'activité\") or contains(@content-desc, \"Statut d’activité\"))]",

@@ -45,14 +45,17 @@ class ActivityActions(BaseAction):
         and stops, which reads exactly like an account nobody has interacted with.
 
         The entry row exists only in the inbox, so the inbox is reached first from anywhere else:
-        called from the feed, the page never opened and the caller read "could not open it".
+        called from the feed, the page never opened and the caller read "could not open it". The
+        row is the inbox's Activity section, the one the inbox reading lists (« Activité » on
+        43.1.4, « Activité et nouveaux abonnés » on 47.0.3).
         """
+        entry = self.inbox_selectors.activity_section
         if not self.is_on_activity_page():
-            if not self._element_exists(self.activity_selectors.activity_entry, timeout=1) \
+            if not self._element_exists(entry, timeout=1) \
                     and not DMActions(self.device).navigate_to_inbox():
                 self.logger.warning("open_activity: the inbox could not be reached")
                 return False
-            if not self._find_and_click(self.activity_selectors.activity_entry, timeout=5):
+            if not self._find_and_click(entry, timeout=5):
                 self.logger.debug("open_activity: no Activity row in the inbox")
                 return False
             time.sleep(3.0)
