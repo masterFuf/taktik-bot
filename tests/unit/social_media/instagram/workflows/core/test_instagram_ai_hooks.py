@@ -228,9 +228,11 @@ def test_resolve_comment_language_policy(base_lang, post_language, expected):
         # An account that speaks the caption's language answers in it.
         ("es", "Nuestra nueva colección ya está disponible, ven a verla este sábado", "es"),
         ("de", "Unsere neue Kollektion ist endlich da, schaut am Samstag vorbei", "de"),
-        # An account whose language is unknown follows the caption, as the rule is written: it
-        # used to stay silent under these captions only because the detector could not read them.
-        (None, "Nuestra nueva colección ya está disponible, ven a verla este sábado", "es"),
+        # An account whose language is unknown writes French or English, never a third language.
+        (None, "Nuestra nueva colección ya está disponible, ven a verla este sábado", None),
+        (None, "Unsere neue Kollektion ist endlich da, schaut am Samstag vorbei", None),
+        (None, "Venez nous voir pour deux concepts avec les amis", "fr"),
+        (None, "The new collection is finally here, check it out", "en"),
     ],
 )
 def test_effective_comment_language_from_caption(base_lang, caption, expected):
@@ -888,6 +890,42 @@ def test_an_italian_caption_is_not_commented_by_a_french_account(monkeypatch):
 
     assert result["skipped"] is True
     assert "generation" not in captured, "no comment is written in a language the account does not speak"
+    assert "posted" not in captured
+
+
+def test_an_account_without_a_known_language_does_not_comment_a_spanish_post(monkeypatch):
+    """No persona, so no account language: the account follows a French or English caption and
+    stays silent under any other, like on TikTok."""
+    from types import SimpleNamespace
+
+    captured = {}
+
+    class FakeAI:
+        def analyze_post(self, **kwargs):
+            return {"success": True, "description": "Una tienda de ropa", "post_language": "spanish"}
+
+        def generate_smart_comment(self, **kwargs):
+            captured["generation"] = kwargs
+            return {"success": True, "should_comment": True, "comment": "Qué bonita tienda", "reasoning": "r"}
+
+    action_cls = _install_comment_hook(
+        monkeypatch, FakeAI(), captured, ai_config={"smartComments": True, "postAnalysis": False},
+    )
+    monkeypatch.setattr(
+        "taktik.core.social_media.instagram.workflows.core.ai_hooks."
+        "InstagramPostedComments.recent_texts",
+        staticmethod(lambda account_id=None, limit=12: []),
+    )
+    host = SimpleNamespace(
+        scroll_actions=_FramedScroll(
+            "jane_doe Nuestra nueva colección ya está disponible, ven a verla a la tienda este sábado"
+        ),
+        _get_account_id=lambda: None,
+    )
+    result = action_cls.comment_on_post(host, username="jane_doe")
+
+    assert result["skipped"] is True
+    assert "generation" not in captured
     assert "posted" not in captured
 
 

@@ -94,10 +94,17 @@ def test_a_third_language_is_skipped():
     assert _resolve_comment_language("fr", "other") is None
 
 
-def test_unknown_account_language_follows_the_post():
-    # No anchor: the post's own language is the only credible choice.
+def test_unknown_account_language_follows_a_french_or_english_post():
+    # No anchor: the post's own language, when it is one any account writes.
     assert _resolve_comment_language(None, "fr") == "fr"
     assert _resolve_comment_language(None, "en") == "en"
+
+
+def test_unknown_account_language_never_writes_a_third_language():
+    """A person speaks one or two languages, not every one the detector reads: an account whose
+    language is unknown stays silent under a Spanish, German, Italian or Portuguese post."""
+    for post_language in ("es", "de", "it", "pt", "Spanish", "German"):
+        assert _resolve_comment_language(None, post_language) is None, post_language
 
 
 def test_unknown_account_language_and_unreadable_post_publishes_nothing():

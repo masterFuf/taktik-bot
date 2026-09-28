@@ -41,6 +41,10 @@ COMMENT_REFUSAL_SIGNALS = (
 #: A real comment is short. Past this, the model is explaining itself rather than commenting.
 COMMENT_MAX_LENGTH = 120
 
+#: What an account whose own language is unknown may write: a person speaks one or two languages,
+#: not every one the detector reads.
+_UNKNOWN_ACCOUNT_LANGUAGES = ("fr", "en")
+
 
 def detect_language_code(detected_lower: str) -> str:
     for code, names in COMMENT_LANG_ALIASES.items():
@@ -90,8 +94,8 @@ def resolve_comment_language(base_lang: Optional[str], post_language: Any) -> Op
         to speak isn't credible
       - language undetected                -> default to base_lang
 
-    When base_lang is unknown, the post's own language is the only credible choice; with no
-    signal at all we publish nothing rather than guess.
+    When base_lang is unknown, the comment follows the post only in French or English; under any
+    other language, or with no signal at all, we publish nothing rather than guess.
 
     **How far that third branch reaches.** `detect_text_language` reads French, English, Spanish,
     German, Italian and Portuguese, so the branch fires on a caption in any of the four others. A
@@ -102,8 +106,7 @@ def resolve_comment_language(base_lang: Optional[str], post_language: Any) -> Op
     detected = detect_language_code(str(post_language).strip().lower()) if post_language else None
 
     if base is None:
-        # Account language unknown: follow the post when it is readable, else stay silent.
-        return detected if detected and detected != "other" else None
+        return detected if detected in _UNKNOWN_ACCOUNT_LANGUAGES else None
     if detected is None:
         return base  # undetected → the account's own language
     if detected == base:
