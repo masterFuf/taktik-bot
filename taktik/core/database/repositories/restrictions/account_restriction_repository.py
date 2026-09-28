@@ -44,29 +44,28 @@ class AccountRestrictionRepository(BaseRepository):
         gestures: Optional[int] = None,
         session_id: Optional[int] = None,
     ) -> bool:
-        """Record one detection. Never raises: a measurement must not break a run."""
+        """Record one detection.
+
+        A failed write raises: what a lost row costs is the caller's to say. A lost block entry
+        means no rest after the block (`account_health`), a lost degraded-list row one point of a
+        curve.
+        """
         if not account_username:
             return False
-        try:
-            self.ensure_table()
-            cursor = self._conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO account_restriction_signals
-                    (platform, account_username, signal, source_type, source_name,
-                     source_followers, streak, encounter_order, jump_index, gestures, session_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+        self.ensure_table()
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO account_restriction_signals
                 (platform, account_username, signal, source_type, source_name,
-                 source_followers, streak, encounter_order, jump_index, gestures, session_id),
-            )
-            self._conn.commit()
-            return True
-        except Exception as exc:  # noqa: BLE001
-            # Deliberately swallowed: losing one measurement is acceptable, losing the run
-            # that produced it is not.
-            logger.debug(f"Could not record restriction signal: {exc}")
-            return False
+                 source_followers, streak, encounter_order, jump_index, gestures, session_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (platform, account_username, signal, source_type, source_name,
+             source_followers, streak, encounter_order, jump_index, gestures, session_id),
+        )
+        self._conn.commit()
+        return True
 
     def recent_signals(
         self, account_username: str, platform: str = "instagram", limit: int = 50

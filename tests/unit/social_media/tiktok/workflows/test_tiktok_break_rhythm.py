@@ -100,6 +100,59 @@ def test_a_break_still_lasts_within_the_configured_range():
     assert lengths and all(30 <= s <= 60 for s in lengths)
 
 
+def _pause_lengths(monkeypatch, lo, hi, *, sessions=400, per_session=40, strict=False):
+    """The seconds slept by `per_session` breaks in each of `sessions` runs, range [lo, hi]."""
+    slept = []
+    monkeypatch.setattr(base_workflow.time, "sleep", slept.append)
+    for session in range(sessions):
+        wf = _workflow(BehaviorSessionState(seed=session, strict_regression=strict))
+        wf.config.pause_duration_min, wf.config.pause_duration_max = lo, hi
+        for _ in range(per_session):
+            wf._actions_since_pause = 10 ** 6  # a break is due
+            wf._check_pause_needed()
+    return slept
+
+
+def _band_shares(values, lo, hi, bands=10):
+    width = (hi - lo) / bands
+    counts = [0] * bands
+    for value in values:
+        counts[min(int((value - lo) / width), bands - 1)] += 1
+    return [count / len(values) for count in counts]
+
+
+def test_a_break_length_is_not_flat_up_to_its_bounds(monkeypatch):
+    # Default range, 30-60 s: the same law as Instagram's breaks (`breaks.break_seconds`), not a
+    # flat draw whose density stays level right up to each bound.
+    random.seed(13)
+    lengths = _pause_lengths(monkeypatch, 30.0, 60.0)
+    shares = _band_shares(lengths, 30.0, 60.0)
+    middle = (shares[4] + shares[5]) / 2
+    assert all(30.0 <= s <= 60.0 for s in lengths)
+    assert abs(statistics.fmean(lengths) - 45.0) < 0.5        # the mean of the flat draw it replaces
+    assert shares[0] < 0.92 * middle and shares[-1] < 0.92 * middle   # were level with the middle
+
+
+def test_a_wide_range_leans_like_a_human_pause(monkeypatch):
+    # A wide range shows the law's shape: most breaks near typical, a few much longer.
+    random.seed(14)
+    lengths = _pause_lengths(monkeypatch, 5.0, 60.0)
+    shares = _band_shares(lengths, 5.0, 60.0)
+    assert statistics.median(lengths) < statistics.fmean(lengths) - 0.8   # right-skewed; flat: equal
+    assert statistics.pstdev(lengths) < 0.85 * (55.0 / 12 ** 0.5)           # tighter than the flat draw
+    assert shares[0] < 0.5 * max(shares)                                     # flat: every band alike
+
+
+def test_a_seeded_run_repeats_its_break_lengths(monkeypatch):
+    first = _pause_lengths(monkeypatch, 30.0, 60.0, sessions=1, per_session=20)
+    again = _pause_lengths(monkeypatch, 30.0, 60.0, sessions=1, per_session=20)
+    assert first == again and len(set(first)) > 10
+
+
+def test_strict_regression_pauses_for_the_middle_of_the_range(monkeypatch):
+    assert set(_pause_lengths(monkeypatch, 30.0, 60.0, sessions=3, per_session=5, strict=True)) == {45.0}
+
+
 def test_strict_regression_keeps_the_fixed_period():
     breaks_at, _ = _run(BehaviorSessionState(strict_regression=True))
     assert breaks_at == list(range(EVERY, ACTIONS + 1, EVERY))

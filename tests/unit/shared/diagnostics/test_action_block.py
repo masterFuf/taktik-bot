@@ -85,6 +85,28 @@ def test_a_block_seen_before_the_account_is_known_is_not_filed_under_nobody(db, 
         {"code": "action_blocked"}, platform="instagram", account_username="unknown") is False
 
 
+def test_a_health_entry_that_cannot_be_written_is_an_error_with_its_cause(db, monkeypatch):
+    """Without the entry the account is never rested: the failure is an error, not a debug line."""
+    from loguru import logger
+
+    _record_into(db, monkeypatch)
+    connection = db._get_connection()
+    connection.execute("PRAGMA query_only = ON")  # the base refuses every write, as a read-only file does
+    heard = []
+    sink = logger.add(lambda message: heard.append(message.record), level="WARNING")
+    try:
+        written = account_health.record_action_block(
+            {"code": "action_blocked"}, platform="tiktok", account_username="demo_account")
+    finally:
+        logger.remove(sink)
+        connection.execute("PRAGMA query_only = OFF")
+
+    assert written is False
+    assert [record["level"].name for record in heard] == ["ERROR"]
+    assert "demo_account" in heard[0]["message"] and "readonly" in heard[0]["message"]
+    assert db.account_restrictions.recent_signals("demo_account", platform="tiktok") == []
+
+
 def test_a_failing_witness_never_undoes_the_stop():
     run_halt.configurer_temoin(lambda halt: 1 / 0)
 

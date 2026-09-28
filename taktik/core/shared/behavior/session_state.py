@@ -13,7 +13,12 @@ from dataclasses import dataclass
 import random
 from typing import Any, Deque, Dict, Optional, Sequence
 
-from taktik.core.shared.behavior.breaks import actions_until_break, session_tempo, spacing_bounds
+from taktik.core.shared.behavior.breaks import (
+    actions_until_break,
+    break_seconds,
+    session_tempo,
+    spacing_bounds,
+)
 from taktik.core.shared.behavior.grid_entry import row_weights
 from taktik.core.shared.behavior.interaction_plan import sample_like_target
 from taktik.core.shared.behavior.sampling import sample_within
@@ -130,6 +135,7 @@ class BehaviorSessionState:
         self._like_appetite: Optional[float] = None
         self._break_stream: Optional[random.Random] = None
         self._break_tempo = 1.0
+        self._break_length_stream: Optional[random.Random] = None
         self._posts_stream: Optional[random.Random] = None
         self._style: Optional[str] = None
         self._burst_remaining = 0
@@ -366,6 +372,27 @@ class BehaviorSessionState:
             emit_step("behavior", action="break_tempo", tempo=round(self._break_tempo, 3))
         lo, hi = spacing_bounds(every)
         return actions_until_break(every, lo, hi, tempo=self._break_tempo, rng=self._break_stream)
+
+    def break_seconds(self, lo, hi) -> float:
+        """Length of a break, in seconds, for a configured range [lo, hi].
+
+        The shared law of break lengths (`breaks.break_seconds`, the one Instagram's rhythm draws):
+        log-normal around the middle of the range, the mean of the flat draw it replaces, and
+        drawn again, never clamped, when it falls outside. The range stays the operator's limit.
+        No session tempo: scaling the mean by one (0.6 to 1.6) would push it out of a range as
+        narrow as the default 30-60 s; the session's tempo is carried by the spacing
+        (`actions_until_break`). Its own RNG stream, so neither the gestures nor the spacing of
+        a seeded run move. Strict regression runs, and a range with nothing inside, take the
+        middle.
+        """
+        middle = (lo + hi) / 2.0
+        if self.strict_regression or not lo < middle < hi:
+            return middle
+        if self._break_length_stream is None:
+            self._break_length_stream = random.Random(
+                f"{self.seed}:break_lengths" if self.seed is not None else None
+            )
+        return break_seconds(middle, lo, hi, rng=self._break_length_stream)
 
     def posts_to_view(self, lo, hi) -> int:
         """How many posts of one profile to view, in the operator's range [lo, hi].

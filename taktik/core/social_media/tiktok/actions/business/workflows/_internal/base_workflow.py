@@ -11,7 +11,6 @@ Subclasses add their own callbacks, config, stats dataclass, and run().
 """
 
 import time
-import random
 from typing import Optional, Callable, Dict, Any
 from loguru import logger
 
@@ -127,6 +126,14 @@ class BaseTikTokWorkflow:
             self._next_pause_after = draw(every) if callable(draw) else every
         return self._next_pause_after
 
+    def _pause_length(self) -> float:
+        """Seconds of the next break: the law of Instagram's breaks, inside the configured range
+        (`BehaviorSessionState.break_seconds`), drawn by the run's behaviour state."""
+        state = getattr(self, "behavior_state", None)
+        if state is None:
+            state = BehaviorSessionState()
+        return state.break_seconds(self.config.pause_duration_min, self.config.pause_duration_max)
+
     def _check_pause_needed(self):
         """Check if a pause is needed and execute it.
 
@@ -134,10 +141,7 @@ class BaseTikTokWorkflow:
             pause_after_actions, pause_duration_min, pause_duration_max
         """
         if self._actions_since_pause >= self._pause_due_after():
-            pause_duration = random.uniform(
-                self.config.pause_duration_min,
-                self.config.pause_duration_max,
-            )
+            pause_duration = self._pause_length()
             pause_seconds = int(pause_duration)
             self.logger.info(f"\u23f8\ufe0f Taking a break for {pause_seconds}s")
 
