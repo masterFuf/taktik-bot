@@ -6,6 +6,10 @@ Outputs JSON lines to stdout:
   {"type": "result", "success": true|false, "message": "..."}
 """
 
+from bridges.common.bootstrap import setup_environment
+
+setup_environment()
+
 from bridges.tools.lab.actions.youtube import register_actions
 from bridges.common.entrypoint import CONFIG_ERROR, MISSING_CONFIG, run_bridge_main
 from bridges.tools.lab.youtube_action_test.action_runner import (

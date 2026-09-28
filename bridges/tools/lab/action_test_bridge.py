@@ -6,6 +6,10 @@ Outputs JSON lines to stdout:
   {"type": "result", "success": true|false, "message": "..."}
 """
 
+from bridges.common.bootstrap import setup_environment
+
+setup_environment()
+
 from bridges.tools.lab.actions.instagram import (
     ACTION_REGISTRY,
     register_actions,

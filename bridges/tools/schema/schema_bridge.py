@@ -21,6 +21,10 @@ from __future__ import annotations
 import os
 from typing import List, Optional
 
+from bridges.common.bootstrap import setup_environment
+
+setup_environment()
+
 EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_REFUSED = 2

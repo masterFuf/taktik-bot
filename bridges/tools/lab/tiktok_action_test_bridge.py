@@ -6,6 +6,10 @@ Outputs JSON lines to stdout:
   {"type": "result", "success": true|false, "message": "...", "selector_traces": [...]}
 """
 
+from bridges.common.bootstrap import setup_environment
+
+setup_environment()
+
 from bridges.tools.lab.actions.tiktok import (
     ACTION_REGISTRY,
     register_actions,
