@@ -12,6 +12,8 @@ mutual's included; read, it never said yes, and the mutual mode refused every ca
 import time
 from typing import Any, Dict, Optional
 
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+
 
 class UnfollowDecisionMixin:
     """Mixin: checks run on the candidate's profile, opened from its row of the following list."""
@@ -67,6 +69,8 @@ class UnfollowDecisionMixin:
                 name_element.click()
             if not self._wait_profile_of(username):
                 return 'profile_unreadable'
+            # A profile opened to be checked: the live panel counts them.
+            IPCEmitter.emit_profile_visit(username)
             if skip_verified and self.detection_actions.is_verified_account():
                 return 'verified'
             if skip_business and self.detection_actions.is_business_account():

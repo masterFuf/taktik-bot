@@ -109,6 +109,21 @@ def test_the_mutual_mode_unfollows_a_mutual_of_the_followers_list():
     assert screen.presses == ["back"]            # back from the profile
 
 
+def test_a_profile_opened_for_its_check_is_a_profile_visit(monkeypatch):
+    """The live panel counts the profiles the unfollow checked: one `instagram_profile_visit` per
+    profile that opened, none when no profile opens."""
+    visits = []
+    monkeypatch.setattr(unfollow_workflow.IPCEmitter, "emit_profile_visit", staticmethod(visits.append))
+
+    _walk([FOLLOWING_LIST, CANDIDATE_PROFILE, FOLLOWING_LIST, LIST_AFTER_THE_UNFOLLOW],
+          {"unfollow_mode": "non-followers", "skip_verified": True})
+    assert visits == [CANDIDATE]
+
+    _walk([FOLLOWING_LIST, LIST_AFTER_THE_UNFOLLOW],
+          {"unfollow_mode": "non-followers", "skip_verified": False, "skip_business": False})
+    assert visits == [CANDIDATE]
+
+
 @pytest.mark.parametrize("mode", ["non-followers", "mutual"])
 def test_without_an_account_kind_to_check_no_profile_is_opened(mode):
     """The reciprocity modes used to open every candidate's profile for the badge."""
