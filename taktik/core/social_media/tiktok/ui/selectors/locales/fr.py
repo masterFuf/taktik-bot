@@ -165,13 +165,19 @@ STRINGS: Dict[str, List[str]] = {
         "//*[@clickable=\"true\"][@content-desc=\"Stickers\"]",
     ],
     # --- country_picker ---
+    # Ecran capture en 43.1.4 (2026-09-28), ouvert par l'indicatif « FR +33 » de l'onglet
+    # Telephone de la connexion : titre, champ de recherche et croix sont lus sur ce dump.
     "country_picker.close_button": [
-        # Meme mesure que `popup.collections_close`. L'ecran de choix du pays n'a jamais ete
-        # capture ; seul le libelle est etabli.
+        # Meme libelle que `popup.collections_close` ; ici la croix `b9b`, seul « Fermer » de l'ecran.
         "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
     ],
-    "country_picker.screen_indicator": [],
-    "country_picker.search_input": [],
+    "country_picker.screen_indicator": [
+        "//android.widget.TextView[@text=\"Choisis le pays/la région\"]",
+    ],
+    # Champ vide : son texte et son hint portent le meme libelle.
+    "country_picker.search_input": [
+        "//android.widget.EditText[@hint=\"Rechercher dans les pays et régions\"]",
+    ],
     # --- detection ---
     "detection.error_message": [
         "//android.widget.TextView[contains(@text, \"erreur\")]",

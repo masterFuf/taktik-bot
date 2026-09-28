@@ -64,6 +64,8 @@ SUGGESTION_PAGE = _capture("tt4314_fr_suggestion_page.xml")
 NEW_FOLLOWERS = _capture("tt4314_fr_new_followers.xml")
 FEED_SURVEY = _capture("tt4314_fr_feed_survey.xml")
 FEED_PEOPLE_CARD = _capture("tt4314_fr_feed_people_card.xml")
+COUNTRY_PICKER = _capture("tt4314_fr_country_picker.xml")
+LOGIN_PHONE = _capture("tt4314_fr_login_phone.xml")
 
 
 def test_the_shop_tab_of_the_feed_is_not_the_one_of_search_results():
@@ -153,6 +155,8 @@ def test_other_share_labels_are_not_a_video_page():
     ("search.user_result_follow_button", "SEARCH_SELECTORS", "user_result_follow_button"),
     ("video_engagement.share_button", "VIDEO_ENGAGEMENT_SELECTORS", "share_button"),
     ("video_state.video_page_indicator", "VIDEO_STATE_SELECTORS", "video_page_indicator"),
+    ("country_picker.screen_indicator", "COUNTRY_PICKER_SELECTORS", "screen_indicator"),
+    ("country_picker.search_input", "COUNTRY_PICKER_SELECTORS", "search_input"),
 ])
 def test_the_catalogue_field_carries_the_french_entry(key, singleton, prop):
     entries = L(key)
@@ -172,3 +176,20 @@ def test_the_suggestion_page_buttons_answer_on_that_page_only(key):
         assert _found(key, screen) == []
     assert "Personnes que tu pourrais connaître" in FEED_PEOPLE_CARD
     assert "Pas intéressé(e)" in FEED_SURVEY and "Suivre en retour" in NEW_FOLLOWERS
+
+
+def test_the_country_picker_is_told_by_its_title_not_by_the_phone_tab_that_opens_it():
+    found = _found("country_picker.screen_indicator", COUNTRY_PICKER)
+    assert [el.attrib.get("text") for el in found] == ["Choisis le pays/la région"]
+    # The login's phone tab shows the « FR » « +33 » code the picker opens from.
+    assert 'text="+33"' in LOGIN_PHONE
+    for screen in (LOGIN_PHONE, FEED, SEARCH_RESULTS, PROFILE, INBOX, CONVERSATION):
+        assert _found("country_picker.screen_indicator", screen) == []
+
+
+def test_the_country_search_field_and_cross_are_the_pickers_own():
+    assert len(_found("country_picker.search_input", COUNTRY_PICKER)) == 1
+    # The phone tab's own field is the phone number one.
+    assert _found("country_picker.search_input", LOGIN_PHONE) == []
+    crosses = _found("country_picker.close_button", COUNTRY_PICKER)
+    assert [el.attrib.get("resource-id").rsplit("/", 1)[-1] for el in crosses] == ["b9b"]
