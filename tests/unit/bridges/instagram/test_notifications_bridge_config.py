@@ -15,6 +15,7 @@ import sys
 import pytest
 
 import bridges.instagram.engagement.notifications as entry
+import bridges.instagram.engagement.runtime.notifications.commands as bridge_commands
 import taktik.core.social_media.instagram.workflows.management.notifications.commands as commands
 
 
@@ -28,6 +29,8 @@ def run(monkeypatch, tmp_path):
     monkeypatch.setitem(commands.ROW_ACTIONS, "ignore", commands.cmd_ignore)
     monkeypatch.setitem(commands.ROW_ACTIONS, "like", commands.cmd_like)
     monkeypatch.setitem(commands.ROW_ACTIONS, "follow_back", commands.cmd_follow_back)
+    # The base the bridge configures for its run: no command here reaches it.
+    monkeypatch.setattr(bridge_commands, "configure_db_service", lambda: None)
 
     def _run(config=None, *, raw=None, args=None):
         if args is None:

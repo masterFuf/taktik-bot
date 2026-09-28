@@ -173,6 +173,8 @@ class InstagramNotificationsRig:
 
         self.monkeypatch.setattr(bridge_commands, "NotificationsBridge",
                                  lambda device_id, package_name=None: _Bridge(rig, device_id, package_name))
+        # The base the bridge configures for its run: its helpers are the fakes below.
+        self.monkeypatch.setattr(bridge_commands, "configure_db_service", lambda: None)
 
         def build_workflow(device, device_id, **_kwargs):
             rig.record("bridge", "build_workflow")
