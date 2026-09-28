@@ -488,6 +488,10 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         AND navigate into the follow-requests sub-screen to enumerate the pending
         requests in the same pass (so the page gets the actionable list directly).
 
+        ``max_scrolls`` is the run's `scroll` setting: at most that many screens scrolled
+        below the first one (0 = the visible screen only). The "Show more" entry is tapped
+        only while a scroll is left to reveal what it loads.
+
         Returns ``{success, count, by_type, items, requests, has_grouped_requests}``.
         Items are de-duplicated by text, top-to-bottom; the grouped "follow requests"
         digest row is dropped from ``items`` since it is surfaced via ``requests``.
@@ -521,17 +525,18 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
 
         # Scroll the activity feed and classify it. When a screen reveals nothing new,
         # tap "Show more" to load older notifications THEN scroll to reveal them; stop
-        # after two consecutive empty rounds (reached the bottom).
+        # after two consecutive empty rounds (reached the bottom), or once `max_scrolls`
+        # screens below the first one are read.
         items: List[Dict[str, Any]] = []
         seen: set = set()
         seen_sections: set = set()
         self._expanded_keys: set = set()
         stale = 0
         known_streak = 0  # consecutive screens that added only already-recorded notifications
-        iteration_cap = max(max_scrolls + 1, 12)
-        for index in range(iteration_cap):
+        scrolls_done = 0
+        while True:
             rows, headers = self._dump_screen()
-            if not rows and not items and index == 0:
+            if not rows and not items and scrolls_done == 0:
                 time.sleep(1.2)  # feed may still be rendering
                 rows, headers = self._dump_screen()
             # Reveal truncated comment/mention text in view ("… more" / "… suite") via OCR,
@@ -581,6 +586,10 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                         break
                 else:
                     known_streak = 0
+            if scrolls_done >= max_scrolls:
+                self.logger.info(f"scan: {scrolls_done} screen(s) scrolled, the run's setting — stopping")
+                break
+            if new_count:
                 self._scroll_down(1)
             elif self._tap_show_more():
                 time.sleep(1.5)       # let older notifications load
@@ -591,6 +600,7 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
                 if stale >= 2:
                     break  # nothing new + no "Show more" twice -> reached the bottom
                 self._scroll_down(1)
+            scrolls_done += 1
 
         # Drop the grouped "follow requests" digest row from the feed: it is not a
         # real activity item, it is the entry to the requests sub-screen (surfaced
