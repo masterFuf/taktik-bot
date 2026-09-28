@@ -456,26 +456,11 @@ class BaseDeviceFacade:
         `taktik/core/shared/behavior/tap.py`. Set `quick=True` for surfaces where a held
         press has a meaning (e.g. a story pauses on touch-and-hold) → instant tap.
         """
-        from taktik.core.shared.behavior.tap import sample_tap_point, sample_tap_down_ms
+        from taktik.core.shared.behavior.tap import human_tap_at
         try:
-            x, y = sample_tap_point(bounds, rng=rng)
-            if quick:
-                self.logger.debug(f"👆 Human tap ({x}, {y}) [quick] in {tuple(bounds)}")
-                self._device.click(x, y)
-            else:
-                down_s = sample_tap_down_ms(rng=rng) / 1000.0
-                self.logger.debug(f"👆 Human tap ({x}, {y}) down={down_s:.3f}s in {tuple(bounds)}")
-                # A short press (touch-down → wait → up) varies the contact time vs an instant
-                # click. The app sees this hold plus the injection lag; `sample_tap_down_ms`
-                # keeps the sum under the shortest press-and-hold threshold (behavior/tap.py).
-                self._device.long_click(x, y, down_s)
-            emit_step(
-                "tap", action="quick" if quick else "press",
-                x=x, y=y, bounds=list(bounds) if bounds is not None else None,
-                down_ms=None if quick else round(down_s * 1000),
-            )
+            point = human_tap_at(self._device, bounds, rng=rng, quick=quick, log=self.logger)
             time.sleep(0.05)
-            return (x, y)
+            return point
         except Exception as e:
             self.logger.error(f"Error human-tapping in {bounds}: {e}")
             return None

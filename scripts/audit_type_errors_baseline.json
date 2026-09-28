@@ -136,7 +136,7 @@
   "taktik/core/shared/behavior/tap.py": 9,
   "taktik/core/shared/behavior/typing.py": 8,
   "taktik/core/shared/device/adb.py": 1,
-  "taktik/core/shared/device/facade.py": 8,
+  "taktik/core/shared/device/facade.py": 7,
   "taktik/core/shared/device/manager.py": 11,
   "taktik/core/shared/device/snapshot.py": 1,
   "taktik/core/shared/device/ui_dump.py": 1,
