@@ -3,6 +3,10 @@
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action, detection_action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import absent_on_screen, not_applicable
+
+#: The feed items that carry a caption block (`read_screen().kind`); a LIVE preview has none.
+_CAPTIONED_ITEMS = ("video", "ad")
 
 
 @action("tt.detection.read_screen")
@@ -73,8 +77,25 @@ def get_video_author(a, p):
 @action("tt.detection.get_video_description")
 def get_video_description(a, p):
     """Read the current video's FULL description (taps '...more' to expand). The AGENTS
-    coverage rule requires 'more' expansions to be testable."""
-    desc = a.video_detector.get_video_description_full()
-    logger.info(f"Video description: {len(desc or '')} chars")
-    return {"success": bool(desc), "message": f"{len(desc or '')} chars", "details": {"description": desc}}
+    coverage rule requires 'more' expansions to be testable.
+
+    Read as a For You turn reads it: one photo (`read_screen()`), and the production reader handed
+    that photo. A video without a description is an item of the feed (25 of the 323 video screens
+    of the 43.1.4 corpus): not applicable when that photo shows a video or an ad and no description
+    on it, or a LIVE preview, which has none. Anywhere else (another screen, a sheet over the
+    video, an unreadable photo) nothing was read, and the action fails.
+    """
+    action_id = "tt.detection.get_video_description"
+    screen = a.detection.read_screen()
+    desc = a.video_detector.get_video_description_full(screen)
+    logger.info(f"Video description: {len(desc or '')} chars ({screen.kind})")
+    if desc:
+        return {"success": True, "message": f"{len(desc)} chars", "details": {"description": desc}}
+    if screen.kind == "live":
+        return not_applicable(action_id, "the For You item on screen is a LIVE: no description")
+    if screen.kind not in _CAPTIONED_ITEMS:
+        return {"success": False, "message": f"{action_id}: no video on screen ({screen.kind}), nothing read",
+                "details": {"description": None}}
+    return absent_on_screen(action_id, device=a.device, platform="tiktok", still_there=None,
+                            what="description", where=f"on the {screen.kind}")
 
