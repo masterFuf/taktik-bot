@@ -124,15 +124,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (6, "real comment sheet fixture, plus the message banner rebuilt by a helper."),
     "tests/unit/social_media/tiktok/actions/test_tiktok_notification_handles.py":
         (34, "Activity rows (suggestion, wave) invented in the 43.1.4 shape."),
-    "tests/unit/social_media/tiktok/test_french_locale_measured_entries.py":
-        (4, "feed, search, comment sheet and inbox rebuilt after captures."),
-    "tests/unit/social_media/tiktok/test_profile_enrichment_anchors.py":
-        (11, "profile headers rebuilt after eight captured profiles."),
-    "tests/unit/social_media/tiktok/test_update_prompt_overlay.py":
-        (5,
-         "TikTok's splash, its loading logo and an unlabelled bottom sheet, invented: capture the "
-         "launch screen and such a sheet (43.1.4, French); the prompt, the feed and the launcher "
-         "are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_comment_sheet_label_route.py":
         (6,
          "the 46.6.3 sheets (full, empty, with typed text) rebuilt by a helper after their "
@@ -140,11 +131,6 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "empty), the 43.1.4 and 47.0.3 video pages and the 47.0.3 sheet are real."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_dm_anchors.py":
         (4, "conversation and inbox rows, invented in the captured shapes."),
-    "tests/unit/social_media/tiktok/ui/test_tiktok_search_selector_catalogs.py":
-        (4,
-         "search result rows rebuilt from the rows a search served: the prefix trap needs handles "
-         "that are prefixes of one another, which anonymization erases; next: invented handles on "
-         "the real Users tab of 46.9.3."),
     "tests/unit/social_media/tiktok/workflows/publish/test_tiktok_publish_hashtag_suggestions.py":
         (3,
          "hashtag suggestion list, invented: not in the publish runs of the corpus; capture it "
@@ -177,7 +163,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
 }
 
 #: The number of entries of HAND_WRITTEN: it only goes down.
-HAND_WRITTEN_CEILING = 30
+HAND_WRITTEN_CEILING = 26
 
 #: (b) A tree that is not a screen: what it computes, and why no screen is needed.
 MINIMAL_TREES: dict[str, tuple[int, str]] = {
