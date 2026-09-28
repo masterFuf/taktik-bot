@@ -85,12 +85,48 @@ def no_old_steps(monkeypatch):
 
 # ─── on its own (CLI) ─────────────────────────────────────────────────────────
 
-def test_a_new_base_on_its_own_keeps_the_old_steps(tmp_path):
+def _columns(path: Path, table: str):
+    conn = sqlite3.connect(str(path))
+    try:
+        return [row[1] for row in conn.execute(f"PRAGMA table_info({table})")]
+    finally:
+        conn.close()
+
+
+@pytest.mark.parametrize("empty_file", [False, True])
+def test_a_new_base_on_its_own_is_created_at_the_version(tmp_path, monkeypatch, empty_file):
+    """The bot first on a new base builds the bot's schema, the numbered list, like the app does.
+
+    It used to run its old 1.9.8 steps there and leave the base at version 0: a schema of its own,
+    without the columns the app adds to the bot's tables (`accounts.warmup_intensity`,
+    `warmup_preset_id`...), which the numbered list and the ORM mapping have. The ORM's boot check
+    then failed at every opening (« no such column: accounts.warmup_intensity »), on every base a
+    bridge or the CLI created without the app.
+    """
     path = tmp_path / "taktik-data.db"
+    if empty_file:
+        path.write_bytes(b"")
+    no_old_steps(monkeypatch)
+
     db = LocalDatabaseService(str(path))
+    orm_up = db.orm_engine is not None
     db.close()
+
+    assert scalar(path, "PRAGMA user_version") == TARGET
+    assert {"warmup_intensity", "warmup_preset_id"} <= set(_columns(path, "accounts"))
+    assert orm_up
+    assert scalar(path, "SELECT COUNT(*) FROM device_identity") == 1
+    assert ensure_schema(path) == NUMBERED
+
+
+def test_a_version_0_base_it_does_not_recognize_keeps_the_old_steps(tmp_path):
+    """A base built by the bot's old steps alone (before the fix above), version 0: unchanged rule."""
+    from taktik.core.database.local.versions.legacy import run_bot_legacy_steps
+
+    path = tmp_path / "taktik-data.db"
+    run_bot_legacy_steps(str(path))
     assert scalar(path, "PRAGMA user_version") == 0
-    assert scalar(path, "SELECT COUNT(*) FROM sqlite_master WHERE name = 'accounts'") == 1
+
     assert ensure_schema(path) == LEGACY
 
 

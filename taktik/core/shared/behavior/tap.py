@@ -15,7 +15,10 @@ from __future__ import annotations
 import random
 from typing import Optional, Tuple
 
+from loguru import logger as _logger
+
 from taktik.core.shared.behavior.sampling import sample_within
+from taktik.core.shared.telemetry.sink import emit_step
 
 Bounds = Tuple[int, int, int, int]  # (left, top, right, bottom)
 
@@ -93,6 +96,34 @@ def sample_tap_down_ms(*, rng: Optional[random.Random] = None) -> float:
     return float(sample_within(draw, 30.0, MAX_TAP_HOLD_MS, rng=rng))
 
 
+def human_tap_at(device, bounds: Bounds, *, rng: Optional[random.Random] = None,
+                 quick: bool = False, log=None) -> Tuple[int, int]:
+    """Tap a human-sampled point inside `bounds` on a raw uiautomator2 device, and say so.
+
+    The one humanized tap: the device facade's `human_tap` and `tap_element_human` on a raw
+    device both go through it, so every such tap writes its debug line and its `tap` step metric
+    (`press`, or `quick` for an instant click). Returns the tapped (x, y); raises what the device
+    raises.
+    """
+    log = log or _logger
+    x, y = sample_tap_point(bounds, rng=rng)
+    long_click = None if quick else getattr(device, "long_click", None)
+    if callable(long_click):
+        down_s = sample_tap_down_ms(rng=rng) / 1000.0
+        log.debug(f"👆 Human tap ({x}, {y}) down={down_s:.3f}s in {tuple(bounds)}")
+        # A short press (touch-down, wait, up) varies the contact time against an instant click.
+        # The app sees this hold plus the injection lag; `sample_tap_down_ms` keeps the sum under
+        # the shortest press-and-hold threshold.
+        long_click(x, y, down_s)
+        emit_step("tap", action="press", x=x, y=y, bounds=list(bounds),
+                  down_ms=round(down_s * 1000))
+    else:
+        log.debug(f"👆 Human tap ({x}, {y}) [quick] in {tuple(bounds)}")
+        device.click(x, y)
+        emit_step("tap", action="quick", x=x, y=y, bounds=list(bounds), down_ms=None)
+    return x, y
+
+
 def _coerce_bounds(element) -> Optional[Bounds]:
     """Read (left, top, right, bottom) from a uiautomator2 element, tolerating the three shapes:
     an XMLElement (``.bounds`` tuple, from ``xpath().all()``), a UiObject (``.info['bounds']``
@@ -131,10 +162,10 @@ def tap_element_human(
 ) -> bool:
     """Human-tap an ALREADY-RESOLVED UI element at a sampled point within its bounds (never
     the exact centre). Works with either a device FACADE (``device.human_tap(bounds)``) or a
-    RAW uiautomator2 device (replicates the facade geometry via ``long_click``/``click``) — so
-    it can be reused from workflows whose ``self.device`` is the raw device (scraping, agent…)
-    as well as BaseAction subclasses. Returns False if it couldn't tap (e.g. unreadable
-    bounds), so the caller falls back to a plain centre ``element.click()``.
+    RAW uiautomator2 device (the same tap, `human_tap_at`) — so it can be reused from workflows
+    whose ``self.device`` is the raw device (scraping, agent…) as well as BaseAction
+    subclasses; either way the tap is logged and emitted. Returns False if it couldn't tap (e.g.
+    unreadable bounds), so the caller falls back to a plain centre ``element.click()``.
 
     ``x_min_frac`` (0..1) crops the left edge before sampling: tap only in the right
     ``1 - x_min_frac`` of the element width. Use it to avoid a leading avatar/thumbnail whose
@@ -153,16 +184,7 @@ def tap_element_human(
         human_tap = getattr(device, "human_tap", None)
         if callable(human_tap):
             return bool(human_tap(bounds, quick=quick))
-        # Raw device: mirror BaseDeviceFacade.human_tap geometry.
-        x, y = sample_tap_point(bounds)
-        if quick:
-            device.click(x, y)
-        else:
-            long_click = getattr(device, "long_click", None)
-            if callable(long_click):
-                long_click(x, y, sample_tap_down_ms() / 1000.0)
-            else:
-                device.click(x, y)
+        human_tap_at(device, bounds, quick=quick, log=logger)
         return True
     except Exception as e:
         if logger:

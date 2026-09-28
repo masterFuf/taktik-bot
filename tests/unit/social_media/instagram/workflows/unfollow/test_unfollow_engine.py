@@ -363,3 +363,61 @@ def test_the_all_mode_unfollows_the_first_candidate_rows_of_the_list():
         follow_list_xml([("newest", "Suivre"), ("middle", "Suivre"), ("oldest", "Suivi(e)")]))
     walk_list(business, {"unfollow_mode": "all", "max_unfollows": 2}, names=["oldest", "middle", "newest"])
     assert recorded == ["newest", "middle"]
+
+
+# ── The end of a session says what was kept, on the data and on the profiles ───────────────────
+#
+# C3 campaign (Pixel 3a, 2026-09-28), run B: five candidates, each kept on its profile (certified),
+# 48 accounts not followed by the bot and 1 whitelisted kept on the data. The session ended on « No
+# account left to unfollow (0 unfollowed, 49 kept by the rules) »: 54 accounts were kept.
+
+def _runner_on(monkeypatch, business):
+    finalized = []
+    runner = WorkflowRunner.__new__(WorkflowRunner)
+    runner.automation = SimpleNamespace(
+        stats={}, session_finalized=False, session_manager=None,
+        helpers=SimpleNamespace(finalize_session=lambda status, reason: finalized.append(reason)))
+    runner.logger = unfollow_workflow.logger
+    monkeypatch.setattr(runner, "_get_unfollow_business", lambda: business, raising=False)
+    return runner, finalized
+
+
+def test_the_end_of_a_session_counts_the_accounts_kept_on_their_profile(monkeypatch):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["a1", "a2", "a3", "a4", "a5", "keep_me"])
+
+    def walk(cfg, targets, forced, stats):
+        calls["walks"].append(list(targets))
+        stats["profile_refusals"]["verified"] = len(targets)
+        business._handled.update(targets)
+        return True
+
+    business._open_list_and_walk = walk
+    runner, finalized = _runner_on(monkeypatch, business)
+
+    runner._run_unfollow_workflow({"type": "unfollow", "max_unfollows": 5, "unfollow_mode": "oldest",
+                                   "whitelist": ["keep_me"]})
+
+    assert [(reason.code, reason.params) for reason in finalized] == [
+        ("no_unfollow_candidates", {"unfollowed": 0, "kept": 6})]
+
+
+def test_a_later_batch_with_nobody_left_says_what_the_session_unfollowed_and_kept(monkeypatch):
+    business, _screen, _recorded = _business(follow_list_xml([]))
+    calls = _engine_on_data(monkeypatch, business, ["a1", "a2", "a3", "keep_me"])
+
+    def walk(cfg, targets, forced, stats):   # a1 unfollowed, a2 and a3 kept on their profile
+        calls["walks"].append(list(targets))
+        stats["unfollows_made"] += 1
+        stats["profile_refusals"]["verified"] = 2
+        business._handled.update({"a1", "a2", "a3"})
+        return True
+
+    business._open_list_and_walk = walk
+    config = {"unfollow_mode": "oldest", "max_unfollows": 5, "whitelist": ["keep_me"]}
+    business.run_unfollow_workflow(config)
+
+    stats = business.run_unfollow_workflow(config)
+
+    assert stats["stop_reason"].code == "no_unfollow_candidates"
+    assert stats["stop_reason"].params == {"unfollowed": 1, "kept": 3}

@@ -1,6 +1,7 @@
 """Persistence, export, enrichment, stats, and session management for the Scraping workflow."""
 
 import csv
+import json
 import os
 import time
 from datetime import datetime
@@ -13,6 +14,30 @@ from taktik.core.database.local.service import get_local_database
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 console = Console()
+
+
+#: The profile keys a scrape reads and the base keeps.
+SCRAPED_PROFILE_FIELDS = (
+    'followers_count', 'following_count', 'posts_count', 'is_private', 'is_verified', 'is_business',
+    'biography', 'full_name', 'business_category', 'website', 'account_based_in', 'date_joined',
+)
+
+
+def scraped_profile_row(profile: Dict[str, Any]) -> Dict[str, Any]:
+    """The row `save_profile` receives for a scraped profile: what was read, nothing invented.
+
+    A key the scrape did not read (absent, or None) stays out of the row, and the repository then
+    leaves its column as it was; a 0, a false or an empty string would overwrite what the base
+    already knew of the profile.
+    """
+    row: Dict[str, Any] = {'username': profile['username']}
+    for key in SCRAPED_PROFILE_FIELDS:
+        if profile.get(key) is not None:
+            row[key] = profile[key]
+    if profile.get('linked_accounts'):
+        row['linked_accounts'] = json.dumps(profile['linked_accounts'])
+    row['notes'] = f"Scraped from {profile['source_type']}: {profile['source_name']}"
+    return row
 
 
 def _targets_label(targets) -> str:
@@ -89,30 +114,7 @@ class ScrapingPersistenceMixin:
         try:
             local_db = self._local_db()
             username = profile['username']
-            
-            import json as _json
-            linked_raw = profile.get('linked_accounts', [])
-            linked_json = _json.dumps(linked_raw) if linked_raw else None
-
-            profile_data = {
-                'username': username,
-                'followers_count': profile.get('followers_count', 0),
-                'following_count': profile.get('following_count', 0),
-                'posts_count': profile.get('posts_count', 0),
-                'is_private': profile.get('is_private', False),
-                'biography': profile.get('biography', ''),
-                'full_name': profile.get('full_name', ''),
-                'is_verified': profile.get('is_verified', False),
-                'is_business': profile.get('is_business', False),
-                'business_category': profile.get('business_category', ''),
-                'website': profile.get('website', ''),
-                'linked_accounts': linked_json,
-                'account_based_in': profile.get('account_based_in'),
-                'date_joined': profile.get('date_joined'),
-                'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"
-            }
-            
-            result = local_db.save_profile(profile_data)
+            result = local_db.save_profile(scraped_profile_row(profile))
             
             profile_id = result.get('profile_id') if result else None
             created = result.get('created', True) if result else True
@@ -163,33 +165,8 @@ class ScrapingPersistenceMixin:
             
             for profile in self.scraped_profiles:
                 try:
-                    username = profile['username']
-                    
-                    # Use enriched data if available, otherwise use defaults
-                    import json as _json
-                    _linked_raw = profile.get('linked_accounts', [])
-                    _linked_json = _json.dumps(_linked_raw) if _linked_raw else None
-
-                    profile_data = {
-                        'username': username,
-                        'followers_count': profile.get('followers_count', 0),
-                        'following_count': profile.get('following_count', 0),
-                        'posts_count': profile.get('posts_count', 0),
-                        'is_private': profile.get('is_private', False),
-                        'biography': profile.get('biography', ''),
-                        'full_name': profile.get('full_name', ''),
-                        'is_verified': profile.get('is_verified', False),
-                        'is_business': profile.get('is_business', False),
-                        'business_category': profile.get('business_category', ''),
-                        'website': profile.get('website', ''),
-                        'linked_accounts': _linked_json,
-                        'account_based_in': profile.get('account_based_in'),
-                        'date_joined': profile.get('date_joined'),
-                        'notes': f"Scraped from {profile['source_type']}: {profile['source_name']}"
-                    }
-                    
                     # Save or update profile in local database
-                    result = local_db.save_profile(profile_data)
+                    result = local_db.save_profile(scraped_profile_row(profile))
                     
                     if result:
                         # Link profile to scraping session in junction table

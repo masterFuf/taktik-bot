@@ -108,7 +108,6 @@
   "taktik/core/social_media/instagram/workflows/core/automation.py": 20,
   "taktik/core/social_media/instagram/workflows/management/agent_handler.py": 16,
   "taktik/core/social_media/instagram/workflows/management/switch/switch_workflow.py": 9,
-  "taktik/core/social_media/instagram/workflows/scraping/persistence.py": 24,
   "taktik/core/social_media/threads/workflows/_common.py": 8,
   "taktik/core/social_media/threads/workflows/feed_and_interact.py": 43,
   "taktik/core/social_media/threads/workflows/search_and_interact.py": 51,

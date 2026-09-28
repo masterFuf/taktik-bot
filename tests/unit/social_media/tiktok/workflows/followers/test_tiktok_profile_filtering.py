@@ -154,3 +154,49 @@ def test_without_criteria_the_check_costs_one_test_and_records_nothing():
     assert workflow._filter_current_profile({**EXTRACTED, "followers_count": 1}) is False
     assert workflow._followers_repository.filtered == []
     assert workflow.stats.profiles_filtered == 0
+
+
+# ---------------------------------------------------------------------------
+# A config that says nothing about filters.
+#
+# The criteria are read off the whole payload, flat keys first, then the `filters` block. Every
+# flat key used to land in the criteria: the payload of the Followers page (which sends no
+# criterion) came out as twenty-odd "criteria" (`likeProbability`, `profiles`, `language`...),
+# never empty, so the evaluator always ran with its defaults: a private account refused, a score
+# under 50 refused. Seen on a run of target profiles on the Pixel 6a (TikTok 47.0.3).
+# ---------------------------------------------------------------------------
+
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.payload import (
+    followers_settings_from_payload,
+)
+
+#: What the Followers page sends in its direct mode (`followersPageRun`), as it reached the bridge.
+PAGE_PAYLOAD = {
+    "deviceId": "device", "language": "fr", "workflowType": "target_profiles",
+    "profiles": ["user_1", "user_2", "user_3"], "maxProfiles": 3, "maxConsecutiveKnownUsernames": 150,
+    "minPostsPerProfile": 2, "maxPostsPerProfile": 5, "maxLikesPerSession": 50, "maxFollowsPerSession": 20,
+    "minWatchTime": 5, "maxWatchTime": 15, "likeProbability": 0, "favoriteProbability": 0,
+    "followProbability": 0, "storyLikeProbability": 0, "commentProbability": 0, "minDelay": 1, "maxDelay": 3,
+    "pauseAfterActions": 10, "pauseDurationMin": 30, "pauseDurationMax": 60, "includeFriends": False,
+}
+
+
+def test_the_page_payload_carries_no_criterion():
+    assert followers_settings_from_payload(PAGE_PAYLOAD)["filters"] == {}
+
+
+def test_a_run_that_asked_no_filter_does_not_refuse_a_private_account():
+    workflow = _Workflow(followers_settings_from_payload(PAGE_PAYLOAD)["filters"])
+
+    assert workflow._filter_current_profile({**EXTRACTED, "is_private": True}) is False
+    assert workflow._followers_repository.filtered == []
+
+
+def test_a_criterion_sent_flat_is_still_a_criterion():
+    """The contract declares the criteria as flat keys: only the other keys are left out."""
+    assert followers_settings_from_payload({**PAGE_PAYLOAD, "minFollowers": 1000})["filters"] == {
+        "min_followers": 1000}
+    assert followers_settings_from_payload({**PAGE_PAYLOAD, "skipPrivateAccounts": True})["filters"] == {
+        "allow_private": False}
+    assert followers_settings_from_payload({**PAGE_PAYLOAD, "filters": {"minScore": 60}})["filters"] == {
+        "min_score": 60}

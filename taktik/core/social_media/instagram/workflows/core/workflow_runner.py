@@ -338,7 +338,7 @@ class WorkflowRunner:
         # that would find it out again (review of 2026-09-24).
         if result.get('success') and not result.get('candidates_left'):
             self._finalize_on(stop_reasons.no_unfollow_candidates(
-                self.automation.stats.get('unfollows', 0), sum((result.get('refusals') or {}).values())))
+                self.automation.stats.get('unfollows', 0), result.get('kept', 0)))
             return False
 
         # Progress means candidates handled: unfollowed, refused on their profile, not in the list.
