@@ -169,6 +169,20 @@ def test_an_undetected_caption_falls_back_to_the_account_language():
     assert ai.calls[0]["language"] == "fr"
 
 
+def test_an_account_without_a_known_language_writes_only_french_or_english():
+    """Sans persona, la langue du compte est inconnue. Il suit une legende francaise ou anglaise,
+    jamais une autre : un compte qui commente en espagnol sous une video espagnole parait
+    etrange quand il ne parle que francais."""
+    ai = _FakeAI()
+    spanish = "Este es el secreto de mi exito, mira el video completo en mi perfil ahora mismo"
+
+    assert generate_tiktok_comment(ai, _Screen(spanish), "alguien", account_persona=None) is None
+    assert ai.calls == []
+
+    assert generate_tiktok_comment(ai, _Screen("Le secret de ma réussite en bio"), "demo_creator")
+    assert ai.calls[0]["language"] == "fr"
+
+
 def test_an_apology_is_not_a_comment():
     """Un modele de vision qui n'a pas vu la video repond par une excuse. La publier annonce a
     voix haute qu'une machine ecrit."""

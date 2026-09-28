@@ -418,11 +418,11 @@ def install_instagram_ai_hooks(
 
                     comment_lang = _resolve_comment_language(base_lang, caption_lang)
                     if comment_lang is None:
+                        allowed = f"{{{base_lang}, english}}" if base_lang else "{french, english}"
                         reason = (
-                            f"account language unknown and post language undetected"
-                            if base_lang is None
-                            else f"caption language '{caption_lang}' is outside "
-                                 f"{{{base_lang}, english}}"
+                            f"caption language '{caption_lang}' is outside {allowed}"
+                            if caption_lang
+                            else "account language unknown and post language undetected"
                         )
                         log(
                             "info",
