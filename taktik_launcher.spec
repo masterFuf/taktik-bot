@@ -82,7 +82,8 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["cv2", "matplotlib", "tkinter"],
+    # mitmproxy: its addon ships as a file next to the media proxy and runs in the user's mitmdump.
+    excludes=["cv2", "matplotlib", "tkinter", "mitmproxy"],
     noarchive=False,
     optimize=0,
 )

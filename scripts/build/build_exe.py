@@ -97,6 +97,9 @@ def build_launcher() -> None:
         "--exclude-module=cv2",
         "--exclude-module=matplotlib",
         "--exclude-module=tkinter",
+        # The mitmproxy addon ships as a file next to the media proxy and runs in the user's mitmdump:
+        # the launcher never imports mitmproxy, --collect-all=taktik would bundle it for the addon.
+        "--exclude-module=mitmproxy",
         "--clean",
         pyinstaller_data_arg(BASE_DIR / "taktik", "taktik"),
         pyinstaller_data_arg(BRIDGES_DIR, "bridges"),
