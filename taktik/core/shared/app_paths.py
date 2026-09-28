@@ -15,6 +15,7 @@ The folder holding that file IS the data folder, which is what makes it the reli
 — no change to the spawn environment, and one place to fix rather than six.
 """
 
+import logging
 import os
 import sys
 from typing import Optional
@@ -69,3 +70,25 @@ def get_app_subdir(*parts: str, create: bool = True) -> Optional[str]:
     except OSError:
         return None
     return path
+
+
+class DataFolderLogFile(logging.FileHandler):
+    """A journal in `logs/` of the data folder, looked up when its first line is written.
+
+    Not when the handler is made: importing the bot makes the journal, and whatever imports the
+    bot first would otherwise fix its folder for the whole process. The test suite moves the data
+    folder to a throwaway one in `tests/unit/conftest.py`, and a pytest plugin is imported before
+    any conftest; a plugin that imported the bot sent the tests' lines to the operator's journal.
+    """
+
+    def __init__(self, file_name: str):
+        self._file_name = file_name
+        super().__init__(self._path_now(), encoding='utf-8', delay=True)
+
+    def _path_now(self) -> str:
+        return os.path.join(get_app_data_dir(), 'logs', self._file_name)
+
+    def _open(self):
+        self.baseFilename = os.path.abspath(self._path_now())
+        os.makedirs(os.path.dirname(self.baseFilename), exist_ok=True)
+        return super()._open()
