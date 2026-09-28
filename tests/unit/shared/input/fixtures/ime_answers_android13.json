@@ -1,0 +1,14 @@
+{
+  "phone": "Pixel 4a, Android 13 (SDK 33), Taktik Keyboard 3.0.2 installed and enabled",
+  "measured": "2026-09-28",
+  "how": "adb shell, read through run_adb_shell (adbutils: stdout and stderr in one text, no exit code); the refusals also through subprocess: on stderr, exit code 255",
+  "absent_ime": "com.example.absent/.NoIme",
+  "answers": {
+    "ime_enable_taktik": "Input method com.alexal1.adbkeyboard/.AdbIME: already enabled for user #0",
+    "ime_set_taktik": "Input method com.alexal1.adbkeyboard/.AdbIME selected for user #0",
+    "ime_set_gboard": "Input method com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME selected for user #0",
+    "ime_set_absent": "Unknown input method com.example.absent/.NoIme cannot be selected for user #0",
+    "ime_enable_absent": "Unknown input method com.example.absent/.NoIme cannot be enabled for user #0",
+    "dumpsys_input_method_bound": "mCurMethodId=com.alexal1.adbkeyboard/.AdbIME\nmCurId=com.alexal1.adbkeyboard/.AdbIME mHaveConnection=true mBoundToMethod=true mVisibleBound=false\nmActive=true mRestartOnNextWindowFocus=true mBindSequence=4636 mCurId=com.alexal1.adbkeyboard/.AdbIME"
+  }
+}

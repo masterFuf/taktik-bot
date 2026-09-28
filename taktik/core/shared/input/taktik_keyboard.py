@@ -56,6 +56,34 @@ def _read_default_ime(device_id: str) -> Optional[str]:
     return _clean_ime(run_adb_shell(device_id, "settings get secure default_input_method"))
 
 
+def _android_selected(answer: Optional[str], ime: str) -> bool:
+    """Does Android's answer to `ime set <ime>` say it selected `ime`?
+
+    Measured on a Pixel 4a (Android 13). Success, on stdout: "Input method <ime> selected for
+    user #0". Refusal of an input method the phone does not have, on stderr with exit code 255:
+    "Unknown input method <ime> cannot be selected for user #0". `run_adb_shell` hands back both
+    streams as one text, without the exit code, and both answers contain "selected": only the
+    success line naming this input method counts.
+    """
+    success = f"Input method {ime} selected"
+    return any(line.strip().startswith(success) for line in (answer or "").splitlines())
+
+
+def _switch_input_method(device_id: str, ime: str) -> bool:
+    """Make `ime` the phone's input method. True only when Android says it selected it AND the
+    phone's input method then reads `ime`; otherwise the log says what Android answered, or
+    which input method the phone is on."""
+    answer = run_adb_shell(device_id, f"ime set {ime}")
+    if not _android_selected(answer, ime):
+        logger.warning(f"Android did not select {ime} on {device_id}: {(answer or '').strip() or 'no answer'}")
+        return False
+    current = _read_default_ime(device_id)
+    if current != ime:
+        logger.warning(f"Android answered that it selected {ime} on {device_id}, but the phone is on {current}")
+        return False
+    return True
+
+
 def remember_original_keyboard(device_id: str, current: Optional[str] = None,
                                known: bool = False) -> None:
     """Remember the phone's keyboard the FIRST time this process looks at it, and arrange for it
@@ -106,13 +134,12 @@ def restore_original_keyboard(device_id: str) -> bool:
         if not target:
             logger.warning(f"No keyboard to give back to {device_id}: the ADB keyboard stays")
             return False
-        result = run_adb_shell(device_id, f"ime set {target}") or ""
+        restored = _switch_input_method(device_id, target)
         _active_ime_cache.pop(device_id, None)
-        restored = "selected" in result.lower()
         if restored:
             logger.info(f"Keyboard of {device_id} given back: {target}")
         else:
-            logger.warning(f"Keyboard of {device_id} not given back ({target}): {result}")
+            logger.warning(f"Keyboard of {device_id} not given back ({target})")
         return restored
     except Exception as exc:
         logger.warning(f"Keyboard of {device_id} not given back: {exc}")
@@ -131,10 +158,10 @@ def is_taktik_keyboard_active(device_id: str) -> bool:
         return True
 
     try:
-        result = run_adb_shell(device_id, "settings get secure default_input_method")
+        current = _read_default_ime(device_id)
         # The first look at this phone's keyboard in this process: what the session will give back.
-        remember_original_keyboard(device_id, current=result, known=True)
-        active = TAKTIK_KEYBOARD_IME in result
+        remember_original_keyboard(device_id, current=current, known=True)
+        active = current == TAKTIK_KEYBOARD_IME
         if active:
             _active_ime_cache[device_id] = time.time()
         return active
@@ -203,19 +230,19 @@ def activate_taktik_keyboard(device_id: str) -> bool:
     The phone's own keyboard is remembered first and given back at the end of the session
     (`restore_original_keyboard`). Returns once Android has bound the keyboard, so the first
     text sent after a switch is not lost (`_wait_until_bound`).
+
+    False when the phone is not on Taktik Keyboard afterwards (`_switch_input_method`): no text
+    may be sent to it then.
     """
     try:
         remember_original_keyboard(device_id)
         run_adb_shell(device_id, f"ime enable {TAKTIK_KEYBOARD_IME}")
-        result = run_adb_shell(device_id, f"ime set {TAKTIK_KEYBOARD_IME}")
-
-        if "selected" in result.lower():
-            _wait_until_bound(device_id)
-            logger.debug("Taktik Keyboard activated")
-            return True
-
-        logger.warning(f"Failed to activate Taktik Keyboard: {result}")
-        return False
+        if not _switch_input_method(device_id, TAKTIK_KEYBOARD_IME):
+            logger.error(f"Taktik Keyboard not activated on {device_id}: nothing can be typed")
+            return False
+        _wait_until_bound(device_id)
+        logger.debug("Taktik Keyboard activated")
+        return True
     except Exception as exc:
         logger.error(f"Error activating Taktik Keyboard: {exc}")
         return False
