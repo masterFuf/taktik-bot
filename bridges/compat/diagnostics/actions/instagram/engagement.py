@@ -28,9 +28,10 @@ def like_current_post(a, p):
 @action("engagement.like_feed_post")
 def like_feed_post(a, p):
     """Like the home-feed post on screen the way the Feed workflow does: read its author
-    (``FeedBusiness._get_current_post_author``), then like it through the feed's own like
-    (``FeedBusiness._like_current_post(record_as=author)``), which files the like under that
-    author. An unreadable author means no like, as in the workflow. The Lab has no account,
+    (``FeedBusiness._get_current_post_author``), then like it through the Feed's like
+    (``FeedBusiness._like_current_post(record_as=author)``: the framed post's own media or heart,
+    verified on that heart, ``LikeOrchestration.like_framed_post``), which files the like under
+    that author. An unreadable author means no like, as in the workflow. The Lab has no account,
     so the ledger write is refused and logged; the gesture is the production one."""
     author = a.feed._get_current_post_author()
     if not author:
