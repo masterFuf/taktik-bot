@@ -1,4 +1,7 @@
-"""Build the single TAKTIK bridge launcher executable.
+"""Build the single TAKTIK bridge launcher, as a folder: taktik_launcher.exe + _internal/.
+
+A one-file build unpacks its whole content into %TEMP% at every bridge launch; a folder
+build is read in place.
 
 Run with:
     python scripts/build_exe.py
@@ -81,7 +84,7 @@ def build_launcher() -> None:
     args = [
         str(BRIDGES_DIR / "launcher.py"),
         "--name=taktik_launcher",
-        "--onefile",
+        "--onedir",
         "--console",
         f"--distpath={DIST_DIR}",
         f"--workpath={BUILD_DIR}",
@@ -119,12 +122,12 @@ def main() -> None:
         shutil.rmtree(DIST_DIR)
     DIST_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("\n[1/1] Building taktik_launcher.exe...")
+    print("\n[1/1] Building taktik_launcher...")
     build_launcher()
 
     print("\n" + "=" * 50)
     print("Build complete!")
-    print(f"Executable is in: {DIST_DIR}")
+    print(f"Launcher folder: {DIST_DIR / 'taktik_launcher'} (ship the exe with its _internal/)")
     print("=" * 50)
 
 

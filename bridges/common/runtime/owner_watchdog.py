@@ -8,9 +8,10 @@ the phone, its JSON events go into a pipe nobody reads, and the run ends hours l
 
 **Who the owner is.** The desktop puts its own PID in ``TAKTIK_DESKTOP_PID`` for every bridge it
 spawns (``BridgeProcessRunner.ts``, the one place every spawn goes through). The bridge's parent
-is NOT the owner: in production ``taktik_launcher.exe`` is a PyInstaller one-file build, whose
-bootloader is the parent and survives the desktop; in a Windows venv the parent is the
-``python.exe`` redirector. Without the variable (the bot run on its own), nothing is watched.
+is not a reliable owner: a PyInstaller one-file build puts its bootloader in between, and it
+survives the desktop; in a Windows venv the parent is the ``python.exe`` redirector. The folder
+build shipped in ``resources/python`` has no bootloader process, but the watchdog does not rely
+on that. Without the variable (the bot run on its own), nothing is watched.
 
 **Why not the PID alone.** Windows reuses PIDs quickly. On Windows the watchdog holds a handle on
 the owner, which pins its process object for as long as we wait on it, and first checks that the
