@@ -20,11 +20,12 @@ it through its composed `scroll_actions`.
 import re
 import time
 import random
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, cast
 
 from ....ui.extractors import count_from_counter_label
 from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
+from taktik.core.shared.behavior.gesture import SWIPE_FLOOR_H
 from taktik.core.shared.text import text_lost_emoji
 
 if TYPE_CHECKING:
@@ -58,6 +59,18 @@ _REFRAME_TOLERANCE_H = 0.03              # the caption is "back" within this sha
 _REFRAME_CHECKS = 3                      # gestures at most, each followed by a screen check
 # Characters of the truncated caption kept to recognise it once expanded.
 _CAPTION_ANCHOR_CHARS = 60
+
+# Showing the framed post's button row when it runs under the bottom of the list (the like needs
+# its heart): one 1:1 drag lifts the post until its header sits this share of the screen under the
+# top of the list, so the row shows and the header, the post's identity, stays on screen. A drag
+# never travels less than the swipe floor (`SWIPE_FLOOR_H`): it may carry up to this share of the
+# header under the top, where its description is still read; when even the floor would carry more,
+# the header is at the top already (the post is taller than the list) and nothing is dragged. A
+# header in the lower half of the list belongs to a post mostly under the screen, which a like
+# must not bring up.
+_SHOW_BUTTONS_HEADER_MARGIN_H = (0.005, 0.02)
+_SHOW_BUTTONS_HEADER_HIDDEN_MAX = 0.5
+_SHOW_BUTTONS_MAX_HEADER_SHARE = 0.5
 
 
 class PostReadingMixin:
@@ -541,8 +554,13 @@ class PostReadingMixin:
         button row, the heart and the counters of that row, its captions, and its media between
         its header and its row. None when no header is framed (full-screen Reel viewer,
         mid-scroll).
+
+        `list_top` and `list_bottom` bound what the list shows: a header starts to hide under the
+        top (the list's own top, or the action bar over it), a post under the bottom (the list's
+        end, or the bottom bar).
         """
         top_limit, bottom_limit = 0, int(self.screen_height)
+        list_bounds = None
         headers, buttons, captions, counters, hearts = [], [], [], [], []
         for node in root.iter():
             bounds = self._node_bounds(node)
@@ -555,6 +573,9 @@ class PostReadingMixin:
                 continue
             if short == FS.tab_bar_id:
                 bottom_limit = min(bottom_limit, bounds[1])
+                continue
+            if short == FS.post_list_id:
+                list_bounds = list_bounds or bounds
                 continue
             if short == FS.profile_header_id:
                 headers.append((bounds, node.get("content-desc") or ""))
@@ -598,9 +619,13 @@ class PostReadingMixin:
             if buttons_bounds[1] > header_bounds[3]:
                 media_bounds = (header_bounds[0], header_bounds[3], header_bounds[2],
                                 buttons_bounds[1])
+        list_top = max(top_limit, list_bounds[1]) if list_bounds else top_limit
+        list_bottom = min(bottom_limit, list_bounds[3]) if list_bounds else bottom_limit
         return {
             "header_desc": header_desc.strip(),
             "header_bounds": header_bounds,
+            "list_top": list_top,
+            "list_bottom": list_bottom,
             "window_bottom": window_bottom,
             "buttons_bounds": buttons_bounds,
             "row_counters": row_counters,
@@ -637,11 +662,13 @@ class PostReadingMixin:
         """Where a like of the framed post goes, from one dump; None when the screen cannot be read.
 
         On a list of posts (a profile's posts, the feed, a hashtag), the post is the framed one,
-        whose header gives the identity the guards check: `media` is its media between its header
-        and its button row (for a double tap), `heart` the like button of that row and `liked` its
-        state. Both are None unless that heart is on screen: the post above can fill most of the
-        screen with its media and its heart, and nothing may then be liked. Off a list (the
-        full-screen Reel viewer), {"list": False}: its single post is liked as that viewer does.
+        whose header (`header`, its bounds) gives the identity the guards check: `media` is its
+        media between its header and its button row (for a double tap), `heart` the like button of
+        that row and `liked` its state. Both are None unless that heart is on screen: the post
+        above can fill most of the screen with its media and its heart, and nothing may then be
+        liked there (`PostReadingMixin.show_framed_post_buttons` can bring the row up first). Off a
+        list (the full-screen Reel viewer), {"list": False}: its single post is liked as that
+        viewer does.
         """
         root = root if root is not None else self._dump_root()
         if root is None:
@@ -652,14 +679,86 @@ class PostReadingMixin:
         window = self._framed_window(root)
         if window is None or window["heart_bounds"] is None:
             return {"list": True, "identity": window["header_desc"] if window is not None else None,
+                    "header": window["header_bounds"] if window is not None else None,
                     "media": None, "heart": None, "liked": None}
         return {
             "list": True,
             "identity": window["header_desc"],
+            "header": window["header_bounds"],
             "media": window["media_bounds"],
             "heart": window["heart_bounds"],
             "liked": window["heart_selected"],
         }
+
+    def show_framed_post_buttons(self) -> Dict[str, Any]:
+        """Bring the framed post's button row on screen when its media is but the row runs under
+        the bottom of the list (the like needs its heart: `framed_post_like_target`).
+
+        ONE short 1:1 drag (`_long_drag`, the precise gesture of the framing correction, at the
+        session's tempo) lifts the post until its header sits just under the top of the list: the
+        row below the media shows, and the header, which says which post it is, stays on screen.
+        A flick would coast by an unknown distance and could take the header away.
+
+        No gesture when the row is already on screen, when no header is framed, when the header
+        already sits at the top of the list (the post is taller than the list: header and row
+        never show together), or when it sits in the lower half of the list (the post is mostly
+        under the screen: bringing it up is an advance, not a look at its buttons).
+
+        Returns {target, reason, lifted_px, header_before, header_after}: `target` is the like
+        target read after the gesture, or instead of it (None when the screen cannot be read);
+        `lifted_px` the travel asked of the drag (the lift, or, when the lift is under the swipe
+        floor, a travel drawn between that floor and the most the header allows);
+        `reason` says what was done (`row_on_screen`, `no_framed_post`, `header_at_top`,
+        `post_mostly_under_screen`, `lifted`). The caller checks it is still the same post. Also
+        kept as `_last_buttons_reveal` for the Lab."""
+        report: Dict[str, Any] = {"target": None, "reason": "unreadable", "lifted_px": 0,
+                                  "header_before": None, "header_after": None}
+        self._last_buttons_reveal = report
+        root = self._dump_root()
+        if root is None:
+            return report
+        window = self._framed_window(root)
+        report["target"] = self.framed_post_like_target(root)
+        if window is None:
+            report["reason"] = "no_framed_post"
+            return report
+        header_top = window["header_bounds"][1]
+        report["header_before"] = header_top
+        if window["heart_bounds"] is not None:
+            report["reason"] = "row_on_screen"
+            return report
+        h = int(self.screen_height)
+        list_top, list_bottom = window["list_top"], window["list_bottom"]
+        if header_top - list_top > _SHOW_BUTTONS_MAX_HEADER_SHARE * (list_bottom - list_top):
+            report["reason"] = "post_mostly_under_screen"
+            return report
+        # The most the drag may travel: the header then half under the top of the list, still read.
+        room_px = (header_top - list_top
+                   + _SHOW_BUTTONS_HEADER_HIDDEN_MAX * (window["header_bounds"][3] - header_top))
+        floor_px = SWIPE_FLOOR_H * h
+        if floor_px > room_px:
+            report["reason"] = "header_at_top"
+            return report
+        lift_px = header_top - list_top - random.uniform(*_SHOW_BUTTONS_HEADER_MARGIN_H) * h
+        # Under the floor the drag travels at least the floor: a travel drawn between the floor and
+        # the room, never the floor itself every time.
+        travel_px = lift_px if lift_px >= floor_px else random.uniform(floor_px, room_px)
+        motor_provider = getattr(self, "_motor_modulation", None)
+        motor = (cast(Dict[str, float], motor_provider("framed_post_buttons")) if callable(motor_provider)
+                 else {"velocity_scale": 1.0, "settle_scale": 1.0})
+        self._long_drag(
+            "up", distance_px=travel_px, vel_range=_READ_DRAG_VEL_PXS, guard_start=True,
+            velocity_scale=motor["velocity_scale"],
+        )
+        time.sleep(random.uniform(0.30, 0.50) * motor["settle_scale"])
+        after = self.framed_post_like_target()
+        header_after = (after or {}).get("header")
+        report.update(target=after, reason="lifted", lifted_px=int(travel_px),
+                      header_after=header_after[1] if header_after else None)
+        self.logger.debug(f"📐 framed post's buttons shown: header {header_top} -> "
+                          f"{report['header_after']} (drag {int(travel_px)}px), "
+                          f"heart {'on' if (after or {}).get('heart') else 'not on'} screen")
+        return report
 
     def _reread_caption_without_xml(self, bounds) -> Optional[str]:
         """Re-read a caption through JSON-RPC instead of the XML dump.

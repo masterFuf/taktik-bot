@@ -19,21 +19,13 @@ as Instagram does.
 """
 
 import pytest
-from loguru import logger
 
 import taktik.core.shared.device.facade as shared_facade_module
+import taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll as feed_scroll
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
 import taktik.core.social_media.instagram.actions.business.actions.like.orchestration as orchestration
 import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
-from profile_posts_phone import HEADER_ID, HEART_ID, PKG, ProfilePostsPhone, ReplayGestures, bounds_of, capture
-from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
-from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
-from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
-from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import PostReadingMixin
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
-    LikeOrchestration,
-)
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from profile_posts_phone import HEADER_ID, HEART_ID, PKG, ProfilePostsPhone, bounds_of, capture, like_on_phone
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 ROW_ON_SCREEN = capture("ig447_fr_profile_posts_next_header_mid_screen.xml")
@@ -41,20 +33,9 @@ ROW_BELOW_SCREEN = capture("ig447_fr_profile_posts_row_below_screen.xml")
 BUTTONS_ID = f"{PKG}:id/row_feed_view_group_buttons"
 
 
-class _Reader(ReplayGestures, PostReadingMixin):
-    screen_width = 1080
-
-    def __init__(self, phone, device):
-        self.screen_height = phone.height
-        self.phone = phone
-        self.device = device
-        self.logger = logger.bind(module="test_like_lands_on_the_framed_post")
-        self.gestures = []
-
-
 @pytest.fixture(autouse=True)
 def _french_phone_no_waits(monkeypatch):
-    for module in (facade_module, shared_facade_module, post_reading, orchestration):
+    for module in (facade_module, shared_facade_module, post_reading, feed_scroll, orchestration):
         monkeypatch.setattr(module.time, "sleep", lambda *_: None)
     set_active_locale("fr")
     yield
@@ -62,16 +43,8 @@ def _french_phone_no_waits(monkeypatch):
 
 
 def _host(phone):
-    device = DeviceFacade(CloneAwareDeviceProxy(phone, PKG))
-    host = object.__new__(LikeOrchestration)
-    host.device = device
-    host.logger = logger.bind(module="test_like_lands_on_the_framed_post")
-    host.detection_actions = DetectionActions(device)
-    host.click_actions = ClickActions(device)
-    host.scroll_actions = _Reader(phone, device)
-    host.session_manager = None
-    host._human_like_delay = lambda *_args, **_kwargs: None   # the session's pacing, not tested here
-    return host
+    """The production like of a list on the replayed phone, with the production scroll owner."""
+    return like_on_phone(phone)
 
 
 def _double_tap_drawn(monkeypatch, drawn: bool):
@@ -127,15 +100,19 @@ def test_the_button_path_taps_the_framed_posts_own_heart(monkeypatch):
 
 
 @pytest.mark.parametrize("double_tap", [True, False], ids=["double_tap", "heart"])
-def test_no_like_when_the_framed_posts_heart_is_off_the_screen(monkeypatch, double_tap):
+def test_no_like_when_the_framed_posts_heart_cannot_be_shown(monkeypatch, double_tap):
     # The framed post's photo starts at 46 % and runs under the bottom; its heart is below. On
-    # the screen: the post above, its carousel, its heart.
+    # the screen: the post above, its carousel, its heart. The like drags the post up to show its
+    # row, but this capture holds nothing under its bottom (as when a post is taller than the
+    # list): its heart never shows, and nothing is liked, the post above least of all.
     _double_tap_drawn(monkeypatch, double_tap)
     phone = ProfilePostsPhone(screen=ROW_BELOW_SCREEN, likes_on_tap=True)
+    like = _host(phone)
 
-    assert _host(phone).like_current_post() is False
+    assert like.like_current_post() is False
 
     assert phone.taps == [], "a like went to a screen whose framed post's heart is not on it"
+    assert [kind for kind, *_rest in like.scroll_actions.gestures] == ["drag"]
 
 
 def test_the_post_above_liked_does_not_make_the_framed_post_liked(monkeypatch):

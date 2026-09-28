@@ -1,4 +1,5 @@
-"""A phone that replays a real capture of a profile's post list, for the tests that move it.
+"""A phone that replays a real capture of a list of posts (a profile's, the home feed), for the tests
+that move it.
 
 The screen is a real dump, anonymized (Instagram 447 in French on a Pixel 6a, 1080x2400, unless a
 test hands another). The list content moves by the distance the gestures really travel, the bars
@@ -6,12 +7,24 @@ stay; each gesture loses the touch slop before the content follows the finger. A
 the list coasting on its measured curve: it goes on moving until it comes to rest, or until a
 finger touches it down. A tap or a double tap on a post can like it, as Instagram does: its heart
 turns selected. Nothing here writes a screen: every tree is the capture, moved.
+
+`like_on_phone` builds the production like of a list (`LikeOrchestration`) on such a phone, with
+the production scroll owner's readers and drags (`ReplayScroll`).
 """
 
 from pathlib import Path
 
+from loguru import logger
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
+
+from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+from taktik.core.shared.behavior.gesture import SWIPE_FLOOR_H
+from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
+from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
+from taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll import FeedScrollMixin
+from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeOrchestration
+from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
 
 PKG = "com.instagram.android"
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -64,13 +77,19 @@ class ProfilePostsPhone:
     """uiautomator2 behind the proxy and the facade, replaying the capture at a scroll offset.
 
     `clock` counts the seconds the code under test spends on this phone: its sleeps (when the test
-    routes `time.sleep` here) and its dumps (`dump_s` each, what one costs on the phone)."""
+    routes `time.sleep` here) and its dumps (`dump_s` each, what one costs on the phone).
+
+    `further` is a second real capture of the same list, (xml, offset): taken on the phone once its
+    content had gone `offset` px further up (the distance its headers moved between the two). What
+    the first one holds nothing of, under its bottom, the second shows: it is served, moved the
+    same way, once the list is nearer to it than to the first."""
 
     wait_timeout = 1.0
 
     def __init__(self, obeys_back_swipes=True, back_swipe_coast=1.0, screen=None,
-                 height=SCREEN_H, dump_s=0.0, likes_on_tap=False):
+                 height=SCREEN_H, dump_s=0.0, likes_on_tap=False, further=None):
         self.screen = screen if screen is not None else capture("ig447_fr_profile_posts_list.xml")
+        self.further = further
         self.height = height
         self.info = {"displayWidth": SCREEN_W, "displayHeight": height}
         self.offset = 0
@@ -84,6 +103,7 @@ class ProfilePostsPhone:
         #: (clock at the flick, [(seconds after it, px still to travel), ...]) while it coasts.
         self._coast = None
         self._liked_hearts = set()
+        self._liked_further_hearts = set()
         self.xpath = XPathEntry(self)
 
     # --- time and the coast ---
@@ -119,15 +139,24 @@ class ProfilePostsPhone:
 
     # --- what uiautomator2 answers ---
 
+    def _capture_now(self):
+        """(capture, its offset, the hearts liked in it): the capture nearest to where the list is."""
+        if self.further is not None:
+            further, further_offset = self.further
+            if abs(self.current_offset() - further_offset) < abs(self.current_offset()):
+                return further, further_offset, self._liked_further_hearts
+        return self.screen, 0, self._liked_hearts
+
     def _screen_now(self):
-        root = etree.fromstring(self.screen.encode("utf-8"))
+        screen, _offset, liked = self._capture_now()
+        root = etree.fromstring(screen.encode("utf-8"))
         for node in root.iter():
-            if node.get("resource-id") == HEART_ID and node.get("bounds") in self._liked_hearts:
+            if node.get("resource-id") == HEART_ID and node.get("bounds") in liked:
                 node.set("selected", "true")
         return etree.tostring(root, encoding="unicode")
 
     def dump_hierarchy(self, *_a, **_k):
-        xml = scrolled(self._screen_now(), self.current_offset())
+        xml = scrolled(self._screen_now(), self.current_offset() - self._capture_now()[1])
         self.clock += self.dump_s
         return xml
 
@@ -156,15 +185,16 @@ class ProfilePostsPhone:
         it. The post of a point is the last header above it in the capture."""
         if not self.likes_on_tap:
             return
-        captured_y = y + self.current_offset()
-        root = etree.fromstring(self.screen.encode("utf-8"))
+        screen, offset, liked = self._capture_now()
+        captured_y = y + self.current_offset() - offset
+        root = etree.fromstring(screen.encode("utf-8"))
         header_tops = sorted(bounds_of(n)[1] for n in root.iter() if n.get("resource-id") == HEADER_ID)
         hearts = [n for n in root.iter() if n.get("resource-id") == HEART_ID]
         if heart_only:
             hit = [n for n in hearts
                    if bounds_of(n)[0] <= x <= bounds_of(n)[2] and bounds_of(n)[1] <= captured_y <= bounds_of(n)[3]]
             if hit:
-                self._liked_hearts.add(hit[0].get("bounds"))
+                liked.add(hit[0].get("bounds"))
             return
         above = [top for top in header_tops if top <= captured_y]
         start = above[-1] if above else -10 ** 6
@@ -172,7 +202,7 @@ class ProfilePostsPhone:
         end = later[0] if later else 10 ** 6
         own = [n for n in hearts if start <= bounds_of(n)[1] < end]
         if own:
-            self._liked_hearts.add(own[0].get("bounds"))
+            liked.add(own[0].get("bounds"))
 
     # The content follows the finger once the touch slop is crossed.
     def drag_content_up(self, distance_px):
@@ -187,17 +217,20 @@ class ProfilePostsPhone:
 
 class ReplayGestures:
     """The 1:1 gestures of the scroll owner (`ScrollActions` in production), moving the phone.
-    The host sets `self.phone` and lists what it did in `self.gestures`."""
+    The host sets `self.phone` and lists what it did in `self.gestures` (the travel asked). A
+    drag never travels less than the swipe floor (`SWIPE_FLOOR_H`), as on the phone: a request
+    under it goes that far."""
 
     phone: ProfilePostsPhone
     gestures: list
 
     def _long_drag(self, direction="up", distance_px=None, **_kwargs):
         self.gestures.append(("drag", direction, int(distance_px)))
+        travel = max(float(distance_px), SWIPE_FLOOR_H * self.phone.height)
         if direction == "up":
-            self.phone.drag_content_up(distance_px)
+            self.phone.drag_content_up(travel)
         else:
-            self.phone.drag_content_down(distance_px)
+            self.phone.drag_content_down(travel)
         return True
 
     def _human_swipe(self, direction="up", distance_px=None, **_kwargs):
@@ -211,3 +244,44 @@ class ReplayGestures:
     def _human_horizontal_swipe(self, *_args, **_kwargs):
         self.gestures.append(("hswipe",))
         return True
+
+
+class ReplayScroll(ReplayGestures, FeedScrollMixin):
+    """The scroll owner of production (`ScrollActions`) on the replayed phone: its readers of the
+    framed post, and its drags (the one that shows a framed post's buttons among them)."""
+
+    screen_width = SCREEN_W
+
+    def __init__(self, phone, device):
+        self.screen_height = phone.height
+        self.phone = phone
+        self.device = device
+        self.logger = logger.bind(module="replay_scroll")
+        self.gestures = []
+
+
+def like_on_phone(phone) -> LikeOrchestration:
+    """The production like of a list (`LikeOrchestration`) on the replayed phone, behind the clone
+    proxy and the facade, its pacing cut. Its likes are filed in `rows` (author, kind, count) and
+    `session_actions` (kind, author) instead of the database and the session."""
+    device = DeviceFacade(CloneAwareDeviceProxy(phone, PKG))
+    like = object.__new__(LikeOrchestration)
+    like.device = device
+    like.logger = logger.bind(module="like_on_phone")
+    like.detection_actions = DetectionActions(device)
+    like.click_actions = ClickActions(device)
+    like.scroll_actions = ReplayScroll(phone, device)
+    like.rows = []
+    like.session_actions = []
+    like.session_manager = _FiledSession(like.session_actions)
+    like._record_action = lambda username, kind, count=1, **_kw: like.rows.append((username, kind, count))
+    like._human_like_delay = lambda *_args, **_kwargs: None   # the session's pacing, not tested here
+    return like
+
+
+class _FiledSession:
+    def __init__(self, actions):
+        self.actions = actions
+
+    def record_action(self, action_type, success=True, source=None):
+        self.actions.append((action_type, source))

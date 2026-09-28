@@ -2,6 +2,7 @@
 
 import time
 import random
+from enum import Enum
 from typing import Callable, Dict, List, Any, Optional
 from loguru import logger
 
@@ -21,6 +22,14 @@ from taktik.core.social_media.instagram.ui.extractors import post_signature
 # the screen did, but of the post's own media.
 _DOUBLE_TAP_BAND_X = (0.30, 0.70)
 _DOUBLE_TAP_BAND_Y = (0.25, 0.75)
+
+
+class FramedLike(Enum):
+    """What a like of the framed post of a list did (`LikeOrchestration.like_framed_post`)."""
+
+    LIKED = "liked"                  # the heart of its own row turned after our gesture
+    ALREADY_LIKED = "already_liked"  # that heart was on already: no gesture
+    NOT_LIKED = "not_liked"          # no gesture, or one that did not turn that heart
 
 
 class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
@@ -319,7 +328,11 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 )
 
                 if do_like_this or do_comment_this:
-                    if do_like_this and self._is_post_already_liked():
+                    already_liked = self._is_post_already_liked() if do_like_this else False
+                    if already_liked is None:
+                        self.logger.debug(f"Post #{posts_seen}: its like button cannot be shown - not liked")
+                        do_like_this = False
+                    elif already_liked:
                         self.logger.debug(f"Post #{posts_seen} already liked - skipping to avoid unlike")
                         stats['already_liked'] = stats.get('already_liked', 0) + 1
                         do_like_this = False
@@ -399,19 +412,23 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         this like (the hashtag posts pass): the like is then written to the action ledger and
         the session counter at the moment of the gesture. The profile sequence leaves it None,
         because it records its likes in one batch at the end of the profile. An already-liked
-        post is no gesture and is never recorded.
+        post is no gesture and is never recorded; True here, like a post liked now (a caller that
+        must tell them apart uses `like_framed_post`). On a list, the framed post only.
         """
         try:
-            if not self.detection_actions.is_on_post_screen():
-                self.logger.warning("Not on a post screen")
-                return False
-
+            # A list of posts first: its readers need no like button on screen, and the framed
+            # post's may be under the bottom (`_like_framed_post` brings it up), when the post
+            # screen's signals are like buttons and would call the list "not a post screen".
             target = self._framed_like_target()
             if target is None:
                 self.logger.warning("Screen unreadable: no like")
                 return False
             if target["list"]:
-                return self._like_framed_post(target, record_as)
+                return self._like_framed_post(target, record_as) is not FramedLike.NOT_LIKED
+
+            if not self.detection_actions.is_on_post_screen():
+                self.logger.warning("Not on a post screen")
+                return False
 
             if self.detection_actions.is_post_liked():
                 self.logger.debug("Post already liked")
@@ -449,21 +466,38 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         target = reader()
         return target if isinstance(target, dict) else None
 
-    def _like_framed_post(self, target: Dict[str, Any], record_as: Optional[str]) -> bool:
+    def like_framed_post(self, record_as: Optional[str] = None) -> FramedLike:
+        """Like the framed post of a list of posts (the home feed, a profile's posts, a hashtag's):
+        the like `like_current_post` gives on a list, which says apart a post liked now from a post
+        already liked. The Feed likes through it: an already-liked post is no like of its run.
+
+        `record_as` (the post author) files the like once its heart is seen turned. Nothing is
+        liked off a list: the full-screen Reel viewer is `like_current_post`'s."""
+        target = self._framed_like_target()
+        if target is None:
+            self.logger.warning("Screen unreadable: no like")
+            return FramedLike.NOT_LIKED
+        if not target["list"]:
+            self.logger.warning("Not a list of posts: no like")
+            return FramedLike.NOT_LIKED
+        return self._like_framed_post(target, record_as)
+
+    def _like_framed_post(self, target: Dict[str, Any], record_as: Optional[str]) -> FramedLike:
         """Like the framed post of a list, and nothing else: a double tap on its media or a tap on
-        the heart of its own row, the gesture a human alternates (`should_double_tap_like`). No
-        like when that heart is off the screen: the post above can fill it, and neither a double
-        tap nor a heart could be told apart from it; and the heart is what says whether the like
-        took. After a double tap that did not take, the same row's heart, as off a list."""
+        the heart of its own row, the gesture a human alternates (`should_double_tap_like`). The
+        heart is what says whether the like took, so it must be on screen: when the row runs under
+        the bottom, a short drag brings it up first (`_show_framed_post_heart`), and no like when
+        it cannot, or when the post is no longer the same. After a double tap that did not take,
+        the same row's heart, as off a list."""
         identity = target.get("identity")
         if target.get("heart") is None:
-            self.logger.warning(
-                f"Framed post's like button not on screen ({identity or 'no framed post'}): no like"
-            )
-            return False
+            shown = self._show_framed_post_heart(identity)
+            if shown is None:
+                return FramedLike.NOT_LIKED
+            target = shown
         if target.get("liked"):
             self.logger.debug("Post already liked")
-            return True
+            return FramedLike.ALREADY_LIKED
 
         if should_double_tap_like() and target.get("media") is not None:
             self.device.human_double_tap(self._double_tap_region(target["media"]))
@@ -472,10 +506,10 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             if self._framed_post_liked(after, identity):
                 self.logger.debug("Post liked via image double-tap")
                 self.record_post_like(record_as)
-                return True
+                return FramedLike.LIKED
             if not after or after.get("identity") != identity or after.get("heart") is None:
                 self.logger.warning("Framed post changed after the double tap: no like")
-                return False
+                return FramedLike.NOT_LIKED
             target = after
 
         self.device.human_tap(target["heart"])
@@ -483,9 +517,39 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         if self._framed_post_liked(self._framed_like_target(), identity):
             self.logger.debug("Post liked successfully (button)")
             self.record_post_like(record_as)
-            return True
+            return FramedLike.LIKED
         self.logger.warning("Failed to like: the framed post's heart did not turn")
-        return False
+        return FramedLike.NOT_LIKED
+
+    def _show_framed_post_heart(self, identity: Optional[str]) -> Optional[Dict[str, Any]]:
+        """The framed post's heart runs under the bottom of the list: bring its row up with the
+        scroll owner's short drag (`PostReadingMixin.show_framed_post_buttons`), then the like
+        target of the SAME post, its heart on screen. None, and why in the log, when there is no
+        framed post, no such gesture on this host, no gesture that could show it, a post that
+        changed during it, or a heart still off the screen."""
+        if identity is None:
+            self.logger.warning("No framed post: no like")
+            return None
+        show = self._framed_post_reader("show_framed_post_buttons")
+        if show is None:
+            self.logger.warning(f"Framed post's like button not on screen ({identity}): no like")
+            return None
+        shown = show()
+        after = shown.get("target") if isinstance(shown, dict) else None
+        reason = shown.get("reason") if isinstance(shown, dict) else "unreadable"
+        if not isinstance(after, dict) or not after.get("list"):
+            self.logger.warning(f"Screen unreadable after showing the framed post's buttons ({reason}): no like")
+            return None
+        if after.get("identity") != identity:
+            self.logger.warning(
+                f"Framed post changed while showing its buttons ({identity} -> {after.get('identity')}): no like"
+            )
+            return None
+        if after.get("heart") is None:
+            self.logger.warning(f"Framed post's like button still not on screen ({identity}, {reason}): no like")
+            return None
+        self.logger.debug(f"Framed post's buttons shown ({reason}): {identity}")
+        return after
 
     @staticmethod
     def _framed_post_liked(target: Optional[Dict[str, Any]], identity: Optional[str]) -> bool:
@@ -508,9 +572,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         fails the like: the post is liked on Instagram whatever happens here.
 
         Public because it is THE way a post like is filed: `like_current_post(record_as=...)`
-        calls it, and so does the Feed, whose like keeps its own gesture (it must tell an
-        already-liked post apart, which `like_current_post` counts as liked) but must not
-        keep a second way of recording it."""
+        and `like_framed_post(record_as=...)` (the Feed's like) call it once the framed post's
+        heart is seen turned."""
         if not username:
             return
         if self.session_manager:
@@ -672,12 +735,19 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             self.logger.debug(f"Double-tap like failed: {e}")
             return False
     
-    def _is_post_already_liked(self) -> bool:
-        """Is the framed post liked? On a list, its own row's heart says, never the post above's
-        (often the post just liked); off a list, the viewer's heart."""
+    def _is_post_already_liked(self) -> Optional[bool]:
+        """Is the framed post liked, before the walk decides to like it? On a list, its own row's
+        heart says, never the post above's (often the post just liked); when that heart runs under
+        the bottom, its row is shown first (`_show_framed_post_heart`), the look at the buttons a
+        human takes before a like, and None when it cannot be: that post is not liked. Off a list,
+        the viewer's heart."""
         try:
             target = self._framed_like_target()
             if target is not None and target["list"]:
+                if target.get("heart") is None:
+                    target = self._show_framed_post_heart(target.get("identity"))
+                    if target is None:
+                        return None
                 return bool(target.get("liked"))
             return self.detection_actions.is_post_liked()
         except Exception as e:

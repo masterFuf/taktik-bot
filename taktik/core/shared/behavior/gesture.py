@@ -30,6 +30,9 @@ _END_MIN_H, _END_MAX_H = 0.04, 0.96
 FULL_REACH_H = round(_END_MAX_H - _START_MIN_H, 2)
 # Share of the requested travel a swipe always covers when the request fits the room.
 _FULL_TRAVEL_SHARE = 0.95
+# Shortest travel of a swipe, as a fraction of the screen height: a shorter one could be read as a
+# tap and would not move the feed. A request under it travels this far.
+SWIPE_FLOOR_H = 0.09
 
 
 @lru_cache(maxsize=1)
@@ -216,7 +219,7 @@ def sample_swipe(
     direction: str = "up",
     distance_px: Optional[float] = None,
     start_band: Optional[Tuple[float, float]] = None,
-    dist_floor_h: float = 0.09,
+    dist_floor_h: float = SWIPE_FLOOR_H,
     dist_cap_h: float = 0.34,
     rng: Optional[random.Random] = None,
 ) -> Tuple[List[List[int]], float]:
