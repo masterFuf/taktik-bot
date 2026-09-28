@@ -3,6 +3,9 @@
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action
+from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import (
+    show_profile_posts_grid,
+)
 
 
 @action("profile.click_follow")
@@ -118,6 +121,37 @@ def open_first_post(a, p):
     against `profile.open_entry_post`."""
     ok = a.like._open_first_post_of_profile()
     return {"success": bool(ok), "message": f"first post opened={ok}"}
+
+
+@action("profile.show_posts_grid")
+def show_posts_grid(a, p):
+    """Show the posts grid of the profile on screen: when it shows its Reels, Reposts or Tagged
+    sub-tab, one tap on the grid tab, then the wait for the grid (production
+    `show_profile_posts_grid`, which every reader of a profile's grid calls before it reads). No
+    tap when the grid is already shown or when no profile is on screen."""
+    grid = show_profile_posts_grid(a.device)
+    if not grid.has_sub_tabs:
+        message = "no profile sub-tab row on screen: nothing tapped"
+    elif grid.tapped:
+        message = f"profile was on '{grid.found_on}': grid tab tapped, grid shown={grid.shown}"
+    else:
+        message = f"grid already shown ('{grid.found_on}'): nothing tapped"
+    return {
+        "success": grid.shown,
+        "message": message,
+        "details": {"has_sub_tabs": grid.has_sub_tabs, "found_on": grid.found_on,
+                    "tapped": grid.tapped, "shown": grid.shown},
+    }
+
+
+@action("profile.count_visible_posts")
+def count_visible_posts(a, p):
+    """Count the post thumbnails of the profile on screen, as the profile visit does before its
+    filters (production `count_visible_posts`): the posts grid shown first, then counted on one
+    photo."""
+    count = a.detection.count_visible_posts()
+    return {"success": True, "message": f"{count} visible post(s) in the grid",
+            "details": {"visible_posts": count}}
 
 
 @action("profile.scroll_grid")

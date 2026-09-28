@@ -449,7 +449,6 @@ STRINGS: Dict[str, List[str]] = {
     ],
     "navigation.home_tab_description_contains": [],
     "navigation.home_tab_descriptions": [],
-    "navigation.posts_tab_options": [],
     "navigation.profile_tab": [
         # Inside Instagram's tab bar only: outside it, "Profil" also starts the "Profile picture
         # of ..." of every avatar of an English screen, read while the language is unknown.

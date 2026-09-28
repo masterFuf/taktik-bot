@@ -199,28 +199,23 @@ class ProfileSelectors:
             for label in self.message_button_text_labels
         ] + [f'//*[@resource-id="{self.message_button_resource_id}"]']
 
-    # === Profile tabs ===
-    # Inline bilingual OR-combo (plain str, never filtered by language today)
-    # -> overlay migration later; left as is, no behaviour change.
-    posts_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Publications") or contains(@content-desc, "Posts")]'
-
-    # The POSTS grid sub-tab, addressed by POSITION rather than by label.
-    #
-    # Instagram remembers the last sub-tab a profile was left on, so arriving on a profile does NOT
-    # mean the grid is showing. A device dump caught "Reposted" active: every thumbnail selector then
-    # matches nothing, however far the page is scrolled, and the flow reports "no posts" on a profile
-    # that has them. The grid is always the FIRST tab of the row, which is why this keys on position
-    # inside `profile_tab_layout` instead of the label — that same dump calls it "Grid view" where
-    # `posts_tab` above looks for "Posts"/"Publications", so a label match would have missed it too,
-    # and being language-independent it needs no locale overlay.
-    profile_grid_tab_selectors: List[str] = field(default_factory=lambda: [
+    # === Profile sub-tabs: posts grid, Reels, Reposts, Tagged ===
+    # Every sub-tab of the row under a profile's header, in screen order. The FIRST is the posts
+    # grid, and the only one that holds the posts: 180 dumps of Instagram 410 in the Lab corpus and
+    # 130 in the captures (own and visited profiles, French and English, two to four sub-tabs, labels
+    # "Vue Grille" / "Grid view" or anonymised), and the 447 captures. Its label changes with the
+    # language and the anonymiser, its position does not, hence no locale entry. The sub-tab on
+    # screen is the one whose icon is `selected`, one per row. Instagram keeps the sub-tab our own
+    # profile was last left on until the app restarts (Pixel 3a, 410, 2026-09-28: left on Reels,
+    # the profile came back on Reels from the home feed), a visited one while it stays open:
+    # arriving on a profile does not mean the grid is showing.
+    profile_sub_tabs: str = (
         '//*[@resource-id="com.instagram.android:id/profile_tab_layout"]'
-        '//*[@resource-id="com.instagram.android:id/profile_tab_icon_view"][1]',
-        '(//*[contains(@resource-id, "profile_tab_icon_view")])[1]',
-    ])
-    igtv_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "IGTV")]'
-    saved_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Enregistré") or contains(@content-desc, "Saved")]'
-    tagged_tab: str = '//android.widget.LinearLayout[contains(@content-desc, "Photos de") or contains(@content-desc, "Photos with")]'
+        '//*[@resource-id="com.instagram.android:id/profile_tab_icon_view"]'
+    )
+    # The posts grid of a profile without a post (own profile, Pixel 3a, 410, English). The grid's
+    # content is its thumbnails (`DETECTION_SELECTORS.post_thumbnail_selectors`) or this.
+    posts_grid_empty_state: str = '//*[@resource-id="com.instagram.android:id/empty_state_view_root"]'
 
     # === Liens followers/following (overlay locales/) ===
     _followers_link_base: List[str] = field(default_factory=lambda: [

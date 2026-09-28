@@ -473,11 +473,6 @@ STRINGS: Dict[str, List[str]] = {
     "navigation.home_tab_descriptions": [
         "Home",
     ],
-    "navigation.posts_tab_options": [
-        "//*[@content-desc=\"Posts\"]",
-        "//*[@text=\"Posts\"]",
-        "//android.widget.ImageView[@content-desc=\"Grid view\"]",
-    ],
     "navigation.profile_tab": [
         # Inside Instagram's tab bar only: outside it, "Profile" is every avatar's "Profile
         # picture of ..." (feed, follow lists, another profile's header, a story).

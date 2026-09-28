@@ -112,15 +112,6 @@ class NavigationSelectors:
         '//*[@resource-id="com.instagram.android:id/action_bar_button_back"]',
     ])
 
-    # === Profile tabs ===
-    _posts_tab_options_base: List[str] = field(default_factory=lambda: [
-        '//*[@resource-id="com.instagram.android:id/profile_tab_layout"]//android.widget.ImageView[1]',
-    ])
-
-    @property
-    def posts_tab_options(self) -> List[str]:
-        return self._posts_tab_options_base + L("navigation.posts_tab_options")
-
     # === Hashtag navigation ===
     @property
     def recent_tab_selectors(self) -> List[str]:

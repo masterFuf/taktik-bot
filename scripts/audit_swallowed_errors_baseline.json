@@ -54,7 +54,7 @@
   "taktik/core/shared/vision/ocr.py": 1,
   "taktik/core/social_media/instagram/actions/atomic/detection/list_detection.py": 1,
   "taktik/core/social_media/instagram/actions/atomic/detection/profile_extraction.py": 10,
-  "taktik/core/social_media/instagram/actions/atomic/detection/screen_detection.py": 4,
+  "taktik/core/social_media/instagram/actions/atomic/detection/screen_detection.py": 3,
   "taktik/core/social_media/instagram/actions/atomic/interaction/bottom_sheet.py": 8,
   "taktik/core/social_media/instagram/actions/atomic/interaction/post_interaction.py": 1,
   "taktik/core/social_media/instagram/actions/atomic/interaction/profile_interaction.py": 1,
