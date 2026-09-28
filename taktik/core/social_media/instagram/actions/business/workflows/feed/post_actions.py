@@ -3,10 +3,7 @@
 import time
 from typing import Dict, List, Any, Optional
 
-# A human doesn't always like the same way: some likes tap the like button, others
-# double-tap the image. The choice lives in shared behaviour so the feed and the
-# profile-posts (like workflow) paths alternate identically.
-from taktik.core.shared.behavior.like_method import should_double_tap_like as _should_double_tap_like
+from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
 from taktik.core.social_media.instagram.ui.extractors import username_from_author_header
 
 
@@ -78,67 +75,25 @@ class FeedPostActionsMixin:
             return False
 
     def _like_current_post(self, record_as: Optional[str] = None) -> bool:
-        """Like the current feed post, alternating like methods like a human would:
-        sometimes a tap on the like button, sometimes a double-tap on the image.
+        """Like the framed feed post, through the like of a list of posts
+        (`LikeOrchestration.like_framed_post`), the one a profile's posts and a hashtag's get: a
+        double tap on the framed post's own media or a tap on the heart of its own row, alternated
+        like a human, then verified on that heart; a short drag first when its row runs under the
+        bottom. Never a band of the screen nor the first heart of the screen, which can belong to
+        the post above.
 
-        `record_as` is the post author. Given, the like is filed at the gesture -- ledger row
-        and session counter -- by `LikeOrchestration.record_post_like`, the function the
-        hashtag posts pass files its likes with (`like_current_post(record_as=...)`). The
-        gesture stays the feed's: an already-liked post returns False here, and nothing is
-        recorded for it."""
+        `record_as` is the post author: the like is filed (ledger row and session counter) as soon
+        as its heart is seen turned, by `LikeOrchestration.record_post_like`. True only for a like
+        given now: an already-liked post returns False here, and nothing is recorded for it."""
         try:
-            # Locate the like button and bail out if the post is already liked.
-            like_button = None
-            for selector in self._feed_sel.like_button:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    content_desc = element.attrib.get('content-desc', '').lower()
-                    if any(fragment in content_desc for fragment in self._feed_sel.liked_button_desc_fragments):
-                        self.logger.debug("⏭️ Post already liked, skipping")
-                        return False
-                    like_button = element
-                    break
-
-            # Heart-icon fallback check for an already-liked post.
-            for selector in self._feed_sel.already_liked_indicators:
-                if self.device.xpath(selector).exists:
-                    self.logger.debug("⏭️ Post already liked, skipping")
-                    return False
-
-            # Pick the method: double-tap by chance, or whenever no like button is visible.
-            if like_button is not None and not _should_double_tap_like():
-                self.logger.debug("❤️ Liking via the like button")
-                if not self._human_tap_element(like_button):
-                    like_button.click()  # centre-click fallback
-                self._record_feed_like(record_as)
-                self._human_like_delay('click')
-                return True
-
-            # Image double-tap: a varied point within the post image band (not the fixed
-            # centre); fall back to the centre double-tap if sampling fails.
-            self.logger.debug("❤️ Liking via image double-tap")
-            screen_height = self.device.info.get('displayHeight', 1920)
-            screen_width = self.device.info.get('displayWidth', 1080)
-            image_region = (
-                int(screen_width * 0.30), int(screen_height * 0.30),
-                int(screen_width * 0.70), int(screen_height * 0.52),
-            )
-            if not self.device.human_double_tap(image_region):
-                self.device.double_click(screen_width // 2, int(screen_height * 0.4))
-            self._record_feed_like(record_as)
-            self._human_like_delay('click')
-            return True
-
+            outcome = self.like_business.like_framed_post(record_as=record_as)
         except Exception as e:
-            self.logger.debug(f"Error liking post: {e}")
+            self.logger.warning(f"Feed like failed: {e}")
             return False
+        if outcome is FramedLike.ALREADY_LIKED:
+            self.logger.debug("⏭️ Post already liked, skipping")
+        return outcome is FramedLike.LIKED
 
-    def _record_feed_like(self, author: Optional[str]) -> None:
-        """File a feed like the moment it is given, before the pause that follows it: a run
-        stopped during that pause must not leave a like on Instagram with no trace here."""
-        if author:
-            self.like_business.record_post_like(author)
-    
     def _comment_feed_post(self, author: str, config: Dict[str, Any],
                            comment_text: Optional[str] = None) -> Dict[str, Any]:
         """Comment the feed post on screen, filed under its author.
