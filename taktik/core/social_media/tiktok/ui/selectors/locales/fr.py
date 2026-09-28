@@ -519,12 +519,16 @@ STRINGS: Dict[str, List[str]] = {
         # « Fermer » est le content-desc des boutons de fermeture en francais : mesure sur SIX
         # noeuds, CINQ ecrans (feuille de commentaires, composeur, inbox, profil, menu de profil)
         # et LES DEUX versions (43.1.4 et 46.6.3), tous avec des resource-id differents
-        # (b9b, bqo, fac, g9i, kbz). C'est le libelle qui est mesure, pas l'ecran : le popup
-        # Collections lui-meme n'est dans aucune capture, donc l'id `jyh` de l'entree anglaise
-        # n'est pas repris ici -- un id non verifie vaudrait moins que rien.
+        # (b9b, bqo, fac, g9i, kbz). C'est le libelle qui est mesure, pas l'ecran. Sur la fenetre
+        # Collections elle-meme (43.1.4, capture du 2026-09-29), la croix est `jyh` « Fermer »,
+        # seul « Fermer » cliquable de la feuille.
         "//*[@content-desc=\"Fermer\"][@clickable=\"true\"]",
     ],
-    "popup.collections_not_now": [],
+    "popup.collections_not_now": [
+        # Fenetre « Crée des collections partagées avec un(e) ami(e) », ouverte par une mise en
+        # favori (43.1.4, 2026-09-29) : le bouton `ny9`, le meme id que l'entree anglaise.
+        "//*[contains(@resource-id, \":id/ny9\")][@text=\"Pas maintenant\"]",
+    ],
     "popup.collections_popup": [],
     "popup.comment_input_area": [],
     # « Fermer » nu repond aussi sur les listes d'abonnes, la recherche et l'inbox ; le composeur de
