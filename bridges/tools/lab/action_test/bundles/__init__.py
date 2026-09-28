@@ -1,4 +1,4 @@
-﻿"""Public facade for compat action-test bundle factories."""
+﻿"""Public facade for the action-test bundle factories of the Lab."""
 
 from bridges.tools.lab.action_test.bundles.instagram import (
     build_instagram_action_bundle,

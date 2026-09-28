@@ -1,1 +1,1 @@
-"""Runtime support shared by YouTube bridges."""
+"""What the YouTube bridges share: the device session (`session.py`)."""

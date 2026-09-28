@@ -1,4 +1,4 @@
-﻿"""Instagram workflow-test runner families for compat diagnostics."""
+﻿"""Instagram runner families of the workflow bench of the Lab."""
 
 from bridges.tools.lab.workflow_test.platforms.instagram.workflows.dm import run_instagram_dm
 from bridges.tools.lab.workflow_test.platforms.instagram.workflows.publish import run_instagram_publish

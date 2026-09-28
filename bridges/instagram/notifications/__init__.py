@@ -1,1 +1,1 @@
-"""Instagram notifications engagement bridge runtime."""
+"""The Instagram notifications bridge (`notifications_bridge`) and its support."""

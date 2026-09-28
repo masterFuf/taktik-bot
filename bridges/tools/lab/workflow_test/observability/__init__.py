@@ -1,4 +1,4 @@
-﻿"""Public observability facade for compat workflow diagnostics."""
+﻿"""Public observability facade for the workflow bench of the Lab."""
 
 from loguru import logger
 

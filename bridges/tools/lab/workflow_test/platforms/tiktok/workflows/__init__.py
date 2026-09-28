@@ -1,4 +1,4 @@
-﻿"""TikTok workflow-test runner families for compat diagnostics."""
+﻿"""TikTok runner families of the workflow bench of the Lab."""
 
 from bridges.tools.lab.workflow_test.platforms.tiktok.workflows.automation import run_tiktok_automation
 from bridges.tools.lab.workflow_test.platforms.tiktok.workflows.dm import run_tiktok_dm

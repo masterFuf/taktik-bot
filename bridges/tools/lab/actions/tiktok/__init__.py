@@ -1,4 +1,4 @@
-﻿"""TikTok compat diagnostic action catalog."""
+﻿"""The TikTok actions of the Lab."""
 
 from bridges.tools.lab.registry.actions import ActionRegistry
 

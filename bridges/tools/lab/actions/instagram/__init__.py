@@ -1,4 +1,4 @@
-﻿"""Instagram compat diagnostic action catalog."""
+﻿"""The Instagram actions of the Lab."""
 
 from bridges.tools.lab.registry.actions import ActionRegistry
 
