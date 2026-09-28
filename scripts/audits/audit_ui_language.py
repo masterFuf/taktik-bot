@@ -40,7 +40,6 @@ LOCALE_DIRS = (
 
 SCAN_ROOTS = (
     ROOT / "taktik" / "core" / "social_media",
-    ROOT / "taktik" / "core" / "social_media" / "gmail",
 )
 
 STRAIGHT = "'"
