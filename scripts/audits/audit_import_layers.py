@@ -1,18 +1,24 @@
 """Layer boundaries of the engine: who may import whom.
 
-The layers of `taktik/core` (AGENTS.md, "Taxonomie cible"): `social_media/<platform>` is the
-business code of one platform, `shared` the technical primitives, `database` the persistence,
-`agent`, `app`, `clone`, `compat` the transverse families. `bridges/` and the CLI are the two hosts
-that drive the core. Each rule below is a contract, red when a module imports what it may not:
+The layers of `taktik/core` (AGENTS.md, "Taxonomie cible"), from the bottom: `shared` the technical
+primitives and `database` the persistence; the transverse families `kernel` (the workflow registry,
+the handler contract, plans and the workflow manifest), `contract` (the bot/app contract), `ai`,
+`compat` and `clone`; then `social_media/<platform>`, the business code of one platform. `bridges/`
+and the CLI are the two hosts that drive the core. Each rule below is a contract, red when a module
+imports what it may not:
 
 - `shared-no-platform`: `shared` imports no platform ("Un module `shared` ne doit pas importer
   `social_media/<platform>`").
+- `shared-below-transverse`: `shared` imports no transverse family either: it is the layer they
+  build on. The imports of today are named in `EXCEPTIONS`, a ratchet: none is added.
 - `platforms-independent`: a platform imports no other platform. Code two platforms share is
   transverse, and a transverse helper does not live in a platform; a module of one platform lives
-  under that platform.
-- `transverse-no-platform`: `agent`, `app`, `clone`, `compat`, the `taktik.core` package itself and
-  the rest of `taktik` outside the CLI import no platform: a module of a top-level family that is
-  in fact specific to one platform lives under that platform.
+  under that platform. One kind of edge is allowed, by name: a provider platform (`PROVIDERS`),
+  imported by the platforms it serves. Gmail is one: TikTok's signup and YouTube's login read the
+  verification code it receives. A declared edge that no import uses any more turns the gate red.
+- `transverse-no-platform`: `kernel`, `contract`, `ai`, `clone`, `compat`, the `taktik.core` package
+  itself and the rest of `taktik` outside the CLI import no platform: a module of a top-level family
+  that is in fact specific to one platform lives under that platform.
 - `core-no-host`: nothing under `taktik.core` imports `bridges` or the CLI. The host injects its
   notifier, IPC or AI service; the core stays usable without the desktop app.
 - `database-no-upper-layer`: `database` imports no platform, no `compat` nor `clone`, no host
@@ -85,10 +91,17 @@ DEEP_RELATIVE = Ratchet(
 )
 
 PLATFORMS = "social_media"
-CORE_FAMILIES = frozenset({"agent", "app", "clone", "compat", "database", "shared", PLATFORMS})
-TRANSVERSE = frozenset({"core", "agent", "app", "clone", "compat", "taktik"})
+#: The families between the base (`shared`, `database`) and the platforms.
+TRANSVERSE_FAMILIES = frozenset({"ai", "clone", "compat", "contract", "kernel"})
+CORE_FAMILIES = frozenset({"database", "shared", PLATFORMS}) | TRANSVERSE_FAMILIES
+TRANSVERSE = TRANSVERSE_FAMILIES | {"core", "taktik"}
 HOSTS = frozenset({"bridges", "cli"})
 SQL_DRIVERS = frozenset({"sqlite3", "sqlalchemy"})
+#: A provider platform -> the platforms that may import it (`platforms-independent`). Gmail receives
+#: the verification codes that TikTok's signup and YouTube's login read.
+PROVIDERS: dict[str, frozenset[str]] = {
+    f"{PLATFORMS}/gmail": frozenset({f"{PLATFORMS}/tiktok", f"{PLATFORMS}/youtube"}),
+}
 
 
 def family(name: str) -> str:
@@ -131,8 +144,11 @@ class Contract:
 CONTRACTS = (
     Contract("shared-no-platform", "`shared` never imports a platform",
              lambda src, dst: src == "shared" and (is_platform(dst) or dst == PLATFORMS)),
-    Contract("platforms-independent", "a platform never imports another platform",
-             lambda src, dst: is_platform(src) and is_platform(dst) and src != dst),
+    Contract("shared-below-transverse", "`shared` never imports a transverse family",
+             lambda src, dst: src == "shared" and dst in TRANSVERSE_FAMILIES),
+    Contract("platforms-independent", "a platform never imports another platform, but a provider named for it",
+             lambda src, dst: is_platform(src) and is_platform(dst) and src != dst
+             and src not in PROVIDERS.get(dst, frozenset())),
     Contract("transverse-no-platform", "a transverse family never imports a platform",
              lambda src, dst: src in TRANSVERSE and (is_platform(dst) or dst == PLATFORMS)),
     Contract("core-no-host", "the core never imports a host (`bridges`, the CLI)",
@@ -160,6 +176,17 @@ EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
            "Instagram and TikTok, and `shared/device/manager.py` applies it on connection (the "
            "\"exception de compat\" AGENTS.md allows `shared`). Inverting it, each platform "
            "registering its own catalogs, removes the entry."),
+    ("shared-below-transverse", "taktik/core/shared/device/app_inspection.py"): (
+        1, "`is_platform_foreground` asks the clone package map (lazily) whether the package in front "
+           "belongs to a platform, clones included. The map is package data owned by `clone`: moving "
+           "it below `shared`, or the question above it, removes the entry."),
+    ("shared-below-transverse", "taktik/core/shared/device/manager.py"): (
+        1, "The device manager applies the selector version overrides of the installed apps on "
+           "connection (`compat.selectors.setup`, lazily): the \"exception de compat\" AGENTS.md allows "
+           "`shared`. Inverting it, each platform registering its own catalogs, removes the entry."),
+    ("shared-below-transverse", "taktik/core/shared/diagnostics/foreground_guard.py"): (
+        1, "The foreground guard asks the clone package map whether the app in front is still the "
+           "run's platform: the same data as `app_inspection.py`, the same way out."),
 }
 
 
@@ -283,6 +310,23 @@ def crossings(module: SourceModule) -> dict[str, list[tuple[int, str]]]:
     return found
 
 
+def unused_provider_edges(modules: Mapping[str, SourceModule]) -> list[str]:
+    """Each edge of `PROVIDERS` that no import of the served platform uses any more: drop it."""
+    used: set[tuple[str, str]] = set()
+    for path, module in modules.items():
+        if module.error or not in_layers(path):
+            continue
+        source = family(module.name)
+        for statement in module.statements:
+            for target in statement.targets:
+                if source in PROVIDERS.get(family(target), frozenset()):
+                    used.add((family(target), source))
+    return [f"{platform} no longer imports the provider {provider}: drop it from PROVIDERS "
+            f"(platforms-independent, the list only shrinks)"
+            for provider, served in sorted(PROVIDERS.items()) for platform in sorted(served)
+            if (provider, platform) not in used]
+
+
 def check(modules: Mapping[str, SourceModule],
           exceptions: Mapping[tuple[str, str], tuple[int, str]] = EXCEPTIONS) -> list[str]:
     failures: list[str] = []
@@ -319,7 +363,7 @@ def check(modules: Mapping[str, SourceModule],
                             f"{ceiling} (lines {lines}): {rules[contract]}")
         elif len(hits) < ceiling:
             failures.append(f"{path} ({contract}) went down to {len(hits)} (ceiling {ceiling}): lower the ceiling")
-    return failures + unresolved_imports(modules)
+    return failures + unused_provider_edges(modules) + unresolved_imports(modules)
 
 
 def main() -> int:
@@ -331,8 +375,9 @@ def main() -> int:
         print(f"Import layers: {len(failures)} finding(s). The rules are in this script's docstring; "
               f"a boundary crossed today is named in EXCEPTIONS with its reason.")
     elif verdict == 0 and not update:
+        edges = sum(len(served) for served in PROVIDERS.values())
         print(f"Import layers OK ({len(modules)} modules, {len(CONTRACTS)} contracts, "
-              f"{len(EXCEPTIONS)} named exception(s), every import resolves)")
+              f"{len(EXCEPTIONS)} named exception(s), {edges} provider edge(s), every import resolves)")
     return verdict
 
 
@@ -348,10 +393,13 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
     def listed(module: SourceModule, expect: str) -> dict:
         return {"modules": {**modules, module.path: module}, "expect": expect}
 
-    one = modules["taktik/core/ai/comments/generation.py"]
+    one = modules["taktik/core/shared/device/manager.py"]
     two = modules["taktik/core/compat/selectors/setup.py"]
     without_tiktok = tuple(s for s in two.statements
                            if not any(t.startswith("taktik.core.social_media.tiktok") for t in s.targets))
+    signup = modules["taktik/core/social_media/tiktok/workflows/management/signup/signup_workflow.py"]
+    without_gmail = tuple(s for s in signup.statements
+                          if not any(t.startswith("taktik.core.social_media.gmail") for t in s.targets))
     return {
         "shared imports a platform": fake(
             "taktik/core/shared/fake.py", "from taktik.core.social_media.instagram.ui import selectors\n",
@@ -375,10 +423,35 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
         "a transverse family imports a platform": fake(
             "taktik/core/clone/fake.py", "from taktik.core.social_media.instagram import ui\n",
             "(transverse-no-platform)"),
+        "the kernel imports a platform": fake(
+            "taktik/core/kernel/fake.py", "from taktik.core.social_media.instagram import ui\n",
+            "(transverse-no-platform)"),
+        "the contract imports a platform": fake(
+            "taktik/core/contract/fake.py", "import taktik.core.social_media.tiktok.core\n",
+            "(transverse-no-platform)"),
+        "the AI imports a platform lazily": fake(
+            "taktik/core/ai/comments/fake.py",
+            "def f():\n    from taktik.core.social_media.instagram.workflows.common import comment_context\n",
+            "(transverse-no-platform)"),
+        "shared imports a transverse family": fake(
+            "taktik/core/shared/fake.py", "from taktik.core.kernel.contracts import WorkflowInvocation\n",
+            "(shared-below-transverse)"),
+        "shared imports the AI lazily": fake(
+            "taktik/core/shared/fake.py", "def f():\n    from taktik.core.ai import factory\n",
+            "(shared-below-transverse)"),
+        "a platform imports the provider it is not named for": fake(
+            "taktik/core/social_media/instagram/fake.py",
+            "from taktik.core.social_media.gmail.workflows.account import GmailWorkflow\n",
+            "(platforms-independent)"),
+        "the provider imports a platform it serves": fake(
+            "taktik/core/social_media/gmail/fake.py", "import taktik.core.social_media.tiktok.core\n",
+            "(platforms-independent)"),
+        "a provider edge no import uses any more": listed(
+            replace(signup, statements=without_gmail), "no longer imports the provider"),
         "the core imports a bridge": fake(
             "taktik/core/social_media/instagram/fake.py", "from bridges.common.runtime.ipc import IPC\n",
             "(core-no-host)"),
-        "the core imports the CLI": fake("taktik/core/agent/fake.py", "import taktik.cli.main\n", "(core-no-host)"),
+        "the core imports the CLI": fake("taktik/core/kernel/fake.py", "import taktik.cli.main\n", "(core-no-host)"),
         "database imports compat": fake(
             "taktik/core/database/fake.py", "from taktik.core.compat.selectors import setup\n",
             "(database-no-upper-layer)"),
@@ -388,7 +461,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
         "a new root family under the core": fake("taktik/core/utils/fake.py", "X = 1\n", "not a known family"),
         "a file that does not parse": fake("taktik/core/shared/fake.py", "def (\n", "does not parse"),
         "a listed file imports once more": listed(
-            _with_extra_import(one, "taktik.core.social_media.tiktok.core"), "times, ceiling"),
+            _with_extra_import(one, "taktik.core.kernel.contracts"), "times, ceiling"),
         "a listed file no longer crosses": listed(replace(one, statements=()), "no longer crosses"),
         "a listed file crosses less than its ceiling": listed(
             replace(two, statements=without_tiktok), "lower the ceiling"),
