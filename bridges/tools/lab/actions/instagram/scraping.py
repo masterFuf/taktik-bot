@@ -146,7 +146,7 @@ def read_share_url(a, p):
     """Read the OPEN post's share URL (production get_post_url_from_share: open share sheet
     + copy link + read clipboard) — used to dedup posts. A post must be open."""
     from taktik.core.social_media.instagram.workflows.common.post_navigation import get_post_url_from_share
-    url = get_post_url_from_share(a.device)
+    url = get_post_url_from_share(a.device, extractors=a.popup.ui_extractors)
     return {"success": bool(url), "message": url or "no share URL read", "details": {"url": url}}
 
 

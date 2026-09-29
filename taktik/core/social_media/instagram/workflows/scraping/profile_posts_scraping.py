@@ -21,13 +21,16 @@ The reads are the production ones too: the counters through the shared
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
 from ...ui.language import detect_and_optimize
 from ..common.detection import is_reel_post
 from ..common.post_navigation import get_post_url_from_share
+
+if TYPE_CHECKING:
+    from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 
 console = Console()
 
@@ -38,6 +41,10 @@ MAX_BACK_PRESSES_TO_GRID = 2
 
 class ProfilePostsScrapingMixin:
     """Mixin: collect the post URLs and counters of target profiles."""
+
+    #: The host's extractors, built with the reader of the framed post (`ScrapingWorkflow`):
+    #: declared here as an interface would be, set by the host.
+    ui_extractors: "InstagramUIExtractors"
 
     def _scrape_profile_posts(self) -> Dict[str, Any]:
         """Walk each target's posts and collect them."""
@@ -154,7 +161,7 @@ class ProfilePostsScrapingMixin:
     def _collect_open_post(self, target: str, repo, seen_urls: set) -> str:
         """Read the open post and store it. Returns the tally key of what happened."""
         likes, comments = self._read_post_counts()
-        post_url = get_post_url_from_share(self.device, self.logger)
+        post_url = get_post_url_from_share(self.device, self.logger, extractors=self.ui_extractors)
         if not post_url:
             self.logger.warning(f"@{target}: no share URL on this post, not collected")
             return "no_url"

@@ -1,6 +1,10 @@
 """Popup handling — likers popup, comments view, close popup, follow suggestions."""
 
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 
 #: What opening a post's comments thread found (`_open_comments_thread`): the thread is open, or why not.
 COMMENTS_OPENED = "opened"
@@ -14,6 +18,10 @@ COMMENTS_NOT_OPENED = "not_opened"
 
 class PopupHandlingMixin:
     """Mixin: popup handling — likers, comments, follow suggestions, swipe-to-close."""
+
+    #: The host's extractors, built with the reader of the framed post (`BaseBusinessAction`):
+    #: declared here as an interface would be, set by the host.
+    ui_extractors: "InstagramUIExtractors"
 
     #: Back presses a comments sheet may take: an empty thread gives its composer the focus and the
     #: keyboard, and the first Back only hides the keyboard (Pixel 3a, Instagram 410, 2026-09-28).
@@ -52,6 +60,20 @@ class PopupHandlingMixin:
         """Find the like count element on the current post (reel-aware)."""
         return self.ui_extractors.find_like_count_element(logger_instance=self.logger)
 
+    def _tap_framed_post_comment_button(self, selectors) -> bool:
+        """Tap the comment button of the post the screen frames (`framed_post_element`): on a list of
+        posts, the one of its own button row, never the post above's, under which the comment would
+        be published. False, and nothing tapped, when the screen shows none.
+
+        The one tap of both openings of a post's comments: the thread read before a comment
+        (`_open_comments_thread`) and the comment itself (`CommentAction._click_comment_button`),
+        each with its own selectors."""
+        button = self.ui_extractors.framed_post_element(selectors, "comment button", logger_instance=self.logger)
+        if button is None:
+            return False
+        button.click()
+        return True
+
     def _open_comments_view(self) -> bool:
         """Open the comments thread of the current post; True once it is showing.
 
@@ -61,7 +83,7 @@ class PopupHandlingMixin:
         return self._open_comments_thread() == COMMENTS_OPENED
 
     def _open_comments_thread(self) -> str:
-        """Tap the post's comment button, then confirm the thread is actually showing.
+        """Tap the framed post's comment button, then confirm the thread is actually showing.
 
         A post with no comments at all is closed again (`COMMENTS_EMPTY`): there is nobody to
         engage there. Closed means checked: the sheet of an empty thread focuses its composer, and
@@ -72,18 +94,10 @@ class PopupHandlingMixin:
         )
 
         try:
-            opened = False
-            for selector in self.button_selectors.comment_button:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    element.click()
-                    time.sleep(2)
-                    opened = True
-                    break
-
-            if not opened:
+            if not self._tap_framed_post_comment_button(self.button_selectors.comment_button):
                 self.logger.warning("⚠️ No comment button found on this post")
                 return COMMENTS_NO_BUTTON
+            time.sleep(2)
 
             if self.device.xpath(POST_COMMENTS_SELECTORS.comment_empty_state_view).exists:
                 self.logger.info("Post has no comments — nothing to engage with here")

@@ -288,74 +288,117 @@ class InstagramUIExtractors:
         Off a list (the full-screen Reel viewer), the viewer's own counter.
         """
         logger_to_use = logger_instance if logger_instance else log
-        target = self._framed_post_target(logger_to_use)
+        candidates = self._framed_post_row_elements(
+            self.post_selectors.like_count_selectors, "like counter", logger_to_use)
+        if candidates is None:
+            return None
+
+        for selector, element in candidates:
+            try:
+                text = None
+                if hasattr(element, 'text'):
+                    text = element.text
+                elif hasattr(element, 'get_text'):
+                    text = element.get_text()
+                elif hasattr(element, 'attrib') and 'text' in element.attrib:
+                    text = element.attrib['text']
+
+                content_desc = None
+                try:
+                    element_info = element.info
+                    content_desc = element_info.get('contentDescription', '')
+                except Exception as exc:
+                    logger_to_use.debug(f"Counter description unreadable, its text read alone: {exc}")
+
+                logger_to_use.debug(f"Checking element - text: '{text}', content-desc: '{content_desc}' (clickable: {element.attrib.get('clickable', 'unknown')})")
+
+                # Case 1: the label IS the number, on regular posts.
+                if text and self.is_like_count_text(text):
+                    logger_to_use.info(f"✅ Valid like counter found (post): {selector} (text: '{text}')")
+                    return element
+
+                # Case 2: on reels the number is embedded in a sentence. The SELECTOR
+                # already points at the like counter, so all that is left is checking
+                # that it carries a NUMBER — a check that must not be written in one
+                # language, or the element is found and then rejected.
+                label = content_desc or text
+                count = count_from_counter_label(label) if label else None
+                if count:  # 0 behaves like None: nothing to open here either
+                    logger_to_use.info(f"✅ Valid like counter found ({count} likes): {selector} (label: '{label}')")
+                    return element
+            except Exception as e:
+                logger_to_use.debug(f"Error checking element: {e}")
+                continue
+
+        logger_to_use.warning("❌ No like counter found with all selectors")
+        return None
+
+    def framed_post_element(self, selectors, what: str, logger_instance=None):
+        """The first element `selectors` find on the post the screen frames; None when the screen
+        shows none. `what` names it in the log ("comment button", "share button").
+
+        The gestures of a post's button row (comment, share) go through it: on a list of posts (the
+        home feed, a hashtag's or a profile's posts) the first button of the screen is often the
+        post above's, and a comment typed after tapping it is published under that post. So only
+        the framed post's own button row counts, as for its like counter; off a list (the
+        full-screen Reel viewer), the viewer's own button."""
+        logger_to_use = logger_instance if logger_instance else log
+        candidates = self._framed_post_row_elements(selectors, what, logger_to_use)
+        if candidates is None:
+            return None
+        for selector, element in candidates:
+            logger_to_use.debug(f"The framed post's {what}: {selector}")
+            return element
+        logger_to_use.warning(f"No {what} on the framed post")
+        return None
+
+    def _framed_post_row_elements(self, selectors, what: str, logger_to_use):
+        """(selector, element) for each element `selectors` find on the post the screen frames, in
+        selector order; None when that post cannot be told on this screen.
+
+        On a list of posts, only what lies in the framed post's own button row, which the framed
+        post's reader gives (`PostReadingMixin.framed_post_like_target`, the reading the like
+        uses): None when that row is not on screen. Off a list, every element found."""
+        target = self._framed_post_target(logger_to_use, what)
         if target is None:
             return None
         on_a_list, framed_row = target["list"], target.get("row")
         if on_a_list and framed_row is None:
-            logger_to_use.warning("The framed post's button row is not on screen: no like counter")
+            logger_to_use.warning(f"The framed post's button row is not on screen: no {what}")
             return None
+        return self._elements_in_row(selectors, framed_row if on_a_list else None, what, logger_to_use)
 
-        for selector in self.post_selectors.like_count_selectors:
+    def _elements_in_row(self, selectors, row, what: str, logger_to_use):
+        """(selector, element) for each element `selectors` find, those outside `row` left out (row
+        None: none left out). Lazy: the next selector is asked only when the caller wants more, one
+        screen read per selector asked."""
+        for selector in selectors:
             try:
                 elements = self.device.xpath(selector).all()
-                logger_to_use.debug(f"Selector '{selector}' found {len(elements)} elements")
-
-                for element in elements:
-                    if on_a_list and not _in_row(element.bounds, framed_row):
-                        logger_to_use.debug(f"Counter of another post's row skipped: {element.bounds}")
-                        continue
-                    try:
-                        text = None
-                        if hasattr(element, 'text'):
-                            text = element.text
-                        elif hasattr(element, 'get_text'):
-                            text = element.get_text()
-                        elif hasattr(element, 'attrib') and 'text' in element.attrib:
-                            text = element.attrib['text']
-                        
-                        content_desc = None
-                        try:
-                            element_info = element.info
-                            content_desc = element_info.get('contentDescription', '')
-                        except Exception as exc:
-                            logger_to_use.debug(f"Counter description unreadable, its text read alone: {exc}")
-                        
-                        logger_to_use.debug(f"Checking element - text: '{text}', content-desc: '{content_desc}' (clickable: {element.attrib.get('clickable', 'unknown')})")
-                        
-                        # Case 1: the label IS the number, on regular posts.
-                        if text and self.is_like_count_text(text):
-                            logger_to_use.info(f"✅ Valid like counter found (post): {selector} (text: '{text}')")
-                            return element
-
-                        # Case 2: on reels the number is embedded in a sentence. The SELECTOR
-                        # already points at the like counter, so all that is left is checking
-                        # that it carries a NUMBER — a check that must not be written in one
-                        # language, or the element is found and then rejected.
-                        label = content_desc or text
-                        count = count_from_counter_label(label) if label else None
-                        if count:  # 0 behaves like None: nothing to open here either
-                            logger_to_use.info(f"✅ Valid like counter found ({count} likes): {selector} (label: '{label}')")
-                            return element
-                    except Exception as e:
-                        logger_to_use.debug(f"Error checking element: {e}")
-                        continue
             except Exception as e:
                 logger_to_use.debug(f"Error with selector {selector}: {e}")
                 continue
-        
-        logger_to_use.warning("❌ No like counter found with all selectors")
-        return None
+            logger_to_use.debug(f"Selector '{selector}' found {len(elements)} elements")
+            for element in elements:
+                try:
+                    in_row = row is None or _in_row(element.bounds, row)
+                except Exception as e:
+                    logger_to_use.debug(f"{what.capitalize()} without bounds skipped ({selector}): {e}")
+                    continue
+                if not in_row:
+                    logger_to_use.debug(f"{what.capitalize()} of another post's row skipped: {element.bounds}")
+                    continue
+                yield selector, element
 
-    def _framed_post_target(self, logger_to_use) -> Optional[Dict[str, Any]]:
+    def _framed_post_target(self, logger_to_use, what: str) -> Optional[Dict[str, Any]]:
         """What the framed post's reader says of the screen: a list of posts and the framed post's
         button row, or no list at all. None when it cannot be told."""
         if self.framed_post is None:
-            logger_to_use.error("No reader of the framed post: its like counter cannot be told from another post's")
+            logger_to_use.error(f"No reader of the framed post: its {what} cannot be told from another post's")
             return None
         target = self.framed_post.framed_post_like_target()
         if target is None:
-            logger_to_use.warning("Screen unreadable: no like counter")
+            logger_to_use.warning(f"Screen unreadable: no {what}")
         return target
 
     def extract_usernames_from_likers_popup(

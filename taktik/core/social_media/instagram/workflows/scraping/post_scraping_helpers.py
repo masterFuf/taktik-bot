@@ -2,7 +2,7 @@
 
 import time
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
@@ -19,11 +19,18 @@ from ..common.detection import is_reel_post, is_in_post_view
 from ..common.post_navigation import open_first_post_of_profile, get_post_url_from_share
 from .list_strategy import make_commenters_strategy
 
+if TYPE_CHECKING:
+    from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
+
 console = Console()
 
 
 class ScrapingPostHelpersMixin:
     """Mixin: post opening, reel detection, likers/commenters extraction."""
+
+    #: The host's extractors, built with the reader of the framed post (`ScrapingWorkflow`):
+    #: declared here as an interface would be, set by the host.
+    ui_extractors: "InstagramUIExtractors"
 
     def _scrape_post_likers_commenters(
         self, 
@@ -95,7 +102,7 @@ class ScrapingPostHelpersMixin:
 
     def _get_post_url(self) -> Optional[str]:
         """Get the Instagram URL of the currently open post via the Share button."""
-        return get_post_url_from_share(self.device, self.logger)
+        return get_post_url_from_share(self.device, self.logger, extractors=self.ui_extractors)
 
     def _is_in_post_view(self) -> bool:
         """Check if we're in a post view."""
@@ -190,21 +197,15 @@ class ScrapingPostHelpersMixin:
         scraped = []
 
         try:
-            # Click on comment button to open comments
-            comment_button_selectors = BUTTON_SELECTORS.comment_button
-
-            comments_opened = False
-            for selector in comment_button_selectors:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    element.click()
-                    time.sleep(2)
-                    comments_opened = True
-                    break
-
-            if not comments_opened:
+            # The framed post's own comment button: the first one of the screen can be the post
+            # above's, whose commenters would be filed under this post.
+            comment_button = self.ui_extractors.framed_post_element(
+                BUTTON_SELECTORS.comment_button, "comment button", logger_instance=self.logger)
+            if comment_button is None:
                 self.logger.warning("Could not open comments")
                 return scraped
+            comment_button.click()
+            time.sleep(2)
 
             # Check for 'No comments yet' empty state — close popup and bail out
             if self.device.xpath(POST_COMMENTS_SELECTORS.comment_empty_state_view).exists:

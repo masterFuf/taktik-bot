@@ -135,6 +135,9 @@ def _scraping_class():
             self._ai_service = _Ai()
             self.scraped_posts = []
             self.scraping_session_id = None
+            # No screen is read here: the link of a post is the fixture's (`get_post_url_from_share`
+            # replaced), and the extractors that would find its share button are not needed.
+            self.ui_extractors = None
 
         def _read_post_counts(self):
             return 120, None
@@ -177,7 +180,7 @@ def scraping_bridge(monkeypatch):
     monkeypatch.setattr(runtime_setup, "prepare_instagram_selectors", lambda **kwargs: None)
     monkeypatch.setattr(agent_handler, "_default_workflow_factory", _scraping_class)
     monkeypatch.setattr(profile_posts_scraping, "get_post_url_from_share",
-                        lambda device, log: "https://www.instagram.com/p/Post1/")
+                        lambda device, log, *, extractors: "https://www.instagram.com/p/Post1/")
     monkeypatch.setattr(emitter, "_bridge_adapter", sys.modules[ipc_adapter.__name__])
     return runner
 

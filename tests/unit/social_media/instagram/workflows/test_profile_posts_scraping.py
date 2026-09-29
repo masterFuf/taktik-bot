@@ -128,10 +128,12 @@ def _quiet_device(monkeypatch):
 
 
 def _urls(monkeypatch, urls):
-    """Hand back `urls` in order, one per share-sheet read (None = link not copied)."""
-    reads = {"n": 0}
+    """Hand back `urls` in order, one per share-sheet read (None = link not copied). The read gets
+    the walk's extractors, which say which share button is the framed post's."""
+    reads = {"n": 0, "extractors": []}
 
-    def share_url(device, logger=None):
+    def share_url(device, logger=None, *, extractors):
+        reads["extractors"].append(extractors)
         index = reads["n"]
         reads["n"] += 1
         return urls[index] if index < len(urls) else None
@@ -164,13 +166,15 @@ def test_the_first_post_is_opened_once_then_the_run_advances_in_the_viewer(monke
 def test_each_post_is_stored_with_its_url_and_counters(monkeypatch):
     repo = _Repo()
     urls = ["https://www.instagram.com/p/A/?igsh=x", "https://www.instagram.com/reel/B/"]
-    _urls(monkeypatch, urls)
+    reads = _urls(monkeypatch, urls)
     h = _Harness(repo, {"target_usernames": ["@Nike"], "max_posts_per_target": 2})
 
     result = h._scrape_profile_posts()
 
     assert result["success"] is True and result["total_scraped"] == 2
     assert [r["post_url"] for r in repo.records] == urls
+    # Each link is read from the framed post's share button, told by the walk's own extractors.
+    assert reads["extractors"] == [h.ui_extractors, h.ui_extractors]
     # The account is the profile we walked — never read off the screen.
     assert {r["author_username"] for r in repo.records} == {"@Nike"}
     assert repo.records[0]["likes_count"] == 96 and repo.records[0]["comments_count"] == 9

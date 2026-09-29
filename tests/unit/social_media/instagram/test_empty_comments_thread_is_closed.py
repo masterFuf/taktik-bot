@@ -50,6 +50,9 @@ def _comment_button_areas():
 
 class _Phone:
     wait_timeout = 0.0
+    # The screen of the captures (Pixel 3a): the reader of the framed post bounds its window by it,
+    # and the feed post's button row runs down to 1926 px.
+    info = {"displayWidth": 1080, "displayHeight": 2220}
 
     def __init__(self):
         self.screen = "feed"

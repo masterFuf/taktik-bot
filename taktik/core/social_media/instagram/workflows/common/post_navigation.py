@@ -176,11 +176,11 @@ def _close_share_sheet(device, logger=None) -> bool:
     return closed
 
 
-def get_post_url_from_share(device, logger=None) -> Optional[str]:
+def get_post_url_from_share(device, logger=None, *, extractors) -> Optional[str]:
     """Extract the Instagram URL of the currently open post via the Share button.
 
     Flow:
-      1. Tap the Share button on the post.
+      1. Tap the Share button of the framed post.
       2. In Instagram's share sheet, tap "Copy link".
       3. On devices where tapping "Copy link" opens the Android system share
          picker (e.g. Samsung Quick Share), the URL is visible as a text
@@ -190,23 +190,22 @@ def get_post_url_from_share(device, logger=None) -> Optional[str]:
     Args:
         device: uiautomator2 device
         logger: optional logger
+        extractors: the caller's `InstagramUIExtractors`, built with the reader of the framed post:
+            it says which share button is the framed post's (`framed_post_element`)
 
     Returns:
         The full Instagram post URL, or None if it could not be retrieved.
     """
     try:
-        # Step 1: tap the share button.
+        # Step 1: tap the share button of the framed post. On a list of posts the first share
+        # button of the screen can be the post above's: its link was then filed for this post.
         # Different post types use different resource-ids / content-desc:
         #   - Reels: direct_share_button
         #   - Regular feed posts: row_feed_button_share / "Send Post"
         # Selectors are centralised in POST_SHARE_SHEET_SELECTORS.share_button_selectors and use
         # contains(@resource-id) so they work with clone APKs.
-        share_btn = None
-        for sel in POST_SHARE_SHEET_SELECTORS.share_button_selectors:
-            elem = device.xpath(sel)
-            if elem.exists:
-                share_btn = elem
-                break
+        share_btn = extractors.framed_post_element(
+            POST_SHARE_SHEET_SELECTORS.share_button_selectors, "share button", logger_instance=logger)
 
         if share_btn is None:
             if logger:

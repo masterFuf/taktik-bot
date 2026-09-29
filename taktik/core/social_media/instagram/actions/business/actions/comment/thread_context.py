@@ -72,8 +72,9 @@ class ThreadContextMixin:
 
             # The mis-tap onto the neighbouring share button is the documented failure of this
             # surface. Caught HERE rather than later: left open, the sheet would sit there for
-            # the whole 10-20 s of the model call, and `_click_comment_button` — a plain
-            # hierarchical `.exists` with no visibility check — would then tap UNDER it.
+            # the whole 10-20 s of the model call, and `_click_comment_button` — which finds the
+            # framed post's button in the tree, with no check that nothing covers it — would then
+            # tap UNDER it.
             try:
                 if self._dismiss_share_sheet_if_open():
                     return self._empty("share_sheet", started)

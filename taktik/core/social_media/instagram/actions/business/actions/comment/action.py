@@ -207,7 +207,7 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             from taktik.core.social_media.instagram.workflows.common.post_navigation import (
                 get_post_url_from_share,
             )
-            url = get_post_url_from_share(self.device, self.logger)
+            url = get_post_url_from_share(self.device, self.logger, extractors=self.ui_extractors)
             if url:
                 InstagramPostedComments.attach_post_url(comment_id, url)
                 self.logger.debug(f"Post URL captured for comment {comment_id}: {url}")
@@ -233,18 +233,13 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
             return False
 
     def _click_comment_button(self) -> bool:
+        """Open the comment box of the framed post (`_tap_framed_post_comment_button`): on a list of
+        posts, the button of its own row. The first comment button of the screen can be the post
+        above's, and the comment written for the framed post was then published under that post."""
         try:
-            for selector in self.post_selectors.comment_button_selectors:
-                try:
-                    element = self.device.xpath(selector)
-                    if element.exists:
-                        element.click()
-                        self.logger.debug(f"Comment button clicked with selector: {selector}")
-                        return True
-                except Exception as e:
-                    self.logger.debug(f"Failed with selector {selector}: {e}")
-                    continue
-            
+            if self._tap_framed_post_comment_button(self.post_selectors.comment_button_selectors):
+                self.logger.debug("Comment button of the framed post clicked")
+                return True
             self.logger.warning("Comment button not found")
             return False
 
