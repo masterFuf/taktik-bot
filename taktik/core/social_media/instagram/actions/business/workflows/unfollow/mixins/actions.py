@@ -369,9 +369,10 @@ class UnfollowActionsMixin:
         self._wait_for_list_rows()
         return True
 
-    def _list_tab_selected(self, package: str, kind: str) -> bool:
+    def _list_tab_selected(self, package: str, kind: str, screen: Optional[str] = None) -> bool:
+        """Is the `kind` tab the one shown, on `screen` (a dump already taken) or on a fresh one?"""
         d = self.device.device
-        return any(d.xpath(selector).exists
+        return any(d.xpath(selector, screen).exists
                    for selector in UNFOLLOW_SELECTORS.unified_tab_selectors(package, kind, selected=True))
 
     def _wait_for_list_rows(self) -> bool:

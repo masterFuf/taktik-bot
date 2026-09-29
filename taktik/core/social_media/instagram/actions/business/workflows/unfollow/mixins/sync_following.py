@@ -392,10 +392,17 @@ class SyncFollowingMixin(UnfollowActionsMixin):
 
             # Tap the non-reciprocal category
             if not self._click_non_followers_category():
-                self.logger.warning(
-                    "scrape_non_followers_category: category not found — "
-                    "may not be visible for this account size"
-                )
+                if self._fans_category_not_served():
+                    stats['category_not_served'] = True
+                    self.logger.info(
+                        "scrape_non_followers_category: our followers list opens on its accounts, "
+                        "Instagram serves it no category now: no fans to read"
+                    )
+                else:
+                    self.logger.warning(
+                        "scrape_non_followers_category: fans category not found, and the list does "
+                        "not open on its accounts (a category label no locale knows, or another screen)"
+                    )
                 return stats
 
             # Wait for the non-reciprocal view to load (its follow-back button visible)
@@ -473,6 +480,24 @@ class SyncFollowingMixin(UnfollowActionsMixin):
         except Exception as e:
             self.logger.debug(f"Error clicking non-followers category: {e}")
             return False
+
+    def _fans_category_not_served(self) -> bool:
+        """Is it proven that Instagram serves our followers list no category now (it does on some
+        days only, to the same account)?
+
+        Read on one dump: the followers tab is the one shown, when the list has tabs, and the list,
+        at its top, opens on its accounts under its search box and its sort row. Anything else
+        there (a category whose label no locale knows, a header, a list scrolled off its top)
+        proves nothing. The list is taken for ours, as the category tap above takes it: opened
+        from our profile, or found open.
+        """
+        d = self.device.device
+        package = get_active_package()
+        screen = d.dump_hierarchy()
+        has_tabs = d.xpath(UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(package), screen).exists
+        if has_tabs and not self._list_tab_selected(package, "followers", screen):
+            return False
+        return d.xpath(UNFOLLOW_SELECTORS.list_opens_on_accounts_selector(package), screen).exists
 
     def _extract_all_non_followers(self) -> List[str]:
         """

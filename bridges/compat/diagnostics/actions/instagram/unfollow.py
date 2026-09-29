@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from loguru import logger
 
 from bridges.compat.diagnostics.actions.instagram import action, detection_action
+from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_applicable
 
 
 def unfollow_config_from_params(p):
@@ -81,8 +82,13 @@ def sort_following_list(a, p):
 @action("unfollow.read_fans_category")
 def read_fans_category(a, p):
     """Open the 'followers you don't follow back' category and record those FANS (production
-    `scrape_non_followers_category`). Nothing is deduced for the accounts we follow."""
+    `scrape_non_followers_category`). Nothing is deduced for the accounts we follow. Not applicable
+    only when production proved the category not served (the list opens on its accounts)."""
     stats = a.unfollow.scrape_non_followers_category()
+    if stats.get("category_not_served"):
+        return not_applicable("unfollow.read_fans_category",
+                              "our followers list opens on its accounts, Instagram serves it no category now",
+                              **_sync_summary(stats))
     return {"success": bool(stats.get("success")), "message": f"{stats.get('fans_count', 0)} fans",
             "details": _sync_summary(stats)}
 

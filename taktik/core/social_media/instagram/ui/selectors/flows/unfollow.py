@@ -116,6 +116,27 @@ class UnfollowSelectors:
             selectors.append(f'//*[@resource-id="{title}"][contains(@text, "{label}")]')
         return selectors
 
+    # === Head of a follow list (language-neutral) ===
+    # The rows are the children of the framework's list; the first one is the search box while the
+    # list shows its top. When Instagram serves the categories of our followers tab (the fans one
+    # among them), they come right under the search box, after a spacer and a header; on Instagram
+    # 447 the sort row ("Trié par Par défaut") may come there instead, above the accounts.
+    follow_list_resource_id: str = 'android:id/list'
+    follow_list_search_resource_name: str = 'row_search_edit_text'
+
+    def list_opens_on_accounts_selector(self, app_id: str) -> str:
+        """The first row under the search box and the sort row of the open follow list, when that
+        row is an account: the list, read at its top, shows no category above its accounts.
+
+        A category there (renamed or not), its spacer or its header matches nothing; so does a list
+        scrolled off its top, whose first row is no longer the search box.
+        """
+        search = self.active_resource_id(app_id, self.follow_list_search_resource_name)
+        sort_row = ' or '.join(f'.{selector}' for selector in self.sort_entry_label)
+        account = f'.{self.follow_list_username_selector(app_id)}'
+        return (f'//*[@resource-id="{self.follow_list_resource_id}"]/*[1][.//*[@resource-id="{search}"]]'
+                f'/following-sibling::*[not({sort_row})][1][{account}]')
+
     # === Unfollow confirmation in the popup (locales overlay) ===
     @property
     def unfollow_confirm(self) -> List[str]:
