@@ -20,9 +20,16 @@ from bridges.tools.lab.actions.instagram import action, detection_action
 def like_current_post(a, p):
     """Like the CURRENTLY OPEN post via the production orchestration (double-tap vs
     button + already-liked guard) — distinct from the atomic ``post.like``. A post must
-    be open."""
-    ok = a.like.like_current_post()
-    return {"success": bool(ok), "message": "post liked" if ok else "like failed / already liked"}
+    be open. An already-liked post is no gesture and no like: it is said so, never « post liked »."""
+    from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
+
+    outcome = a.like.like_current_post()
+    if outcome is FramedLike.LIKED:
+        return {"success": True, "message": "post liked", "details": {"outcome": outcome.value}}
+    if outcome is FramedLike.ALREADY_LIKED:
+        return {"success": True, "message": "already liked: no gesture, no like given",
+                "details": {"outcome": outcome.value}}
+    return {"success": False, "message": "like failed", "details": {"outcome": outcome.value}}
 
 
 @action("engagement.read_feed_post_author")

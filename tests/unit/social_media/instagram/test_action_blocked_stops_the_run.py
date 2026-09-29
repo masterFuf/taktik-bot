@@ -29,6 +29,7 @@ from taktik.core.social_media.instagram.actions.core.base_business.config_parsin
     ConfigParsingMixin,
 )
 from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+    FramedLike,
     LikeOrchestration,
 )
 import taktik.core.social_media.instagram.actions.business.workflows.feed.workflow as feed_module
@@ -386,7 +387,7 @@ def _orchestration(phone, liked=True):
 
     def _like():
         orch.gestures.append("like")
-        return liked
+        return FramedLike.LIKED if liked else FramedLike.NOT_LIKED
 
     def _comment(*a, **k):
         orch.gestures.append("comment")
@@ -580,7 +581,7 @@ def test_the_hashtag_post_is_not_commented_after_a_refused_like():
     workflow.logger = _Logger()
     workflow.stats_manager = _Stats()
     workflow.nav_actions = types.SimpleNamespace(problematic_page_detector=ProblematicPageDetector(phone))
-    workflow.like_business = types.SimpleNamespace(like_current_post=lambda **k: gestures.append("like") or True)
+    workflow.like_business = types.SimpleNamespace(like_current_post=lambda **k: gestures.append("like") or FramedLike.LIKED)
     workflow.comment_business = types.SimpleNamespace(
         comment_on_post=lambda **k: gestures.append("comment") or {"commented": True})
     stats = {"likes_made": 0, "comments_made": 0}

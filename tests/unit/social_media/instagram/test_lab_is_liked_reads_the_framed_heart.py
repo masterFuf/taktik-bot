@@ -69,6 +69,6 @@ def test_the_framed_post_liked_is_liked(monkeypatch):
     monkeypatch.setattr(orchestration, "should_double_tap_like", lambda: False)
     phone = ProfilePostsPhone(screen=ROW_ON_SCREEN, likes_on_tap=True)
     lab = _lab_bundle(phone)
-    assert lab.like.like_current_post() is True
+    assert lab.like.like_current_post() is orchestration.FramedLike.LIKED
 
     assert is_liked(lab, {}) is True

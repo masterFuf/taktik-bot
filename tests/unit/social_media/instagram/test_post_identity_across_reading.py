@@ -33,6 +33,7 @@ from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import PostReadingMixin
 from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+    FramedLike,
     LikeOrchestration,
 )
 from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
@@ -77,7 +78,7 @@ def _host(phone):
     host.ui_extractors = InstagramUIExtractors(device)
     host.scroll_actions = _Reader(phone, device)
     host.likes = []
-    host.like_current_post = lambda: host.likes.append(phone.offset) or True
+    host.like_current_post = lambda: host.likes.append(phone.offset) or FramedLike.LIKED
     host._stop_if_action_blocked = lambda *_args: False
     return host
 

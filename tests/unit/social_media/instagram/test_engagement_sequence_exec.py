@@ -3,6 +3,7 @@
 import pytest
 
 from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+    FramedLike,
     LikeOrchestration,
 )
 
@@ -33,7 +34,7 @@ class _Host(LikeOrchestration):
 
     def like_current_post(self):
         self.calls.append('like')
-        return self._like_ok
+        return FramedLike.LIKED if self._like_ok else FramedLike.NOT_LIKED
 
     def _comment_current_post(self, *_a, **_k):
         self.calls.append('comment')

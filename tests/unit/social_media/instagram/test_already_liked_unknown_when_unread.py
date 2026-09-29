@@ -26,6 +26,8 @@ The screens are real dumps of the Pixel 3a (Instagram 410), anonymized, replayed
   and a tap on it do (derived: only its `selected` changes).
 """
 
+from types import SimpleNamespace
+
 import pytest
 from loguru import logger
 from lxml import etree
@@ -236,7 +238,7 @@ def test_off_a_list_the_like_does_not_tap_a_heart_it_could_not_read(monkeypatch,
     like = like_on_phone(phone)
     _then_the_server_stops_once(phone, like.detection_actions, "is_on_post_screen")
 
-    assert like.like_current_post() is False
+    assert like.like_current_post() is orchestration.FramedLike.NOT_LIKED
 
     assert phone.taps == [], "the heart of a liked post was tapped: its like taken back"
     assert phone.liked is True
@@ -249,7 +251,7 @@ def test_off_a_list_a_double_tap_whose_check_fails_is_not_undone_by_a_heart_tap(
     phone = _ViewerPhone(liked=False, stops_after_double_tap=True)
     like = like_on_phone(phone)
 
-    assert like.like_current_post() is False
+    assert like.like_current_post() is orchestration.FramedLike.NOT_LIKED
 
     assert [kind for kind, _x, _y in phone.taps] == ["double_tap"], phone.taps
     assert phone.liked is True, "the heart tap took back the like the double tap gave"
@@ -262,6 +264,90 @@ def test_off_a_list_a_readable_screen_still_likes_and_reads_liked():
     like = like_on_phone(phone)
 
     assert like._is_post_already_liked() is False
-    assert like.like_current_post() is True
+    assert like.like_current_post() is orchestration.FramedLike.LIKED
     assert phone.liked is True
     assert like._is_post_already_liked() is True
+
+
+# --- an already-liked post is no like given --------------------------------------------------------
+#
+# `like_current_post` answered True for a post whose heart was on already, as for a post liked now,
+# and callers counted that True as a like given: the hashtag posts pass (`likes_made`, the session
+# counter), the compatibility facade's `like_post`, the profile sequence; the Lab said « post
+# liked ». Seen on the Pixel 3a: the Lab's like, run again on a post it had just liked, answered
+# « post liked » with no gesture. It now says what the like did (`FramedLike`); a like is counted on
+# LIKED only.
+
+
+def _phone_with_the_framed_post_liked_on_screen():
+    """The framed post, liked, its heart on screen (its row shown)."""
+    phone = ProfilePostsPhone(screen=ROW_SHOWN, height=PIXEL_3A_H)
+    phone._liked_hearts.add(_heart_of(ROW_SHOWN))
+    return phone
+
+
+def test_an_already_liked_framed_post_is_no_like_given():
+    phone = _phone_with_the_framed_post_liked_on_screen()
+    like = like_on_phone(phone)
+
+    assert like.like_current_post() is orchestration.FramedLike.ALREADY_LIKED
+    assert phone.taps == [], "a gesture on a post liked already"
+
+
+def test_off_a_list_an_already_liked_post_is_no_like_given():
+    set_active_locale("fr")
+    phone = _ViewerPhone(liked=True)
+    like = like_on_phone(phone)
+
+    assert like.like_current_post() is orchestration.FramedLike.ALREADY_LIKED
+    assert phone.taps == [] and phone.liked is True
+
+
+def test_the_hashtag_pass_does_not_count_an_already_liked_post(monkeypatch):
+    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow as hashtag
+
+    monkeypatch.setattr(hashtag.random, "randint", lambda a, b: a)
+    counted = []
+    host = hashtag.HashtagBusiness.__new__(hashtag.HashtagBusiness)
+    host.logger = logger
+    host.like_business = like_on_phone(_phone_with_the_framed_post_liked_on_screen())
+    host.stats_manager = SimpleNamespace(increment=lambda key, *_a, **_k: counted.append(key))
+    host._stop_if_action_blocked = lambda *_a, **_k: False
+    stats = {"likes_made": 0, "comments_made": 0}
+
+    host._engage_post_itself({"like_percentage": 100, "comment_percentage": 0}, stats, "author_one")
+
+    assert (stats["likes_made"], counted) == (0, [])
+
+
+def test_the_compatibility_facade_does_not_count_an_already_liked_post():
+    from taktik.core.social_media.instagram.actions.compatibility.modern_instagram_actions import (
+        ModernInstagramActions,
+    )
+
+    counted, errors = [], []
+    facade = ModernInstagramActions.__new__(ModernInstagramActions)
+    facade.logger = logger
+    facade.like_business = like_on_phone(_phone_with_the_framed_post_liked_on_screen())
+    facade.stats = SimpleNamespace(increment=counted.append, add_error=errors.append)
+
+    assert facade.like_post(0) is False
+    assert (counted, errors) == ([], [])
+
+
+def test_the_profile_sequence_does_not_count_an_already_liked_post():
+    like = like_on_phone(_phone_with_the_framed_post_liked_on_screen())
+    like._stop_if_action_blocked = lambda *_a, **_k: False
+
+    assert like._run_engagement_sequence(("like",), "author_one", None, {}) == (False, False)
+
+
+def test_the_lab_says_already_liked():
+    register_instagram()
+    phone = _phone_with_the_framed_post_liked_on_screen()
+    bundle = build_instagram_action_bundle(DeviceFacade(CloneAwareDeviceProxy(phone, PKG)))
+
+    result = INSTAGRAM_ACTIONS["engagement.like_current_post"](bundle, {})
+
+    assert "already liked" in result["message"] and "post liked" not in result["message"], result
+    assert phone.taps == []

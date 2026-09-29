@@ -13,6 +13,7 @@ import pytest
 
 from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
 from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+    FramedLike,
     LikeOrchestration,
 )
 
@@ -151,7 +152,7 @@ def _like_action(monkeypatch, *, already_liked=False, button_ok=True):
 def test_a_post_like_given_its_author_leaves_a_ledger_row(monkeypatch):
     act = _like_action(monkeypatch)
 
-    assert act.like_current_post(record_as="author_one") is True
+    assert act.like_current_post(record_as="author_one") is FramedLike.LIKED
 
     assert act.rows == [("author_one", "LIKE", 1)]
     assert act.session_manager.actions == ['like_posts']
@@ -160,7 +161,7 @@ def test_a_post_like_given_its_author_leaves_a_ledger_row(monkeypatch):
 def test_an_already_liked_post_is_no_gesture_and_no_row(monkeypatch):
     act = _like_action(monkeypatch, already_liked=True)
 
-    assert act.like_current_post(record_as="author_one") is True
+    assert act.like_current_post(record_as="author_one") is FramedLike.ALREADY_LIKED
 
     assert act.rows == [] and act.session_manager.actions == []
 
@@ -168,7 +169,7 @@ def test_an_already_liked_post_is_no_gesture_and_no_row(monkeypatch):
 def test_a_failed_like_is_not_filed(monkeypatch):
     act = _like_action(monkeypatch, button_ok=False)
 
-    assert act.like_current_post(record_as="author_one") is False
+    assert act.like_current_post(record_as="author_one") is FramedLike.NOT_LIKED
 
     assert act.rows == [] and act.session_manager.actions == []
 
@@ -178,7 +179,7 @@ def test_the_profile_sequence_still_records_its_own_likes(monkeypatch):
     profile, so a row here would be a second one."""
     act = _like_action(monkeypatch)
 
-    assert act.like_current_post() is True
+    assert act.like_current_post() is FramedLike.LIKED
 
     assert act.rows == [] and act.session_manager.actions == []
 
@@ -193,7 +194,7 @@ def test_the_posts_pass_files_its_like_under_the_post_author(monkeypatch):
     host = mod.HashtagBusiness.__new__(mod.HashtagBusiness)
     host.logger = _log()
     host.like_business = types.SimpleNamespace(
-        like_current_post=lambda record_as=None: calls.append(record_as) or True)
+        like_current_post=lambda record_as=None: calls.append(record_as) or FramedLike.LIKED)
     host.stats_manager = types.SimpleNamespace(increment=lambda *_a, **_k: None)
 
     stats = {'likes_made': 0, 'comments_made': 0}
@@ -212,7 +213,7 @@ def test_the_posts_pass_leaves_a_post_whose_author_it_cannot_read(monkeypatch):
     host = mod.HashtagBusiness.__new__(mod.HashtagBusiness)
     host.logger = _log()
     host.like_business = types.SimpleNamespace(
-        like_current_post=lambda record_as=None: calls.append(record_as) or True)
+        like_current_post=lambda record_as=None: calls.append(record_as) or FramedLike.LIKED)
     host.comment_business = types.SimpleNamespace(
         comment_on_post=lambda **kw: calls.append('comment') or {'commented': True})
     host.stats_manager = types.SimpleNamespace(increment=lambda *_a, **_k: None)

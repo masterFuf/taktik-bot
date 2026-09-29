@@ -9,6 +9,8 @@ reader downstream takes the percentage first.
 
 import pytest
 
+from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
+
 from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
     HASHTAG_DEFAULTS,
     POST_URL_DEFAULTS,
@@ -114,7 +116,7 @@ class _Hashtag(HashtagBusiness):
         class _Like:
             def like_current_post(self, record_as=None):
                 host.likes.append(1)
-                return True
+                return FramedLike.LIKED
 
         class _Comment:
             def comment_on_post(self, **kwargs):

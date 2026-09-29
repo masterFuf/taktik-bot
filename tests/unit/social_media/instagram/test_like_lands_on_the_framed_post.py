@@ -70,7 +70,7 @@ def test_the_double_tap_lands_on_the_framed_posts_own_photo(monkeypatch):
     phone = ProfilePostsPhone(screen=ROW_ON_SCREEN, likes_on_tap=True)
     header, row, _hearts = _framed_post_geometry(ROW_ON_SCREEN)
 
-    assert _host(phone).like_current_post() is True
+    assert _host(phone).like_current_post() is orchestration.FramedLike.LIKED
 
     assert [kind for kind, _x, _y in phone.taps] == ["double_tap"]
     _kind, x, y = phone.taps[0]
@@ -91,7 +91,7 @@ def test_the_button_path_taps_the_framed_posts_own_heart(monkeypatch):
     header, row, hearts = _framed_post_geometry(ROW_ON_SCREEN)
     own_heart = next(bounds for bounds, _selected in hearts if bounds[1] > header[1])
 
-    assert _host(phone).like_current_post() is True
+    assert _host(phone).like_current_post() is orchestration.FramedLike.LIKED
 
     assert [kind for kind, _x, _y in phone.taps] == ["tap"]
     _kind, x, y = phone.taps[0]
@@ -109,7 +109,7 @@ def test_no_like_when_the_framed_posts_heart_cannot_be_shown(monkeypatch, double
     phone = ProfilePostsPhone(screen=ROW_BELOW_SCREEN, likes_on_tap=True)
     like = _host(phone)
 
-    assert like.like_current_post() is False
+    assert like.like_current_post() is orchestration.FramedLike.NOT_LIKED
 
     assert phone.taps == [], "a like went to a screen whose framed post's heart is not on it"
     assert [kind for kind, *_rest in like.scroll_actions.gestures] == ["drag"]
@@ -126,6 +126,6 @@ def test_the_post_above_liked_does_not_make_the_framed_post_liked(monkeypatch):
     assert host._is_post_already_liked() is False
 
     _double_tap_drawn(monkeypatch, True)
-    assert host.like_current_post() is True
+    assert host.like_current_post() is orchestration.FramedLike.LIKED
     hearts_after = _framed_post_geometry(phone.dump_hierarchy())[2]
     assert [selected for bounds, selected in hearts_after if bounds[1] > header[1]] == ["true"]

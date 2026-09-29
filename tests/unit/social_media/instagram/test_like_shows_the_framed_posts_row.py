@@ -83,7 +83,7 @@ def test_the_like_shows_the_row_then_likes_the_framed_post(monkeypatch, double_t
     phone = _phone()
     like = like_on_phone(phone)
 
-    assert like.like_current_post() is True
+    assert like.like_current_post() is orchestration.FramedLike.LIKED
 
     drags = like.scroll_actions.gestures
     assert [(kind, direction) for kind, direction, _px in drags] == [("drag", "up")]
@@ -114,7 +114,7 @@ def test_no_like_when_the_post_changed_while_showing_its_row(monkeypatch):
     phone = _phone(further=NEXT_POST)
     like = like_on_phone(phone)
 
-    assert like.like_current_post() is False
+    assert like.like_current_post() is orchestration.FramedLike.NOT_LIKED
 
     assert phone.taps == [], "a like went to a post other than the one framed before the drag"
 
@@ -127,7 +127,7 @@ def test_no_drag_and_no_like_for_a_post_taller_than_the_list(monkeypatch, double
     set_active_locale("fr")
     like = like_on_phone(phone)
 
-    assert like.like_current_post() is False
+    assert like.like_current_post() is orchestration.FramedLike.NOT_LIKED
 
     assert like.scroll_actions.gestures == [] and phone.taps == []
     assert like.scroll_actions._last_buttons_reveal["reason"] == "header_at_top"

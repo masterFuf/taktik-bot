@@ -10,6 +10,7 @@ from ..business.management.filtering import FilteringBusiness
 from ..business.workflows.followers import FollowerBusiness
 from ..business.workflows.hashtag import HashtagBusiness
 from ..business.workflows.post_url import PostUrlBusiness
+from ..business.actions.like.orchestration import FramedLike
 from ..business.actions.like import LikeBusiness
 from ..business.actions.story import StoryBusiness
 from ..business.system.config import ConfigBusiness
@@ -105,13 +106,17 @@ class ModernInstagramActions(BaseAction):
         self.logger.debug(f"[COMPAT] Like post #{post_index}")
         
         try:
-            if self.like_business.like_current_post():
+            outcome = self.like_business.like_current_post()
+            if outcome is FramedLike.LIKED:
                 self.stats.increment('likes')
                 self.logger.info(f"Post liked: #{post_index}")
                 return True
-            else:
-                self.stats.add_error(f"Like failed for post #{post_index}")
+            if outcome is FramedLike.ALREADY_LIKED:
+                # No gesture, no like given: not counted, and not a failure either.
+                self.logger.info(f"Post already liked: #{post_index}")
                 return False
+            self.stats.add_error(f"Like failed for post #{post_index}")
+            return False
                 
         except Exception as e:
             self.stats.add_error(f"Like error for post #{post_index}: {str(e)}")

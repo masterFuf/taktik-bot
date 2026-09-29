@@ -11,6 +11,8 @@ already in production changed.
 
 import pytest
 
+from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
+
 from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
     HashtagBusiness,
 )
@@ -52,7 +54,7 @@ class _Host(HashtagBusiness):
                 # The like is filed under the post author (the ledger row is written there).
                 assert record_as == host._current()['author']
                 host.recorder.likes.append(host._current()['author'])
-                return host._like_ok
+                return FramedLike.LIKED if host._like_ok else FramedLike.NOT_LIKED
 
         class _Comment:
             def comment_on_post(self, **kwargs):

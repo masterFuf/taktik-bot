@@ -7,6 +7,7 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from taktik.core.shared.diagnostics import run_halt
+from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
 
 from ..common.likers_base import LikersWorkflowBase
 from ..common.list_sources import resolve_list_source
@@ -120,7 +121,8 @@ class HashtagBusiness(
         touched = False
 
         if like_pct > 0 and random.randint(1, 100) <= like_pct:
-            if self.like_business.like_current_post(record_as=author):
+            # A like given now only: an already-liked post is no like of this run.
+            if self.like_business.like_current_post(record_as=author) is FramedLike.LIKED:
                 stats['likes_made'] += 1
                 self.stats_manager.increment('likes')
                 self.logger.info(f"❤️ Post liked (@{author or 'unknown'})")

@@ -25,7 +25,9 @@ _DOUBLE_TAP_BAND_Y = (0.25, 0.75)
 
 
 class FramedLike(Enum):
-    """What a like of the framed post of a list did (`LikeOrchestration.like_framed_post`)."""
+    """What a like of the post on screen did (`LikeOrchestration.like_current_post`, and
+    `like_framed_post` on a list). A like is counted on LIKED only: an already-liked post is no
+    like given."""
 
     LIKED = "liked"                  # the heart of its own row turned after our gesture
     ALREADY_LIKED = "already_liked"  # that heart was on already: no gesture
@@ -405,15 +407,16 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 pass
             return stats
 
-    def like_current_post(self, record_as: Optional[str] = None) -> bool:
-        """Like the post on screen.
+    def like_current_post(self, record_as: Optional[str] = None) -> FramedLike:
+        """Like the post on screen, and say what the like did: LIKED (liked now), ALREADY_LIKED
+        (its heart was on already: no gesture) or NOT_LIKED. A caller counts a like on LIKED
+        only: an already-liked post is no like given.
 
         `record_as` is the post author, given by a caller that keeps no ledger of its own for
         this like (the hashtag posts pass): the like is then written to the action ledger and
         the session counter at the moment of the gesture. The profile sequence leaves it None,
         because it records its likes in one batch at the end of the profile. An already-liked
-        post is no gesture and is never recorded; True here, like a post liked now (a caller that
-        must tell them apart uses `like_framed_post`). On a list, the framed post only.
+        post is never recorded. On a list, the framed post only.
         """
         try:
             # A list of posts first: its readers need no like button on screen, and the framed
@@ -422,23 +425,23 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             target = self._framed_like_target()
             if target is None:
                 self.logger.warning("Screen unreadable: no like")
-                return False
+                return FramedLike.NOT_LIKED
             if target["list"]:
-                return self._like_framed_post(target, record_as) is not FramedLike.NOT_LIKED
+                return self._like_framed_post(target, record_as)
 
             if not self.detection_actions.is_on_post_screen():
                 self.logger.warning("Not on a post screen")
-                return False
+                return FramedLike.NOT_LIKED
 
             # Its heart is read before it is tapped: a tap on the heart of a liked post takes the
             # like back, so a heart that cannot be read is not tapped.
             liked = self.detection_actions.is_post_liked()
             if liked is None:
                 self.logger.warning("Whether the post is liked is unknown: no like")
-                return False
+                return FramedLike.NOT_LIKED
             if liked:
                 self.logger.debug("Post already liked")
-                return True
+                return FramedLike.ALREADY_LIKED
 
             # Alternate like methods like a human (telemetry showed the profile-posts
             # path always used the button): ~45% an image double-tap, else the button.
@@ -453,23 +456,23 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         "Whether the double tap liked the post is unknown: its heart is not tapped, "
                         "which would take back a like the double tap gave"
                     )
-                    return False
+                    return FramedLike.NOT_LIKED
                 if double_tap_liked:
                     self.logger.debug("Post liked via image double-tap")
                     self.record_post_like(record_as)
-                    return True
+                    return FramedLike.LIKED
 
             if self.click_actions.like_post():
                 self.logger.debug("Post liked successfully (button)")
                 self.record_post_like(record_as)
-                return True
+                return FramedLike.LIKED
             else:
                 self.logger.warning("Failed to like")
-                return False
+                return FramedLike.NOT_LIKED
 
         except Exception as e:
             self.logger.error(f"Error liking current post: {e}")
-            return False
+            return FramedLike.NOT_LIKED
 
     def _framed_like_target(self) -> Optional[Dict[str, Any]]:
         """Where a like of the framed post goes (`PostReadingMixin.framed_post_like_target`); a
@@ -664,12 +667,15 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                         break
                     sig_before_read = None   # confirmed once; our own like changes the count
                 if step == 'like':
-                    liked = bool(self.like_current_post())
+                    outcome = self.like_current_post()
+                    # Only a like given now is counted: an already-liked post is no like of this
+                    # profile, and its sequence goes on as before.
+                    liked = outcome is FramedLike.LIKED
                     # "Try again later" right after the tap, before anything else touches the
                     # screen: a refused like can read as landed or as failed.
                     if self._stop_if_action_blocked(username, 'like'):
                         break
-                    if not liked:
+                    if outcome is FramedLike.NOT_LIKED:
                         self.logger.warning("Failed to like — aborting this post's sequence")
                         break
                 else:  # comment
