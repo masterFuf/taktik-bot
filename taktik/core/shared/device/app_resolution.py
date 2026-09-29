@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 from loguru import logger
 
-from bridges.common.device.apps import (
+from taktik.core.shared.device.apps import (
     alternatives_for_platform,
     get_app_config,
     known_platforms,

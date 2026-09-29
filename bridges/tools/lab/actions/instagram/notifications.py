@@ -531,7 +531,7 @@ def _connected_runtime(a, device_id: str, package_name, restart: bool):
     """The desktop bridge's runtime (`NotificationsBridge`) on the phone the Lab session holds: the
     same clone-aware device and the same clean restart (`AppService`) as the bridge and the CLI,
     through the helper the CLI uses, without a second connection."""
-    from bridges.common.connected_device import on_connected_device
+    from taktik.core.shared.device.connected_device import on_connected_device
     from bridges.tools.lab.actions.instagram.app import _session_app_manager
     from bridges.instagram.notifications.bridge import NotificationsBridge
 

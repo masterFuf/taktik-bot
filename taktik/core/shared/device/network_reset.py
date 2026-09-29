@@ -9,7 +9,7 @@ import time
 
 from loguru import logger
 
-from bridges.common.device.network_probe import (
+from taktik.core.shared.device.network_probe import (
     is_airplane_mode_enabled,
     is_mobile_data_enabled,
     wait_for_internet,

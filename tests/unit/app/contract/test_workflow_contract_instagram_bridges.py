@@ -354,7 +354,7 @@ def _dm_class():
 
 @pytest.fixture
 def dm_bridge(monkeypatch):
-    import bridges.common.device.connection as connection
+    import taktik.core.shared.device.connection as connection
     import bridges.instagram.dm.bridge as runtime
     import bridges.instagram.dm.commands as bridge
     from taktik.core.social_media.instagram.workflows.core import runtime_setup

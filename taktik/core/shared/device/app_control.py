@@ -2,7 +2,7 @@
 
 from loguru import logger
 
-from bridges.common.device.apps import get_app_config, packages_for_platform
+from taktik.core.shared.device.apps import get_app_config, packages_for_platform
 from taktik.core.shared.device.adb import run_adb_shell_process
 
 

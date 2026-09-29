@@ -5,7 +5,7 @@ Wraps DeviceManager to provide a clean, reusable interface for all bridges.
 Handles: connect, disconnect, screen info, ATX health checks.
 
 Usage:
-    from bridges.common.device.connection import ConnectionService
+    from taktik.core.shared.device.connection import ConnectionService
 
     conn = ConnectionService("DEVICE_SERIAL")
     if not conn.connect():
@@ -19,8 +19,8 @@ Usage:
 from typing import Tuple
 from loguru import logger
 
-from bridges.common.device.atx_health import check_atx_health as perform_atx_health_check
-from bridges.common.device.screen import DEFAULT_SCREEN_SIZE, read_screen_size
+from taktik.core.shared.device.atx_health import check_atx_health as perform_atx_health_check
+from taktik.core.shared.device.screen import DEFAULT_SCREEN_SIZE, read_screen_size
 from taktik.core.shared.device.manager import DeviceManager
 
 

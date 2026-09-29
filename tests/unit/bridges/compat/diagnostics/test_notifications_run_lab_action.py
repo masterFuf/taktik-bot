@@ -4,7 +4,7 @@
 `instagram.engagement.notifications`, called by `notifications_bridge` and by the CLI) the bridge's
 own runtime, `NotificationsBridge`, on the Lab session's device instead of a second connection
 (decision D5 of 2026-09-27): the same clone-aware device, the same clean restart through
-`AppService`, by the helper the CLI uses (`bridges/common/connected_device.py`). The run's
+`AppService`, by the helper the CLI uses (`taktik/core/shared/device/connected_device.py`). The run's
 events come back in the result, never on stdout (the session's own JSON lines).
 """
 
@@ -129,7 +129,7 @@ class _AppService:
 
 @pytest.fixture
 def bridge_lifecycle(monkeypatch):
-    import bridges.common.device.app_manager as app_manager
+    import taktik.core.shared.device.app_manager as app_manager
 
     _AppService.calls = []
     monkeypatch.setattr(app_manager, "AppService", _AppService)
@@ -174,7 +174,7 @@ def test_the_runtime_is_the_bridge_class_on_the_session_device(monkeypatch, lab_
 
 
 def test_the_lab_and_the_cli_connect_a_bridge_by_one_helper(monkeypatch):
-    from bridges.common import connected_device
+    from taktik.core.shared.device import connected_device
     from taktik.cli.hosts import instagram as instagram_host
 
     connected = []

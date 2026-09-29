@@ -44,7 +44,7 @@ def cli_tiktok_account_app(device_manager: Any, device_id: str) -> Callable[[Opt
     def app_for(package_name: Optional[str]):
         from types import SimpleNamespace
 
-        from bridges.common.device.app_manager import AppService
+        from taktik.core.shared.device.app_manager import AppService
 
         connection = SimpleNamespace(
             device_manager=device_manager,

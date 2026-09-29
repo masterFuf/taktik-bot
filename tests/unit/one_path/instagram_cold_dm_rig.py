@@ -334,9 +334,9 @@ class InstagramColdDmRig:
                 self._device = rig.phone
                 return True
 
-        patch_seam(mp, "bridges.common.device.connection", "ConnectionService", FakeConnection)
+        patch_seam(mp, "taktik.core.shared.device.connection", "ConnectionService", FakeConnection)
 
-        from bridges.common.device import app_manager
+        from taktik.core.shared.device import app_manager
 
         mp.setattr(app_manager, "get_installed_app_version", lambda device_id, package, platform: "410.0.0.53.71")
         from taktik.core.compat.selectors import setup as compat_setup
@@ -362,7 +362,7 @@ class InstagramColdDmRig:
 
         mp.setattr(DetectionActions, "wait_for_profile_screen", fake_wait_for_profile)
 
-        from bridges.common import keyboard as keyboard_module
+        from taktik.core.shared.input import keyboard as keyboard_module
 
         mp.setattr(keyboard_module, "is_taktik_keyboard_active", lambda device_id: True)
 

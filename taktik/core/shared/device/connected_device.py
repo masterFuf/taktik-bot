@@ -31,7 +31,7 @@ class ConnectedDevice:
 
     @property
     def screen_size(self):
-        from bridges.common.device.screen import read_screen_size
+        from taktik.core.shared.device.screen import read_screen_size
 
         return read_screen_size(self._device)
 

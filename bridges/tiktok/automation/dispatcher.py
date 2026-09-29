@@ -148,7 +148,7 @@ def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
 
 def force_stop_tiktok(device_id: str) -> None:
     """Best-effort cleanup after a dispatcher workflow run."""
-    from bridges.common.device.app_manager import force_stop_app
+    from taktik.core.shared.device.app_manager import force_stop_app
 
     force_stop_app(device_id, "tiktok")
 

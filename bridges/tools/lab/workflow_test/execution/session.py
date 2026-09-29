@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 import sys
 
-from bridges.common.device.app_manager import AppService
-from bridges.common.device.connection import ConnectionService
+from taktik.core.shared.device.app_manager import AppService
+from taktik.core.shared.device.connection import ConnectionService
 from bridges.tools.lab.workflow_test.execution.lifecycle import (
     apply_version_overrides,
     detect_instagram_language,

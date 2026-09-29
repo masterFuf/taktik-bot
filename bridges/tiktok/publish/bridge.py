@@ -13,7 +13,7 @@ import signal
 from datetime import datetime, timezone
 from pathlib import Path
 
-from bridges.common.device.connection import ConnectionService
+from taktik.core.shared.device.connection import ConnectionService
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.tiktok.common.ipc import _ipc, send_error, send_log, send_status
 

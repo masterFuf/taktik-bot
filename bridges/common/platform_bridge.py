@@ -26,7 +26,7 @@ class PlatformBridgeBase:
     DEFAULT_PACKAGE: str = ""
 
     def __init__(self, device_id: str, package_name: Optional[str] = None):
-        from bridges.common.device.connection import ConnectionService
+        from taktik.core.shared.device.connection import ConnectionService
 
         self.device_id = device_id
         self.package_name = package_name or self.DEFAULT_PACKAGE
@@ -40,7 +40,7 @@ class PlatformBridgeBase:
 
     def connect(self) -> bool:
         """Open the device connection and bootstrap the AppService."""
-        from bridges.common.device.app_manager import AppService
+        from taktik.core.shared.device.app_manager import AppService
 
         if not self._connection.connect():
             return False

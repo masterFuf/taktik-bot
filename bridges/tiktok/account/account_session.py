@@ -1,7 +1,7 @@
 """Device/app preparation for the TikTok account bridge."""
 
-from bridges.common.device.app_manager import AppService
-from bridges.common.device.connection import ConnectionService
+from taktik.core.shared.device.app_manager import AppService
+from taktik.core.shared.device.connection import ConnectionService
 from bridges.tiktok.common.ipc import send_error, send_status
 
 

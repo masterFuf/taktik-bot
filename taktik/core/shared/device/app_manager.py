@@ -10,12 +10,12 @@ from typing import Optional
 
 from loguru import logger
 
-from bridges.common.device.app_control import force_stop_app
+from taktik.core.shared.device.app_control import force_stop_app
 from taktik.core.shared.device.app_inspection import (
     get_installed_app_version,
     is_app_running,
 )
-from bridges.common.device.app_resolution import resolve_app_config
+from taktik.core.shared.device.app_resolution import resolve_app_config
 
 
 class AppService:

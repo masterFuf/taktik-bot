@@ -6,12 +6,12 @@ from typing import Literal
 
 from loguru import logger
 
-from bridges.common.device.network_probe import (
+from taktik.core.shared.device.network_probe import (
     get_device_external_ip,
     measure_network_baseline,
     read_public_ip,
 )
-from bridges.common.device.network_reset import (
+from taktik.core.shared.device.network_reset import (
     reset_airplane_cell,
     reset_airplane_mode,
     reset_mobile_data,

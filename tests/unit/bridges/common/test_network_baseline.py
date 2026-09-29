@@ -19,7 +19,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from bridges.common import network as network_module  # noqa: E402
-from bridges.common.device import network_probe  # noqa: E402
+from taktik.core.shared.device import network_probe  # noqa: E402
 from taktik.core.shared.telemetry import (  # noqa: E402
     clear_telemetry_sink,
     configure_telemetry_sink,

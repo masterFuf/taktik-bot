@@ -142,7 +142,7 @@ class Rig:
 
         mp.setattr(network, "measure_network_baseline", lambda _device_id: None)
 
-        from bridges.common.device import app_manager
+        from taktik.core.shared.device import app_manager
 
         mp.setattr(app_manager, "force_stop_app",
                    lambda device_id, platform: rig.calls.append(f"force_stop {platform}"))

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from bridges.common.device.connection import ConnectionService
+from taktik.core.shared.device.connection import ConnectionService
 
 
 @dataclass
@@ -43,6 +43,6 @@ def prepare_gmail_session(
 
 def cleanup_gmail_app(device_id: str) -> None:
     """Stop Gmail after a bridge workflow completes."""
-    from bridges.common.device.app_manager import force_stop_app
+    from taktik.core.shared.device.app_manager import force_stop_app
 
     force_stop_app(device_id, "gmail")

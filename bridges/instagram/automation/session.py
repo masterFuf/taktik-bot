@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from bridges.common.device.app_manager import AppService
-from bridges.common.device.connection import ConnectionService
+from taktik.core.shared.device.app_manager import AppService
+from taktik.core.shared.device.connection import ConnectionService
 from bridges.instagram.common.ipc import _ipc, logger, send_error, send_status
 
 

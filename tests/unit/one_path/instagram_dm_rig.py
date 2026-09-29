@@ -264,9 +264,9 @@ class InstagramDmRig:
                 self._device = rig.phone
                 return True
 
-        patch_seam(mp, "bridges.common.device.connection", "ConnectionService", FakeConnection)
+        patch_seam(mp, "taktik.core.shared.device.connection", "ConnectionService", FakeConnection)
 
-        from bridges.common.device import app_manager
+        from taktik.core.shared.device import app_manager
 
         mp.setattr(app_manager, "get_installed_app_version", lambda device_id, package, platform: "410.0.0.53.71")
         from taktik.core.compat.selectors import setup as compat_setup

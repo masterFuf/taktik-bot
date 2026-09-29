@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bridges.common.keyboard import KeyboardService
+from taktik.core.shared.input.keyboard import KeyboardService
 from bridges.instagram.dm.events import emit_dm_json
 from bridges.instagram.common.bridge import InstagramBridgeBase
 from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import DMRuntime

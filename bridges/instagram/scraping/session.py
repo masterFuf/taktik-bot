@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from loguru import logger
 
-from bridges.common.device.app_manager import AppService
-from bridges.common.device.connection import ConnectionService
+from taktik.core.shared.device.app_manager import AppService
+from taktik.core.shared.device.connection import ConnectionService
 from taktik.core.database import configure_db_service
 
 

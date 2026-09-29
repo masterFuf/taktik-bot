@@ -108,7 +108,7 @@ def _threads_engine(fail: bool):
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 @pytest.mark.parametrize("contract", [THREADS_SEARCH, THREADS_FEED], ids=["search", "feed"])
 def test_the_threads_bridge_follows_its_contract(monkeypatch, lines, contract, fail):
-    import bridges.common.device.app_manager as app_manager
+    import taktik.core.shared.device.app_manager as app_manager
     import bridges.threads.automation.threads_bridge as dispatcher
     from taktik.core.social_media.threads.workflows import agent_handler
 

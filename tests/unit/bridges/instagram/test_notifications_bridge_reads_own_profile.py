@@ -22,10 +22,10 @@ import pytest
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
-import bridges.common.device.app_manager as app_manager
+import taktik.core.shared.device.app_manager as app_manager
 import taktik.core.database as database
-import bridges.common.device.connection as connection
-from bridges.common.connected_device import ConnectedDevice
+import taktik.core.shared.device.connection as connection
+from taktik.core.shared.device.connected_device import ConnectedDevice
 from bridges.instagram.notifications import commands as bridge_commands
 from taktik.core.social_media.instagram.workflows.management.notifications import commands
 from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler

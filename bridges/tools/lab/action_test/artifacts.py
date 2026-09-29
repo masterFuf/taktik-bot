@@ -329,7 +329,7 @@ def _resolve_package_name(bundle: Any, platform: str, *, current_app: dict | Non
     foreground = current.get("package") if current else None
 
     try:
-        from bridges.common.device.apps import get_app_config, packages_for_platform
+        from taktik.core.shared.device.apps import get_app_config, packages_for_platform
 
         known = packages_for_platform(platform)
         if foreground and (

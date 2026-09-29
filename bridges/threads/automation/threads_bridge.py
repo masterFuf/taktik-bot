@@ -76,7 +76,7 @@ def dispatch(config: dict) -> None:
         logger.exception(f"Unexpected error in {workflow_type} workflow: {exc}")
         sys.exit(1)
     finally:
-        from bridges.common.device.app_manager import force_stop_app
+        from taktik.core.shared.device.app_manager import force_stop_app
 
         force_stop_app(device_id, "threads")
 

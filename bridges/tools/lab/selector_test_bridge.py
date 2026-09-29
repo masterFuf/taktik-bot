@@ -32,7 +32,7 @@ setup_environment()
 
 from bridges.common.entrypoint import CONFIG_ERROR, MISSING_CONFIG, run_bridge_main
 from bridges.common.ipc import IPC
-from bridges.common.device.connection import ConnectionService
+from taktik.core.shared.device.connection import ConnectionService
 from bridges.tools.lab.selector_test.request import (
     load_selector_test_request,
     report_selector_test_entry_error,

@@ -234,7 +234,7 @@ def _script_the_profile_screen(monkeypatch) -> None:
 def notifications_bridge(monkeypatch, tmp_path):
     import importlib
 
-    import bridges.common.device.connection as connection
+    import taktik.core.shared.device.connection as connection
     import bridges.instagram.notifications.commands as bridge
     from taktik.core.shared.device.ui_dump import parse_ui_dump
 

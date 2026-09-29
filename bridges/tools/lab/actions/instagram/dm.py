@@ -29,7 +29,7 @@ def _dm_runtime(a):
     supply the rest. Every method runs the exact prod code on the warm device — no
     second connection, no app restart."""
     from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import DMRuntime
-    from bridges.common.keyboard import KeyboardService
+    from taktik.core.shared.input.keyboard import KeyboardService
 
     class _LabDMRuntime(DMRuntime):
         def __init__(self, facade):
@@ -135,7 +135,7 @@ def _cold_dm_runtime(a):
     """The production cold DM workflow (`ColdDMWorkflow`, the core's one engine) bound to the warm
     Lab device: the class itself, so a step changed in the workflow reaches the Lab on its own. No
     second connection, no app restart; the profile reads use the Lab's detection."""
-    from bridges.common.keyboard import KeyboardService
+    from taktik.core.shared.input.keyboard import KeyboardService
     from taktik.core.social_media.instagram.workflows.cold_dm.workflow import ColdDMWorkflow
 
     class _LabColdDMWorkflow(ColdDMWorkflow):

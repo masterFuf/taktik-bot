@@ -13,7 +13,7 @@ every text written another way is listed.
 
 import pytest
 
-from bridges.common.keyboard import KeyboardService
+from taktik.core.shared.input.keyboard import KeyboardService
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.workflows.cold_dm.search import ColdDMSearchMixin

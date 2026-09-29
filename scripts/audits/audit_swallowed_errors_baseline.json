@@ -1,6 +1,5 @@
 {
   "bridges/common/crash_hooks.py": 4,
-  "bridges/common/device/connection.py": 1,
   "bridges/common/entrypoint.py": 1,
   "bridges/common/ipc.py": 2,
   "bridges/common/owner_watchdog.py": 1,
@@ -36,6 +35,7 @@
   "taktik/core/shared/behavior/gesture_primitives.py": 6,
   "taktik/core/shared/behavior/tap.py": 3,
   "taktik/core/shared/config/api_endpoints.py": 2,
+  "taktik/core/shared/device/connection.py": 1,
   "taktik/core/shared/device/facade.py": 1,
   "taktik/core/shared/device/media_store.py": 3,
   "taktik/core/shared/device/permissions.py": 4,

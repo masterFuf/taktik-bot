@@ -207,9 +207,9 @@ class InstagramScrapingRig:
             def disconnect(self):
                 rig.calls.append("disconnect")
 
-        patch_seam(mp, "bridges.common.device.connection", "ConnectionService", FakeConnection)
+        patch_seam(mp, "taktik.core.shared.device.connection", "ConnectionService", FakeConnection)
 
-        from bridges.common.device import app_manager
+        from taktik.core.shared.device import app_manager
 
         def fake_version(device_id, package, platform):
             rig.calls.append(f"installed_version {package}")
