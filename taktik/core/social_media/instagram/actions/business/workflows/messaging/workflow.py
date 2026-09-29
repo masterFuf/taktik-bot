@@ -7,7 +7,7 @@ import random
 from typing import Optional, Dict, Any
 from loguru import logger
 
-from ....core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 from taktik.core.shared.diagnostics.action_block import look_for_action_block

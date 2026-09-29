@@ -13,19 +13,19 @@ import time
 from typing import Optional, Tuple
 from loguru import logger
 
-from ...ui.selectors.shell.auth import AUTH_SELECTORS
-from ...ui.selectors.shell.popups import POPUP_SELECTORS
-from ...actions.atomic.text import TextActions
-from ...actions.atomic.interaction import ClickActions
-from ...actions.atomic.detection import DetectionActions
-from ...actions.core.utils import ActionUtils
+from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.actions.atomic.text import TextActions
+from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
+from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
+from taktik.core.social_media.instagram.actions.core.utils import ActionUtils
 
-from .models import LoginResult
-from .screen_detection import LoginScreenDetectionMixin
-from .credentials import CredentialsMixin
-from .result_detection import ResultDetectionMixin
-from .popups import LoginPopupsMixin
-from ..session import SessionManager
+from taktik.core.social_media.instagram.auth.login.models import LoginResult
+from taktik.core.social_media.instagram.auth.login.screen_detection import LoginScreenDetectionMixin
+from taktik.core.social_media.instagram.auth.login.credentials import CredentialsMixin
+from taktik.core.social_media.instagram.auth.login.result_detection import ResultDetectionMixin
+from taktik.core.social_media.instagram.auth.login.popups import LoginPopupsMixin
+from taktik.core.social_media.instagram.auth.session import SessionManager
 from taktik.core.shared.device.wait import find_element
 
 

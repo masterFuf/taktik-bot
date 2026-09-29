@@ -3,7 +3,7 @@
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
-from ....core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 
 
 class ContentExtraction(BaseBusinessAction):
@@ -97,7 +97,7 @@ class ContentExtraction(BaseBusinessAction):
         posts = []
         
         try:
-            from .navigation import navigate_to_hashtag
+            from taktik.core.social_media.instagram.actions.business.management.content.navigation import navigate_to_hashtag
             if not navigate_to_hashtag(self, hashtag):
                 self.logger.error(f"Failed to navigate to #{hashtag}")
                 return posts

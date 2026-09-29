@@ -6,7 +6,7 @@ used to interact with the Instagram app.
 """
 
 # Centralized selector imports
-from .selectors import (
+from taktik.core.social_media.instagram.ui.selectors import (
     ButtonSelectors,
     PostCommentsSelectors,
     PostDetailSelectors,
@@ -41,7 +41,7 @@ from .selectors import (
 )
 
 # UI extractor imports
-from .extractors import (
+from taktik.core.social_media.instagram.ui.extractors import (
     InstagramUIExtractors,
     parse_instagram_number
 )

@@ -1,5 +1,5 @@
 """Logout workflow exports."""
 
-from .logout_workflow import LogoutWorkflow
+from taktik.core.social_media.instagram.workflows.management.logout.logout_workflow import LogoutWorkflow
 
 __all__ = ['LogoutWorkflow']

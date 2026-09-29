@@ -1,5 +1,5 @@
 """Instagram media capture service."""
 
-from .media_capture import MediaCapture, MediaCaptureService, ProfileCapture
+from taktik.core.social_media.instagram.media.capture.media_capture import MediaCapture, MediaCaptureService, ProfileCapture
 
 __all__ = ["MediaCapture", "MediaCaptureService", "ProfileCapture"]

@@ -3,9 +3,9 @@
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ......shared.text import normalize_ui_label
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.shared.text import normalize_ui_label
 
 
 # Instagram renders a TYPOGRAPHIC apostrophe (U+2019) in "S'abonner"; our catalogues are typed
@@ -154,7 +154,7 @@ class ProfileInteractionMixin(BaseAction):
                     return False
             
             # Check we are still on a profile
-            from ..detection import DetectionActions
+            from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
             detection = DetectionActions(self.device)
             
             if detection.is_on_profile_screen():

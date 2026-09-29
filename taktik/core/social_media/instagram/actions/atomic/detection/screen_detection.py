@@ -6,10 +6,10 @@ from loguru import logger
 
 from taktik.core.shared.vision import count_progress_segments, screenshot_pil
 
-from ...core.base_action import BaseAction
-from ..navigation.profile_grid import show_profile_posts_grid
-from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
-from ..story_state import parse_story_position
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import show_profile_posts_grid
+from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
+from taktik.core.social_media.instagram.actions.atomic.story_state import parse_story_position
 
 
 class ScreenDetectionMixin(BaseAction):

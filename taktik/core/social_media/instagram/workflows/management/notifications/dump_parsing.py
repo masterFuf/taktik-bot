@@ -12,10 +12,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from taktik.core.shared.device.ui_dump import iter_widgets
 
-from .classifier import classify_row, clean_label, extract_time, row_has_action
-from .classifier import _TRUNCATION_RE
-from .row_layout import center, index_of_closest_row, parse_bounds, vertical_center
-from ......shared.text import normalize_ui_label
+from taktik.core.social_media.instagram.workflows.management.notifications.classifier import classify_row, clean_label, extract_time, row_has_action
+from taktik.core.social_media.instagram.workflows.management.notifications.classifier import _TRUNCATION_RE
+from taktik.core.social_media.instagram.workflows.management.notifications.row_layout import center, index_of_closest_row, parse_bounds, vertical_center
+from taktik.core.shared.text import normalize_ui_label
 
 
 def _iter_rows(root, bare_id: str):

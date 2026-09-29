@@ -8,6 +8,6 @@ Internal structure:
 - validation.py — Comment text validation (the bot has no built-in template)
 """
 
-from .action import CommentAction as CommentBusiness
+from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction as CommentBusiness
 
 __all__ = ['CommentBusiness']

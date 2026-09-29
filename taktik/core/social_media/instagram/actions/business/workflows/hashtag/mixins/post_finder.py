@@ -14,7 +14,7 @@ from taktik.core.social_media.instagram.ui.extractors import (
     username_from_author_header,
     username_from_media_label,
 )
-from .post_detection import HashtagPostDetectionMixin
+from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_detection import HashtagPostDetectionMixin
 
 
 class HashtagPostFinderMixin(HashtagPostDetectionMixin):

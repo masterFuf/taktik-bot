@@ -22,12 +22,12 @@ from taktik.core.database.instagram_follow_graph import InstagramFollowGraphServ
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
-from ..list_proof import (
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list_proof import (
     KNOWN_IN_A_ROW_TO_STOP, PROOF_BY_BASE_COUNT, READ_TO_THE_END, base_matches_count, describe_proof,
     proof_of_read, scrolls_for,
 )
-from .actions import LeftOutRows, UnfollowActionsMixin, row_belongs_to_tab
-from .sync_events import emit_sync_progress, emit_sync_user_discovered
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.actions import LeftOutRows, UnfollowActionsMixin, row_belongs_to_tab
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.sync_events import emit_sync_progress, emit_sync_user_discovered
 
 
 class SyncFollowersMixin(UnfollowActionsMixin):
@@ -138,7 +138,7 @@ class SyncFollowersMixin(UnfollowActionsMixin):
             # For enriched mode, create a ProfileExtraction instance
             profile_extractor = None
             if mode == 'enriched':
-                from ....management.profile.extraction import ProfileExtraction
+                from taktik.core.social_media.instagram.actions.business.management.profile.extraction import ProfileExtraction
                 profile_extractor = ProfileExtraction(self.device, getattr(self, 'session_manager', None))
 
             d = self.device.device

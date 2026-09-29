@@ -3,8 +3,8 @@ import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from ...core.base_business import BaseBusinessAction
-from ..management.profile import ProfileBusiness
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
 from taktik.core.shared.behavior.interaction_plan import (
     sample_story_like_slot,
     sample_story_like_count,

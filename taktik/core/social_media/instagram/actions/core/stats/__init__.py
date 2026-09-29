@@ -5,7 +5,7 @@ Sub-modules:
 - workflow_stats.py   — Standardized stats dict factory for all workflow types
 """
 
-from .stats_manager import BaseStatsManager, create_stats_manager
-from .workflow_stats import create_workflow_stats, sync_aliases
+from taktik.core.social_media.instagram.actions.core.stats.stats_manager import BaseStatsManager, create_stats_manager
+from taktik.core.social_media.instagram.actions.core.stats.workflow_stats import create_workflow_stats, sync_aliases
 
 __all__ = ['BaseStatsManager', 'create_stats_manager', 'create_workflow_stats', 'sync_aliases']

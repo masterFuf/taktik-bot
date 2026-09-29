@@ -5,14 +5,14 @@ import random
 from typing import Optional
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_hswipe_raw
 from taktik.core.shared.telemetry import emit_step
-from ..story_state import parse_story_position
+from taktik.core.social_media.instagram.actions.atomic.story_state import parse_story_position
 
 
 _STORY_TRANSITION_POLL_DELAYS = (0.12, 0.18, 0.28, 0.40)
@@ -306,7 +306,7 @@ class SearchNavigationMixin(BaseAction):
         
         self.logger.debug(f"✅ On profile screen, verifying username...")
         
-        from ..detection import DetectionActions
+        from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
         detection = DetectionActions(self.device)
         current_username = detection.get_username_from_profile()
         

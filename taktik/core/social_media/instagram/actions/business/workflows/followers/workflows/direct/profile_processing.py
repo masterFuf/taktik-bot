@@ -2,9 +2,9 @@
 
 from typing import Dict, Any, Optional, Tuple
 
-from ......core.base_business.profile_processing import ProfileProcessingResult
+from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.shared.config import resolve_filter_criteria
-from ....common.relationship_filter import relationship_skip_reason, wants_relationship_skip
+from taktik.core.social_media.instagram.actions.business.workflows.common.relationship_filter import relationship_skip_reason, wants_relationship_skip
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter

@@ -2,14 +2,14 @@
 
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
-from ....ui.selectors.surfaces.post import POST_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
-from .screen_detection import ScreenDetectionMixin
-from .profile_extraction import ProfileExtractionMixin
-from .list_detection import ListDetectionMixin
+from taktik.core.social_media.instagram.actions.atomic.detection.screen_detection import ScreenDetectionMixin
+from taktik.core.social_media.instagram.actions.atomic.detection.profile_extraction import ProfileExtractionMixin
+from taktik.core.social_media.instagram.actions.atomic.detection.list_detection import ListDetectionMixin
 
 
 class DetectionActions(

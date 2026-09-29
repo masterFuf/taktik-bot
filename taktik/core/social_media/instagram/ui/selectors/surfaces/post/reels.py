@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List
 
-from .detail import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post.detail import POST_SELECTORS
 
 
 @dataclass

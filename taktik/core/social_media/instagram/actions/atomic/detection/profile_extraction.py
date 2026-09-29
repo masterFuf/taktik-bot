@@ -4,9 +4,9 @@ import re
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.labels import is_ui_label
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.labels import is_ui_label
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.shared.device.snapshot import SnapshotUnavailable
 from taktik.core.shared.text import handle_from_screen_text
 from taktik.core.shared.vision import locate_text_on_screen

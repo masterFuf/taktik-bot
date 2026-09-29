@@ -1,7 +1,7 @@
 """Instagram flow-specific selectors."""
 
-from .settings import SettingsSelectors, SETTINGS_SELECTORS
-from .unfollow import UnfollowSelectors, UNFOLLOW_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.flows.settings import SettingsSelectors, SETTINGS_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UnfollowSelectors, UNFOLLOW_SELECTORS
 
 __all__ = [
     "SETTINGS_SELECTORS",

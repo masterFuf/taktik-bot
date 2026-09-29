@@ -15,17 +15,17 @@ from taktik.core.shared.app_paths import get_app_data_dir
 from pathlib import Path
 from typing import Dict, Any
 
-from ....core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 
-from .mixins import (
+from taktik.core.social_media.instagram.actions.business.workflows.followers.mixins import (
     FollowerNavigationMixin,
     FollowerCheckpointsMixin,
     FollowerExtractionMixin,
 )
-from .workflows import (
+from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows import (
     FollowerDirectWorkflowMixin,
 )
-from ..profile_list import ProfileListWorkflowMixin
+from taktik.core.social_media.instagram.actions.business.workflows.profile_list import ProfileListWorkflowMixin
 
 
 class FollowerBusiness(
@@ -41,7 +41,7 @@ class FollowerBusiness(
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "follower", init_business_modules=True)
         
-        from ...common.workflow_defaults import FOLLOWERS_DEFAULTS
+        from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import FOLLOWERS_DEFAULTS
         self.default_config = {**FOLLOWERS_DEFAULTS}
         # Use AppData folder for checkpoints to avoid permission issues
         app_data = get_app_data_dir()

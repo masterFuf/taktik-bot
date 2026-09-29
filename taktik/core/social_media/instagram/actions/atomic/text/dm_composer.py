@@ -31,7 +31,7 @@ from taktik.core.shared.input.taktik_keyboard import (
     field_holds_text,
     type_text_checked,
 )
-from ....ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
 def resolve_device_id(device, explicit: Optional[str] = None) -> str:

@@ -28,9 +28,9 @@ from typing import Any, Dict, List, Optional
 from taktik.core.shared.device.ui_dump import dump_screen_size
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
-from ....atomic.interaction.profile_interaction import classify_follow_state
-from ....core.ipc import IPCEmitter
-from .suggestions_parsing import (
+from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import classify_follow_state
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_parsing import (
     followable_rows,
     is_discover_people_screen,
     parse_feed_suggestions_carousel,

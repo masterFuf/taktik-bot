@@ -15,9 +15,9 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
 )
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.shared.behavior.tap import tap_element_human
-from ..common.detection import is_reel_post, is_in_post_view
-from ..common.post_navigation import open_first_post_of_profile, get_post_url_from_share
-from .list_strategy import make_commenters_strategy
+from taktik.core.social_media.instagram.workflows.common.detection import is_reel_post, is_in_post_view
+from taktik.core.social_media.instagram.workflows.common.post_navigation import open_first_post_of_profile, get_post_url_from_share
+from taktik.core.social_media.instagram.workflows.scraping.list_strategy import make_commenters_strategy
 
 if TYPE_CHECKING:
     from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
@@ -230,7 +230,7 @@ class ScrapingPostHelpersMixin:
             self.device.press("back")
             time.sleep(0.5)
             try:
-                from ..common.detection import is_comments_view_open
+                from taktik.core.social_media.instagram.workflows.common.detection import is_comments_view_open
                 if is_comments_view_open(self.device, self.logger):
                     self.logger.debug("Comments popup still open after back, closing again")
                     self.device.press("back")

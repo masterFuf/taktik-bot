@@ -1,7 +1,7 @@
 """Unfollow workflow mixins."""
 
-from .actions import UnfollowActionsMixin
-from .decision import UnfollowDecisionMixin
-from .sync_following import SyncFollowingMixin
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.actions import UnfollowActionsMixin
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.decision import UnfollowDecisionMixin
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.sync_following import SyncFollowingMixin
 
 __all__ = ['UnfollowActionsMixin', 'UnfollowDecisionMixin', 'SyncFollowingMixin']

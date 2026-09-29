@@ -20,12 +20,12 @@ not evidence that Instagram reordered a list it never served us).
 
 from typing import Any, Dict, List, Optional
 
-from ....core.stats import create_workflow_stats, sync_aliases
+from taktik.core.social_media.instagram.actions.core.stats import create_workflow_stats, sync_aliases
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
-from ..common.interaction_config import build_interaction_config
-from ..common.revisit_policy import RevisitPolicy
+from taktik.core.social_media.instagram.actions.business.workflows.common.interaction_config import build_interaction_config
+from taktik.core.social_media.instagram.actions.business.workflows.common.revisit_policy import RevisitPolicy
 
 
 class ProfileListWorkflowMixin:

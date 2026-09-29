@@ -13,7 +13,7 @@ import time
 from typing import Any, Dict, Optional
 
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
-from .actions import UnfollowActionsMixin
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.actions import UnfollowActionsMixin
 
 
 class UnfollowDecisionMixin(UnfollowActionsMixin):

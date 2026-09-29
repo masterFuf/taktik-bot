@@ -11,6 +11,6 @@ Analysis/filtering methods (is_profile_suitable_for_interaction, extract_profile
 have been moved to filtering.py where they belong (single source of truth for all filtering).
 """
 
-from .extraction import ProfileExtraction as ProfileBusiness
+from taktik.core.social_media.instagram.actions.business.management.profile.extraction import ProfileExtraction as ProfileBusiness
 
 __all__ = ['ProfileBusiness']

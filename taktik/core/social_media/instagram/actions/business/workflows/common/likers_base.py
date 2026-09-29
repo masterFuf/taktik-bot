@@ -12,16 +12,16 @@ import time
 from typing import Dict, Any, Optional, List, Set
 from loguru import logger
 
-from ....core.base_business import BaseBusinessAction
-from ....core.base_business.profile_processing import ProfileProcessingResult
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import ProfileProcessingResult
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
-from .revisit_policy import RevisitPolicy
-from .relationship_filter import relationship_skip_reason, wants_relationship_skip
-from .list_sources import InteractionListSource, make_likers_source
+from taktik.core.social_media.instagram.actions.business.workflows.common.revisit_policy import RevisitPolicy
+from taktik.core.social_media.instagram.actions.business.workflows.common.relationship_filter import relationship_skip_reason, wants_relationship_skip
+from taktik.core.social_media.instagram.actions.business.workflows.common.list_sources import InteractionListSource, make_likers_source
 from taktik.core.shared.config import resolve_filter_criteria
 
 

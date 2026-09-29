@@ -21,7 +21,7 @@ the single source of truth shared with the profile header.
 from typing import List
 from dataclasses import dataclass, field
 
-from ..locales import L
+from taktik.core.social_media.instagram.ui.selectors.locales import L
 
 
 @dataclass

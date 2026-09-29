@@ -18,7 +18,7 @@ final selection is robust whatever the current app language is.
 from typing import Dict, List
 from dataclasses import dataclass, field
 
-from ..locales import L
+from taktik.core.social_media.instagram.ui.selectors.locales import L
 
 
 # Native language labels exactly as shown in the IG app-language picker

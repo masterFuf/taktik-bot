@@ -13,8 +13,8 @@ the comment action and the watchdog).
 import time
 from typing import Optional
 
-from ....ui.selectors.support.blocking_modals import BLOCKING_MODAL_SELECTORS
-from ..ipc import IPCEmitter
+from taktik.core.social_media.instagram.ui.selectors.support.blocking_modals import BLOCKING_MODAL_SELECTORS
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 
 
 class ModalRecoveryMixin:

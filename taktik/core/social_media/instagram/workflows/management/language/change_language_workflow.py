@@ -28,9 +28,9 @@ from typing import Any, Callable, Dict, Optional
 
 from loguru import logger
 
-from ....ui.selectors.shell.auth import AUTH_SELECTORS
-from ....ui.selectors.flows.settings import SETTINGS_SELECTORS, APP_LANGUAGE_NATIVE_NAMES
-from ....ui.language import detect_and_optimize
+from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.flows.settings import SETTINGS_SELECTORS, APP_LANGUAGE_NATIVE_NAMES
+from taktik.core.social_media.instagram.ui.language import detect_and_optimize
 from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.device.app_inspection import is_app_running
@@ -153,7 +153,7 @@ class ChangeLanguageWorkflow:
         if not self._click_first_match(self.auth_selectors.profile_tab_button, 'Profile tab'):
             # Started on a screen without the tab bar (a reel, a search, the 410 notifications):
             # back to the feed, as the search tab does, then once more.
-            from ....actions.atomic.navigation import NavigationActions
+            from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
             NavigationActions(self.device).navigate_to_home()
             if not self._click_first_match(self.auth_selectors.profile_tab_button, 'Profile tab'):
                 return self._fail(result, 'Profile tab not found', 'profile_tab_not_found', 'open_profile')

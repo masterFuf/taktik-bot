@@ -9,20 +9,20 @@ from typing import Optional, List, Dict, Any, Union
 from pathlib import Path
 from loguru import logger
 
-from .....database import InstagramProfile
-from .....database.account_health import witness_for
+from taktik.core.database import InstagramProfile
+from taktik.core.database.account_health import witness_for
 from taktik.core.shared.diagnostics import run_halt
-from ..management.session import stop_reasons
-from ..management.session import SessionManager
-from ...actions.core.base_action import BaseAction
-from ...actions.compatibility.modern_instagram_actions import ModernInstagramActions
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.management.session import SessionManager
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.compatibility.modern_instagram_actions import ModernInstagramActions
 
-from ...ui.selectors.shell.popups import POPUP_SELECTORS
-from ...ui.selectors.surfaces.post import POST_SELECTORS
-from ..management.config import WorkflowConfigBuilder
-from .workflow_runner import WorkflowRunner
-from ..support.workflow_helpers import WorkflowHelpers
-from ...actions.business.workflows.common.distribution import (
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.workflows.management.config import WorkflowConfigBuilder
+from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.support.workflow_helpers import WorkflowHelpers
+from taktik.core.social_media.instagram.actions.business.workflows.common.distribution import (
     ipc_source_progress,
     normalize_distribution,
     run_distributed,
@@ -85,7 +85,7 @@ class InstagramAutomation:
         self.workflow_runner = WorkflowRunner(self)
         self.helpers = WorkflowHelpers(self)
         
-        from ..support.ui_helpers import UIHelpers
+        from taktik.core.social_media.instagram.workflows.support.ui_helpers import UIHelpers
         self.ui_helpers = UIHelpers(self)
         
         self.helpers.setup_signal_handlers()

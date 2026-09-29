@@ -1,12 +1,12 @@
 """Instagram UI selectors organized by UI scope."""
 
-from .flows import (
+from taktik.core.social_media.instagram.ui.selectors.flows import (
     SettingsSelectors,
     SETTINGS_SELECTORS,
     UnfollowSelectors,
     UNFOLLOW_SELECTORS,
 )
-from .shell import (
+from taktik.core.social_media.instagram.ui.selectors.shell import (
     AuthSelectors,
     AUTH_SELECTORS,
     ButtonSelectors,
@@ -22,7 +22,7 @@ from .shell import (
     TextInputSelectors,
     TEXT_INPUT_SELECTORS,
 )
-from .surfaces import (
+from taktik.core.social_media.instagram.ui.selectors.surfaces import (
     ContentCreationSelectors,
     CONTENT_CREATION_SELECTORS,
     DirectMessageSelectors,
@@ -58,7 +58,7 @@ from .surfaces import (
     StorySelectors,
     STORY_SELECTORS,
 )
-from .support import DebugSelectors, DEBUG_SELECTORS, ScrollSelectors, SCROLL_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.support import DebugSelectors, DEBUG_SELECTORS, ScrollSelectors, SCROLL_SELECTORS
 
 __all__ = [
     "AUTH_SELECTORS",

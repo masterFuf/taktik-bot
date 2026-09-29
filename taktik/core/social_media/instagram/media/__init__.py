@@ -1,6 +1,6 @@
 """Instagram media capture runtime."""
 
-from .capture import MediaCaptureService
-from .proxy import ProxyManager
+from taktik.core.social_media.instagram.media.capture import MediaCaptureService
+from taktik.core.social_media.instagram.media.proxy import ProxyManager
 
 __all__ = ["MediaCaptureService", "ProxyManager"]

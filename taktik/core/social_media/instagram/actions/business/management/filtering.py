@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict
 
 from taktik.core.shared.filtering import apply_comprehensive_filter, create_profile_filter
 
-from ...core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 
 
 class FilteringBusiness(BaseBusinessAction):

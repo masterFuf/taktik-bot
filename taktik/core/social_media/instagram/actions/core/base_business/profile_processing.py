@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry.sink import emit_step
-from ..ipc import IPCEmitter
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.shared.config import resolve_filter_criteria
 
 

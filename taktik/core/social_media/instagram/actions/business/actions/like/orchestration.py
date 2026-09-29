@@ -6,9 +6,9 @@ from enum import Enum
 from typing import Callable, Dict, List, Any, Optional
 from loguru import logger
 
-from ....core.base_business import BaseBusinessAction
-from ...management.profile import ProfileBusiness
-from .post_navigation import PostNavigationMixin
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+from taktik.core.social_media.instagram.actions.business.actions.like.post_navigation import PostNavigationMixin
 from taktik.core.shared.behavior.like_method import should_double_tap_like
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.behavior.engagement_sequence import plan_engagement_sequence
@@ -50,7 +50,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         self.debug_selectors = DEBUG_SELECTORS
         self.post_selectors = POST_SELECTORS
         
-        from .....ui.detectors.problematic_page import ProblematicPageDetector
+        from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
         self.problematic_page_detector = ProblematicPageDetector(device, debug_mode=False)
         
         self.profile_business = ProfileBusiness(device, session_manager)
@@ -699,7 +699,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
     def _comment_current_post(self, username, custom_comments, config) -> bool:
         """Post a comment on the current post. Returns True if a comment was posted."""
         try:
-            from ..comment import CommentBusiness
+            from taktik.core.social_media.instagram.actions.business.actions.comment import CommentBusiness
             comment_business = CommentBusiness(self.device, self.session_manager, self.automation)
             comment_result = comment_business.comment_on_post(
                 custom_comments=custom_comments,

@@ -15,7 +15,7 @@ import time
 from typing import Dict, Any, Optional
 from loguru import logger
 
-from ....auth.signup import InstagramSignup, SignupResult
+from taktik.core.social_media.instagram.auth.signup import InstagramSignup, SignupResult
 
 
 class SignupWorkflow:

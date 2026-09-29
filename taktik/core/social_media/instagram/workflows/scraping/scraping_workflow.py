@@ -34,11 +34,11 @@ from taktik.core.social_media.instagram.actions.business.management.profile impo
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.database.local.service import get_local_database
 
-from .post_scraping_helpers import ScrapingPostHelpersMixin
-from .list_scraping import ScrapingListMixin
-from .profile_posts_scraping import ProfilePostsScrapingMixin
-from .persistence import ScrapingPersistenceMixin
-from ..common.session import should_continue_session
+from taktik.core.social_media.instagram.workflows.scraping.post_scraping_helpers import ScrapingPostHelpersMixin
+from taktik.core.social_media.instagram.workflows.scraping.list_scraping import ScrapingListMixin
+from taktik.core.social_media.instagram.workflows.scraping.profile_posts_scraping import ProfilePostsScrapingMixin
+from taktik.core.social_media.instagram.workflows.scraping.persistence import ScrapingPersistenceMixin
+from taktik.core.social_media.instagram.workflows.common.session import should_continue_session
 
 
 console = Console()

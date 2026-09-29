@@ -4,19 +4,19 @@ import time
 from typing import Dict, Any
 from taktik.core.shared.diagnostics import capture_screen_snapshot, run_halt
 
-from ......core.stats import create_workflow_stats, sync_aliases
+from taktik.core.social_media.instagram.actions.core.stats import create_workflow_stats, sync_aliases
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
-from ....common.revisit_policy import RevisitPolicy
-from ....common.private_streak_policy import PrivateStreakPolicy
-from ....common.followers_tracker import FollowersTracker
-from ....common.interaction_config import build_interaction_config
-from ....common.stop_limits import resolve_stop_limits
-from ....common.list_reload_policy import ListReloadPolicy
-from .navigation_helpers import DirectNavigationMixin
-from .profile_processing import DirectProfileProcessingMixin
+from taktik.core.social_media.instagram.actions.business.workflows.common.revisit_policy import RevisitPolicy
+from taktik.core.social_media.instagram.actions.business.workflows.common.private_streak_policy import PrivateStreakPolicy
+from taktik.core.social_media.instagram.actions.business.workflows.common.followers_tracker import FollowersTracker
+from taktik.core.social_media.instagram.actions.business.workflows.common.interaction_config import build_interaction_config
+from taktik.core.social_media.instagram.actions.business.workflows.common.stop_limits import resolve_stop_limits
+from taktik.core.social_media.instagram.actions.business.workflows.common.list_reload_policy import ListReloadPolicy
+from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.navigation_helpers import DirectNavigationMixin
+from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.profile_processing import DirectProfileProcessingMixin
 
 
 class FollowerDirectWorkflowMixin(DirectNavigationMixin, DirectProfileProcessingMixin):

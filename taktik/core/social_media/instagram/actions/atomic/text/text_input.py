@@ -4,7 +4,7 @@ import time
 from typing import Optional
 from loguru import logger
 
-from ...core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
 
 
 class TextInputMixin(BaseAction):

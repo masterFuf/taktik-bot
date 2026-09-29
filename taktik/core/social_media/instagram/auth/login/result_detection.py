@@ -2,7 +2,7 @@
 
 import time
 
-from .models import LoginResult
+from taktik.core.social_media.instagram.auth.login.models import LoginResult
 
 
 class ResultDetectionMixin:

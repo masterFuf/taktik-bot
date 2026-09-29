@@ -2,15 +2,15 @@
 
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ....ui.detectors.problematic_page import ProblematicPageDetector
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 
-from .tab_navigation import TabNavigationMixin
-from .deep_link_navigation import DeepLinkNavigationMixin
-from .search_navigation import SearchNavigationMixin
+from taktik.core.social_media.instagram.actions.atomic.navigation.tab_navigation import TabNavigationMixin
+from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import DeepLinkNavigationMixin
+from taktik.core.social_media.instagram.actions.atomic.navigation.search_navigation import SearchNavigationMixin
 
 
 class NavigationActions(

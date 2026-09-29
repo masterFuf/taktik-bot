@@ -1,6 +1,6 @@
 """Instagram human behavior recording runtime."""
 
-from .human_behavior_recorder import (
+from taktik.core.social_media.instagram.recorder.human_behavior_recorder import (
     ContentSampler,
     DetectionProbe,
     HumanBehaviorRecorder,

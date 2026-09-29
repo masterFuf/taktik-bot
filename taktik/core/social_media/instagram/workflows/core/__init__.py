@@ -1,8 +1,8 @@
 """Core workflow orchestration modules."""
 
-from .automation import InstagramAutomation
-from .workflow_runner import WorkflowRunner
-from .agent_handler import (
+from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.core.agent_handler import (
     INSTAGRAM_AUTOMATION_WORKFLOW_IDS,
     build_instagram_automation_handler,
     register_instagram_automation_handlers,

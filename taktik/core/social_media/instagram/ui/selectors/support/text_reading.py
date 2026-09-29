@@ -9,7 +9,7 @@ neutral selector.
 from typing import List
 from dataclasses import dataclass
 
-from ..locales import L
+from taktik.core.social_media.instagram.ui.selectors.locales import L
 
 
 @dataclass

@@ -21,8 +21,8 @@ from loguru import logger
 
 from taktik.core.shared.device.facade import as_device_facade
 
-from ...core.device.facade import DeviceFacade
-from ....ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
 
 # A window that follows another one comes up quickly, if at all.
 _NEXT_WINDOW_WAIT_S = 1.5

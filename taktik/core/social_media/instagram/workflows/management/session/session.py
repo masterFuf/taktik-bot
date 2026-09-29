@@ -8,8 +8,8 @@ from taktik.core.shared.behavior.profiles import resolve_pacing_profile
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
 from taktik.core.shared.diagnostics import run_halt
-from . import stop_reasons
-from .warmup_budget import WarmupBudget, WarmupCheck
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import WarmupBudget, WarmupCheck
 
 
 log = logger.bind(module="session-manager")

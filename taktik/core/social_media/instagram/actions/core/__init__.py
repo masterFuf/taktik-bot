@@ -9,10 +9,10 @@ Sub-packages:
 - stats/         — Statistiques temps réel
 """
 
-from .base_action import BaseAction
-from .base_business import BaseBusinessAction
-from .device import DeviceFacade, DeviceManager
-from .utils import ActionUtils
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.core.device import DeviceFacade, DeviceManager
+from taktik.core.social_media.instagram.actions.core.utils import ActionUtils
 
 __all__ = [
     'BaseAction',

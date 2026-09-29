@@ -1,19 +1,19 @@
 from typing import Dict, Any, List, Optional
 from loguru import logger
 
-from ..core.base_action import BaseAction
-from ..core.stats import BaseStatsManager
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
 
-from ..business.management.profile import ProfileBusiness
-from ..business.management.content import ContentBusiness
-from ..business.management.filtering import FilteringBusiness
-from ..business.workflows.followers import FollowerBusiness
-from ..business.workflows.hashtag import HashtagBusiness
-from ..business.workflows.post_url import PostUrlBusiness
-from ..business.actions.like.orchestration import FramedLike
-from ..business.actions.like import LikeBusiness
-from ..business.actions.story import StoryBusiness
-from ..business.system.config import ConfigBusiness
+from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+from taktik.core.social_media.instagram.actions.business.management.content import ContentBusiness
+from taktik.core.social_media.instagram.actions.business.management.filtering import FilteringBusiness
+from taktik.core.social_media.instagram.actions.business.workflows.followers import FollowerBusiness
+from taktik.core.social_media.instagram.actions.business.workflows.hashtag import HashtagBusiness
+from taktik.core.social_media.instagram.actions.business.workflows.post_url import PostUrlBusiness
+from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
+from taktik.core.social_media.instagram.actions.business.actions.like import LikeBusiness
+from taktik.core.social_media.instagram.actions.business.actions.story import StoryBusiness
+from taktik.core.social_media.instagram.actions.business.system.config import ConfigBusiness
 
 
 class ModernInstagramActions(BaseAction):

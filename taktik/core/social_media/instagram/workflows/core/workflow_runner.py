@@ -2,15 +2,15 @@ import time
 from typing import Dict, Any
 from loguru import logger
 
-from ..management.config import WorkflowConfigBuilder
-from ...actions.business.workflows.common.distribution import (
+from taktik.core.social_media.instagram.workflows.management.config import WorkflowConfigBuilder
+from taktik.core.social_media.instagram.actions.business.workflows.common.distribution import (
     ipc_source_progress,
     normalize_distribution,
     run_distributed,
 )
 from taktik.core.shared.config import resolve_filter_criteria
 from taktik.core.shared.telemetry.device_io import measure_device_io
-from ..management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
 
 def _motive_code(motive: Any) -> str:

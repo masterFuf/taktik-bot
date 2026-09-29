@@ -1,7 +1,7 @@
 """Shared utilities for all workflows."""
 
-from .likers_base import LikersWorkflowBase
-from .followers_tracker import FollowersTracker
+from taktik.core.social_media.instagram.actions.business.workflows.common.likers_base import LikersWorkflowBase
+from taktik.core.social_media.instagram.actions.business.workflows.common.followers_tracker import FollowersTracker
 
 __all__ = [
     'LikersWorkflowBase',

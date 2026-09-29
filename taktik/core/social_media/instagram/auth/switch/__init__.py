@@ -27,9 +27,9 @@ from loguru import logger
 from taktik.core.clone.packages.package_map import belongs_to_platform
 from taktik.core.shared.device.app_inspection import foreground_package
 
-from ...ui.selectors.shell.auth import AUTH_SELECTORS
-from .models import ActiveAccountReading, SwitchResult
-from ..logout import InstagramLogout
+from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
+from taktik.core.social_media.instagram.auth.switch.models import ActiveAccountReading, SwitchResult
+from taktik.core.social_media.instagram.auth.logout import InstagramLogout
 
 # Profile-header stats leak into the dump behind the switcher sheet as content-desc like
 # "36followers" / "1posts" / "91following". A username never has this "<digits><stat-word>" shape,
@@ -227,8 +227,8 @@ class InstagramSwitchAccount:
         atomics `navigate_to_profile_tab()` (robust: 3 tries, back if on another user's profile) +
         `get_username_from_profile()`. Isolated so `detect_active_account` can be unit-tested without
         a real device."""
-        from ...actions.atomic.navigation import NavigationActions
-        from ...actions.atomic.detection import DetectionActions
+        from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+        from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 
         nav = NavigationActions(self.device)
         detection = DetectionActions(self.device)

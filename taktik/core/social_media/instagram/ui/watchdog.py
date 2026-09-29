@@ -23,7 +23,7 @@ import time
 from typing import Optional, Dict, Any, List, Callable
 from loguru import logger
 
-from .selectors.support.watchdog import WATCHDOG_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.support.watchdog import WATCHDOG_SELECTORS
 
 log = logger.bind(module="workflow-watchdog")
 
@@ -147,7 +147,7 @@ class WorkflowWatchdog:
     def _block_on_screen(self) -> bool:
         """Is Instagram refusing actions ("Try again later")? Reads only, never raises."""
         try:
-            from .detectors.problematic_page import ProblematicPageDetector
+            from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 
             blocked = bool(ProblematicPageDetector(self.device).is_action_blocked())
         except Exception as exc:  # noqa: BLE001

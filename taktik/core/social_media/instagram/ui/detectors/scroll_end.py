@@ -1,6 +1,6 @@
 from typing import List, Set, Optional
 from loguru import logger
-from ..selectors import SCROLL_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors import SCROLL_SELECTORS
 
 class ScrollEndDetector:
     """

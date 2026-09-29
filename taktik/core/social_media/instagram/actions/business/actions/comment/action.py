@@ -5,13 +5,13 @@ import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from ....core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
-from .validation import validate_comment
+from taktik.core.social_media.instagram.actions.business.actions.comment.validation import validate_comment
 
 
-from .thread_context import ThreadContextMixin
+from taktik.core.social_media.instagram.actions.business.actions.comment.thread_context import ThreadContextMixin
 
 
 class CommentAction(ThreadContextMixin, BaseBusinessAction):

@@ -10,7 +10,7 @@ bounds, and a row is tapped from its bounds.
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
-from ...core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
 
 
 class ListDetectionMixin(BaseAction):
@@ -111,8 +111,8 @@ class ListDetectionMixin(BaseAction):
         list still moving could pair a username with the button of another row.
         """
         try:
-            from ..interaction.profile_interaction import classify_follow_state
-            from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+            from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import classify_follow_state
+            from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
             def _yband(el):
                 try:

@@ -18,8 +18,8 @@ import time
 import random
 from typing import Callable, Optional, Dict, Any, List
 
-from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
-from .post_reading import PostReadingMixin, _BOUNDS_RE
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
+from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import PostReadingMixin, _BOUNDS_RE
 
 # Feed-scroll tunables. These are SEEDS to calibrate on the Lab from the measured coast and
 # landing (logged every call). Key insight (proven from real dumps): the feed advance is OS

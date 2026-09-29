@@ -31,7 +31,7 @@ from loguru import logger
 from taktik.core.database import get_db_service
 from taktik.core.shared.behavior.sampling import sample_within
 
-from . import stop_reasons
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
 log = logger.bind(module="warmup-budget")
 

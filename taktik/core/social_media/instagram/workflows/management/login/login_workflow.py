@@ -8,9 +8,9 @@ session persistence.
 from typing import Optional, Dict, Any
 from loguru import logger
 
-from ....auth.login import InstagramLogin, LoginResult
-from ....auth.session import SessionManager
-from ...support.workflow_helpers import WorkflowHelpers
+from taktik.core.social_media.instagram.auth.login import InstagramLogin, LoginResult
+from taktik.core.social_media.instagram.auth.session import SessionManager
+from taktik.core.social_media.instagram.workflows.support.workflow_helpers import WorkflowHelpers
 
 
 class LoginWorkflow:

@@ -21,9 +21,9 @@ from loguru import logger
 from taktik.core.shared.device.facade import as_device_facade
 from taktik.core.shared.device.snapshot import ScreenSnapshot, SnapshotUnavailable
 
-from ...core.device.facade import DeviceFacade
-from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 # After the tap: the grid tab turns selected at once, its content (thumbnails, or the empty state
 # of a profile without a post) follows. A grid still loading after this is left to the reader.

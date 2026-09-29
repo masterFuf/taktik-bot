@@ -6,13 +6,13 @@ All functions take `device` and `logger` as parameters — no class dependency.
 import time
 from typing import Optional
 
-from ...actions.atomic.navigation.profile_grid import show_profile_posts_grid
-from ...ui.selectors.shell.screen_state import DETECTION_SELECTORS
-from ...ui.selectors.surfaces.post.likers import POST_LIKERS_SELECTORS
-from ...ui.selectors.surfaces.post.share_sheet import POST_SHARE_SHEET_SELECTORS
+from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import show_profile_posts_grid
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post.likers import POST_LIKERS_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post.share_sheet import POST_SHARE_SHEET_SELECTORS
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.grid_entry import GRID_COLUMNS
-from .detection import is_in_post_view, is_likers_popup_open
+from taktik.core.social_media.instagram.workflows.common.detection import is_in_post_view, is_likers_popup_open
 
 
 def open_first_post_of_profile(device, logger=None) -> bool:
@@ -166,7 +166,7 @@ def _close_share_sheet(device, logger=None) -> bool:
     A sheet left open hides whatever comes next — the run that surfaced this ended on four empty
     followers-list scans, ten seconds after the sheet stayed up.
     """
-    from ...actions.atomic.interaction.bottom_sheet import dismiss_share_sheet, is_share_sheet_open
+    from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import dismiss_share_sheet, is_share_sheet_open
 
     if not is_share_sheet_open(device):
         return True

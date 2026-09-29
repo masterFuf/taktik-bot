@@ -1,5 +1,5 @@
 """Change-language workflow exports."""
 
-from .change_language_workflow import ChangeLanguageWorkflow
+from taktik.core.social_media.instagram.workflows.management.language.change_language_workflow import ChangeLanguageWorkflow
 
 __all__ = ['ChangeLanguageWorkflow']

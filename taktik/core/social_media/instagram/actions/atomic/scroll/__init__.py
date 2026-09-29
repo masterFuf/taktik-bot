@@ -2,13 +2,13 @@
 
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
-from .base_scroll import BaseScrollMixin
-from .feed_scroll import FeedScrollMixin
-from .context_scroll import ContextScrollMixin
+from taktik.core.social_media.instagram.actions.atomic.scroll.base_scroll import BaseScrollMixin
+from taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll import FeedScrollMixin
+from taktik.core.social_media.instagram.actions.atomic.scroll.context_scroll import ContextScrollMixin
 
 
 class ScrollActions(

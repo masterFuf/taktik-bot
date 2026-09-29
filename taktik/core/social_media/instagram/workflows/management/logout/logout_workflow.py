@@ -8,8 +8,8 @@ with no retries, the logout being idempotent.
 from typing import Dict, Any
 from loguru import logger
 
-from ....auth.logout import InstagramLogout
-from ...support.workflow_helpers import WorkflowHelpers
+from taktik.core.social_media.instagram.auth.logout import InstagramLogout
+from taktik.core.social_media.instagram.workflows.support.workflow_helpers import WorkflowHelpers
 
 
 class LogoutWorkflow:

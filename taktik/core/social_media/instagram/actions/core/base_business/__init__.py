@@ -15,26 +15,26 @@ import random
 from typing import Optional, List, Dict, Any
 from loguru import logger
 
-from ..base_action import BaseAction
-from ...atomic.navigation import NavigationActions
-from ...atomic.detection import DetectionActions
-from ...atomic.interaction import ClickActions
-from ...atomic.scroll import ScrollActions
-from ..stats import BaseStatsManager
-from ....ui.selectors.shell.navigation import BUTTON_SELECTORS, NAVIGATION_SELECTORS
-from ....ui.selectors.shell.popups import POPUP_SELECTORS
-from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
-from ....ui.selectors.surfaces.post import POST_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ....ui.extractors import InstagramUIExtractors
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
+from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
+from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
+from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS, NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 
-from .profile_processing import ProfileProcessingMixin, ProfileProcessingResult
-from .popup_handling import PopupHandlingMixin
-from .modal_recovery import ModalRecoveryMixin
-from .config_parsing import ConfigParsingMixin
-from .interaction_engine import InteractionEngineMixin
-from .liker_extraction import LikerExtractionMixin
-from .stats_recording import StatsRecordingMixin
+from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import ProfileProcessingMixin, ProfileProcessingResult
+from taktik.core.social_media.instagram.actions.core.base_business.popup_handling import PopupHandlingMixin
+from taktik.core.social_media.instagram.actions.core.base_business.modal_recovery import ModalRecoveryMixin
+from taktik.core.social_media.instagram.actions.core.base_business.config_parsing import ConfigParsingMixin
+from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import InteractionEngineMixin
+from taktik.core.social_media.instagram.actions.core.base_business.liker_extraction import LikerExtractionMixin
+from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import StatsRecordingMixin
 
 
 class BaseBusinessAction(
@@ -97,12 +97,12 @@ class BaseBusinessAction(
         self.click_actions.behavior_state = self.behavior_state
     
     def _init_business_modules(self):
-        from ...business.management.profile import ProfileBusiness
-        from ...business.management.content import ContentBusiness
-        from ...business.management.filtering import FilteringBusiness
-        from ...business.actions.like import LikeBusiness
-        from ...business.actions.comment import CommentBusiness
-        from ...business.actions.story import StoryBusiness
+        from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+        from taktik.core.social_media.instagram.actions.business.management.content import ContentBusiness
+        from taktik.core.social_media.instagram.actions.business.management.filtering import FilteringBusiness
+        from taktik.core.social_media.instagram.actions.business.actions.like import LikeBusiness
+        from taktik.core.social_media.instagram.actions.business.actions.comment import CommentBusiness
+        from taktik.core.social_media.instagram.actions.business.actions.story import StoryBusiness
         
         self.profile_business = ProfileBusiness(self.device, self.session_manager)
         self.content_business = ContentBusiness(self.device, self.session_manager)

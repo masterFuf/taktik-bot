@@ -4,7 +4,7 @@ import time
 from typing import Dict, Any, List, Optional
 from loguru import logger
 from taktik.core.shared.actions.optional_call import run_bounded_optional
-from ....core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 
 
 class ProfileExtraction(BaseBusinessAction):
@@ -183,13 +183,13 @@ class ProfileExtraction(BaseBusinessAction):
             
             # Save profile to database with actual information
             if save_to_db:
-                from .persistence import save_profile_to_database
+                from taktik.core.social_media.instagram.actions.business.management.profile.persistence import save_profile_to_database
                 save_profile_to_database(profile_info, self.logger)
             
             # Emit profile_captured IPC event for live display in Electron
             if emit_ipc:
                 try:
-                    from ....core.ipc.emitter import IPCEmitter
+                    from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
                     # Don't include base64 in profile_data (it's sent separately)
                     ipc_profile_data = {k: v for k, v in profile_info.items() if k != 'profile_pic_base64'}
                     IPCEmitter.emit_profile_captured(
@@ -355,7 +355,7 @@ class ProfileExtraction(BaseBusinessAction):
         self.logger.debug("Attempting to get followers count (robust method)...")
         
         try:
-            from .....ui.extractors import parse_number_from_text
+            from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
             
             # Way 1: try the specific resource-id
             element = self.device.find(
@@ -413,7 +413,7 @@ class ProfileExtraction(BaseBusinessAction):
         self.logger.debug("Attempting to get following count (robust method)...")
         
         try:
-            from .....ui.extractors import parse_number_from_text
+            from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
             
             element = self.device.find(
                 resourceId=f"{self.device.app_id}:id/{self.profile_selectors.following_count_value_resource_id}"
@@ -456,7 +456,7 @@ class ProfileExtraction(BaseBusinessAction):
         self.logger.debug("Attempting to get posts count (robust method)...")
         
         try:
-            from .....ui.extractors import parse_number_from_text
+            from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
             
             element = self.device.find(
                 resourceId=f"{self.device.app_id}:id/{self.profile_selectors.posts_count_value_resource_id}"
@@ -504,7 +504,7 @@ class ProfileExtraction(BaseBusinessAction):
     
     def _get_count_from_element_robust(self, element_type: str, resource_id: str = None, text: str = None, description: str = None) -> Optional[int]:
         try:
-            from .....ui.extractors import parse_number_from_text
+            from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
             
             if element_type == 'id' and resource_id:
                 element = self.device.xpath(

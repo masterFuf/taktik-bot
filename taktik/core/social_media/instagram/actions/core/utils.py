@@ -20,7 +20,7 @@ class ActionUtils(_SharedActionUtils):
     @staticmethod
     def parse_number_from_text(text: str) -> Optional[int]:
         """Parse number from text - delegates to Instagram's centralized parser."""
-        from ...ui.extractors import parse_number_from_text as central_parser
+        from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text as central_parser
         result = central_parser(text)
         return result if result > 0 else None
     

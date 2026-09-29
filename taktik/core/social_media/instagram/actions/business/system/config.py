@@ -10,7 +10,7 @@ import json
 from typing import Dict, List, Any, Optional
 from loguru import logger
 
-from ...core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
 from taktik.core.clone import get_active_package
 
 

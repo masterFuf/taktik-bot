@@ -8,6 +8,6 @@ Internal structure:
 - post_navigation.py  — Post navigation helpers (open first post, next post, return to profile)
 """
 
-from .orchestration import LikeOrchestration as LikeBusiness
+from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeOrchestration as LikeBusiness
 
 __all__ = ['LikeBusiness']

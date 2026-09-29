@@ -21,8 +21,8 @@ import re
 from typing import Any, Dict, List, Optional
 
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
-from ..common.suggestion_visit import SuggestionSurface, visit_suggestions
-from .suggestions_parsing import followable_rows
+from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_visit import SuggestionSurface, visit_suggestions
+from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_parsing import followable_rows
 
 # An Instagram handle: letters, digits, dot, underscore. A label that does not fit
 # this mould is a display name, not a key, and is never used to query the database.

@@ -8,6 +8,6 @@ Internal structure:
 - navigation_helpers.py — Setup, recovery, empty screen, scroll/end detection
 """
 
-from .main_loop import FollowerDirectWorkflowMixin
+from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop import FollowerDirectWorkflowMixin
 
 __all__ = ['FollowerDirectWorkflowMixin']

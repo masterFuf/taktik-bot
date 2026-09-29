@@ -2,17 +2,17 @@
 
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.shell.navigation import BUTTON_SELECTORS, NAVIGATION_SELECTORS
-from ....ui.selectors.shell.popups import POPUP_SELECTORS
-from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
-from ....ui.selectors.surfaces.post import POST_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS, NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
-from .post_interaction import PostInteractionMixin
-from .profile_interaction import ProfileInteractionMixin
-from .story_interaction import StoryInteractionMixin
+from taktik.core.social_media.instagram.actions.atomic.interaction.post_interaction import PostInteractionMixin
+from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import ProfileInteractionMixin
+from taktik.core.social_media.instagram.actions.atomic.interaction.story_interaction import StoryInteractionMixin
 
 
 class ClickActions(

@@ -7,13 +7,13 @@ Sub-packages:
 - session/  — session persistence (save, load, delete, cleanup)
 """
 
-from .login import InstagramLogin
-from .login.models import LoginResult
-from .logout import InstagramLogout
-from .logout.models import LogoutResult
-from .signup import InstagramSignup
-from .signup.models import SignupResult
-from .session import SessionManager
+from taktik.core.social_media.instagram.auth.login import InstagramLogin
+from taktik.core.social_media.instagram.auth.login.models import LoginResult
+from taktik.core.social_media.instagram.auth.logout import InstagramLogout
+from taktik.core.social_media.instagram.auth.logout.models import LogoutResult
+from taktik.core.social_media.instagram.auth.signup import InstagramSignup
+from taktik.core.social_media.instagram.auth.signup.models import SignupResult
+from taktik.core.social_media.instagram.auth.session import SessionManager
 
 __all__ = [
     'InstagramLogin',

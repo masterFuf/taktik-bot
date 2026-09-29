@@ -16,11 +16,11 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-from ....actions.business.workflows.common.suggestion_visit import (
+from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_visit import (
     SuggestionSurface,
     visit_suggestions,
 )
-from .suggestions_parsing import (
+from taktik.core.social_media.instagram.workflows.management.notifications.suggestions_parsing import (
     find_suggestions_header_y,
     followable_suggestions,
     iter_text_nodes,
@@ -61,8 +61,8 @@ class NotificationSuggestionsMixin:
     # ------------------------------------------------------------------
     def scan_suggestions(self, root=None) -> List[Dict[str, Any]]:
         """Visible suggestion rows at the bottom of the screen, with their state."""
-        from ....actions.atomic.interaction.profile_interaction import classify_follow_state
-        from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+        from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import classify_follow_state
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
         root = root if root is not None else self._dump_root()
         return parse_notification_suggestions(
@@ -157,7 +157,7 @@ class NotificationSuggestionsMixin:
         now is not the suggestions one) or 'cap_hit' (guard hit while the list was
         still moving).
         """
-        from .dump_parsing import parse_section_headers
+        from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import parse_section_headers
 
         previous = None
         stale = 0

@@ -6,7 +6,7 @@ import subprocess
 from typing import Optional
 from loguru import logger
 
-from ...core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
 from taktik.core.clone import get_active_package
 
 # Security: usernames and URLs come from scraped profiles, so they are attacker-

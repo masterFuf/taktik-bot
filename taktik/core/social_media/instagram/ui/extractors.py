@@ -4,7 +4,7 @@ from typing import Optional, List, Any, Dict
 from loguru import logger
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.actions.utils import ActionUtils
-from .labels import is_ui_label
+from taktik.core.social_media.instagram.ui.labels import is_ui_label
 
 log = logger.bind(module="instagram-ui-extractors")
 
@@ -17,7 +17,7 @@ class InstagramUIExtractors:
         self.device = device
         self.framed_post = framed_post
 
-        from .selectors import POST_SELECTORS, POPUP_SELECTORS, DETECTION_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors import POST_SELECTORS, POPUP_SELECTORS, DETECTION_SELECTORS
         self.post_selectors = POST_SELECTORS
         self.popup_selectors = POPUP_SELECTORS
         self.detection_selectors = DETECTION_SELECTORS

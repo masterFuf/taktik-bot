@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
-from ..locales import L
+from taktik.core.social_media.instagram.ui.selectors.locales import L
 
 @dataclass
 class PopupSelectors:
@@ -182,7 +182,7 @@ class PopupSelectors:
     @property
     def add_to_story_labels(self) -> List[str]:
         """Text fallback for the same cell, scoped to the sheet's reshare row."""
-        from ..surfaces.content_creation import CONTENT_CREATION_SELECTORS
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation import CONTENT_CREATION_SELECTORS
 
         return [
             f'//*[contains(@resource-id, "direct_external_reshare_row")]'

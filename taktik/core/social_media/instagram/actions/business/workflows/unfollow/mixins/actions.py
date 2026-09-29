@@ -15,7 +15,7 @@ from taktik.core.social_media.instagram.actions.atomic.interaction.profile_inter
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ..list_proof import describe_proof, parse_tab_count
+from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list_proof import describe_proof, parse_tab_count
 
 
 # A row button that CONTRADICTS the tab it is read on: its row is not part of that list. A blank

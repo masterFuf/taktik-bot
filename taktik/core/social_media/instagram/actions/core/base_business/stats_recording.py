@@ -2,7 +2,7 @@
 
 from typing import Optional, Dict, Any, List
 
-from ..ipc import IPCEmitter
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
 

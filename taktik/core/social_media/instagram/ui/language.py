@@ -224,8 +224,8 @@ def optimize_selector_dataclass(instance, lang: str) -> int:
 
 def detect_and_optimize(device, override: Optional[str] = None) -> str:
     """Detect (or force) the app language AND optimize every known selector singleton."""
-    from . import selectors as _barrel
-    from .selectors.locales import available_locales, set_active_locale
+    from taktik.core.social_media.instagram.ui import selectors as _barrel
+    from taktik.core.social_media.instagram.ui.selectors.locales import available_locales, set_active_locale
 
     return _DETECTION.detect_and_optimize(
         device, override, barrel=_barrel, set_active_locale=set_active_locale,

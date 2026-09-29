@@ -38,12 +38,12 @@ from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.vision import locate_text_on_screen
 
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
-from ....ui.detectors.problematic_page import ProblematicPageDetector
-from ....ui.language import detect_and_optimize
-from ....ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
-from ....ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
-from .classifier import clean_label, longest_clean_run
-from .dump_parsing import (
+from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
+from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+from taktik.core.social_media.instagram.ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
+from taktik.core.social_media.instagram.workflows.management.notifications.classifier import clean_label, longest_clean_run
+from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
     concat_text,
     find_inline_follow_back_target,
     find_inline_like_target,
@@ -59,8 +59,8 @@ from .dump_parsing import (
 # Families whose row text carries USER-written content that may contain emojis the XML
 # dump corrupts (so we re-read them via the element API to recover the real text).
 _EMOJI_TEXT_TYPES = {"comment_mention", "post_comment", "comment_reply", "comment_like"}
-from .row_layout import parse_bounds
-from .suggestions_flow import NotificationSuggestionsMixin
+from taktik.core.social_media.instagram.workflows.management.notifications.row_layout import parse_bounds
+from taktik.core.social_media.instagram.workflows.management.notifications.suggestions_flow import NotificationSuggestionsMixin
 from taktik.core.shared.device.wait import find_element
 from taktik.core.shared.behavior.tap import (
     tap_element_human,

@@ -13,13 +13,13 @@ from typing import Dict, List, Any, Optional
 from loguru import logger
 
 from taktik.core.shared.diagnostics import run_halt
-from ..common.likers_base import LikersWorkflowBase
-from ..common.interaction_config import merge_operator_config
-from ....core.stats import create_workflow_stats
-from ....core.ipc import IPCEmitter
-from .post_actions import FeedPostActionsMixin
-from .suggestions import FeedSuggestionsMixin
-from .suggestions_visit import DiscoverSuggestionsVisitMixin
+from taktik.core.social_media.instagram.actions.business.workflows.common.likers_base import LikersWorkflowBase
+from taktik.core.social_media.instagram.actions.business.workflows.common.interaction_config import merge_operator_config
+from taktik.core.social_media.instagram.actions.core.stats import create_workflow_stats
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from taktik.core.social_media.instagram.actions.business.workflows.feed.post_actions import FeedPostActionsMixin
+from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions import FeedSuggestionsMixin
+from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_visit import DiscoverSuggestionsVisitMixin
 
 
 class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
@@ -46,7 +46,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "feed", init_business_modules=True)
         
-        from ...common.workflow_defaults import FEED_DEFAULTS
+        from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import FEED_DEFAULTS
         from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SELECTORS
         self.default_config = {**FEED_DEFAULTS}
         
@@ -261,7 +261,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 # otherwise, so the crawl behaves exactly as before.
                 on_ad = None
                 if effective_config.get('capture_ads', False):
-                    from .ad_capture import make_ad_capturer
+                    from taktik.core.social_media.instagram.actions.business.workflows.feed.ad_capture import make_ad_capturer
                     on_ad = make_ad_capturer(
                         self.device,
                         account_id=getattr(self.automation, 'active_account_id', None)

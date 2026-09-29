@@ -2,9 +2,9 @@
 
 from typing import Optional
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.shell.popups import POPUP_SELECTORS
-from ....ui.selectors.surfaces.story_viewer import STORY_SELECTORS
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 
 
 class StoryInteractionMixin(BaseAction):

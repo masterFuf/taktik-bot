@@ -1,8 +1,8 @@
 """Follower workflow mixins: reusable logic blocks."""
 
-from .checkpoints import FollowerCheckpointsMixin
-from .extraction import FollowerExtractionMixin
-from .navigation import FollowerNavigationMixin
+from taktik.core.social_media.instagram.actions.business.workflows.followers.mixins.checkpoints import FollowerCheckpointsMixin
+from taktik.core.social_media.instagram.actions.business.workflows.followers.mixins.extraction import FollowerExtractionMixin
+from taktik.core.social_media.instagram.actions.business.workflows.followers.mixins.navigation import FollowerNavigationMixin
 
 __all__ = [
     'FollowerCheckpointsMixin',

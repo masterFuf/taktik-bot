@@ -1,6 +1,6 @@
-from .like import LikeBusiness
-from .story import StoryBusiness
-from .comment import CommentBusiness
+from taktik.core.social_media.instagram.actions.business.actions.like import LikeBusiness
+from taktik.core.social_media.instagram.actions.business.actions.story import StoryBusiness
+from taktik.core.social_media.instagram.actions.business.actions.comment import CommentBusiness
 
 __all__ = [
     'LikeBusiness',

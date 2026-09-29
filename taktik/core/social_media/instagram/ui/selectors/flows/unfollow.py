@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
-from ..locales import L
-from ..shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.locales import L
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
 
 
 def _labels(key: str) -> List[str]:

@@ -13,9 +13,9 @@ distinct outcome is what lets one real run settle the question.
 
 from typing import Any, Dict
 
-from ....actions.atomic.interaction.bottom_sheet import dismiss_share_sheet
-from ....actions.atomic.interaction.information_window import acknowledge_information_windows
-from ...core.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import dismiss_share_sheet
+from taktik.core.social_media.instagram.actions.atomic.interaction.information_window import acknowledge_information_windows
+from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
 
 
 class StoryRelayBusiness(BaseBusinessAction):

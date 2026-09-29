@@ -23,8 +23,8 @@ so parallel devices in different languages do not share this global.
 """
 from typing import Dict, List, Optional, Set
 
-from . import en as _en
-from . import fr as _fr
+from taktik.core.social_media.instagram.ui.selectors.locales import en as _en
+from taktik.core.social_media.instagram.ui.selectors.locales import fr as _fr
 
 # lang code -> { "<surface>.<field>": [xpath fragment, ...] }
 _LOCALES: Dict[str, Dict[str, List[str]]] = {

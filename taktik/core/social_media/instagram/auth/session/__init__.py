@@ -1,5 +1,5 @@
 """Session persistence — save/load/delete/cleanup login sessions."""
 
-from .session_manager import SessionManager
+from taktik.core.social_media.instagram.auth.session.session_manager import SessionManager
 
 __all__ = ['SessionManager']

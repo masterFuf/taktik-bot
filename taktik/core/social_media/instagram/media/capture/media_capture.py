@@ -10,7 +10,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from loguru import logger
 
-from ..proxy.proxy_manager import ProxyManager
+from taktik.core.social_media.instagram.media.proxy.proxy_manager import ProxyManager
 
 
 @dataclass

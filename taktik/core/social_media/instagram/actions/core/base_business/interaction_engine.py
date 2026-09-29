@@ -4,7 +4,7 @@ import time
 import random
 from typing import Optional, Dict, Any, List
 
-from ..ipc import IPCEmitter
+from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.behavior.interaction_plan import (
     allows_follow_alone,
@@ -20,9 +20,9 @@ from taktik.core.shared.behavior.interaction_plan import (
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
-from ....ui.detectors.action_block import detector_of
+from taktik.core.social_media.instagram.ui.detectors.action_block import detector_of
 from taktik.core.shared.behavior.dwell import story_dwell
-from ...atomic.story_state import compare_slides, observe_slide
+from taktik.core.social_media.instagram.actions.atomic.story_state import compare_slides, observe_slide
 
 
 def why_like_fell_short(

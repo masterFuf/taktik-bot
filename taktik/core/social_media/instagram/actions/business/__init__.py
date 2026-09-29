@@ -13,10 +13,10 @@ Every historical import stays compatible.
 """
 
 # Imports from the sub-packages
-from .workflows import PostUrlBusiness, HashtagBusiness, FollowerBusiness
-from .actions import LikeBusiness, StoryBusiness
-from .management import ProfileBusiness, ContentBusiness, FilteringBusiness
-from .system import ConfigBusiness
+from taktik.core.social_media.instagram.actions.business.workflows import PostUrlBusiness, HashtagBusiness, FollowerBusiness
+from taktik.core.social_media.instagram.actions.business.actions import LikeBusiness, StoryBusiness
+from taktik.core.social_media.instagram.actions.business.management import ProfileBusiness, ContentBusiness, FilteringBusiness
+from taktik.core.social_media.instagram.actions.business.system import ConfigBusiness
 
 __all__ = [
     # Workflows

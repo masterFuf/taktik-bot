@@ -3,19 +3,19 @@
 Owns selectors tied to concrete user-facing Instagram surfaces.
 """
 
-from .content_creation import ContentCreationSelectors, CONTENT_CREATION_SELECTORS
-from .direct_messages import DirectMessageSelectors, DM_SELECTORS
-from .discover_people import DiscoverPeopleSelectors, DISCOVER_PEOPLE_SELECTORS
-from .feed import (
+from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation import ContentCreationSelectors, CONTENT_CREATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DirectMessageSelectors, DM_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.discover_people import DiscoverPeopleSelectors, DISCOVER_PEOPLE_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import (
     FeedSelectors,
     FEED_SELECTORS,
     FeedSuggestionsSelectors,
     FEED_SUGGESTIONS_SELECTORS,
 )
-from .followers_following import FollowersListSelectors, FOLLOWERS_LIST_SELECTORS
-from .hashtag import HashtagSelectors, HASHTAG_SELECTORS
-from .notifications import NotificationSelectors, NOTIFICATION_SELECTORS
-from .post import (
+from taktik.core.social_media.instagram.ui.selectors.surfaces.followers_following import FollowersListSelectors, FOLLOWERS_LIST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.hashtag import HashtagSelectors, HASHTAG_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.notifications import NotificationSelectors, NOTIFICATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     PostCommentsSelectors,
     POST_COMMENTS_SELECTORS,
     PostDetailSelectors,
@@ -31,8 +31,8 @@ from .post import (
     PostShareSheetSelectors,
     POST_SHARE_SHEET_SELECTORS,
 )
-from .profile import ProfileSelectors, PROFILE_SELECTORS
-from .story_viewer import StorySelectors, STORY_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import ProfileSelectors, PROFILE_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import StorySelectors, STORY_SELECTORS
 
 __all__ = [
     "CONTENT_CREATION_SELECTORS",

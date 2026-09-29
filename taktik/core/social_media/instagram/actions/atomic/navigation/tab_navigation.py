@@ -3,7 +3,7 @@
 import time
 from loguru import logger
 
-from ...core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
 
 
 class TabNavigationMixin(BaseAction):
@@ -80,7 +80,7 @@ class TabNavigationMixin(BaseAction):
         max_attempts = 3
         
         for attempt in range(max_attempts):
-            from ..detection import DetectionActions
+            from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
             detection = DetectionActions(self.device)
             
             if detection.is_on_own_profile():

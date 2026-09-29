@@ -4,7 +4,7 @@ import time
 from typing import Dict, Any, List, Optional
 
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
-from ...common.revisit_policy import RevisitPolicy
+from taktik.core.social_media.instagram.actions.business.workflows.common.revisit_policy import RevisitPolicy
 
 
 class FollowerExtractionMixin:

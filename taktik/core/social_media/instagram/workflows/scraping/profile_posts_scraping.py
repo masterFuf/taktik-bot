@@ -25,9 +25,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
-from ...ui.language import detect_and_optimize
-from ..common.detection import is_reel_post
-from ..common.post_navigation import get_post_url_from_share
+from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+from taktik.core.social_media.instagram.workflows.common.detection import is_reel_post
+from taktik.core.social_media.instagram.workflows.common.post_navigation import get_post_url_from_share
 
 if TYPE_CHECKING:
     from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
@@ -88,7 +88,7 @@ class ProfilePostsScrapingMixin:
         """
         navigator = getattr(self, "_post_navigator_instance", None)
         if navigator is None:
-            from ...actions.business.actions.like.orchestration import LikeOrchestration
+            from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeOrchestration
             navigator = LikeOrchestration(self.device)
             self._post_navigator_instance = navigator
         return navigator

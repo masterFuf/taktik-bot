@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, Optional
 
 from loguru import logger
 
-from ....auth.switch import InstagramSwitchAccount
+from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
 
 
 class SwitchAccountWorkflow:

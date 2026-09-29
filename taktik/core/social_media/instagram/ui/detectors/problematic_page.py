@@ -8,8 +8,8 @@ from typing import Optional, Dict, Any
 from loguru import logger
 from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capture_screenshot
 from taktik.core.shared.diagnostics import run_halt
-from ..selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
-from ..selectors.locales import L_all, active_locale, available_locales
+from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.locales import L_all, active_locale, available_locales
 
 _NODE_TAG = re.compile(r'<node\b[^>]*>')
 _ATTRIBUTE = r'\b{}="([^"]*)"'
@@ -316,7 +316,7 @@ class ProblematicPageDetector:
         Quand il n'y a pas de bande au-dessus de la feuille, il n'y a rien à taper dehors : on rend
         False et l'appelant passe à la méthode suivante.
         """
-        from ...actions.atomic.interaction.bottom_sheet import sheet_outside_tap_point
+        from taktik.core.social_media.instagram.actions.atomic.interaction.bottom_sheet import sheet_outside_tap_point
 
         point = sheet_outside_tap_point(self.device)
         if point is None:

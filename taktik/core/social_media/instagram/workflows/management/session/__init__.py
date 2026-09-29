@@ -1,5 +1,5 @@
 """Session management."""
 
-from .session import SessionManager
+from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
 
 __all__ = ['SessionManager']

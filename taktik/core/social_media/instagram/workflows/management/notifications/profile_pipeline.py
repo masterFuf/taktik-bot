@@ -25,7 +25,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.interaction_plan import FOLLOW_ALONE_ALLOWED
 
-from ....actions.core.base_business.profile_processing import ProfileProcessingResult
+from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import ProfileProcessingResult
 
 # This run is about ACQUISITION: the follow is certain and nothing else is attempted,
 # since a like or a story on an unknown account would not serve acquisition.
@@ -163,9 +163,9 @@ def build_notifications_profile_pipeline(
     """
     from taktik.core.shared.device.facade import BaseDeviceFacade
 
-    from ....actions.core.base_business import BaseBusinessAction
-    from ....actions.core.device.facade import DeviceFacade
-    from ..session import SessionManager
+    from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
+    from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+    from taktik.core.social_media.instagram.workflows.management.session import SessionManager
 
     config = dict(config or DEFAULT_SUGGESTION_INTERACTION_CONFIG)
     facade = device if isinstance(device, BaseDeviceFacade) else DeviceFacade(device)

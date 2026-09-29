@@ -6,9 +6,9 @@ to comment mentions). Selectors come from the centralized
 ``NOTIFICATION_SELECTORS`` catalog; this package adds no selector literal.
 """
 
-from .classifier import classify_row, extract_time, row_has_action
-from .notifications_workflow import NotificationsEngagementWorkflow
-from .profile_pipeline import (
+from taktik.core.social_media.instagram.workflows.management.notifications.classifier import classify_row, extract_time, row_has_action
+from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import NotificationsEngagementWorkflow
+from taktik.core.social_media.instagram.workflows.management.notifications.profile_pipeline import (
     DEFAULT_SUGGESTION_INTERACTION_CONFIG,
     NotificationsProfilePipeline,
     build_notifications_profile_pipeline,

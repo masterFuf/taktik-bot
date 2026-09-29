@@ -19,7 +19,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List
 
-from ..common.detection import (
+from taktik.core.social_media.instagram.workflows.common.detection import (
     is_likers_popup_open,
     is_comments_view_open,
     read_visible_commenters,

@@ -13,12 +13,12 @@ import time
 from typing import Optional
 from loguru import logger
 
-from ...ui.selectors.shell.auth import AUTH_SELECTORS
-from ...actions.atomic.interaction import ClickActions
-from ...actions.atomic.detection import DetectionActions
+from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
+from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
+from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 
-from .models import LogoutResult
+from taktik.core.social_media.instagram.auth.logout.models import LogoutResult
 from taktik.core.shared.device.wait import find_element
 
 

@@ -1,6 +1,6 @@
 """Follower workflow implementations."""
 
-from .direct import FollowerDirectWorkflowMixin
+from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct import FollowerDirectWorkflowMixin
 
 __all__ = [
     'FollowerDirectWorkflowMixin',

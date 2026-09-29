@@ -7,10 +7,10 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from loguru import logger
 from taktik.core.shared.diagnostics import capture_screen_snapshot, run_halt
-from .....database.local.service import get_local_database
-from ...ui.language import redetect_if_unknown
-from ..management.session import stop_reasons
-from ..management.session.stop_reasons import StopReason
+from taktik.core.database.local.service import get_local_database
+from taktik.core.social_media.instagram.ui.language import redetect_if_unknown
+from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.management.session.stop_reasons import StopReason
 
 
 class WorkflowHelpers:
@@ -176,7 +176,7 @@ class WorkflowHelpers:
     def _handle_post_restart_popups(self):
         """Detect and dismiss popups that may appear after app restart (ad consent, etc.)."""
         try:
-            from ...ui.detectors.problematic_page import ProblematicPageDetector
+            from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
             detector = ProblematicPageDetector(self.automation.actions.device, debug_mode=False)
             result = detector.detect_and_handle_problematic_pages()
             if result.get('detected'):

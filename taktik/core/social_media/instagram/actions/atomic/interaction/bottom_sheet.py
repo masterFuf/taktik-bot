@@ -37,7 +37,7 @@ from typing import Callable, Dict, List, Optional
 from loguru import logger as _default_logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
-from ....ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
 
 # Shape of a grab bar: much wider than it is tall, never fills the width, horizontally centred.
 #

@@ -6,15 +6,15 @@ import random
 import re
 import time
 
-from ..common.likers_base import LikersWorkflowBase
-from ..common.list_sources import resolve_list_source
-from ..common.interaction_config import merge_operator_config
-from .in_thread import engage_thread
-from ....core.stats import create_workflow_stats
+from taktik.core.social_media.instagram.actions.business.workflows.common.likers_base import LikersWorkflowBase
+from taktik.core.social_media.instagram.actions.business.workflows.common.list_sources import resolve_list_source
+from taktik.core.social_media.instagram.actions.business.workflows.common.interaction_config import merge_operator_config
+from taktik.core.social_media.instagram.actions.business.workflows.post_url.in_thread import engage_thread
+from taktik.core.social_media.instagram.actions.core.stats import create_workflow_stats
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 
-from .mixins.url_handling import PostUrlHandlingMixin
-from .mixins.extractors import PostUrlExtractorsMixin
+from taktik.core.social_media.instagram.actions.business.workflows.post_url.mixins.url_handling import PostUrlHandlingMixin
+from taktik.core.social_media.instagram.actions.business.workflows.post_url.mixins.extractors import PostUrlExtractorsMixin
 
 
 class PostUrlBusiness(
@@ -25,7 +25,7 @@ class PostUrlBusiness(
     
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "post-url", init_business_modules=True)
-        from ...common.workflow_defaults import POST_URL_DEFAULTS
+        from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import POST_URL_DEFAULTS
         from taktik.core.social_media.instagram.ui.selectors.surfaces.hashtag import HASHTAG_SELECTORS
         self.default_config = {**POST_URL_DEFAULTS}
         self._hashtag_sel = HASHTAG_SELECTORS

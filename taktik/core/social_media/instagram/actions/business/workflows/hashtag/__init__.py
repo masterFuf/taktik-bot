@@ -1,5 +1,5 @@
 """Hashtag workflow — split into modules for maintainability."""
 
-from .workflow import HashtagBusiness
+from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import HashtagBusiness
 
 __all__ = ['HashtagBusiness']

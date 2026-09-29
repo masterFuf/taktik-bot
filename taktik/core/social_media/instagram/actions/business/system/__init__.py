@@ -4,7 +4,7 @@
 This package holds the global configuration modules.
 """
 
-from .config import ConfigBusiness
+from taktik.core.social_media.instagram.actions.business.system.config import ConfigBusiness
 
 __all__ = [
     'ConfigBusiness',

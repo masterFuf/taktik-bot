@@ -9,18 +9,18 @@ from loguru import logger
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
 
-from ..common.likers_base import LikersWorkflowBase
-from ..common.list_sources import resolve_list_source
-from ..common.interaction_config import merge_operator_config
-from .interaction_plan import resolve_interaction_plan
-from ....core.stats import create_workflow_stats
+from taktik.core.social_media.instagram.actions.business.workflows.common.likers_base import LikersWorkflowBase
+from taktik.core.social_media.instagram.actions.business.workflows.common.list_sources import resolve_list_source
+from taktik.core.social_media.instagram.actions.business.workflows.common.interaction_config import merge_operator_config
+from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import resolve_interaction_plan
+from taktik.core.social_media.instagram.actions.core.stats import create_workflow_stats
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
 from taktik.core.database.instagram_hashtag_posts import InstagramHashtagPostService
 from taktik.core.social_media.instagram.ui.extractors import parse_number_from_text
 
-from .mixins.post_finder import HashtagPostFinderMixin
-from .mixins.extractors import HashtagExtractorsMixin
+from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_finder import HashtagPostFinderMixin
+from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.extractors import HashtagExtractorsMixin
 
 
 # "No maximum": a high bound stays simpler to read than a null tested in each of the
@@ -65,7 +65,7 @@ class HashtagBusiness(
     def __init__(self, device, session_manager=None, automation=None):
         super().__init__(device, session_manager, automation, "hashtag", init_business_modules=True)
         
-        from ...common.workflow_defaults import HASHTAG_DEFAULTS
+        from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import HASHTAG_DEFAULTS
         from taktik.core.social_media.instagram.ui.selectors.surfaces.hashtag import HASHTAG_SELECTORS
         self.default_config = {**HASHTAG_DEFAULTS}
         self._hashtag_sel = HASHTAG_SELECTORS

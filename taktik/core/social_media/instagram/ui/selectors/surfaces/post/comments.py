@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
-from .detail import POST_SELECTORS
-from ...locales import L
-from ...support.blocking_modals import BLOCKING_MODAL_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post.detail import POST_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.locales import L
+from taktik.core.social_media.instagram.ui.selectors.support.blocking_modals import BLOCKING_MODAL_SELECTORS
 
 
 @dataclass

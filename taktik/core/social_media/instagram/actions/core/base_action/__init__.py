@@ -20,20 +20,20 @@ from typing import Optional, Dict, Any, List, Tuple, Union
 from loguru import logger
 
 from taktik.core.shared.actions.base_action import SharedBaseAction
-from ..device.facade import DeviceFacade
-from ..utils import ActionUtils
+from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.core.utils import ActionUtils
 from taktik.core.shared.input.taktik_keyboard import (
     IME_CLEAR_TEXT,
     IME_MESSAGE_B64,
     TAKTIK_KEYBOARD_IME,
     run_adb_shell,
 )
-from ..behavior import HumanBehavior
+from taktik.core.social_media.instagram.actions.core.behavior import HumanBehavior
 
-from .delays import DelaysMixin
-from .scroll import ScrollMixin
-from .typing import TypingMixin
-from .app_management import AppManagementMixin
+from taktik.core.social_media.instagram.actions.core.base_action.delays import DelaysMixin
+from taktik.core.social_media.instagram.actions.core.base_action.scroll import ScrollMixin
+from taktik.core.social_media.instagram.actions.core.base_action.typing import TypingMixin
+from taktik.core.social_media.instagram.actions.core.base_action.app_management import AppManagementMixin
 
 
 class BaseAction(

@@ -15,8 +15,8 @@ from taktik.core.shared.behavior.grid_entry import (
 from taktik.core.shared.behavior.dwell import content_dwell
 from taktik.core.shared.diagnostics.miss_capture import signaler_ecran_inconnu
 from taktik.core.shared.telemetry import emit_step
-from ....atomic.navigation.profile_grid import show_profile_posts_grid
-from ....core.ipc.emitter import IPCEmitter
+from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import show_profile_posts_grid
+from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
 
 if TYPE_CHECKING:
     from loguru import Logger

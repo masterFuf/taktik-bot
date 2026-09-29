@@ -1,6 +1,6 @@
 """Hashtag workflow mixins."""
 
-from .extractors import HashtagExtractorsMixin
-from .post_finder import HashtagPostFinderMixin
+from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.extractors import HashtagExtractorsMixin
+from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_finder import HashtagPostFinderMixin
 
 __all__ = ['HashtagExtractorsMixin', 'HashtagPostFinderMixin']

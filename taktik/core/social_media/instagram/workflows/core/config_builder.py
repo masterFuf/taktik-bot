@@ -5,8 +5,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from ...actions.business.workflows.common.distribution import normalize_distribution
-from ..management.session.warmup_budget import warmup_policy_from_payload
+from taktik.core.social_media.instagram.actions.business.workflows.common.distribution import normalize_distribution
+from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import warmup_policy_from_payload
 
 # Workflow types this builder can turn into an automation action. Anything else must
 # fail loudly instead of silently becoming a follower-interaction run (that fallback

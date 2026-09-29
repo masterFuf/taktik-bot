@@ -15,11 +15,11 @@ import time
 from typing import Optional
 from loguru import logger
 
-from ...ui.selectors.shell.auth import AUTH_SELECTORS
-from ...actions.atomic.text import TextActions
-from ...actions.core.utils import ActionUtils
+from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
+from taktik.core.social_media.instagram.actions.atomic.text import TextActions
+from taktik.core.social_media.instagram.actions.core.utils import ActionUtils
 
-from .models import SignupResult
+from taktik.core.social_media.instagram.auth.signup.models import SignupResult
 
 
 class InstagramSignup:

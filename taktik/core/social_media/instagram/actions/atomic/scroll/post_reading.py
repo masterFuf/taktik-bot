@@ -22,8 +22,8 @@ import time
 import random
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, cast
 
-from ....ui.extractors import count_from_counter_label, username_from_author_header
-from ....ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
+from taktik.core.social_media.instagram.ui.extractors import count_from_counter_label, username_from_author_header
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.shared.behavior.dwell import content_dwell, caption_prose_chars, MIN_DWELL_S
 from taktik.core.shared.behavior.gesture import SWIPE_FLOOR_H
 from taktik.core.shared.text import text_lost_emoji

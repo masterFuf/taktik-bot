@@ -18,7 +18,7 @@ from typing import Optional
 from taktik.core.shared.behavior.dwell import caption_prose_text
 from taktik.core.shared.text import text_lost_emoji
 
-from ...ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 
 # Below this many characters of actual prose (after cleaning), a caption carries nothing a
 # comment can anchor to — the model would write from thin air, which reads as fake. The

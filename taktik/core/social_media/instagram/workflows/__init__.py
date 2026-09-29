@@ -1,6 +1,6 @@
-from .core import InstagramAutomation, WorkflowRunner
-from .management import SessionManager, WorkflowConfigBuilder, ActionProbabilities, FilterCriteria, LoginWorkflow
-from .support import WorkflowHelpers, UIHelpers
+from taktik.core.social_media.instagram.workflows.core import InstagramAutomation, WorkflowRunner
+from taktik.core.social_media.instagram.workflows.management import SessionManager, WorkflowConfigBuilder, ActionProbabilities, FilterCriteria, LoginWorkflow
+from taktik.core.social_media.instagram.workflows.support import WorkflowHelpers, UIHelpers
 
 __all__ = [
     'InstagramAutomation',

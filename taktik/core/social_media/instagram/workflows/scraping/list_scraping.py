@@ -13,15 +13,15 @@ from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEnd
 from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.vision import capture_non_blank
-from ..common.post_navigation import open_likers_list
-from ..common.detection import is_likers_popup_open
-from .list_strategy import (
+from taktik.core.social_media.instagram.workflows.common.post_navigation import open_likers_list
+from taktik.core.social_media.instagram.workflows.common.detection import is_likers_popup_open
+from taktik.core.social_media.instagram.workflows.scraping.list_strategy import (
     ListScrapingStrategy,
     make_followers_strategy,
     make_commenters_strategy,
 )
-from .deep_qualify import DeepQualifyMixin
-from .persistence import SCRAPED_PROFILE_FIELDS
+from taktik.core.social_media.instagram.workflows.scraping.deep_qualify import DeepQualifyMixin
+from taktik.core.social_media.instagram.workflows.scraping.persistence import SCRAPED_PROFILE_FIELDS
 
 console = Console()
 

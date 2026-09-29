@@ -6,8 +6,8 @@ All functions take `device` and `logger` as parameters — no class dependency.
 import re
 from typing import Any, Dict, List
 
-from ...ui.selectors.shell.popups import POPUP_SELECTORS
-from ...ui.selectors.surfaces.post import (
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
     POST_COMMENTS_SELECTORS,
     POST_DETAIL_SELECTORS,
     POST_REELS_SELECTORS,

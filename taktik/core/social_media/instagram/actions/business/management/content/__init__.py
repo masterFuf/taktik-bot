@@ -8,6 +8,6 @@ Internal structure:
 - navigation.py  — Navigate to post URLs and hashtag pages
 """
 
-from .extraction import ContentExtraction as ContentBusiness
+from taktik.core.social_media.instagram.actions.business.management.content.extraction import ContentExtraction as ContentBusiness
 
 __all__ = ['ContentBusiness']

@@ -10,7 +10,7 @@ are kept only as fallbacks at the tail of each list.
 from typing import Dict, List
 from dataclasses import dataclass, field
 
-from ..locales import L, L_all
+from taktik.core.social_media.instagram.ui.selectors.locales import L, L_all
 
 
 @dataclass

@@ -2,13 +2,13 @@
 
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
-from ....ui.selectors.shell.text_input import TEXT_INPUT_SELECTORS
+from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.text_input import TEXT_INPUT_SELECTORS
 
-from .text_input import TextInputMixin
-from .content_input import ContentInputMixin
-from .keyboard_control import KeyboardControlMixin
+from taktik.core.social_media.instagram.actions.atomic.text.text_input import TextInputMixin
+from taktik.core.social_media.instagram.actions.atomic.text.content_input import ContentInputMixin
+from taktik.core.social_media.instagram.actions.atomic.text.keyboard_control import KeyboardControlMixin
 
 
 class TextActions(
