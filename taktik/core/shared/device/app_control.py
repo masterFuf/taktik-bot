@@ -1,4 +1,4 @@
-"""Standalone app control helpers for bridge device services."""
+"""The control of an app by ADB alone, without a uiautomator2 connection (the forced stop)."""
 
 from loguru import logger
 

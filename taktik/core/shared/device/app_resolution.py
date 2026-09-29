@@ -1,4 +1,4 @@
-"""Runtime config resolution for bridge-managed mobile apps."""
+"""The package and activity an app is driven with on a connected phone (a clone, an installed variant)."""
 
 from typing import Any, Optional
 

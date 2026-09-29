@@ -1,4 +1,4 @@
-"""ATX health helpers for bridge device connections."""
+"""The health of the uiautomator2 agent (ATX) of a connected phone, and its repair."""
 
 from loguru import logger
 

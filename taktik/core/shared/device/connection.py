@@ -1,7 +1,7 @@
 """
 ConnectionService — single source of truth for device connections.
 
-Wraps DeviceManager to provide a clean, reusable interface for all bridges.
+Wraps DeviceManager to provide a clean, reusable interface for every host (the bridges, the CLI).
 Handles: connect, disconnect, screen info, ATX health checks.
 
 Usage:

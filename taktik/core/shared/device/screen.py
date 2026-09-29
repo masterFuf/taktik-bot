@@ -1,4 +1,4 @@
-"""Screen information helpers for bridge device connections."""
+"""The screen size of a connected phone."""
 
 from typing import Any, Tuple
 

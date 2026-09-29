@@ -1,7 +1,8 @@
-"""Network reset strategies for bridge device runtimes.
+"""The strategies that reset the radio of a phone, for a new public IP.
 
 Each strategy only has to CHANGE THE RADIO STATE and report whether the commands took effect.
-Deciding whether the public IP actually rotated is the orchestrator's job (`network.py`) — a
+Deciding whether the public IP actually rotated is the orchestrator's job (the bridges'
+`bridges/common/network.py`) — a
 strategy that judged itself would report success on a carrier that hands the same IP back.
 """
 

@@ -1,4 +1,4 @@
-"""Bridge keyboard facade built on top of the shared Taktik Keyboard owner."""
+"""The Taktik Keyboard service a host hands to a run, over the keyboard primitives of `taktik_keyboard.py`."""
 
 from loguru import logger
 
@@ -13,8 +13,9 @@ class KeyboardService:
     """
     Type text on an Android device using the shared Taktik Keyboard runtime.
 
-    The bridge keeps a thin adapter API for historical callers while the
-    durable IME/ADB behavior stays owned by `taktik.core.shared.input`.
+    A thin API (the serial of the phone, `ensure_active`, `type_text`) that the
+    bridges, the CLI and the Lab hand to a run; the durable IME/ADB behaviour
+    stays owned by `taktik_keyboard.py`.
     """
 
     def __init__(self, device_id: str):

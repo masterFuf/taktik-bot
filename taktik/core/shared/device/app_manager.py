@@ -1,8 +1,9 @@
 """
 AppService: launch, stop, and restart mobile apps on connected devices.
 
-Centralizes app lifecycle management for bridge runtimes while package catalogs,
-ADB control helpers and inspection helpers live under dedicated owners.
+The one app lifecycle of the bot, for every host (the bridges, the CLI, the Lab),
+while package catalogs, ADB control helpers and inspection helpers live under
+dedicated owners.
 """
 
 import time

@@ -1,4 +1,5 @@
-"""Network inspection helpers for bridge device runtimes."""
+"""What the phone sees of the network: its public IP, whether the Internet is back, its latency,
+its radio settings."""
 
 import re
 import shlex

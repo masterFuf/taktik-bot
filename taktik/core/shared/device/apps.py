@@ -1,4 +1,4 @@
-"""Platform app package/activity catalog for bridge device services."""
+"""The catalog of each platform's app: package, activity, launch and stop waits, known variants."""
 
 from copy import deepcopy
 from typing import Dict, List
