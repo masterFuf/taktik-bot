@@ -1,14 +1,15 @@
-"""Ce que le telephone voit du reseau au demarrage d'un run.
+"""Ce que le telephone voit du reseau au demarrage d'un run : la mesure de latence.
 
 Une mesure, pas une decision : rien ne lit encore cette valeur pour rallonger une attente. Elle
 existe parce que « le reseau etait-il lent ? » n'a jamais eu de reponse mesuree -- et c'est par
 inference que les 65 likes non realises du week-end du 05-06/09 ont failli etre attribues au
 mauvais coupable.
 
-Deux proprietes comptent ici. La premiere : le parsing doit survivre aux deux formats de `ping`
-(celui qui imprime la ligne de resume, et toybox qui parfois ne l'imprime pas). La seconde, plus
-importante : cette mesure est posee sur la porte que TOUS les bridges traversent au demarrage de
-session -- elle ne doit donc, sous aucune panne, changer ce que cette porte repond.
+Ici, la sonde du coeur (`taktik/core/shared/device/network_probe.py`) : ce que son shell envoie au
+telephone, et un parsing qui doit survivre aux deux formats de `ping` (celui qui imprime la ligne de
+resume, et toybox qui parfois ne l'imprime pas). La porte que tous les ponts traversent, et qui pose
+cette mesure sans jamais changer sa reponse, est tenue par
+`tests/unit/bridges/common/test_network_baseline_at_the_gate.py`.
 """
 
 import sys
@@ -18,12 +19,7 @@ from unit.paths import CORE
 
 sys.path.insert(0, str(CORE))
 
-from bridges.common import network as network_module  # noqa: E402
 from taktik.core.shared.device import network_probe  # noqa: E402
-from taktik.core.shared.telemetry import (  # noqa: E402
-    clear_telemetry_sink,
-    configure_telemetry_sink,
-)
 
 PING_COMPLET = """PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
 64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=23.4 ms
@@ -52,14 +48,6 @@ def ping(monkeypatch):
         monkeypatch.setattr(network_probe, '_shell', lambda device_id, cmd, timeout=15: sortie)
 
     return _installer
-
-
-@pytest.fixture
-def metriques():
-    recues = []
-    configure_telemetry_sink(recues.append)
-    yield recues
-    clear_telemetry_sink()
 
 
 # --- ce que le shell du telephone recoit ------------------------------------------------------
@@ -142,85 +130,3 @@ def test_une_sortie_illisible_ne_donne_rien(ping):
     ping('/system/bin/sh: ping: not found')
 
     assert network_probe.measure_network_baseline('SERIE') is None
-
-
-# --- l'emission ------------------------------------------------------------------------------
-
-def test_la_mesure_voyage(monkeypatch, metriques):
-    monkeypatch.setattr(
-        network_module, 'measure_network_baseline',
-        lambda device_id: {'rtt_ms': 42.0, 'packet_loss_pct': 0.0, 'received': 3},
-    )
-
-    network_module._emit_network_baseline('SERIE')
-
-    emises = [m for m in metriques if m.category == 'network_probe']
-    assert len(emises) == 1
-    assert emises[0].action == 'session_baseline'
-    assert emises[0].target == 'SERIE'
-    assert emises[0].detail == {'rtt_ms': 42.0, 'packet_loss_pct': 0.0, 'replies': 3}
-
-
-def test_sans_appareil_on_ne_mesure_rien(monkeypatch, metriques):
-    def _jamais(device_id):
-        raise AssertionError('aucune mesure ne doit partir sans appareil')
-
-    monkeypatch.setattr(network_module, 'measure_network_baseline', _jamais)
-
-    network_module._emit_network_baseline('')
-
-    assert metriques == []
-
-
-# --- ce que la porte commune doit continuer a repondre ----------------------------------------
-
-def test_une_sonde_qui_explose_ne_bloque_pas_le_run(monkeypatch, metriques):
-    """La porte est traversee par TOUS les bridges au demarrage : elle ne doit rien casser."""
-
-    def _explose(device_id):
-        raise RuntimeError('appareil injoignable')
-
-    monkeypatch.setattr(network_module, 'measure_network_baseline', _explose)
-
-    assert network_module.enforce_pre_session_ip_rotation({}, 'SERIE') is True
-    assert metriques == []
-
-
-def test_la_rotation_non_demandee_repond_toujours_oui(monkeypatch):
-    monkeypatch.setattr(
-        network_module, 'measure_network_baseline',
-        lambda device_id: {'rtt_ms': 42.0, 'packet_loss_pct': 0.0, 'received': 3},
-    )
-    appels = []
-    monkeypatch.setattr(
-        network_module, 'perform_network_reset',
-        lambda *a, **k: appels.append(a) or pytest.fail('aucune rotation ne devait etre tentee'),
-    )
-
-    assert network_module.enforce_pre_session_ip_rotation(
-        {'networkReset': {'enabled': False}}, 'SERIE') is True
-    assert appels == []
-
-
-def test_la_mesure_precede_la_rotation(monkeypatch):
-    """Mesurer APRES aurait lu le reseau du nouvel operateur, pas celui ou le run va tourner.
-
-    Elle doit aussi partir meme quand aucune rotation n'est demandee -- sinon la baseline
-    n'existerait que sur les runs qui changent d'IP.
-    """
-    ordre = []
-    monkeypatch.setattr(
-        network_module, 'measure_network_baseline',
-        lambda device_id: ordre.append('mesure') or {
-            'rtt_ms': 10.0, 'packet_loss_pct': 0.0, 'received': 3},
-    )
-    monkeypatch.setattr(
-        network_module, 'perform_network_reset',
-        lambda *a, **k: ordre.append('rotation') or network_module.NetworkResetOutcome(
-            verdict='verified', method='data', old_ip='1.1.1.1', new_ip='2.2.2.2',
-            attempts=1, commands_ok=True),
-    )
-
-    assert network_module.enforce_pre_session_ip_rotation(
-        {'networkReset': {'enabled': True}}, 'SERIE') is True
-    assert ordre == ['mesure', 'rotation']

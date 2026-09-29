@@ -3,7 +3,7 @@
 The probes read (the public IP, whether the Internet is back, a setting); the strategies only change
 a radio state and say whether their commands took effect: deciding whether the IP rotated is the
 orchestrator's job (`bridges/common/network.py`, `test_network_reset_verdicts.py`). The parsing of
-the latency probe is pinned by `tests/unit/bridges/common/test_network_baseline.py`. Doubles of the
+the latency probe is pinned by `tests/unit/shared/device/test_network_baseline.py`. Doubles of the
 phone's shell here, no device.
 """
 
