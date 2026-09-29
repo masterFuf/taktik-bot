@@ -25,6 +25,10 @@ from .actions import LeftOutRows, UnfollowActionsMixin, row_belongs_to_tab
 from .sync_events import emit_sync_progress, emit_sync_user_discovered
 
 
+class FansCategoryUnreadable(Exception):
+    """The fans category is open and its rows could not be read: a failed read, never « 0 fans »."""
+
+
 class SyncFollowingMixin(UnfollowActionsMixin):
     """Mixin: sync the following list incrementally and detect non-followers via native category."""
 
@@ -336,14 +340,16 @@ class SyncFollowingMixin(UnfollowActionsMixin):
             config: Configuration (optionnel)
 
         Returns:
-            Dict with non_followers_count, mutuals_count, success
+            Dict with non_followers_count, mutuals_count, success. The counts stay None until the
+            category is read: a category not read (not served, not found, unreadable: `read_failed`)
+            has no count, never 0.
         """
         config = config or {}
         stats = {
-            'fans_count': 0,
+            'fans_count': None,
             # Legacy keys the desktop reads: `non_followers_count` has always been the size of
             # this category, i.e. the fans; `mutuals_count` was a deduction that no longer exists.
-            'non_followers_count': 0,
+            'non_followers_count': None,
             'mutuals_count': 0,
             'success': False,
         }
@@ -418,7 +424,15 @@ class SyncFollowingMixin(UnfollowActionsMixin):
                 return stats
 
             # Extract every non-reciprocal account
-            non_follower_usernames = self._extract_all_non_followers()
+            try:
+                non_follower_usernames = self._extract_all_non_followers()
+            except FansCategoryUnreadable as exc:
+                stats['read_failed'] = True
+                self.logger.error(
+                    f"scrape_non_followers_category: the fans category could not be read ({exc}): "
+                    "no count, nothing recorded"
+                )
+                return stats
             stats['non_followers_count'] = len(non_follower_usernames)  # the fans, see above
 
             self.logger.info(f"📋 Found {len(non_follower_usernames)} non-followers")
@@ -506,6 +520,10 @@ class SyncFollowingMixin(UnfollowActionsMixin):
         The list has no ordering, so it is scrolled to the end.
         Each item carries a follow-back button, which confirms they do not follow us.
 
+        The category's view was seen loaded (a row offering to follow back): a first screen without
+        one fan read is a read that failed, never an empty category. Raises `FansCategoryUnreadable`
+        then, and on any screen that could not be read: a list read in part is no list of the fans.
+
         Returns:
             Full list of the non-reciprocal usernames
         """
@@ -516,6 +534,8 @@ class SyncFollowingMixin(UnfollowActionsMixin):
 
         while scroll_attempts < max_scrolls:
             visible = self._get_visible_non_follower_usernames()
+            if not usernames and not visible:
+                raise FansCategoryUnreadable("the first screen of the open category gave no fan")
 
             new_found = False
             for username in visible:
@@ -535,43 +555,21 @@ class SyncFollowingMixin(UnfollowActionsMixin):
         return usernames
 
     def _get_visible_non_follower_usernames(self) -> List[str]:
+        """The fans on this screen of the open category: the names of its rows offering to follow
+        back, read by the list's row reader (`_visible_follow_rows`, one dump, the one of the unfollow
+        and the syncs). [] when no row offers it: the list ended above this screen.
+
+        Raises `FansCategoryUnreadable` when the screen could not be read, or when rows offer to
+        follow back and none of their names could be read: an unread screen is not an empty one.
         """
-        Extract the usernames visible in the non-reciprocal view.
-
-        The follow-back button is checked to confirm we are in the right view
-        and not in the standard following list.
-
-        Returns:
-            List of the visible usernames
-        """
-        results = []
-        try:
-            d = self.device.device
-            active_package = get_active_package()
-            username_resource_id = UNFOLLOW_SELECTORS.active_follow_list_username_resource_id(active_package)
-
-            # Confirm the right view through the presence of the follow-back button
-            if not self._has_follow_back_row():
-                self.logger.debug("No 'Follow back' buttons found — may not be in non-followers view")
-                return results
-
-            username_elements = d(resourceId=username_resource_id)
-            if not username_elements.exists:
-                return results
-
-            for i in range(username_elements.count):
-                try:
-                    username = username_elements[i].get_text() or ''
-                    username = username.strip().lstrip('@')
-                    if username and self._is_valid_username(username):
-                        results.append(username)
-                except Exception:
-                    continue
-
-        except Exception as e:
-            self.logger.debug(f"Error extracting non-follower usernames: {e}")
-
-        return results
+        rows = self._visible_follow_rows(require_username=False)
+        if not self.rows_read:
+            raise FansCategoryUnreadable("the rows of the list could not be read")
+        offering = [row for row in rows if row['state'] == 'follow_back']
+        names = [row['username'] for row in offering if row['username']]
+        if offering and not names:
+            raise FansCategoryUnreadable(f"{len(offering)} row(s) offer to follow back, no name read")
+        return names
 
     def _has_follow_back_row(self) -> bool:
         """Does a row of the open list offer to follow back ("Follow back", "Suivre en retour")?

@@ -394,5 +394,6 @@ def test_what_does_not_prove_the_category_not_served_stays_a_failure(xml, lang, 
     bundle, _phone, written = _unfollow_on(xml, lang, monkeypatch)
     result = INSTAGRAM_ACTIONS["unfollow.read_fans_category"](bundle, {})
     assert (result["success"], _declared(result)) == (False, None)
-    assert result["message"] == "0 fans"
+    # A category not read has no count: never « 0 fans ».
+    assert result["message"] == "fans not read"
     assert written == []

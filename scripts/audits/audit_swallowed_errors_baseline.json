@@ -79,7 +79,7 @@
   "taktik/core/social_media/instagram/actions/business/workflows/unfollow/mixins/actions.py": 5,
   "taktik/core/social_media/instagram/actions/business/workflows/unfollow/mixins/decision.py": 1,
   "taktik/core/social_media/instagram/actions/business/workflows/unfollow/mixins/sync_followers.py": 2,
-  "taktik/core/social_media/instagram/actions/business/workflows/unfollow/mixins/sync_following.py": 3,
+  "taktik/core/social_media/instagram/actions/business/workflows/unfollow/mixins/sync_following.py": 2,
   "taktik/core/social_media/instagram/actions/core/base_business/interaction_engine.py": 5,
   "taktik/core/social_media/instagram/actions/core/base_business/modal_recovery.py": 3,
   "taktik/core/social_media/instagram/actions/core/base_business/popup_handling.py": 5,

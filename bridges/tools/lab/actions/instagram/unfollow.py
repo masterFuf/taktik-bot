@@ -83,14 +83,21 @@ def sort_following_list(a, p):
 def read_fans_category(a, p):
     """Open the 'followers you don't follow back' category and record those FANS (production
     `scrape_non_followers_category`). Nothing is deduced for the accounts we follow. Not applicable
-    only when production proved the category not served (the list opens on its accounts)."""
+    only when production proved the category not served (the list opens on its accounts). A
+    category not read has no count: the message says why, never « 0 fans »."""
     stats = a.unfollow.scrape_non_followers_category()
     if stats.get("category_not_served"):
         return not_applicable("unfollow.read_fans_category",
                               "our followers list opens on its accounts, Instagram serves it no category now",
                               **_sync_summary(stats))
-    return {"success": bool(stats.get("success")), "message": f"{stats.get('fans_count', 0)} fans",
-            "details": _sync_summary(stats)}
+    fans = stats.get("fans_count")
+    if fans is not None:
+        message = f"{fans} fans"
+    elif stats.get("read_failed"):
+        message = "fans not read: the open category could not be read"
+    else:
+        message = "fans not read"
+    return {"success": bool(stats.get("success")), "message": message, "details": _sync_summary(stats)}
 
 
 @action("unfollow.read_list_rows")

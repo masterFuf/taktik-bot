@@ -428,6 +428,19 @@ class WorkflowRunner:
             )
         return self.automation.unfollow_business
     
+    @staticmethod
+    def _fans_read(nf_stats: Dict[str, Any]) -> str:
+        """What the fans category read says, for the log: its count, or that there is none (a
+        category not read has no count, never 0)."""
+        count = nf_stats.get('non_followers_count')
+        if count is not None:
+            return f"Fans (followers you do not follow back): {count}"
+        if nf_stats.get('category_not_served'):
+            return "Fans not read: the category is not served now"
+        if nf_stats.get('read_failed'):
+            return "Fans not read: the category could not be read"
+        return "Fans not read"
+
     def _run_sync_following_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the sync_following workflow — incremental following list sync + non-follower detection.
         
@@ -447,10 +460,7 @@ class WorkflowRunner:
         
         # Scrape non-followers category (autonome — détecte l'état de navigation)
         nf_stats = unfollow_business.scrape_non_followers_category()
-        self.logger.info(
-            f"📊 Fans (followers you do not follow back): {nf_stats['non_followers_count']}, "
-            f"{nf_stats['mutuals_count']} mutuals"
-        )
+        self.logger.info(f"📊 {self._fans_read(nf_stats)}, {nf_stats['mutuals_count']} mutuals")
         
         # Emit sync_complete IPC message to frontend
         sync_complete_msg = {
@@ -473,9 +483,9 @@ class WorkflowRunner:
         
         Steps:
         1. Sync following list (incremental, sorted by latest)
-        2. Scrape non-followers category (for mutual detection on following side)
-        3. Sync followers list (full scroll)
-        4. Emit sync_complete IPC message
+        2. Sync followers list (full scroll)
+        3. Emit sync_complete IPC message; the fans category is not read here, so its count is
+           null, never 0
         """
         import json
         
@@ -534,7 +544,8 @@ class WorkflowRunner:
                 "updated_count": followers_stats['updated_count'],
                 "total_seen": followers_stats['total_seen'],
             },
-            "non_followers_count": 0,
+            # The fans category is not read by this sync: no count, never 0.
+            "non_followers_count": None,
             "mutuals_count": 0,
             "success": sync_stats['success'] and followers_stats['success'],
         }
@@ -554,9 +565,6 @@ class WorkflowRunner:
         unfollow_business = self._get_unfollow_business()
 
         nf_stats = unfollow_business.scrape_non_followers_category()
-        self.logger.info(
-            f"📊 Fans (followers you do not follow back): {nf_stats['non_followers_count']}, "
-            f"{nf_stats['mutuals_count']} mutuals"
-        )
+        self.logger.info(f"📊 {self._fans_read(nf_stats)}, {nf_stats['mutuals_count']} mutuals")
 
         return nf_stats['success']

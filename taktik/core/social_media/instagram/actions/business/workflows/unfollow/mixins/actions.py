@@ -135,11 +135,16 @@ class UnfollowActionsMixin:
 
         The suggestions Instagram shows under a list are not rows of it: nothing at or below their
         first sign is returned, and `suggestions_on_screen` then says the list ended on this screen.
+
+        `rows_read` says whether this screen was read: False when its dump or its reading failed, so
+        a caller for whom no row is a measure (no fan on the fans category) tells it from an empty
+        screen.
         """
         rows: List[Dict[str, Any]] = []
         self.suggestions_on_screen = False
         # Names of this screen no button was paired to (see LeftOutRows)
         self.unpaired_on_screen = set()
+        self.rows_read = False
         try:
             d = self.device.device
             package = get_active_package()
@@ -186,6 +191,7 @@ class UnfollowActionsMixin:
                 display = _pair_subtitles(names_by_y, subtitles)
                 for row in rows:
                     row['display_name'] = display.get(row['username'], '') if row['username'] else ''
+            self.rows_read = True
         except Exception as e:
             # An unreadable list is not an empty one: the caller gets no row, and the journal says why.
             self.logger.warning(f"Error reading the follow list rows (no row returned): {e}")

@@ -652,7 +652,10 @@ EVENTS = (
         Field("is_new", "bool", "New to the base."),
     )),
     Event("sync_complete", doc="The sync is over.", fields=(
-        Field("non_followers_count", "int", "Followed accounts that do not follow back."),
+        Field("non_followers_count", "int",
+              "The fans: followers you do not follow back (a category of our followers list); null when "
+              "that category was not read (not served, unreadable, or not read by this sync), never 0.",
+              nullable=True),
         Field("mutuals_count", "int", "Mutual follows."),
         Field("success", "bool", "Every list was read."),
         Field("new_count", "int", "New followed accounts (`sync_following`).", optional=True),
