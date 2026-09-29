@@ -30,7 +30,7 @@ imports what it may not:
   prepared with, the Taktik Keyboard service) lives in the core, which both hosts import.
 - `actions-no-workflows`: inside a platform, `actions/` (a gesture or a reading) imports none of its
   `workflows/`: a workflow composes actions, never the other way round. It holds for the platforms whose
-  inside is filed (tree lot 9); the others are named in `PLATFORMS_NOT_FILED` of `audit_tree_layout.py`,
+  inside is filed (tree lots 9 and 10); the others are named in `PLATFORMS_NOT_FILED` of `audit_tree_layout.py`,
   read from there, the one list of them.
 - `known-core-families`: `taktik/core` holds only the families above; a new root family documents
   its owner in AGENTS.md first, then joins the contracts here.
