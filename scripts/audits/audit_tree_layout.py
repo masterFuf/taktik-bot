@@ -34,7 +34,8 @@ filed where `.gitignore` expects it); what git ignores is not part of the tree: 
 
 The table today: `scripts/` filed by usage (tree lot 2), `taktik/` and its CLI (tree lot 3), the folder of the
 platforms (tree lot 4), `bridges/` with its tools and the Cartography Lab (tree lot 5; the Lab layout gate of
-the old tree, `audit_diagnostics_runtime_layout.py`, is folded in here).
+the old tree, `audit_diagnostics_runtime_layout.py`, is folded in here), `bridges/common/` flat (tree lot 6: the
+device primitives went to the core).
 
 The gate is red when:
 
@@ -137,9 +138,9 @@ LAYOUT: dict[str, Folder] = {
         never_below=frozenset({"runtime"}),
     ),
     "bridges/common": Folder(
-        folders=frozenset({"device"}),
+        folders=frozenset(),
         files=frozenset({ANY_PYTHON}),
-        owner="what every bridge shares, flat; `device/` until tree lot 6 files it under taktik/core/shared/device/",
+        owner="what every bridge shares, flat; the device primitives live in the core (taktik/core/shared/device/)",
     ),
     "bridges/<platform>": Folder(
         folders=frozenset({"common", "account", "agent", "automation", "cold_dm", "dm", "notifications", "persona",
@@ -459,6 +460,8 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
                                   "expect": "a folder `bridges/tiktok/automation/inbox/` does not list"},
         "a sub-folder of bridges/common/": {"paths": fake(["bridges/common/helpers/x.py"]),
                                             "expect": "a folder `bridges/common/` does not list"},
+        "device back under bridges/common/": {"paths": fake(["bridges/common/device/connection.py"]),
+                                              "expect": "a folder `bridges/common/` does not list"},
         "an unknown tool": {"paths": fake(["bridges/tools/other/x.py"]),
                             "expect": "a folder `bridges/tools/` does not list"},
         "a _bridge.py that is no entry": {"paths": fake(["bridges/instagram/dm/helper_bridge.py"]),
