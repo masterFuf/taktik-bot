@@ -82,7 +82,8 @@ INSTAGRAM_SCRAPING_COMPLETION_REASON = OneOf(
 #: suggested accounts ended. A sub-pass of the scan, not the run: the scan itself goes on. Set by
 #: the shared visit (`.../workflows/common/suggestion_visit.py`), its two surfaces (the bottom of
 #: the activity screen, `.../notifications/suggestions_flow.py`; the people screen,
-#: `.../feed/suggestions_visit.py`) and the scan that runs it (`.../notifications/commands.py`).
+#: `.../feed/suggestions_visit.py`, with the reasons of its entry, `enter_discover_people_screen` of
+#: `.../feed/suggestions.py`) and the scan that runs it (`.../notifications/commands.py`).
 INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON = OneOf(
     (
         # done, or nothing asked
