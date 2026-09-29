@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import bridges.tiktok.workflows.automation.post_url as bridge
+import bridges.tiktok.automation.post_url as bridge
 import taktik.core.social_media.tiktok.actions.business.workflows.post_url.workflow as post_url_workflow
 from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersStats
 from taktik.core.social_media.tiktok.actions.business.workflows.post_url.payload import (

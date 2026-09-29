@@ -15,10 +15,10 @@ import types
 import pytest
 
 import taktik.core.shared.device.manager as device_manager_module
-from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
-from bridges.compat.diagnostics.runtime.action_test import runner, session
-from bridges.compat.diagnostics.runtime.action_test.action_bundle import ActionBundle, attach_device_id
-from bridges.compat.diagnostics.runtime.action_test.language import LabLanguage
+from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
+from bridges.tools.lab.action_test import runner, session
+from bridges.tools.lab.action_test.action_bundle import ActionBundle, attach_device_id
+from bridges.tools.lab.action_test.language import LabLanguage
 
 TIKTOK = "com.zhiliaoapp.musically"
 

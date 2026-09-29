@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from bridges.common.runtime import owner_watchdog as wd
+from bridges.common import owner_watchdog as wd
 from taktik.core.shared.diagnostics import run_halt
 
 CORE = Path(__file__).resolve().parents[4]
@@ -198,7 +198,7 @@ def _run_python(code: str, *args: str, timeout: float = 30) -> str:
 
 _PROBE_PARENT = (
     "import os\n"
-    "from bridges.common.runtime.owner_watchdog import open_owner_probe\n"
+    "from bridges.common.owner_watchdog import open_owner_probe\n"
     "p = open_owner_probe(os.getppid())\n"
     "print(p.watchable, p.wait(0.2), p.gone_reason)\n"
 )
@@ -246,7 +246,7 @@ boot = """
 import sys
 core, fixture_dir, config = sys.argv[1:4]
 sys.path[:0] = [core, fixture_dir]
-from bridges.common.runtime import owner_watchdog as w
+from bridges.common import owner_watchdog as w
 w.POLL_INTERVAL_S = 0.1
 w.SIGNAL_GRACE_S = 1.0
 w.HARD_EXIT_GRACE_S = 1.5

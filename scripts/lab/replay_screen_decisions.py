@@ -221,7 +221,7 @@ def _child_decisions(files, version, language, dump_ms, only=None):
 
     from types import SimpleNamespace
 
-    from bridges.compat.diagnostics.runtime.action_test.runner import _detect_screen
+    from bridges.tools.lab.action_test.runner import _detect_screen
     from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
     from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import PopupHandler
 
@@ -319,7 +319,7 @@ def _child_instagram_decisions(files, version, language, dump_ms, only=None):
     detect_and_optimize(phone, override=language if language in ("fr", "en") else None)
 
     # The Lab's builder: the facade over `CloneAwareDeviceProxy`, as production mounts it.
-    from bridges.compat.diagnostics.runtime.action_test.bundles.instagram import (
+    from bridges.tools.lab.action_test.bundles.instagram import (
         build_instagram_action_bundle, create_instagram_device_facade)
     from taktik.core.shared.diagnostics import run_halt
 
@@ -441,7 +441,7 @@ def _one_dump_reader_probes(bundle, phone) -> dict:
     profile flags) and the lxml readers, in both states by their production entry points."""
     from loguru import logger
 
-    from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
+    from bridges.instagram.persona.persona_comments import PersonaCommentsMixin
     from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
         NotificationsEngagementWorkflow)
 

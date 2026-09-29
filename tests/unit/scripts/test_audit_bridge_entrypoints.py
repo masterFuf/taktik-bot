@@ -6,9 +6,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits
 
 import audit_bridge_entrypoints as audit  # noqa: E402
 
-MANIFEST = {"tiktok": {"x_bridge": "bridges.tiktok.x"}, "database": {"schema_bridge": "bridges.database.schema"}}
+MANIFEST = {"tiktok": {"x_bridge": "bridges.tiktok.x"}, "database": {"schema_bridge": "bridges.tools.schema.schema_bridge"}}
 GOOD_ENTRY = (
-    "from bridges.common.runtime.entrypoint import run_bridge_main\n\n"
+    "from bridges.common.entrypoint import run_bridge_main\n\n"
     "def main():\n    run_bridge_main(Bridge, usage='x_bridge <config_path>')\n"
 )
 APP_PATHS = (
@@ -18,7 +18,7 @@ APP_PATHS = (
 
 
 def _sources(**files):
-    bridge_files = {"bridges/tiktok/x.py": GOOD_ENTRY, "bridges/database/schema.py": GOOD_ENTRY}
+    bridge_files = {"bridges/tiktok/x.py": GOOD_ENTRY, "bridges/tools/schema/schema_bridge.py": GOOD_ENTRY}
     bridge_files.update({key.replace("__", "/") + ".py": text for key, text in files.items()})
     return audit.Sources(
         manifest=MANIFEST,
@@ -45,20 +45,20 @@ def test_a_main_of_its_own_is_refused():
 def test_the_stdin_source_is_refused():
     entry = "def main():\n    run_bridge_main(Bridge, config_source='stdin')\n"
     helper = "def run_bridge_main(factory, *, config_source='argv'):\n    pass\n"
-    findings = audit.audit(_sources(bridges__tiktok__x=entry, bridges__common__runtime__entrypoint=helper))
+    findings = audit.audit(_sources(bridges__tiktok__x=entry, bridges__common__entrypoint=helper))
     assert any("picks another config source" in f for f in findings)
     assert any("accepts another config source" in f for f in findings)
 
 
 def test_flags_parsed_by_a_bridge_are_refused():
-    findings = audit.audit(_sources(bridges__database__schema="import argparse\n" + GOOD_ENTRY))
+    findings = audit.audit(_sources(bridges__tools__schema__schema_bridge="import argparse\n" + GOOD_ENTRY))
     assert any("imports argparse" in f for f in findings)
 
 
 def test_a_config_loader_reading_argv_outside_the_entrypoint_is_refused():
     loader = "import sys\n\ndef load():\n    return open(sys.argv[1]).read()\n"
-    findings = audit.audit(_sources(bridges__tiktok__runtime__commands=loader))
-    assert findings == ["bridges/tiktok/runtime/commands.py:4 reads sys.argv (only run_bridge_main reads the config)"]
+    findings = audit.audit(_sources(bridges__tiktok__common__commands=loader))
+    assert findings == ["bridges/tiktok/common/commands.py:4 reads sys.argv (only run_bridge_main reads the config)"]
 
 
 def test_a_build_list_written_by_hand_is_refused():

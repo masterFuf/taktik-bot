@@ -57,8 +57,8 @@ def test_a_service_built_without_spend_reporting_keeps_its_ipc_and_emits_none(mo
 
 
 def test_scraping_and_agent_services_report_no_spend(monkeypatch):
-    from bridges.instagram.agent.runtime.ai import build_agent_ai_service
-    from bridges.instagram.scraping.runtime.ai import build_scraping_ai_service
+    from bridges.instagram.agent.ai import build_agent_ai_service
+    from bridges.instagram.scraping.ai import build_scraping_ai_service
 
     for build in (build_scraping_ai_service, build_agent_ai_service):
         ipc = _RecordingIpc()
@@ -79,8 +79,8 @@ def _capture_create(monkeypatch, module):
 
 
 def test_the_instagram_notifications_pass_reports_no_spend(monkeypatch):
-    import bridges.instagram.runtime.ai as instagram_ai
-    from bridges.instagram.engagement.runtime.notifications.ai import notifications_ai_service
+    import bridges.instagram.common.ai as instagram_ai
+    from bridges.instagram.notifications.ai import notifications_ai_service
 
     seen = _capture_create(monkeypatch, instagram_ai)
     notifications_ai_service({"enabled": True})
@@ -89,7 +89,7 @@ def test_the_instagram_notifications_pass_reports_no_spend(monkeypatch):
 
 
 def test_the_instagram_automation_still_reports_spend(monkeypatch):
-    import bridges.instagram.runtime.ai as instagram_ai
+    import bridges.instagram.common.ai as instagram_ai
 
     seen = _capture_create(monkeypatch, instagram_ai)
     instagram_ai.create_instagram_ai_service(ai_config={"enabled": True}, ipc=object(), log=lambda *_: None)
@@ -98,7 +98,7 @@ def test_the_instagram_automation_still_reports_spend(monkeypatch):
 
 
 def test_the_tiktok_welcome_pass_reports_no_spend_and_automation_does(monkeypatch):
-    import bridges.tiktok.workflows.automation.runtime.ai as tiktok_ai
+    import bridges.tiktok.automation.ai as tiktok_ai
 
     seen = _capture_create(monkeypatch, tiktok_ai)
     assert tiktok_ai.build_welcome_qualifier({"enabled": True}, "en") is None

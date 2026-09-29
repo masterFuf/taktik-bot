@@ -1,0 +1,162 @@
+"""Runtime dispatcher support for the TikTok bridge entrypoint."""
+
+from __future__ import annotations
+
+from typing import Any, Dict
+
+from bridges.tiktok.common.ipc import _ipc, logger, send_error
+
+
+class UnknownWorkflowError(RuntimeError):
+    """Raised after emitting the historical unknown-workflow JSON error."""
+
+
+class TikTokDispatcherBridge:
+    """One `tiktok_bridge` process: network reset, the configured workflow, then force-stop."""
+
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+
+    def run(self) -> int:
+        workflow_type = self.config.get("workflowType", "for_you")
+        device_id = self.config.get("deviceId", "unknown")
+        logger.info(f"🎵 TikTok Bridge starting - workflow: {workflow_type}, device: {device_id}")
+
+        # A requested-but-failed IP rotation stops the run: acting from the previous account's IP
+        # is exactly what the option exists to prevent.
+        if not reset_network_if_enabled(self.config, device_id):
+            return 1
+
+        try:
+            success, workflow_type = dispatch_tiktok_workflow(self.config)
+            if success:
+                logger.success(f"✅ TikTok {workflow_type} workflow completed successfully")
+                return 0
+            logger.error(f"❌ TikTok {workflow_type} workflow failed")
+            return 1
+        except ImportError as e:
+            send_error(f"Failed to import workflow module: {e}")
+            logger.error(f"Import error: {e}")
+            return 1
+        except UnknownWorkflowError:
+            return 1
+        except Exception as e:
+            send_error(f"Workflow error: {e}")
+            logger.exception(f"Unexpected error in {workflow_type} workflow: {e}")
+            return 1
+        finally:
+            force_stop_tiktok(device_id)
+
+
+def reset_network_if_enabled(config: Dict[str, Any], device_id: str) -> bool:
+    """Perform the optional pre-session network reset requested by Electron.
+
+    Returns False when a requested rotation provably did not happen — the workflow must not start on
+    the IP the previous account just used. An unreadable IP is reported but does not block (absence
+    of proof is not proof of failure).
+    """
+    from bridges.common.network import enforce_pre_session_ip_rotation
+
+    return enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Workflow")
+
+
+def dispatch_tiktok_workflow(config: Dict[str, Any]) -> tuple[bool, str]:
+    """Dispatch a TikTok workflow config to its bridge runner."""
+    workflow_type = config.get("workflowType", "for_you")
+
+    if workflow_type == "for_you":
+        from bridges.tiktok.automation.for_you import run_for_you_workflow
+
+        return run_for_you_workflow(config), workflow_type
+
+    if workflow_type == "search" or workflow_type == "hashtag":
+        from bridges.tiktok.automation.search import run_search_workflow
+
+        return run_search_workflow(config), workflow_type
+
+    if workflow_type == "followers":
+        from bridges.tiktok.automation.followers import run_followers_workflow
+
+        return run_followers_workflow(config), workflow_type
+
+    if workflow_type == "target_profiles":
+        from bridges.tiktok.automation.target_profiles import (
+            run_target_profiles_workflow,
+        )
+
+        return run_target_profiles_workflow(config), workflow_type
+
+    # `post_url` and `post_likers`: TikTok shows nowhere who LIKED a video, so the readable
+    # audience of a post is who COMMENTED on it. Both names route here so a payload written
+    # against Instagram's vocabulary still lands on the workflow that answers the same question.
+    if workflow_type in ("post_url", "post_likers", "post_commenters"):
+        from bridges.tiktok.automation.post_url import run_post_url_workflow
+
+        return run_post_url_workflow(config), workflow_type
+
+    if workflow_type in ("sync_following", "sync_followers", "sync_lists"):
+        from bridges.tiktok.automation.sync_lists import run_sync_lists_workflow
+
+        return run_sync_lists_workflow(config), workflow_type
+
+    if workflow_type == "dm_read":
+        from bridges.tiktok.automation.inbox.dm_read import run_dm_read_workflow
+
+        return run_dm_read_workflow(config), workflow_type
+
+    if workflow_type == "dm_send":
+        from bridges.tiktok.automation.inbox.dm_send import run_dm_send_workflow
+
+        return run_dm_send_workflow(config), workflow_type
+
+    if workflow_type == "new_followers":
+        from bridges.tiktok.automation.inbox.new_followers import (
+            run_new_followers_workflow,
+        )
+
+        return run_new_followers_workflow(config), workflow_type
+
+    if workflow_type == "dm_unreplied":
+        from bridges.tiktok.automation.inbox.unreplied import run_unreplied_workflow
+
+        return run_unreplied_workflow(config), workflow_type
+
+    if workflow_type == "dm_requests":
+        from bridges.tiktok.automation.inbox.requests import (
+            run_message_requests_workflow,
+        )
+
+        return run_message_requests_workflow(config), workflow_type
+
+    if workflow_type == "notifications":
+        from bridges.tiktok.automation.inbox.notifications import (
+            run_notifications_workflow,
+        )
+
+        return run_notifications_workflow(config), workflow_type
+
+    if workflow_type == "dm_activity":
+        from bridges.tiktok.automation.inbox.activity import run_activity_workflow
+
+        return run_activity_workflow(config), workflow_type
+
+    # A scraping run has its own bridge, `tiktok_scraping_bridge`.
+    send_error(f"Unknown workflow type: {workflow_type}")
+    logger.error(f"Unknown workflow type: {workflow_type}")
+    raise UnknownWorkflowError(workflow_type)
+
+
+def force_stop_tiktok(device_id: str) -> None:
+    """Best-effort cleanup after a dispatcher workflow run."""
+    from bridges.common.device.app_manager import force_stop_app
+
+    force_stop_app(device_id, "tiktok")
+
+
+__all__ = [
+    "TikTokDispatcherBridge",
+    "dispatch_tiktok_workflow",
+    "force_stop_tiktok",
+    "reset_network_if_enabled",
+    "UnknownWorkflowError",
+]

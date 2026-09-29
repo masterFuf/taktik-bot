@@ -250,7 +250,7 @@ def test_the_readings_name_why_there_is_no_account(monkeypatch):
 
 def _lab_detect_active_account(device):
     import types
-    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 
     register_actions()
     return ACTION_REGISTRY["account.detect_active_account"](

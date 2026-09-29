@@ -235,7 +235,7 @@ def notifications_bridge(monkeypatch, tmp_path):
     import importlib
 
     import bridges.common.device.connection as connection
-    import bridges.instagram.engagement.runtime.notifications.commands as bridge
+    import bridges.instagram.notifications.commands as bridge
     from taktik.core.shared.device.ui_dump import parse_ui_dump
 
     commands = importlib.import_module(f"{_MODULE}.commands")
@@ -507,7 +507,7 @@ def test_a_crash_is_said_in_the_last_line(notifications_bridge, printed, monkeyp
 def test_an_unreadable_file_is_said_in_a_result_line(printed, tmp_path, monkeypatch):
     import sys
 
-    from bridges.instagram.engagement import notifications
+    from bridges.instagram.notifications import notifications_bridge as notifications
 
     monkeypatch.setattr(sys, "argv", ["notifications_bridge", str(tmp_path / "missing.json")])
     with pytest.raises(SystemExit):

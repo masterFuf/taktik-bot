@@ -18,7 +18,7 @@ import signal
 import sys
 import time
 
-from bridges.common.runtime.entrypoint import run_bridge_main
+from bridges.common.entrypoint import run_bridge_main
 
 
 class _WaitingBridge:

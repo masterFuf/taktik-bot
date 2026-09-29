@@ -100,7 +100,7 @@ class InstagramRig:
         mp.setattr(time, "sleep", lambda *_a, **_k: None)
         mp.setattr(signal, "signal", lambda signum, handler: rig.signal_handlers.__setitem__(signum, handler))
 
-        from bridges.common.runtime import ipc as ipc_module
+        from bridges.common import ipc as ipc_module
 
         def _send(_self, msg_type, **kwargs):
             if msg_type != "step_metric":
@@ -108,11 +108,11 @@ class InstagramRig:
 
         mp.setattr(ipc_module.IPC, "send", _send)
 
-        from bridges.common.runtime import signal_handler
+        from bridges.common import signal_handler
 
         mp.setattr(signal_handler, "_workflow", None)
 
-        from bridges.common.device import network
+        from bridges.common import network
 
         mp.setattr(network, "measure_network_baseline",
                    lambda device_id: rig.calls.append(f"network_baseline {device_id}"))
@@ -239,7 +239,7 @@ class InstagramRig:
         config_path.write_text(json.dumps(payload), encoding="utf-8")
         self.monkeypatch.setattr(sys, "argv", ["desktop_bridge", str(config_path)])
 
-        from bridges.instagram.automation import desktop
+        from bridges.instagram.automation import desktop_bridge as desktop
 
         self.monkeypatch.setattr(desktop, "setup_stats_callback", lambda: self.calls.append("stats_callback"))
         with pytest.raises(SystemExit) as exit_info:

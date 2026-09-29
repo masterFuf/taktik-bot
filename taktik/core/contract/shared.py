@@ -6,7 +6,7 @@ from __future__ import annotations
 from .schema import HOST, Event, Field, OneOf, Shape
 from .stop_reasons import TIKTOK_COMPLETION_REASON
 
-#: `enforce_pre_session_ip_rotation` (`bridges/common/device/network.py`), before the session.
+#: `enforce_pre_session_ip_rotation` (`bridges/common/network.py`), before the session.
 NETWORK_RESET = Shape(
     name="BridgeNetworkReset",
     doc="Rotate the phone's IP before the run; a requested rotation that did not happen stops it.",
@@ -77,7 +77,7 @@ LOG_EVENT = Event(
 )
 
 
-#: `IPC.session_start` (`bridges/common/runtime/ipc.py`), or the same line printed by the Instagram
+#: `IPC.session_start` (`bridges/common/ipc.py`), or the same line printed by the Instagram
 #: automation (`workflow_helpers.py`): the run's `sessions` row. One field on every bridge.
 SESSION_START_EVENT = Event("session_start", doc="The run's `sessions` row, as soon as it is opened.", fields=(
     Field("session_id", "int", "The row's id: the app writes the run's AI spend into it."),
@@ -98,7 +98,7 @@ STEP_METRIC_EVENT = Event(
 )
 
 
-#: `IPC.ai_spend` (`bridges/common/runtime/ipc_ai.py`), one line per paid model call.
+#: `IPC.ai_spend` (`bridges/common/ipc_ai.py`), one line per paid model call.
 AI_SPEND_EVENT = Event(
     "ai_spend",
     doc="The cost of one paid model call, the session's only cost source.",
@@ -112,7 +112,7 @@ AI_SPEND_EVENT = Event(
 )
 
 
-#: `perform_network_reset` (`bridges/common/device/network.py`), when a rotation was asked for.
+#: `perform_network_reset` (`bridges/common/network.py`), when a rotation was asked for.
 NETWORK_RESET_COMPLETE_EVENT = Event(
     "network_reset_complete",
     doc="The pre-session IP rotation, verified.",
@@ -128,7 +128,7 @@ NETWORK_RESET_COMPLETE_EVENT = Event(
     ),
 )
 
-# The AI cards (`AIIpcMixin`, `bridges/common/runtime/ipc_ai.py`), whatever bridge runs the AI service.
+# The AI cards (`AIIpcMixin`, `bridges/common/ipc_ai.py`), whatever bridge runs the AI service.
 
 AI_PROFILE_START_EVENT = Event("ai_profile_start", doc="The AI starts qualifying a profile.", fields=(
     Field("username", "string", "The profile."),

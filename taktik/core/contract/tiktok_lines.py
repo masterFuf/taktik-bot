@@ -35,7 +35,7 @@ BOT_PROFILE_EVENT = Event(
     fields=(Field("profile", BOT_PROFILE, "The profile."),),
 )
 
-#: `send_relevance` (`bridges/tiktok/runtime/ipc_video_events.py`), fed by `qualify_tiktok_profile`.
+#: `send_relevance` (`bridges/tiktok/common/ipc_video_events.py`), fed by `qualify_tiktok_profile`.
 AI_RELEVANCE_EVENT = Event(
     "ai_relevance",
     doc="The AI's engagement verdict on a profile: worth it or not, and what to do.",

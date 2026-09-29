@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from bridges.compat.diagnostics.actions.instagram.post import (
+from bridges.tools.lab.actions.instagram.post import (
     navigate_next,
     read_stats,
     return_to_profile,

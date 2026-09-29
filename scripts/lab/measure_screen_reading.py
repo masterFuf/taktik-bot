@@ -249,8 +249,8 @@ def run_measure(args) -> int:
     from importlib.metadata import version as package_version
     from types import SimpleNamespace
 
-    from bridges.compat.diagnostics.runtime.action_test.runner import _detect_screen
-    from bridges.compat.diagnostics.runtime.selector_test.production import installed_version
+    from bridges.tools.lab.action_test.runner import _detect_screen
+    from bridges.tools.lab.selector_test.production import installed_version
     from taktik.core.shared.device.manager import DeviceManager
     from taktik.core.shared.telemetry import clear_telemetry_sink, configure_telemetry_sink
     from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions

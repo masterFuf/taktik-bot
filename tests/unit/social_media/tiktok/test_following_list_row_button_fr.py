@@ -78,7 +78,7 @@ def test_the_lab_counts_the_row_buttons_the_unfollow_taps():
     """Cartography Lab coverage: `tt.followers.count_anchors` reads the same catalogue field."""
     import types
 
-    from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
 
     register_actions()
     bundle = types.SimpleNamespace(device=_Device(FOLLOWING_LIST))

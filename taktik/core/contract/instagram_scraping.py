@@ -140,7 +140,7 @@ _REFUSALS = (
 
 # ------------------------------------------------------------------------------------- lines
 
-#: `print_scraping_result` (`bridges/instagram/scraping/runtime/runner.py`), the bridge's last line.
+#: `print_scraping_result` (`bridges/instagram/scraping/runner.py`), the bridge's last line.
 SCRAPING_RESULT_EVENT = Event("scraping_result", doc="The run's verdict: its last line.", fields=(
     Field("success", "bool", "The run did what it was asked."),
     Field("totalScraped", "int", "Profiles collected (posts, for `profile_posts`).", optional=True),

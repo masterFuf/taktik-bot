@@ -12,7 +12,7 @@ cloned accounts start looking for resource-ids under the official package name.
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.device.facade import BaseDeviceFacade
 
-from bridges.common.runtime.platform_bridge import PlatformBridgeBase
+from bridges.common.platform_bridge import PlatformBridgeBase
 
 
 class _RawDevice:

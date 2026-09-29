@@ -194,7 +194,7 @@ _CORE = Path(__file__).resolve().parents[5]
 _SCANNED = [
     _CORE / "taktik" / "core" / "social_media" / "instagram",
     _CORE / "bridges" / "instagram",
-    _CORE / "bridges" / "compat" / "diagnostics" / "actions" / "instagram",
+    _CORE / "bridges" / "tools" / "lab" / "actions" / "instagram",
 ]
 # Key chords the server cannot press, left where they are: each call answers False and the
 # caller carries on. Listed per file so a new one elsewhere fails here.

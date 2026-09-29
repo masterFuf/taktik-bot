@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import bridges.tiktok.automation.runtime.unfollow as bridge
+import bridges.tiktok.unfollow.unfollow as bridge
 import taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow as workflow_module
 from taktik.core.social_media.tiktok.actions.business.workflows.unfollow import UnfollowStats
 from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.payload import (

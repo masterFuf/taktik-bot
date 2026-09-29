@@ -48,8 +48,8 @@ def _cli(workflow_id, params, **runners):
 
 
 def test_threads_follow_is_the_same_config_from_the_bridge_and_the_cli(monkeypatch):
-    from bridges.threads.workflows.runtime import events as bridge_events
-    from bridges.threads.workflows.runtime import search as bridge_search
+    from bridges.threads.automation import events as bridge_events
+    from bridges.threads.automation import search as bridge_search
 
     bridge_calls, cli_calls = [], []
     stats = InteractStats(profiles_visited=2, follows=1)
@@ -71,8 +71,8 @@ def test_threads_follow_is_the_same_config_from_the_bridge_and_the_cli(monkeypat
 
 
 def test_threads_feed_is_the_same_config_from_the_bridge_and_the_cli(monkeypatch):
-    from bridges.threads.workflows.runtime import events as bridge_events
-    from bridges.threads.workflows.runtime import feed as bridge_feed
+    from bridges.threads.automation import events as bridge_events
+    from bridges.threads.automation import feed as bridge_feed
 
     bridge_calls, cli_calls = [], []
     stats = InteractStats(errors=1)
@@ -90,8 +90,8 @@ def test_threads_feed_is_the_same_config_from_the_bridge_and_the_cli(monkeypatch
 
 
 def test_threads_bridge_reports_a_missing_query_with_its_code(monkeypatch):
-    from bridges.threads.workflows.runtime import events as bridge_events
-    from bridges.threads.workflows.runtime import search as bridge_search
+    from bridges.threads.automation import events as bridge_events
+    from bridges.threads.automation import search as bridge_search
 
     emitted = _silence_bridge(monkeypatch, bridge_events, bridge_search)
 
@@ -101,7 +101,7 @@ def test_threads_bridge_reports_a_missing_query_with_its_code(monkeypatch):
 
 def test_threads_target_is_refused_not_run_as_another_workflow(monkeypatch):
     """`target` was an alias of `follow` that no page or node sent; its id is retired (A11)."""
-    from bridges.threads.workflows import dispatcher
+    from bridges.threads.automation import threads_bridge as dispatcher
 
     errors = []
     monkeypatch.setattr(dispatcher, "send_error", lambda message, **kwargs: errors.append(kwargs.get("error_code")))

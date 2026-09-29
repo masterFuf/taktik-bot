@@ -1,0 +1,59 @@
+"""Live stats of a multi-target Followers run, as the bridge prints them.
+
+The session totals themselves are the core's (`followers.agent_handler.new_session_totals`).
+"""
+
+from typing import Any, Dict
+
+from bridges.tiktok.common.ipc import send_message
+from bridges.tiktok.automation.workflow_callbacks import wire_workflow_callbacks
+
+
+def merge_live_stats(
+    total_stats: Dict[str, Any],
+    stats_dict: Dict[str, Any],
+    current_target: str,
+    target_idx: int,
+    total_targets: int,
+) -> Dict[str, Any]:
+    """Merge current target live stats with already-completed target totals."""
+    return {
+        "followers_seen": total_stats["followers_seen"] + stats_dict.get("followers_seen", 0),
+        "profiles_visited": total_stats["profiles_visited"] + stats_dict.get("profiles_visited", 0),
+        "posts_watched": total_stats["posts_watched"] + stats_dict.get("posts_watched", 0),
+        "likes": total_stats["likes"] + stats_dict.get("likes", 0),
+        "favorites": total_stats["favorites"] + stats_dict.get("favorites", 0),
+        "follows": total_stats["follows"] + stats_dict.get("follows", 0),
+        "already_friends": total_stats["already_friends"] + stats_dict.get("already_friends", 0),
+        "skipped": total_stats["skipped"] + stats_dict.get("skipped", 0),
+        "known_usernames_seen": total_stats["known_usernames_seen"] + stats_dict.get("known_usernames_seen", 0),
+        "new_usernames_seen": total_stats["new_usernames_seen"] + stats_dict.get("new_usernames_seen", 0),
+        "consecutive_known_usernames": stats_dict.get("consecutive_known_usernames", 0),
+        "errors": total_stats["errors"] + stats_dict.get("errors", 0),
+        "current_target": current_target,
+        "target_index": target_idx,
+        "total_targets": total_targets,
+    }
+
+
+def wire_followers_callbacks(
+    workflow,
+    total_stats: Dict[str, Any],
+    current_target: str,
+    target_idx: int,
+    total_targets: int,
+) -> None:
+    """Wire live bridge callbacks for one Followers workflow instance.
+
+    Only the stats shape is this bridge's own -- a distributed run names its current target and
+    its position in the list. Everything else lives in `wire_workflow_callbacks`, so a callback
+    added to the family cannot reach one bridge and miss the other.
+    """
+
+    def on_stats(stats_dict):
+        send_message(
+            "followers_stats",
+            stats=merge_live_stats(total_stats, stats_dict, current_target, target_idx, total_targets),
+        )
+
+    wire_workflow_callbacks(workflow, on_stats=on_stats)

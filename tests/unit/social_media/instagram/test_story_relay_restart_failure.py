@@ -37,7 +37,7 @@ def test_the_launcher_stops_the_pass_when_instagram_does_not_start():
 
 @pytest.fixture
 def lines(monkeypatch) -> List[Dict[str, Any]]:
-    from bridges.common.runtime.ipc import IPC
+    from bridges.common.ipc import IPC
 
     printed: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: printed.append({"type": msg_type, **kwargs}))
@@ -45,7 +45,7 @@ def lines(monkeypatch) -> List[Dict[str, Any]]:
 
 
 def test_the_task_bridge_reports_a_failed_restart(monkeypatch, lines):
-    import bridges.instagram.tasks.runtime.bridge as bridge
+    import bridges.instagram.tasks.bridge as bridge
 
     class _AppThatDoesNotStart:
         def __init__(self, *_args, **_kwargs):

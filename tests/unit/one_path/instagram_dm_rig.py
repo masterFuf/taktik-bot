@@ -21,7 +21,7 @@ CLONE = "com.instagram.android.clone"
 BOT = "alpha_bot"
 
 # Where the moved modules live, before and after: the rig patches whichever exists.
-_DM_MODULES = ("bridges.instagram.engagement.runtime.dm", "taktik.core.social_media.instagram.workflows.dm_inbox")
+_DM_MODULES = ("bridges.instagram.dm", "taktik.core.social_media.instagram.workflows.dm_inbox")
 
 
 def dm_command(command: str, **fields) -> dict:
@@ -282,7 +282,7 @@ class InstagramDmRig:
                    lambda device, *a, **k: rig.calls.append("detect_language") or "en")
 
         # The deep screen helpers of the DM runtime: recorded stand-ins.
-        from bridges.instagram.engagement.runtime.dm.bridge import DMBridge
+        from bridges.instagram.dm.bridge import DMBridge
 
         def navigate(_self):
             rig.calls.append("navigate_to_dm_inbox")
@@ -396,7 +396,7 @@ class InstagramDmRig:
 
     @staticmethod
     def _config_file_bridge() -> bool:
-        from bridges.instagram.engagement.runtime.dm import commands
+        from bridges.instagram.dm import commands
 
         return hasattr(commands, "DMCommand")
 
@@ -419,7 +419,7 @@ class InstagramDmRig:
         """The desktop path, to its exit code."""
         self.monkeypatch.setattr(sys, "argv", argv if argv is not None else self.bridge_argv(spec))
 
-        from bridges.instagram.engagement import dm
+        from bridges.instagram.dm import dm_bridge as dm
 
         out = io.StringIO()
         self.monkeypatch.setattr(sys, "stdout", out)

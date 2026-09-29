@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from bridges.common.runtime import crash_hooks
+from bridges.common import crash_hooks
 
 CORE = Path(__file__).resolve().parents[3]
 
@@ -105,7 +105,7 @@ def test_importing_the_hooks_loads_nothing_of_the_product():
     probe = (
         "import json, sys\n"
         f"sys.path.insert(0, {str(CORE)!r})\n"
-        "from bridges.common.runtime.crash_hooks import install_crash_hooks\n"
+        "from bridges.common.crash_hooks import install_crash_hooks\n"
         "print(json.dumps(sorted(sys.modules)))\n"
     )
     result = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)

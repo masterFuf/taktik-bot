@@ -13,8 +13,8 @@ from typing import List
 
 import pytest
 
-from bridges.compat.diagnostics.runtime.selector_test import production
-from bridges.compat.diagnostics.runtime.selector_test.production import (
+from bridges.tools.lab.selector_test import production
+from bridges.tools.lab.selector_test.production import (
     PlatformCatalogue,
     _TakenScreen,
     is_xpath_selector,
@@ -22,7 +22,7 @@ from bridges.compat.diagnostics.runtime.selector_test.production import (
     production_device,
     resolve_production_selectors,
 )
-from bridges.compat.diagnostics.runtime.selector_test.runner import run_selector_tests
+from bridges.tools.lab.selector_test.runner import run_selector_tests
 from taktik.core.compat.selectors import setup
 from taktik.core.shared.ui.language_detection import LanguageDetection
 
@@ -237,7 +237,7 @@ def test_what_production_hands_d_xpath(value, expected):
 def test_the_bridge_output_keeps_its_fields(sample, monkeypatch, tmp_path):
     import json
 
-    from bridges.compat.diagnostics.entrypoints import selector_test as bridge
+    from bridges.tools.lab import selector_test_bridge as bridge
 
     phone = _Phone(_FRENCH_SCREEN)
     ipc = _IPC()

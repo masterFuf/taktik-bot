@@ -5,8 +5,8 @@ READ does not. Collapsing the two either lets accounts share an IP (the whole po
 or grounds every phone whose shell has no HTTP tool.
 """
 
-import bridges.common.device.network as network_module
-from bridges.common.device.network import MAX_ROTATION_ATTEMPTS, perform_network_reset
+import bridges.common.network as network_module
+from bridges.common.network import MAX_ROTATION_ATTEMPTS, perform_network_reset
 
 
 class _FakeStrategy:

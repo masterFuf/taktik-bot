@@ -126,7 +126,7 @@ class Rig:
 
         mp.setattr(time, "sleep", lambda *_a, **_k: None)
 
-        from bridges.common.runtime import ipc as ipc_module
+        from bridges.common import ipc as ipc_module
 
         def _send(_self, msg_type, **kwargs):
             if msg_type != "step_metric":
@@ -134,11 +134,11 @@ class Rig:
 
         mp.setattr(ipc_module.IPC, "send", _send)
 
-        from bridges.common.runtime import signal_handler
+        from bridges.common import signal_handler
 
         mp.setattr(signal_handler, "_workflow", None)
 
-        from bridges.common.device import network
+        from bridges.common import network
 
         mp.setattr(network, "measure_network_baseline", lambda _device_id: None)
 
@@ -385,8 +385,8 @@ class Rig:
 
         mp.setattr(reset, "return_to_tiktok_home", fake_return_home)
         # Bound by name at import in the old Search and Followers bridges.
-        from bridges.tiktok.workflows.automation import followers as followers_bridge
-        from bridges.tiktok.workflows.automation.runtime import search_callbacks
+        from bridges.tiktok.automation import followers as followers_bridge
+        from bridges.tiktok.automation import search_callbacks
 
         if hasattr(search_callbacks, "return_device_to_tiktok_home"):
             mp.setattr(search_callbacks, "return_device_to_tiktok_home", fake_return_home)
@@ -461,7 +461,7 @@ class Rig:
                 return rig.publish_connects
 
         # Bound by name at import in the publish bridge.
-        from bridges.tiktok.publish.runtime import bridge as publish_bridge
+        from bridges.tiktok.publish import bridge as publish_bridge
 
         mp.setattr(publish_bridge, "ConnectionService", FakeConnectionService)
         # The bridge's before/after screenshots go to debug_ui: recorded, never written.
@@ -540,7 +540,7 @@ class Rig:
 
         import signal
 
-        from bridges.common.runtime import signal_handler
+        from bridges.common import signal_handler
 
         # A bridge that installs its own stop handlers must not replace pytest's; and no IPC left
         # by another bridge's setup in this process.
@@ -1374,7 +1374,7 @@ class Rig:
         config_path.write_text(json.dumps(payload), encoding="utf-8")
         self.monkeypatch.setattr(sys, "argv", ["tiktok_bridge", str(config_path)])
 
-        from bridges.tiktok.workflows import dispatcher
+        from bridges.tiktok.automation import tiktok_bridge as dispatcher
 
         with pytest.raises(SystemExit) as exit_info:
             dispatcher.main()
@@ -1404,7 +1404,7 @@ class Rig:
     def run_publish_bridge(self, payload) -> int:
         """The desktop's TikTok publish: `tiktok_publish_bridge`, its config file named on the
         command line (None: no argument)."""
-        from bridges.tiktok.publish import publish
+        from bridges.tiktok.publish import tiktok_publish_bridge as publish
 
         argv = ["tiktok_publish_bridge"]
         if payload is not None:
@@ -1448,15 +1448,15 @@ class Rig:
 
     def run_outreach_bridge(self, payload) -> int:
         """The desktop's cold DM: `dm_outreach_bridge`, its config file."""
-        return self.run_config_bridge("bridges.tiktok.engagement.dm_outreach", self._config_text(payload))
+        return self.run_config_bridge("bridges.tiktok.cold_dm.dm_outreach_bridge", self._config_text(payload))
 
     def run_unfollow_bridge(self, payload) -> int:
         """The desktop's unfollow: `tiktok_unfollow_bridge`, its config file."""
-        return self.run_config_bridge("bridges.tiktok.automation.unfollow", self._config_text(payload))
+        return self.run_config_bridge("bridges.tiktok.unfollow.tiktok_unfollow_bridge", self._config_text(payload))
 
     def run_scraping_bridge(self, payload) -> int:
         """The desktop's TikTok scraping: `tiktok_scraping_bridge`, its config file."""
-        return self.run_config_bridge("bridges.tiktok.scraping.scraping", self._config_text(payload))
+        return self.run_config_bridge("bridges.tiktok.scraping.tiktok_scraping_bridge", self._config_text(payload))
 
     def show_notifications(self) -> None:
         """Three new followers (a handle, a name that resolves, one that does not) and two

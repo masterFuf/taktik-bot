@@ -17,9 +17,9 @@ import inventory_capabilities as inventory  # noqa: E402
 
 
 def _live_registries():
-    from bridges.compat.diagnostics.actions import instagram, tiktok
-    from bridges.youtube.diagnostics import actions as youtube
-    from bridges.youtube.diagnostics.runtime.registry import ACTION_REGISTRY as youtube_registry
+    from bridges.tools.lab.actions import instagram, tiktok
+    from bridges.tools.lab.actions import youtube
+    from bridges.tools.lab.youtube_action_test.registry import ACTION_REGISTRY as youtube_registry
 
     instagram.register_actions()
     tiktok.register_actions()

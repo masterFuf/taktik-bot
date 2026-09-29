@@ -9,7 +9,7 @@ running another workflow.
 
 import pytest
 
-import bridges.tiktok.workflows.runtime.dispatcher as dispatcher
+import bridges.tiktok.automation.dispatcher as dispatcher
 
 
 @pytest.mark.parametrize("workflow_type", ["target", "scraping"])
@@ -20,7 +20,7 @@ def test_a_retired_name_is_refused_instead_of_running_a_workflow(monkeypatch, wo
 
 
 def test_followers_still_runs_followers(monkeypatch):
-    import bridges.tiktok.workflows.automation.followers as followers
+    import bridges.tiktok.automation.followers as followers
 
     monkeypatch.setattr(followers, "run_followers_workflow", lambda config: True)
     assert dispatcher.dispatch_tiktok_workflow({"workflowType": "followers"}) == (True, "followers")

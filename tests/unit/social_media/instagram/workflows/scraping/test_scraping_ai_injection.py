@@ -24,7 +24,7 @@ def test_scraping_workflow_builds_ai_service_from_injected_factory():
     captured = {}
     notifier = object()
 
-    # Mirror the real factory signature (bridges/instagram/scraping/runtime/ai.py):
+    # Mirror the real factory signature (bridges/instagram/scraping/ai.py):
     # the workflow forwards api_key/ipc/vision_model/niche_taxonomy (premium taxonomy
     # injected by the front), not text_model.
     def factory(*, api_key, ipc=None, vision_model=None, text_model=None, niche_taxonomy=None):

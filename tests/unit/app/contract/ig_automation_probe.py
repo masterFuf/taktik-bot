@@ -26,11 +26,11 @@ HOOKED = (
 def use_the_bridge_ipc(monkeypatch) -> None:
     """The Instagram bridge's own IPC behind `IPCEmitter` and the step telemetry, whatever ran before.
 
-    Both are process-wide and set only by the first import of `bridges.instagram.runtime.ipc`: a test
+    Both are process-wide and set only by the first import of `bridges.instagram.common.ipc`: a test
     that relies on that import finds whatever an earlier test left there."""
     import sys
 
-    import bridges.instagram.runtime.ipc as instagram_ipc
+    import bridges.instagram.common.ipc as instagram_ipc
     import taktik.core.shared.telemetry.sink as telemetry
     from taktik.core.social_media.instagram.actions.core.ipc import emitter
 
@@ -93,7 +93,7 @@ def file_paths(data: Dict[str, Any], prefix=()) -> set:
 
 def capture_lines(monkeypatch) -> List[Dict[str, Any]]:
     """Every line sent through the IPC channel; lines printed directly are read from stdout."""
-    from bridges.common.runtime.ipc import IPC
+    from bridges.common.ipc import IPC
 
     sent: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: sent.append({"type": msg_type, **kwargs}))

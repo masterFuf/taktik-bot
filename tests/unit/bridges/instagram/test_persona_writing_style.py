@@ -6,10 +6,10 @@ core of the writing-style enrichment folded into persona analysis; on-device row
 expansion are validated separately on real dumps.
 """
 
-from bridges.instagram.analysis.runtime.persona_comments import (
+from bridges.instagram.persona.persona_comments import (
     owner_lines_from_comment_descs,
 )
-from bridges.instagram.analysis.runtime.persona_posts import comment_count_signal
+from bridges.instagram.persona.persona_posts import comment_count_signal
 
 
 def test_comment_count_signal():
@@ -76,7 +76,7 @@ def test_visible_comment_texts_reads_the_comment_bodies():
     returned an empty list, on the id path and the dump path alike."""
     from types import SimpleNamespace
 
-    from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
+    from bridges.instagram.persona.persona_comments import PersonaCommentsMixin
 
     class _Node:
         def __init__(self, text):

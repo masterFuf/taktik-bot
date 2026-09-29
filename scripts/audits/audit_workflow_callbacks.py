@@ -33,11 +33,11 @@ ROOT = Path(__file__).resolve().parents[2]
 #: The profile-visiting bridges. Video-based families (For You, Search) and the scraping
 #: workflow live elsewhere and wire their own things -- a search run reports videos, not
 #: visited profiles, and has no avatar to lose.
-SCAN_ROOT = ROOT / "bridges" / "tiktok" / "workflows" / "automation"
+SCAN_ROOT = ROOT / "bridges" / "tiktok" / "automation"
 
 #: The one module allowed to wire them -- it is where the shared wiring lives.
 WIRING_MODULE = (
-    ROOT / "bridges" / "tiktok" / "workflows" / "automation" / "runtime" / "workflow_callbacks.py"
+    ROOT / "bridges" / "tiktok" / "automation" / "workflow_callbacks.py"
 )
 
 #: Setters that belong to the profile-visiting family. `set_on_stats_callback` is NOT here: the
@@ -48,7 +48,7 @@ SETTERS = {"set_on_action_callback", "set_on_profile_callback", "set_on_pause_ca
 #: report `video_info` and never visit a profile, so they have no avatar to drop and nothing to
 #: gain from the shared wiring. Listed by name rather than guessed, so the day it starts visiting
 #: profiles this line has to be revisited on purpose.
-ALLOWED = {"runtime/search_callbacks.py"}
+ALLOWED = {"search_callbacks.py"}
 
 
 @dataclass(frozen=True)

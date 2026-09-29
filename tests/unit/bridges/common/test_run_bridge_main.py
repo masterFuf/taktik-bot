@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from bridges.common.runtime import entrypoint
-from bridges.common.runtime.ipc import IPC
+from bridges.common import entrypoint
+from bridges.common.ipc import IPC
 
 
 class _Bridge:

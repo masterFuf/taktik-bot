@@ -7,7 +7,7 @@ The bench builds the page payload only; the production launcher builds the confi
 so these tests read it through the same production builder.
 """
 
-from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.automation_config import (
+from bridges.tools.lab.workflow_test.platforms.instagram.automation_config import (
     build_workflow_payload,
 )
 from taktik.core.social_media.instagram.workflows.core.config_builder import (

@@ -71,5 +71,5 @@ def test_an_fstring_module_name_keeps_its_literal_package():
     import ast
 
     tree = ast.parse("__import__(f'taktik.core.shared.diagnostics.{name}')\n")
-    statements = import_statements(tree, "bridges.common.runtime.entrypoint", False)
+    statements = import_statements(tree, "bridges.common.entrypoint", False)
     assert [set(s.targets) for s in statements] == [{"taktik.core.shared.diagnostics"}]

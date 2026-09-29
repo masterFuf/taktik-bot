@@ -150,7 +150,7 @@ class InstagramScrapingRig:
         mp.setattr(time, "sleep", lambda *_a, **_k: None)
         mp.setattr(signal, "signal", lambda signum, handler: None)
 
-        from bridges.common.runtime import ipc as ipc_module
+        from bridges.common import ipc as ipc_module
 
         def _send(_self, msg_type, **kwargs):
             if msg_type != "step_metric":
@@ -272,7 +272,7 @@ class InstagramScrapingRig:
             argv = ["scraping_bridge", str(config_path)]
         self.monkeypatch.setattr(sys, "argv", argv)
 
-        from bridges.instagram.scraping import scraping
+        from bridges.instagram.scraping import scraping_bridge as scraping
 
         out = io.StringIO()
         self.monkeypatch.setattr(sys, "stdout", out)

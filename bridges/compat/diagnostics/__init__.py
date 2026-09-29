@@ -1,1 +1,0 @@
-"""Compatibility diagnostics bridge implementations."""

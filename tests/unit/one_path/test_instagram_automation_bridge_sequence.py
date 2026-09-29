@@ -107,8 +107,8 @@ def test_the_debug_mode_still_runs_the_desktop_debug_tool(ig_rig, monkeypatch, t
     import json
     import sys
 
-    from bridges.instagram.automation import desktop
-    from bridges.instagram.diagnostics.debug import DebugBridge
+    from bridges.instagram.automation import desktop_bridge as desktop
+    from bridges.instagram.automation.debug import DebugBridge
 
     seen = []
     monkeypatch.setattr(DebugBridge, "run", lambda self: seen.append(dict(self.config)) or 0)

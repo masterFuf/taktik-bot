@@ -110,18 +110,18 @@ def phone(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda *_: None)
     connection = SimpleNamespace(connect=lambda: True, device=object())
     session = SimpleNamespace(connection=connection, device=connection.device)
-    for name in ("bridges.instagram.account.runtime.session", "bridges.tiktok.account.runtime.account_session"):
+    for name in ("bridges.instagram.account.session", "bridges.tiktok.account.account_session"):
         module = importlib.import_module(name)
         monkeypatch.setattr(module, "ConnectionService", lambda device_id: connection)
         monkeypatch.setattr(module, "AppService", lambda *a, **k: _App())
     monkeypatch.setattr(f"{_TT}.patch_clone_selectors", lambda *a: None)
-    for name, prefix in (("bridges.gmail.account.account", "gmail"), ("bridges.youtube.account.account", "youtube")):
+    for name, prefix in (("bridges.gmail.account.gmail_account_bridge", "gmail"), ("bridges.youtube.account.youtube_account_bridge", "youtube")):
         module = importlib.import_module(name)
         monkeypatch.setattr(module, f"prepare_{prefix}_session", lambda *a: session)
         monkeypatch.setattr(module, f"cleanup_{prefix}_app", lambda device_id: None)
     for name in ("workflow_login", "workflow_scan"):
-        monkeypatch.setattr(f"bridges.gmail.account.runtime.{name}.persist_gmail_account", lambda *a: None)
-    monkeypatch.setattr("bridges.gmail.account.runtime.workflow_logout.unpersist_gmail_account", lambda *a: None)
+        monkeypatch.setattr(f"bridges.gmail.account.{name}.persist_gmail_account", lambda *a: None)
+    monkeypatch.setattr("bridges.gmail.account.workflow_logout.unpersist_gmail_account", lambda *a: None)
 
     launchers = {
         _IG: ("run_instagram_account", ("login_workflow_factory", "logout_workflow_factory",
@@ -140,10 +140,10 @@ def phone(monkeypatch):
 
 def _bridge(contract):
     return {
-        "account_bridge": ("bridges.instagram.account.runtime.bridge", "AccountBridge"),
-        "tiktok_account_bridge": ("bridges.tiktok.account.runtime.bridge", "TikTokAccountBridge"),
-        "gmail_account_bridge": ("bridges.gmail.account.account", "GmailAccountBridge"),
-        "youtube_account_bridge": ("bridges.youtube.account.account", "YouTubeAccountBridge"),
+        "account_bridge": ("bridges.instagram.account.bridge", "AccountBridge"),
+        "tiktok_account_bridge": ("bridges.tiktok.account.bridge", "TikTokAccountBridge"),
+        "gmail_account_bridge": ("bridges.gmail.account.gmail_account_bridge", "GmailAccountBridge"),
+        "youtube_account_bridge": ("bridges.youtube.account.youtube_account_bridge", "YouTubeAccountBridge"),
     }[contract.bridge]
 
 

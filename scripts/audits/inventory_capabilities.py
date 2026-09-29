@@ -37,10 +37,10 @@ sys.path.insert(0, str(CORE / "scripts" / "audits"))
 
 MANIFEST_PATH = CORE / "workflows.manifest.json"
 BRIDGES_MANIFEST_PATH = CORE / "bridges" / "bridges.manifest.json"
-#: The Lab actions do NOT all live under one root. Instagram and TikTok share the compat
-#: diagnostics registry; YouTube has its own under `bridges/youtube/diagnostics`. Scanning
-#: only the first missed 26 actions and reported them as front entries with no bot action.
-LAB_ACTIONS_ROOT = CORE / "bridges"
+#: The Lab actions of every platform, one folder each (`bridges/tools/lab/actions/<platform>/`).
+#: Scanning one platform's registry only once missed 26 actions and reported them as front
+#: entries with no bot action.
+LAB_ACTIONS_ROOT = CORE / "bridges" / "tools" / "lab" / "actions"
 
 CARTOGRAPHY_PATH = APP / "src" / "features" / "tools" / "cartography" / "data" / "cartography.json"
 LAYOUT_TYPES_PATH = APP / "src" / "app" / "types" / "layout.types.ts"
@@ -204,27 +204,21 @@ def report_bridges() -> list[str]:
 def load_lab_actions() -> dict[str, list[tuple[str, int]]]:
     """Every `@action` id the bot exposes, per platform, with its source line.
 
-    Walks every `diagnostics/actions` tree under `bridges/`, not just the compat one: a
-    platform is free to carry its own registry, and an inventory that knows about one root
-    silently under-reports the product.
+    Walks every platform folder of the Lab's actions (`bridges/tools/lab/actions/<platform>/`):
+    an inventory that knows about one platform only silently under-reports the product.
 
     The line number is kept because the registry is a plain dict assignment
     (`self.actions[action_id] = fn`): a duplicate id silently shadows the earlier one, and
     finding which of the two survived needs the file position.
     """
     per_platform: dict[str, list[tuple[str, int]]] = {}
-    for path in sorted(LAB_ACTIONS_ROOT.rglob("diagnostics/actions/**/*.py")):
+    for path in sorted(LAB_ACTIONS_ROOT.rglob("*.py")):
         if "__pycache__" in str(path):
             continue
         parts = path.relative_to(LAB_ACTIONS_ROOT).parts
-        # bridges/<platform>/diagnostics/actions/**  ->  <platform>
-        # bridges/compat/diagnostics/actions/<platform>/**  ->  <platform>
-        platform = parts[0]
-        if platform == "compat":
-            after_actions = parts[parts.index("actions") + 1:]
-            if len(after_actions) < 2:
-                continue  # a module sitting directly in actions/ is shared plumbing
-            platform = after_actions[0]
+        if len(parts) < 2:
+            continue  # a module sitting directly in actions/ is shared plumbing
+        platform = parts[0]  # actions/<platform>/**  ->  <platform>
         text = path.read_text(encoding="utf-8-sig", errors="replace")
         for match in ACTION_RE.finditer(text):
             line = text.count("\n", 0, match.start()) + 1

@@ -60,7 +60,7 @@ class InstagramAgentRig(InstagramColdDmRig):
         mp.setattr("taktik.core.social_media.instagram.workflows.agent.autopilot.TaktikAgentWorkflow", RecordingAgent)
         patch_seam(mp, "taktik.core.database", "configure_db_service",
                    lambda *a, **k: rig.calls.append("configure_db"))
-        mp.setattr("bridges.instagram.agent.runtime.commands.start_agent_stop_listener",
+        mp.setattr("bridges.instagram.agent.commands.start_agent_stop_listener",
                    lambda: rig.calls.append("stop_listener"))
 
     # ------------------------------------------------------------------ paths
@@ -73,7 +73,7 @@ class InstagramAgentRig(InstagramColdDmRig):
             argv = ["taktik_agent_bridge", str(config_path)]
         self.monkeypatch.setattr(sys, "argv", argv)
 
-        from bridges.instagram.agent import taktik_agent
+        from bridges.instagram.agent import taktik_agent_bridge as taktik_agent
 
         out = io.StringIO()
         self.monkeypatch.setattr(sys, "stdout", out)

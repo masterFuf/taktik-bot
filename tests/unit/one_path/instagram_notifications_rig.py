@@ -20,7 +20,7 @@ DEVICE_ID = "emulator-5554"
 CLONE = "com.instagram.android.clone"
 BOT = "alpha_bot"
 
-_COMMANDS = "bridges.instagram.engagement.runtime.notifications.commands"
+_COMMANDS = "bridges.instagram.notifications.commands"
 _CORE_COMMANDS = "taktik.core.social_media.instagram.workflows.management.notifications.commands"
 
 
@@ -273,7 +273,7 @@ class InstagramNotificationsRig:
         """The desktop path, to its exit code."""
         self.monkeypatch.setattr(sys, "argv", argv if argv is not None else self.bridge_argv(spec))
 
-        from bridges.instagram.engagement import notifications
+        from bridges.instagram.notifications import notifications_bridge as notifications
 
         out = io.StringIO()
         self.monkeypatch.setattr(sys, "stdout", out)

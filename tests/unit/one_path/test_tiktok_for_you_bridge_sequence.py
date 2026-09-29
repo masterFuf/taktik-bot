@@ -57,7 +57,7 @@ def test_no_permission_dialog_means_no_deny_and_no_log(rig, page_payload):
 
 
 def test_the_running_workflow_is_the_one_a_stop_signal_reaches(rig, page_payload):
-    from bridges.common.runtime import signal_handler
+    from bridges.common import signal_handler
 
     rig.run_bridge(page_payload())
     assert signal_handler._workflow is rig.workflows[-1]

@@ -25,7 +25,7 @@ import logging
 import pytest
 from lxml import etree
 
-from bridges.compat.diagnostics.actions.instagram.suggestions import (
+from bridges.tools.lab.actions.instagram.suggestions import (
     detect_carousel,
     find_carousel,
 )

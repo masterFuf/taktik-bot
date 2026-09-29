@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from bridges.database import schema as schema_bridge
+from bridges.tools.schema import schema_bridge
 from taktik.core.database.local.versions.catalog import VERSIONS_DIR, schema_version
 from taktik.core.database.local.versions.sql_text import split_statements
 

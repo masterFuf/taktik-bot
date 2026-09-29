@@ -1,0 +1,91 @@
+"""Instagram live interaction IPC events."""
+
+from __future__ import annotations
+
+from bridges.common.bridge_base import _ipc
+
+
+def send_instagram_action(action: str, username: str, details: dict = None):
+    """Send Instagram action event to desktop app."""
+    _ipc.instagram_action(action, username, details)
+
+
+def send_instagram_profile_visit(username: str, followers: int = None, is_private: bool = False):
+    """Send profile visit event to desktop app."""
+    _ipc.profile_visit(username, followers, is_private)
+
+
+def send_unfollow_event(username: str, success: bool = True):
+    """Send unfollow event to desktop app for real-time activity."""
+    _ipc.unfollow_event(username, success)
+
+
+def send_unfollow_plan(mode: str, candidates: int, refusals: dict = None):
+    """Send the unfollow decision taken on data: candidates, and the refusals per rule."""
+    _ipc.send("unfollow_plan", mode=mode, candidates=candidates, refusals=dict(refusals or {}))
+
+
+def send_follow_event(username: str, success: bool = True, profile_data: dict = None):
+    """Send follow event to desktop app for real-time activity and WorkflowAnalyzer."""
+    _ipc.follow_event(username, success, profile_data)
+
+
+def send_like_event(username: str, likes_count: int = 1, profile_data: dict = None):
+    """Send like event to desktop app for real-time activity and WorkflowAnalyzer."""
+    _ipc.like_event(username, likes_count, profile_data)
+
+
+def send_story_event(username: str, stories_watched: int = 1, stories_liked: int = 0,
+                     profile_data: dict = None):
+    """Send story watch/like event to desktop app for real-time activity and WorkflowAnalyzer."""
+    _ipc.story_event(username, stories_watched, stories_liked, profile_data)
+
+
+def send_instagram_profile_classification(username: str, classification: dict, result: str = "",
+                                          screenshot: str = None, duration_ms: int = 0,
+                                          model: str = None, provider: str = None,
+                                          cost_usd: float = None):
+    """Send an AI profile classification (interaction path) so the desktop PERSISTS it.
+
+    Emits the same `ai_profile_done` event the scraping path uses; the desktop's automation bridge
+    listens for it and upserts the niche/profession/gender/age into profile_ai_enrichments (the
+    canonical, Turso-synced qualification store, front-owned). Without this, a profile classified
+    during a target-IA automation was paid for but never saved — no niche in the DB, and the
+    interaction re-analysed it on the next pass (double cost).
+
+    persist_only marks this as a persistence re-emit: the AIService already emitted the
+    countable ai_profile_done for this analysis, so the desktop's counter must skip this one
+    (it used to double ai_profiles_analyzed)."""
+    _ipc.ai_profile_analyzed(
+        username, result, duration_ms=duration_ms, model=model, provider=provider,
+        cost_usd=cost_usd, classification=classification, screenshot=screenshot,
+        persist_only=True,
+    )
+
+
+def send_feed_decision(author: str, action: str, reason: str = None,
+                       comment: str = None, visit_profile: bool = False):
+    """Send a per-post feed decision (classic feed workflow) as an agent_decision
+    event so the desktop renders it as a Taktik Agent feed card.
+
+    action is 'like' | 'like_comment' | 'skip'. Reuses the AI autopilot's
+    agent_decision wire event (the front already maps it to a feed_decision card);
+    the classic feed is rule-based so no model/cost is attached.
+    """
+    _ipc.agent_decision(
+        action=action, author=author, reason=reason,
+        comment=comment, visit_profile=visit_profile,
+    )
+
+
+__all__ = [
+    "send_instagram_action",
+    "send_instagram_profile_visit",
+    "send_unfollow_event",
+    "send_unfollow_plan",
+    "send_follow_event",
+    "send_like_event",
+    "send_story_event",
+    "send_instagram_profile_classification",
+    "send_feed_decision",
+]

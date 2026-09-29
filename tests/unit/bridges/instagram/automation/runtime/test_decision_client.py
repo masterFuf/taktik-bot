@@ -2,7 +2,7 @@ import json
 import queue
 import threading
 
-from bridges.instagram.automation.runtime.decision_client import (
+from bridges.instagram.automation.decision_client import (
     DesktopProfileDecisionClient,
 )
 
@@ -103,7 +103,7 @@ def test_close_releases_a_pending_request_and_stops_reader():
 
 
 def test_the_desktop_bridge_closes_its_decision_reader_whatever_the_run_does(monkeypatch):
-    from bridges.instagram.automation.runtime.bridge import DesktopBridge
+    from bridges.instagram.automation.bridge import DesktopBridge
 
     calls = []
     bridge = DesktopBridge.__new__(DesktopBridge)

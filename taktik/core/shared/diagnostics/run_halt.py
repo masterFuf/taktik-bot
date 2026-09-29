@@ -27,7 +27,7 @@ des qu'il voit le dialogue, et les boucles qui decident de continuer le lisent.
 
 **Quatrieme cas : l'application de bureau a disparu** (2026-09-24). Le telephone repond, mais
 plus personne ne lit les evenements du pont ni ne peut l'arreter : plantage de l'app, arret force,
-fermeture brutale. Pose par le chien de garde du lanceur (`bridges/common/runtime/owner_watchdog.py`),
+fermeture brutale. Pose par le chien de garde du lanceur (`bridges/common/owner_watchdog.py`),
 lu aux memes endroits que les autres, pour que le run finisse par son chemin normal.
 
 **The witness.** The runtime that knows the operated account installs a listener

@@ -1,6 +1,6 @@
 """The list a Target Profiles run was sent is read as sent, and never invented."""
 
-from bridges.tiktok.workflows.runtime.dispatcher import dispatch_tiktok_workflow
+from bridges.tiktok.automation.dispatcher import dispatch_tiktok_workflow
 from taktik.core.social_media.tiktok.actions.business.workflows.target_profiles.payload import (
     target_profiles_from_payload,
 )
@@ -34,7 +34,7 @@ def test_the_workflow_type_is_dispatched():
         calls["config"] = config
         return True
 
-    import bridges.tiktok.workflows.automation.target_profiles as module
+    import bridges.tiktok.automation.target_profiles as module
 
     original = module.run_target_profiles_workflow
     module.run_target_profiles_workflow = _fake_runner

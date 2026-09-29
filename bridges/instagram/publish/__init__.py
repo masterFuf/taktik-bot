@@ -1,5 +1,5 @@
 """Instagram publish bridge package."""
 
-from bridges.instagram.publish.runtime.bridge import InstagramPublishBridge
+from bridges.instagram.publish.bridge import InstagramPublishBridge
 
 __all__ = ["InstagramPublishBridge"]

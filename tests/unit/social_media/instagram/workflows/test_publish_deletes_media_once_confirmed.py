@@ -398,7 +398,7 @@ class RawPhone:
                          ids=["empty_fr", "empty_en", "posted", "scrolled"])
 def test_the_lab_reads_our_bubble_with_the_production_step(xml, state):
     """Same id in the app's `actionCatalog`; the workflow's own read, no gesture."""
-    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 
     register_actions()
     result = ACTION_REGISTRY["publish.read_own_story"](
@@ -409,7 +409,7 @@ def test_the_lab_reads_our_bubble_with_the_production_step(xml, state):
 
 
 def test_the_lab_story_verdict_is_the_production_one():
-    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 
     register_actions()
     result = ACTION_REGISTRY["publish.wait_story_published"](

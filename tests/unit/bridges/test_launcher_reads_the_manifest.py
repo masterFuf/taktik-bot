@@ -31,14 +31,14 @@ def test_a_frozen_build_finds_the_manifest_in_its_bundle(monkeypatch, tmp_path):
     bundle = tmp_path / "bundle"
     (bundle / "bridges").mkdir(parents=True)
     (bundle / "bridges" / "bridges.manifest.json").write_text(
-        json.dumps({"tiktok": {"tiktok_bridge": "bridges.tiktok.workflows.dispatcher"}}),
+        json.dumps({"tiktok": {"tiktok_bridge": "bridges.tiktok.automation.tiktok_bridge"}}),
         encoding="utf-8",
     )
     # The entry script of a PyInstaller build sits at the bundle root, next to nothing.
     monkeypatch.setattr(launcher, "__file__", str(tmp_path / "launcher.py"))
     monkeypatch.setattr(sys, "_MEIPASS", str(bundle), raising=False)
 
-    assert launcher.load_bridge_modules() == {"tiktok_bridge": "bridges.tiktok.workflows.dispatcher"}
+    assert launcher.load_bridge_modules() == {"tiktok_bridge": "bridges.tiktok.automation.tiktok_bridge"}
 
 
 def test_an_unreadable_manifest_is_reported_as_a_json_event(monkeypatch, capsys):

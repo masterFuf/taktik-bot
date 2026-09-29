@@ -168,7 +168,7 @@ def test_no_config_file_reports_the_shared_entrypoint_words():
 
 def test_a_stop_signal_stops_the_run_and_exits_cleanly(rig, scraping_payload):
     """The bridge's SIGTERM: the registered workflow is asked to stop, the process exits 0."""
-    from bridges.common.runtime import bridge_base
+    from bridges.common import bridge_base
 
     rig.install_scraping_database()
     rig.run_scraping_bridge(scraping_payload())

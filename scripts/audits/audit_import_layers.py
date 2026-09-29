@@ -165,7 +165,7 @@ CONTRACTS = (
 EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
     ("cli-no-bridges", "taktik/cli/hosts/instagram.py"): (
         10, "The Instagram host of the CLI opens its session through `bridges.common.device` "
-            "(connection, app lifecycle, IP rotation) and `bridges.instagram.runtime.bridge`, the "
+            "(connection, app lifecycle, IP rotation) and `bridges.instagram.common.bridge`, the "
             "device primitives the CLI and the bridges share. They belong in `shared/device` "
             "(AGENTS.md makes it their owner); moving them there removes the entry."),
     ("cli-no-bridges", "taktik/cli/hosts/tiktok.py"): (
@@ -449,7 +449,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
         "a provider edge no import uses any more": listed(
             replace(signup, statements=without_gmail), "no longer imports the provider"),
         "the core imports a bridge": fake(
-            "taktik/core/social_media/instagram/fake.py", "from bridges.common.runtime.ipc import IPC\n",
+            "taktik/core/social_media/instagram/fake.py", "from bridges.common.ipc import IPC\n",
             "(core-no-host)"),
         "the core imports the CLI": fake("taktik/core/kernel/fake.py", "import taktik.cli.main\n", "(core-no-host)"),
         "database imports compat": fake(
@@ -468,7 +468,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
         "a listed file removed": {
             "modules": {p: m for p, m in modules.items() if p != one.path}, "expect": "no longer exists"},
         "the CLI imports a bridge": fake(
-            "taktik/cli/commands/fake.py", "from bridges.common.runtime.ipc import IPC\n", "(cli-no-bridges)"),
+            "taktik/cli/commands/fake.py", "from bridges.common.ipc import IPC\n", "(cli-no-bridges)"),
         "an import of a module that does not exist": fake(
             "taktik/core/shared/fake.py", "from taktik.core.shared.no_such_module import thing\n",
             "(import-resolves)"),
@@ -479,7 +479,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
             "bridges/common/fake.py", "from taktik.core.shared.text import no_such_name\n", "(import-resolves)"),
         "a test imports a module that does not exist": fake(
             "tests/unit/fake_test.py",
-            "try:\n    from bridges.tiktok.engagement.runtime import no_such_module\nexcept ImportError:\n    pass\n",
+            "try:\n    from bridges.tiktok.cold_dm import no_such_module\nexcept ImportError:\n    pass\n",
             "(import-resolves)"),
         "a module named by its literal name that does not exist": fake(
             "scripts/fake.py", "import importlib\nimportlib.import_module('taktik.core.no_such_family')\n",

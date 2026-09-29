@@ -19,9 +19,9 @@ from types import SimpleNamespace
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
-from bridges.compat.diagnostics.actions.instagram import register_actions
-from bridges.compat.diagnostics.runtime.action_test.bundles.instagram import (
+from bridges.tools.lab.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
+from bridges.tools.lab.actions.instagram import register_actions
+from bridges.tools.lab.action_test.bundles.instagram import (
     build_instagram_action_bundle,
     create_instagram_device_facade,
 )
@@ -93,7 +93,7 @@ def test_the_thread_reader_reads_the_two_bodies_of_the_sheet():
 def test_the_persona_reader_reads_the_same_bodies(phone_answers):
     # The reader itself, as `comment.read_visible_texts` builds it: the Lab action would also route the
     # process's loguru to its JSON stdout sink (`configure_logger`) for every test after this one.
-    from bridges.instagram.analysis.runtime.persona_comments import PersonaCommentsMixin
+    from bridges.instagram.persona.persona_comments import PersonaCommentsMixin
 
     reader = type("PersonaCommentReader", (PersonaCommentsMixin,), {})()
     reader.device = _bundle().device

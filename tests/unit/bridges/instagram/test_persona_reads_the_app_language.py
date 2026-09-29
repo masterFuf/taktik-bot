@@ -4,7 +4,7 @@ The profile, its posts and its comments are read with localized selectors (priva
 of a bio, counters); the bridge never read the language, so they stayed in the union of every
 locale whatever the phone showed.
 """
-from bridges.instagram.analysis.runtime.persona_bridge import PersonaAnalysisBridge
+from bridges.instagram.persona.bridge import PersonaAnalysisBridge
 from taktik.core.social_media.instagram.workflows.core import runtime_setup
 
 
@@ -14,7 +14,7 @@ def test_the_language_is_read_after_the_restart_and_before_the_profile(monkeypat
     import time
 
     monkeypatch.setattr(time, "sleep", lambda *_a, **_k: None)
-    monkeypatch.setattr("bridges.common.runtime.ipc.IPC.send", lambda _self, *a, **k: None)
+    monkeypatch.setattr("bridges.common.ipc.IPC.send", lambda _self, *a, **k: None)
     monkeypatch.setattr(runtime_setup, "detect_and_optimize",
                         lambda device: steps.append(("detect_language", device)) or "en")
 

@@ -9,7 +9,7 @@ import io
 import json
 import types
 
-from bridges.compat.diagnostics.runtime.action_test import session
+from bridges.tools.lab.action_test import session
 from taktik.core.shared.diagnostics import run_halt
 
 

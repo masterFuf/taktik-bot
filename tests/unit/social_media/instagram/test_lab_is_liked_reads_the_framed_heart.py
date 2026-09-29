@@ -20,7 +20,7 @@ import taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll as f
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
 import taktik.core.social_media.instagram.actions.business.actions.like.orchestration as orchestration
 import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
-from bridges.compat.diagnostics.actions.instagram.post import is_liked
+from bridges.tools.lab.actions.instagram.post import is_liked
 from profile_posts_phone import HEADER_ID, HEART_ID, ProfilePostsPhone, bounds_of, capture, like_on_phone
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 

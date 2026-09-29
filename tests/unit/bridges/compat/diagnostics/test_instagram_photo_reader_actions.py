@@ -6,8 +6,8 @@ from types import SimpleNamespace
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
-from bridges.compat.diagnostics.actions.instagram.comment import read_visible_texts
-from bridges.compat.diagnostics.actions.instagram.profile import extract_avatar, extract_own_avatar
+from bridges.tools.lab.actions.instagram.comment import read_visible_texts
+from bridges.tools.lab.actions.instagram.profile import extract_avatar, extract_own_avatar
 from taktik.core.shared.device.facade import BaseDeviceFacade
 
 # One Compose comment row (no body id, "<author> a dit <text>"): the caption sheet of a reel,
@@ -47,7 +47,7 @@ def test_the_avatar_actions_run_the_production_crops_and_never_return_the_pictur
 
 
 def test_the_persona_reading_reads_the_rows_of_one_photo_and_gives_the_lab_its_logger_back(monkeypatch):
-    from bridges.compat.diagnostics.runtime import events
+    from bridges.tools.lab import events
 
     restored = []
     monkeypatch.setattr(events, "configure_logger", lambda: restored.append(True))

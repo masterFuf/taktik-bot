@@ -11,8 +11,8 @@ The results the scroll hands back are the ones the phone gave (the Lab reports o
 the keys this action reads); the scroll itself is the production's, not played here.
 """
 
-from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
-from bridges.compat.diagnostics.actions.instagram import register_actions as register_instagram
+from bridges.tools.lab.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
+from bridges.tools.lab.actions.instagram import register_actions as register_instagram
 from taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll import _TAIL_FILLER_RUNS
 
 #: Report of `scroll.reveal_post`, Pixel 3a, 2026-09-28 23:16: stopped on a suggested post.

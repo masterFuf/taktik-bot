@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from bridges.compat.diagnostics.actions.instagram.scroll import scroll_feed_drag, scroll_feed_next
+from bridges.tools.lab.actions.instagram.scroll import scroll_feed_drag, scroll_feed_next
 
 
 class _Scroll:

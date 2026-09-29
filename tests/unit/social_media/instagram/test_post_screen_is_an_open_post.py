@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-from bridges.compat.diagnostics.runtime.action_test.bundles.instagram import (
+from bridges.tools.lab.action_test.bundles.instagram import (
     build_instagram_action_bundle,
     create_instagram_device_facade,
 )

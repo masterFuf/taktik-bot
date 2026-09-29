@@ -213,7 +213,7 @@ def agent_bridge(monkeypatch, tmp_path):
     """The bridge's module, its phone and its base replaced; `restarts` says whether Instagram opens."""
     import tempfile
 
-    import bridges.instagram.agent.runtime.commands as commands
+    import bridges.instagram.agent.commands as commands
     import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
     import taktik.core.shared.diagnostics.action_block as action_block
     import taktik.core.social_media.instagram.actions.atomic.interaction as interaction
@@ -536,7 +536,7 @@ def test_every_line_helper_of_the_agent_is_declared():
     import ast
     import inspect
 
-    from bridges.common.runtime.ipc_agent import AgentIpcMixin
+    from bridges.common.ipc_agent import AgentIpcMixin
     from taktik.core.social_media.instagram.workflows.agent import autopilot as instagram_feed_autopilot
 
     sent = set()

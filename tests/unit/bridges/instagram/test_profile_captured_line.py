@@ -14,7 +14,7 @@ optional), and the unfollow's line already carries no counter (its picture only)
 
 import pytest
 
-from bridges.instagram.runtime import ipc_scraping_events
+from bridges.instagram.common import ipc_scraping_events
 
 COUNTERS_AND_FLAGS = ("follower_count", "following_count", "media_count", "is_private", "is_verified")
 

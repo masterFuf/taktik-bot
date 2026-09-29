@@ -71,7 +71,7 @@ def test_without_a_session_the_run_tally_is_all_there_is(monkeypatch):
 def test_the_bridge_sends_the_ledger_totals_not_the_run_tally(monkeypatch):
     """The bridge side of the chain: the reporter's `finished` receives `automation.final_stats()`
     from the core launcher, and prints it as the final `stats` event."""
-    import bridges.instagram.automation.runtime.events as events
+    import bridges.instagram.automation.events as events
     from taktik.core.social_media.instagram.workflows.core.agent_handler import run_instagram_automation
 
     sent = []

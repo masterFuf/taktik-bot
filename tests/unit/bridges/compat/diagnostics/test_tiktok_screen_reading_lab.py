@@ -13,9 +13,9 @@ from types import SimpleNamespace
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
-from bridges.compat.diagnostics.runtime.action_test import runner
-from bridges.compat.diagnostics.runtime.action_test.bundles.tiktok import (
+from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
+from bridges.tools.lab.action_test import runner
+from bridges.tools.lab.action_test.bundles.tiktok import (
     build_tiktok_action_bundle,
     create_tiktok_device_facade,
 )

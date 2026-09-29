@@ -85,7 +85,7 @@ def test_step_hook_wraps_every_workflow_step(engine):
 
 
 def test_lab_automation_run_builds_the_engine_through_the_launcher(engine, monkeypatch):
-    from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.dispatcher import (
+    from bridges.tools.lab.workflow_test.platforms.instagram.dispatcher import (
         dispatch_instagram_workflow,
     )
     from taktik.core.social_media.instagram.ui import watchdog as watchdog_module

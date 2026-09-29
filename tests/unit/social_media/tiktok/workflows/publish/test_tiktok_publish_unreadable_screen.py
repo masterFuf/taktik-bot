@@ -91,7 +91,7 @@ def test_a_screen_readable_again_resumes_the_wait():
 def test_the_lab_reads_the_badge_with_the_same_reader():
     from types import SimpleNamespace
 
-    from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
 
     register_actions()
     result = ACTION_REGISTRY["tt.publish.read_progress"](SimpleNamespace(device=SimpleNamespace(device=_UnreadableDevice())), {})

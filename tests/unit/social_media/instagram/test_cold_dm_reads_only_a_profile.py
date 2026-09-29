@@ -172,7 +172,7 @@ def _lab_bundle(phone):
 # ── off a profile: nothing read, nothing tapped ──────────────────────────────────────────────
 
 def test_the_lab_check_refuses_the_home_feed_and_reads_nothing():
-    from bridges.compat.diagnostics.actions.instagram.dm import cold_dm_check_profile
+    from bridges.tools.lab.actions.instagram.dm import cold_dm_check_profile
 
     set_active_locale("fr")
     phone = _Phone(HOME_FR)
@@ -235,7 +235,7 @@ def test_the_message_button_of_a_profile_is_still_found_and_tapped():
 @pytest.mark.parametrize("language, xml", [("fr", OWN_PROFILE_FR), ("en", OWN_PROFILE_EN)],
                          ids=["own-profile-fr", "own-profile-en"])
 def test_the_lab_check_on_a_profile_without_message_button_says_the_dm_would_fail(language, xml):
-    from bridges.compat.diagnostics.actions.instagram.dm import cold_dm_check_profile
+    from bridges.tools.lab.actions.instagram.dm import cold_dm_check_profile
 
     set_active_locale(language)
     phone = _Phone(xml)

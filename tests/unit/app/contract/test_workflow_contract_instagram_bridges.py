@@ -72,7 +72,7 @@ def assert_reads(contract: WorkflowContract, data: Dict[str, Any], log: set) -> 
 @pytest.fixture
 def printed(monkeypatch, capsys):
     """Every JSON line the bridge prints: through the IPC, and the ones it prints itself."""
-    from bridges.common.runtime.ipc import IPC
+    from bridges.common.ipc import IPC
 
     sent: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: sent.append({"type": msg_type, **kwargs}))
@@ -162,8 +162,8 @@ def _scraping_class():
 def scraping_bridge(monkeypatch):
     import sys
 
-    import bridges.instagram.runtime.ipc as ipc_adapter
-    import bridges.instagram.scraping.runtime.runner as runner
+    import bridges.instagram.common.ipc as ipc_adapter
+    import bridges.instagram.scraping.runner as runner
     from taktik.core.social_media.instagram.actions.core.ipc import emitter
     from taktik.core.social_media.instagram.workflows.core import runtime_setup
     from taktik.core.social_media.instagram.workflows.scraping import agent_handler, profile_posts_scraping
@@ -255,7 +255,7 @@ def _cold_dm_class():
 def cold_dm_bridge(monkeypatch, no_ip_rotation):
     import urllib.request
 
-    import bridges.instagram.engagement.runtime.cold_dm.commands as bridge
+    import bridges.instagram.cold_dm.commands as bridge
     import taktik.core.database.local.service as local
     from taktik.core.social_media.instagram.workflows.cold_dm import agent_handler, workflow
 
@@ -302,7 +302,7 @@ def test_a_cold_dm_without_a_message_is_refused_in_its_last_line(cold_dm_bridge,
 
 
 def _dm_class():
-    import bridges.instagram.engagement.runtime.dm.bridge as dm_bridge
+    import bridges.instagram.dm.bridge as dm_bridge
     from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_payload import (
         build_answered_conversation,
         build_conversation_payload,
@@ -355,8 +355,8 @@ def _dm_class():
 @pytest.fixture
 def dm_bridge(monkeypatch):
     import bridges.common.device.connection as connection
-    import bridges.instagram.engagement.runtime.dm.bridge as runtime
-    import bridges.instagram.engagement.runtime.dm.commands as bridge
+    import bridges.instagram.dm.bridge as runtime
+    import bridges.instagram.dm.commands as bridge
     from taktik.core.social_media.instagram.workflows.core import runtime_setup
     from taktik.core.social_media.instagram.workflows.dm_inbox import agent_handler
 

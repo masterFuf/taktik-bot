@@ -6,8 +6,8 @@ profile hooks of the automation runs and the new-followers welcome pass) built i
 The bridge's own IPC is now the default.
 """
 
-import bridges.tiktok.workflows.automation.runtime.ai as tiktok_ai
-from bridges.tiktok.runtime.ipc import _ipc
+import bridges.tiktok.automation.ai as tiktok_ai
+from bridges.tiktok.common.ipc import _ipc
 
 
 def _capture(monkeypatch):

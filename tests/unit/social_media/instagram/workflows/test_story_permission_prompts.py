@@ -230,7 +230,7 @@ class RawPhone:
 def test_the_lab_action_runs_the_production_step_with_a_human_tap():
     """Same id on both sides (`actionCatalog` of the app); the workflow's own step, the facade's
     sampled tap point, never a coordinate: every touch lands inside "Only this time"."""
-    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 
     register_actions()
     phone = RawPhone(CAMERA, MICROPHONE)
@@ -244,7 +244,7 @@ def test_the_lab_action_runs_the_production_step_with_a_human_tap():
 
 
 def test_the_lab_action_reports_a_prompt_it_leaves_unanswered():
-    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 
     register_actions()
     phone = RawPhone(_without_one_time(CAMERA))

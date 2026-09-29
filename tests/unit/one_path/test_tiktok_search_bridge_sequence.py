@@ -69,7 +69,7 @@ def test_the_bridge_runs_exactly_as_recorded(rig, page_payload, name):
 
 
 def test_each_query_workflow_is_the_one_a_stop_signal_reaches(rig, page_payload):
-    from bridges.common.runtime import signal_handler
+    from bridges.common import signal_handler
 
     rig.run_bridge(scenario_payload("hashtag_two", page_payload))
     assert signal_handler._workflow is rig.workflows[-1]

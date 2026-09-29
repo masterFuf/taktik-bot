@@ -275,7 +275,7 @@ class InstagramColdDmRig:
         mp.setattr(time, "sleep", lambda *_a, **_k: None)
         mp.setattr(signal, "signal", lambda signum, handler: None)
 
-        from bridges.common.runtime import ipc as ipc_module
+        from bridges.common import ipc as ipc_module
 
         def _send(_self, msg_type, **kwargs):
             if msg_type != "step_metric":
@@ -283,7 +283,7 @@ class InstagramColdDmRig:
 
         mp.setattr(ipc_module.IPC, "send", _send)
 
-        from bridges.common.device import network
+        from bridges.common import network
 
         mp.setattr(network, "measure_network_baseline", lambda device_id: None)
 
@@ -362,7 +362,7 @@ class InstagramColdDmRig:
 
         mp.setattr(DetectionActions, "wait_for_profile_screen", fake_wait_for_profile)
 
-        from bridges.common.input import keyboard as keyboard_module
+        from bridges.common import keyboard as keyboard_module
 
         mp.setattr(keyboard_module, "is_taktik_keyboard_active", lambda device_id: True)
 
@@ -453,7 +453,7 @@ class InstagramColdDmRig:
             argv = ["cold_dm_bridge", str(config_path)]
         self.monkeypatch.setattr(sys, "argv", argv)
 
-        from bridges.instagram.engagement import cold_dm
+        from bridges.instagram.cold_dm import cold_dm_bridge as cold_dm
 
         out = io.StringIO()
         self.monkeypatch.setattr(sys, "stdout", out)

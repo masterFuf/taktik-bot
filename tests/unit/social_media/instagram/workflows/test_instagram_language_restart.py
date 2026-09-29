@@ -93,7 +93,7 @@ def test_a_failed_switch_does_not_restart_the_app(screens):
 
 
 def test_the_lab_action_runs_the_same_restart_on_the_session_phone(screens, monkeypatch):
-    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 
     register_actions()
     phone = _Phone()

@@ -53,7 +53,7 @@ def _gmail_handler(workflow_id, params, factory, persisted):
 
 
 def test_gmail_login_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch):
-    from bridges.gmail.account.runtime import workflow_login
+    from bridges.gmail.account import workflow_login
     from taktik.core.social_media.gmail.workflows import agent_handler
 
     bridge, cli = Recorder(), Recorder()
@@ -77,7 +77,7 @@ def test_gmail_login_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch):
 
 
 def test_gmail_scan_persists_the_same_accounts_from_both_hosts(monkeypatch):
-    from bridges.gmail.account.runtime import workflow_scan
+    from bridges.gmail.account import workflow_scan
     from taktik.core.social_media.gmail.workflows import agent_handler
 
     bridge, cli = Recorder(), Recorder()
@@ -111,7 +111,7 @@ def _fake_upload(recorder):
 
 
 def test_youtube_upload_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch, tmp_path):
-    from bridges.youtube.publish.runtime.workflow import run_youtube_upload_workflow
+    from bridges.youtube.publish.workflow import run_youtube_upload_workflow
     from taktik.core.social_media.youtube.workflows.publish import agent_handler, upload_workflow
 
     # The launcher registers the host's log and status callbacks in the upload module, for the
@@ -143,7 +143,7 @@ def test_youtube_upload_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch
 
 
 def test_youtube_login_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch):
-    from bridges.youtube.account.runtime import workflows as bridge_workflows
+    from bridges.youtube.account import workflows as bridge_workflows
     from taktik.core.social_media.youtube.workflows.account import agent_handler
 
     def fake(recorder):

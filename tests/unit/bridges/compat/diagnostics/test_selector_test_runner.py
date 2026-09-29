@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from bridges.compat.diagnostics.runtime.selector_test.runner import run_selector_tests
+from bridges.tools.lab.selector_test.runner import run_selector_tests
 
 
 @dataclass

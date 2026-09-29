@@ -5,7 +5,7 @@ it finds to the operator's database and drops a CSV on their disk, and it can sp
 AI qualification. A diagnostic run doing any of that would be a side effect nobody asked for, so
 the three switches are pinned here.
 """
-from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.workflows.scraping import (
+from bridges.tools.lab.workflow_test.platforms.instagram.workflows.scraping import (
     _bridge_config,
 )
 from taktik.core.social_media.instagram.workflows.scraping.payload import (

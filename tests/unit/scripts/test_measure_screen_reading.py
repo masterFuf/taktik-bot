@@ -174,7 +174,7 @@ def test_the_guard_also_covers_the_bot_s_own_adb_shell_and_goes_away():
 def _reads(phone):
     from types import SimpleNamespace
 
-    from bridges.compat.diagnostics.runtime.action_test.runner import _detect_screen
+    from bridges.tools.lab.action_test.runner import _detect_screen
     from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
     from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import PopupHandler
 

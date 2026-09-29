@@ -1,6 +1,6 @@
 """One runner, three workflow types — and it has to know which list it was asked for."""
 
-from bridges.tiktok.workflows.runtime.dispatcher import dispatch_tiktok_workflow
+from bridges.tiktok.automation.dispatcher import dispatch_tiktok_workflow
 from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.payload import (
     list_type_from_payload,
 )
@@ -36,7 +36,7 @@ def test_all_three_types_are_dispatched():
         calls.append(config.get("workflowType"))
         return True
 
-    import bridges.tiktok.workflows.automation.sync_lists as module
+    import bridges.tiktok.automation.sync_lists as module
 
     original = module.run_sync_lists_workflow
     module.run_sync_lists_workflow = _fake_runner

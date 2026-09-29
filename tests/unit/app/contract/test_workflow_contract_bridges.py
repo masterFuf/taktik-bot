@@ -140,7 +140,7 @@ def check_lines(contract: WorkflowContract, lines: List[Dict[str, Any]]) -> None
 @pytest.fixture
 def lines(monkeypatch):
     """Every line the bridge prints, through the real IPC helpers."""
-    from bridges.common.runtime.ipc import IPC
+    from bridges.common.ipc import IPC
 
     printed: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: printed.append({"type": msg_type, **kwargs}))
@@ -149,7 +149,7 @@ def lines(monkeypatch):
 
 @pytest.fixture
 def no_ip_rotation(monkeypatch):
-    import bridges.common.device.network as network
+    import bridges.common.network as network
 
     monkeypatch.setattr(network, "_emit_network_baseline", lambda device_id: None)
     monkeypatch.setattr(
@@ -206,7 +206,7 @@ class _Unfollow:
 
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_unfollow_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
-    import bridges.tiktok.automation.runtime.unfollow as bridge
+    import bridges.tiktok.unfollow.unfollow as bridge
     import taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow as workflow
 
     started(monkeypatch, bridge)
@@ -256,7 +256,7 @@ def _outreach_class():
 
 
 def test_the_cold_dm_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation):
-    import bridges.tiktok.engagement.runtime.dm_outreach as bridge
+    import bridges.tiktok.cold_dm.dm_outreach as bridge
     import taktik.core.database.tiktok_dm as sent_dms
     from taktik.core.social_media.tiktok.actions.business.workflows.dm import agent_handler
 
@@ -270,7 +270,7 @@ def test_the_cold_dm_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotat
     assert bridge.TikTokDMOutreachBridge(Recording(data, log)).run() == 0
     assert_reads(TIKTOK_DM_OUTREACH, data, log)
 
-    from bridges.tiktok.runtime.ipc import _ipc, send_error
+    from bridges.tiktok.common.ipc import _ipc, send_error
 
     # The AI transport's own report of a paid call, and the bridge's error helper.
     _ipc.ai_spend(0.0012, model="qwen", label="alice", kind="dm")
@@ -308,7 +308,7 @@ class _Scraping:
 
 
 def test_the_scraping_bridge_follows_its_contract(monkeypatch, lines):
-    import bridges.tiktok.scraping.runtime.workflow as bridge
+    import bridges.tiktok.scraping.workflow as bridge
     import taktik.core.database.tiktok_scraping as rows
     from taktik.core.social_media.tiktok.actions.business.workflows.scraping import agent_handler
 
@@ -362,7 +362,7 @@ class _Video:
 
 
 def _dispatcher(monkeypatch, runner_module):
-    import bridges.tiktok.workflows.runtime.dispatcher as dispatcher
+    import bridges.tiktok.automation.dispatcher as dispatcher
     from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
 
     monkeypatch.setattr(dispatcher, "force_stop_tiktok", lambda device_id: None)
@@ -373,7 +373,7 @@ def _dispatcher(monkeypatch, runner_module):
 
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_for_you_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
-    import bridges.tiktok.workflows.automation.for_you as runner
+    import bridges.tiktok.automation.for_you as runner
     import taktik.core.social_media.tiktok.actions.business.workflows.for_you.workflow as workflow
 
     dispatcher = _dispatcher(monkeypatch, runner)
@@ -392,7 +392,7 @@ def test_the_for_you_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotat
 
 @pytest.mark.parametrize("workflow_type", ["search", "hashtag"])
 def test_the_search_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, workflow_type):
-    import bridges.tiktok.workflows.automation.search as runner
+    import bridges.tiktok.automation.search as runner
     import taktik.core.social_media.tiktok.actions.business.workflows.search.agent_handler as launcher
     import taktik.core.social_media.tiktok.actions.business.workflows.search.workflow as workflow
 
@@ -408,7 +408,7 @@ def test_the_search_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotati
     later = {("searchQueries",), ("searchQuery",), *((a,) for a in TIKTOK_SEARCH.setting("searchQuery").aliases)}
     assert_reads(TIKTOK_SEARCH, data, log | later)
 
-    from bridges.tiktok.runtime.ipc import send_error
+    from bridges.tiktok.common.ipc import send_error
 
     send_error("Search workflow error: the search field did not open")
     check_lines(TIKTOK_SEARCH, lines)
@@ -456,7 +456,7 @@ def _profile_run(monkeypatch, runner_module, workflow_module, class_name, fail=F
 
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_followers_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
-    import bridges.tiktok.workflows.automation.followers as runner
+    import bridges.tiktok.automation.followers as runner
     import taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler as launcher
     import taktik.core.social_media.tiktok.actions.business.workflows.followers.workflow as workflow
     from taktik.core.contract.tiktok_profiles import TIKTOK_FOLLOWERS
@@ -488,7 +488,7 @@ def test_the_single_pass_bridges_follow_their_contract(monkeypatch, lines, no_ip
 
     contract = {"target_profiles": tiktok_profiles.TIKTOK_TARGET_PROFILES,
                 "post_url": tiktok_profiles.TIKTOK_POST_URL}[name]
-    runner = importlib.import_module(f"bridges.tiktok.workflows.automation.{name}")
+    runner = importlib.import_module(f"bridges.tiktok.automation.{name}")
     workflow = importlib.import_module(f"{_WORKFLOWS}.{name}.workflow")
     class_name = {"target_profiles": "TargetProfilesWorkflow", "post_url": "PostUrlWorkflow"}[name]
     dispatcher = _profile_run(monkeypatch, runner, workflow, class_name)
@@ -499,7 +499,7 @@ def test_the_single_pass_bridges_follow_their_contract(monkeypatch, lines, no_ip
     assert dispatcher.TikTokDispatcherBridge(Recording(data, log)).run() == 0
     assert_reads(contract, data, log)
 
-    from bridges.tiktok.runtime.ipc import send_error
+    from bridges.tiktok.common.ipc import send_error
 
     send_error("Workflow error: the profile did not open")
     check_lines(contract, lines)
@@ -533,10 +533,10 @@ def _patch_dm_rows(monkeypatch):
 def _engagement_run(monkeypatch, runner_name, contract, workflow_class, *, provider=True, **overrides):
     import importlib
 
-    import bridges.tiktok.workflows.runtime.dispatcher as dispatcher
+    import bridges.tiktok.automation.dispatcher as dispatcher
     from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
 
-    runner = importlib.import_module(f"bridges.tiktok.workflows.{runner_name}")
+    runner = importlib.import_module(f"bridges.tiktok.automation.{runner_name}")
     monkeypatch.setattr(dispatcher, "force_stop_tiktok", lambda device_id: None)
     start = TikTokStartup(device=object(), bot_username="acting")
     if provider:
@@ -555,7 +555,7 @@ def _printed(lines):
 
 
 def test_the_sync_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation):
-    import bridges.tiktok.workflows.automation.sync_lists as runner
+    import bridges.tiktok.automation.sync_lists as runner
     import taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.workflow as workflow
     from taktik.core.contract.tiktok_engagement import TIKTOK_SYNC
     from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import SyncListsStats
@@ -600,14 +600,14 @@ def test_the_dm_read_and_send_bridges_follow_their_contract(monkeypatch, lines, 
             return DMStats(conversations_read=1)
 
     _patch_dm_rows(monkeypatch)
-    code, data, log = _engagement_run(monkeypatch, "engagement.dm_read", TIKTOK_DM_READ, Dm)
+    code, data, log = _engagement_run(monkeypatch, "inbox.dm_read", TIKTOK_DM_READ, Dm)
     assert code == 0
     assert_reads(TIKTOK_DM_READ, data, log)
     check_lines(TIKTOK_DM_READ, lines)
     assert _printed(lines) == {"status", "dm_progress", "dm_conversation", "dm_stats"}
 
     lines.clear()
-    code, data, log = _engagement_run(monkeypatch, "engagement.dm_send", TIKTOK_DM_SEND, Dm)
+    code, data, log = _engagement_run(monkeypatch, "inbox.dm_send", TIKTOK_DM_SEND, Dm)
     assert code == 0
     assert_reads(TIKTOK_DM_SEND, data, log)
     check_lines(TIKTOK_DM_SEND, lines)
@@ -650,16 +650,16 @@ class _Inbox(_Scripted):
 _INBOX_RUNS = (
     # Listing: the names to act on and the pace between two actions are the other mode's; the
     # language is read by the AI welcome pass only, off here.
-    ("engagement.new_followers", "TIKTOK_NEW_FOLLOWERS", {}, {"status", "new_follower"},
+    ("inbox.new_followers", "TIKTOK_NEW_FOLLOWERS", {}, {"status", "new_follower"},
      {"usernames", "delayBetweenActions", "language"}),
     # Following back: no list read, no welcome pass.
-    ("engagement.new_followers", "TIKTOK_NEW_FOLLOWERS", {"mode": "follow_back"}, {"status", "follow_back_result"},
+    ("inbox.new_followers", "TIKTOK_NEW_FOLLOWERS", {"mode": "follow_back"}, {"status", "follow_back_result"},
      {"maxItems", "ai", "language"}),
-    ("engagement.unreplied", "TIKTOK_UNREPLIED", {}, {"status", "unreplied_conversation"}, set()),
-    ("engagement.requests", "TIKTOK_REQUESTS", {}, {"status", "message_request"},
+    ("inbox.unreplied", "TIKTOK_UNREPLIED", {}, {"status", "unreplied_conversation"}, set()),
+    ("inbox.requests", "TIKTOK_REQUESTS", {}, {"status", "message_request"},
      {"decisions", "delayBetweenActions"}),
-    ("engagement.requests", "TIKTOK_REQUESTS", {"mode": "execute"}, {"status", "request_result"}, {"maxItems"}),
-    ("engagement.activity", "TIKTOK_ACTIVITY", {}, {"status", "activity_notification"}, set()),
+    ("inbox.requests", "TIKTOK_REQUESTS", {"mode": "execute"}, {"status", "request_result"}, {"maxItems"}),
+    ("inbox.activity", "TIKTOK_ACTIVITY", {}, {"status", "activity_notification"}, set()),
 )
 
 
@@ -688,7 +688,7 @@ def test_the_notifications_bridge_follows_its_contract(monkeypatch, lines, no_ip
         return {"listed": 2, "resolved": 1, "skipped_over_budget": 0}
 
     monkeypatch.setattr(scan, "scan_new_followers", scanned)
-    code, data, log = _engagement_run(monkeypatch, "engagement.notifications", TIKTOK_NOTIFICATIONS, _Scripted,
+    code, data, log = _engagement_run(monkeypatch, "inbox.notifications", TIKTOK_NOTIFICATIONS, _Scripted,
                                       provider=False, readActivity=False)
 
     assert code == (1 if fail else 0)

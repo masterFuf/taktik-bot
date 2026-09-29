@@ -7,7 +7,7 @@ invisible in the figures of the account actually under test. Three call sites ha
 independently patched `active_account_id` by hand afterwards.
 """
 
-from bridges.compat.diagnostics.runtime.action_test.action_bundle import ActionBundle
+from bridges.tools.lab.action_test.action_bundle import ActionBundle
 
 
 class _Recorder:

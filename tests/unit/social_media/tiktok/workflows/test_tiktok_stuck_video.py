@@ -89,7 +89,7 @@ def test_a_recovery_that_works_leaves_no_motive(monkeypatch):
 
 
 def test_the_final_status_carries_the_motive_to_the_desktop(monkeypatch):
-    from bridges.tiktok.runtime import video_callbacks
+    from bridges.tiktok.common import video_callbacks
 
     sent = []
     monkeypatch.setattr(video_callbacks, "send_stats", lambda **_: None)

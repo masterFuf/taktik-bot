@@ -174,7 +174,7 @@ def test_the_bridge_never_visits_more_profiles_than_max_followers(rig, followers
 
 
 def test_each_target_workflow_is_the_one_a_stop_signal_reaches(rig, followers_payload):
-    from bridges.common.runtime import signal_handler
+    from bridges.common import signal_handler
 
     rig.run_bridge(followers_payload())
     assert len(rig.workflows) == 2

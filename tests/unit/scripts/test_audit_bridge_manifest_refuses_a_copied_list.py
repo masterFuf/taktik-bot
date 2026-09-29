@@ -13,7 +13,7 @@ def test_the_current_launcher_reads_the_manifest():
 
 def test_a_hand_written_table_is_flagged(monkeypatch, tmp_path):
     launcher = tmp_path / "launcher.py"
-    launcher.write_text('BRIDGE_MODULES = {"tiktok_bridge": "bridges.tiktok.workflows.dispatcher"}\n',
+    launcher.write_text('BRIDGE_MODULES = {"tiktok_bridge": "bridges.tiktok.automation.tiktok_bridge"}\n',
                         encoding="utf-8")
     monkeypatch.setattr(audit_bridge_manifest, "LAUNCHER_PATH", launcher)
 

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
+from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
 from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
 
 

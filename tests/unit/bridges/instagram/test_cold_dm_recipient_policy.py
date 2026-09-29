@@ -172,7 +172,7 @@ def test_the_page_settings_reach_the_workflow(payload, expected):
 # --------------------------------------------------------------------------------------- Lab
 
 def test_the_lab_check_runs_the_bridge_evaluation_without_tapping():
-    from bridges.compat.diagnostics.actions.instagram.dm import cold_dm_check_profile
+    from bridges.tools.lab.actions.instagram.dm import cold_dm_check_profile
 
     device = _Device(private=True)
     bundle = SimpleNamespace(device=SimpleNamespace(device=device),
@@ -189,7 +189,7 @@ def test_the_lab_check_runs_the_bridge_evaluation_without_tapping():
 
 def _lab_send(monkeypatch, device, params):
     """The Lab send, with the search steps and the composer as the only stand-ins."""
-    from bridges.compat.diagnostics.actions.instagram.dm import send_cold_dm
+    from bridges.tools.lab.actions.instagram.dm import send_cold_dm
     from taktik.core.social_media.instagram.workflows.cold_dm.workflow import ColdDMWorkflow
 
     monkeypatch.setattr("time.sleep", lambda *_: None)

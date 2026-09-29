@@ -31,7 +31,7 @@ _TIKTOK = ROOT / "taktik" / "core" / "social_media" / "tiktok"
 
 @pytest.fixture
 def lines(monkeypatch):
-    from bridges.common.runtime.ipc import IPC
+    from bridges.common.ipc import IPC
 
     printed: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: printed.append({"type": msg_type, **kwargs}))
@@ -57,7 +57,7 @@ def _conforms(event, printed):
 
 def test_bot_profile_is_what_the_session_start_prints(monkeypatch, lines):
     import taktik.core.social_media.tiktok.actions.business.actions.profile_actions as profile_actions
-    from bridges.tiktok.runtime.ipc import _ipc
+    from bridges.tiktok.common.ipc import _ipc
     from taktik.core.social_media.tiktok.workflows.runtime import startup
 
     own = profile_actions.TikTokProfileInfo(username="acting", display_name="Acting", following_count=3,
@@ -129,7 +129,7 @@ def _scripted_provider(monkeypatch, tmp_path) -> None:
 
 
 def test_ai_profile_done_is_what_the_provider_prints(monkeypatch, lines, tmp_path):
-    from bridges.tiktok.runtime.ipc import _ipc
+    from bridges.tiktok.common.ipc import _ipc
     from taktik.core.ai.factory import create_ai_service
     from taktik.core.social_media.tiktok.workflows.core import ai_hooks
 
@@ -147,7 +147,7 @@ def test_ai_profile_done_is_what_the_provider_prints(monkeypatch, lines, tmp_pat
 def test_ai_relevance_is_what_the_bridge_ai_hooks_print(monkeypatch, lines, tmp_path):
     """A run that qualifies the profiles it visits: the bridge's hooks (`install_run_ai_hooks`) on
     the shared mixin, the real AI service, the verdict, its copy for the base, the relevance."""
-    from bridges.tiktok.workflows.automation.runtime.ai import install_run_ai_hooks
+    from bridges.tiktok.automation.ai import install_run_ai_hooks
     from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_comment import VideoCommentMixin
     from taktik.core.social_media.tiktok.actions.business.workflows.followers.interaction import (
         VideoInteractionMixin,
@@ -169,7 +169,7 @@ def test_ai_relevance_is_what_the_bridge_ai_hooks_print(monkeypatch, lines, tmp_
 
 
 def test_ai_relevance_is_what_the_welcome_pass_prints(monkeypatch, lines, tmp_path):
-    from bridges.tiktok.workflows.automation.runtime.ai import build_welcome_qualifier
+    from bridges.tiktok.automation.ai import build_welcome_qualifier
 
     _scripted_provider(monkeypatch, tmp_path)
     qualify = build_welcome_qualifier({"enabled": True, "openrouterApiKey": _KEY}, "fr")

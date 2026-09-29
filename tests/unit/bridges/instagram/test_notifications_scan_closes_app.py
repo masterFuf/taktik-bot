@@ -15,7 +15,7 @@ import types
 
 import pytest
 
-import bridges.instagram.engagement.runtime.notifications.commands as bridge_commands
+import bridges.instagram.notifications.commands as bridge_commands
 import taktik.core.social_media.instagram.workflows.management.notifications.commands as commands
 
 

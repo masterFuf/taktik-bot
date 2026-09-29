@@ -46,7 +46,7 @@ def recorded(monkeypatch, tmp_path):
 
 
 def _bridge(media, monkeypatch):
-    import bridges.instagram.publish.runtime.bridge as bridge
+    import bridges.instagram.publish.bridge as bridge
 
     class Connection:
         def __init__(self, device_id):
@@ -107,7 +107,7 @@ def test_workflows_run_reaches_the_same_launcher(recorded, monkeypatch):
 
 
 def test_the_lab_bench_rehearses_through_the_launcher(monkeypatch):
-    from bridges.compat.diagnostics.runtime.workflow_test.platforms.instagram.workflows import publish
+    from bridges.tools.lab.workflow_test.platforms.instagram.workflows import publish
 
     _Recorded.runs = []
     monkeypatch.setitem(agent_handler.run_instagram_publish.__kwdefaults__, "workflow_factory", _Recorded)

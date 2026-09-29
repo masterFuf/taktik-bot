@@ -109,7 +109,7 @@ def _threads_engine(fail: bool):
 @pytest.mark.parametrize("contract", [THREADS_SEARCH, THREADS_FEED], ids=["search", "feed"])
 def test_the_threads_bridge_follows_its_contract(monkeypatch, lines, contract, fail):
     import bridges.common.device.app_manager as app_manager
-    import bridges.threads.workflows.dispatcher as dispatcher
+    import bridges.threads.automation.threads_bridge as dispatcher
     from taktik.core.social_media.threads.workflows import agent_handler
 
     monkeypatch.setattr(app_manager, "force_stop_app", lambda *a, **k: None)
@@ -150,7 +150,7 @@ def _relay(fail: bool):
 
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_task_bridge_follows_its_contract(monkeypatch, lines, fail):
-    import bridges.instagram.tasks.runtime.bridge as bridge
+    import bridges.instagram.tasks.bridge as bridge
     from taktik.core.social_media.instagram.workflows.tasks import agent_handler
 
     restarted = []
@@ -189,7 +189,7 @@ def _youtube_workflow(fail: bool):
 
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_youtube_upload_bridge_follows_its_contract(monkeypatch, lines, tmp_path, fail):
-    import bridges.youtube.publish.upload as bridge
+    import bridges.youtube.publish.youtube_upload_bridge as bridge
     from taktik.core.social_media.youtube.workflows.publish import agent_handler
 
     monkeypatch.setattr(bridge, "prepare_youtube_session",
@@ -212,7 +212,7 @@ def test_the_youtube_upload_bridge_follows_its_contract(monkeypatch, lines, tmp_
 
 
 def test_the_youtube_upload_bridge_refuses_a_missing_file_before_the_phone(monkeypatch, lines, tmp_path):
-    import bridges.youtube.publish.upload as bridge
+    import bridges.youtube.publish.youtube_upload_bridge as bridge
 
     def no_phone(*args, **kwargs):
         raise AssertionError("the phone was touched")
@@ -245,7 +245,7 @@ def _tiktok_workflow(fail: bool):
 
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_tiktok_publish_bridge_follows_its_contract(monkeypatch, lines, tmp_path, fail):
-    import bridges.tiktok.publish.runtime.bridge as bridge
+    import bridges.tiktok.publish.bridge as bridge
     from taktik.core.social_media.tiktok.workflows.publish import agent_handler
 
     class Connection:
@@ -293,7 +293,7 @@ def _instagram_workflow(fail: bool):
 
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_instagram_publish_bridge_follows_its_contract(monkeypatch, lines, fail):
-    import bridges.instagram.publish.runtime.bridge as bridge
+    import bridges.instagram.publish.bridge as bridge
     from taktik.core.social_media.instagram.workflows.publish import agent_handler
 
     class Connection:
@@ -320,7 +320,7 @@ def test_the_instagram_publish_bridge_follows_its_contract(monkeypatch, lines, f
 
 
 def test_the_instagram_publish_bridge_refuses_nothing_to_publish_before_the_phone(monkeypatch, lines):
-    import bridges.instagram.publish.runtime.bridge as bridge
+    import bridges.instagram.publish.bridge as bridge
 
     def no_phone(*args, **kwargs):
         raise AssertionError("the phone was touched")

@@ -81,13 +81,13 @@ def main():
     # them: an uncaught exception (including one raised while importing the bridge below) now
     # reports a machine-readable UNHANDLED_EXCEPTION event with its traceback instead of dying
     # with nothing but an exit code.
-    from bridges.common.runtime.crash_hooks import install_crash_hooks
+    from bridges.common.crash_hooks import install_crash_hooks
     install_crash_hooks(bridge_name)
 
     # Same floor, other failure: the desktop app dies and the bridge keeps driving the phone with
     # nobody to read its events or stop it. Started before the bridge is imported so the owner is
     # watched from the first second; a no-op when the bot runs on its own (no TAKTIK_DESKTOP_PID).
-    from bridges.common.runtime.owner_watchdog import start_owner_watchdog
+    from bridges.common.owner_watchdog import start_owner_watchdog
     start_owner_watchdog(bridge_name)
 
     # Shift argv so the bridge sees itself as the "script":

@@ -2,10 +2,10 @@
 
 import re
 
-from bridges.compat.diagnostics.runtime.action_test import runner as action_runner
-from bridges.compat.diagnostics.runtime.action_test import session as action_session
-from bridges.compat.diagnostics.runtime.action_test import tracing as action_tracing
-from bridges.compat.diagnostics.runtime.action_test.tracing import SelectorTracer, TracedSelector
+from bridges.tools.lab.action_test import runner as action_runner
+from bridges.tools.lab.action_test import session as action_session
+from bridges.tools.lab.action_test import tracing as action_tracing
+from bridges.tools.lab.action_test.tracing import SelectorTracer, TracedSelector
 
 
 class _FakeSelector:
@@ -318,7 +318,7 @@ def test_execute_action_captures_lab_artifacts(monkeypatch, tmp_path):
     monkeypatch.setattr(action_runner, "emit", emitted.append)
     monkeypatch.setattr(action_runner, "_BOT_ROOT", tmp_path)
     monkeypatch.setattr(
-        "bridges.compat.diagnostics.runtime.action_test.artifacts._resolve_app_version",
+        "bridges.tools.lab.action_test.artifacts._resolve_app_version",
         lambda device_id, package_name, platform: "410.0.0.53.71",
     )
 
@@ -431,7 +431,7 @@ def test_execute_action_perf_fast_skips_media_but_keeps_report(monkeypatch, tmp_
     monkeypatch.setattr(action_runner, "emit", emitted.append)
     monkeypatch.setattr(action_runner, "_BOT_ROOT", tmp_path)
     monkeypatch.setattr(
-        "bridges.compat.diagnostics.runtime.action_test.artifacts._resolve_app_version",
+        "bridges.tools.lab.action_test.artifacts._resolve_app_version",
         lambda device_id, package_name, platform: "410.0.0.53.71",
     )
 
@@ -478,7 +478,7 @@ def test_execute_action_session_cache_reused_across_runs(monkeypatch, tmp_path):
         return "410.0.0.53.71"
 
     monkeypatch.setattr(
-        "bridges.compat.diagnostics.runtime.action_test.artifacts._resolve_app_version",
+        "bridges.tools.lab.action_test.artifacts._resolve_app_version",
         fake_version,
     )
 
@@ -509,7 +509,7 @@ def test_execute_action_session_cache_reused_across_runs(monkeypatch, tmp_path):
 
 
 def test_action_artifacts_use_bot_debug_ui_root():
-    expected_bot_root = Path(action_runner.__file__).resolve().parents[5]
+    expected_bot_root = Path(action_runner.__file__).resolve().parents[4]
 
     assert action_runner._BOT_ROOT == expected_bot_root
     assert action_runner._artifact_dir(
@@ -553,7 +553,7 @@ def test_captured_phases_carry_a_layout_fingerprint(tmp_path):
     report's other facts, where it lets two runs of the same action be compared across time: a
     boolean flip says something broke, the fingerprint says whether the screen underneath changed.
     """
-    from bridges.compat.diagnostics.runtime.action_test.artifacts import (
+    from bridges.tools.lab.action_test.artifacts import (
         ActionArtifactContext,
         capture_phase_artifacts,
     )

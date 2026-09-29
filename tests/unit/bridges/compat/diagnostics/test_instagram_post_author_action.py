@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 import taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow as post_url_module
-from bridges.compat.diagnostics.actions.instagram.scraping import read_post_author
+from bridges.tools.lab.actions.instagram.scraping import read_post_author
 
 
 class _PostUrl:

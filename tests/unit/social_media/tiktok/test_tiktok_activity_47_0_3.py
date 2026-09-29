@@ -22,8 +22,8 @@ from pathlib import Path
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
-from bridges.compat.diagnostics.runtime.action_test.bundles.tiktok import build_tiktok_action_bundle
+from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
+from bridges.tools.lab.action_test.bundles.tiktok import build_tiktok_action_bundle
 from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions

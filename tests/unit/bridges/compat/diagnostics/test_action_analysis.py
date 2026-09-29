@@ -1,4 +1,4 @@
-from bridges.compat.diagnostics.runtime.action_test.analysis import (
+from bridges.tools.lab.action_test.analysis import (
     build_action_analysis,
     expected_screen_after,
 )

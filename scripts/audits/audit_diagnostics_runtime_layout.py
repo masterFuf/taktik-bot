@@ -2,8 +2,8 @@
 
 The diagnostics runtime used by Action Tester/Cartography, selector tests and
 workflow tests must stay split by subdomain. This catches regressions where new
-support modules are dropped flat into ``bridges/compat/diagnostics`` or
-``bridges/compat/diagnostics/runtime``.
+support modules are dropped flat into ``bridges/tools/lab`` or
+``bridges/tools/lab``.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DIAGNOSTICS_ROOT = ROOT / "bridges" / "compat" / "diagnostics"
+DIAGNOSTICS_ROOT = ROOT / "bridges" / "tools" / "lab"
 RUNTIME_ROOT = DIAGNOSTICS_ROOT / "runtime"
 WORKFLOW_TEST_ROOT = RUNTIME_ROOT / "workflow_test"
 

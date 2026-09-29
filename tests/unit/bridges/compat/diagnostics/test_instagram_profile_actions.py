@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from bridges.compat.diagnostics.actions.instagram.profile import scroll_grid
+from bridges.tools.lab.actions.instagram.profile import scroll_grid
 
 
 def test_scroll_grid_uses_production_action_and_exposes_session_state():
@@ -20,7 +20,7 @@ def test_scroll_grid_uses_production_action_and_exposes_session_state():
 
 
 def test_account_flags_come_from_the_production_batch_read():
-    from bridges.compat.diagnostics.actions.instagram.profile import get_account_flags
+    from bridges.tools.lab.actions.instagram.profile import get_account_flags
 
     calls = []
     detection = SimpleNamespace(

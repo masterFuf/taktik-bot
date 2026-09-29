@@ -1,0 +1,63 @@
+"""Instagram account bridge runtime class."""
+
+from __future__ import annotations
+
+import signal
+
+from bridges.common.signal_handler import setup_signal_handlers
+from bridges.instagram.account.session import AccountSessionLifecycleMixin
+from bridges.instagram.account.workflows import AccountWorkflowRunnerMixin
+from bridges.instagram.common.ipc import _ipc, send_error, send_status
+from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
+
+
+class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):
+    """Bridge for Instagram account management; each flow runs through `run_instagram_account`."""
+
+    def __init__(self, config: dict):
+        self.config = config
+        self.device_id = config.get("deviceId")
+        self.workflow_type = config.get("workflowType")
+        self.package_name = package_name_from_payload(config)
+        self._connection = None
+        self._app = None
+
+        setup_signal_handlers(ipc=_ipc)
+        signal.signal(signal.SIGTERM, self._shutdown)
+        signal.signal(signal.SIGINT, self._shutdown)
+
+    def _shutdown(self, signum, frame):
+        send_status("stopping", "Received shutdown signal")
+
+    def run(self) -> int:
+        if not self.device_id:
+            send_error("Device ID is required")
+            return 1
+        if not self.workflow_type:
+            send_error("workflowType is required ('login', 'register', 'logout', 'change_language' or 'switch_account')")
+            return 1
+
+        device = self._prepare_runtime_session()
+        if device is None:
+            return 1
+
+        if self.workflow_type == "login":
+            return self._run_login(device)
+        if self.workflow_type == "register":
+            return self._run_register(device)
+        if self.workflow_type == "logout":
+            return self._run_logout(device)
+        if self.workflow_type == "change_language":
+            return self._run_change_language(device)
+        if self.workflow_type == "switch_account":
+            return self._run_switch(device)
+        if self.workflow_type == "list_accounts":
+            return self._run_list_accounts(device)
+        if self.workflow_type == "list_saved_accounts":
+            return self._run_list_saved_accounts(device)
+
+        send_error(f"Unknown workflowType: {self.workflow_type}")
+        return 1
+
+
+__all__ = ["AccountBridge"]

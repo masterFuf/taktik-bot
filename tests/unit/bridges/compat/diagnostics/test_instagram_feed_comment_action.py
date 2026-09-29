@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from bridges.compat.diagnostics.actions.instagram.engagement import comment_feed_post
+from bridges.tools.lab.actions.instagram.engagement import comment_feed_post
 
 
 class _Feed:

@@ -10,7 +10,7 @@ import types
 import pytest
 
 import taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow as workflow_module
-from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
+from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
 
 
 def test_a_row_without_a_handle_is_kept_without_a_minimum_age(screen, make_workflow, base_db):

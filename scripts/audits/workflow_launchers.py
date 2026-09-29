@@ -17,7 +17,7 @@ Red when:
 - the scheduler accepts a TikTok workflow type the manifest does not declare;
 - an exception below no longer matches anything (the list only shrinks).
 
-Lab actions (`*/diagnostics/actions/**`) are out of scope on purpose: AGENTS.md makes them
+Lab actions (`bridges/tools/lab/actions/**`) are out of scope on purpose: AGENTS.md makes them
 build the production workflow on the warm device to call ONE atomic step, not to run it.
 
 Called by `audit_workflow_registry.py`, which is the gate; `--self-test` there proves each
@@ -213,7 +213,7 @@ def entry_point_files() -> list[Path]:
         rel = path.relative_to(CORE).as_posix()
         if "__pycache__" in rel:
             continue
-        if "/diagnostics/" in rel and "/diagnostics/runtime/workflow_test/" not in rel:
+        if "/tools/lab/" in rel and "/tools/lab/workflow_test/" not in rel:
             continue
         files.append(path)
     files += [p for p in sorted((CORE / "taktik" / "cli").rglob("*.py")) if "__pycache__" not in p.parts]
@@ -282,7 +282,7 @@ def workflow_bridges(bridges_manifest: dict) -> dict[str, str]:
         if group in NON_WORKFLOW_BRIDGE_GROUPS or not isinstance(entries, dict):
             continue
         for name, module in entries.items():
-            if ".diagnostics." not in module:
+            if ".tools.lab." not in module:
                 bridges[name] = module
     return bridges
 
@@ -515,7 +515,7 @@ def self_test_cases(inputs: Inputs) -> dict[str, tuple[Inputs, dict, str]]:
     manifest["tiktok"]["automation"].append("fake_declared")
     stale = {kind: dict(entries) for kind, entries in EXCEPTIONS.items()}
     stale["bridge_without_launcher"][("fake_bridge_gone",)] = "fake."
-    fake_tree = ast.parse("from bridges.common.runtime.ipc import send_error\nsend_error('x')\n")
+    fake_tree = ast.parse("from bridges.common.ipc import send_error\nsend_error('x')\n")
     reader = lambda module: (None, fake_tree) if module == "bridges.fake.entry" else _default_read(module)  # noqa: E731
     electron = inputs.electron or {}
     cases = {

@@ -81,7 +81,7 @@ def _instagram_factories(calls):
 
 
 def _instagram_bridge(config, app):
-    from bridges.instagram.account.runtime.bridge import AccountBridge
+    from bridges.instagram.account.bridge import AccountBridge
 
     bridge = AccountBridge.__new__(AccountBridge)  # no signal handlers in a test process
     bridge.config = {"deviceId": DEVICE_ID, **config}
@@ -184,7 +184,7 @@ def test_instagram_account_list_restarts_an_instagram_that_is_not_open(monkeypat
 
 
 def test_instagram_bridge_refuses_a_payload_before_touching_the_phone(monkeypatch):
-    from bridges.instagram.account.runtime import launch
+    from bridges.instagram.account import launch
     from taktik.core.social_media.instagram.workflows.management import agent_handler
 
     calls, errors = [], []
@@ -267,7 +267,7 @@ def _tiktok_factories(calls):
 
 
 def _tiktok_bridge(config, app):
-    from bridges.tiktok.account.runtime.bridge import TikTokAccountBridge
+    from bridges.tiktok.account.bridge import TikTokAccountBridge
 
     bridge = TikTokAccountBridge.__new__(TikTokAccountBridge)  # no signal handlers in a test process
     bridge.config = {"deviceId": DEVICE_ID, **config}

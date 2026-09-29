@@ -46,7 +46,7 @@ def types_of(printed) -> set:
 @pytest.fixture
 def lines(monkeypatch):
     """Every line printed through the real IPC helpers."""
-    from bridges.common.runtime.ipc import IPC
+    from bridges.common.ipc import IPC
 
     printed: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: printed.append({"type": msg_type, **kwargs}))
@@ -85,8 +85,8 @@ def bench(monkeypatch, no_telemetry_left):
     import taktik.core.compat.selectors.setup as selector_setup
     import taktik.core.database as database
     import taktik.core.social_media.instagram.ui.language as language
-    from bridges.compat.diagnostics.runtime.workflow_test import observability
-    from bridges.compat.diagnostics.runtime.workflow_test.execution import session
+    from bridges.tools.lab.workflow_test import observability
+    from bridges.tools.lab.workflow_test.execution import session
     from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
     from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
     from taktik.core.social_media.instagram.ui.watchdog import WorkflowWatchdog
@@ -161,8 +161,8 @@ def _bench_config(**overrides) -> Dict[str, Any]:
 
 def test_the_workflow_bench_prints_its_declared_lines(monkeypatch, lines, bench):
     import taktik.core.social_media.instagram.workflows.core.agent_handler as launcher
-    from bridges.common.runtime.ipc import IPC
-    from bridges.compat.diagnostics.entrypoints import workflow_test
+    from bridges.common.ipc import IPC
+    from bridges.tools.lab import workflow_test_bridge as workflow_test
 
     monkeypatch.setattr(launcher, "run_instagram_automation", _scripted_run)
 
@@ -189,9 +189,9 @@ _SCREEN = (Path(__file__).resolve().parents[2] / "social_media" / "instagram" / 
 
 
 def test_the_selector_bench_prints_its_declared_lines(monkeypatch, lines):
-    from bridges.common.runtime.ipc import IPC
-    from bridges.compat.diagnostics.entrypoints import selector_test
-    from bridges.compat.diagnostics.runtime.selector_test import production
+    from bridges.common.ipc import IPC
+    from bridges.tools.lab import selector_test_bridge as selector_test
+    from bridges.tools.lab.selector_test import production
     from taktik.core.compat.selectors.registry import SelectorEntry
 
     class Connection:
@@ -238,8 +238,8 @@ def _printed(capsys) -> List[Dict[str, Any]]:
 
 def test_the_action_session_prints_its_declared_lines(monkeypatch, capsys, no_telemetry_left):
     import taktik.core.shared.device.manager as manager
-    from bridges.compat.diagnostics.runtime import events
-    from bridges.compat.diagnostics.runtime.action_test import session
+    from bridges.tools.lab import events
+    from bridges.tools.lab.action_test import session
     from taktik.core.shared.telemetry import emit_step
 
     connected = {"ok": True}
@@ -292,7 +292,7 @@ def test_the_debug_tooling_prints_its_declared_lines(monkeypatch, lines, tmp_pat
     import taktik.core.shared.device.manager as manager
     import taktik.core.social_media.instagram.ui.detectors.problematic_page as problematic_page
     import taktik.core.shared.diagnostics.ui_dump_files as ui_dump
-    from bridges.instagram.automation import desktop
+    from bridges.instagram.automation import desktop_bridge as desktop
 
     connected = {"ok": True}
     foreground = {"package": "com.instagram.android"}

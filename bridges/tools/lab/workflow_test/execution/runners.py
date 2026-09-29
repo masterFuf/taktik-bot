@@ -1,0 +1,27 @@
+﻿"""Public facade for compat workflow diagnostic runners."""
+
+from bridges.tools.lab.workflow_test.platforms.instagram.runners import (
+    run_instagram_dm,
+    run_instagram_publish,
+    run_instagram_scraping,
+)
+from bridges.tools.lab.workflow_test.platforms.tiktok.runners import (
+    run_tiktok_automation,
+    run_tiktok_dm,
+    run_tiktok_publish,
+    run_tiktok_scraping,
+    run_tiktok_unfollow,
+)
+
+
+__all__ = [
+    "run_instagram_dm",
+    "run_instagram_publish",
+    "run_instagram_scraping",
+    "run_tiktok_automation",
+    "run_tiktok_dm",
+    "run_tiktok_publish",
+    "run_tiktok_scraping",
+    "run_tiktok_unfollow",
+]
+

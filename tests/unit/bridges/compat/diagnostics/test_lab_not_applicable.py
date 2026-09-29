@@ -19,15 +19,15 @@ from pathlib import Path
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
-from bridges.compat.diagnostics.actions.instagram import register_actions as register_instagram
-from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY as TIKTOK_ACTIONS
-from bridges.compat.diagnostics.actions.tiktok import register_actions as register_tiktok
-from bridges.compat.diagnostics.runtime.action_test.bundles.instagram import (
+from bridges.tools.lab.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
+from bridges.tools.lab.actions.instagram import register_actions as register_instagram
+from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY as TIKTOK_ACTIONS
+from bridges.tools.lab.actions.tiktok import register_actions as register_tiktok
+from bridges.tools.lab.action_test.bundles.instagram import (
     build_instagram_action_bundle,
     create_instagram_device_facade,
 )
-from bridges.compat.diagnostics.runtime.action_test.bundles.tiktok import (
+from bridges.tools.lab.action_test.bundles.tiktok import (
     build_tiktok_action_bundle,
     create_tiktok_device_facade,
 )

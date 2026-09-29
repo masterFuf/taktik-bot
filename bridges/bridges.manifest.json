@@ -1,43 +1,43 @@
 {
   "instagram": {
-    "desktop_bridge": "bridges.instagram.automation.desktop",
-    "dm_bridge": "bridges.instagram.engagement.dm",
-    "scraping_bridge": "bridges.instagram.scraping.scraping",
-    "cold_dm_bridge": "bridges.instagram.engagement.cold_dm",
-    "notifications_bridge": "bridges.instagram.engagement.notifications",
-    "account_bridge": "bridges.instagram.account.account",
-    "taktik_agent_bridge": "bridges.instagram.agent.taktik_agent",
-    "persona_analysis_bridge": "bridges.instagram.analysis.persona",
-    "publish_bridge": "bridges.instagram.publish.publish",
-    "task_bridge": "bridges.instagram.tasks.tasks"
+    "desktop_bridge": "bridges.instagram.automation.desktop_bridge",
+    "dm_bridge": "bridges.instagram.dm.dm_bridge",
+    "scraping_bridge": "bridges.instagram.scraping.scraping_bridge",
+    "cold_dm_bridge": "bridges.instagram.cold_dm.cold_dm_bridge",
+    "notifications_bridge": "bridges.instagram.notifications.notifications_bridge",
+    "account_bridge": "bridges.instagram.account.account_bridge",
+    "taktik_agent_bridge": "bridges.instagram.agent.taktik_agent_bridge",
+    "persona_analysis_bridge": "bridges.instagram.persona.persona_analysis_bridge",
+    "publish_bridge": "bridges.instagram.publish.publish_bridge",
+    "task_bridge": "bridges.instagram.tasks.task_bridge"
   },
   "tiktok": {
-    "tiktok_bridge": "bridges.tiktok.workflows.dispatcher",
-    "tiktok_unfollow_bridge": "bridges.tiktok.automation.unfollow",
-    "dm_outreach_bridge": "bridges.tiktok.engagement.dm_outreach",
-    "tiktok_scraping_bridge": "bridges.tiktok.scraping.scraping",
-    "tiktok_account_bridge": "bridges.tiktok.account.account",
-    "tiktok_publish_bridge": "bridges.tiktok.publish.publish"
+    "tiktok_bridge": "bridges.tiktok.automation.tiktok_bridge",
+    "tiktok_unfollow_bridge": "bridges.tiktok.unfollow.tiktok_unfollow_bridge",
+    "dm_outreach_bridge": "bridges.tiktok.cold_dm.dm_outreach_bridge",
+    "tiktok_scraping_bridge": "bridges.tiktok.scraping.tiktok_scraping_bridge",
+    "tiktok_account_bridge": "bridges.tiktok.account.tiktok_account_bridge",
+    "tiktok_publish_bridge": "bridges.tiktok.publish.tiktok_publish_bridge"
   },
   "threads": {
-    "threads_bridge": "bridges.threads.workflows.dispatcher"
+    "threads_bridge": "bridges.threads.automation.threads_bridge"
   },
   "gmail": {
-    "gmail_account_bridge": "bridges.gmail.account.account"
+    "gmail_account_bridge": "bridges.gmail.account.gmail_account_bridge"
   },
   "youtube": {
-    "youtube_account_bridge": "bridges.youtube.account.account",
-    "youtube_upload_bridge": "bridges.youtube.publish.upload",
-    "youtube_action_test_bridge": "bridges.youtube.diagnostics.action_test"
+    "youtube_account_bridge": "bridges.youtube.account.youtube_account_bridge",
+    "youtube_upload_bridge": "bridges.youtube.publish.youtube_upload_bridge",
+    "youtube_action_test_bridge": "bridges.tools.lab.youtube_action_test_bridge"
   },
   "compat": {
-    "selector_test_bridge": "bridges.compat.diagnostics.entrypoints.selector_test",
-    "workflow_test_bridge": "bridges.compat.diagnostics.entrypoints.workflow_test",
-    "action_test_bridge": "bridges.compat.diagnostics.entrypoints.action_test",
-    "action_session_bridge": "bridges.compat.diagnostics.entrypoints.action_session",
-    "tiktok_action_test_bridge": "bridges.compat.diagnostics.entrypoints.tiktok_action_test"
+    "selector_test_bridge": "bridges.tools.lab.selector_test_bridge",
+    "workflow_test_bridge": "bridges.tools.lab.workflow_test_bridge",
+    "action_test_bridge": "bridges.tools.lab.action_test_bridge",
+    "action_session_bridge": "bridges.tools.lab.action_session_bridge",
+    "tiktok_action_test_bridge": "bridges.tools.lab.tiktok_action_test_bridge"
   },
   "database": {
-    "schema_bridge": "bridges.database.schema"
+    "schema_bridge": "bridges.tools.schema.schema_bridge"
   }
 }

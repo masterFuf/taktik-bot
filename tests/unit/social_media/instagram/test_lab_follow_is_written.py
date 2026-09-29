@@ -21,13 +21,13 @@ import time
 
 import pytest
 
-from bridges.compat.diagnostics.actions.instagram.profile import click_follow
-from bridges.compat.diagnostics.actions.instagram.unfollow import plan as unfollow_plan
-from bridges.compat.diagnostics.runtime.action_test.bundles.instagram import (
+from bridges.tools.lab.actions.instagram.profile import click_follow
+from bridges.tools.lab.actions.instagram.unfollow import plan as unfollow_plan
+from bridges.tools.lab.action_test.bundles.instagram import (
     build_instagram_action_bundle,
     create_instagram_device_facade,
 )
-from bridges.compat.diagnostics.runtime.action_test.runner import _bind_bundle_account
+from bridges.tools.lab.action_test.runner import _bind_bundle_account
 from profile_posts_phone import ProfilePostsPhone, capture
 from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
 

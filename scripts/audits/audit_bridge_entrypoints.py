@@ -2,7 +2,7 @@
 
 A bridge of `bridges/bridges.manifest.json` is started by `bridges/launcher.py`, which calls the
 module's `main()`. That `main()` hands its bridge to `run_bridge_main`
-(`bridges/common/runtime/entrypoint.py`), the one reader of the run's config: a JSON file named by
+(`bridges/common/entrypoint.py`), the one reader of the run's config: a JSON file named by
 the first argument. Nothing else under `bridges/` reads `sys.argv` or parses flags.
 
 Refused:
@@ -37,7 +37,7 @@ BRIDGES_DIR = CORE / "bridges"
 ENTRY_HELPER = "run_bridge_main"
 
 # The only two readers of the command line under bridges/.
-ARGV_READERS = {"bridges/launcher.py", "bridges/common/runtime/entrypoint.py"}
+ARGV_READERS = {"bridges/launcher.py", "bridges/common/entrypoint.py"}
 
 BUILD_FILES = (
     CORE / "scripts" / "build" / "build_exe.py",

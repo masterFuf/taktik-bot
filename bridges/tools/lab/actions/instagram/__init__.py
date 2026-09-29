@@ -1,0 +1,45 @@
+﻿"""Instagram compat diagnostic action catalog."""
+
+from bridges.tools.lab.registry.actions import ActionRegistry
+
+
+_registry = ActionRegistry(platform="instagram")
+ACTION_REGISTRY = _registry.actions
+action = _registry.action
+#: A yes/no question of the screen: the Lab reports its answer, yes or no (`detection_answer`).
+detection_action = _registry.detection
+DETECTIONS = _registry.detections
+
+
+def register_actions() -> None:
+    """Import action families so decorators populate the registry."""
+    from bridges.tools.lab.actions.instagram import account  # noqa: F401
+    from bridges.tools.lab.actions.instagram import app  # noqa: F401
+    from bridges.tools.lab.actions.instagram import comment  # noqa: F401
+    from bridges.tools.lab.actions.instagram import content  # noqa: F401
+    from bridges.tools.lab.actions.instagram import detection  # noqa: F401
+    from bridges.tools.lab.actions.instagram import dm  # noqa: F401
+    from bridges.tools.lab.actions.instagram import engagement  # noqa: F401
+    from bridges.tools.lab.actions.instagram import keyboard  # noqa: F401
+    from bridges.tools.lab.actions.instagram import navigation  # noqa: F401
+    from bridges.tools.lab.actions.instagram import notifications  # noqa: F401
+    from bridges.tools.lab.actions.instagram import ocr  # noqa: F401
+    from bridges.tools.lab.actions.instagram import popups  # noqa: F401
+    from bridges.tools.lab.actions.instagram import post  # noqa: F401
+    from bridges.tools.lab.actions.instagram import profile  # noqa: F401
+    from bridges.tools.lab.actions.instagram import publish  # noqa: F401
+    from bridges.tools.lab.actions.instagram import scraping  # noqa: F401
+    from bridges.tools.lab.actions.instagram import scroll  # noqa: F401
+    from bridges.tools.lab.actions.instagram import settings  # noqa: F401
+    from bridges.tools.lab.actions.instagram import unfollow  # noqa: F401
+    from bridges.tools.lab.actions.instagram import story  # noqa: F401
+    from bridges.tools.lab.actions.instagram import suggestions  # noqa: F401
+    from bridges.tools.lab.actions.instagram import tap  # noqa: F401
+
+    # Shared with Instagram, same id, one implementation — see actions/common/capture.py.
+    from bridges.tools.lab.actions.common.capture import capture_surface as _capture
+    action("app.capture_surface")(_capture)
+
+
+__all__ = ["ACTION_REGISTRY", "DETECTIONS", "action", "detection_action", "register_actions"]
+

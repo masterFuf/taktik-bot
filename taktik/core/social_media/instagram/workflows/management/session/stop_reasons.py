@@ -495,7 +495,7 @@ def desktop_gone() -> StopReason:
 
     A crash, a forced stop, a window closed without its shutdown: the phone still answers, but
     nobody reads the bridge's events any more and nobody can stop it. The bridge notices on its
-    own (``bridges/common/runtime/owner_watchdog.py``) and ends the run here rather than acting
+    own (``bridges/common/owner_watchdog.py``) and ends the run here rather than acting
     unsupervised. FAILED, because the run did not go where it was set to go; it is the same
     situation as the desktop's ``run_lost``, except that the bot was there to write the motive.
     """

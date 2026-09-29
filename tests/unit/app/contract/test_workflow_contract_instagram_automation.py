@@ -56,12 +56,12 @@ class _DecisionClient:
 @pytest.fixture
 def desktop_bridge(monkeypatch):
     """`DesktopBridge` with the phone, the network, the base and the automation replaced."""
-    import bridges.common.device.network as network
-    import bridges.instagram.automation.runtime.bridge as bridge
+    import bridges.common.network as network
+    import bridges.instagram.automation.bridge as bridge
     import taktik.core.social_media.instagram.workflows.core.automation as automation
     import taktik.core.social_media.instagram.workflows.core.runtime_setup as runtime_setup
-    from bridges.common.runtime.ipc import IPC
-    from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
+    from bridges.common.ipc import IPC
+    from bridges.instagram.automation.session import InstagramDesktopRuntime
 
     printed: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: printed.append({"type": msg_type, **kwargs}))

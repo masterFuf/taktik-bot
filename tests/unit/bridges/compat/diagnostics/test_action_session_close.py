@@ -9,7 +9,7 @@ import types
 
 import pytest
 
-from bridges.compat.diagnostics.runtime.action_test import session
+from bridges.tools.lab.action_test import session
 
 
 @pytest.mark.parametrize("command", ["shutdown", "stop", "close"])

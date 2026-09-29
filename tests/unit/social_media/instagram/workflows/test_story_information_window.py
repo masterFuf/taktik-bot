@@ -280,7 +280,7 @@ class RawPhone:
 def test_the_lab_action_runs_the_production_step_with_a_human_tap():
     """Same id on both sides (`actionCatalog` of the app); the workflow's own step, the facade's
     sampled tap point, never a coordinate: the touch lands inside "OK"."""
-    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 
     register_actions()
     phone = RawPhone()
@@ -336,7 +336,7 @@ def test_the_story_relay_publishes_past_the_same_window():
 
 
 def test_the_lab_action_reports_a_window_it_leaves_on_screen():
-    from bridges.compat.diagnostics.actions.instagram import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 
     register_actions()
     phone = RawPhone(_window_primary_labelled("Turn on"))

@@ -101,12 +101,12 @@ def automation_run(monkeypatch, tmp_path):
     """`DesktopBridge` down to the real automation, with the phone and the network replaced."""
     import sqlite3
 
-    import bridges.common.device.network as network
+    import bridges.common.network as network
     import taktik.core.database as database
-    import bridges.instagram.automation.runtime.bridge as bridge
+    import bridges.instagram.automation.bridge as bridge
     import taktik.core.social_media.instagram.workflows.core.runtime_setup as runtime_setup
     import taktik.core.social_media.instagram.workflows.support.workflow_helpers as helpers
-    from bridges.instagram.automation.runtime.session import InstagramDesktopRuntime
+    from bridges.instagram.automation.session import InstagramDesktopRuntime
 
     sent = capture_lines(monkeypatch)
     ips = iter(["198.51.100.1", "198.51.100.2"] * 20)
@@ -143,7 +143,7 @@ def automation_run(monkeypatch, tmp_path):
 
 
 def _decision_client(ipc, log=None):
-    from bridges.instagram.automation.runtime.decision_client import DesktopProfileDecisionClient
+    from bridges.instagram.automation.decision_client import DesktopProfileDecisionClient
 
     return DesktopProfileDecisionClient(ipc=ipc, input_stream=_Desktop(), timeout_seconds=0.2, log=log)
 
@@ -241,11 +241,11 @@ def _ai_and_decision_lines(monkeypatch, tmp_path) -> List[Dict[str, Any]]:
     """The AI hooks and the AI service of a run in decision mode, the desktop answering each plan."""
     from PIL import Image
 
-    import bridges.instagram.runtime.ipc as instagram_ipc
+    import bridges.instagram.common.ipc as instagram_ipc
     import taktik.core.social_media.instagram.workflows.core.ai_hooks as ai_hooks
-    from bridges.common.runtime.ipc import IPC
-    from bridges.instagram.automation.runtime.decision_client import DesktopProfileDecisionClient
-    from bridges.instagram.runtime.ai import create_instagram_ai_service
+    from bridges.common.ipc import IPC
+    from bridges.instagram.automation.decision_client import DesktopProfileDecisionClient
+    from bridges.instagram.common.ai import create_instagram_ai_service
     from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
         InteractionEngineMixin,
     )
@@ -313,9 +313,9 @@ def test_the_ai_and_the_decision_round_trip_print_declared_lines(monkeypatch, tm
 
 def _emitter_lines(monkeypatch, capsys) -> List[Dict[str, Any]]:
     """What a run does on a profile or a post, through the entry points the workflows call."""
-    import bridges.instagram.runtime.ipc as instagram_ipc
-    from bridges.instagram.automation.runtime.media_capture import InstagramMediaCaptureRuntime
-    from bridges.instagram.runtime.ipc_stats import setup_stats_callback
+    import bridges.instagram.common.ipc as instagram_ipc
+    from bridges.instagram.automation.media_capture import InstagramMediaCaptureRuntime
+    from bridges.instagram.common.ipc_stats import setup_stats_callback
     from taktik.core.shared.telemetry import emit_step
     from taktik.core.social_media.instagram.actions.business.workflows.followers.workflow import FollowerBusiness
     from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
@@ -426,8 +426,8 @@ def test_every_declared_line_comes_out_of_a_real_path(automation_run, capsys, mo
 
     printed = {line["type"] for line in lines}
     # A crash is its own path: the bridge's error line (`send_instagram_workflow_error`).
-    from bridges.instagram.automation.runtime.events import send_instagram_workflow_error
-    from bridges.common.runtime.ipc import IPC
+    from bridges.instagram.automation.events import send_instagram_workflow_error
+    from bridges.common.ipc import IPC
 
     crash: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: crash.append({"type": msg_type, **kwargs}))

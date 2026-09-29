@@ -11,7 +11,7 @@ import types
 import pytest
 
 import taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow as workflow_module
-from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
+from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
 
 
 @pytest.fixture

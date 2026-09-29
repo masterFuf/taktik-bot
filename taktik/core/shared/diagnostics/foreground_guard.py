@@ -22,7 +22,7 @@ toutes les `INTERVALLE_MINIMUM_S` secondes.
 
 **Aucune memoire de la sortie n'est gardee ici.** Un drapeau « ce run est sorti de l'app » devrait
 etre remis a zero au demarrage de chaque run. Ce point de depart existe depuis le 2026-09-04 :
-`bridges/common/runtime/entrypoint.py::run_bridge_main`, le `main()` universel par lequel passe
+`bridges/common/entrypoint.py::run_bridge_main`, le `main()` universel par lequel passe
 TOUT pont, appelle `reinitialiser()` sur ce module et sur `miss_capture`. Un etat qui ne sait pas
 quand recommencer serait pire qu'absent -- il ferait echouer d'emblee le run suivant du meme
 processus. Le seul etat porte ici reste l'horodatage du dernier controle, qui ne peut rien casser

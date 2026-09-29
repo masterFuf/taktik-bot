@@ -180,7 +180,7 @@ def test_a_follower_we_do_not_follow_back_is_skipped_not_failed():
 
 
 def test_the_lab_action_runs_the_same_step_on_the_session_device():
-    from bridges.compat.diagnostics.actions.tiktok import ACTION_REGISTRY, register_actions
+    from bridges.tools.lab.actions.tiktok import ACTION_REGISTRY, register_actions
 
     register_actions()
     phone = _Phone(FOLLOWER_PROFILE)
