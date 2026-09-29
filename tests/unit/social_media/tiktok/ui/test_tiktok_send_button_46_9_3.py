@@ -9,8 +9,6 @@ shape the override must still refuse (an empty field is its placeholder). Evalua
 uiautomator2's own `d.xpath()` engine.
 """
 
-from pathlib import Path
-
 import pytest
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
@@ -18,8 +16,9 @@ from uiautomator2.xpath import XPathEntry
 from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 TYPED = (FIXTURES / "tt4693_fr_dm_composer_typed.xml").read_text(encoding="utf-8")
 EMPTY = (FIXTURES / "tt4693_fr_dm_conversation.xml").read_text(encoding="utf-8")
 SEARCH = (FIXTURES / "tt4693_fr_search_results.xml").read_text(encoding="utf-8")

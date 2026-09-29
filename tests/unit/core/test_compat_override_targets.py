@@ -9,8 +9,6 @@ the correct id sat in the YAML the whole time.
 These tests read the shipped override files and fail on a key that would be silently dropped.
 """
 
-from pathlib import Path
-
 import pytest
 import yaml
 
@@ -18,9 +16,10 @@ from taktik.core.compat.selectors.setup import (
     INSTAGRAM_SELECTOR_DOMAINS,
     TIKTOK_SELECTOR_DOMAINS,
 )
+from unit.paths import CORE
 
 DOMAINS = {"instagram": INSTAGRAM_SELECTOR_DOMAINS, "tiktok": TIKTOK_SELECTOR_DOMAINS}
-OVERRIDES_DIR = Path(__file__).resolve().parents[3] / "taktik" / "core" / "compat" / "data" / "overrides"
+OVERRIDES_DIR = CORE / "taktik/core/compat/data/overrides"
 
 
 def _override_keys():

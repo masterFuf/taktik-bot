@@ -9,11 +9,11 @@ L'etape d'echec remontait deja jusqu'a l'appelant ; elle n'etait pas lue.
 """
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(CORE))
 
 from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (  # noqa: E402
     why_like_fell_short,

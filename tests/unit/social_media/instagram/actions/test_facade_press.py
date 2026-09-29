@@ -9,7 +9,6 @@ models that; a fake that obeys every key would hide the defect.
 
 import ast
 import logging
-from pathlib import Path
 
 import pytest
 
@@ -17,6 +16,7 @@ import taktik.core.social_media.instagram.actions.core.device.facade as facade_m
 from taktik.core.social_media.instagram.actions.atomic.text.text_input import TextInputMixin
 from taktik.core.social_media.instagram.actions.core.base_business.modal_recovery import ModalRecoveryMixin
 from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from unit.paths import CORE
 
 
 class _Uiautomator2Server:
@@ -190,11 +190,10 @@ def test_clearing_falls_back_to_uiautomator2_when_the_keyboard_cannot():
 
 # ── Every key literal the Instagram code presses is one the server knows ─────────────────────
 
-_CORE = Path(__file__).resolve().parents[5]
 _SCANNED = [
-    _CORE / "taktik" / "core" / "social_media" / "instagram",
-    _CORE / "bridges" / "instagram",
-    _CORE / "bridges" / "tools" / "lab" / "actions" / "instagram",
+    CORE / "taktik/core/social_media/instagram",
+    CORE / "bridges/instagram",
+    CORE / "bridges/tools/lab/actions/instagram",
 ]
 # Key chords the server cannot press, left where they are: each call answers False and the
 # caller carries on. Listed per file so a new one elsewhere fails here.
@@ -214,7 +213,7 @@ def _pressed_literals():
                         and node.func.attr == "press" and node.args
                         and isinstance(node.args[0], ast.Constant)
                         and isinstance(node.args[0].value, str)):
-                    yield path.relative_to(_CORE).as_posix(), node.args[0].value, node.lineno
+                    yield path.relative_to(CORE).as_posix(), node.args[0].value, node.lineno
 
 
 def test_every_pressed_key_literal_is_one_the_server_presses():

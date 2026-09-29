@@ -26,7 +26,6 @@ comment... », « ‎N comments »), measured on a capture the corpus no longer 
 """
 
 import re
-from pathlib import Path
 
 import pytest
 from lxml import etree
@@ -36,6 +35,7 @@ from taktik.core.social_media.tiktok.actions.core.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
+from unit.paths import CORE
 
 ID = "com.zhiliaoapp.musically:id/"
 
@@ -59,7 +59,7 @@ def _next_build(xml):
     return re.sub(r":id/([a-z0-9_]{2,4})\"", lambda m: f':id/q{m.group(1)}9"', xml)
 
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 
 def _capture(name):
@@ -162,7 +162,7 @@ def test_the_empty_sheet_of_43_1_4_has_no_clickable_composer():
     assert "‎" not in SHEET_4314_EMPTY and 'text="Commentaires"' in SHEET_4314_EMPTY
 
 
-SHEET_4703 = (Path(__file__).parents[1] / "fixtures" / "tt4703_fr_comment_sheet.xml").read_text(
+SHEET_4703 = (CORE / "tests/unit/social_media/tiktok/fixtures/tt4703_fr_comment_sheet.xml").read_text(
     encoding="utf-8")
 
 

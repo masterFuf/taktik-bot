@@ -13,7 +13,6 @@ from __future__ import annotations
 import io
 import json
 import sys
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, List
 
@@ -25,6 +24,7 @@ from taktik.core.contract.diagnostics import ACTION_SESSION, INSTAGRAM_DEBUG, SE
 from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION
 from taktik.core.contract.schema import ToolContract
 from test_workflow_contract_bridges import problems_of
+from unit.paths import CORE
 
 DEVICE = "emulator-5554"
 
@@ -62,7 +62,7 @@ def no_telemetry_left():
 
 
 def test_every_tool_names_a_bridge_of_the_manifest():
-    manifest = json.loads((Path(__file__).resolve().parents[4] / "bridges" / "bridges.manifest.json")
+    manifest = json.loads((CORE / "bridges/bridges.manifest.json")
                           .read_text(encoding="utf-8-sig"))
     bridges = {name for platform in manifest.values() for name in platform}
     assert {tool.bridge for tool in TOOL_CONTRACTS} <= bridges
@@ -184,8 +184,7 @@ def test_the_workflow_bench_prints_its_declared_lines(monkeypatch, lines, bench)
 
 
 #: A real Instagram 410 dump (the explore grid), the one screen the bench tests against.
-_SCREEN = (Path(__file__).resolve().parents[2] / "social_media" / "instagram" / "fixtures"
-           / "ig410_en_explore_grid.xml").read_text(encoding="utf-8")
+_SCREEN = (CORE / "tests/unit/social_media/instagram/fixtures/ig410_en_explore_grid.xml").read_text(encoding="utf-8")
 
 
 def test_the_selector_bench_prints_its_declared_lines(monkeypatch, lines):

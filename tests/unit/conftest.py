@@ -18,9 +18,10 @@ import traceback
 import urllib.parse
 
 import pytest
+from unit.paths import CORE
 
 _DATA_FOLDER = "taktik-desktop"
-_CORE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_CORE_ROOT = str(CORE)
 
 
 def _operator_data(env):

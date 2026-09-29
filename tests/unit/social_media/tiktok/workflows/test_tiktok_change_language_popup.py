@@ -8,8 +8,6 @@ The screen is a real capture holding a modal `close_popup` knows: TikTok's invit
 Messages inbox, 43.1.4 in French (Pixel 3a), anonymized, read by uiautomator2's own `XPathEntry`.
 """
 
-from pathlib import Path
-
 import pytest
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
@@ -18,9 +16,10 @@ import taktik.core.shared.actions.base_action as shared_action_module
 import taktik.core.social_media.tiktok.workflows.management.language.change_language_workflow as language_module
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.workflows.management.language import TikTokChangeLanguageWorkflow
+from unit.paths import CORE
 
 PKG = "com.zhiliaoapp.musically:id/"
-INBOX_WITH_BANNER = (Path(__file__).parents[1] / "fixtures" / "tt4314_fr_inbox.xml").read_text(encoding="utf-8")
+INBOX_WITH_BANNER = (CORE / "tests/unit/social_media/tiktok/fixtures/tt4314_fr_inbox.xml").read_text(encoding="utf-8")
 
 
 DUMP_S = 0.25

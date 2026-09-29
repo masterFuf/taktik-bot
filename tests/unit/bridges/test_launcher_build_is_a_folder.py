@@ -8,8 +8,8 @@ import ast
 from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-CORE = Path(__file__).resolve().parents[3]
 BUILD_ALL = CORE.parent / "app" / "scripts" / "build" / "build-all.ps1"
 
 
@@ -19,7 +19,7 @@ def _string_constants(path: Path) -> list[str]:
 
 
 def test_build_exe_builds_a_folder():
-    args = _string_constants(CORE / "scripts" / "build" / "build_exe.py")
+    args = _string_constants(CORE / "scripts/build/build_exe.py")
 
     assert "--onedir" in args
     assert "--onefile" not in args

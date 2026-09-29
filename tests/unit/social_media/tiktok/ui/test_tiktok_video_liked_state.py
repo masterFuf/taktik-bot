@@ -22,14 +22,13 @@ ne disparaît pas : il devient « Vidéo aimée ». Aucun téléphone n'a TikTok
 aimée anglaise.
 """
 
-from pathlib import Path
-
 import pytest
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_STATE_SELECTORS
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 
 def _screen(name):

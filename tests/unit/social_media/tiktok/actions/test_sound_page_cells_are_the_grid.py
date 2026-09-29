@@ -11,14 +11,13 @@ The screen is a real dump of TikTok 43.1.4 in French (Pixel 3a), anonymized
 drives on the phone.
 """
 
-from pathlib import Path
-
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.tiktok.actions.core.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SOUND_SELECTORS
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 #: The page of an original sound (61 posts), as `tt.sound.open_page` left it.
 SOUND_PAGE = (FIXTURES / "tt4314_fr_sound_page.xml").read_text(encoding="utf-8")
 

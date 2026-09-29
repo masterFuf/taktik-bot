@@ -13,7 +13,6 @@ de production, sur les réponses que ce téléphone donne à adb.
 """
 
 import json
-from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -21,10 +20,11 @@ from PIL import Image
 from taktik.core.shared.device import app_inspection
 from taktik.core.shared.diagnostics import miss_capture, surface_capture
 from taktik.core.social_media.instagram.ui import language as instagram_language
+from unit.paths import CORE
 
 SERIAL = "phone-4a"
 PACKAGE = "com.instagram.android"
-FEED = (Path(__file__).parents[2] / "social_media" / "instagram" / "fixtures" / "ig410_fr_home_feed.xml"
+FEED = (CORE / "tests/unit/social_media/instagram/fixtures/ig410_fr_home_feed.xml"
         ).read_text(encoding="utf-8")
 
 

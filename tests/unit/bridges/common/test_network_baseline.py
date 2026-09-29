@@ -12,11 +12,11 @@ session -- elle ne doit donc, sous aucune panne, changer ce que cette porte repo
 """
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(CORE))
 
 from bridges.common import network as network_module  # noqa: E402
 from taktik.core.shared.device import network_probe  # noqa: E402

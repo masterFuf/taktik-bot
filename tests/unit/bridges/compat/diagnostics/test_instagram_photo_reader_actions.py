@@ -1,6 +1,5 @@
 """The Lab actions of the readers moved onto the screen photo (steps 3 L5-L6): the production reads."""
 
-from pathlib import Path
 from types import SimpleNamespace
 
 from lxml import etree
@@ -9,10 +8,11 @@ from uiautomator2.xpath import XPathEntry
 from bridges.tools.lab.actions.instagram.comment import read_visible_texts
 from bridges.tools.lab.actions.instagram.profile import extract_avatar, extract_own_avatar
 from taktik.core.shared.device.facade import BaseDeviceFacade
+from unit.paths import CORE
 
 # One Compose comment row (no body id, "<author> a dit <text>"): the caption sheet of a reel,
 # Instagram 447 in French (Pixel 6a), a real dump, anonymized.
-THREAD = (Path(__file__).parents[3] / "social_media" / "instagram" / "fixtures"
+THREAD = (CORE / "tests/unit/social_media/instagram/fixtures"
           / "ig447_fr_reel_caption_sheet.xml").read_text(encoding="utf-8")
 BODY = next(node.get("text") for node in etree.fromstring(THREAD.encode("utf-8")).iter("node")
             if " a dit " in (node.get("text") or "")).split(" a dit ", 1)[1]

@@ -21,8 +21,7 @@ from taktik.core.contract.stop_reasons import (
     RUN_HALT_CODE,
     TIKTOK_COMPLETION_REASON,
 )
-
-ROOT = Path(__file__).resolve().parents[4]
+from unit.paths import CORE
 
 #: The fields of a line that say why a run (or a pass of it) ended.
 REASON_FIELDS = {"completion_reason", "completionReason", "stop_reason", "stopReason", "reason_code"}
@@ -51,12 +50,12 @@ def _module_constants(path: Path, accept=lambda name: name.isupper()) -> Set[str
 
 
 def test_the_halt_codes_are_the_latch_constants():
-    halt = ROOT / "taktik" / "core" / "shared" / "diagnostics" / "run_halt.py"
+    halt = CORE / "taktik/core/shared/diagnostics/run_halt.py"
     assert set(RUN_HALT_CODE.values) == _module_constants(halt)
 
 
 def test_the_instagram_codes_are_the_catalogue_factories():
-    catalogue = ROOT / "taktik" / "core" / "social_media" / "instagram" / "workflows" / "management" / "session" / "stop_reasons.py"
+    catalogue = CORE / "taktik/core/social_media/instagram/workflows/management/session/stop_reasons.py"
     built = {
         _string(node.args[0])
         for node in ast.walk(_tree(catalogue))
@@ -67,7 +66,7 @@ def test_the_instagram_codes_are_the_catalogue_factories():
 
 
 def test_the_instagram_scraping_reasons_are_its_outcome_constants():
-    outcome = ROOT / "taktik" / "core" / "social_media" / "instagram" / "workflows" / "scraping" / "outcome.py"
+    outcome = CORE / "taktik/core/social_media/instagram/workflows/scraping/outcome.py"
     assert set(INSTAGRAM_SCRAPING_COMPLETION_REASON.values) == _module_constants(outcome)
 
 
@@ -176,15 +175,15 @@ def _tiktok_reasons(paths: Iterable[Path]) -> Set[str]:
 
 
 def test_the_tiktok_reasons_are_what_its_workflows_set():
-    paths = [*(ROOT / "taktik" / "core" / "social_media" / "tiktok").rglob("*.py"),
-             *(ROOT / "bridges" / "tiktok").rglob("*.py")]
+    paths = [*(CORE / "taktik/core/social_media/tiktok").rglob("*.py"),
+             *(CORE / "bridges/tiktok").rglob("*.py")]
     # The latch's codes reach `completion_reason` / `stop_reason` through `halt["code"]`.
     set_by_code = _tiktok_reasons(paths) | set(RUN_HALT_CODE.values)
     assert set(TIKTOK_COMPLETION_REASON.values) == set_by_code
 
 
 def test_the_suggestions_visit_reasons_are_what_the_pass_sets():
-    instagram = ROOT / "taktik" / "core" / "social_media" / "instagram"
+    instagram = CORE / "taktik/core/social_media/instagram"
     paths = [
         instagram / "actions" / "business" / "workflows" / "common" / "suggestion_visit.py",
         instagram / "actions" / "business" / "workflows" / "feed" / "suggestions_visit.py",

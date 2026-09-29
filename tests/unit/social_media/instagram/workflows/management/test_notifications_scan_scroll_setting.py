@@ -12,8 +12,6 @@ are replaced (the scroll gesture, the load-more tap, the OCR expander, the emoji
 loop, the reading of each screen and the stop rules are the production ones.
 """
 
-from pathlib import Path
-
 import pytest
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
@@ -22,8 +20,9 @@ from taktik.core.social_media.instagram.ui.selectors.locales import set_active_l
 from taktik.core.social_media.instagram.workflows.management.notifications import (
     notifications_workflow as module,
 )
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 
 
 def _screen(name):

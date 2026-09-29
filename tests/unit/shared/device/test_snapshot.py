@@ -16,6 +16,7 @@ from uiautomator2.xpath import XPathEntry, XPathError
 
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.device.snapshot import ScreenSnapshot, SnapshotSource, SnapshotUnavailable
+from unit.paths import CORE
 
 IG = "com.instagram.android:id"
 
@@ -301,7 +302,7 @@ def test_a_photo_of_a_dump_already_held_takes_no_dump_and_keeps_the_rewrite():
         facade.snapshot_of(None)
 
 
-CORPUS = Path(os.environ.get("TAKTIK_DEBUG_UI") or Path(__file__).resolve().parents[4] / "debug_ui")
+CORPUS = Path(os.environ.get("TAKTIK_DEBUG_UI") or CORE / "debug_ui")
 
 
 @pytest.mark.skipif(not CORPUS.is_dir(), reason="no captured dumps here (they never enter the repository)")
@@ -310,7 +311,7 @@ def test_equality_on_a_sample_of_real_dumps():
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
-        "check_snapshot_equality", Path(__file__).resolve().parents[4] / "scripts" / "lab" / "check_snapshot_equality.py")
+        "check_snapshot_equality", CORE / "scripts/lab/check_snapshot_equality.py")
     check = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(check)
     selectors = check.catalogue_selectors()[0][::10]

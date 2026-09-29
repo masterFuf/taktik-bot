@@ -11,16 +11,15 @@ The screen is a real dump of Instagram 410 in English (the top of our own follow
 2026-09-28, anonymized); followers and following lists share the rows the read pairs.
 """
 
-from pathlib import Path
-
 import pytest
 
 from fake_follow_list import FakeFacade, FakeScreen
 from taktik.core.compat.selectors.tracer import SelectorTracer
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 SCREEN = (FIXTURES / "ig410_en_own_followers_newest_first_1.xml").read_text(encoding="utf-8")
 
 

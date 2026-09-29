@@ -16,7 +16,6 @@ both): the top of the list, then the list scrolled up by three rows' worth, as i
 """
 
 import time
-from pathlib import Path
 
 import pytest
 from loguru import logger
@@ -36,9 +35,10 @@ from taktik.core.social_media.instagram.workflows.scraping.list_scraping import 
     ScrapingListMixin,
 )
 from taktik.core.social_media.instagram.workflows.scraping.list_strategy import ListScrapingStrategy
+from unit.paths import CORE
 
 PKG = "com.instagram.android"
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 LIST_TOP = (FIXTURES / "ig410_fr_followers_list_top.xml").read_text(encoding="utf-8")
 LIST_SCROLLED = (FIXTURES / "ig410_fr_followers_list_scrolled.xml").read_text(encoding="utf-8")
 

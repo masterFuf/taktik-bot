@@ -8,7 +8,6 @@ Messages inbox, the new followers page (a screen the reader does not know) and t
 in « more ». The GDPR notice is still written by hand: TikTok shows it once, and no capture holds it.
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -23,10 +22,11 @@ from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions 
 from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import TikTokScreen
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import PopupHandler
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
 PKG = "com.zhiliaoapp.musically:id/"
 DUMP_S = 0.25
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 
 def _capture(name):

@@ -12,8 +12,6 @@ reaches it, and on the Pixel 4a (Instagram 410, French, 2026-09-28, weeks of not
 scrolls did not either. A real screen of the list above it is read where no header is on screen.
 """
 
-from pathlib import Path
-
 import pytest
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
@@ -31,8 +29,9 @@ from taktik.core.social_media.instagram.workflows.management.notifications.sugge
     followable_suggestions,
     parse_notification_suggestions,
 )
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 
 
 def _text(value, x1, y1, x2, y2):

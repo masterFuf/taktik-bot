@@ -9,12 +9,12 @@ dialog is written by hand: no capture holds it, and it only shows once Instagram
 """
 
 import types
-from pathlib import Path
 
 import pytest
 
 from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
 from taktik.core.shared.diagnostics import run_halt
+from unit.paths import CORE
 
 
 _BLOCK_DIALOG = (
@@ -25,8 +25,7 @@ _BLOCK_DIALOG = (
     '<node text="OK" resource-id="com.instagram.android:id/igds_alert_dialog_primary_button"/>'
     '</node></hierarchy>'
 )
-_FEED_SCREEN = (Path(__file__).parents[1] / "social_media" / "instagram" / "fixtures"
-                / "ig410_fr_home_feed.xml").read_text(encoding="utf-8")
+_FEED_SCREEN = (CORE / "tests/unit/social_media/instagram/fixtures/ig410_fr_home_feed.xml").read_text(encoding="utf-8")
 
 
 @pytest.fixture(autouse=True)

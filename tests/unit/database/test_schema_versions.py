@@ -39,9 +39,9 @@ from taktik.core.database.local.versions.runner import (
     target_fingerprint,
 )
 from taktik.core.database.local.versions.sql_text import split_statements, strip_comments
+from unit.paths import CORE
 
-CORE_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(CORE_ROOT / "scripts" / "generate"))
+sys.path.insert(0, str(CORE / "scripts/generate"))
 
 import build_schema_baseline  # noqa: E402
 
@@ -525,9 +525,9 @@ def test_a_process_killed_mid_migration_leaves_the_base_untouched(tmp_path):
         encoding="utf-8",
         newline="",
     )
-    env = {**os.environ, "PYTHONPATH": str(CORE_ROOT)}
+    env = {**os.environ, "PYTHONPATH": str(CORE)}
     proc = subprocess.run([sys.executable, str(script), str(path), str(tmp_path / "backups")],
-                          cwd=str(CORE_ROOT), env=env, capture_output=True, timeout=120)
+                          cwd=str(CORE), env=env, capture_output=True, timeout=120)
     assert proc.returncode == 9, proc.stderr.decode("utf-8", "replace")[-2000:]
     assert scalar(path, "PRAGMA user_version") == 1
     assert objects(path) == before

@@ -13,8 +13,8 @@ import pytest
 from bridges.tools.schema import schema_bridge
 from taktik.core.database.local.versions.catalog import VERSIONS_DIR, schema_version
 from taktik.core.database.local.versions.sql_text import split_statements
+from unit.paths import CORE
 
-CORE_ROOT = Path(__file__).resolve().parents[4]
 TARGET = schema_version()
 
 
@@ -140,8 +140,8 @@ def test_no_config_file_is_a_usage_error_through_the_launcher(tmp_path):
     env = {key: os.environ[key] for key in ("PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE") if key in os.environ}
     env.update({"PYTHONIOENCODING": "utf-8", "TAKTIK_DB_PATH": str(tmp_path / "taktik-data.db")})
     proc = subprocess.run(
-        [sys.executable, str(CORE_ROOT / "bridges" / "launcher.py"), "schema_bridge"],
-        cwd=str(CORE_ROOT), env=env, capture_output=True, timeout=180,
+        [sys.executable, str(CORE / "bridges/launcher.py"), "schema_bridge"],
+        cwd=str(CORE), env=env, capture_output=True, timeout=180,
     )
     events = [json.loads(line) for line in proc.stdout.decode("utf-8").splitlines() if line.strip()]
     assert proc.returncode == 1
@@ -155,8 +155,8 @@ def _launch(config, env_extra, tmp_path):
     env = {key: os.environ[key] for key in ("PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE") if key in os.environ}
     env.update({"PYTHONIOENCODING": "utf-8", **env_extra})
     proc = subprocess.run(
-        [sys.executable, str(CORE_ROOT / "bridges" / "launcher.py"), "schema_bridge", str(config_path)],
-        cwd=str(CORE_ROOT), env=env, capture_output=True, timeout=180,
+        [sys.executable, str(CORE / "bridges/launcher.py"), "schema_bridge", str(config_path)],
+        cwd=str(CORE), env=env, capture_output=True, timeout=180,
     )
     lines = [line for line in proc.stdout.decode("utf-8").splitlines() if line.strip()]
     return proc.returncode, [json.loads(line) for line in lines]

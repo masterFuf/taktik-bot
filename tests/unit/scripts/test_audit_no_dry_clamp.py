@@ -1,11 +1,11 @@
 """The dry-clamp audit sees a random draw pushed onto its bound, and only that."""
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_no_dry_clamp as audit  # noqa: E402
 

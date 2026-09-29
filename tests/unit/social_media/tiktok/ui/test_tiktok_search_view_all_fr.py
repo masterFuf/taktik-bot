@@ -11,8 +11,6 @@ uiautomator2's own `d.xpath()` engine, through `first_matching`, as production r
 list.
 """
 
-from pathlib import Path
-
 import pytest
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
@@ -20,9 +18,10 @@ from uiautomator2.xpath import XPathEntry
 from taktik.core.social_media.tiktok.actions.core.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
+from unit.paths import CORE
 
 ID = "com.zhiliaoapp.musically:id/"
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 
 def _capture(name):

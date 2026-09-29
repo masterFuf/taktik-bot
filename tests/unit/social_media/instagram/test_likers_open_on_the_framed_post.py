@@ -32,6 +32,7 @@ from taktik.core.social_media.instagram.actions.core.base_business import BaseBu
 from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
 ROW_ID = f"{PKG}:id/row_feed_view_group_buttons"
 HEADER_ID = f"{PKG}:id/row_feed_profile_header"
@@ -139,14 +140,12 @@ def test_every_host_gives_its_extractor_the_framed_post_reader():
     # The Lab's host is replayed above; the others (the scraping workflow) are held here: an
     # extractor built without the reader opens no likers at all.
     import ast
-    from pathlib import Path
 
-    core = Path(__file__).resolve().parents[4]
     missing = []
     for folder in ("taktik", "bridges"):
-        for path in (core / folder).rglob("*.py"):
+        for path in (CORE / folder).rglob("*.py"):
             for node in ast.walk(ast.parse(path.read_text(encoding="utf-8-sig"))):
                 if (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "InstagramUIExtractors"
                         and "framed_post" not in {keyword.arg for keyword in node.keywords}):
-                    missing.append(f"{path.relative_to(core)}:{node.lineno}")
+                    missing.append(f"{path.relative_to(CORE)}:{node.lineno}")
     assert missing == [], f"extractors built without the framed post's reader: {missing}"

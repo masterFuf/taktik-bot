@@ -20,7 +20,6 @@ them are said where they are built. The picture needs a screenshot, which no dum
 detection returns a marker, and the test checks it is the one the line carries.
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -31,9 +30,10 @@ from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixi
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import sync_following
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 FOLLOWING_LIST = (FIXTURES / "ig410_fr_following_list_sorted_default.xml").read_text(encoding="utf-8")
 FOLLOWED_PROFILE = (FIXTURES / "ig410_fr_profile_following.xml").read_text(encoding="utf-8")
 CANDIDATE = "user_2"   # the first row of the following list

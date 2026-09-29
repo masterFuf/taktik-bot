@@ -12,14 +12,14 @@ by hand below, until a phone captures a sheet after a like (Instagram 410, Frenc
 """
 
 import types
-from pathlib import Path
 
 import pytest
 
 from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 #: The third comment of the real sheet, and the heart of its own row.
 SHEET = (FIXTURES / "ig410_fr_comment_sheet.xml").read_text(encoding="utf-8")
 COMMENTER = "user_3"

@@ -16,9 +16,8 @@ from __future__ import annotations
 import ast
 import importlib
 from functools import lru_cache
-from pathlib import Path
+from unit.paths import CORE
 
-CORE = Path(__file__).resolve().parents[3]
 PRODUCT_ROOTS = (CORE / "taktik", CORE / "bridges")
 
 

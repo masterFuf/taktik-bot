@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import contextlib
 import time
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, List
 
@@ -33,8 +32,9 @@ from taktik.core.contract.instagram_notifications import (
 )
 from test_workflow_contract_bridges import check_lines
 from test_workflow_contract_instagram_bridges import app_file, assert_reads, printed  # noqa: F401
+from unit.paths import CORE
 
-_SCREEN = Path(__file__).resolve().parents[2] / "social_media" / "instagram" / "fixtures" / "ig410_en_notifications.xml"
+_SCREEN = CORE / "tests/unit/social_media/instagram/fixtures/ig410_en_notifications.xml"
 _MODULE = "taktik.core.social_media.instagram.workflows.management.notifications"
 
 

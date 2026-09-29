@@ -9,8 +9,6 @@ uiautomator2's own engine. The phone does not move: the magnifier is tapped, the
 comes, and the method says so and returns "" (no sound opened), as it does on a phone.
 """
 
-from pathlib import Path
-
 import pytest
 import uiautomator2.xpath as u2_xpath
 from uiautomator2.xpath import XPathEntry
@@ -22,8 +20,9 @@ from taktik.core.shared.diagnostics import miss_capture
 from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
 from taktik.core.social_media.tiktok.services.navigation import reset
 from taktik.core.social_media.tiktok.ui.selectors.locales import active_locale, set_active_locale
+from unit.paths import CORE
 
-HOME = (Path(__file__).parents[1] / "fixtures" / "tt4314_fr_home.xml").read_text(encoding="utf-8")
+HOME = (CORE / "tests/unit/social_media/tiktok/fixtures/tt4314_fr_home.xml").read_text(encoding="utf-8")
 # The Home feed's magnifier, bounds read on the capture (as in test_search_opens_from_the_home_header).
 HOME_LOUPE = (926, 80, 1080, 234)
 

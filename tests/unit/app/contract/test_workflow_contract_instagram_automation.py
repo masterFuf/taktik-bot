@@ -14,7 +14,6 @@ The reader itself is held key by key by `test_workflow_contract_readers.py`.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, List
 
@@ -24,8 +23,7 @@ from contract_probe import Recording, declared_reads, under
 from ig_automation_probe import bridge_file, file_paths, protect_hooks
 from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION, WORKFLOW_TYPES
 from taktik.core.contract.schema import HOST
-
-CORE = Path(__file__).resolve().parents[4]
+from unit.paths import CORE
 
 
 # ------------------------------------------------------------------------------------ the run
@@ -120,7 +118,7 @@ def test_the_family_is_the_readers_and_the_manifests():
     assert set(WORKFLOW_TYPES) == set(INSTAGRAM_AUTOMATION_WORKFLOW_TYPES)
     assert set(WORKFLOW_TYPES) == set(automation)
     assert INSTAGRAM_AUTOMATION.setting("workflowType").type.values == WORKFLOW_TYPES
-    bridges = json.loads((CORE / "bridges" / "bridges.manifest.json").read_text(encoding="utf-8-sig"))
+    bridges = json.loads((CORE / "bridges/bridges.manifest.json").read_text(encoding="utf-8-sig"))
     assert INSTAGRAM_AUTOMATION.bridge in bridges["instagram"]
 
 

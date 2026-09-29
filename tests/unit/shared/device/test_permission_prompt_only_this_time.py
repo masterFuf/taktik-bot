@@ -23,18 +23,18 @@ from taktik.core.shared.device.permissions import (
 from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.shared.device.ui_dump import iter_widgets, parse_bounds, parse_ui_dump
 from taktik.core.shared.ui.selectors.system.permission_prompt import PERMISSION_PROMPT_SELECTORS
+from unit.paths import CORE
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CAMERA = (FIXTURES / "android12_fr_permission_camera.xml").read_text(encoding="utf-8")
 MICROPHONE = (FIXTURES / "android12_fr_permission_microphone.xml").read_text(encoding="utf-8")
 INSTAGRAM_PROFILE = (
-    Path(__file__).parents[2] / "social_media" / "instagram" / "fixtures"
-    / "ig410_fr_profile_opened_from_search.xml"
+    CORE / "tests/unit/social_media/instagram/fixtures/ig410_fr_profile_opened_from_search.xml"
 ).read_text(encoding="utf-8")
 #: Instagram's own creation screen (the reel editor under `quick_capture_root_container`), the
 #: kind of screen the prompts come over.
 CREATION_SCREEN = (
-    Path(__file__).parents[2] / "social_media" / "instagram" / "fixtures" / "ig410_en_reel_editor.xml"
+    CORE / "tests/unit/social_media/instagram/fixtures/ig410_en_reel_editor.xml"
 ).read_text(encoding="utf-8")
 
 ONE_TIME = "permission_allow_one_time_button"

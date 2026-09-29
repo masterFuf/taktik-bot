@@ -41,6 +41,7 @@ from taktik.core.social_media.instagram.ui.selectors.locales import active_local
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS
+from unit.paths import CORE
 
 IG = "com.instagram.android"
 LAUNCHER_PKG = "com.google.android.apps.nexuslauncher"
@@ -51,7 +52,7 @@ def _capture(path):
     return path.read_text(encoding="utf-8")
 
 
-LAUNCHER = _capture(Path(__file__).parents[2] / "shared" / "device" / "fixtures" / "android12_fr_launcher_home.xml")
+LAUNCHER = _capture(CORE / "tests/unit/shared/device/fixtures/android12_fr_launcher_home.xml")
 FEED = _capture(FIXTURES / "ig410_fr_home_feed_tab_icon_selected.xml")
 FEED_HOME_TAB_SELECTED = _capture(FIXTURES / "ig410_fr_home_feed_reel_row.xml")
 FEED_447_COLD_START = _capture(FIXTURES / "ig447_fr_home_feed_cold_start.xml")

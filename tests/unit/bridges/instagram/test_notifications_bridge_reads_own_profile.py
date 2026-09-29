@@ -15,7 +15,6 @@ screen of the tab it lands on.
 """
 
 import re
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -29,9 +28,10 @@ from taktik.core.shared.device.connected_device import ConnectedDevice
 from bridges.instagram.notifications import commands as bridge_commands
 from taktik.core.social_media.instagram.workflows.management.notifications import commands
 from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler
+from unit.paths import CORE
 
 PKG = "com.instagram.android"
-FIXTURES = Path(__file__).parents[2] / "social_media" / "instagram" / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 HOME = (FIXTURES / "ig410_fr_home_feed.xml").read_text(encoding="utf-8")
 OWN_PROFILE = (FIXTURES / "ig410_fr_own_profile_with_suggestions.xml").read_text(encoding="utf-8")
 #: The screen a tab of the tab bar shows.

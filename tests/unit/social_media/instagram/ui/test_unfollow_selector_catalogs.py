@@ -10,16 +10,15 @@ The private account's confirmation dialog is still written by hand: it only show
 followed account's button is tapped, which is the unfollow itself.
 """
 
-from pathlib import Path
-
 import pytest
 from lxml import etree
 
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
 APP = "com.instagram.android"
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 
 
 def _capture(name):

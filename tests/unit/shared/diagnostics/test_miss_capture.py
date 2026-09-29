@@ -11,11 +11,11 @@ plus parce qu'un autre appelant remet son compteur à 1.
 """
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(CORE))
 
 from taktik.core.shared.diagnostics import miss_capture  # noqa: E402
 from taktik.core.shared.telemetry import (  # noqa: E402

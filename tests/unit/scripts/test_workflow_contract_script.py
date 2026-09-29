@@ -7,18 +7,16 @@ manifests and the events census, and the app's file to the declaration.
 
 import sys
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_workflow_contract as audit  # noqa: E402
 import workflow_contract as generator  # noqa: E402
 from taktik.core import contract as contract_package  # noqa: E402
 from taktik.core.contract import registry  # noqa: E402
-
-ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_the_rendering_is_deterministic_and_says_it_is_generated():
@@ -61,7 +59,7 @@ def test_the_data_form_lists_what_the_bridge_and_the_launcher_read():
 
 
 def test_the_audit_is_green_on_the_declaration(tmp_path):
-    assert audit.problems(ROOT, app=tmp_path / "no-app") == []
+    assert audit.problems(CORE, app=tmp_path / "no-app") == []
 
 
 @pytest.mark.parametrize("change, expected", [
@@ -74,7 +72,7 @@ def test_the_audit_names_a_declaration_that_drifted(monkeypatch, tmp_path, chang
     drifted = (change(registry.WORKFLOW_CONTRACTS[0]), *registry.WORKFLOW_CONTRACTS[1:])
     monkeypatch.setattr(contract_package, "WORKFLOW_CONTRACTS", drifted)
 
-    found = audit.problems(ROOT, app=tmp_path / "no-app")
+    found = audit.problems(CORE, app=tmp_path / "no-app")
 
     assert any(expected in line for line in found), found
 
@@ -85,8 +83,8 @@ def test_the_audit_refuses_a_stale_app_file(tmp_path):
     target.parent.mkdir(parents=True)
     target.write_text("// written by hand\n", encoding="utf-8")
 
-    assert any("is not what the bot declares" in line for line in audit.problems(ROOT, app=app))
+    assert any("is not what the bot declares" in line for line in audit.problems(CORE, app=app))
 
     text, _ = generator.render()
     target.write_text(text, encoding="utf-8")
-    assert audit.problems(ROOT, app=app) == []
+    assert audit.problems(CORE, app=app) == []

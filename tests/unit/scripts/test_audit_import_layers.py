@@ -4,11 +4,11 @@ The fakes live in the gate itself (`self_test_cases`), so the rules and their pr
 """
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_import_layers as audit  # noqa: E402
 from python_imports import import_statements, module_name  # noqa: E402

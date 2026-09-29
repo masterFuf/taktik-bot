@@ -24,9 +24,9 @@ from taktik.core.contract.schema import Field, Shape
 from taktik.core.contract.shared import AI_SPEND_EVENT
 from taktik.core.contract.tiktok_automation import AI_BLOCK
 from taktik.core.contract.tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
+from unit.paths import CORE
 
-ROOT = Path(__file__).resolve().parents[4]
-_TIKTOK = ROOT / "taktik" / "core" / "social_media" / "tiktok"
+_TIKTOK = CORE / "taktik/core/social_media/tiktok"
 
 
 @pytest.fixture

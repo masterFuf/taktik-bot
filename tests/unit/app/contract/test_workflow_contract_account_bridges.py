@@ -18,6 +18,7 @@ import pytest
 from contract_probe import Recording
 from taktik.core.contract import accounts
 from test_workflow_contract_bridges import assert_reads, bridge_file, check_lines, lines  # noqa: F401 (fixture)
+from unit.paths import CORE
 
 _IG = "taktik.core.social_media.instagram.workflows.management.agent_handler"
 _TT = "taktik.core.social_media.tiktok.workflows.management.agent_handler"
@@ -185,9 +186,8 @@ def test_an_account_bridge_refuses_a_file_before_the_flow(monkeypatch, lines, ph
 
 def test_every_account_flow_of_the_manifest_is_declared():
     import json
-    from pathlib import Path
 
-    manifest = json.loads((Path(__file__).resolve().parents[4] / "workflows.manifest.json").read_text(encoding="utf-8-sig"))
+    manifest = json.loads((CORE / "workflows.manifest.json").read_text(encoding="utf-8-sig"))
     ids = {f"{platform}.account.{flow}" for platform in ("instagram", "tiktok", "gmail", "youtube")
            for flow in manifest[platform]["account"]}
 

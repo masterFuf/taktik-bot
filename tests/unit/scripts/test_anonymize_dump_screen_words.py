@@ -12,10 +12,9 @@ The values below are single attribute values, the unit the anonymizer works on, 
 """
 
 import sys
-from pathlib import Path
+from unit.paths import CORE
 
-CORE = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(CORE / "scripts" / "lab"))
+sys.path.insert(0, str(CORE / "scripts/lab"))
 
 import anonymize_dump  # noqa: E402
 

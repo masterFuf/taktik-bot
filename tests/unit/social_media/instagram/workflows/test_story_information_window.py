@@ -9,7 +9,6 @@ editor of another phone, in English), and so is the creation screen before it; a
 
 import time
 import types
-from pathlib import Path
 
 import pytest
 from lxml import etree
@@ -22,8 +21,9 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation i
 from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
     InstagramPostWorkflow,
 )
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 WINDOW = (FIXTURES / "ig410_en_story_share_information_window.xml").read_text(encoding="utf-8")
 PRIMARY = "com.instagram.android:id/igds_headline_primary_action_button"
 SECONDARY = "com.instagram.android:id/igds_headline_secondary_action_text_button"

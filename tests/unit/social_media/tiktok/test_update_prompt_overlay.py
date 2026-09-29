@@ -28,6 +28,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_
 )
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
+from unit.paths import CORE
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PROMPT = (FIXTURES / "tt4314_fr_update_prompt.xml").read_text(encoding="utf-8")
@@ -45,8 +46,7 @@ def _prompt_with_frame(bounds):
 #: Empty frames over the whole screen, the page a loading app shows before its content.
 EMPTY_PAGE = _prompt_with_frame("[0,0][1080,2220]")
 FEED = (FIXTURES / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
-LAUNCHER_ONLY = (Path(__file__).parents[2] / "shared" / "device" / "fixtures"
-                 / "android12_fr_launcher_home.xml").read_text(encoding="utf-8")
+LAUNCHER_ONLY = (CORE / "tests/unit/shared/device/fixtures/android12_fr_launcher_home.xml").read_text(encoding="utf-8")
 
 
 def test_the_prompt_is_found_by_its_shape():

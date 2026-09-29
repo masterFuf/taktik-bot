@@ -9,8 +9,6 @@ read by uiautomator2's own `XPathEntry`. The share sheet and the clipboard are n
 is handed in, the identity and the key are read.
 """
 
-from pathlib import Path
-
 import pytest
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
@@ -18,9 +16,10 @@ from uiautomator2.xpath import XPathEntry
 from taktik.core.database.tiktok_post_identity import tiktok_post_key
 from taktik.core.social_media.tiktok.actions.atomic.interaction.post_link_actions import PostLinkActions
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
 PKG = "com.zhiliaoapp.musically:id/"
-VIDEO = (Path(__file__).parents[1] / "fixtures" / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
+VIDEO = (CORE / "tests/unit/social_media/tiktok/fixtures/tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
 LINK = "https://vm.tiktok.com/ZNexample/"
 
 

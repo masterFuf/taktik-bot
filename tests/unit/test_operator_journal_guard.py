@@ -15,8 +15,8 @@ import pathlib
 import subprocess
 import sys
 import textwrap
+from unit.paths import CORE
 
-_CORE_ROOT = pathlib.Path(__file__).resolve().parents[2]
 _CANARY = "journal canary"
 
 # What a pytest plugin does before any conftest, then what tests/unit/conftest.py does.
@@ -44,7 +44,7 @@ def _bot_env(appdata: pathlib.Path, *python_path: pathlib.Path) -> dict:
     env = {name: value for name, value in os.environ.items()
            if name not in ("TAKTIK_DB_PATH", "TAKTIK_DATA_DIR")}
     env["APPDATA"] = str(appdata)
-    env["PYTHONPATH"] = os.pathsep.join(str(path) for path in (*python_path, _CORE_ROOT))
+    env["PYTHONPATH"] = os.pathsep.join(str(path) for path in (*python_path, CORE))
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
 
@@ -69,7 +69,7 @@ def test_a_plugin_importing_the_bot_before_the_conftest_leaves_the_operator_jour
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
          "-p", "journal_canary_plugin",
          "tests/unit/test_package_metadata.py::test_the_engine_version_is_the_release_one"],
-        env=_bot_env(operator, tmp_path), cwd=_CORE_ROOT, capture_output=True, text=True,
+        env=_bot_env(operator, tmp_path), cwd=CORE, capture_output=True, text=True,
         encoding="utf-8", errors="replace", timeout=300,
     )
 

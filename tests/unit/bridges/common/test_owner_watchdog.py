@@ -27,8 +27,8 @@ import pytest
 
 from bridges.common import owner_watchdog as wd
 from taktik.core.shared.diagnostics import run_halt
+from unit.paths import CORE
 
-CORE = Path(__file__).resolve().parents[4]
 FIXTURE_DIR = Path(__file__).resolve().parent
 
 

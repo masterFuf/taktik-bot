@@ -6,15 +6,14 @@ into the info block, as the TextView right under its first View; the bio stays t
 The 447 entries live in the version overrides, never in the baseline.
 """
 
-from pathlib import Path
-
 import yaml
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, PROFILE_SELECTORS
+from unit.paths import CORE
 
-OVERRIDES = Path(__file__).resolve().parents[4] / "taktik" / "core" / "compat" / "data" / "overrides" / "instagram.yaml"
+OVERRIDES = CORE / "taktik/core/compat/data/overrides/instagram.yaml"
 
 _INFO = 'resource-id="com.instagram.android:id/profile_user_info_compose_view" class="com.facebook.compose.view.MetaComposeView"'
 

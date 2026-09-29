@@ -5,11 +5,11 @@ census misses is a type the gate cannot hold.
 """
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_bridge_events as audit  # noqa: E402
 

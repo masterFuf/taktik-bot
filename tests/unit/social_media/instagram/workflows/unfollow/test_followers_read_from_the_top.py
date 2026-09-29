@@ -15,8 +15,6 @@ to the next. Instagram 447 is played on our own followers list of a Pixel 6a ("6
 say so: the count of the tab rewritten, and one row's button taken out.
 """
 
-from pathlib import Path
-
 import pytest
 
 from fake_follow_list import FakeFacade, FakeScreen, Graph, derived_row_button
@@ -32,8 +30,9 @@ from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list
 )
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 SCREENS = [(FIXTURES / f"ig410_en_own_followers_newest_first_{n}.xml").read_text(encoding="utf-8")
            for n in (1, 2, 3, 4)]
 IG447_FOLLOWERS = (FIXTURES / "ig447_fr_own_followers_list.xml").read_text(encoding="utf-8")

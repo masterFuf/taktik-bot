@@ -7,7 +7,6 @@ TikTok 43.1.4 in French (Pixel 3a), anonymized (`scripts/lab/anonymize_dump.py`)
 own `XPathEntry`.
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -20,8 +19,9 @@ from bridges.tools.lab.action_test.bundles.tiktok import (
     create_tiktok_device_facade,
 )
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).resolve().parents[3] / "social_media" / "tiktok" / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 #: The For You feed on a video, as the Lab's `tt.navigation.go_home` left it.
 FOR_YOU = (FIXTURES / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
 #: The inbox, its widget banner included.

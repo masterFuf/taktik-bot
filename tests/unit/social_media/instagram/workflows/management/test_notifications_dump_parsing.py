@@ -12,8 +12,6 @@ Delete buttons). The Pixel 4a account is public, and the Pixel 3a shows the « F
 entry but no capture opened it: capture it on a private account with a pending request.
 """
 
-from pathlib import Path
-
 import pytest
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
@@ -31,8 +29,9 @@ from taktik.core.social_media.instagram.workflows.management.notifications.dump_
     parse_feed_rows,
     parse_request_rows,
 )
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 FRENCH = "ig410_fr_notifications_rows.xml"
 ENGLISH = "ig410_en_notifications.xml"
 ROW = NOTIFICATION_SELECTORS.notification_row_resource_id

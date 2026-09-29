@@ -11,11 +11,10 @@ the same.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from taktik.core.shared.device.ui_dump import center, dump_screen_size, parse_bounds, parse_ui_dump
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 
 class Tap:

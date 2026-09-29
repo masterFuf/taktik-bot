@@ -10,8 +10,6 @@ the capture, sender name invented. The comment sheet is the anonymized 47.0.3 ca
 fixtures folder. Evaluated by uiautomator2's own `d.xpath()` engine.
 """
 
-from pathlib import Path
-
 import pytest
 from uiautomator2.xpath import XPathEntry
 
@@ -19,9 +17,10 @@ from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions im
 from taktik.core.social_media.tiktok.actions.core.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
+from unit.paths import CORE
 
 ID = "com.zhiliaoapp.musically:id/"
-SHEET_4703 = (Path(__file__).parents[1] / "fixtures" / "tt4703_fr_comment_sheet.xml").read_text(
+SHEET_4703 = (CORE / "tests/unit/social_media/tiktok/fixtures/tt4703_fr_comment_sheet.xml").read_text(
     encoding="utf-8")
 
 

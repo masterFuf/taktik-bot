@@ -12,16 +12,15 @@ from the screen on show; the gallery's Next raises the prompt, "Only this time" 
 editor's Next opens the caption screen.
 """
 
-from pathlib import Path
-
 import pytest
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.instagram.workflows.publish.post_workflow import InstagramPostWorkflow
+from unit.paths import CORE
 
 PKG = "com.instagram.android"
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 SCREENS = {
     "gallery": (FIXTURES / "ig410_en_new_post_gallery_video_selected.xml").read_text(encoding="utf-8"),
     "camera prompt": (FIXTURES / "ig410_en_video_editor_camera_prompt_fr_system.xml").read_text(encoding="utf-8"),

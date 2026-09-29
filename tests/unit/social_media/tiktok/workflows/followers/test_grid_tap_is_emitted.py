@@ -10,7 +10,6 @@ The grid is a real 47.0.3 profile (`tt4703_fr_profile_followed.xml`, anonymized)
 `d.xpath()` engine of uiautomator2; the tap is the production `_click_profile_post`.
 """
 
-from pathlib import Path
 import types
 
 import pytest
@@ -21,8 +20,9 @@ from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.shared.telemetry import sink
 from taktik.core.social_media.tiktok.actions.business.workflows.followers import interaction
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from unit.paths import CORE
 
-PROFILE = Path(__file__).parents[2] / "fixtures" / "tt4703_fr_profile_followed.xml"
+PROFILE = CORE / "tests/unit/social_media/tiktok/fixtures/tt4703_fr_profile_followed.xml"
 
 
 class _RawPhone:

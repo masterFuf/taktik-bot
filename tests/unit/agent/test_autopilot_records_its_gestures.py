@@ -12,7 +12,6 @@ A post whose author cannot be read is not engaged.
 """
 
 import time
-from pathlib import Path
 
 import pytest
 
@@ -20,10 +19,11 @@ import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
 import taktik.core.social_media.instagram.actions.business.workflows.feed as feed_package
 from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
 from taktik.core.shared.diagnostics import run_halt
+from unit.paths import CORE
 
 #: The screen the run reads between gestures (the block check): a real home feed of Instagram
 #: 410.0.0.53.71 in English, anonymized. The author the feed hands back is its own.
-_FEED_SCREEN = (Path(__file__).parents[1] / "social_media" / "instagram" / "fixtures"
+_FEED_SCREEN = (CORE / "tests/unit/social_media/instagram/fixtures"
                 / "ig410_en_feed_carousel_framed.xml").read_text(encoding="utf-8")
 
 

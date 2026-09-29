@@ -8,17 +8,16 @@ dumps, anonymized, all in French: that very screen (the explore grid under a But
 (compat/data/overrides/instagram.yaml), applied here as the patcher does.
 """
 
-from pathlib import Path
-
 import pytest
 import yaml
 from uiautomator2.xpath import PageSource, XPathSelector
 
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
+from unit.paths import CORE
 
 IG = "com.instagram.android:id"
-OVERRIDES = Path(__file__).resolve().parents[5] / "taktik" / "core" / "compat" / "data" / "overrides" / "instagram.yaml"
+OVERRIDES = CORE / "taktik/core/compat/data/overrides/instagram.yaml"
 
 
 @pytest.fixture
@@ -28,7 +27,7 @@ def ig_447(monkeypatch):
                         entries["detection._hashtag_search_bar_selectors_base"])
 
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 SCREENS = {
     "android.widget.Button": "ig447_fr_explore_grid.xml",
     "android.widget.EditText": "ig447_fr_hashtag_page.xml",

@@ -9,11 +9,11 @@ is that placeholder, whatever language it prints in.
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 
 from click.testing import CliRunner
+from unit.paths import CORE
 
-CLI_ROOT = Path(__file__).resolve().parents[3] / "taktik" / "cli"
+CLI_ROOT = CORE / "taktik/cli"
 OUTPUT_CALLS = {"print", "echo", "secho"}
 
 

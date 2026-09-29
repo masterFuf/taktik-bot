@@ -13,11 +13,11 @@ reste quand on refuse de trancher a la place de la mesure.
 """
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(CORE))
 
 from taktik.core.social_media.instagram.actions.atomic.story_state import (  # noqa: E402
     SEUIL_IMAGE_DIFFERENTE,

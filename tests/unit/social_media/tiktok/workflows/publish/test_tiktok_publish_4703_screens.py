@@ -10,8 +10,6 @@ replaces its list, so it carries the baseline entries along.
 Each selector list is read the way `find_element` reads it: the first xpath that matches wins.
 """
 
-from pathlib import Path
-
 import pytest
 
 from taktik.core.compat.selectors.setup import apply_version_overrides
@@ -22,8 +20,9 @@ from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_MEDIA_PICKER_SELECTORS,
 )
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 CAMERA_43_1_4 = "tt4314_fr_publish_camera.xml"
 GALLERY_43_1_4 = "tt4314_fr_publish_gallery.xml"

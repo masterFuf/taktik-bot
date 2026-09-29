@@ -17,9 +17,10 @@ from uiautomator2.xpath import XPathEntry
 
 import taktik.core.social_media.tiktok.ui.selectors as catalogue
 from taktik.core.social_media.tiktok.ui.selectors.locales import L, set_active_locale
+from unit.paths import CORE
 
 FIXTURES = Path(__file__).parent / "fixtures"
-LAUNCHER_FIXTURES = Path(__file__).parents[2] / "shared" / "device" / "fixtures"
+LAUNCHER_FIXTURES = CORE / "tests/unit/shared/device/fixtures"
 
 
 @pytest.fixture(autouse=True)

@@ -10,15 +10,13 @@ where the operator is looking, which is the whole point of a diagnostic.
 """
 
 import os
-import pathlib
 import subprocess
 import sys
 
 import pytest
 
 from taktik.core.shared.app_paths import get_app_data_dir, get_app_subdir
-
-_CORE_ROOT = pathlib.Path(__file__).resolve().parents[3]
+from unit.paths import CORE
 
 
 def test_the_data_folder_follows_the_database_the_app_handed_us(monkeypatch):
@@ -69,7 +67,7 @@ def test_a_process_without_any_home_stops_instead_of_writing_in_its_current_fold
     the bot resolved `~` to itself and wrote `~/taktik-desktop/logs/taktik.log` in its current
     folder: one sat at the root of the core's checkout. It now stops at once and says what to set."""
     env = {name: os.environ[name] for name in ("PATH", "SystemRoot") if name in os.environ}
-    env["PYTHONPATH"] = str(_CORE_ROOT)
+    env["PYTHONPATH"] = str(CORE)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     run = subprocess.run([sys.executable, "-c", _BARE_ENV_RUN], env=env, cwd=tmp_path,

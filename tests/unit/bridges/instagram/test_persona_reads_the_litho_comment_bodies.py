@@ -13,7 +13,6 @@ Litho rows of the `dumpsys activity top` taken at the same moment, usernames giv
 values and bodies replaced (`ig410_en_comment_sheet_litho_bodies.dumpsys.txt`).
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -27,8 +26,9 @@ from bridges.tools.lab.action_test.bundles.instagram import (
 )
 from taktik.core.social_media.instagram.ui.selectors import locales
 from taktik.core.social_media.instagram.workflows.common import comment_reading
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).resolve().parents[2] / "social_media" / "instagram" / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 SHEET = (FIXTURES / "ig410_en_comment_sheet_litho_bodies.xml").read_text(encoding="utf-8")
 LITHO = (FIXTURES / "ig410_en_comment_sheet_litho_bodies.dumpsys.txt").read_text(encoding="utf-8")
 

@@ -17,13 +17,11 @@ elle ne pouvait donc répondre que « jamais engagé », pour tout le monde et p
 
 import ast
 import io
-import pathlib
 
 import pytest
 
 from taktik.core.database.tiktok_account_identity import looks_like_tiktok_handle
-
-_CORE = pathlib.Path(__file__).resolve().parents[3]
+from unit.paths import CORE
 
 
 # --- ce qui est un pseudo, et ce qui n'en est pas -------------------------------------------------
@@ -59,7 +57,7 @@ def test_a_display_name_is_refused(shown):
 
 
 def _source(relative: str) -> str:
-    return io.open(_CORE / relative, encoding="utf-8").read()
+    return io.open(CORE / relative, encoding="utf-8").read()
 
 
 def _calls(relative: str) -> set:

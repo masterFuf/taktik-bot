@@ -5,11 +5,11 @@ The fake trees live in the gate itself (`self_test_cases`), so the rules and the
 
 import json
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_duplicates as audit  # noqa: E402
 import ratchet  # noqa: E402

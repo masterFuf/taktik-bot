@@ -1,11 +1,11 @@
 """One launcher per workflow: the gate is green on the tree and red on each fake second launcher."""
 import re
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import workflow_launchers  # noqa: E402
 

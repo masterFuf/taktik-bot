@@ -20,7 +20,6 @@ verdict read on the badge never confirmed a story, so its media were never delet
 import os
 import time
 import types
-from pathlib import Path
 
 import pytest
 
@@ -35,8 +34,9 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation i
 )
 from taktik.core.social_media.instagram.workflows.publish import post_workflow
 from taktik.core.social_media.instagram.workflows.publish.post_workflow import InstagramPostWorkflow
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 TRAY_EMPTY = (FIXTURES / "ig410_fr_feed_tray_own_story_empty.xml").read_text(encoding="utf-8")
 TRAY_SCROLLED = (FIXTURES / "ig410_fr_feed_tray_scrolled_off.xml").read_text(encoding="utf-8")
 # Phone run: our story up (badge AND ring), then the same tray once it was deleted (badge, no ring).

@@ -1,8 +1,8 @@
 """The manifest check refuses a bridge list written by hand in launcher.py again."""
 import sys
-from pathlib import Path
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_bridge_manifest  # noqa: E402
 

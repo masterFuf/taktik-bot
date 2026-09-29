@@ -7,19 +7,18 @@ modal had moved to the current one: someone who started from the terminal landed
 from __future__ import annotations
 
 import io
-import pathlib
 import re
 
 from rich.console import Console
 
 from taktik.cli.support import banner
+from unit.paths import CORE
 
-_CORE_ROOT = pathlib.Path(__file__).resolve().parents[3]
 _INVITE = re.compile(r"discord\.(?:com/invite|gg)/([A-Za-z0-9]+)")
 
 
 def _readme_invites() -> set[str]:
-    return set(_INVITE.findall((_CORE_ROOT / "README.md").read_text(encoding="utf-8")))
+    return set(_INVITE.findall((CORE / "README.md").read_text(encoding="utf-8")))
 
 
 def _banner_markup(monkeypatch) -> str:

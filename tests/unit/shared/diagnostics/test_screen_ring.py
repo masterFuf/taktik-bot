@@ -7,11 +7,11 @@ refus silencieux d'un dump illisible (sinon chaque dump casse devient une etape 
 """
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(CORE))
 
 from taktik.core.shared.diagnostics import screen_ring  # noqa: E402
 

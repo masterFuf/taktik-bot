@@ -13,15 +13,14 @@ The screen is the capture of that run, anonymized (`tt4703_fr_video_from_profile
 evaluated by the `d.xpath()` engine of uiautomator2, as on the phone.
 """
 
-from pathlib import Path
-
 import pytest
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from unit.paths import CORE
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "tt4703_fr_video_from_profile_grid.xml"
+FIXTURE = CORE / "tests/unit/social_media/tiktok/fixtures/tt4703_fr_video_from_profile_grid.xml"
 BACK_ARROW = (15, 132, 151, 268)
 
 

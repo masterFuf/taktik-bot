@@ -14,8 +14,6 @@ description, the « Voir les Stories » card the feed serves in place of a video
 preview, the inbox) and TikTok 47.0.3 in French (For You video, the same card).
 """
 
-from pathlib import Path
-
 import pytest
 from uiautomator2.xpath import XPathEntry
 
@@ -33,8 +31,9 @@ from bridges.tools.lab.action_test.bundles.tiktok import (
 )
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale as instagram_locale
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale as tiktok_locale
+from unit.paths import CORE
 
-SOCIAL = Path(__file__).resolve().parents[3] / "social_media"
+SOCIAL = CORE / "tests/unit/social_media"
 
 
 def _dump(platform, name):

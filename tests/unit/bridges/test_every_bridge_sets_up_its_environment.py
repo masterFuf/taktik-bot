@@ -18,9 +18,9 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unit.paths import CORE
 
-CORE = Path(__file__).resolve().parents[3]
-MANIFEST = CORE / "bridges" / "bridges.manifest.json"
+MANIFEST = CORE / "bridges/bridges.manifest.json"
 
 # Run by the child interpreter: load the entry, then say whether the bridge environment is set up.
 _PROBE = """

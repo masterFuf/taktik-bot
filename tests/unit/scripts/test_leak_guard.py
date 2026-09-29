@@ -8,12 +8,11 @@ import datetime as dt
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-CORE = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(CORE / "scripts" / "hooks"))
+sys.path.insert(0, str(CORE / "scripts/hooks"))
 
 import leak_guard  # noqa: E402
 

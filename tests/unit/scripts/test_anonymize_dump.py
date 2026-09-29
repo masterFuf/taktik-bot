@@ -5,16 +5,15 @@ written the way a capture carries it: a display name, a handle, a phone number, 
 """
 
 import sys
-from pathlib import Path
 
 from lxml import etree
+from unit.paths import CORE
 
-CORE = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(CORE / "scripts" / "lab"))
+sys.path.insert(0, str(CORE / "scripts/lab"))
 
 import anonymize_dump  # noqa: E402
 
-FIXTURE = CORE / "tests" / "unit" / "social_media" / "tiktok" / "fixtures" / "tt4314_fr_for_you_video.xml"
+FIXTURE = CORE / "tests/unit/social_media/tiktok/fixtures/tt4314_fr_for_you_video.xml"
 TITLE = "com.zhiliaoapp.musically:id/title"
 DESC = "com.zhiliaoapp.musically:id/desc"
 

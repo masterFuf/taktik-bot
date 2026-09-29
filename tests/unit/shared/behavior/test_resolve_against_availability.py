@@ -11,11 +11,11 @@ la même chose, et seul le premier justifie de retirer une intention.
 """
 
 import sys
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(CORE))
 
 from taktik.core.shared.behavior.interaction_plan import (  # noqa: E402
     FOLLOW_ALONE_ALLOWED,

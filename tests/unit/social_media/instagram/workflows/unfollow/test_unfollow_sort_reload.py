@@ -12,8 +12,6 @@ the list once its rows are back. The rows come back `RELOAD_S` seconds of the te
 the tap: longer than the pause the sync takes after its sort, as on that run.
 """
 
-from pathlib import Path
-
 import pytest
 
 from fake_follow_list import FakeClock, FakeFacade, FakeScreen, Graph
@@ -24,8 +22,9 @@ from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixi
 )
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 
 
 def _capture(name):

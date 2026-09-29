@@ -1,8 +1,8 @@
 """The bridge entry audit: every bridge on `run_bridge_main`, one config source, lists = manifest."""
 import sys
-from pathlib import Path
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_bridge_entrypoints as audit  # noqa: E402
 

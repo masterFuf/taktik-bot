@@ -24,15 +24,14 @@ posés sur les vraies lignes dans l'ordre servi (dérivé) : ils reproduisent le
 46.6.3, où un compte de fan était classé AVANT le compte demandé.
 """
 
-from pathlib import Path
-
 import pytest
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
+from unit.paths import CORE
 
 FSI, PDI, LRM = "⁨", "⁩", "‎"
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 #: Handles inventés, dans l'ordre des lignes servies. Cinq contiennent `demo_creator` comme
 #: préfixe : un `contains` avait une chance sur cinq, et il tapait toujours la mauvaise, parce que

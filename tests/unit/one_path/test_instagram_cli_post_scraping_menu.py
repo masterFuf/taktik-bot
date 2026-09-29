@@ -7,13 +7,11 @@ likes, comments), and run through `instagram.scraping.<type>`.
 """
 import ast
 import sys
-from pathlib import Path
 
 import pytest
 
 from instagram_scraping_rig import DEVICE_ID, INSTAGRAM
-
-CORE = Path(__file__).resolve().parents[3]
+from unit.paths import CORE
 
 
 @pytest.fixture
@@ -90,13 +88,13 @@ def test_a_posts_of_accounts_menu_run_goes_through_the_scraping_launcher(igs_rig
 def test_the_interactive_menu_builds_no_engine_of_its_own():
     """Nothing the interactive menu runs is built by the menu itself: every flow goes through its
     launcher."""
-    sys.path.insert(0, str(CORE / "scripts" / "audits"))
+    sys.path.insert(0, str(CORE / "scripts/audits"))
     import workflow_launchers
 
     inputs = workflow_launchers.collect_inputs()
     launchers = workflow_launchers.launcher_functions(inputs.launcher_trees)
     engines = workflow_launchers.engine_names(inputs.launcher_trees, launchers)
-    tree = ast.parse((CORE / "taktik" / "cli" / "menus" / "main_menu.py").read_text(encoding="utf-8"))
+    tree = ast.parse((CORE / "taktik/cli/menus/main_menu.py").read_text(encoding="utf-8"))
 
     built = {name for name, _line in workflow_launchers.engine_calls(tree, engines, launchers)}
 

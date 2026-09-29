@@ -7,11 +7,11 @@ written as a tag step (`//android.widget.TextView[...]`) or, for a partial class
 """
 
 import io
-import pathlib
 import re
 import tokenize
+from unit.paths import CORE
 
-SELECTORS = pathlib.Path(__file__).resolve().parents[3] / "taktik" / "core" / "social_media"
+SELECTORS = CORE / "taktik/core/social_media"
 RAW_TREE_IDIOM = re.compile(r"@class\b|(?:^|[/(\[:])node\[")
 
 

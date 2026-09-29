@@ -7,8 +7,6 @@ screen that is no badge; TikTok 46.6.3 in English uploading (2026-08-30), its ba
 the same `tvProgress` badge reading "99%".
 """
 
-from pathlib import Path
-
 import pytest
 
 from taktik.core.compat.selectors.setup import apply_version_overrides
@@ -22,8 +20,9 @@ from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_PROGRESS_SELECTORS,
     PublishProgressSelectors,
 )
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 UPLOADING_43_1_4 = "tt4314_fr_publish_uploading.xml"
 POSTED_43_1_4 = "tt4314_fr_publish_posted.xml"

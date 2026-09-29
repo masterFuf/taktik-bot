@@ -13,7 +13,6 @@ the 18 px of the old jitter, up and down, since the recorded tap was a sample ar
 """
 
 import random
-from pathlib import Path
 
 import pytest
 
@@ -22,8 +21,9 @@ from taktik.core.shared.vision.ocr import TextMatch
 from taktik.core.social_media.instagram.workflows.management.notifications import (
     notifications_workflow as module,
 )
+from unit.paths import CORE
 
-FIXTURE = Path(__file__).parents[2] / "fixtures" / "ig410_fr_activity_truncated_comment.xml"
+FIXTURE = CORE / "tests/unit/social_media/instagram/fixtures/ig410_fr_activity_truncated_comment.xml"
 TEXT_NODE = (253, 1940, 893, 2136)
 REPLY = (311, 2107, 463, 2209)
 LIKE = (204, 2107, 311, 2209)

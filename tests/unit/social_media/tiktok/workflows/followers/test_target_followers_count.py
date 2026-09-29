@@ -10,7 +10,6 @@ The screen is a real capture: a visited profile, TikTok 43.1.4 in French (Pixel 
 read by uiautomator2's own `XPathEntry`.
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -21,8 +20,9 @@ from uiautomator2.xpath import XPathEntry
 from taktik.core.social_media.tiktok.actions.business.workflows.followers.navigation import NavigationMixin
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from unit.paths import CORE
 
-PROFILE = (Path(__file__).parents[2] / "fixtures" / "tt4314_fr_profile.xml").read_text(encoding="utf-8")
+PROFILE = (CORE / "tests/unit/social_media/tiktok/fixtures/tt4314_fr_profile.xml").read_text(encoding="utf-8")
 
 
 class _Phone:

@@ -7,13 +7,11 @@ a dead process and an exit code, never a cause. These tests pin the event it emi
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
 from bridges.common import crash_hooks
-
-CORE = Path(__file__).resolve().parents[3]
+from unit.paths import CORE
 
 
 @pytest.fixture

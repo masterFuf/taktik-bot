@@ -18,7 +18,6 @@ built: the list after the unfollow (the candidate's button reads « Suivre »), 
 title is the candidate's name.
 """
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -28,9 +27,10 @@ from taktik.core.social_media.instagram.actions.business.workflows.unfollow impo
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import sync_following
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 FOLLOWERS_LIST = (FIXTURES / "ig410_en_own_followers_list_categories.xml").read_text(encoding="utf-8")
 FOLLOWING_LIST = (FIXTURES / "ig410_fr_following_list_sorted_default.xml").read_text(encoding="utf-8")
 FOLLOWED_PROFILE = (FIXTURES / "ig410_fr_profile_following.xml").read_text(encoding="utf-8")

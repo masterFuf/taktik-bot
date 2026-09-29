@@ -9,7 +9,6 @@ same temperature, same token budget, same 30 s socket timeout.
 
 import io
 import json
-import pathlib
 import urllib.error
 import urllib.request
 
@@ -17,8 +16,7 @@ import pytest
 
 from taktik.core.ai.providers import openrouter as provider
 from taktik.core.ai.providers.openrouter import MODEL_GENERATION
-
-REPO = pathlib.Path(__file__).resolve().parents[4]  # tests/unit/app/ai/<file> -> core
+from unit.paths import CORE
 
 # The prompts, to the accent: the first L2 repair of the night was precisely these strings.
 COLD_DM_SYSTEM = """Tu es un expert en cold outreach Instagram. Tu génères des messages directs personnalisés, naturels et engageants.
@@ -223,10 +221,10 @@ def test_no_module_calls_openrouter_outside_the_provider():
     """The provider is the only place that builds an OpenRouter request."""
     offenders = []
     for root in ("taktik", "bridges"):
-        for path in (REPO / root).rglob("*.py"):
+        for path in (CORE / root).rglob("*.py"):
             if path.name == "openrouter.py" and path.parent.name == "providers":
                 continue
             text = path.read_text(encoding="utf-8-sig")
             if "openrouter.ai/api" in text or ("urlopen" in text and "OPENROUTER" in text):
-                offenders.append(str(path.relative_to(REPO)))
+                offenders.append(str(path.relative_to(CORE)))
     assert offenders == []

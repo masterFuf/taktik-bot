@@ -9,8 +9,6 @@ The screens are real captures, anonymized: a For You video of the base version (
 video of 46.9.3 as the next one, read by the production readers.
 """
 
-from pathlib import Path
-
 import pytest
 from loguru import logger
 from uiautomator2.xpath import XPathEntry
@@ -19,8 +17,9 @@ import taktik.core.shared.device.snapshot as snapshot_module
 import taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions as scroll_module
 from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import ScrollActions
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parent.parent / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 VIDEO = (FIXTURES / "tt4314_fr_for_you_video.xml").read_text(encoding="utf-8")
 NEXT_VIDEO = (FIXTURES / "tt4693_fr_search_result_video.xml").read_text(encoding="utf-8")
 # The home screen of the base version shows no author, count or caption the readers know.

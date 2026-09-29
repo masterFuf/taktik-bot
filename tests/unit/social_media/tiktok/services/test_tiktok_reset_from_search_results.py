@@ -16,8 +16,6 @@ Top et Utilisateurs, le profil d'une cible et sa liste d'abonnés (2026-09-26) ;
 Top de 43.1.4 (Pixel 3a) pour la base.
 """
 
-from pathlib import Path
-
 import pytest
 from uiautomator2.xpath import XPathEntry
 
@@ -26,8 +24,9 @@ from taktik.core.social_media.tiktok.services.navigation import reset
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
 from taktik.core.social_media.tiktok.ui.selectors.locales import active_locale, set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 
 
 def _capture(name):

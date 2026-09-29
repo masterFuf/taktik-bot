@@ -1,8 +1,8 @@
 """The schema ownership audit: the numbered list is whole and no DDL lives outside it."""
 import sys
-from pathlib import Path
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
+sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_schema_ownership as audit  # noqa: E402
 

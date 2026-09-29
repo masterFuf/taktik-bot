@@ -9,17 +9,16 @@ own words): the following list in its default order, the sort sheet opened over 
 once sorted by the latest follows (`fixtures/ig410_fr_following_list_*.xml`).
 """
 
-from pathlib import Path
-
 import pytest
 
 from fake_follow_list import FakeFacade, FakeScreen
 from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from unit.paths import CORE
 
 NBSP = "\u00a0"
 OPTIONS = ("Par défaut", f"Date de suivi{NBSP}: plus récent", f"Date de suivi{NBSP}: plus ancien")
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 
 
 def _capture(name):

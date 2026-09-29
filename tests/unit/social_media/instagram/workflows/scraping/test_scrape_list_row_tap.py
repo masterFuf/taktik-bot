@@ -12,8 +12,6 @@ French (Pixel 3), anonymized; the untappable row is the same screen with its fir
 no size (derived).
 """
 
-from pathlib import Path
-
 from lxml import etree
 from loguru import logger
 from uiautomator2.xpath import XPathEntry
@@ -28,9 +26,10 @@ from taktik.core.social_media.instagram.actions.core.utils import ActionUtils
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.workflows.scraping.list_scraping import ScrapingListMixin
 from taktik.core.social_media.instagram.workflows.scraping.list_strategy import ListScrapingStrategy
+from unit.paths import CORE
 
 PKG = "com.instagram.android"
-LIST = (Path(__file__).parents[2] / "fixtures" / "ig410_fr_followers_list_top.xml").read_text(encoding="utf-8")
+LIST = (CORE / "tests/unit/social_media/instagram/fixtures/ig410_fr_followers_list_top.xml").read_text(encoding="utf-8")
 
 
 def _first_name(root):

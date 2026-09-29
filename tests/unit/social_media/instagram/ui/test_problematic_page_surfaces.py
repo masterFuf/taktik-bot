@@ -20,8 +20,9 @@ from loguru import logger
 
 from taktik.core.social_media.instagram.ui.detectors import problematic_page
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 
 
 def _capture(name):
@@ -116,7 +117,7 @@ def test_a_profile_options_sheet_is_closed_as_a_sheet_not_as_the_qr_page():
     assert result["page_type"] == "follow_options_bottom_sheet"
 
 
-CORPUS = Path(os.environ.get("TAKTIK_DEBUG_UI") or Path(__file__).resolve().parents[5] / "debug_ui")
+CORPUS = Path(os.environ.get("TAKTIK_DEBUG_UI") or CORE / "debug_ui")
 BASELINE = "410.0.0.53.71"
 
 

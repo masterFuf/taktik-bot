@@ -25,6 +25,7 @@ from taktik.core.social_media.instagram.workflows.management.notifications.notif
 from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import (
     ProfileProcessingResult,
 )
+from unit.paths import CORE
 
 
 class _FakePipeline:
@@ -258,14 +259,12 @@ def test_no_state_other_than_follow_is_ever_opened(state):
 # existed further down.
 # ---------------------------------------------------------------------------
 
-from pathlib import Path
-
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
-FIXTURES = Path(__file__).parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 OLDER_HEADER = 'text="Antérieures" resource-id="activity_feed_header_row"'
 
 

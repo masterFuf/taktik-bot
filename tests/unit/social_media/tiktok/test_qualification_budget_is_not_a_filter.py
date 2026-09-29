@@ -23,13 +23,13 @@ when it sits in a filter BLOCK, where nobody puts a visit budget.
 
 import ast
 import re
-from pathlib import Path
 
 from taktik.core.social_media.tiktok.actions.business.workflows.followers.filtering import (
     evaluate_tiktok_profile,
     resolve_tiktok_filter_criteria,
     tiktok_profile_for_filtering,
 )
+from unit.paths import CORE
 
 # The payload the qualification dialog sends for four handles, minus what does not matter here.
 QUALIFICATION_PAYLOAD = {
@@ -117,10 +117,9 @@ class TestNoOtherConfigKeyCollides:
     emptying a run.
     """
 
-    ROOT = Path(__file__).resolve().parents[4]
-    WORKFLOWS = ROOT / 'taktik' / 'core' / 'social_media' / 'tiktok' / 'actions' / 'business' / 'workflows'
+    WORKFLOWS = CORE / "taktik/core/social_media/tiktok/actions/business/workflows"
     READERS = (WORKFLOWS / 'followers' / 'payload.py', WORKFLOWS / 'target_profiles' / 'payload.py')
-    EVALUATOR = ROOT / 'taktik' / 'core' / 'shared' / 'filtering' / 'profile_filters.py'
+    EVALUATOR = CORE / "taktik/core/shared/filtering/profile_filters.py"
 
     def _config_keys(self):
         """Every `payload.get("x")` the followers readings take off a flat payload."""

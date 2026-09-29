@@ -7,12 +7,12 @@ one does; the screen is invented (public repository).
 import json
 import sys
 import time
-from pathlib import Path
 
 import pytest
 from uiautomator2.xpath import XPathEntry
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "lab"))
+sys.path.insert(0, str(CORE / "scripts/lab"))
 
 import measure_screen_reading as script  # noqa: E402
 

@@ -10,8 +10,9 @@ from collections import namedtuple
 from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "repairs"))
+sys.path.insert(0, str(CORE / "scripts/repairs"))
 
 import repair_collab_post_authors as script  # noqa: E402
 

@@ -2,8 +2,9 @@
 
 import importlib.util
 from pathlib import Path
+from unit.paths import CORE
 
-SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "audits" / "audit_nesting_depth.py"
+SCRIPT = CORE / "scripts/audits/audit_nesting_depth.py"
 
 
 def _gate(monkeypatch, root: Path):

@@ -15,15 +15,14 @@ hand: no phone of the bench holds several accounts, and the picker needs a log o
 opens the sheet is uiautomator2's own xpath engine on those screens.
 """
 
-from pathlib import Path
-
 import pytest
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
 from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parent / "social_media" / "instagram" / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 ACCOUNT_SHEET = (FIXTURES / "ig410_en_account_switcher.xml").read_text(encoding="utf-8")
 ACCOUNT_SHEET_FR = (FIXTURES / "ig410_fr_account_switcher.xml").read_text(encoding="utf-8")
 OWN_PROFILE = (FIXTURES / "ig410_en_own_profile_professional.xml").read_text(encoding="utf-8")

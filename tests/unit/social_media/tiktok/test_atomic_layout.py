@@ -18,14 +18,13 @@ Ce que la structure veut dire, et c'est le seul critère :
 import pathlib
 
 import pytest
+from unit.paths import CORE
 
 _ATOMIC = (
-    pathlib.Path(__file__).resolve().parents[4]
-    / "taktik" / "core" / "social_media" / "tiktok" / "actions" / "atomic"
+    CORE / "taktik/core/social_media/tiktok/actions/atomic"
 )
 _INSTAGRAM_ATOMIC = (
-    pathlib.Path(__file__).resolve().parents[4]
-    / "taktik" / "core" / "social_media" / "instagram" / "actions" / "atomic"
+    CORE / "taktik/core/social_media/instagram/actions/atomic"
 )
 
 EXPECTED_FOLDERS = {"detection", "interaction", "navigation", "scroll", "messaging"}

@@ -8,11 +8,11 @@ compteur qui affirme des slides que personne n'a vues.
 
 import sys
 import types
-from pathlib import Path
 
 import pytest
+from unit.paths import CORE
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(CORE))
 
 import taktik.core.social_media.instagram.actions.core.base_business.interaction_engine as ie  # noqa: E402
 from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (  # noqa: E402

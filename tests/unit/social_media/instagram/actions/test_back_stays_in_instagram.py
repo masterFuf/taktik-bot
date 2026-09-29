@@ -16,7 +16,6 @@ its package renamed, as a clone draws it.
 """
 
 import logging
-from pathlib import Path
 
 import pytest
 from uiautomator2.xpath import XPathEntry
@@ -34,6 +33,7 @@ from taktik.core.social_media.instagram.ui.selectors.locales import set_active_l
 from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS
+from unit.paths import CORE
 
 PKG = "com.instagram.android"
 CLONE = "com.taktik.ig1"
@@ -53,10 +53,9 @@ def _capture(path):
     return path.read_text(encoding="utf-8")
 
 
-FIXTURES = Path(__file__).parents[1] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 FEED = _capture(FIXTURES / "ig410_fr_home_feed_tab_icon_selected.xml")
-LAUNCHER_SCREEN = _capture(Path(__file__).parents[3] / "shared" / "device" / "fixtures"
-                           / "android12_fr_launcher_home.xml")
+LAUNCHER_SCREEN = _capture(CORE / "tests/unit/shared/device/fixtures/android12_fr_launcher_home.xml")
 
 
 def home_feed(package=PKG):

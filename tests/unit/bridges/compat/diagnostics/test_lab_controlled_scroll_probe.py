@@ -16,8 +16,6 @@ The screens are the probe's own readings from that auto-test (Instagram 410 in E
 one name per person across the pair); the gesture is the only thing that changes the screen.
 """
 
-from pathlib import Path
-
 import pytest
 from uiautomator2.xpath import XPathEntry
 
@@ -28,8 +26,9 @@ from bridges.tools.lab.action_test.bundles.instagram import (
     create_instagram_device_facade,
 )
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale as instagram_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).resolve().parents[3] / "social_media" / "instagram" / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 
 
 def _dump(name):

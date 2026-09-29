@@ -14,7 +14,6 @@ the composer. The Lab action `tt.profile.click_message` runs the same step.
 """
 
 import time
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -26,8 +25,9 @@ from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.shared.diagnostics import miss_capture
 from taktik.core.social_media.tiktok.actions.business.workflows.dm import outreach
 from taktik.core.social_media.tiktok.ui.selectors.locales import active_locale, set_active_locale
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
+FIXTURES = CORE / "tests/unit/social_media/tiktok/fixtures"
 FOLLOWER_PROFILE = (FIXTURES / "tt47_fr_profile_follows_us_no_message_entry.xml").read_text(encoding="utf-8")
 # Neither a profile nor a Message entry: what the run would face after a stray navigation, here
 # the For You feed of the same phone and version (its tab bar says « Messages »).

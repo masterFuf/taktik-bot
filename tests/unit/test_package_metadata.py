@@ -8,19 +8,17 @@ French "Instagram & TikTok platform" when the engine drives five apps. The versi
 
 from __future__ import annotations
 
-import pathlib
 import subprocess
 import sys
 
 import taktik
-
-_CORE_ROOT = pathlib.Path(__file__).resolve().parents[2]
+from unit.paths import CORE
 
 
 def _setup(option: str) -> str:
     result = subprocess.run(
         [sys.executable, "setup.py", option],
-        cwd=_CORE_ROOT, capture_output=True, text=True, encoding="utf-8", check=True,
+        cwd=CORE, capture_output=True, text=True, encoding="utf-8", check=True,
     )
     return result.stdout.strip().splitlines()[-1]
 

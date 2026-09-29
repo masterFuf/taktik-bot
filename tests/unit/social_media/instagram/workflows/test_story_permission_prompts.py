@@ -8,7 +8,6 @@ those prompts. The prompts here are the real dumps.
 
 import time
 import types
-from pathlib import Path
 
 import pytest
 from lxml import etree
@@ -21,13 +20,14 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation i
 from taktik.core.social_media.instagram.workflows.publish.post_workflow import (
     InstagramPostWorkflow,
 )
+from unit.paths import CORE
 
-FIXTURES = Path(__file__).parents[3] / "shared" / "device" / "fixtures"
+FIXTURES = CORE / "tests/unit/shared/device/fixtures"
 CAMERA = (FIXTURES / "android12_fr_permission_camera.xml").read_text(encoding="utf-8")
 MICROPHONE = (FIXTURES / "android12_fr_permission_microphone.xml").read_text(encoding="utf-8")
 #: Instagram's own creation screen (the reel editor under `quick_capture_root_container`), a real
 #: dump of 410, anonymized: what the app shows while no prompt is up.
-APP = (Path(__file__).parents[1] / "fixtures" / "ig410_en_reel_editor.xml").read_text(encoding="utf-8")
+APP = (CORE / "tests/unit/social_media/instagram/fixtures/ig410_en_reel_editor.xml").read_text(encoding="utf-8")
 ONE_TIME = "permission_allow_one_time_button"
 
 
