@@ -9,8 +9,9 @@ How to read an entry (`Folder`):
 
 - a name listed in `folders` or `files` must be there, and what is not listed may not be there;
 - a pattern widens what may be there and requires nothing: `ANY_FOLDER` (any sub-folder), `ANY_PYTHON` (any
-  `.py` file), `PLATFORM` (a platform), `ENTRY` (a bridge entry of `bridges/bridges.manifest.json` that lives
-  in this folder, `<key>.py`; at least one must be there);
+  `.py` file), `ANY_JSON` (any `.json` file), `PLATFORM` (a platform), `ENTRY` (a bridge entry of
+  `bridges/bridges.manifest.json` that lives in this folder, `<key>.py`; at least one must be there), `CODE` (a
+  folder of tests that mirrors a folder of the code, and every folder below it too: see below);
 - `vocabulary=True`: the listed names are a vocabulary, any of them may be there and none is required (not
   every platform has every kind of bridge);
 - `never_below`: a folder name that may appear nowhere under the folder (no `runtime/` under `bridges/`).
@@ -26,6 +27,16 @@ The manifest of the bridges is read too: each value is `bridges.<platform>.<brid
 `bridges.tools.<tool>.<key>` and its file exists, and in the folder of a bridge only its entry is named
 `*_bridge.py`.
 
+The tests follow the code, as `tests/` follows `src/` in a framework: a folder of `tests/unit/` mirrors a folder
+of the code, at every depth. `tests/unit/<first>/<rest>` tests `<root>/<rest>`, where `<first>` names the root in
+`MIRRORED_ROOTS` (`bridges`, `cli` for `taktik/cli`, `scripts`) or a family of the engine, `taktik/core/<first>`
+(`tests/unit/kernel/` tests `taktik/core/kernel/`), read from the tree like the platforms. A theme suite is
+declared by name in the entry of `tests/unit` (`one_path/`: the CLI and the bridge run the same path) and has its
+own entry; a `fixtures/` folder holds the captures of the tests next to it; a mirrored folder holds Python files
+only (a capture goes to `fixtures/`). At the root of `tests/unit/`: the tests of the package itself, of the
+repository and of the harness. `TESTS_NOT_MIRRORED` names the folders that mirror no folder of the code yet, each
+with its reason: the inside of the platforms, filed in phase 3 of the tree reorganisation.
+
 The files are the ones git has or would add: tracked, or untracked and not ignored (`git ls-files --cached
 --others --exclude-standard`), still on disk. A script forgotten at the root of `scripts/` is seen before its
 first commit, as a stray file of a working copy is (the private `audit_sqlite_schema_docs.py`, until it is
@@ -35,7 +46,7 @@ filed where `.gitignore` expects it); what git ignores is not part of the tree: 
 The table today: `scripts/` filed by usage (tree lot 2), `taktik/` and its CLI (tree lot 3), the folder of the
 platforms (tree lot 4), `bridges/` with its tools and the Cartography Lab (tree lot 5; the Lab layout gate of
 the old tree, `audit_diagnostics_runtime_layout.py`, is folded in here), `bridges/common/` flat (tree lot 6: the
-device primitives went to the core).
+device primitives went to the core), `tests/unit/` (tree lot 7).
 
 The gate is red when:
 
@@ -47,7 +58,10 @@ The gate is red when:
   of the `.gitignore` did it to `scripts/build/`);
 - a folder named in `never_below` appears under its folder;
 - a value of the bridges manifest is out of its place or its file is gone, or a `*_bridge.py` in the folder of a
-  bridge is no entry.
+  bridge is no entry;
+- a folder of `tests/unit/` mirrors no folder of the code and is neither a declared theme suite, nor a
+  `fixtures/` folder, nor named in `TESTS_NOT_MIRRORED`; a mirrored folder holds a file that is not Python; an
+  entry of `TESTS_NOT_MIRRORED` holds no file any more, or mirrors a folder of the code now (drop it).
 
     python scripts/audits/audit_tree_layout.py              # green / red
     python scripts/audits/audit_tree_layout.py --self-test  # each kind of misplaced entry turns it red
@@ -70,8 +84,39 @@ PLATFORMS_FOLDER = "taktik/core/social_media"
 PLATFORM = "<platform>"
 ANY_FOLDER = "*"
 ANY_PYTHON = "*.py"
+ANY_JSON = "*.json"
 ENTRY = "<entry>"
-PATTERNS = frozenset({PLATFORM, ANY_FOLDER, ANY_PYTHON, ENTRY})
+CODE = "<code>"
+PATTERNS = frozenset({PLATFORM, ANY_FOLDER, ANY_PYTHON, ANY_JSON, ENTRY, CODE})
+
+TESTS = "tests/unit"
+FAMILIES_FOLDER = "taktik/core"
+FIXTURES = "fixtures"
+#: The roots a folder of `tests/unit/` mirrors, by its first folder; any other first folder is a family of the
+#: engine, `taktik/core/<first>` (`tests/unit/kernel/` tests `taktik/core/kernel/`).
+MIRRORED_ROOTS = {"bridges": "bridges", "cli": "taktik/cli", "scripts": "scripts"}
+
+_PHASE_3_TIKTOK = ("phase 3 of the tree reorganisation: the TikTok workflows leave actions/business/workflows/ for "
+                   "workflows/<feature>/, where these tests already sit")
+#: Folders of `tests/unit/` that mirror no folder of the code yet, and why. The list only shrinks: an entry that
+#: holds no file, or that mirrors a folder of the code, turns the gate red.
+TESTS_NOT_MIRRORED: dict[str, str] = {
+    "tests/unit/social_media/instagram/actions/navigation":
+        "phase 3: the code is actions/atomic/navigation/, whose tests are among the flat Instagram tests",
+    "tests/unit/social_media/instagram/workflows/unfollow":
+        "phase 3: the unfollow workflow lives in actions/business/workflows/unfollow/ until the Instagram workflows "
+        "get one home",
+    "tests/unit/social_media/tiktok/workflows/_internal": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/dm": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/followers": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/for_you": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/notifications": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/scraping": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/search": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/sync_lists": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/target_profiles": _PHASE_3_TIKTOK,
+    "tests/unit/social_media/tiktok/workflows/unfollow": _PHASE_3_TIKTOK,
+}
 
 
 @dataclass(frozen=True)
@@ -232,6 +277,18 @@ LAYOUT: dict[str, Folder] = {
     "bridges/tools/lab/workflow_test/reporting": Folder(
         folders=frozenset({ANY_FOLDER}), files=lab_modules("report.py"), owner="the report of a bench run",
     ),
+    TESTS: Folder(
+        folders=frozenset({CODE, "one_path"}),
+        files=frozenset({ANY_PYTHON}),
+        owner="the unit tests, filed like the code they test (a folder mirrors a folder of the code, the captures "
+              "of its tests in `fixtures/`); at the root, the tests of the package itself, of the repository and of "
+              "the harness (conftest.py, its guards, the shared helpers); `one_path/`, a theme suite",
+    ),
+    f"{TESTS}/one_path": Folder(
+        folders=frozenset(), files=frozenset({ANY_PYTHON, ANY_JSON}),
+        owner="the theme suite of rules 1 and 2 (the CLI and the bridge run the same path): its rigs, its tests and "
+              "the bridge sequences they record",
+    ),
 }
 
 IgnoreCheck = Callable[[str], bool]
@@ -321,11 +378,13 @@ def folder_findings(folder: str, rule: Folder, paths: Sequence[str], platforms: 
     errors: list[str] = []
 
     def folder_allowed(name: str) -> bool:
-        return name in named_folders or ANY_FOLDER in rule.folders or (PLATFORM in rule.folders and name in platforms)
+        # CODE: the folder of tests is held to the code by tests_findings, at every depth
+        return (name in named_folders or ANY_FOLDER in rule.folders or CODE in rule.folders
+                or (PLATFORM in rule.folders and name in platforms))
 
     def file_allowed(name: str) -> bool:
         return (name in named_files or (ANY_PYTHON in rule.files and name.endswith(".py"))
-                or (ENTRY in rule.files and name in entries_here))
+                or (ANY_JSON in rule.files and name.endswith(".json")) or (ENTRY in rule.files and name in entries_here))
 
     for name in sorted(held_folders):
         if not folder_allowed(name):
@@ -388,6 +447,45 @@ def manifest_findings(paths: Sequence[str], manifest: Mapping[str, Mapping[str, 
     return errors
 
 
+def mirrored_folder(test_folder: str) -> str:
+    """The folder of the code a folder of tests mirrors: `tests/unit/kernel` -> `taktik/core/kernel`,
+    `tests/unit/bridges/tools/lab` -> `bridges/tools/lab`, `tests/unit/cli` -> `taktik/cli`."""
+    first, _, rest = test_folder[len(TESTS) + 1:].partition("/")
+    root = MIRRORED_ROOTS.get(first, f"{FAMILIES_FOLDER}/{first}")
+    return f"{root}/{rest}" if rest else root
+
+
+def tests_findings(paths: Sequence[str], folders: set[str], layout: Mapping[str, Folder]) -> list[str]:
+    """Each folder of `tests/unit/` mirrors a folder of the code, or is a declared theme suite (its own entry), a
+    `fixtures/` folder or an entry of TESTS_NOT_MIRRORED; a mirrored folder holds Python files only."""
+    rule = layout.get(TESTS)
+    if rule is None or CODE not in rule.folders:
+        return []
+    suites = rule.folders - PATTERNS
+
+    def held_to_the_code(folder: str) -> bool:
+        parts = folder[len(TESTS) + 1:].split("/")
+        return parts[0] not in suites and FIXTURES not in parts
+
+    errors: list[str] = []
+    for folder in sorted(f for f in folders if f.startswith(f"{TESTS}/") and held_to_the_code(f)):
+        code = mirrored_folder(folder)
+        if code not in folders and folder not in TESTS_NOT_MIRRORED:
+            errors.append(f"{folder}/: no folder of the code is {code}/. A test goes to the folder of the code it "
+                          f"tests (`tests/unit/<family>/` for `taktik/core/<family>/`, `tests/unit/bridges/...`, "
+                          f"`tests/unit/cli/`, `tests/unit/scripts/`), or to a theme suite of LAYOUT.")
+        elif code in folders and folder in TESTS_NOT_MIRRORED:
+            errors.append(f"{folder}/: listed in TESTS_NOT_MIRRORED but mirrors {code}/ now, drop the entry.")
+    for path in paths:
+        folder, _, name = path.rpartition("/")
+        if folder.startswith(f"{TESTS}/") and held_to_the_code(folder) and not name.endswith(".py"):
+            errors.append(f"{path}: a folder of tests holds Python files; a capture or a recorded file goes to the "
+                          f"`{FIXTURES}/` folder next to its tests.")
+    errors += [f"{folder}/: listed in TESTS_NOT_MIRRORED but holds no file, drop the entry."
+               for folder in sorted(TESTS_NOT_MIRRORED) if folder not in folders]
+    return errors
+
+
 def check(paths: Sequence[str], is_ignored: IgnoreCheck = git_ignores, layout: Mapping[str, Folder] = LAYOUT,
           manifest: Optional[Mapping[str, Mapping[str, str]]] = None) -> list[str]:
     manifest = read_manifest() if manifest is None else manifest
@@ -401,6 +499,7 @@ def check(paths: Sequence[str], is_ignored: IgnoreCheck = git_ignores, layout: M
         if rule is not None:
             errors.extend(folder_findings(folder, rule, paths, platforms, entries, is_ignored))
     errors.extend(manifest_findings(paths, manifest, platforms, layout))
+    errors.extend(tests_findings(paths, folders, layout))
     return errors
 
 
@@ -481,6 +580,33 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
                                      "expect": "bridges/tools/lab/action_test/runner.py: listed in LAYOUT but gone"},
         "a value of the manifest out of its place": {"paths": fake(), "manifest": misplaced,
                                                      "expect": "is neither bridges.<platform>.<bridge folder>"},
+        "the dissolved tests/unit/core/ back": {"paths": fake(["tests/unit/core/test_x.py"]),
+                                                "expect": "no folder of the code is taktik/core/core/"},
+        "a folder of tests no code has": {"paths": fake(["tests/unit/misc/test_x.py"]),
+                                          "expect": "no folder of the code is taktik/core/misc/"},
+        "a folder of tests below a family, not in the code": {"paths": fake(["tests/unit/kernel/sub/test_x.py"]),
+                                                              "expect": "no folder of the code is taktik/core/kernel/sub/"},
+        "the tests of the contract back under app/": {"paths": fake(["tests/unit/app/contract/test_x.py"]),
+                                                      "expect": "no folder of the code is taktik/core/app/"},
+        "the Lab tests back under their old path": {"paths": fake(["tests/unit/bridges/compat/diagnostics/test_x.py"]),
+                                                    "expect": "no folder of the code is bridges/compat/"},
+        "a runtime/ folder of tests under a bridge": {
+            "paths": fake(["tests/unit/bridges/instagram/automation/runtime/test_x.py"]),
+            "expect": "no folder of the code is bridges/instagram/automation/runtime/"},
+        "a capture next to its tests": {"paths": fake(["tests/unit/shared/device/screen.xml"]),
+                                        "expect": "goes to the `fixtures/` folder next to its tests"},
+        "a file at the root of the tests that is not Python": {"paths": fake(["tests/unit/notes.txt"]),
+                                                               "expect": "a file `tests/unit/` does not list"},
+        "a folder inside the theme suite": {"paths": fake(["tests/unit/one_path/sub/x.py"]),
+                                            "expect": "a folder `tests/unit/one_path/` does not list"},
+        "the theme suite gone": {"paths": fake(without="tests/unit/one_path/"),
+                                 "expect": "tests/unit/one_path/: listed in LAYOUT but holds no file"},
+        "a folder waiting for phase 3 that mirrors the code now": {
+            "paths": fake(["taktik/core/social_media/tiktok/workflows/dm/x.py"]),
+            "expect": "mirrors taktik/core/social_media/tiktok/workflows/dm/ now, drop the entry"},
+        "a folder waiting for phase 3 gone": {
+            "paths": fake(without="tests/unit/social_media/tiktok/workflows/sync_lists/"),
+            "expect": "workflows/sync_lists/: listed in TESTS_NOT_MIRRORED but holds no file"},
     }
 
 
@@ -514,7 +640,8 @@ def main() -> int:
             print(f" - {error}")
         return 1
     print(f"Tree layout OK ({len(LAYOUT)} folder(s) of the table, {len(platforms_of(paths))} platforms, "
-          f"{len(paths)} files, every one in its place)")
+          f"{len(paths)} files, every one in its place; the tests mirror the code, {len(TESTS_NOT_MIRRORED)} "
+          f"folders of tests wait for phase 3)")
     return 0
 
 
