@@ -219,8 +219,9 @@ un sens comme dans l'autre.
 python -m pytest
 ```
 
-Les tests sont sous `tests/unit` (base de données, ligne de commande, contrat entre le bot et
-l'application, un dossier par plateforme). Les POC locaux et scripts smoke dépendants d'un appareil
+Les tests sont sous `tests/unit`, rangés comme le code qu'ils testent (`tests/unit/kernel/` pour
+`taktik/core/kernel/`, `tests/unit/bridges/` pour `bridges/`, un dossier par plateforme ; voir
+`tests/README.md`). Les POC locaux et scripts smoke dépendants d'un appareil
 vont dans `tests/poc/` et `tests/smoke/`, ignorés par git parce qu'ils peuvent contenir des dumps,
 des captures ou des essais propres à un appareil.
 

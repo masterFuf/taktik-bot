@@ -215,8 +215,9 @@ in English, macOS and Linux. Not tested promises nothing, either way.
 python -m pytest
 ```
 
-The tests live under `tests/unit` (database, command line, the bot/app contract, one folder per
-platform). Local POC and device smoke scripts belong under `tests/poc/` and `tests/smoke/`; they are
+The tests live under `tests/unit`, filed like the code they test (`tests/unit/kernel/` for
+`taktik/core/kernel/`, `tests/unit/bridges/` for `bridges/`, one folder per platform; see
+`tests/README.md`). Local POC and device smoke scripts belong under `tests/poc/` and `tests/smoke/`; they are
 ignored by git because they may contain dumps, screenshots or device-specific experiments.
 
 ---
