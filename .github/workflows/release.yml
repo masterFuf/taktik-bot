@@ -30,11 +30,6 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       
-      - name: Update version in setup.py
-        run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
-          sed -i "s/version=\".*\"/version=\"$VERSION\"/" setup.py
-      
       - name: Generate changelog
         id: changelog
         run: |

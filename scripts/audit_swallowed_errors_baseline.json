@@ -46,7 +46,6 @@
   "taktik/core/shared/device/ui_dump.py": 1,
   "taktik/core/shared/device/wait.py": 3,
   "taktik/core/shared/diagnostics/foreground_guard.py": 1,
-  "taktik/core/shared/diagnostics/incident_snapshot.py": 4,
   "taktik/core/shared/diagnostics/screen_ring.py": 1,
   "taktik/core/shared/diagnostics/surface_capture.py": 1,
   "taktik/core/shared/vision/ocr.py": 1,

@@ -25,7 +25,7 @@ from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.gmail.account.runtime.dispatcher import dispatch_gmail_account_workflow
 from bridges.gmail.account.runtime.session import cleanup_gmail_app, prepare_gmail_session
-from bridges.gmail.base import _ipc, send_error, send_log, send_message, send_status
+from bridges.common.runtime.bridge_base import _ipc, send_error, send_log, send_message, send_status
 
 
 class GmailAccountBridge:

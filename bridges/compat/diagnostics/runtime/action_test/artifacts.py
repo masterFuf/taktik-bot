@@ -354,7 +354,7 @@ def _resolve_app_version(device_id: str, package_name: str | None, platform: str
         return None
 
     try:
-        from bridges.common.device.app_inspection import get_installed_app_version
+        from taktik.core.shared.device.app_inspection import get_installed_app_version
 
         return get_installed_app_version(device_id, package_name, platform)
     except Exception as exc:

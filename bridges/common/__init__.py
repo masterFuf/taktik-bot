@@ -1,11 +1,5 @@
-"""
-Common services for all bridges (Instagram & TikTok).
-Eliminates code duplication across bridge files.
-"""
+"""Infrastructure shared by every bridge. Import each capability from its own module.
 
-from .runtime.bootstrap import setup_environment
-from .runtime.ipc import IPC
-from .device.connection import ConnectionService
-from .device.app_manager import AppService
-from .input.keyboard import KeyboardService
-from .persistence.database import get_db_path, SentDMService
+This file stays empty: the launcher reaches its crash hooks through this package, before the bridge
+is imported, and anything loaded here would fail before the hooks could report it.
+"""

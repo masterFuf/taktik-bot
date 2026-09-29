@@ -24,7 +24,7 @@ setup_environment()
 from bridges.common.runtime.entrypoint import run_bridge_main
 from bridges.common.runtime.signal_handler import setup_signal_handlers
 from bridges.youtube.account.runtime.workflows import run_youtube_account_login, run_youtube_account_logout
-from bridges.youtube.base import _ipc, send_error, send_status
+from bridges.common.runtime.bridge_base import _ipc, send_error, send_status
 from bridges.youtube.runtime.session import cleanup_youtube_app, prepare_youtube_session
 
 

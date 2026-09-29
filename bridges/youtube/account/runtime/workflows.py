@@ -1,6 +1,6 @@
 """Workflow adapters for the YouTube account bridge (the run is the core's `run_youtube_account`)."""
 
-from bridges.youtube.base import _ipc, send_error, send_log, send_message, send_status
+from bridges.common.runtime.bridge_base import _ipc, send_error, send_log, send_message, send_status
 from taktik.core.social_media.youtube.workflows.account.agent_handler import (
     YOUTUBE_ACCOUNT_LOGIN_WORKFLOW_ID,
     YOUTUBE_ACCOUNT_LOGOUT_WORKFLOW_ID,

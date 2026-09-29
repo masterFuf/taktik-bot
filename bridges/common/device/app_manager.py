@@ -11,7 +11,7 @@ from typing import Optional
 from loguru import logger
 
 from bridges.common.device.app_control import force_stop_app
-from bridges.common.device.app_inspection import (
+from taktik.core.shared.device.app_inspection import (
     get_installed_app_version,
     is_app_running,
 )

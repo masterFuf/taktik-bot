@@ -142,12 +142,6 @@ KNOWN_SELECTOR_DEBT = (
 
 NON_RUNTIME_SIGNATURES = (
     AllowlistEntry(
-        "taktik/core/social_media/instagram/actions/compatibility/cli_adapter.py",
-        "uiautomator-literal",
-        "Instagram Bot - New Modular Architecture",
-        "Synthetic CLI compatibility probe, not a runtime Android UI selector.",
-    ),
-    AllowlistEntry(
         "taktik/core/social_media/tiktok/actions/core/utils.py",
         "selector-string",
         '@resource-id="([^"]+)"',

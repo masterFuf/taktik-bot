@@ -3,7 +3,7 @@
 Moved from `bridges/common/device/` to its AGENTS owner: these are pure ADB shell
 primitives (`run_adb_shell_process` + parsing), and the standalone CLI needs the
 version reader to apply selector version overrides without importing a desktop
-bridge adapter. `bridges/common/device/app_inspection.py` re-exports for compat.
+bridge adapter.
 """
 
 from typing import Any, Dict, Optional

@@ -147,10 +147,6 @@ CONTRACTS = (
 
 #: (contract, file): (ceiling, why it holds and what removes it). The list only shrinks.
 EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
-    ("transverse-no-platform", "taktik/core/__init__.py"): (
-        1, "Public compatibility export `taktik.core.DeviceFacade`, lazy, that only its own test calls "
-           "(tests/unit/core/test_core_exports.py). Removed with the export: a break of the package's "
-           "public API, the owner's call."),
     ("transverse-no-platform", "taktik/core/agent/scenarios/instagram_feed_autopilot.py"): (
         17, "The Taktik Agent session (`TaktikAgentWorkflow`) drives Instagram from `agent/scenarios/`, "
             "the place AGENTS.md gives the legacy autopilots. A module of one platform lives under it: "

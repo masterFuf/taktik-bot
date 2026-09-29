@@ -4,7 +4,7 @@ Currently exposes `threads_startup()`, factored out from the byte-identical
 60-line startup block that lived at the top of both `search_and_interact.py`
 and `feed_and_interact.py`.
 
-Pattern mirrors `tiktok_startup()` in `bridges/tiktok/base.py`.
+Pattern mirrors `tiktok_startup()` in `bridges/tiktok/runtime/startup.py`.
 """
 
 from __future__ import annotations
