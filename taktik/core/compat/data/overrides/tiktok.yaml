@@ -61,6 +61,18 @@ versions:
       - '//*[contains(@resource-id, ":id/duq")]'
       - '//*[contains(@resource-id, ":id/cei")]'
       - '//*[contains(@resource-id, ":id/cej")]'
+    # The Activity page (Pixel 6a, French, 2026-09-29, the page `tt.activity.open` opened in the Lab
+    # auto-test and did not recognise): no « Filtres » control any more, the filter is the arrow of
+    # its « Activité » tab `y5n`, beside a « Nouveaux followers » tab `y6f` on the same page. The tab
+    # shown carries the underline: `y5o` under « Activité », `y6g` under « Nouveaux followers ». The
+    # « Activité » tab with its underline answers on the 4 dumps of that tab and on none of the other
+    # 626 47.0.3 dumps (the 3 of the « Nouveaux followers » tab among them), nor on any other
+    # version. Baseline entry `pzx` carried along (absent from every 47.0.3 dump); the baseline
+    # « Filtres » / « Filters » is NOT: on 47.0.3 it is a button of the video editor (the 6 dumps
+    # where it answers), which it would take for this page.
+    activity.page_indicator:
+      - '//*[contains(@resource-id, ":id/y5n")][.//*[contains(@resource-id, ":id/y5o")]]'
+      - '//*[contains(@resource-id, ":id/pzx")]'
     # Profile stats row (Pixel 6a, two profiles: a followed media account and an account that
     # follows us): values `t8_`, labels `t89`, three of each, in the same order (following,
     # followers, likes). The baseline ids `qfw` / `qfv` resolve nothing on 47.0.3, so the row
