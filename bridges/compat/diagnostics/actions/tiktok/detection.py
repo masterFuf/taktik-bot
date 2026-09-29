@@ -82,8 +82,9 @@ def get_video_description(a, p):
     Read as a For You turn reads it: one photo (`read_screen()`), and the production reader handed
     that photo. A video without a description is an item of the feed (25 of the 323 video screens
     of the 43.1.4 corpus): not applicable when that photo shows a video or an ad and no description
-    on it, or a LIVE preview, which has none. Anywhere else (another screen, a sheet over the
-    video, an unreadable photo) nothing was read, and the action fails.
+    on it, a LIVE preview, or a « Voir les Stories » card served in place of a video, which have
+    none. Anywhere else (another screen, a sheet over the video, an unreadable photo) nothing was
+    read, and the action fails.
     """
     action_id = "tt.detection.get_video_description"
     screen = a.detection.read_screen()
@@ -93,6 +94,8 @@ def get_video_description(a, p):
         return {"success": True, "message": f"{len(desc)} chars", "details": {"description": desc}}
     if screen.kind == "live":
         return not_applicable(action_id, "the For You item on screen is a LIVE: no description")
+    if a.video_detector.is_stories_card(screen):
+        return not_applicable(action_id, "the For You item on screen is a Stories card: no description")
     if screen.kind not in _CAPTIONED_ITEMS:
         return {"success": False, "message": f"{action_id}: no video on screen ({screen.kind}), nothing read",
                 "details": {"description": None}}

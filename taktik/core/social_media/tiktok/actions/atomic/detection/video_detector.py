@@ -431,3 +431,8 @@ class VideoDetector(BaseAction):
         """Is the feed showing a LIVE preview rather than a video?"""
         selectors = self.video_selectors.live_preview
         return bool(selectors) and self._element_exists(selectors, timeout=0.5, screen=screen)
+
+    def is_stories_card(self, screen=None) -> bool:
+        """Is the feed showing a followed account's « Voir les Stories » card rather than a video?"""
+        selectors = self.video_selectors.stories_card
+        return bool(selectors) and self._element_exists(selectors, timeout=0.5, screen=screen)
