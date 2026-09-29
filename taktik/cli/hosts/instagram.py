@@ -1,7 +1,7 @@
 """What the CLI injects into the Instagram automation handlers, so a terminal run starts like a
 desktop run.
 
-Same clean restart as the desktop bridge (`start_instagram_session` on the bridges' `AppService`,
+Same clean restart as the desktop bridge (`start_instagram_session` on the core's `AppService`,
 the one app lifecycle of the bot), same selector version overrides, same AI hooks; the events go to
 the log instead of stdout. When the payload brings no AI key, the CLI's own (`ai_key.py`: the
 environment, the key typed at launch, the saved one), which the launch already made sure of.
@@ -11,7 +11,6 @@ Instagram before it launches its scraping bridge.
 """
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any, Mapping, Optional
 
 from loguru import logger
@@ -42,13 +41,10 @@ class CliInstagramHost:
 
     def _app_for(self, package_name: Optional[str]):
         from taktik.core.shared.device.app_manager import AppService
+        from taktik.core.shared.device.connected_device import ConnectedDevice
 
-        # The app service only reads these three from a connection; the CLI's manager is connected.
-        connection = SimpleNamespace(
-            device_manager=self.device_manager,
-            device=getattr(self.device_manager, "device", None),
-            device_id=self.device_id,
-        )
+        # The CLI's manager is connected: the app service takes it as the connection it holds.
+        connection = ConnectedDevice(self.device_manager, self.device_id)
         return AppService(connection, platform="instagram", package_override=package_name)
 
     def start(self, package_name: Optional[str]) -> bool:

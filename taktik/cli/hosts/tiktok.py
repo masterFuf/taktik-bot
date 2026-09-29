@@ -38,19 +38,14 @@ def cli_tiktok_startup(device: Any, device_id: str) -> Callable[..., Any]:
 
 
 def cli_tiktok_account_app(device_manager: Any, device_id: str) -> Callable[[Optional[str]], Any]:
-    """App provider of the account flows: the bridges' app service, on the CLI's connected device,
-    so the clean restart is the account bridge's."""
+    """App provider of the account flows: the app service the account bridge restarts TikTok with,
+    on the CLI's connected device."""
 
     def app_for(package_name: Optional[str]):
-        from types import SimpleNamespace
-
         from taktik.core.shared.device.app_manager import AppService
+        from taktik.core.shared.device.connected_device import ConnectedDevice
 
-        connection = SimpleNamespace(
-            device_manager=device_manager,
-            device=getattr(device_manager, "device", None),
-            device_id=device_id,
-        )
+        connection = ConnectedDevice(device_manager, device_id)
         return AppService(connection, platform="tiktok", package_override=package_name)
 
     return app_for

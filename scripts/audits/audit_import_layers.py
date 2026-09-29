@@ -26,8 +26,8 @@ imports what it may not:
 - `sql-in-database`: `sqlite3` and `sqlalchemy` are imported under `taktik.core.database` only,
   in `taktik` and `bridges` (writes go through a repository or service of `database`).
 - `cli-no-bridges`: the CLI imports no bridge. It is the reference the app mirrors (anti-derive
-  rule 2), and it reaches device primitives through `bridges/common/device` only because they
-  live there today; the two hosts that do are named in `EXCEPTIONS` and move with `device`.
+  rule 2): what it shares with the bridges (the device primitives, the device bases a run is
+  prepared with, the Taktik Keyboard service) lives in the core, which both hosts import.
 - `known-core-families`: `taktik/core` holds only the families above; a new root family documents
   its owner in AGENTS.md first, then joins the contracts here.
 - `import-resolves`: every import of our own packages (`taktik`, `bridges`) names a module that
@@ -163,14 +163,6 @@ CONTRACTS = (
 
 #: (contract, file): (ceiling, why it holds and what removes it). The list only shrinks.
 EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
-    ("cli-no-bridges", "taktik/cli/hosts/instagram.py"): (
-        10, "The Instagram host of the CLI opens its session through `bridges.common.device` "
-            "(connection, app lifecycle, IP rotation) and `bridges.instagram.common.bridge`, the "
-            "device primitives the CLI and the bridges share. They belong in `shared/device` "
-            "(AGENTS.md makes it their owner); moving them there removes the entry."),
-    ("cli-no-bridges", "taktik/cli/hosts/tiktok.py"): (
-        1, "The TikTok host of the CLI reads the device through `bridges.common.device`, for the "
-           "same reason as the Instagram host; moving `device` into `shared/device` removes it."),
     ("transverse-no-platform", "taktik/core/compat/selectors/setup.py"): (
         2, "By construction today: the version override registry registers the selector catalogs of "
            "Instagram and TikTok, and `shared/device/manager.py` applies it on connection (the "
