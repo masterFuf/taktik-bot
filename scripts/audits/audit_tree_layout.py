@@ -27,6 +27,12 @@ The manifest of the bridges is read too: each value is `bridges.<platform>.<brid
 `bridges.tools.<tool>.<key>` and its file exists, and in the folder of a bridge only its entry is named
 `*_bridge.py`.
 
+The inside of a platform is written once for every platform (tree lot 9, phase 3): what
+`taktik/core/social_media/<platform>/` holds (`actions/`, `services/`, `ui/`, `workflows/`, its `manager.py`...) and
+what its `workflows/` holds (one folder per feature, the vocabulary the bridges share, and `common/`). A platform
+whose inside is not filed yet is named in `PLATFORMS_NOT_FILED`, one line each with why: those two entries skip it,
+and so does the rule `actions-no-workflows` of `audit_import_layers.py`, which reads the same list.
+
 The tests follow the code, as `tests/` follows `src/` in a framework: a folder of `tests/unit/` mirrors a folder
 of the code, at every depth. `tests/unit/<first>/<rest>` tests `<root>/<rest>`, where `<first>` names the root in
 `MIRRORED_ROOTS` (`bridges`, `cli` for `taktik/cli`, `scripts`) or a family of the engine, `taktik/core/<first>`
@@ -46,7 +52,7 @@ filed where `.gitignore` expects it); what git ignores is not part of the tree: 
 The table today: `scripts/` filed by usage (tree lot 2), `taktik/` and its CLI (tree lot 3), the folder of the
 platforms (tree lot 4), `bridges/` with its tools and the Cartography Lab (tree lot 5; the Lab layout gate of
 the old tree, `audit_diagnostics_runtime_layout.py`, is folded in here), `bridges/common/` flat (tree lot 6: the
-device primitives went to the core), `tests/unit/` (tree lot 7).
+device primitives went to the core), `tests/unit/` (tree lot 7), the inside of the platforms (tree lot 9).
 
 The gate is red when:
 
@@ -61,7 +67,8 @@ The gate is red when:
   bridge is no entry;
 - a folder of `tests/unit/` mirrors no folder of the code and is neither a declared theme suite, nor a
   `fixtures/` folder, nor named in `TESTS_NOT_MIRRORED`; a mirrored folder holds a file that is not Python; an
-  entry of `TESTS_NOT_MIRRORED` holds no file any more, or mirrors a folder of the code now (drop it).
+  entry of `TESTS_NOT_MIRRORED` holds no file any more, or mirrors a folder of the code now (drop it);
+- an entry of `PLATFORMS_NOT_FILED` is no platform any more, or its inside keeps to the table now (drop it).
 
     python scripts/audits/audit_tree_layout.py              # green / red
     python scripts/audits/audit_tree_layout.py --self-test  # each kind of misplaced entry turns it red
@@ -111,6 +118,18 @@ TESTS_NOT_MIRRORED: dict[str, str] = {
     "tests/unit/social_media/tiktok/workflows/sync_lists": _PHASE_3_TIKTOK,
     "tests/unit/social_media/tiktok/workflows/target_profiles": _PHASE_3_TIKTOK,
     "tests/unit/social_media/tiktok/workflows/unfollow": _PHASE_3_TIKTOK,
+}
+
+#: The platforms whose inside is not filed yet, and why. The two entries of LAYOUT for the inside of a platform skip
+#: them, and so does the rule `actions-no-workflows` of `audit_import_layers.py`, which reads this list. The list only
+#: shrinks: an entry that is no platform any more, or whose inside keeps to the table now, turns the gate red.
+PLATFORMS_NOT_FILED: dict[str, str] = {
+    "tiktok": "phase 3 of the tree reorganisation, lot arbo10: its workflows leave actions/business/workflows/ for "
+              "workflows/<feature>/, and core/ goes",
+    "threads": "core/manager.py (the word core) and its workflows as flat files of workflows/: the manager at its "
+               "root, a workflows/automation/ folder",
+    "gmail": "its workflows as flat files of workflows/ (account.py, agent_handler.py and their two helpers): a "
+             "workflows/account/ folder",
 }
 
 
@@ -170,6 +189,22 @@ LAYOUT: dict[str, Folder] = {
         folders=frozenset({PLATFORM}),
         files=frozenset({"__init__.py"}),
         owner="the platforms, one folder each: the one list of the platforms that every rule reads",
+    ),
+    f"{PLATFORMS_FOLDER}/{PLATFORM}": Folder(
+        folders=frozenset({"actions", "services", "ui", "workflows", "media", "recorder"}),
+        files=frozenset({"__init__.py", "manager.py"}),
+        owner="one platform, filed like the others: its gestures and readings (actions/), its business services "
+              "(services/), its selectors and screen readers (ui/), its workflows (workflows/), its manager; "
+              "Instagram adds its media capture (media/) and its session recorder (recorder/)",
+        vocabulary=True,
+    ),
+    f"{PLATFORMS_FOLDER}/{PLATFORM}/workflows": Folder(
+        folders=frozenset({"common", "account", "ads", "agent", "automation", "cold_dm", "dm", "notifications",
+                           "publish", "scraping", "tasks"}),
+        files=frozenset({"__init__.py", "README.md"}),
+        owner="one folder per feature, named with the vocabulary the platforms and their bridges share; common/ is "
+              "what the workflows of the platform share, their one folder of helpers",
+        vocabulary=True,
     ),
     "bridges": Folder(
         folders=frozenset({"common", "tools", PLATFORM}),
@@ -481,8 +516,34 @@ def tests_findings(paths: Sequence[str], folders: set[str], layout: Mapping[str,
     return errors
 
 
+def inside_of(folder: str) -> Optional[str]:
+    """The platform whose inside `folder` is (`taktik/core/social_media/<platform>` or below), or None."""
+    prefix = f"{PLATFORMS_FOLDER}/"
+    return folder[len(prefix):].split("/", 1)[0] if folder.startswith(prefix) else None
+
+
+def not_filed_findings(paths: Sequence[str], folders: set[str], platforms: frozenset[str],
+                       layout: Mapping[str, Folder], not_filed: Mapping[str, str]) -> list[str]:
+    """Each entry of PLATFORMS_NOT_FILED is a platform whose inside does not keep to the table yet."""
+    errors: list[str] = []
+    for platform in sorted(not_filed):
+        root = f"{PLATFORMS_FOLDER}/{platform}"
+        if platform not in platforms:
+            errors.append(f"{root}/: listed in PLATFORMS_NOT_FILED but is no platform any more, drop the entry.")
+            continue
+        findings = []
+        for folder in (root, f"{root}/workflows"):
+            rule = rule_for(folder, platforms, layout)
+            if rule is not None and folder in folders:
+                findings += folder_findings(folder, rule, paths, platforms, frozenset(), lambda _path: False)
+        if not findings:
+            errors.append(f"{root}/: listed in PLATFORMS_NOT_FILED but its inside keeps to LAYOUT now, drop the entry.")
+    return errors
+
+
 def check(paths: Sequence[str], is_ignored: IgnoreCheck = git_ignores, layout: Mapping[str, Folder] = LAYOUT,
-          manifest: Optional[Mapping[str, Mapping[str, str]]] = None) -> list[str]:
+          manifest: Optional[Mapping[str, Mapping[str, str]]] = None,
+          not_filed: Mapping[str, str] = PLATFORMS_NOT_FILED) -> list[str]:
     manifest = read_manifest() if manifest is None else manifest
     platforms = platforms_of(paths)
     entries = entry_files(manifest)
@@ -490,11 +551,14 @@ def check(paths: Sequence[str], is_ignored: IgnoreCheck = git_ignores, layout: M
     literal_keys = {key for key in layout if PLATFORM not in key.split("/") and ANY_FOLDER not in key.split("/")}
     errors: list[str] = []
     for folder in sorted(folders | literal_keys):
+        if inside_of(folder) in not_filed:
+            continue  # its inside waits for phase 3 (PLATFORMS_NOT_FILED)
         rule = rule_for(folder, platforms, layout)
         if rule is not None:
             errors.extend(folder_findings(folder, rule, paths, platforms, entries, is_ignored))
     errors.extend(manifest_findings(paths, manifest, platforms, layout))
     errors.extend(tests_findings(paths, folders, layout))
+    errors.extend(not_filed_findings(paths, folders, platforms, layout, not_filed))
     return errors
 
 
@@ -602,6 +666,25 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
         "a folder waiting for phase 3 gone": {
             "paths": fake(without="tests/unit/social_media/tiktok/workflows/sync_lists/"),
             "expect": "workflows/sync_lists/: listed in TESTS_NOT_MIRRORED but holds no file"},
+        "the word core back inside a filed platform": {
+            "paths": fake([f"{PLATFORMS_FOLDER}/instagram/core/manager.py"]),
+            "expect": f"a folder `{PLATFORMS_FOLDER}/instagram/` does not list"},
+        "a loose module at the root of a filed platform": {
+            "paths": fake([f"{PLATFORMS_FOLDER}/instagram/helpers.py"]),
+            "expect": f"no .py at the root of `{PLATFORMS_FOLDER}/instagram/`"},
+        "a folder of workflows out of the vocabulary": {
+            "paths": fake([f"{PLATFORMS_FOLDER}/instagram/workflows/management/login_workflow.py"]),
+            "expect": f"a folder `{PLATFORMS_FOLDER}/instagram/workflows/` does not list"},
+        "a loose module among the workflows of another filed platform": {
+            "paths": fake([f"{PLATFORMS_FOLDER}/youtube/workflows/helpers.py"]),
+            "expect": f"no .py at the root of `{PLATFORMS_FOLDER}/youtube/workflows/`"},
+        "a platform waiting for phase 3 that keeps to the table now": {
+            "paths": fake([f"{PLATFORMS_FOLDER}/tiktok/__init__.py", f"{PLATFORMS_FOLDER}/tiktok/ui/selectors.py"],
+                          without=f"{PLATFORMS_FOLDER}/tiktok/"),
+            "expect": f"{PLATFORMS_FOLDER}/tiktok/: listed in PLATFORMS_NOT_FILED but its inside keeps to LAYOUT now"},
+        "a platform waiting for phase 3 gone": {
+            "paths": fake(without=f"{PLATFORMS_FOLDER}/gmail/"),
+            "expect": f"{PLATFORMS_FOLDER}/gmail/: listed in PLATFORMS_NOT_FILED but is no platform any more"},
     }
 
 
@@ -634,9 +717,11 @@ def main() -> int:
         for error in errors:
             print(f" - {error}")
         return 1
-    print(f"Tree layout OK ({len(LAYOUT)} folder(s) of the table, {len(platforms_of(paths))} platforms, "
-          f"{len(paths)} files, every one in its place; the tests mirror the code, {len(TESTS_NOT_MIRRORED)} "
-          f"folders of tests wait for phase 3)")
+    platforms = platforms_of(paths)
+    print(f"Tree layout OK ({len(LAYOUT)} folder(s) of the table, {len(platforms)} platforms, "
+          f"{len(paths)} files, every one in its place; {len(platforms) - len(PLATFORMS_NOT_FILED)} platforms filed "
+          f"inside, {len(PLATFORMS_NOT_FILED)} wait for phase 3; the tests mirror the code, "
+          f"{len(TESTS_NOT_MIRRORED)} folders of tests wait for phase 3)")
     return 0
 
 
