@@ -7,7 +7,9 @@ of a video. The plan never guesses it. Declared on the screen the action expects
 anywhere else the action still fails, so a broken selector is never taken for absent content.
 
 The screens are real dumps, anonymized: Instagram 410 (English notifications, home feed; French
-profile with highlights only), TikTok 43.1.4 in French (For You video, a video without a
+profile with highlights only; our English followers list with and without its categories, and read
+further down), Instagram 447 (our French followers list with and without its categories), TikTok
+43.1.4 in French (For You video, a video without a
 description, the « Voir les Stories » card the feed serves in place of a video, an ad, a LIVE
 preview, the inbox) and TikTok 47.0.3 in French (For You video, the same card).
 """
@@ -318,3 +320,80 @@ def test_a_thread_longer_than_the_screen_declares_no_card_and_the_inbox_does_not
     result = TIKTOK_ACTIONS["tt.inbox.read_thread_handle"](bundle, {})
     assert (result["success"], _declared(result)) == (False, None)
     assert "no thread open" in result["message"]
+
+
+FANS_NOT_SERVED = "our followers list opens on its accounts, Instagram serves it no category now"
+
+
+def _unfollow_on(xml, lang, monkeypatch):
+    """The Lab's unfollow engine on our followers list: account bound, the follow graph a spy."""
+    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import sync_following
+
+    written = []
+    monkeypatch.setattr(sync_following, "InstagramFollowGraphService",
+                        type("GraphSpy", (), {"upsert_follower": staticmethod(lambda **kw: written.append(kw))}))
+    bundle, phone = _instagram(xml, lang)
+    bundle.unfollow.active_account_id = 1
+    return bundle, phone, written
+
+
+@pytest.mark.parametrize("name, lang, list_top", [
+    ("ig410_en_own_followers_list_no_category.xml", "en", 363),
+    ("ig447_fr_own_followers_list_no_category.xml", "fr", 405),
+])
+def test_a_followers_list_opening_on_its_accounts_declares_the_fans_category_not_served(name, lang, list_top,
+                                                                                         monkeypatch):
+    """Instagram serves the categories of our followers tab on some days only. 410 in English: the
+    Pixel 3a pass of 2026-09-29, failed on « 0 fans »; 447 in French: the Pixel 6a, a sort row under
+    the search box. Nothing in the list is tapped, nothing is recorded."""
+    bundle, phone, written = _unfollow_on(_dump("instagram", name), lang, monkeypatch)
+    result = INSTAGRAM_ACTIONS["unfollow.read_fans_category"](bundle, {})
+    assert (result["success"], _declared(result)) == (False, FANS_NOT_SERVED)
+    assert written == []
+    assert [y for _x, y in phone.taps if y >= list_top] == []
+
+
+@pytest.mark.parametrize("name, lang, category_row", [
+    ("ig410_en_own_followers_list_categories.xml", "en", (680, 878)),
+    ("ig447_fr_own_followers_list.xml", "fr", (708, 897)),
+])
+def test_a_served_fans_category_is_opened_and_never_declared_absent(name, lang, category_row, monkeypatch):
+    """410 in English (Pixel 3a) and 447 in French (Pixel 6a), the category served. The screen does
+    not change after the tap here: what the read then finds is not this test's subject."""
+    bundle, phone, _written = _unfollow_on(_dump("instagram", name), lang, monkeypatch)
+    result = INSTAGRAM_ACTIONS["unfollow.read_fans_category"](bundle, {})
+    assert _declared(result) is None
+    assert any(category_row[0] <= y <= category_row[1] for _x, y in phone.taps)
+
+
+def _selected_tab(xml, shown, hidden):
+    """The dump with the tab titled `shown` selected in place of the one titled `hidden`."""
+    for title, before, after in ((hidden, 'selected="true"', 'selected="false"'),
+                                 (shown, 'selected="false"', 'selected="true"')):
+        start = xml.index(f'text="{title}"')
+        end = xml.index("/>", start)
+        assert before in xml[start:end]
+        xml = xml[:start] + xml[start:end].replace(before, after) + xml[end:]
+    return xml
+
+
+SERVED_410 = _dump("instagram", "ig410_en_own_followers_list_categories.xml")
+NO_CATEGORY_447 = _dump("instagram", "ig447_fr_own_followers_list_no_category.xml")
+
+
+@pytest.mark.parametrize("xml, lang", [
+    # Derived: the served list, its fans category under a label no locale knows.
+    (SERVED_410.replace("People you don't follow back", "Followers you haven't followed back"), "en"),
+    # Our followers list read further down (410 in English, Pixel 3a): accounts first, and the
+    # categories may be above them.
+    (_dump("instagram", "ig410_en_own_followers_newest_first_2.xml"), "en"),
+    # Derived: the 447 list without category, the following tab shown, as when the tap on the
+    # followers tab did not take.
+    (_selected_tab(NO_CATEGORY_447, "1\u202f280 suivi(e)s", "691 followers"), "fr"),
+], ids=["renamed category", "list read further down", "another tab"])
+def test_what_does_not_prove_the_category_not_served_stays_a_failure(xml, lang, monkeypatch):
+    bundle, _phone, written = _unfollow_on(xml, lang, monkeypatch)
+    result = INSTAGRAM_ACTIONS["unfollow.read_fans_category"](bundle, {})
+    assert (result["success"], _declared(result)) == (False, None)
+    assert result["message"] == "0 fans"
+    assert written == []
