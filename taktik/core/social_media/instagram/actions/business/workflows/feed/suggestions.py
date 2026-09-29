@@ -247,6 +247,37 @@ class FeedSuggestionsMixin:
         self.logger.warning("Contacts access dialog visible but its buttons were not found")
         return 'other_dialog'
 
+    def enter_discover_people_screen(self, contacts_choice: str = 'deny') -> Dict[str, Any]:
+        """From the feed carousel to the people discovery screen, the way every suggestions pass
+        enters it: tap "See all", answer the contacts-access prompt Instagram shows right after it
+        (``contacts_choice``), then wait for the screen.
+
+        Returns ``entered``, ``contacts_dialog`` (``handle_contacts_access_dialog``'s answer) and
+        ``stop_reason`` when the screen is not reached: ``cta_tap_failed`` (still on the feed),
+        ``blocked_by_dialog`` (another Instagram alert, left untouched) or
+        ``discover_screen_not_reached``; in those two the feed is brought back
+        (``returned_to_feed``).
+        """
+        entry = {'entered': False, 'contacts_dialog': 'absent', 'stop_reason': None,
+                 'returned_to_feed': False}
+        if not self.open_suggestions_see_all():
+            entry['stop_reason'] = 'cta_tap_failed'
+            return entry
+
+        entry['contacts_dialog'] = self.handle_contacts_access_dialog(contacts_choice)
+        if entry['contacts_dialog'] == 'other_dialog':
+            # Another Instagram alert (restriction, update): not handled here, and certainly
+            # not followed by a follow.
+            entry['stop_reason'] = 'blocked_by_dialog'
+        elif not self._wait_for_discover_screen():
+            entry['stop_reason'] = 'discover_screen_not_reached'
+        else:
+            entry['entered'] = True
+            return entry
+
+        entry['returned_to_feed'] = self._return_to_feed()
+        return entry
+
     def scroll_discover_suggestions(self) -> bool:
         """Scroll one screen down in the suggestions list (humanized)."""
         try:
@@ -501,25 +532,11 @@ class FeedSuggestionsMixin:
             result['stop_reason'] = 'carousel_not_framed'
             return result
 
-        if not self.open_suggestions_see_all():
-            result['stop_reason'] = 'cta_tap_failed'
-            return result
-
-        result['contacts_dialog'] = self.handle_contacts_access_dialog(
-            config.get('suggestions_contacts_choice', 'deny')
-        )
-        if result['contacts_dialog'] == 'other_dialog':
-            # Another Instagram alert (restriction, update): not handled here,
-            # and certainly not followed by a follow.
-            result['stop_reason'] = 'blocked_by_dialog'
-            self._return_to_feed()
-            result['returned_to_feed'] = True
-            return result
-
-        if not self._wait_for_discover_screen():
-            result['stop_reason'] = 'discover_screen_not_reached'
-            self._return_to_feed()
-            result['returned_to_feed'] = True
+        entry = self.enter_discover_people_screen(config.get('suggestions_contacts_choice', 'deny'))
+        result['contacts_dialog'] = entry['contacts_dialog']
+        if not entry['entered']:
+            result['stop_reason'] = entry['stop_reason']
+            result['returned_to_feed'] = entry['returned_to_feed']
             return result
 
         result['entered'] = True

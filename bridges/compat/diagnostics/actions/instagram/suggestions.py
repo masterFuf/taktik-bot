@@ -106,12 +106,30 @@ def probe_carousel(a, p):
     return a.feed.has_feed_suggestions_carousel()
 
 
+# What the answer to the contacts prompt was, as the report says it.
+_CONTACTS_LABELS = {
+    "denied": "fenetre des contacts refusee",
+    "allowed": "fenetre des contacts acceptee",
+    "absent": "pas de fenetre des contacts",
+    "other_dialog": "autre alerte Instagram, laissee intacte",
+}
+
+
 @action("suggestions.open_see_all")
 def open_see_all(a, p):
-    """Tap the carousel CTA to open the people discovery screen."""
-    ok = a.feed.open_suggestions_see_all()
-    return {"success": bool(ok),
-            "message": "CTA 'See all' tape" if ok else "CTA 'See all' introuvable ou tap echoue"}
+    """Open the people discovery screen the way every suggestions pass enters it: the carousel's
+    "See all", the answer to the contacts-access prompt Instagram shows right after it (deny, the
+    passes' default), then the screen (``enter_discover_people_screen``)."""
+    entry = a.feed.enter_discover_people_screen()
+    if entry["entered"]:
+        return {"success": True,
+                "message": f"Ecran suggestions ouvert — {_CONTACTS_LABELS.get(entry['contacts_dialog'], entry['contacts_dialog'])}",
+                "details": entry}
+    stop = entry["stop_reason"]
+    return {"success": False,
+            "message": (f"Ecran suggestions non ouvert : {_STOP_LABELS.get(stop, stop)} — "
+                        f"{_CONTACTS_LABELS.get(entry['contacts_dialog'], entry['contacts_dialog'])}"),
+            "details": entry}
 
 
 @action("suggestions.handle_contacts_dialog")

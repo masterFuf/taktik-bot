@@ -98,9 +98,9 @@ class DiscoverSuggestionsVisitMixin:
                                 delay_range: tuple = (4, 12)) -> Dict[str, Any]:
         """Full pass: home -> carousel -> discovery screen -> visits -> back.
 
-        Same entry path as the bulk follow, contacts modal included, since it is already
-        proven. What happens once on the screen is the qualified visit rather than a
-        follow from the list.
+        Same entry as the bulk follow, contacts modal included (``enter_discover_people_screen``).
+        What happens once on the screen is the qualified visit rather than a follow from the
+        list.
 
         Known and accepted limit: the entry goes through the feed carousel, itself served
         by the algorithm. Until a deterministic entry is wired, this pass can come back
@@ -130,23 +130,11 @@ class DiscoverSuggestionsVisitMixin:
             result['stop_reason'] = 'carousel_not_framed'
             return result
 
-        if not self.open_suggestions_see_all():
-            result['stop_reason'] = 'cta_tap_failed'
-            return result
-
-        result['contacts_dialog'] = self.handle_contacts_access_dialog(
-            config.get('suggestions_contacts_choice', 'deny')
-        )
-        if result['contacts_dialog'] == 'other_dialog':
-            # Another Instagram alert (restriction, update): not handled here,
-            # and certainly not visited past.
-            result['stop_reason'] = 'blocked_by_dialog'
-            result['returned_to_feed'] = self._return_to_feed()
-            return result
-
-        if not self._wait_for_discover_screen():
-            result['stop_reason'] = 'discover_screen_not_reached'
-            result['returned_to_feed'] = self._return_to_feed()
+        entry = self.enter_discover_people_screen(config.get('suggestions_contacts_choice', 'deny'))
+        result['contacts_dialog'] = entry['contacts_dialog']
+        if not entry['entered']:
+            result['stop_reason'] = entry['stop_reason']
+            result['returned_to_feed'] = entry['returned_to_feed']
             return result
 
         result['entered'] = True
