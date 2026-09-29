@@ -28,6 +28,10 @@ imports what it may not:
 - `cli-no-bridges`: the CLI imports no bridge. It is the reference the app mirrors (anti-derive
   rule 2): what it shares with the bridges (the device primitives, the device bases a run is
   prepared with, the Taktik Keyboard service) lives in the core, which both hosts import.
+- `actions-no-workflows`: inside a platform, `actions/` (a gesture or a reading) imports none of its
+  `workflows/`: a workflow composes actions, never the other way round. It holds for the platforms whose
+  inside is filed (tree lot 9); the others are named in `PLATFORMS_NOT_FILED` of `audit_tree_layout.py`,
+  read from there, the one list of them.
 - `known-core-families`: `taktik/core` holds only the families above; a new root family documents
   its owner in AGENTS.md first, then joins the contracts here.
 - `import-resolves`: every import of our own packages (`taktik`, `bridges`) names a module that
@@ -68,6 +72,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Mapping
 
+from audit_tree_layout import PLATFORMS_NOT_FILED
 from python_imports import ImportStatement, defined_names, import_statements, module_name
 from ratchet import Ratchet, compare, enforce
 
@@ -130,6 +135,22 @@ def is_platform(name: str) -> bool:
     return name.startswith(f"{PLATFORMS}/")
 
 
+def platform_part(name: str) -> tuple[str, str] | None:
+    """(platform, first folder inside it) of a dotted name: `taktik.core.social_media.instagram.actions.x` ->
+    (`instagram`, `actions`); a package is inside itself (`...instagram.actions`); None outside a platform."""
+    parts = name.split(".")
+    if parts[:3] != ["taktik", "core", PLATFORMS] or len(parts) < 5:
+        return None
+    return parts[3], parts[4]
+
+
+def actions_import_workflows(importer: str, imported: str) -> bool:
+    """`actions-no-workflows`: a module of a filed platform's `actions/` names a module of its `workflows/`."""
+    source, target = platform_part(importer), platform_part(imported)
+    return (source is not None and target is not None and source[0] == target[0]
+            and source[0] not in PLATFORMS_NOT_FILED and source[1] == "actions" and target[1] == "workflows")
+
+
 def in_core(name: str) -> bool:
     return name == "core" or name in CORE_FAMILIES or is_platform(name)
 
@@ -138,7 +159,8 @@ def in_core(name: str) -> bool:
 class Contract:
     name: str
     rule: str
-    forbids: Callable[[str, str], bool]  # (importer family, imported family)
+    forbids: Callable[[str, str], bool]  # (importer family, imported family), or their names when `on_names`
+    on_names: bool = False
 
 
 CONTRACTS = (
@@ -159,6 +181,8 @@ CONTRACTS = (
              lambda src, dst: src != "database" and dst in SQL_DRIVERS),
     Contract("cli-no-bridges", "the CLI imports no bridge",
              lambda src, dst: src == "cli" and dst == "bridges"),
+    Contract("actions-no-workflows", "a platform's actions never import its workflows",
+             actions_import_workflows, on_names=True),
 )
 
 #: (contract, file): (ceiling, why it holds and what removes it). The list only shrinks.
@@ -179,6 +203,11 @@ EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
     ("shared-below-transverse", "taktik/core/shared/diagnostics/foreground_guard.py"): (
         1, "The foreground guard asks the clone package map whether the app in front is still the "
            "run's platform: the same data as `app_inspection.py`, the same way out."),
+    ("actions-no-workflows", "taktik/core/social_media/instagram/actions/__init__.py"): (
+        1, "The package's deprecated `InstagramActions` (a public name of `taktik.core.social_media.instagram`) "
+           "wraps `ModernInstagramActions`, which lives with the automation it serves "
+           "(`workflows/automation/modern_instagram_actions.py`). Removing the deprecated class, a break of the "
+           "package's API, removes the entry."),
 }
 
 
@@ -296,7 +325,10 @@ def crossings(module: SourceModule) -> dict[str, list[tuple[int, str]]]:
     found: dict[str, list[tuple[int, str]]] = {}
     for statement in module.statements:
         for contract in CONTRACTS:
-            names = sorted((t for t in statement.targets if contract.forbids(source, family(t))), key=len)
+            if contract.on_names:
+                names = sorted((t for t in statement.targets if contract.forbids(module.name, t)), key=len)
+            else:
+                names = sorted((t for t in statement.targets if contract.forbids(source, family(t))), key=len)
             if names:
                 found.setdefault(contract.name, []).append((statement.line, names[0]))
     return found
@@ -476,6 +508,14 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
         "a module named by its literal name that does not exist": fake(
             "scripts/fake.py", "import importlib\nimportlib.import_module('taktik.core.no_such_family')\n",
             "(import-resolves)"),
+        "an action of a filed platform imports its workflows": fake(
+            "taktik/core/social_media/instagram/actions/atomic/fake.py",
+            "from taktik.core.social_media.instagram.workflows.common.detection import is_reel_post\n",
+            "(actions-no-workflows)"),
+        "an action of another filed platform imports its workflows lazily": fake(
+            "taktik/core/social_media/youtube/actions/fake.py",
+            "def f():\n    import taktik.core.social_media.youtube.workflows.account.agent_handler\n",
+            "(actions-no-workflows)"),
     }
 
 
@@ -491,12 +531,22 @@ def caught(fake: dict) -> bool:
     return any(fake["expect"] in failure for failure in check(fake["modules"]))
 
 
+def platform_not_filed_left_alone(modules: Mapping[str, SourceModule]) -> bool:
+    """A platform of PLATFORMS_NOT_FILED keeps its actions -> workflows imports until its inside is filed."""
+    platform = sorted(PLATFORMS_NOT_FILED)[0]
+    path = f"taktik/core/social_media/{platform}/actions/fake.py"
+    fake = {**modules, path: read_module(path, f"import taktik.core.social_media.{platform}.workflows\n")}
+    return not any(path in failure and "(actions-no-workflows)" in failure for failure in check(fake))
+
+
 def self_test() -> int:
     modules = read_tree()
     cases = self_test_cases(modules)
     missed = [name for name, fake in cases.items() if not caught(fake)]
     if not deep_relative_caught(modules):
         missed.append("a new relative import of 3 dots")
+    if not platform_not_filed_left_alone(modules):
+        missed.append("a platform whose inside is not filed yet, left to its phase 3")
     control = check(modules)
     if missed or control:
         for name in missed:
