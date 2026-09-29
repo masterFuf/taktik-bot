@@ -242,7 +242,7 @@ def notifications_bridge(monkeypatch, tmp_path):
     workflow_module = importlib.import_module(f"{_MODULE}.notifications_workflow")
     screen = parse_ui_dump(_SCREEN.read_text(encoding="utf-8"))
 
-    class Runtime(bridge.NotificationsBridge):
+    class Runtime(bridge.InstagramDeviceBase):
         """The bridge's runtime, connected to a phone that answers nothing."""
 
         fail = False
@@ -258,7 +258,7 @@ def notifications_bridge(monkeypatch, tmp_path):
             return True
 
     monkeypatch.setattr(connection, "ConnectionService", lambda device_id: SimpleNamespace())
-    monkeypatch.setattr(bridge, "NotificationsBridge", Runtime)
+    monkeypatch.setattr(bridge, "InstagramDeviceBase", Runtime)
     workflow = _workflow_class(screen)
     monkeypatch.setattr(commands, "NotificationsEngagementWorkflow", workflow)
     _script_the_profile_screen(monkeypatch)

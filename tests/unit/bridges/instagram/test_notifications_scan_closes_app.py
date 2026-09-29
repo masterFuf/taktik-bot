@@ -53,7 +53,7 @@ class _Workflow:
 @pytest.fixture
 def bridge(monkeypatch):
     created = _Bridge()
-    monkeypatch.setattr(bridge_commands, "NotificationsBridge", lambda *a, **k: created)
+    monkeypatch.setattr(bridge_commands, "InstagramDeviceBase", lambda *a, **k: created)
     monkeypatch.setattr(commands, "NotificationsEngagementWorkflow", lambda *a, **k: created.workflow)
     # Keep the test silent and free of persistence side effects.
     monkeypatch.setattr(commands, "build_known_checker", lambda *a, **k: None)

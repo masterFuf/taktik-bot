@@ -117,13 +117,13 @@ class CliInstagramHost:
         return runtime
 
     def notifications_runtime(self, package_name: Optional[str], restart: bool):
-        """The notifications bridge's runtime (`NotificationsBridge`: the bridges' Instagram
-        device, clone-aware, and its clean restart), on the device the CLI already connected;
-        Instagram restarted first when the command asks for it (a scan)."""
+        """The device the notifications bridge connects too (`InstagramDeviceBase`: clone-aware,
+        and its clean restart), on the device the CLI already connected; Instagram restarted first
+        when the command asks for it (a scan)."""
         from taktik.core.shared.device.connected_device import on_connected_device
-        from bridges.instagram.notifications.bridge import NotificationsBridge
+        from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 
-        runtime = on_connected_device(NotificationsBridge(self.device_id, package_name=package_name),
+        runtime = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
                                       self.device_manager, self.device_id)
         if restart:
             runtime.restart_instagram()

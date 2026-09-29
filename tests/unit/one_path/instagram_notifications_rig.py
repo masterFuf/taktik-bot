@@ -171,7 +171,7 @@ class InstagramNotificationsRig:
         self.monkeypatch.setattr(run_halt, "_temoin", None)
         self.monkeypatch.setattr(run_halt, "_arret", None)
 
-        self.monkeypatch.setattr(bridge_commands, "NotificationsBridge",
+        self.monkeypatch.setattr(bridge_commands, "InstagramDeviceBase",
                                  lambda device_id, package_name=None: _Bridge(rig, device_id, package_name))
         # The base the bridge configures for its run: its helpers are the fakes below.
         self.monkeypatch.setattr(bridge_commands, "configure_db_service", lambda: None)

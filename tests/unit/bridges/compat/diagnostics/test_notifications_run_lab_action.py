@@ -1,9 +1,9 @@
 """The Lab runs a whole notifications run through the launcher the desktop bridge calls.
 
 `notifications.run` hands `run_instagram_notifications` (the one launcher of
-`instagram.engagement.notifications`, called by `notifications_bridge` and by the CLI) the bridge's
-own runtime, `NotificationsBridge`, on the Lab session's device instead of a second connection
-(decision D5 of 2026-09-27): the same clone-aware device, the same clean restart through
+`instagram.engagement.notifications`, called by `notifications_bridge` and by the CLI) the device
+the bridge connects, `InstagramDeviceBase`, on the Lab session's device instead of a second
+connection (decision D5 of 2026-09-27): the same clone-aware device, the same clean restart through
 `AppService`, by the helper the CLI uses (`taktik/core/shared/device/connected_device.py`). The run's
 events come back in the result, never on stdout (the session's own JSON lines).
 """
@@ -16,7 +16,7 @@ import pytest
 from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 from bridges.tools.lab.actions.instagram import app as lab_app
 from bridges.instagram.notifications import commands as bridge_commands
-from bridges.instagram.notifications.bridge import NotificationsBridge
+from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler
 
 SERIAL = "lab-device"
@@ -159,8 +159,8 @@ def test_the_runtime_is_the_bridge_class_on_the_session_device(monkeypatch, lab_
     ACTION_REGISTRY["notifications.run"](bundle, {})
 
     restarted, clone = runtimes
-    # The desktop bridge's own class, on the phone the session holds: no second connection.
-    assert isinstance(restarted, NotificationsBridge) and restarted.device_id == SERIAL
+    # The class the desktop bridge connects, on the phone the session holds: no second connection.
+    assert isinstance(restarted, InstagramDeviceBase) and restarted.device_id == SERIAL
     assert restarted._connection.device._device is raw
     assert clone.package_name == "com.instagram.clone"
     # A scan restarts Instagram through the bridges' AppService, a row verb does not; the run's
@@ -183,7 +183,7 @@ def test_the_lab_and_the_cli_connect_a_bridge_by_one_helper(monkeypatch):
     host = instagram_host.CliInstagramHost(SimpleNamespace(device=object()), SERIAL)
     host.notifications_runtime(None, restart=False)
 
-    assert connected == ["NotificationsBridge"]
+    assert connected == ["InstagramDeviceBase"]
     assert not hasattr(instagram_host, "_on_connected_device")
 
 

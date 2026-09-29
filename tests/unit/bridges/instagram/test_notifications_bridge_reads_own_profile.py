@@ -7,7 +7,7 @@ instead of its own: the reader of our profile asked the shared one for what only
 (`batch_xpath_check`, the package in `app_id`). The Lab hid it: its actions hand the workflows its own
 Instagram facade.
 
-The path is the bridge's: its connection (`_connect`, the real `NotificationsBridge.connect()`, on the
+The path is the bridge's: its connection (`_connect`, the real `InstagramDeviceBase.connect()`, on the
 phone a host hands it), then the scan's step (`_refresh_own_account`). The screens are real dumps of
 Instagram 410 in French, anonymized: the home feed (`ig410_fr_home_feed.xml`, Pixel 3) and our own
 profile (`ig410_fr_own_profile_with_suggestions.xml`, Pixel 3a); a tap on the tab bar shows the

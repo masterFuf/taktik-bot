@@ -528,18 +528,18 @@ def run_notifications(a, p):
 
 
 def _connected_runtime(a, device_id: str, package_name, restart: bool):
-    """The desktop bridge's runtime (`NotificationsBridge`) on the phone the Lab session holds: the
-    same clone-aware device and the same clean restart (`AppService`) as the bridge and the CLI,
-    through the helper the CLI uses, without a second connection."""
+    """The device the notifications bridge connects (`InstagramDeviceBase`) on the phone the Lab
+    session holds: the same clone-aware device and the same clean restart (`AppService`) as the
+    bridge and the CLI, through the helper the CLI uses, without a second connection."""
     from taktik.core.shared.device.connected_device import on_connected_device
     from bridges.tools.lab.actions.instagram.app import _session_app_manager
-    from bridges.instagram.notifications.bridge import NotificationsBridge
+    from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 
     # The session's app manager (the bridge's `AppService` stops and launches through it), on the
     # raw device under the session's facade: the bridge puts its own proxy and facade on it.
     manager = _session_app_manager(a)
     manager.device = getattr(a.device, "_device", None) or a.device
-    runtime = on_connected_device(NotificationsBridge(device_id, package_name=package_name), manager, device_id)
+    runtime = on_connected_device(InstagramDeviceBase(device_id, package_name=package_name), manager, device_id)
     if restart:
         runtime.restart_instagram()
     return runtime

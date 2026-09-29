@@ -13,18 +13,18 @@ from __future__ import annotations
 import sys
 
 from bridges.instagram.notifications.ai import notifications_ai_service
-from bridges.instagram.notifications.bridge import NotificationsBridge
 from bridges.instagram.notifications.events import emit_notif_error, emit_notif_json
 from bridges.instagram.common.ipc import logger
 from taktik.core.database import configure_db_service
+from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 from taktik.core.social_media.instagram.workflows.management.notifications.agent_handler import (
     NotificationsCommandError,
     run_instagram_notifications,
 )
 
 
-def _connect(device_id: str, package_name: str = None, *, restart: bool = True) -> NotificationsBridge:
-    bridge = NotificationsBridge(device_id, package_name=package_name)
+def _connect(device_id: str, package_name: str = None, *, restart: bool = True) -> InstagramDeviceBase:
+    bridge = InstagramDeviceBase(device_id, package_name=package_name)
     if not bridge.connect():
         emit_notif_error("Failed to connect to device")
         sys.exit(1)
