@@ -1,5 +1,5 @@
 {
-"_comment": "Human gesture calibration derived from real Instagram sessions (2 devices). Tuples are normalised screen ratios: nx,ny = start point / (W,H); ndy,ndx = displacement / (H,W) (ndy<0 = upward = feed forward); dur = duration ms. Bootstrap-sample then denormalise onto the target screen. Do NOT hand-edit: regenerate via scripts/gen_human_scroll_calibration.py.",
+"_comment": "Human gesture calibration derived from real Instagram sessions (2 devices). Tuples are normalised screen ratios: nx,ny = start point / (W,H); ndy,ndx = displacement / (H,W) (ndy<0 = upward = feed forward); dur = duration ms. Bootstrap-sample then denormalise onto the target screen. Do NOT hand-edit: regenerate via scripts/generate/gen_human_scroll_calibration.py.",
 "record_resolution": {
 "w": 720,
 "h": 1600

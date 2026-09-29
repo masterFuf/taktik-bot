@@ -12,7 +12,7 @@ it, its centre is not the element's, and it is set aside too (the +887 px left o
 photo cut by the bottom of the list before the scroll and by its top after it, for about 1330 px of travel).
 
 The screens are the probe's own readings from that auto-test (Instagram 410 in English, Pixel 3a,
-1080x2220), the screen before and after its gesture, anonymized together (`scripts/anonymize_dump.py`,
+1080x2220), the screen before and after its gesture, anonymized together (`scripts/lab/anonymize_dump.py`,
 one name per person across the pair); the gesture is the only thing that changes the screen.
 """
 

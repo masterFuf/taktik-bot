@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "lab"))
 
 import measure_screen_reading as script  # noqa: E402
 

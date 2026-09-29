@@ -9,7 +9,7 @@ no call can loop and no value lands on a bound more often than its neighbours.
 `lognormal_with_mean` builds on it for pauses: right-skewed like human delays, and with a mean that
 stays exactly the configured one once truncated to its bounds.
 
-`scripts/audit_no_dry_clamp.py` keeps new clamps of random draws out of the code.
+`scripts/audits/audit_no_dry_clamp.py` keeps new clamps of random draws out of the code.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 #!/bin/sh
 # taktik-leak-guard: refuses a commit that would publish a guarded word or an office-hour trace.
-# Installed as pre-commit, pre-merge-commit and commit-msg by scripts/install_hooks.py; logic in scripts/hooks/leak_guard.py.
+# Installed as pre-commit, pre-merge-commit and commit-msg by scripts/hooks/install_hooks.py; logic in scripts/hooks/leak_guard.py.
 top=$(git rev-parse --show-toplevel) || exit 1
 guard="$top/scripts/hooks/leak_guard.py"
 [ -f "$guard" ] || guard="$(dirname "$0")/leak_guard.py"

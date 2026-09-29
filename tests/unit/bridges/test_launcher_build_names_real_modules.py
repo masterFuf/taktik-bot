@@ -16,7 +16,7 @@ import pytest
 
 CORE = Path(__file__).resolve().parents[3]
 BUILD_ALL = CORE.parent / "app" / "scripts" / "build" / "build-all.ps1"
-sys.path.insert(0, str(CORE / "scripts"))
+sys.path.insert(0, str(CORE / "scripts" / "audits"))
 
 import audit_import_layers as audit  # noqa: E402
 
@@ -52,7 +52,7 @@ def importable():
     return audit.importable_names(audit.read_tree())
 
 
-@pytest.mark.parametrize("definition", ["taktik_launcher.spec", "scripts/build_exe.py"])
+@pytest.mark.parametrize("definition", ["taktik_launcher.spec", "scripts/build/build_exe.py"])
 def test_the_core_build_definitions_name_modules_that_exist(definition, importable):
     named = _named_by_python(CORE / definition)
 

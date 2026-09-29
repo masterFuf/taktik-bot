@@ -1,7 +1,7 @@
 # App compatibility
 
 <!-- GENERATED - do not edit. Sources: taktik/core/compat/data/app_builds.json and
-     taktik/core/compat/data/overrides/<app>.yaml. Regenerate: python scripts/audit_compatibility_file.py --write -->
+     taktik/core/compat/data/overrides/<app>.yaml. Regenerate: python scripts/audits/audit_compatibility_file.py --write -->
 
 The Instagram and TikTok versions TAKTIK supports. Install the **original, unmodified** APK
 of a listed version; the download column opens a search for that exact version on

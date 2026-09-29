@@ -11,7 +11,7 @@ Three sources, none of them written twice:
   version adjustments no phone of ours runs yet (``override_status``: ``testing``).
 
 ``COMPATIBILITY.md`` at the repository root and the desktop app's version list are both generated
-from here. ``scripts/audit_compatibility_file.py`` fails when the published file and these sources
+from here. ``scripts/audits/audit_compatibility_file.py`` fails when the published file and these sources
 disagree.
 """
 
@@ -34,7 +34,7 @@ COMPATIBILITY_PATH = REPO_ROOT / "COMPATIBILITY.md"
 BUILD_STATUSES = ("validated", "testing")
 # A search, never a guessed release page: the mirror's page slugs are not derivable from a version.
 APKMIRROR_SEARCH = "https://www.apkmirror.com/?post_type=app_release&searchtype=apk&s={query}"
-REGENERATE_COMMAND = "python scripts/audit_compatibility_file.py --write"
+REGENERATE_COMMAND = "python scripts/audits/audit_compatibility_file.py --write"
 
 
 class CompatibilitySourceError(ValueError):

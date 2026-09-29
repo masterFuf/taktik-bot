@@ -13,7 +13,7 @@ kept showing a letter in a coloured circle. The AI classification, wired separat
 
 Only the stats sender ever differed between the two bridges, so it is the only parameter. Adding a
 callback to the family now reaches every bridge at once, which is the whole point:
-`scripts/audit_workflow_callbacks.py` fails if a bridge wires one by hand again.
+`scripts/audits/audit_workflow_callbacks.py` fails if a bridge wires one by hand again.
 """
 
 from __future__ import annotations

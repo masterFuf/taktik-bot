@@ -32,7 +32,7 @@ from typing import Dict, Tuple
 
 # Every entry here was written WRONG by a production model at least once, on a real post.
 # French: 216 replayed comments plus a corpus mining pass over 427 more, 2026-09-09.
-# `scripts/mine_agreement_glossary.py` finds them without asking a model to judge anything:
+# `scripts/generate/mine_agreement_glossary.py` finds them without asking a model to judge anything:
 # it counts what the reference model wrote unanimously, and reports where the cheap one
 # contradicts it. Re-run it as the published corpus grows.
 GLOSSARY: Dict[str, Tuple[str, ...]] = {

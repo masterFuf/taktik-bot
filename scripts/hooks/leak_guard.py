@@ -38,7 +38,7 @@ DENYLIST_ENV = "TAKTIK_LEAK_DENYLIST"
 
 OFFICE_FIRST_HOUR = 8
 OFFICE_END_HOUR = 18
-# Anonymized captures replace every clock with noon (scripts/anonymize_dump.py).
+# Anonymized captures replace every clock with noon (scripts/lab/anonymize_dump.py).
 ANONYMIZED_CLOCK = (12, 0)
 SYSTEM_CLOCK_ID = "com.android.systemui:id/clock"
 

@@ -22,7 +22,7 @@ import pytest
 
 # The audited script lives in this same repository, so resolve it from the repo root
 # (parents[3]) rather than through the parent folder holding the sibling repositories.
-SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "audit_cli_health.py"
+SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "audits" / "audit_cli_health.py"
 
 
 @pytest.fixture(scope="module")

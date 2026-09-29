@@ -188,7 +188,7 @@ documentation.
 Les versions d'Instagram et de TikTok prises en charge, par architecture, avec un lien de
 téléchargement de l'APK d'origine pour chacune, sont dans **[COMPATIBILITY.md](COMPATIBILITY.md)**
 (en anglais). Ce fichier est généré depuis les données de sélecteurs du bot
-(`python scripts/audit_compatibility_file.py --write`) et vérifié par le même script.
+(`python scripts/audits/audit_compatibility_file.py --write`) et vérifié par le même script.
 
 Le bot lit la langue de l'app, anglais ou français, au début d'un run et prend les libellés qui vont
 avec. La ligne de commande elle-même parle anglais et français (`--lang en|fr`).

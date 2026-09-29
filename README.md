@@ -185,7 +185,7 @@ The command line reference (parameters, AI key, one example per workflow) is in 
 
 The Instagram and TikTok versions TAKTIK supports, per CPU architecture, with a link to download
 the original APK of each, are listed in **[COMPATIBILITY.md](COMPATIBILITY.md)**. That file is
-generated from the bot's own selector data (`python scripts/audit_compatibility_file.py --write`)
+generated from the bot's own selector data (`python scripts/audits/audit_compatibility_file.py --write`)
 and checked by the same script, so it always matches the code.
 
 The bot reads the app's language, English or French, at the start of a run and uses the matching

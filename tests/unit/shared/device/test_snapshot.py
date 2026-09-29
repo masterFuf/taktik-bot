@@ -306,11 +306,11 @@ CORPUS = Path(os.environ.get("TAKTIK_DEBUG_UI") or Path(__file__).resolve().pare
 
 @pytest.mark.skipif(not CORPUS.is_dir(), reason="no captured dumps here (they never enter the repository)")
 def test_equality_on_a_sample_of_real_dumps():
-    """A sample; the whole corpus is `scripts/check_snapshot_equality.py`."""
+    """A sample; the whole corpus is `scripts/lab/check_snapshot_equality.py`."""
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
-        "check_snapshot_equality", Path(__file__).resolve().parents[4] / "scripts" / "check_snapshot_equality.py")
+        "check_snapshot_equality", Path(__file__).resolve().parents[4] / "scripts" / "lab" / "check_snapshot_equality.py")
     check = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(check)
     selectors = check.catalogue_selectors()[0][::10]

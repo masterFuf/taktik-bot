@@ -19,7 +19,7 @@ def _string_constants(path: Path) -> list[str]:
 
 
 def test_build_exe_builds_a_folder():
-    args = _string_constants(CORE / "scripts" / "build_exe.py")
+    args = _string_constants(CORE / "scripts" / "build" / "build_exe.py")
 
     assert "--onedir" in args
     assert "--onefile" not in args

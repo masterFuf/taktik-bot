@@ -41,7 +41,7 @@ from taktik.core.database.local.versions.runner import (
 from taktik.core.database.local.versions.sql_text import split_statements, strip_comments
 
 CORE_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(CORE_ROOT / "scripts"))
+sys.path.insert(0, str(CORE_ROOT / "scripts" / "generate"))
 
 import build_schema_baseline  # noqa: E402
 
@@ -197,7 +197,7 @@ def test_baseline_holds_only_the_bots_objects():
 
 def test_bot_steps_add_nothing_the_baseline_lacks():
     """A column or table added to the bot's own un-numbered steps without regenerating
-    migration 1 (scripts/build_schema_baseline.py --from-code) fails here."""
+    migration 1 (scripts/generate/build_schema_baseline.py --from-code) fails here."""
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     try:

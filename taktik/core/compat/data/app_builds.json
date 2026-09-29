@@ -1,5 +1,5 @@
 {
-  "_comment": "Source of the app builds TAKTIK installs, newest first, and of the status of the adjusted versions (override_status: testing = adjusted by the bot, run on none of our phones: Under validation). COMPATIBILITY.md and the desktop app's version lists are generated from this file: python scripts/audit_compatibility_file.py --write",
+  "_comment": "Source of the app builds TAKTIK installs, newest first, and of the status of the adjusted versions (override_status: testing = adjusted by the bot, run on none of our phones: Under validation). COMPATIBILITY.md and the desktop app's version lists are generated from this file: python scripts/audits/audit_compatibility_file.py --write",
   "architectures": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"],
   "apps": {
     "instagram": {

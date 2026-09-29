@@ -90,7 +90,7 @@ def test_a_posts_of_accounts_menu_run_goes_through_the_scraping_launcher(igs_rig
 def test_the_interactive_menu_builds_no_engine_of_its_own():
     """Nothing the interactive menu runs is built by the menu itself: every flow goes through its
     launcher."""
-    sys.path.insert(0, str(CORE / "scripts"))
+    sys.path.insert(0, str(CORE / "scripts" / "audits"))
     import workflow_launchers
 
     inputs = workflow_launchers.collect_inputs()

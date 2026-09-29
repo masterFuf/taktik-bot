@@ -10,7 +10,7 @@ from pathlib import Path
 from lxml import etree
 
 CORE = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(CORE / "scripts"))
+sys.path.insert(0, str(CORE / "scripts" / "lab"))
 
 import anonymize_dump  # noqa: E402
 

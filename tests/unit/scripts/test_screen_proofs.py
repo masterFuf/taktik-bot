@@ -14,7 +14,7 @@ import pytest
 import yaml
 
 CORE = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(CORE / "scripts"))
+sys.path.insert(0, str(CORE / "scripts" / "lab"))
 
 import check_snapshot_equality as equality  # noqa: E402
 import replay_screen_decisions as replay  # noqa: E402
@@ -106,7 +106,7 @@ def _child(tmp_path, xml, version, language="en", platform="tiktok"):
     files.write_text(str(capture), encoding="utf-8")
     env = {**os.environ, "PYTHONPATH": str(CORE), "PYTHONIOENCODING": "utf-8"}
     done = subprocess.run(
-        [sys.executable, str(CORE / "scripts" / "replay_screen_decisions.py"), "--child", "decisions",
+        [sys.executable, str(CORE / "scripts" / "lab" / "replay_screen_decisions.py"), "--child", "decisions",
          "--files", str(files), "--out", str(out), "--version", version, "--language", language,
          "--platform", platform],
         cwd=str(CORE), env=env, capture_output=True, text=True, encoding="utf-8")

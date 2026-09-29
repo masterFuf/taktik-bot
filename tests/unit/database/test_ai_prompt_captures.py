@@ -6,7 +6,7 @@ path, twice per comment (`record` when the model answers, `attach_comment` once 
 published), so a fresh instance per call meant two full database initialisations per comment --
 and two SQLite connections nobody ever closed.
 
-`scripts/audit_database_singleton.py` catches the direct call statically; this test locks the
+`scripts/audits/audit_database_singleton.py` catches the direct call statically; this test locks the
 behaviour: no construction at all, and the rows land in the base the singleton already holds.
 """
 

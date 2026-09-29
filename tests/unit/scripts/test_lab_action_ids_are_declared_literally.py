@@ -1,7 +1,7 @@
 """Every Lab action id the bot registers is visible to a reader of the source.
 
 The desktop app's gate (`check-cartography-contracts.cjs`) and the census
-(`scripts/inventory_capabilities.py`) compare the bot's action ids with the Lab catalogue by
+(`scripts/audits/inventory_capabilities.py`) compare the bot's action ids with the Lab catalogue by
 reading the source, not by importing it. An id registered any other way (a loop, a computed name)
 would escape both and the mirror would pass while a capability had no Lab entry.
 """
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
 
 import inventory_capabilities as inventory  # noqa: E402
 

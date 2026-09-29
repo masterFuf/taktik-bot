@@ -7,7 +7,7 @@ first in the tree and not clickable: the harvest tapped it, stayed on the page, 
 collected, on every sound (Lab auto-test, Pixel 3a, 28/09).
 
 The screen is a real dump of TikTok 43.1.4 in French (Pixel 3a), anonymized
-(`scripts/anonymize_dump.py`), read by uiautomator2's own `XPathEntry`, the engine `first_matching`
+(`scripts/lab/anonymize_dump.py`), read by uiautomator2's own `XPathEntry`, the engine `first_matching`
 drives on the phone.
 """
 

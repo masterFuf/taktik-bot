@@ -3,7 +3,7 @@
 `schema` is the vocabulary, `shared` what every bridge shares, `stop_reasons` the catalogues of why
 a run ends, one module per platform declares its workflows, `diagnostics` the lines of the
 diagnostic tools, `registry` lists them. Plain data that imports no workflow: the generator of the app's
-types (`scripts/workflow_contract.py`) never builds a run nor touches a phone.
+types (`scripts/audits/workflow_contract.py`) never builds a run nor touches a phone.
 """
 
 from .registry import TOOL_CONTRACTS, WORKFLOW_CONTRACTS, contracts_by_id

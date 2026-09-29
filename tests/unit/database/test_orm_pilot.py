@@ -7,7 +7,7 @@ Two layers of coverage:
     and queried without a SQLAlchemy configuration error.
 
 Column-parity against the REAL migration schema is covered by
-scripts/orm_pilot/validate_entities.py (run against a copy of the live DB).
+scripts/dev/orm_pilot/validate_entities.py (run against a copy of the live DB).
 """
 import os
 import sqlite3
@@ -25,7 +25,7 @@ from taktik.core.database.orm.registry import PILOT_ENTITIES
 # written out here: a hand-written CREATE TABLE is a second description of the mapping
 # that ages on its own, and it aged -- it went five columns behind `interactions` and
 # failed the test while the entity was the correct one. Parity against the REAL
-# migration schema belongs to scripts/orm_pilot/validate_entities.py, which runs on a
+# migration schema belongs to scripts/dev/orm_pilot/validate_entities.py, which runs on a
 # copy of the live DB; this fixture only has to hold rows the mapping can read back.
 _FIXTURE = {
     "app_config": {

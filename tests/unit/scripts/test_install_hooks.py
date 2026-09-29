@@ -4,7 +4,7 @@ import importlib.util
 import pathlib
 
 CORE = pathlib.Path(__file__).resolve().parents[3]
-_spec = importlib.util.spec_from_file_location("install_hooks", CORE / "scripts" / "install_hooks.py")
+_spec = importlib.util.spec_from_file_location("install_hooks", CORE / "scripts" / "hooks" / "install_hooks.py")
 install_hooks = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(install_hooks)
 

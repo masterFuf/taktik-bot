@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
 
 import audit_type_errors as audit  # noqa: E402
 
@@ -90,7 +90,7 @@ def test_the_gate_judges_the_counts_against_its_baseline(monkeypatch, tmp_path, 
     assert with_errors(3) == 1  # a new error
     assert "taktik/a.py: 3 type error(s), baseline 2" in capsys.readouterr().out
     assert with_errors(1) == 1  # a decrease not recorded
-    assert "Lower the baseline: python scripts/audit_type_errors.py --update-baseline" in capsys.readouterr().out
+    assert "Lower the baseline: python scripts/audits/audit_type_errors.py --update-baseline" in capsys.readouterr().out
     assert with_errors(2) == 0  # the baseline up to date
 
     # The counts match, but a module did not resolve: the counts themselves are in doubt.

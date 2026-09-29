@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits"))
 
 import audit_bridge_entrypoints as audit  # noqa: E402
 
@@ -23,7 +23,7 @@ def _sources(**files):
     return audit.Sources(
         manifest=MANIFEST,
         bridge_files=bridge_files,
-        build_files={"core/scripts/build_exe.py": "json.loads(Path('bridges.manifest.json').read_text())"},
+        build_files={"core/scripts/build/build_exe.py": "json.loads(Path('bridges.manifest.json').read_text())"},
         app_paths=APP_PATHS,
     )
 

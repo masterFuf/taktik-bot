@@ -22,7 +22,7 @@
 # `french` carry a gender in Lexique that modern usage contradicts, and correcting them
 # fabricated a mistake. 9 words were dropped that way.
 #
-# REGENERATE:  python scripts/build_agreement_lexicon.py --lexique <Lexique383.tsv> --db <db>
+# REGENERATE:  python scripts/generate/build_agreement_lexicon.py --lexique <Lexique383.tsv> --db <db>
 # Generated 2026-09-10 · 4851 nouns
 #
 # THIS FILE IS A DERIVATIVE OF LEXIQUE 3.83 AND IS THEREFORE CC BY-SA 4.0.

@@ -15,7 +15,7 @@ taktik/core/app/ai/data/agreement_fr.tsv
 
     Changes: only nouns whose gender Lexique gives are kept, and only when
     a second source agrees (see the header of the file and
-    scripts/build_agreement_lexicon.py, which rebuilds it).
+    scripts/generate/build_agreement_lexicon.py, which rebuilds it).
 
     The file, and any adaptation of it, is distributed under CC BY-SA 4.0,
     not under the GPL.

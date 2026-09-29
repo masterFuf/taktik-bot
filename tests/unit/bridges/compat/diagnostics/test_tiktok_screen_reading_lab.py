@@ -3,7 +3,7 @@
 `tt.detection.read_screen` calls the production `DetectionActions.read_screen`, and the runner
 names the screen before and after every action from the same reading instead of waiting out
 `is_on_inbox_page` then `is_on_for_you_page` selector by selector. The screens are real dumps of
-TikTok 43.1.4 in French (Pixel 3a), anonymized (`scripts/anonymize_dump.py`), read by uiautomator2's
+TikTok 43.1.4 in French (Pixel 3a), anonymized (`scripts/lab/anonymize_dump.py`), read by uiautomator2's
 own `XPathEntry`.
 """
 
