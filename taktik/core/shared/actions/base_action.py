@@ -366,11 +366,22 @@ class SharedBaseAction:
         return False
     
     def _is_element_present(self, selectors: Union[List[str], str]) -> bool:
-        """Check if element exists (instant check, no waiting), on one photo."""
+        """Check if element exists (instant check, no waiting), on one photo. A screen that could
+        not be read finds nothing: a caller for whom that is no « absent » asks `_element_presence`."""
+        return bool(self._element_presence(selectors))
+
+    def _element_presence(self, selectors: Union[List[str], str]) -> Optional[bool]:
+        """Whether an element of `selectors` is on screen, on one photo; None when the screen could
+        not be read (a failed photo finds nothing, which is not « absent »). No selector: False,
+        nothing was asked."""
         if isinstance(selectors, str):
             selectors = [selectors]
+        if not selectors:
+            return False
 
-        photo = self._turn_photo() if selectors else None
+        photo = self._turn_photo()
+        if photo is None:
+            return None
         for _found in self._each_found(photo, selectors):
             return True
 

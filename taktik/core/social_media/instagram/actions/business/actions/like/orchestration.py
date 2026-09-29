@@ -330,7 +330,7 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 if do_like_this or do_comment_this:
                     already_liked = self._is_post_already_liked() if do_like_this else False
                     if already_liked is None:
-                        self.logger.debug(f"Post #{posts_seen}: its like button cannot be shown - not liked")
+                        self.logger.debug(f"Post #{posts_seen}: whether it is liked is unknown - not liked")
                         do_like_this = False
                     elif already_liked:
                         self.logger.debug(f"Post #{posts_seen} already liked - skipping to avoid unlike")
@@ -430,7 +430,13 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 self.logger.warning("Not on a post screen")
                 return False
 
-            if self.detection_actions.is_post_liked():
+            # Its heart is read before it is tapped: a tap on the heart of a liked post takes the
+            # like back, so a heart that cannot be read is not tapped.
+            liked = self.detection_actions.is_post_liked()
+            if liked is None:
+                self.logger.warning("Whether the post is liked is unknown: no like")
+                return False
+            if liked:
                 self.logger.debug("Post already liked")
                 return True
 
@@ -440,10 +446,18 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             # verified via the like button's @selected state (liked_button_indicators covers
             # the reel like_button), so a successful tap is recognised instead of falling
             # through to the button (which would toggle the like back off).
-            if should_double_tap_like() and self._double_tap_like_image():
-                self.logger.debug("Post liked via image double-tap")
-                self.record_post_like(record_as)
-                return True
+            if should_double_tap_like():
+                double_tap_liked = self._double_tap_like_image()
+                if double_tap_liked is None:
+                    self.logger.warning(
+                        "Whether the double tap liked the post is unknown: its heart is not tapped, "
+                        "which would take back a like the double tap gave"
+                    )
+                    return False
+                if double_tap_liked:
+                    self.logger.debug("Post liked via image double-tap")
+                    self.record_post_like(record_as)
+                    return True
 
             if self.click_actions.like_post():
                 self.logger.debug("Post liked successfully (button)")
@@ -717,10 +731,12 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             self.logger.error(f"Error commenting: {e}")
             return False
 
-    def _double_tap_like_image(self) -> bool:
+    def _double_tap_like_image(self) -> Optional[bool]:
         """Off a list (the full-screen viewer, its single post), double-tap a varied point in
         the image band of the screen to like it, then confirm the like registered (a double-tap
-        can miss). Returns False so the caller falls back to the like button if it didn't take.
+        can miss). Returns False so the caller falls back to the like button if it didn't take,
+        None when that cannot be told (the check could not read the screen, or the gesture
+        failed): the heart is then not tapped, since it would take back a like the double tap gave.
         On a list, `_like_framed_post` aims at the framed post's own media instead."""
         try:
             width, height = self.device.get_screen_size()
@@ -732,18 +748,24 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
             self._human_like_delay('click')
             return self.detection_actions.is_post_liked()
         except Exception as e:
-            self.logger.debug(f"Double-tap like failed: {e}")
-            return False
+            self.logger.warning(f"Double-tap like could not be checked ({e}): unknown")
+            return None
     
     def _is_post_already_liked(self) -> Optional[bool]:
         """Is the framed post liked, before the walk decides to like it? On a list, its own row's
         heart says, never the post above's (often the post just liked); when that heart runs under
         the bottom, its row is shown first (`_show_framed_post_heart`), the look at the buttons a
-        human takes before a like, and None when it cannot be: that post is not liked. Off a list,
-        the viewer's heart."""
+        human takes before a like. Off a list, the viewer's heart.
+
+        None when it cannot be told: the heart cannot be shown, the screen cannot be read, or the
+        reading fails. None is not « not liked »: nothing is liked on it, since a tap on the heart
+        of a post liked already takes the like back."""
         try:
             target = self._framed_like_target()
-            if target is not None and target["list"]:
+            if target is None:
+                self.logger.warning("Screen unreadable: whether the post is liked is unknown, no like")
+                return None
+            if target["list"]:
                 if target.get("heart") is None:
                     target = self._show_framed_post_heart(target.get("identity"))
                     if target is None:
@@ -751,8 +773,8 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
                 return bool(target.get("liked"))
             return self.detection_actions.is_post_liked()
         except Exception as e:
-            self.logger.debug(f"Error checking if liked: {e}")
-            return False
+            self.logger.warning(f"Whether the post is liked could not be read ({e}): unknown, no like")
+            return None
     
     def _extract_likes_count_from_ui(self, is_reel: bool = None) -> int:
         """Delegate to ui_extractors for likes extraction."""

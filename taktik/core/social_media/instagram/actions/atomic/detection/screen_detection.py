@@ -188,8 +188,16 @@ class ScreenDetectionMixin(BaseAction):
             'popup_detected': self.detect_popup_or_modal()
         }
 
-    def is_post_liked(self) -> bool:
-        return self._detect_element(self.detection_selectors.liked_button_indicators, "Liked button", log_found=True)
+    def is_post_liked(self) -> Optional[bool]:
+        """Is the post on screen liked: a heart selected, the row's or the Reel viewer's? None when
+        the screen could not be read: a failed photo finds nothing, which is not « not liked », and
+        a tap on the heart of a liked post takes the like back."""
+        liked = self._element_presence(self.detection_selectors.liked_button_indicators)
+        if liked is None:
+            self.logger.warning("Screen unreadable: whether the post is liked is unknown")
+        else:
+            self.logger.debug(f"{'✅' if liked else '❌'} Liked button {'detected' if liked else 'not found'}")
+        return liked
 
     # === Story detection ===
 
