@@ -81,15 +81,15 @@ def _reason_target(node, names: Iterable[str]) -> bool:
     return False
 
 
-def _literals_set_as(paths: Iterable[Path], names: Iterable[str] = REASON_NAMES) -> Set[str]:
-    """Every literal the code sets under one of `names`.
+def _literals_set_in(roots: Iterable[ast.AST], names: Iterable[str]) -> Set[str]:
+    """Every literal the code under `roots` sets under one of `names`.
 
     Assigned to it (a name, an attribute, a key), or passed under that keyword or dict key.
     """
     names = tuple(names)
     found: Set[str] = set()
-    for path in paths:
-        for node in ast.walk(_tree(path)):
+    for root in roots:
+        for node in ast.walk(root):
             if isinstance(node, ast.Assign) and any(_reason_target(t, names) for t in node.targets):
                 found.add(_string(node.value))
             elif isinstance(node, ast.keyword) and node.arg in names:
@@ -99,6 +99,62 @@ def _literals_set_as(paths: Iterable[Path], names: Iterable[str] = REASON_NAMES)
                     if _string(key) in names:
                         found.add(_string(value))
     return {value for value in found if value}
+
+
+def _literals_set_as(paths: Iterable[Path], names: Iterable[str] = REASON_NAMES) -> Set[str]:
+    """Every literal the code of `paths` sets under one of `names` (`_literals_set_in`)."""
+    return _literals_set_in((_tree(path) for path in paths), names)
+
+
+def _read_from(value, variable: str, names: Iterable[str]) -> bool:
+    """`variable["name"]`, for one of `names`."""
+    return (isinstance(value, ast.Subscript) and isinstance(value.value, ast.Name) and value.value.id == variable
+            and _string(value.slice) in names)
+
+
+def _steps_a_reason_is_taken_from(root: ast.AST, names: Iterable[str]) -> Set[str]:
+    """The methods whose reason a function of `root` takes as its own: `entry = self.step(...)`, then
+    a reason set from `entry["..."]` in the same function."""
+    names = tuple(names)
+    steps: Set[str] = set()
+    for function in (node for node in ast.walk(root) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))):
+        called = {
+            node.targets[0].id: node.value.func.attr
+            for node in ast.walk(function)
+            if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Attribute)
+            and isinstance(node.value.func.value, ast.Name) and node.value.func.value.id == "self"
+        }
+        for node in ast.walk(function):
+            if isinstance(node, ast.Assign) and any(_reason_target(t, names) for t in node.targets):
+                steps |= {step for variable, step in called.items() if _read_from(node.value, variable, names)}
+    return steps
+
+
+def _reasons_set_by_the_steps(paths: Iterable[Path], names: Iterable[str]) -> Set[str]:
+    """Every literal set under `names` by the steps the code of `paths` takes its reason from
+    (`_steps_a_reason_is_taken_from`), and by theirs in turn. A step is a method of the same host: it
+    is looked for in the modules beside the one that calls it (the mixins of that host)."""
+    names = tuple(names)
+    found: Set[str] = set()
+    seen: Set[tuple] = set()
+    pending = [(path.parent, step) for path in paths for step in _steps_a_reason_is_taken_from(_tree(path), names)]
+    while pending:
+        folder, step = pending.pop()
+        if (folder, step) in seen:
+            continue
+        seen.add((folder, step))
+        definitions = [
+            node
+            for module in folder.glob("*.py")
+            for node in ast.walk(_tree(module))
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == step
+        ]
+        assert definitions, f"`{step}`, whose reason is taken, is defined nowhere beside its caller in {folder}"
+        found |= _literals_set_in(definitions, names)
+        pending += [(folder, inner) for definition in definitions
+                    for inner in _steps_a_reason_is_taken_from(definition, names)]
+    return found
 
 
 def _tiktok_reasons(paths: Iterable[Path]) -> Set[str]:
@@ -137,7 +193,9 @@ def test_the_suggestions_visit_reasons_are_what_the_pass_sets():
     ]
     # A surface that cannot be reached gives its `reach_failure_reason`; the activity screen's
     # is where its descent stopped (`descent_outcome`), whose "reached" never fails the reach.
-    set_by_code = _literals_set_as(paths, (*REASON_NAMES, "reach_failure_reason", "descent_outcome"))
+    names = (*REASON_NAMES, "reach_failure_reason", "descent_outcome")
+    # The people screen takes its entry's reason as its own: the step the bulk follow shares.
+    set_by_code = _literals_set_as(paths, names) | _reasons_set_by_the_steps(paths, names)
     set_by_code.discard("reached")
     # The latch's codes reach it through `halt.get("code")`.
     assert set(INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON.values) == set_by_code | set(RUN_HALT_CODE.values)
