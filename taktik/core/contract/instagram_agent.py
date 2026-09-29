@@ -6,7 +6,7 @@ The app launches it from the scheduler's Agent node; the main process adds the O
 vision model, the orchestration context it prepared from the account's recent sessions, and the
 warmup caps of the account's day that its launch gate computed (`warmupPolicy`, the automation's
 declaration and reader: the Agent counts each gesture against them, `WarmupBudget`).
-`tests/unit/app/contract` holds the reader, the launcher and the bridge to it.
+`tests/unit/contract` holds the reader, the launcher and the bridge to it.
 
 The lines come from the launcher (`status`, `error`), from the bridge's own failures (`error`),
 from the session (`AgentIpcMixin`: `agent_status`, `strategy_switch`, `agent_decision`; `follow`

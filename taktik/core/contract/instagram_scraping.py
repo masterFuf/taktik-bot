@@ -2,7 +2,7 @@
 
 One payload, one reader, one launcher: `type` names the source, and so the workflow id
 (`instagram.scraping.<type>`); the settings of a source are read only for that source (`when`).
-`tests/unit/app/contract` holds the reader, the launcher and the bridge to this declaration.
+`tests/unit/contract` holds the reader, the launcher and the bridge to this declaration.
 """
 
 from __future__ import annotations

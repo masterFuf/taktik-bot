@@ -2,7 +2,7 @@
 the four inbox flows and the notifications pass.
 
 The items the inbox flows print (a new follower, a conversation, a request, a notification) are
-built by the screen readers of `actions/atomic/messaging/dm_actions.py`; `tests/unit/app/contract`
+built by the screen readers of `actions/atomic/messaging/dm_actions.py`; `tests/unit/contract`
 holds their dict literals to the shapes below.
 """
 

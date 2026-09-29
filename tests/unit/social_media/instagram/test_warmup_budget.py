@@ -2,7 +2,7 @@
 
 `WarmupBudget` is the counter the automation (`SessionManager.warmup`) and the Taktik Agent share;
 the checks themselves are held by `test_session_warmup.py` and by the Agent's bridge run
-(`tests/unit/app/contract/test_workflow_contract_taktik_agent.py`). Here: where the day comes from.
+(`tests/unit/contract/test_workflow_contract_taktik_agent.py`). Here: where the day comes from.
 """
 
 import taktik.core.social_media.instagram.workflows.management.session.warmup_budget as warmup_budget

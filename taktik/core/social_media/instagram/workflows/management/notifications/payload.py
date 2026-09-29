@@ -3,7 +3,7 @@
 `run_instagram_notifications`, the one launcher the desktop bridge and the handler of
 `instagram.engagement.notifications` (the CLI) call, reads its payload here and nowhere else.
 The keys, their defaults and the refusals are declared in `taktik/core/contract/`, the
-source of the app's types; `tests/unit/app/contract` holds this reader to it.
+source of the app's types; `tests/unit/contract` holds this reader to it.
 """
 
 from __future__ import annotations

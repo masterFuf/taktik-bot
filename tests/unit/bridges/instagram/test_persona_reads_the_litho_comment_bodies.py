@@ -60,7 +60,7 @@ class _Phone:
 def phone_answers(monkeypatch):
     # The persona reader's module imports the Instagram bridge's IPC, whose first import installs the
     # process-wide IPC adapter and step telemetry sink: the ones in place before the test come back
-    # after it (as `tests/unit/app/contract/ig_automation_probe.py` does).
+    # after it (as `tests/unit/contract/ig_automation_probe.py` does).
     import taktik.core.shared.telemetry.sink as telemetry
     from taktik.core.social_media.instagram.actions.core.ipc import emitter
 

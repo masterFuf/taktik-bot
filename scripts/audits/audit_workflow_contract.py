@@ -2,7 +2,7 @@
 """The declared bot/app contract (`taktik/core/contract/`) still names real things.
 
 Rule 3 of the anti-drift doctrine: the contract is declared once and the app's types are generated
-from it. The readers are held to the declaration by `tests/unit/app/contract`; this audit holds the
+from it. The readers are held to the declaration by `tests/unit/contract`; this audit holds the
 declaration to the rest of the bot, and the app's generated file to the declaration:
 
 - each workflow id is a runnable workflow of `workflows.manifest.json` (every id a family's

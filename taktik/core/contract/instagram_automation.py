@@ -3,7 +3,7 @@
 Nine workflows share one launcher (`run_instagram_automation`), one reader
 (`build_instagram_automation_config`) and one bridge; `workflowType` picks the workflow. Each key
 names where the reader puts its value (`attr`, a dotted path in the built config), or the function
-it is handed to (`via`: the AI hooks, the AI service, the pacing profile). `tests/unit/app/contract`
+it is handed to (`via`: the AI hooks, the AI service, the pacing profile). `tests/unit/contract`
 holds the reader and the bridge to it.
 
 The lines the app reads come from the bridge (status, the settings echo, the final counters),

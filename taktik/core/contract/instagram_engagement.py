@@ -1,6 +1,6 @@
 """Instagram engagement: the cold DM (`cold_dm_bridge`), the DM inbox read and reply (`dm_bridge`).
 
-Each declaration names the reader it describes; `tests/unit/app/contract` holds the reader, the
+Each declaration names the reader it describes; `tests/unit/contract` holds the reader, the
 launcher and the bridge to it.
 """
 

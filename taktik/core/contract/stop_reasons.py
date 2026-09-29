@@ -2,7 +2,7 @@
 
 Each is a named `OneOf`: the app gets one union type per catalogue, and every line that carries a
 reason refers to it. The values are what the bot emits today, none renamed; the tests hold each
-set to the code that produces it (`tests/unit/app/contract/test_workflow_contract_stop_reasons.py`).
+set to the code that produces it (`tests/unit/contract/test_workflow_contract_stop_reasons.py`).
 """
 
 from __future__ import annotations

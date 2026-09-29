@@ -3,7 +3,7 @@
 the restart and stop of a run.
 
 Pinned on doubles of the connection and the app (no device, no adb). The facade itself is pinned by
-`tests/unit/bridges/test_bridge_exposes_device_facade.py`.
+`tests/unit/shared/device/test_bridge_exposes_device_facade.py`.
 """
 
 import pytest

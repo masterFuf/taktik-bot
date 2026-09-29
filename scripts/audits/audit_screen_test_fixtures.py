@@ -57,7 +57,7 @@ DUMP_ATTRIBUTES = (
 #: (a) A screen written by hand that a screen reading is tested on. Each reason names what to
 #: capture instead. Converted files leave the list; nothing enters it.
 HAND_WRITTEN: dict[str, tuple[int, str]] = {
-    "tests/unit/agent/test_autopilot_block_stop.py":
+    "tests/unit/social_media/instagram/workflows/agent/test_autopilot_block_stop.py":
         (1,
          "Instagram's Try again later dialog, invented: none in the corpus, and it only shows once "
          "Instagram refuses a gesture. The ordinary screen is a real feed."),
@@ -154,7 +154,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "French)."),
     "tests/unit/social_media/tiktok/workflows/unfollow/conftest.py":
         (4, "following list of 46.6.3 rendered by a helper."),
-    "tests/unit/test_switch_account.py":
+    "tests/unit/social_media/instagram/test_switch_account.py":
         (4,
          "account rows by a helper: a sheet of several accounts with the notifications suffix, and "
          "the logged-out picker (no phone of the bench holds several accounts; the picker needs a "
@@ -167,13 +167,13 @@ HAND_WRITTEN_CEILING = 26
 
 #: (b) A tree that is not a screen: what it computes, and why no screen is needed.
 MINIMAL_TREES: dict[str, tuple[int, str]] = {
-    "tests/unit/bridges/compat/diagnostics/test_action_runner_traces.py":
+    "tests/unit/bridges/tools/lab/test_action_runner_traces.py":
         (4, "the Lab runner's traces and artifacts: the dump is carried, never read."),
-    "tests/unit/bridges/compat/diagnostics/test_selector_test_production.py":
+    "tests/unit/bridges/tools/lab/test_selector_test_production.py":
         (1, "the selector bench's plumbing (overrides, versions, language) with an invented vocabulary."),
-    "tests/unit/bridges/compat/diagnostics/test_selector_test_runner.py":
+    "tests/unit/bridges/tools/lab/test_selector_test_runner.py":
         (2, "the bench evaluates an xpath like d.xpath() does: engine, not screen."),
-    "tests/unit/core/test_layout_fingerprint.py":
+    "tests/unit/shared/diagnostics/test_layout_fingerprint.py":
         (21, "the layout digest: same tree, same digest."),
     "tests/unit/one_path/conftest.py":
         (3, "the recording phone of the one-path tests: the bridge and the CLI see the same screen."),
@@ -222,7 +222,7 @@ MINIMAL_TREES: dict[str, tuple[int, str]] = {
         (3, "how many photos a feed turn takes."),
     "tests/unit/social_media/youtube/workflows/account/test_youtube_account_workflow.py":
         (1, "an empty hierarchy: the account flow never reads it."),
-    "tests/unit/test_ui_language_hardening.py":
+    "tests/unit/social_media/test_ui_language_hardening.py":
         (2, "apostrophe folding of the selectors, on one row."),
 }
 
