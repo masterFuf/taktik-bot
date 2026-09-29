@@ -1,2 +1,2 @@
-"""What the Instagram bridges share: their stdout (`ipc*.py`), the base of their bridge class
-(`bridge.py`), the AI service (`ai.py`)."""
+"""What the Instagram bridges share: their stdout (`ipc*.py`) and the AI service (`ai.py`). The
+Instagram device their classes extend is the core's (`InstagramDeviceBase`)."""

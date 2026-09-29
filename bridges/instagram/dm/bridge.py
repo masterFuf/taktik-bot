@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from taktik.core.shared.input.keyboard import KeyboardService
 from bridges.instagram.dm.events import emit_dm_json
-from bridges.instagram.common.bridge import InstagramBridgeBase
+from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import DMRuntime
 
 
-class DMBridge(DMRuntime, InstagramBridgeBase):
+class DMBridge(DMRuntime, InstagramDeviceBase):
     """The core DM runtime on the bridges' Instagram device (clone-aware proxy, facade, selector
     overrides, clean restart), with the Taktik Keyboard; a read's events go to stdout."""
 

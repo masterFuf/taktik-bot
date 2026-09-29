@@ -315,9 +315,10 @@ def _patch_singleton(
 def apply_overrides_for_device(device_id: str) -> Dict[str, int]:
     """Patch every platform's selector catalog to match what is installed on THIS phone.
 
-    The catalog is a process-global. A bridge patches it in `PlatformBridgeBase.connect()`,
-    which is why a desktop run has always faced the right selectors -- but the standalone CLI
-    has no such base class, and an audit found the patch reached only two of its entry points.
+    The catalog is a process-global. The Instagram device base patches it in
+    `InstagramDeviceBase.connect()`, which is why a desktop run has always faced the right
+    selectors -- but the standalone CLI did not go through that base for every run, and an audit
+    found the patch reached only two of its entry points.
     Everywhere else, an open-source user on a phone that auto-updated to IG 442 was running the
     v410 baseline: the overrides existed, were correct, and were simply never applied.
 

@@ -1,9 +1,8 @@
 """ADB app-inspection primitives: is it installed, is it foreground, which version.
 
-Moved from `bridges/common/device/` to its AGENTS owner: these are pure ADB shell
-primitives (`run_adb_shell_process` + parsing), and the standalone CLI needs the
-version reader to apply selector version overrides without importing a desktop
-bridge adapter.
+Pure ADB shell primitives (`run_adb_shell_process` + parsing), next to the app
+lifecycle that reads them (`app_manager.py`); the standalone CLI reads the version
+here to apply the selector version overrides.
 """
 
 from typing import Any, Dict, Optional

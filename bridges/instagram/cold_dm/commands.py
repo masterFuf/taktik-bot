@@ -16,7 +16,7 @@ from bridges.common.network import enforce_pre_session_ip_rotation
 from bridges.common.entrypoint import MISSING_CONFIG
 from taktik.core.shared.input.keyboard import KeyboardService
 from bridges.instagram.cold_dm.progress import emit_cold_dm_progress
-from bridges.instagram.common.bridge import InstagramBridgeBase
+from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 from bridges.instagram.common.ipc import _ipc, logger
 
 
@@ -39,7 +39,7 @@ def _connect(device_id: str, package_name: str = None):
 
     if package_name:
         logger.info(f"Cold DM on package: {package_name}")
-    connection = InstagramBridgeBase(device_id, package_name=package_name)
+    connection = InstagramDeviceBase(device_id, package_name=package_name)
     if not connection.connect():
         logger.error(f"Failed to connect to device {device_id}")
         print_cold_dm_result(False, error="Failed to connect to device")

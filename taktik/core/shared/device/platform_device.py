@@ -1,25 +1,29 @@
-"""Platform-agnostic bridge base class for connected mobile-app runtimes."""
+"""The base of a platform's app on a connected phone, shared by every host that drives one.
+
+A bridge and the CLI prepare the phone of a run the same way: one connection (`ConnectionService`),
+the app lifecycle (`AppService`), what the platform mounts on the device, then the device facade over
+it. This module never configures the process it is imported in (stdio, log handlers): a bridge entry
+sets up its own environment first.
+"""
 
 from __future__ import annotations
 
 from typing import Optional
 
-from bridges.common.bootstrap import setup_environment
 
-setup_environment()
-
-
-class PlatformBridgeBase:
+class PlatformDeviceBase:
     """
-    Shared scaffolding for any bridge that needs a device connection and
-    an app lifecycle (Instagram, TikTok, Threads, YouTube, ...).
+    Shared scaffolding for any host object that needs a device connection and
+    an app lifecycle (Instagram, Threads, ...).
 
     Subclasses must set:
       - `PLATFORM`: key understood by `AppService` (e.g. "instagram").
       - `DEFAULT_PACKAGE`: default Android package for that platform.
 
     Subclasses MAY override `_after_connect()` to inject custom logic
-    after the connection is up (e.g. wrapping the device in a proxy).
+    after the connection is up (e.g. wrapping the device in a proxy), and
+    `_apply_selector_version_overrides()` when the platform's selector
+    catalogs follow the installed version.
     """
 
     PLATFORM: str = ""
@@ -70,36 +74,11 @@ class PlatformBridgeBase:
         return True
 
     def _apply_selector_version_overrides(self) -> None:
-        """Patch the selector catalogs for the app version actually installed.
+        """Hook: match the platform's selector catalogs to the installed app version.
 
-        The version-override framework (`taktik.core.compat.selectors`) existed and
-        worked — but only the Cartography Lab's workflow-test bench ever called it.
-        Production bridges ran on the baseline selectors whatever the phone had, so
-        an auto-updated Instagram (v442 rebuilt the DM inbox in Compose, dropping
-        every row resource-id) failed with "No threads found" while the Lab, on the
-        same phone, would have patched itself and passed. A compat table only the
-        test bench reads is a fix that never ships.
-
-        Best-effort by design: no override file, an undetectable version, or a
-        version equal to the baseline are all no-ops, and a failure here must never
-        prevent a bridge from running — the baseline selectors are still the right
-        answer for the validated version.
-        """
-        if self.PLATFORM not in ("instagram", "tiktok"):
-            return
-        try:
-            version = self._app.get_installed_version() if self._app else None
-            if not version:
-                return
-            from taktik.core.compat.selectors.setup import apply_version_overrides
-
-            apply_version_overrides(self.PLATFORM, version)
-        except Exception as exc:  # noqa: BLE001 — overrides are an upgrade, never a gate
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "Selector version overrides skipped: %s", exc
-            )
+        A no-op here; a platform whose catalogs carry version overrides applies them (the
+        Instagram device base does, from its installed version)."""
+        return None
 
     def _wrap_in_facade(self, device):
         """Expose a DeviceFacade rather than the raw uiautomator2 device.
@@ -143,4 +122,4 @@ class PlatformBridgeBase:
             return False
 
 
-__all__ = ["PlatformBridgeBase"]
+__all__ = ["PlatformDeviceBase"]

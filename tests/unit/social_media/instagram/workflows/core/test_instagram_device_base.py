@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 import taktik.core.clone as clone
-from bridges.instagram.common.bridge import InstagramBridgeBase
+from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.compat.selectors import setup as compat_setup
 from taktik.core.shared.device import app_manager, connection
@@ -85,11 +85,11 @@ def phone(monkeypatch):
 
 
 def test_the_platform_and_its_package():
-    assert (InstagramBridgeBase.PLATFORM, InstagramBridgeBase.DEFAULT_PACKAGE) == ("instagram", STOCK)
+    assert (InstagramDeviceBase.PLATFORM, InstagramDeviceBase.DEFAULT_PACKAGE) == ("instagram", STOCK)
 
 
 def test_the_stock_app_gets_the_proxy_too_and_registers_no_clone(phone):
-    base = InstagramBridgeBase("SERIAL")
+    base = InstagramDeviceBase("SERIAL")
 
     assert base.connect() is True
 
@@ -103,7 +103,7 @@ def test_the_stock_app_gets_the_proxy_too_and_registers_no_clone(phone):
 
 
 def test_a_clone_registers_its_package_and_is_the_one_driven(phone):
-    base = InstagramBridgeBase("SERIAL", package_name=CLONE)
+    base = InstagramDeviceBase("SERIAL", package_name=CLONE)
 
     base.connect()
 
@@ -115,7 +115,7 @@ def test_a_clone_registers_its_package_and_is_the_one_driven(phone):
 def test_a_device_already_proxied_is_kept(phone):
     already = CloneAwareDeviceProxy(_Raw(), CLONE)
     _Connection.next_device = already
-    base = InstagramBridgeBase("SERIAL", package_name=CLONE)
+    base = InstagramDeviceBase("SERIAL", package_name=CLONE)
 
     base.connect()
 
@@ -151,7 +151,7 @@ class _ReadOnlyConnection:
 
 def test_a_connection_that_keeps_its_own_device_still_connects(phone, monkeypatch):
     monkeypatch.setattr(connection, "ConnectionService", _ReadOnlyConnection)
-    base = InstagramBridgeBase("SERIAL")
+    base = InstagramDeviceBase("SERIAL")
 
     assert base.connect() is True
     assert isinstance(base._connection._device, _Raw)
@@ -161,7 +161,7 @@ def test_a_connection_that_keeps_its_own_device_still_connects(phone, monkeypatc
 
 def test_the_overrides_of_the_installed_version_are_applied_on_the_facade(phone, monkeypatch):
     _App.version = "442.0.0.1"
-    base = InstagramBridgeBase("SERIAL")
+    base = InstagramDeviceBase("SERIAL")
     facade_ready = []
     monkeypatch.setattr(compat_setup, "apply_version_overrides",
                         lambda platform, version: facade_ready.append(isinstance(base.device, BaseDeviceFacade))
@@ -174,7 +174,7 @@ def test_the_overrides_of_the_installed_version_are_applied_on_the_facade(phone,
 
 
 def test_no_installed_version_no_overrides(phone):
-    InstagramBridgeBase("SERIAL").connect()
+    InstagramDeviceBase("SERIAL").connect()
 
     assert phone.overrides == []
     assert _App.built[0].calls == ["version"]
@@ -188,16 +188,16 @@ def test_overrides_that_fail_never_stop_the_connection(phone, monkeypatch):
 
     monkeypatch.setattr(compat_setup, "apply_version_overrides", broken)
 
-    assert InstagramBridgeBase("SERIAL").connect() is True
+    assert InstagramDeviceBase("SERIAL").connect() is True
 
 
 def test_rid_names_the_resource_of_the_driven_package():
-    assert InstagramBridgeBase("SERIAL").rid(f"{STOCK}:id/search_tab") == f"{STOCK}:id/search_tab"
-    assert InstagramBridgeBase("SERIAL", package_name=CLONE).rid(f"{STOCK}:id/search_tab") == f"{CLONE}:id/search_tab"
+    assert InstagramDeviceBase("SERIAL").rid(f"{STOCK}:id/search_tab") == f"{STOCK}:id/search_tab"
+    assert InstagramDeviceBase("SERIAL", package_name=CLONE).rid(f"{STOCK}:id/search_tab") == f"{CLONE}:id/search_tab"
 
 
 def test_restart_instagram_restarts_the_app(phone):
-    base = InstagramBridgeBase("SERIAL")
+    base = InstagramDeviceBase("SERIAL")
     base.connect()
 
     base.restart_instagram()

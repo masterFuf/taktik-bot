@@ -1,11 +1,12 @@
-"""A bridge's base on a phone its host already connected.
+"""A device base on a phone its host already connected.
 
-A bridge normally opens its own connection (`ConnectionService`). The CLI has connected the phone
-before it knows which run it starts, and the Cartography Lab session holds its phone for every
-action: opening a second connection would cost a reconnection and could pick another phone. Both
-hand the bridge's base the connected device instead, and the base prepares it exactly as it
-prepares its own (clone-aware proxy, device facade, selector overrides of the installed version,
-the `AppService` that restarts the app). The run then drives the same class as the desktop bridge.
+A device base (`InstagramDeviceBase`) normally opens its own connection (`ConnectionService`), as a
+desktop bridge does. The CLI has connected the phone before it knows which run it starts, and the
+Cartography Lab session holds its phone for every action: opening a second connection would cost a
+reconnection and could pick another phone. Both hand the base the connected device instead, and
+the base prepares it exactly as it prepares its own (clone-aware proxy, device facade, selector
+overrides of the installed version, the `AppService` that restarts the app). The run then drives
+the same class as the desktop bridge.
 """
 
 from __future__ import annotations
@@ -40,7 +41,7 @@ class ConnectedDevice:
 
 
 def on_connected_device(base, device_manager: Any, device_id: str):
-    """Connect a bridge's base (`InstagramBridgeBase` and its bridges) on the phone the host already
+    """Connect a device base (`InstagramDeviceBase` and its subclasses) on the phone the host already
     connected; raises when the host has no device."""
     base._connection = ConnectedDevice(device_manager, device_id)
     if not base.connect():

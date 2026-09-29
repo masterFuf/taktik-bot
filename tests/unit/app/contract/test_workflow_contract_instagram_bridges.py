@@ -261,7 +261,7 @@ def cold_dm_bridge(monkeypatch, no_ip_rotation):
 
     connection = SimpleNamespace(connect=lambda: True, device=object(), device_manager=object(), restart=lambda: None)
     monkeypatch.setattr(bridge, "KeyboardService", lambda device_id: object())
-    monkeypatch.setattr(bridge, "InstagramBridgeBase", lambda device_id, package_name=None: connection)
+    monkeypatch.setattr(bridge, "InstagramDeviceBase", lambda device_id, package_name=None: connection)
     monkeypatch.setattr(agent_handler, "_default_workflow_factory", _cold_dm_class)
     monkeypatch.setattr(workflow, "apply_cold_dm_send_result",
                         lambda *, workflow, **kwargs: setattr(workflow, "dms_sent", workflow.dms_sent + 1))

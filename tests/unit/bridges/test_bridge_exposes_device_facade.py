@@ -12,7 +12,7 @@ cloned accounts start looking for resource-ids under the official package name.
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.device.facade import BaseDeviceFacade
 
-from bridges.common.platform_bridge import PlatformBridgeBase
+from taktik.core.shared.device.platform_device import PlatformDeviceBase
 
 
 class _RawDevice:
@@ -24,8 +24,8 @@ class _RawDevice:
         return ("selection", kwargs)
 
 
-def _bridge() -> PlatformBridgeBase:
-    bridge = PlatformBridgeBase.__new__(PlatformBridgeBase)
+def _bridge() -> PlatformDeviceBase:
+    bridge = PlatformDeviceBase.__new__(PlatformDeviceBase)
     bridge.PLATFORM = "instagram"
     return bridge
 

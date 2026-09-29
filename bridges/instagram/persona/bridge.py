@@ -8,7 +8,7 @@ from bridges.instagram.persona.persona_comments import PersonaCommentsMixin
 from bridges.instagram.persona.persona_media import PersonaMediaMixin
 from bridges.instagram.persona.persona_posts import PersonaPostsMixin
 from bridges.instagram.persona.persona_profile import PersonaProfileMixin
-from bridges.instagram.common.bridge import InstagramBridgeBase
+from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 from bridges.instagram.common.ipc import _ipc, logger
 
 
@@ -17,7 +17,7 @@ class PersonaAnalysisBridge(
     PersonaPostsMixin,
     PersonaMediaMixin,
     PersonaCommentsMixin,
-    InstagramBridgeBase,
+    InstagramDeviceBase,
 ):
     """Bridge that scrapes own Instagram profile to build persona data."""
 

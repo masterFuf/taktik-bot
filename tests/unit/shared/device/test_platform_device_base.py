@@ -8,7 +8,7 @@ Pinned on doubles of the connection and the app (no device, no adb). The facade 
 
 import pytest
 
-from bridges.common.platform_bridge import PlatformBridgeBase
+from taktik.core.shared.device.platform_device import PlatformDeviceBase
 from taktik.core.compat.selectors import setup as compat_setup
 from taktik.core.shared.device import app_manager, connection
 from taktik.core.shared.device.facade import BaseDeviceFacade
@@ -80,7 +80,7 @@ def doubles(monkeypatch):
                         lambda platform, version: pytest.fail("no selector overrides for this platform"))
 
 
-class _Platform(PlatformBridgeBase):
+class _Platform(PlatformDeviceBase):
     PLATFORM = "threads"
     DEFAULT_PACKAGE = "com.instagram.barcelona"
 

@@ -24,7 +24,7 @@ from taktik.core.clone.packages.package_map import OFFICIAL_PACKAGE
 from taktik.core.clone.selectors.patcher import patch_selectors_for_package
 
 # ── Global active-package registry ──────────────────────────────────
-# Set once by InstagramBridgeBase._after_connect() before running a workflow
+# Set once by InstagramDeviceBase._after_connect() before running a workflow
 # so that any code (deep-link navigation, app management, rid() helper, …)
 # can resolve the correct package without needing a direct reference to the
 # automation object.

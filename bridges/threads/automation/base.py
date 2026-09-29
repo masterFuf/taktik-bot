@@ -13,7 +13,7 @@ from bridges.common.bridge_base import (
     set_workflow,
     signal_handler,
 )
-from bridges.common.platform_bridge import PlatformBridgeBase
+from taktik.core.shared.device.platform_device import PlatformDeviceBase
 
 
 def send_threads_stats(
@@ -65,7 +65,7 @@ def send_unfollow_event(username: str, success: bool = True):
     _ipc.unfollow_event(username, success)
 
 
-class ThreadsBridgeBase(PlatformBridgeBase):
+class ThreadsBridgeBase(PlatformDeviceBase):
     """Threads-specific bridge base."""
 
     PLATFORM = "threads"

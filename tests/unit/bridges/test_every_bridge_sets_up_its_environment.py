@@ -1,11 +1,11 @@
 """Every bridge sets up the bridge environment itself, before it imports anything else.
 
 `setup_environment()` (UTF-8 stdio, the bridge log handler on stderr, the engine on `sys.path`) is
-the first thing a bridge does. Most entries call it, or import `bridge_base` or `platform_bridge`,
-which call it. Five got it by chance: a package `__init__.py` on their way led to one of those two
-modules (`bridges/common/__init__.py`, `bridges/common/runtime/__init__.py`, the network re-export
-of `bridges/common/device/__init__.py`). Once those re-exports went, the schema bridge logged
-through loguru's default handler, coloured in a terminal, and the Lab entries kept the raw stdio.
+the first thing a bridge does. Most entries call it, or import `bridge_base`, which calls it; the
+device bases of the core never do (they are shared with the CLI). Five entries once got it by
+chance, from a package `__init__.py` on their way that led to such a module: once those re-exports
+went, the schema bridge logged through loguru's default handler, coloured in a terminal, and the
+Lab entries kept the raw stdio.
 
 Each entry is loaded alone, in a fresh interpreter, as the launcher loads it.
 """

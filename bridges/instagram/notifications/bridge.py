@@ -7,10 +7,10 @@ Thin bridge: connect and bring Instagram to a known state. The run itself (the c
 
 from __future__ import annotations
 
-from bridges.instagram.common.bridge import InstagramBridgeBase
+from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
 
 
-class NotificationsBridge(InstagramBridgeBase):
+class NotificationsBridge(InstagramDeviceBase):
     """Bridge for the Instagram notifications engagement workflow."""
 
     def __init__(self, device_id: str, package_name: str = None):

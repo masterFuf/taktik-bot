@@ -142,7 +142,7 @@ def resolve_production_selectors(
 
 def production_device(app: str, raw_device) -> tuple[Any, Optional[Callable[[str], str]]]:
     """What production calls `xpath()` on, and its rewrite: every Instagram bridge mounts the
-    clone-aware proxy (`InstagramBridgeBase._after_connect`), TikTok mounts none."""
+    clone-aware proxy (`InstagramDeviceBase._after_connect`), TikTok mounts none."""
     if app != "instagram":
         return raw_device, None
 

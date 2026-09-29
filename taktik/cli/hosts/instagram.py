@@ -75,15 +75,15 @@ class CliInstagramHost:
         return app.get_installed_version()
 
     def cold_dm_runtime(self, package_name: Optional[str]):
-        """The device a cold DM run drives, prepared by the bridges' own Instagram base: the
-        clone-aware proxy, the device facade, the selector overrides of the installed version and
-        the clean restart through `AppService`, on the device the CLI already connected."""
+        """The device a cold DM run drives, prepared by the Instagram device base the cold DM bridge
+        uses too: the clone-aware proxy, the device facade, the selector overrides of the installed
+        version and the clean restart through `AppService`, on the device the CLI already connected."""
         from taktik.core.shared.input.keyboard import KeyboardService
         from taktik.core.shared.device.connected_device import on_connected_device
-        from bridges.instagram.common.bridge import InstagramBridgeBase
+        from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
         from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
 
-        base = on_connected_device(InstagramBridgeBase(self.device_id, package_name=package_name),
+        base = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
                                    self.device_manager, self.device_id)
         return ColdDmRuntime(
             device=base.device,
@@ -93,13 +93,13 @@ class CliInstagramHost:
         )
 
     def agent_runtime(self, package_name: Optional[str]):
-        """The device a Taktik Agent session drives, prepared by the bridges' own Instagram base,
-        and its clean restart, on the device the CLI already connected."""
+        """The device a Taktik Agent session drives, prepared by the Instagram device base its bridge
+        uses too, and its clean restart, on the device the CLI already connected."""
         from taktik.core.shared.device.connected_device import on_connected_device
-        from bridges.instagram.common.bridge import InstagramBridgeBase
+        from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
         from taktik.core.social_media.instagram.workflows.agent.agent_handler import AgentRuntime
 
-        base = on_connected_device(InstagramBridgeBase(self.device_id, package_name=package_name),
+        base = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
                                    self.device_manager, self.device_id)
         # The app service's restart, which says whether Instagram came back, as the bridge uses it.
         return AgentRuntime(device_manager=base.device_manager, restart=base._app.restart)

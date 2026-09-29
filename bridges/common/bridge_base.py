@@ -6,15 +6,14 @@ facades:
   - a shared `_ipc` singleton;
   - module-level JSON stdout wrappers (`send_*`);
   - signal helper re-exports;
-  - compatibility re-exports for `PlatformBridgeBase` and config-file
-    entrypoint helpers.
+  - compatibility re-exports of the config-file entrypoint helpers.
 
 Durable ownership lives in dedicated modules:
   - `bridges.common.ipc` owns JSON stdout transport;
   - `bridges.common.signal_handler` owns signal plumbing;
   - `bridges.common.entrypoint` owns config-file launch helpers;
-  - `bridges.common.platform_bridge` owns the shared device/app
-    bridge scaffold.
+  - `taktik.core.shared.device.platform_device` owns the base of a
+    platform's app on a connected phone, shared with the CLI.
 """
 
 from __future__ import annotations
@@ -28,7 +27,6 @@ setup_environment()
 from bridges.common import signal_handler as _sig_mod
 from bridges.common.entrypoint import load_bridge_config, run_bridge_main
 from bridges.common.ipc import IPC
-from bridges.common.platform_bridge import PlatformBridgeBase
 from loguru import logger
 
 
@@ -91,7 +89,6 @@ __all__ = [
     "get_workflow",
     "set_workflow",
     "signal_handler",
-    "PlatformBridgeBase",
     "load_bridge_config",
     "run_bridge_main",
 ]
