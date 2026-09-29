@@ -1,5 +1,6 @@
 """TikTok surface selectors."""
 
+from .activity import ActivitySelectors, ACTIVITY_SELECTORS
 from .conversation import ConversationSelectors, CONVERSATION_SELECTORS
 from .followers import FollowersSelectors, FOLLOWERS_SELECTORS
 from .inbox import InboxSelectors, INBOX_SELECTORS
@@ -25,6 +26,7 @@ from .video import (
 )
 
 __all__ = [
+    "ACTIVITY_SELECTORS",
     "COMMENT_SELECTORS",
     "CONVERSATION_SELECTORS",
     "FOLLOWERS_SELECTORS",
@@ -38,6 +40,7 @@ __all__ = [
     "VIDEO_MEDIA_SELECTORS",
     "VIDEO_SELECTORS",
     "VIDEO_STATE_SELECTORS",
+    "ActivitySelectors",
     "CommentSelectors",
     "ConversationSelectors",
     "FollowersSelectors",

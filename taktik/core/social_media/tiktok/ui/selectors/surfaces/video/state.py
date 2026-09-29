@@ -125,5 +125,11 @@ class VideoStateSelectors:
         '//*[contains(@resource-id, ":id/xs4")]',
     ])
 
+    #: A « Voir les Stories » card in the For You feed: a followed account's stories offered in
+    #: place of a video (its avatar in its story ring, its name, the button), with nothing of a video:
+    #: no author row, no like, no share, nothing to link. Never seen on 43.1.4 (none of the 857 dumps
+    #: of that version in the Lab and the capture corpus): empty here; 47.0.3 in the overrides.
+    stories_card: List[str] = field(default_factory=list)
+
 
 VIDEO_STATE_SELECTORS = VideoStateSelectors()

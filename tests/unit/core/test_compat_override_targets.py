@@ -92,31 +92,56 @@ def test_no_domain_points_at_a_facade():
             )
 
 
+def _catalogues_defined_under(package):
+    """Every selector catalogue the modules of `package` hold, by identity: {id: name}.
+
+    Walked module by module, not read off the barrel's `__all__`: a catalogue the barrel does not
+    export is out of the map too, and a guard that reads the barrel cannot see it. The facades are
+    not dataclass instances and are left out.
+    """
+    import importlib
+    import pkgutil
+    from dataclasses import is_dataclass
+
+    found = {}
+    for module_info in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
+        module = importlib.import_module(module_info.name)
+        for name, obj in vars(module).items():
+            if name.endswith("SELECTORS") and is_dataclass(obj) and not isinstance(obj, type):
+                found.setdefault(id(obj), name)
+    return found
+
+
+#: TikTok catalogues still out of the map, and why. The list only shrinks: registering one makes the
+#: test below red until it leaves the list, and so does a new catalogue left out of the map.
+TIKTOK_CATALOGUES_OUT_OF_THE_MAP = {
+    "PUBLISH_TEXT_POST_SELECTORS": "exported by flows/, not by the root barrel; registering it also "
+                                   "hands it to the language optimiser, to measure first",
+    "VIDEO_SHARE_SELECTORS": "exported by surfaces/video/, not by the root barrel; same measure first",
+    "VIDEO_SOUND_SELECTORS": "exported by surfaces/video/, not by the root barrel; same measure first",
+}
+
+
 def test_every_shipped_catalogue_is_reachable_by_the_override_machinery():
     """A catalogue nobody registered cannot be version-overridden or clone-patched at all.
 
     Ten TikTok catalogues sat outside the map — the four video ones and all of publish — so the
-    video counters could not be repaired by an override whichever way the A1/A2 call goes. The
-    two exceptions are the facades themselves: they are views over catalogues that ARE
-    registered, and registering them is the bug this file now guards against.
+    video counters could not be repaired by an override whichever way the A1/A2 call goes. This
+    guard used to read the barrel only, and a catalogue the barrel does not export was invisible to
+    it: `ACTIVITY_SELECTORS` (`surfaces/activity.py`) stayed out of reach while TikTok 47.0.3
+    renamed its row (Pixel 6a, 2026-09-29). The facades are views over catalogues that ARE
+    registered, and registering them is the bug this file also guards against.
     """
-    from dataclasses import is_dataclass
-
-    from taktik.core.social_media.tiktok.ui import selectors as tiktok_barrel
+    from taktik.core.social_media.tiktok.ui import selectors as tiktok_selectors
 
     registered = {id(obj) for obj in TIKTOK_SELECTOR_DOMAINS.values()}
-    unreachable = []
-    for name in getattr(tiktok_barrel, "__all__", []):
-        if not name.endswith("SELECTORS"):
-            continue
-        obj = getattr(tiktok_barrel, name, None)
-        if obj is None or not is_dataclass(obj):
-            continue          # a facade: correctly absent from the map
-        if id(obj) not in registered:
-            unreachable.append(name)
-
-    assert not unreachable, (
-        f"catalogues shipped but not registered in TIKTOK_SELECTOR_DOMAINS: {sorted(unreachable)}"
+    unreachable = sorted(
+        name for obj_id, name in _catalogues_defined_under(tiktok_selectors).items()
+        if obj_id not in registered
+    )
+    assert unreachable == sorted(TIKTOK_CATALOGUES_OUT_OF_THE_MAP), (
+        f"TikTok catalogues out of TIKTOK_SELECTOR_DOMAINS: {unreachable}; "
+        f"listed with a reason: {sorted(TIKTOK_CATALOGUES_OUT_OF_THE_MAP)}"
     )
 
 

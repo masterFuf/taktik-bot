@@ -1,13 +1,18 @@
 """The Activity page: who liked, saved, reposted, commented, or looked.
 
-Reached from the inbox, one row down from "Nouveaux followers". It is the only surface that tells
-an account what its own content did -- which is why it is also where a bot learns who to answer.
+Reached from the inbox, one row down from "Nouveaux followers" on 43.1.4; on 47.0.3 the row reads
+« Activité et nouveaux abonnés », the new followers having moved into it. It is the only surface
+that tells an account what its own content did -- which is why it is also where a bot learns who
+to answer. The inbox row that opens it is an inbox section: `INBOX_SELECTORS.activity_section`
+(locale key `inbox.activity_section`), one definition for the reader of the inbox sections and for
+`ActivityActions.open_activity`.
 
-Everything here holds BOTH languages in one expression rather than going through the locale
-overlay. Measured 2026-08-30: the section headers already do this in `inbox.py` for the same
-reason, and the reason is worth repeating. A run started before someone changed the app language
-would otherwise find nothing at all, and finding nothing on this page is indistinguishable from
-an account nobody has interacted with.
+The labels of the page itself hold BOTH languages in one expression (measured 2026-08-30): a run
+started before someone changed the app language would otherwise find nothing at all, and finding
+nothing on this page is indistinguishable from an account nobody has interacted with. The catalogue
+is registered with the others (`TIKTOK_SELECTOR_DOMAINS`, the barrel): a version override, the clone
+patch and the language optimiser reach it; the optimiser keeps an expression that holds both
+languages and drops, on an English phone, the French-only entry of `suggested_account_rows`.
 
 The ROWS are not selected by language. A row is anything on this page carrying a bidi isolate --
 `\\u2068name\\u2069` -- which every row does and no chrome does. Parsing what it says is
@@ -22,13 +27,6 @@ from dataclasses import dataclass, field
 @dataclass
 class ActivitySelectors:
     """The Activity page and its rows."""
-
-    #: The inbox row that opens this page.
-    activity_entry: List[str] = field(default_factory=lambda: [
-        '//android.widget.TextView[@text="Activité" or @text="Activity"]',
-        '//android.widget.TextView[@text="Activité" or @text="Activity"]'
-        '/ancestor::*[@clickable="true"][1]',
-    ])
 
     #: We are on the page when its FILTER control is up.
     #:

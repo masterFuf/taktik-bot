@@ -17,7 +17,7 @@ meta:
   app: tiktok
   package: com.zhiliaoapp.musically
   baseline_version: "43.1.4"
-  last_updated: "2026-09-28"
+  last_updated: "2026-09-29"
 
 versions:
   # Add version-specific overrides here as new app versions are discovered.
@@ -51,6 +51,14 @@ versions:
       - '//android.widget.Button[@content-desc="Send"]'
       - '//android.widget.EditText[string-length(@text)>0][not(@text=@hint)]/../following-sibling::*[1]/*[last()][preceding-sibling::*[1]/android.widget.Button[@clickable="true"]]/android.widget.ImageView[@clickable="true"]'
   "47.0.3":
+    # « Voir les Stories » card of a followed account, served by the For You feed in place of a
+    # video (Pixel 6a, French, 2026-09-29, the Lab auto-test): the button `d3j`, in the card `duq`.
+    # Both answer on the two dumps of that card and on none of the 507 other 47.0.3 dumps of the
+    # Lab and the capture corpus, nor on any 43.1.4, 46.6.3 or 46.9.3 dump. The reference entry is
+    # empty (the card was never seen on 43.1.4): nothing to carry along.
+    video_state.stories_card:
+      - '//*[contains(@resource-id, ":id/d3j")]'
+      - '//*[contains(@resource-id, ":id/duq")]'
     # Profile stats row (Pixel 6a, two profiles: a followed media account and an account that
     # follows us): values `t8_`, labels `t89`, three of each, in the same order (following,
     # followers, likes). The baseline ids `qfw` / `qfv` resolve nothing on 47.0.3, so the row
