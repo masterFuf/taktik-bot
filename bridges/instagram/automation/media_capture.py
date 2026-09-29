@@ -7,6 +7,13 @@ from typing import Any, Dict
 from bridges.instagram.common.ipc import send_log, send_message, send_status
 
 
+#: The keys of the `profile_captured` line this runtime sends for a captured profile.
+_PROFILE_LINE_KEYS = (
+    "username", "full_name", "profile_pic_url", "profile_pic_url_hd", "follower_count",
+    "following_count", "media_count", "is_private", "is_verified", "biography",
+)
+
+
 class InstagramMediaCaptureRuntime:
     """Owns optional media capture lifecycle for desktop automation sessions."""
 
@@ -71,23 +78,11 @@ class InstagramMediaCaptureRuntime:
 
     @staticmethod
     def _on_profile(profile) -> None:
-        send_log(
-            "info",
-            f"Captured profile: @{profile.username} ({profile.follower_count} followers)",
-        )
-        send_message(
-            "profile_captured",
-            username=profile.username,
-            full_name=profile.full_name,
-            profile_pic_url=profile.profile_pic_url,
-            profile_pic_url_hd=profile.profile_pic_url_hd,
-            follower_count=profile.follower_count,
-            following_count=profile.following_count,
-            media_count=profile.media_count,
-            is_private=profile.is_private,
-            is_verified=profile.is_verified,
-            biography=profile.biography,
-        )
+        followers = "followers not read" if profile.follower_count is None else f"{profile.follower_count} followers"
+        send_log("info", f"Captured profile: @{profile.username} ({followers})")
+        # What was read (`ProfileCapture.to_dict`), in the keys this line has always carried.
+        read = profile.to_dict()
+        send_message("profile_captured", **{key: read[key] for key in _PROFILE_LINE_KEYS if key in read})
 
     @staticmethod
     def _on_media(media) -> None:

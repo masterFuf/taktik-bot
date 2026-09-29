@@ -15,18 +15,19 @@ from ..proxy.proxy_manager import ProxyManager
 
 @dataclass
 class ProfileCapture:
-    """Captured Instagram profile data."""
+    """Captured Instagram profile data. A value Instagram's answer did not carry stays None: a
+    counter not read is no 0, a flag not read no false."""
     username: str
     full_name: Optional[str] = None
     biography: Optional[str] = None
     profile_pic_url: Optional[str] = None
     profile_pic_url_hd: Optional[str] = None
-    follower_count: int = 0
-    following_count: int = 0
-    media_count: int = 0
-    is_private: bool = False
-    is_verified: bool = False
-    is_business: bool = False
+    follower_count: Optional[int] = None
+    following_count: Optional[int] = None
+    media_count: Optional[int] = None
+    is_private: Optional[bool] = None
+    is_verified: Optional[bool] = None
+    is_business: Optional[bool] = None
     external_url: Optional[str] = None
     category: Optional[str] = None
     captured_at: str = ""
@@ -36,7 +37,9 @@ class ProfileCapture:
             self.captured_at = datetime.now().isoformat()
     
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        """What was read, for the desktop's `profile_captured`: a value not read is left out, as
+        `send_profile_captured` does."""
+        return {key: value for key, value in asdict(self).items() if value is not None}
 
 
 @dataclass
@@ -146,12 +149,12 @@ class MediaCaptureService:
                 biography=data.get("biography"),
                 profile_pic_url=data.get("profile_pic_url"),
                 profile_pic_url_hd=data.get("profile_pic_url_hd"),
-                follower_count=data.get("follower_count", 0),
-                following_count=data.get("following_count", 0),
-                media_count=data.get("media_count", 0),
-                is_private=data.get("is_private", False),
-                is_verified=data.get("is_verified", False),
-                is_business=data.get("is_business", False),
+                follower_count=data.get("follower_count"),
+                following_count=data.get("following_count"),
+                media_count=data.get("media_count"),
+                is_private=data.get("is_private"),
+                is_verified=data.get("is_verified"),
+                is_business=data.get("is_business"),
                 external_url=data.get("external_url"),
                 category=data.get("category")
             )
@@ -248,7 +251,9 @@ class MediaCaptureService:
             return {
                 "profiles_captured": len(self.profiles),
                 "media_captured": len(self.media),
-                "total_followers": sum(p.follower_count for p in self.profiles.values()),
+                # The followers read: a profile whose count was not read adds nothing.
+                "total_followers": sum(p.follower_count for p in self.profiles.values()
+                                       if p.follower_count is not None),
                 "total_likes": sum(m.like_count for m in self.media.values())
             }
     
