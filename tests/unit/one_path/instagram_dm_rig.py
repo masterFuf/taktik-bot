@@ -281,8 +281,9 @@ class InstagramDmRig:
         mp.setattr(runtime_setup, "detect_and_optimize",
                    lambda device, *a, **k: rig.calls.append("detect_language") or "en")
 
-        # The deep screen helpers of the DM runtime: recorded stand-ins.
-        from bridges.instagram.dm.bridge import DMBridge
+        # The deep screen helpers of the DM runtime the bridge and the CLI both connect: recorded
+        # stand-ins.
+        from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import InstagramDMRuntime
 
         def navigate(_self):
             rig.calls.append("navigate_to_dm_inbox")
@@ -323,19 +324,19 @@ class InstagramDmRig:
             rig.calls.append("collect_messages")
             return list(rig.messages.get(rig.phone.open_title, []))
 
-        mp.setattr(DMBridge, "navigate_to_dm_inbox", navigate)
-        mp.setattr(DMBridge, "open_requests_folder", open_requests)
-        mp.setattr(DMBridge, "open_conversation", open_conversation)
-        mp.setattr(DMBridge, "send_message", send_message)
-        mp.setattr(DMBridge, "_ensure_primary_tab", recorder("ensure_primary_tab"))
-        mp.setattr(DMBridge, "_scroll_to_top_of_inbox", recorder("scroll_to_top_of_inbox"))
-        mp.setattr(DMBridge, "_reset_inbox_to_top", recorder("reset_inbox_to_top"))
-        mp.setattr(DMBridge, "_return_to_inbox_if_needed", recorder("return_to_inbox_if_needed"))
-        mp.setattr(DMBridge, "_resolve_thread_username", lambda _self, info, username: username)
-        mp.setattr(DMBridge, "_detect_conversation_reply_state", recorder("detect_reply_state", (False, True)))
-        mp.setattr(DMBridge, "_collect_messages", collect)
-        mp.setattr(DMBridge, "_go_back_from_conversation", go_back)
-        mp.setattr(DMBridge, "_is_accounts_to_follow_visible", lambda _self: True)
+        mp.setattr(InstagramDMRuntime, "navigate_to_dm_inbox", navigate)
+        mp.setattr(InstagramDMRuntime, "open_requests_folder", open_requests)
+        mp.setattr(InstagramDMRuntime, "open_conversation", open_conversation)
+        mp.setattr(InstagramDMRuntime, "send_message", send_message)
+        mp.setattr(InstagramDMRuntime, "_ensure_primary_tab", recorder("ensure_primary_tab"))
+        mp.setattr(InstagramDMRuntime, "_scroll_to_top_of_inbox", recorder("scroll_to_top_of_inbox"))
+        mp.setattr(InstagramDMRuntime, "_reset_inbox_to_top", recorder("reset_inbox_to_top"))
+        mp.setattr(InstagramDMRuntime, "_return_to_inbox_if_needed", recorder("return_to_inbox_if_needed"))
+        mp.setattr(InstagramDMRuntime, "_resolve_thread_username", lambda _self, info, username: username)
+        mp.setattr(InstagramDMRuntime, "_detect_conversation_reply_state", recorder("detect_reply_state", (False, True)))
+        mp.setattr(InstagramDMRuntime, "_collect_messages", collect)
+        mp.setattr(InstagramDMRuntime, "_go_back_from_conversation", go_back)
+        mp.setattr(InstagramDMRuntime, "_is_accounts_to_follow_visible", lambda _self: True)
 
         def tap(device, element, **_kwargs):
             rig.calls.append(f"tap row {getattr(element, 'username', '?')}")

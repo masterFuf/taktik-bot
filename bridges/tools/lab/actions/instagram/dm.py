@@ -19,7 +19,7 @@ from bridges.tools.lab.actions.instagram import action
 def _dm_runtime(a):
     """Bind the production DM runtime (workflows/dm_inbox) to the warm Lab device.
 
-    Extends ``DMRuntime`` — the very composition ``DMBridge`` is built on — rather than
+    Extends ``DMRuntime`` — the very composition ``InstagramDMRuntime`` is built on — rather than
     re-listing its mixins here: a mixin added to the prod runtime then reaches the Lab
     on its own, where a parallel mixin list would have kept passing while testing an
     older capability set.

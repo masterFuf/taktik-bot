@@ -302,14 +302,14 @@ def test_a_cold_dm_without_a_message_is_refused_in_its_last_line(cold_dm_bridge,
 
 
 def _dm_class():
-    import bridges.instagram.dm.bridge as dm_bridge
     from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_payload import (
         build_answered_conversation,
         build_conversation_payload,
         build_up_to_date_conversation,
     )
+    from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import InstagramDMRuntime
 
-    class Dm(dm_bridge.DMBridge):
+    class Dm(InstagramDMRuntime):
         """The bridge's runtime and its announcements; only the walk of the inbox answers here."""
 
         device = None
@@ -355,7 +355,7 @@ def _dm_class():
 @pytest.fixture
 def dm_bridge(monkeypatch):
     import taktik.core.shared.device.connection as connection
-    import bridges.instagram.dm.bridge as runtime
+    import taktik.core.social_media.instagram.workflows.dm_inbox.runtime as runtime
     import bridges.instagram.dm.commands as bridge
     from taktik.core.social_media.instagram.workflows.core import runtime_setup
     from taktik.core.social_media.instagram.workflows.dm_inbox import agent_handler
@@ -363,7 +363,7 @@ def dm_bridge(monkeypatch):
     monkeypatch.setattr(connection, "ConnectionService", lambda device_id: SimpleNamespace())
     monkeypatch.setattr(runtime, "KeyboardService", lambda device_id: object())
     monkeypatch.setattr(runtime_setup, "prepare_instagram_selectors", lambda **kwargs: None)
-    monkeypatch.setattr(bridge, "DMBridge", _dm_class())
+    monkeypatch.setattr(bridge, "InstagramDMRuntime", _dm_class())
     for name, value in (("account_id_from_inbox_header", 1), ("resolve_account_id", 1),
                         ("record_conversations", None), ("record_reply", None), ("account_id_for_send", 1),
                         ("ensure_dm_inbox", True), ("return_to_inbox", None)):

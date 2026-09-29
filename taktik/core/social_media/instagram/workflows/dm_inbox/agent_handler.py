@@ -6,7 +6,7 @@ desktop bridge (`dm_bridge <config.json>`) calls it, and so do the handlers regi
 the hosts is injected:
 - `connect(package_name) -> runtime`: a `DMRuntime` bound to the phone, on the Instagram the payload
   names (`packageName`, a clone; None: the installed one), with `restart_instagram()` and
-  `device_manager` (the bridges' `DMBridge`: clone-aware, facade-wrapped device, Taktik Keyboard,
+  `device_manager` (`InstagramDMRuntime`: clone-aware, facade-wrapped device, Taktik Keyboard,
   clean restart through `AppService`); its `dm_events` receives the conversation events of a read.
 - `emit(payload)`: where the account read from the inbox header is announced (the bridge's stdout).
 No injected callable receives the whole payload, so the app's config contract test can still see

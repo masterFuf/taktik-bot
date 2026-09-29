@@ -12,8 +12,6 @@ from bridges.common.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.instagram.dm.bridge import DMBridge
-
 
 def main():
     from bridges.common.entrypoint import NOT_AN_OBJECT, run_bridge_main
@@ -27,4 +25,4 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["DMBridge", "main"]
+__all__ = ["main"]

@@ -105,13 +105,13 @@ class CliInstagramHost:
         return AgentRuntime(device_manager=base.device_manager, restart=base._app.restart)
 
     def dm_runtime(self, package_name: Optional[str]):
-        """The DM inbox runtime of the desktop's DM bridge (`DMBridge`: the core runtime on the
-        bridges' Instagram device, with the Taktik Keyboard and the clean restart), on the device
-        the CLI already connected. A read's events go to the log."""
+        """The DM inbox runtime the desktop's DM bridge connects too (`InstagramDMRuntime`: the core
+        runtime on the Instagram device, with the Taktik Keyboard and the clean restart), on the
+        device the CLI already connected. A read's events go to the log."""
         from taktik.core.shared.device.connected_device import on_connected_device
-        from bridges.instagram.dm.bridge import DMBridge
+        from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import InstagramDMRuntime
 
-        runtime = on_connected_device(DMBridge(self.device_id, package_name=package_name),
+        runtime = on_connected_device(InstagramDMRuntime(self.device_id, package_name=package_name),
                                       self.device_manager, self.device_id)
         runtime.dm_events = _log_dm_event
         return runtime

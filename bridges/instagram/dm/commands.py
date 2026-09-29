@@ -12,19 +12,21 @@ from __future__ import annotations
 
 import sys
 
-from bridges.instagram.dm.bridge import DMBridge
 from bridges.instagram.dm.events import emit_dm_error, emit_dm_json, emit_dm_result
 from taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler import run_instagram_dm
 from taktik.core.social_media.instagram.workflows.dm_inbox.payload import DmCommandError
+from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import InstagramDMRuntime
 
 
-def _connect(device_id: str, package_name: str = None) -> DMBridge:
-    """The phone, on the Instagram the launcher names (a clone, or the installed one)."""
-    bridge = DMBridge(device_id, package_name=package_name)
-    if not bridge.connect():
+def _connect(device_id: str, package_name: str = None) -> InstagramDMRuntime:
+    """The phone, on the Instagram the launcher names (a clone, or the installed one); the events of
+    a read go to stdout."""
+    runtime = InstagramDMRuntime(device_id, package_name=package_name)
+    runtime.dm_events = lambda payload: emit_dm_json(payload, flush=True)
+    if not runtime.connect():
         emit_dm_error("Failed to connect to device")
         sys.exit(1)
-    return bridge
+    return runtime
 
 
 def report_dm_entry_error(message: str, _reason: str) -> None:
