@@ -127,9 +127,14 @@ class VideoStateSelectors:
 
     #: A « Voir les Stories » card in the For You feed: a followed account's stories offered in
     #: place of a video (its avatar in its story ring, its name, the button), with nothing of a video:
-    #: no author row, no like, no share, nothing to link. Never seen on 43.1.4 (none of the 857 dumps
-    #: of that version in the Lab and the capture corpus): empty here; 47.0.3 in the overrides.
-    stories_card: List[str] = field(default_factory=list)
+    #: no author row, no like, no share, nothing to link. 43.1.4 (Pixel 3a, French, 2026-09-29, the Lab
+    #: auto-test): the button `cei`, in `cej`, on that card only among the 973 dumps of that version
+    #: in the Lab and the capture corpus (the card `d1o` and the name `ye2` answer elsewhere). Other
+    #: versions: overrides.
+    stories_card: List[str] = field(default_factory=lambda: [
+        '//*[contains(@resource-id, ":id/cei")]',
+        '//*[contains(@resource-id, ":id/cej")]',
+    ])
 
 
 VIDEO_STATE_SELECTORS = VideoStateSelectors()

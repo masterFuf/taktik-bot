@@ -1,10 +1,11 @@
-"""A « Voir les Stories » card in the For You feed of TikTok 47.0.3 is no video: a followed account's
-stories, offered in place of one. Never seen on 43.1.4, so the reference names nothing; the 47.0.3
-override carries its ids.
+"""A « Voir les Stories » card in the For You feed of TikTok is no video: a followed account's stories,
+offered in place of one. The feed serves it on 43.1.4 (the button `cei`, in `cej`: the reference)
+and on 47.0.3 (the button `d3j`, the card `duq`: the override, which carries the reference's entries
+along).
 
-The screens are real captures, anonymized: the card (Pixel 6a, TikTok 47.0.3 in French, 2026-09-29,
-the Lab auto-test) and every other 47.0.3 screen of these fixtures. Evaluated by uiautomator2's
-`d.xpath()` engine, as on the phone.
+The screens are real captures, anonymized: the card on 43.1.4 (Pixel 3a, French) and on 47.0.3
+(Pixel 6a, French), both of the Lab auto-test of 2026-09-29, and every other screen of that version
+in these fixtures. Evaluated by uiautomator2's `d.xpath()` engine, as on the phone.
 """
 
 from pathlib import Path
@@ -16,7 +17,9 @@ from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_STATE_SELECTORS
 
 FIXTURES = Path(__file__).parent / "fixtures"
-CARD = "tt4703_fr_for_you_stories_card.xml"
+CARD_4314 = "tt4314_fr_for_you_stories_card.xml"
+CARD_4703 = "tt4703_fr_for_you_stories_card.xml"
+SCREENS_4314 = sorted(path.name for path in FIXTURES.glob("tt4314_*.xml"))
 SCREENS_4703 = sorted(path.name for path in FIXTURES.glob("tt4703_*.xml"))
 
 
@@ -43,11 +46,11 @@ def _card_found(name):
     return any(device.xpath(sel).exists for sel in VIDEO_STATE_SELECTORS.stories_card)
 
 
-def test_the_reference_names_no_card():
-    assert VIDEO_STATE_SELECTORS.stories_card == []
-    assert not _card_found(CARD)
+@pytest.mark.parametrize("name", SCREENS_4314)
+def test_on_the_reference_the_card_is_found_and_nothing_else(name):
+    assert _card_found(name) is (name == CARD_4314)
 
 
 @pytest.mark.parametrize("name", SCREENS_4703)
 def test_on_47_0_3_the_card_is_found_and_nothing_else(on_47_0_3, name):
-    assert _card_found(name) is (name == CARD)
+    assert _card_found(name) is (name == CARD_4703)

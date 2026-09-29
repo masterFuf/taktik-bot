@@ -8,8 +8,8 @@ anywhere else the action still fails, so a broken selector is never taken for ab
 
 The screens are real dumps, anonymized: Instagram 410 (English notifications, home feed; French
 profile with highlights only), TikTok 43.1.4 in French (For You video, a video without a
-description, an ad, a LIVE preview, the inbox) and TikTok 47.0.3 in French (For You video, the
-« Voir les Stories » card the feed serves in place of a video).
+description, the « Voir les Stories » card the feed serves in place of a video, an ad, a LIVE
+preview, the inbox) and TikTok 47.0.3 in French (For You video, the same card).
 """
 
 from pathlib import Path
@@ -44,6 +44,7 @@ IG_FEED = _dump("instagram", "ig410_en_home_feed_carousel_post.xml")
 IG_PROFILE_HIGHLIGHTS_ONLY = _dump("instagram", "ig410_fr_profile_highlights_only.xml")
 TT_VIDEO = _dump("tiktok", "tt4314_fr_for_you_video.xml")
 TT_VIDEO_NO_DESCRIPTION = _dump("tiktok", "tt4314_fr_for_you_video_no_description.xml")
+TT_STORIES_CARD = _dump("tiktok", "tt4314_fr_for_you_stories_card.xml")
 TT_AD = _dump("tiktok", "tt4314_fr_ad.xml")
 TT_LIVE = _dump("tiktok", "tt4314_fr_for_you_live_preview.xml")
 TT_INBOX = _dump("tiktok", "tt4314_fr_inbox.xml")
@@ -247,6 +248,16 @@ def test_a_live_preview_has_no_description_to_read():
     assert phone.taps == []
 
 
+def test_a_stories_card_has_no_description_to_read():
+    """43.1.4, For You surface of the Pixel 3a pass of 2026-09-29, after the first fix: the feed served
+    a followed account's « Voir les Stories » card, read as « no video on screen (unknown) »."""
+    bundle, phone = _tiktok(TT_STORIES_CARD)
+    result = TIKTOK_ACTIONS["tt.detection.get_video_description"](bundle, {})
+    assert (result["success"], _declared(result)) == (
+        False, "the For You item on screen is a Stories card: no description")
+    assert phone.taps == []
+
+
 @pytest.mark.parametrize("xml", [TT_INBOX, ""], ids=["inbox", "unreadable"])
 def test_off_a_video_no_description_is_declared_absent(xml):
     """Nothing was read where no video is: a failure, never « no description »."""
@@ -255,15 +266,24 @@ def test_off_a_video_no_description_is_declared_absent(xml):
     assert (result["success"], _declared(result)) == (False, None)
 
 
-def test_a_stories_card_served_in_place_of_a_video_has_no_link(on_47_0_3):
-    """47.0.3, For You surface of the Pixel 6a pass of 2026-09-29: the feed served a followed
-    account's « Voir les Stories » card. The production finds no share button and answers nothing,
-    which is right; the Lab says why."""
-    bundle, phone = _tiktok(TT4703_STORIES_CARD)
+def _no_video_to_link_on(card_xml):
+    """The production finds no share button on the card and answers nothing, which is right; the
+    Lab says why, and taps nothing."""
+    bundle, phone = _tiktok(card_xml)
     result = TIKTOK_ACTIONS["tt.video.collect_post"](bundle, {})
     assert (result["success"], _declared(result)) == (
         False, "the For You item on screen is a Stories card: no video to link")
     assert phone.taps == []
+
+
+def test_a_stories_card_served_in_place_of_a_video_has_no_link():
+    """43.1.4, the card of the Pixel 3a pass of 2026-09-29 (ids of the reference)."""
+    _no_video_to_link_on(TT_STORIES_CARD)
+
+
+def test_a_stories_card_served_in_place_of_a_video_has_no_link_on_47_0_3(on_47_0_3):
+    """47.0.3, the card of the Pixel 6a pass of 2026-09-29 (ids of the override)."""
+    _no_video_to_link_on(TT4703_STORIES_CARD)
 
 
 def test_a_video_whose_link_is_not_had_is_not_declared(on_47_0_3):

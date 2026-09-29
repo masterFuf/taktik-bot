@@ -4,13 +4,12 @@ from loguru import logger
 
 from bridges.compat.diagnostics.actions.tiktok import action
 from bridges.compat.diagnostics.runtime.action_test.not_applicable import not_applicable
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
 
 
 def _stories_card(action_id, a):
     """Why the For You item on screen has no video, when the feed served a followed account's
-    « Voir les Stories » card in its place (47.0.3); else None."""
-    if first_matching(a.device, a.video_detector.video_selectors.stories_card):
+    « Voir les Stories » card in its place (43.1.4 and 47.0.3); else None."""
+    if a.video_detector.is_stories_card():
         return not_applicable(action_id, "the For You item on screen is a Stories card: no video to link")
     return None
 

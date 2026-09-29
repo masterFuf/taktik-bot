@@ -53,12 +53,26 @@ versions:
   "47.0.3":
     # « Voir les Stories » card of a followed account, served by the For You feed in place of a
     # video (Pixel 6a, French, 2026-09-29, the Lab auto-test): the button `d3j`, in the card `duq`.
-    # Both answer on the two dumps of that card and on none of the 507 other 47.0.3 dumps of the
-    # Lab and the capture corpus, nor on any 43.1.4, 46.6.3 or 46.9.3 dump. The reference entry is
-    # empty (the card was never seen on 43.1.4): nothing to carry along.
+    # Both answer on the two dumps of that card and on none of the 628 other 47.0.3 dumps of the
+    # Lab and the capture corpus, nor on any 43.1.4, 46.6.3 or 46.9.3 dump. Baseline entries (`cei`,
+    # `cej`, the same card on 43.1.4) carried along: absent from every 46.x and 47.0.3 dump.
     video_state.stories_card:
       - '//*[contains(@resource-id, ":id/d3j")]'
       - '//*[contains(@resource-id, ":id/duq")]'
+      - '//*[contains(@resource-id, ":id/cei")]'
+      - '//*[contains(@resource-id, ":id/cej")]'
+    # The Activity page (Pixel 6a, French, 2026-09-29, the page `tt.activity.open` opened in the Lab
+    # auto-test and did not recognise): no « Filtres » control any more, the filter is the arrow of
+    # its « Activité » tab `y5n`, beside a « Nouveaux followers » tab `y6f` on the same page. The tab
+    # shown carries the underline: `y5o` under « Activité », `y6g` under « Nouveaux followers ». The
+    # « Activité » tab with its underline answers on the 4 dumps of that tab and on none of the other
+    # 626 47.0.3 dumps (the 3 of the « Nouveaux followers » tab among them), nor on any other
+    # version. Baseline entry `pzx` carried along (absent from every 47.0.3 dump); the baseline
+    # « Filtres » / « Filters » is NOT: on 47.0.3 it is a button of the video editor (the 6 dumps
+    # where it answers), which it would take for this page.
+    activity.page_indicator:
+      - '//*[contains(@resource-id, ":id/y5n")][.//*[contains(@resource-id, ":id/y5o")]]'
+      - '//*[contains(@resource-id, ":id/pzx")]'
     # Profile stats row (Pixel 6a, two profiles: a followed media account and an account that
     # follows us): values `t8_`, labels `t89`, three of each, in the same order (following,
     # followers, likes). The baseline ids `qfw` / `qfv` resolve nothing on 47.0.3, so the row

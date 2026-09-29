@@ -48,6 +48,10 @@ class ActivitySelectors:
     #:
     #: `iil` was in this list until that table was made. It would have reported the feed as the
     #: Activity page, which is how a read comes back empty from the wrong screen and nobody knows.
+    #:
+    #: 47.0.3 has no « Filtres » control (the filter is the arrow of the page's « Activité » tab, beside
+    #: a « Nouveaux followers » tab), and its video editor has a « Filtres » button: the "47.0.3"
+    #: override names the « Activité » tab when it is the one shown.
     page_indicator: List[str] = field(default_factory=lambda: [
         '//*[@content-desc="Filtres" or @content-desc="Filters"]',
         '//*[contains(@resource-id, ":id/pzx")]',
