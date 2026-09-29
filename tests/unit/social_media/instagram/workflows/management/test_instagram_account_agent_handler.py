@@ -3,12 +3,7 @@ import pytest
 from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
 from taktik.core.kernel.executor import AgentPlanExecutor
 from taktik.core.kernel.registry import WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.management import (
-    INSTAGRAM_ACCOUNT_LOGIN_WORKFLOW_ID,
-    INSTAGRAM_ACCOUNT_LOGOUT_WORKFLOW_ID,
-    INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID,
-    register_instagram_account_handlers,
-)
+from taktik.core.social_media.instagram.workflows.account.agent_handler import INSTAGRAM_ACCOUNT_LOGIN_WORKFLOW_ID, INSTAGRAM_ACCOUNT_LOGOUT_WORKFLOW_ID, INSTAGRAM_ACCOUNT_REGISTER_WORKFLOW_ID, register_instagram_account_handlers
 
 
 class FakeWorkflow:

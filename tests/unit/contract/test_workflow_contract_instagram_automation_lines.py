@@ -34,7 +34,8 @@ from ig_automation_probe import (
 )
 from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION, WORKFLOW_TYPES
 
-_BUSINESS = "taktik.core.social_media.instagram.actions.business"
+_SERVICES = "taktik.core.social_media.instagram.services"
+_AUTOMATION = "taktik.core.social_media.instagram.workflows.automation"
 #: IPCEmitter entry points only the scraping workflows call: not on this path.
 _SCRAPING_ONLY = {"emit_scraping_profile_visit", "emit_scraping_dq_progress"}
 
@@ -68,26 +69,26 @@ def _script_the_sources(monkeypatch) -> None:
     sync = {"new_count": 2, "updated_count": 1, "stopped_early": False, "success": True, "total_seen": 3}
 
     patches = {
-        f"{_BUSINESS}.management.profile.extraction:ProfileExtraction.get_complete_profile_info":
+        f"{_SERVICES}.profile.extraction:ProfileExtraction.get_complete_profile_info":
             lambda self, username=None, **k: {"username": username or "acting", "followers_count": 12,
                                               "following_count": 3, "posts_count": 4},
-        f"{_BUSINESS}.workflows.followers.workflow:FollowerBusiness.interact_with_followers_direct":
+        f"{_AUTOMATION}.followers.workflow:FollowerBusiness.interact_with_followers_direct":
             lambda self, *a, **k: dict(empty_interactions),
-        f"{_BUSINESS}.workflows.followers.workflow:FollowerBusiness.interact_with_profile_list":
+        f"{_AUTOMATION}.followers.workflow:FollowerBusiness.interact_with_profile_list":
             lambda self, *a, **k: dict(empty_interactions),
-        f"{_BUSINESS}.workflows.hashtag.workflow:HashtagBusiness.interact_with_hashtag_likers":
+        f"{_AUTOMATION}.hashtag.workflow:HashtagBusiness.interact_with_hashtag_likers":
             lambda self, *a, **k: {"users_interacted": 0, "stop_reason": ""},
-        f"{_BUSINESS}.workflows.post_url.workflow:PostUrlBusiness.interact_with_post_likers":
+        f"{_AUTOMATION}.post_url.workflow:PostUrlBusiness.interact_with_post_likers":
             lambda self, *a, **k: {"users_interacted": 0, "stop_reason": ""},
-        f"{_BUSINESS}.workflows.feed.workflow:FeedBusiness.interact_with_feed":
+        f"{_AUTOMATION}.feed.workflow:FeedBusiness.interact_with_feed":
             lambda self, *a, **k: {"posts_engaged": 0},
-        f"{_BUSINESS}.workflows.unfollow.workflow:UnfollowBusiness.run_unfollow_workflow":
+        f"{_AUTOMATION}.unfollow.workflow:UnfollowBusiness.run_unfollow_workflow":
             lambda self, *a, **k: {"unfollows_made": 0, "success": True},
-        f"{_BUSINESS}.workflows.unfollow.workflow:UnfollowBusiness.sync_following_list":
+        f"{_AUTOMATION}.unfollow.workflow:UnfollowBusiness.sync_following_list":
             lambda self, *a, **k: dict(sync),
-        f"{_BUSINESS}.workflows.unfollow.workflow:UnfollowBusiness.sync_followers_list":
+        f"{_AUTOMATION}.unfollow.workflow:UnfollowBusiness.sync_followers_list":
             lambda self, *a, **k: dict(sync),
-        f"{_BUSINESS}.workflows.unfollow.workflow:UnfollowBusiness.scrape_non_followers_category":
+        f"{_AUTOMATION}.unfollow.workflow:UnfollowBusiness.scrape_non_followers_category":
             lambda self, *a, **k: {"non_followers_count": 1, "mutuals_count": 2, "success": True},
     }
     for dotted, replacement in patches.items():
@@ -104,8 +105,8 @@ def automation_run(monkeypatch, tmp_path):
     import bridges.common.network as network
     import taktik.core.database as database
     import bridges.instagram.automation.bridge as bridge
-    import taktik.core.social_media.instagram.workflows.core.runtime_setup as runtime_setup
-    import taktik.core.social_media.instagram.workflows.support.workflow_helpers as helpers
+    import taktik.core.social_media.instagram.workflows.common.runtime_setup as runtime_setup
+    import taktik.core.social_media.instagram.workflows.common.workflow_helpers as helpers
     from bridges.instagram.automation.session import InstagramDesktopRuntime
 
     sent = capture_lines(monkeypatch)
@@ -242,15 +243,15 @@ def _ai_and_decision_lines(monkeypatch, tmp_path) -> List[Dict[str, Any]]:
     from PIL import Image
 
     import bridges.instagram.common.ipc as instagram_ipc
-    import taktik.core.social_media.instagram.workflows.core.ai_hooks as ai_hooks
+    import taktik.core.social_media.instagram.workflows.common.ai_hooks as ai_hooks
     from bridges.common.ipc import IPC
     from bridges.instagram.automation.decision_client import DesktopProfileDecisionClient
     from bridges.instagram.common.ai import create_instagram_ai_service
-    from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+    from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
         InteractionEngineMixin,
     )
-    from taktik.core.social_media.instagram.workflows.core.config_builder import build_instagram_automation_config
-    from taktik.core.social_media.instagram.workflows.management.session import SessionManager
+    from taktik.core.social_media.instagram.workflows.automation.config_builder import build_instagram_automation_config
+    from taktik.core.social_media.instagram.workflows.common.session import SessionManager
 
     desktop = _Desktop()
     sent: List[Dict[str, Any]] = []
@@ -317,12 +318,12 @@ def _emitter_lines(monkeypatch, capsys) -> List[Dict[str, Any]]:
     from bridges.instagram.automation.media_capture import InstagramMediaCaptureRuntime
     from bridges.instagram.common.ipc_stats import setup_stats_callback
     from taktik.core.shared.telemetry import emit_step
-    from taktik.core.social_media.instagram.actions.business.workflows.followers.workflow import FollowerBusiness
-    from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+    from taktik.core.social_media.instagram.workflows.automation.followers.workflow import FollowerBusiness
+    from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
         InteractionEngineMixin,
     )
-    from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
-    from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
+    from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
+    from taktik.core.social_media.instagram.actions.base.stats import BaseStatsManager
     from taktik.core.social_media.instagram.media.capture.media_capture import MediaCaptureService
 
     sent = capture_lines(monkeypatch)
@@ -382,7 +383,7 @@ def _emitter_lines(monkeypatch, capsys) -> List[Dict[str, Any]]:
     FollowerBusiness._setup_direct_workflow(follower, "a_target", {}, {"interaction_type": "followers"}, 0, False)
 
     # The follow-graph sync, as both lists print it while they are read.
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.sync_events import (
+    from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.sync_events import (
         emit_sync_progress,
         emit_sync_user_discovered,
     )

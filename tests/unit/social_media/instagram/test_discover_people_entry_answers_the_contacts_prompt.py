@@ -22,14 +22,14 @@ from uiautomator2.xpath import XPathEntry
 
 import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.atomic.navigation.tab_navigation as tab_navigation
-import taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions as suggestions_module
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.workflows.automation.feed.suggestions as suggestions_module
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from bridges.tools.lab.actions.instagram.suggestions import open_see_all
 from bridges.tools.lab.action_test.bundles.instagram import build_instagram_action_bundle
 from profile_posts_phone import PKG, bounds_of, capture
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.device.ui_dump import parse_ui_dump
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 FEED_WITH_CAROUSEL = capture("ig447_fr_feed_carousel_before_see_all.xml")

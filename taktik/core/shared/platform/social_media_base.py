@@ -4,7 +4,7 @@ Social Media Base (Shared)
 Abstract base class for platform managers (Instagram, TikTok, etc.).
 Defines the common interface that all platform managers must implement.
 
-Previously located in instagram/actions/core/ but is platform-agnostic.
+Previously located in instagram/actions/base/ but is platform-agnostic.
 """
 
 from abc import ABC, abstractmethod

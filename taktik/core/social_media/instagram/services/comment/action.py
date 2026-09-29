@@ -1,0 +1,649 @@
+"""Comment action — post comments on Instagram posts."""
+
+import time
+import random
+from typing import Dict, List, Any, Optional
+from loguru import logger
+
+from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
+from taktik.core.database.instagram_posted_comments import InstagramPostedComments
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
+from taktik.core.social_media.instagram.services.comment.validation import validate_comment
+
+
+from taktik.core.social_media.instagram.services.comment.thread_context import ThreadContextMixin
+
+
+class CommentAction(ThreadContextMixin, BaseBusinessAction):
+    
+    def __init__(self, device, session_manager=None, automation=None):
+        super().__init__(device, session_manager, automation, "comment")
+        self.post_selectors = POST_COMMENTS_SELECTORS
+        
+        self.default_config = {
+            'comment_delay_range': (3, 7),
+            'max_comment_length': 150,
+            'min_comment_length': 3,
+            # Capture the shareable link of the post we just commented on. Costs a share-sheet
+            # round trip (open share -> "Copy link" -> read -> close), which is why it runs
+            # AFTER the comment is safely posted and recorded, and never fails the action.
+            # Set False to keep comments strictly gesture-minimal.
+            'capture_post_url': True,
+        }
+
+    
+    def comment_on_post(self, comment_text: str = None,
+                       custom_comments: List[str] = None, config: dict = None, username: str = None,
+                       ai_metadata: Optional[Dict[str, Any]] = None) -> dict:
+        """Post a comment. `ai_metadata` carries what only the AI hook knows (model, cost,
+        reasoning, post caption/description, language) so the stored record of the comment
+        is complete; it stays None for template/custom comments.
+
+        With no text and no custom comment, post nothing (skipped result, the screen
+        untouched): the bot has no built-in template."""
+        config = {**self.default_config, **(config or {})}
+
+        stats = {
+            'commented': False,
+            'comment_text': None,
+            'errors': 0,
+            'success': False
+        }
+
+        try:
+            if not comment_text:
+                if custom_comments and len(custom_comments) > 0:
+                    comment_text = random.choice(custom_comments)
+                    self.logger.debug(f"Using custom comment from user list")
+                else:
+                    self.logger.info("No comment text (no AI comment, no custom comment): not commenting")
+                    stats['skipped'] = True
+                    stats['skip_reason'] = 'no_comment_text'
+                    return stats
+            
+            if not validate_comment(comment_text, config, self.logger):
+                self.logger.warning(f"Invalid comment text ({len(comment_text)} chars)")
+                stats['errors'] += 1
+                return stats
+            
+            self.logger.info(f"Attempting to comment ({len(comment_text)} chars)")
+
+            # Open the comment box — unless the composer is already on screen (e.g. the
+            # post already shows the inline composer, or we navigated straight into the
+            # comments thread). Clicking the comment button there would fail: that button
+            # isn't present once the composer is open.
+            if self._is_comment_composer_open():
+                self.logger.debug("Comment composer already open — skipping comment-button click")
+            elif not self._click_comment_button():
+                self.logger.error("Failed to click comment button")
+                stats['errors'] += 1
+                return stats
+            else:
+                time.sleep(random.uniform(2, 4))
+
+            # Recovery: a mis-tap on the "Send post" (share) button — which sits next to Comment in the
+            # action row — opens the Direct share sheet, which then BLOCKS the workflow (it keeps
+            # waiting, thinking it's still commenting). Detect the sheet and back out instead of getting
+            # stuck; skip this comment (the next post retries cleanly).
+            if self._dismiss_share_sheet_if_open():
+                self.logger.warning("Share sheet opened instead of comments (mis-tap) — dismissed, skipping this comment")
+                stats['errors'] += 1
+                return stats
+
+            if not self._type_comment(comment_text):
+                self.logger.error("Failed to type comment")
+                stats['errors'] += 1
+                return stats
+            
+            time.sleep(random.uniform(0.5, 1.5))
+            
+            if not self._post_comment():
+                self.logger.error("Failed to post comment")
+                stats['errors'] += 1
+                return stats
+            
+            # "Try again later" after the send, looked for BEFORE the popup is closed, which
+            # could dismiss it: the detector sets the run's lock. A refused comment is not
+            # posted: nothing is recorded, and no share sheet is opened after it.
+            if self._stop_if_action_blocked(username or '', 'comment'):
+                stats['blocked'] = True
+                self._close_comment_popup()
+                return stats
+
+            self.logger.info(f"✅ Comment posted successfully ({len(comment_text)} chars)")
+            stats['commented'] = True
+            stats['comment_text'] = comment_text
+            stats['success'] = True
+
+            # Written NOW, before the pause and the sheet close (see _record_posted_comment).
+            comment_id = self._record_posted_comment(
+                username, comment_text, ai_metadata,
+                source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'template'),
+            )
+            stats['comment_id'] = comment_id
+            if comment_id:
+                # Bind the prompt capture written when the model answered to the comment it
+                # produced. Two rows a few seconds apart, joined by an id rather than by a
+                # timestamp: the explain panel then reads one row, not a nearest match.
+                capture_id = (ai_metadata or {}).get('capture_id')
+                if capture_id:
+                    try:
+                        from taktik.core.database.ai_prompt_captures import AiPromptCaptures
+
+                        AiPromptCaptures.attach_comment(capture_id, comment_id)
+                    except Exception as exc:  # noqa: BLE001 — diagnostics never break a run
+                        self.logger.debug(f"Could not bind prompt capture to comment: {exc}")
+
+            delay = random.uniform(*config['comment_delay_range'])
+            self.logger.debug(f"Waiting {delay:.1f}s after commenting")
+            time.sleep(delay)
+
+            self._close_comment_popup()
+
+            # The link needs the share sheet, hence the sheet closed first. Best-effort.
+            if comment_id and config.get('capture_post_url', True):
+                self._attach_post_url(comment_id)
+
+            return stats
+            
+        except Exception as e:
+            self.logger.error(f"Error commenting on post: {e}")
+            stats['errors'] += 1
+            return stats
+
+    def _record_posted_comment(self, username: Optional[str], text: str,
+                               ai_metadata: Optional[Dict[str, Any]], source: str,
+                               **record_fields: Any) -> Optional[int]:
+        """Count and store a comment the moment it is published. Returns the posted_comments id.
+
+        Called right after the send button, BEFORE the post-comment pause and the sheet close:
+        those take several seconds and tap the screen. Written after them, a run stopped or
+        crashing in between left a published comment with no trace at all -- measured on
+        2026-09-24: the run stopped six seconds after the send, while closing the sheet, and the
+        session kept not a single row; the comment was outside the session caps.
+
+        Three writes, on purpose:
+         - the session counter, which the session caps read;
+         - interactions: the ACTION LEDGER row (counters, quotas, Turso sync all read it). It
+           carries the text, so the session drill-down shows it even without a rich record;
+         - posted_comments: the RICH record -- which post, which model wrote it, what it
+           cost, why. A comment is the only gesture with real content of its own.
+        The two rows need the target account; without one the comment is still counted.
+        """
+        if self.session_manager:
+            try:
+                self.session_manager.record_action('comment_posts', success=True)
+            except Exception as exc:
+                self.logger.error(f"Failed to increment comment session counter: {exc}")
+
+        if not username:
+            self.logger.warning(
+                "Comment published with no known target: counted in the session, "
+                "but no ledger row can be written"
+            )
+            return None
+
+        self._record_action(username, 'COMMENT', 1, content=text)
+        return InstagramPostedComments.record(
+            target_username=username,
+            comment_text=text,
+            account_id=self._get_account_id(),
+            session_id=self._get_session_id(),
+            ai_metadata=ai_metadata,
+            source=source,
+            **record_fields,
+        )
+
+    def _attach_post_url(self, comment_id: int) -> None:
+        """Best-effort: capture the post's shareable link and complete the stored comment.
+
+        Runs only AFTER the comment is posted and recorded, so the comment is never at risk.
+        It reuses the production `get_post_url_from_share` (already used by post scraping),
+        which opens the share sheet, reads the link and closes the sheet itself. Deliberately
+        synchronous: it TAPS the screen, so it must not run in a background thread alongside
+        the main one. Any failure is swallowed — we simply keep the row without a link.
+        """
+        try:
+            from taktik.core.social_media.instagram.workflows.common.post_navigation import (
+                get_post_url_from_share,
+            )
+            url = get_post_url_from_share(self.device, self.logger, extractors=self.ui_extractors)
+            if url:
+                InstagramPostedComments.attach_post_url(comment_id, url)
+                self.logger.debug(f"Post URL captured for comment {comment_id}: {url}")
+            else:
+                self.logger.debug("Post URL not captured (share sheet unavailable) — comment kept")
+        except Exception as exc:
+            self.logger.debug(f"Post URL capture skipped ({exc}) — comment kept")
+
+    def _is_comment_composer_open(self) -> bool:
+        """Whether the comment composer/edit field is already on screen.
+
+        Cross-language (keys off the composer field/parent ids, not localized 'Comments'
+        text) and version-drift tolerant (contains() matches v410's
+        `layout_comment_thread_edittext_multiline`). Lets the caller skip the
+        comment-button click when we're already in the composer."""
+        try:
+            indicators = getattr(self.post_selectors, 'comment_composer_indicators', None)
+            if not indicators:
+                return False
+            combined = ' | '.join(indicators)
+            return self.device.xpath(combined).exists
+        except Exception:
+            return False
+
+    def _click_comment_button(self) -> bool:
+        """Open the comment box of the framed post (`_tap_framed_post_comment_button`): on a list of
+        posts, the button of its own row. The first comment button of the screen can be the post
+        above's, and the comment written for the framed post was then published under that post."""
+        try:
+            if self._tap_framed_post_comment_button(self.post_selectors.comment_button_selectors):
+                self.logger.debug("Comment button of the framed post clicked")
+                return True
+            self.logger.warning("Comment button not found")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error clicking comment button: {e}")
+            return False
+
+    def _dismiss_share_sheet_if_open(self) -> bool:
+        """If the Direct 'Send post' share sheet is up (a mis-tap on the share button next to Comment),
+        back out of it so the workflow isn't blocked. Returns True if the sheet was open + dismissed."""
+        indicators = getattr(self.post_selectors, 'share_sheet_indicators', [])
+        try:
+            if not any(self.device.xpath(sel).exists for sel in indicators):
+                return False
+            # Back out (bottom sheets close on back). Up to two presses in case a nested view is on top.
+            for _ in range(2):
+                self.device.press("back")
+                time.sleep(random.uniform(0.5, 1.0))
+                if not any(self.device.xpath(sel).exists for sel in indicators):
+                    break
+            return True
+        except Exception as e:
+            self.logger.debug(f"Share-sheet dismiss check failed: {e}")
+            return False
+    
+    def _type_comment(self, comment_text: str, mention: str = "") -> bool:
+        """Type the comment; True only once the field holds exactly it, after `mention` (the
+        "@name " of a threaded reply) when one is given."""
+        try:
+            comment_field = None
+            found = False
+
+            # Iterate all known comment field selectors, with up to 3 attempts to handle slow popup rendering
+            all_selectors = getattr(self.post_selectors, 'comment_field_selectors', [self.post_selectors.comment_field_selector])
+            for attempt in range(3):
+                for selector in all_selectors:
+                    try:
+                        field_candidate = self.device.xpath(selector)
+                        if field_candidate.exists:
+                            comment_field = field_candidate
+                            found = True
+                            self.logger.debug(f"Comment field found with selector: {selector} (attempt {attempt + 1})")
+                            break
+                    except Exception:
+                        continue
+                if found:
+                    break
+                if attempt < 2:
+                    self.logger.debug(f"Comment field not found yet, waiting 1s (attempt {attempt + 1}/3)...")
+                    time.sleep(1.0)
+
+            if not found or comment_field is None:
+                self.logger.error("Comment field not found (all selectors failed)")
+                return False
+
+            # Before the tap: a keyboard switched after it can cost the field its focus.
+            self._ensure_taktik_keyboard()
+            comment_field.click()
+            time.sleep(0.5)
+            
+            # Read back and retyped once if the field does not hold exactly the comment. Nothing
+            # is pasted when it still does not: `set_text` writes the whole text at once.
+            if not self._type_text_checked(comment_text, prefix=mention):
+                self.logger.error("The Taktik Keyboard did not leave the comment in the field: "
+                                  "not sent, nothing pasted")
+                return False
+            self.logger.debug(f"Comment text typed ({len(comment_text)} chars)")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error typing comment: {e}")
+            return False
+    
+    def _post_comment(self) -> bool:
+        try:
+            # Try each selector, with a retry after a short wait
+            for attempt in range(2):
+                for selector in self.post_selectors.post_comment_button_selectors:
+                    try:
+                        element = self.device.xpath(selector)
+                        if element.exists:
+                            element.click()
+                            self.logger.debug(f"Post comment button clicked with selector: {selector}")
+                            time.sleep(1)
+                            return True
+                    except Exception:
+                        continue
+                
+                if attempt == 0:
+                    self.logger.debug("Post comment button not found, waiting 2s and retrying...")
+                    time.sleep(2)
+            
+            self.logger.error("Post comment button not found after retries")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error posting comment: {e}")
+            return False
+    
+    def _close_comment_popup(self) -> bool:
+        """Close the comments bottom sheet using multiple strategies.
+
+        Root cause (confirmed from UI dump): after posting a comment the
+        edittext field stays focused=true. The Taktik IME occupies a separate
+        window below the sheet. In this state KEYCODE_BACK is consumed by the
+        focused field — it only removes focus / hides the keyboard, not the sheet.
+
+        Strategy order:
+        1. Click the sheet title 'Comments' to remove focus from the edittext
+           (defocus → IME hides → back now targets the sheet)
+        2. press('back') up to 3x with per-attempt verification
+        3. Swipe drag handle down (only when sheet is NOT full-screen)
+        4. Swipe from screen centre (generic last resort)
+        5. Click nav-bar Back button of the IME window (last resort)
+        """
+        try:
+            self.logger.debug("Closing comment popup...")
+
+            screen_info = self.device.info
+            screen_height = screen_info.get('displayHeight', 1920)
+            screen_width = screen_info.get('displayWidth', 1080)
+
+            # ── Strategy 1: defocus the comment edittext ──────────────────────
+            # Click the "Comments" title or the drag handle frame to remove focus
+            # from the edittext so that subsequent KEYCODE_BACK targets the sheet.
+            try:
+                title = self.device.xpath(self.post_selectors.comment_title_defocus)
+                if title.exists:
+                    title.click()
+                    self.logger.debug("Clicked Comments title to defocus edittext")
+                    time.sleep(0.5)
+                    if not self._is_comments_view_open():
+                        self.logger.debug("✅ Comment popup closed by title click")
+                        return True
+                else:
+                    # Fallback defocus: click drag handle frame area (safe tap zone)
+                    drag_frame = self.device.xpath(self.post_selectors.comment_drag_handle_frame)
+                    if drag_frame.exists:
+                        drag_frame.click()
+                        self.logger.debug("Clicked drag handle frame to defocus edittext")
+                        time.sleep(0.5)
+            except Exception as e:
+                self.logger.debug(f"Defocus strategy failed (non-fatal): {e}")
+
+            # ── Strategy 2: press('back') up to 3x with verification ─────────
+            # After defocus the IME should be hidden and back targets the sheet.
+            for attempt in range(3):
+                self.logger.debug(f"press('back') attempt {attempt + 1}/3")
+                self.device.press("back")
+                time.sleep(0.9)
+                if not self._is_comments_view_open():
+                    self.logger.debug(f"✅ Comment popup closed after {attempt + 1} back press(es)")
+                    return True
+
+            # ── Strategy 3: swipe drag handle down (partial sheet only) ──────
+            handle_is_fullscreen = False
+            try:
+                drag_handle = self.device.xpath(self.popup_selectors.comment_popup_drag_handle)
+                if drag_handle.exists:
+                    bounds = drag_handle.info.get('bounds', {})
+                    if bounds:
+                        handle_y = (bounds.get('top', 0) + bounds.get('bottom', 0)) // 2
+                        center_x = (bounds.get('left', screen_width // 2) + bounds.get('right', screen_width // 2)) // 2
+                        if handle_y < int(screen_height * 0.10):
+                            handle_is_fullscreen = True
+                            self.logger.debug(f"Sheet fully expanded (handle_y={handle_y}) — skipping swipe")
+                        else:
+                            end_y = int(screen_height * 0.95)
+                            self.logger.debug(f"Swiping drag handle: ({center_x},{handle_y}) → ({center_x},{end_y})")
+                            self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, 0.3)
+                            time.sleep(0.7)
+                            if not self._is_comments_view_open():
+                                self.logger.debug("✅ Comment popup closed via drag handle swipe")
+                                return True
+                            self.logger.debug("Drag handle swipe did not close popup")
+            except Exception as e:
+                self.logger.debug(f"Drag handle strategy failed (non-fatal): {e}")
+
+            # ── Strategy 4: swipe from screen centre ─────────────────────────
+            # Works whether the sheet is partial OR full-screen:
+            # swiping from the middle of the modal content area downward
+            # dismisses the bottom sheet without risking the notification panel.
+            center_x = screen_width // 2
+            start_y = int(screen_height * 0.40)
+            end_y = int(screen_height * 0.92)
+            self.logger.debug(f"Centre swipe: ({center_x},{start_y}) → ({center_x},{end_y})")
+            self.device.swipe_coordinates(center_x, start_y, center_x, end_y, 0.4)
+            time.sleep(0.7)
+            if not self._is_comments_view_open():
+                self.logger.debug("✅ Comment popup closed via centre swipe")
+                return True
+
+            # ── Strategy 5: click IME nav-bar Back button ─────────────────────
+            # The Taktik IME exposes a clickable nav-back control; the selector
+            # lives in the comments catalog with the rest of this close strategy.
+            try:
+                ime_back = self.device.xpath(self.post_selectors.ime_nav_back_button)
+                if ime_back.exists:
+                    ime_back.click()
+                    self.logger.debug("Clicked IME nav back button")
+                    time.sleep(0.7)
+                    if not self._is_comments_view_open():
+                        self.logger.debug("✅ Comment popup closed via IME back button")
+                        return True
+                    # One more back press after IME dismissed
+                    self.device.press("back")
+                    time.sleep(0.8)
+                    if not self._is_comments_view_open():
+                        self.logger.debug("✅ Comment popup closed after IME back + back press")
+                        return True
+            except Exception as e:
+                self.logger.debug(f"IME back button strategy failed (non-fatal): {e}")
+
+            self.logger.warning("⚠️ All strategies exhausted — could not confirm comment popup closed")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error closing comment popup: {e}")
+            try:
+                self.device.press("back")
+                time.sleep(0.5)
+            except Exception:
+                pass
+            return False
+    
+    # ─── In-thread actions (on the comments of a post, not on the post) ──
+
+    def like_comment_in_thread(self, username: str, max_scrolls: int = 6) -> Dict[str, Any]:
+        """Like the comment written by ``username`` in the open comments thread.
+
+        The lightest way to engage a commenter — no navigation off the post, no text
+        published. Scrolls the thread to reveal the row if it is below the fold.
+
+        Never re-taps a comment that is ALREADY liked: that gesture would UNLIKE it,
+        turning an intended engagement into its opposite while the run reported a like.
+        A control whose state cannot be read is treated the same way (skipped), because
+        the cost of a missed like is nothing and the cost of a wrong tap is a visible
+        action on someone else's comment.
+        """
+        result = {'success': False, 'username': username, 'skipped_reason': None, 'message': ''}
+        handle = (username or '').strip().lstrip('@')
+        if not handle:
+            result['message'] = 'No username given'
+            return result
+
+        try:
+            if not self._is_comments_view_open():
+                result['message'] = 'Comments thread is not open'
+                return result
+
+            target = self._find_comment_like_control(handle)
+            for _ in range(max_scrolls):
+                if target:
+                    break
+                self.scroll_actions.scroll_down()
+                time.sleep(0.6)
+                target = self._find_comment_like_control(handle)
+
+            if not target:
+                result['message'] = f'No comment from @{handle} found in the thread'
+                result['skipped_reason'] = 'not_found'
+                return result
+
+            if target['already_liked']:
+                self.logger.info(f"@{handle}'s comment is already liked — leaving it alone")
+                result['skipped_reason'] = 'already_liked'
+                result['message'] = f'@{handle} already liked'
+                return result
+
+            if not self.device.human_tap(target['bounds']):
+                result['message'] = f'Could not tap the like control of @{handle}'
+                return result
+
+            self._human_like_delay('click')
+            result['success'] = True
+            result['message'] = f"Liked @{handle}'s comment"
+            self.logger.success(result['message'])
+
+            self._record_action(handle, 'COMMENT_LIKE', 1)
+            if self.session_manager:
+                try:
+                    self.session_manager.record_action('like_comment', success=True)
+                except Exception:
+                    pass  # standalone runs have no session manager contract to honour
+            return result
+
+        except Exception as exc:
+            self.logger.error(f"Error liking @{handle}'s comment: {exc}")
+            result['message'] = str(exc)
+            return result
+
+    def reply_to_comment_in_thread(self, username: str, reply_text: str,
+                                   reply_to_text: str = '', config: dict = None,
+                                   ai_metadata: Optional[Dict[str, Any]] = None,
+                                   max_scrolls: int = 6) -> Dict[str, Any]:
+        """Answer ``username``'s comment, inside the thread, as a threaded reply.
+
+        Tapping the row's own Reply affordance is what makes the answer land UNDER that
+        comment instead of at the bottom of the post: Instagram prefills the composer with
+        "@username ", and that mention is the thread link. The typing is checked against it
+        (`_type_comment(..., mention=...)`): a field without the mention is emptied and the
+        mention typed with the reply, through the keyboard, otherwise the reply would
+        silently become an ordinary top-level comment addressed to nobody.
+        """
+        config = {**self.default_config, **(config or {})}
+        result = {'success': False, 'username': username, 'comment_id': None, 'message': ''}
+        handle = (username or '').strip().lstrip('@')
+        text = (reply_text or '').strip()
+        if not handle or not text:
+            result['message'] = 'A username and a reply text are both required'
+            return result
+
+        try:
+            if not self._is_comments_view_open():
+                result['message'] = 'Comments thread is not open'
+                return result
+
+            bounds = self._find_comment_reply_control(handle)
+            for _ in range(max_scrolls):
+                if bounds:
+                    break
+                self.scroll_actions.scroll_down()
+                time.sleep(0.6)
+                bounds = self._find_comment_reply_control(handle)
+
+            if not bounds:
+                result['message'] = f'No comment from @{handle} found in the thread'
+                return result
+
+            # The Reply tap focuses the composer: the keyboard is switched before it.
+            self._ensure_taktik_keyboard()
+            if not self.device.human_tap(bounds):
+                result['message'] = f'Could not tap Reply on @{handle}'
+                return result
+            self._human_like_delay('click')
+            time.sleep(1.0)
+
+            if not self._type_comment(text, mention=f'@{handle} '):
+                result['message'] = 'Could not type the reply'
+                return result
+
+            if not self._post_comment():
+                result['message'] = 'Could not send the reply'
+                return result
+
+            self.logger.success(f"Replied to @{handle}")
+            result['success'] = True
+            result['message'] = f'Replied to @{handle}'
+            # A reply IS a published text: it consumes the comment budget, because Instagram
+            # sees the same surface and the same spam signals. Written before the pause and
+            # the sheet close, like a comment (see _record_posted_comment).
+            result['comment_id'] = self._record_posted_comment(
+                handle, text, ai_metadata,
+                source=(ai_metadata or {}).get('source') or ('ai' if ai_metadata else 'custom'),
+                kind='reply',
+                reply_to_username=handle,
+                reply_to_text=reply_to_text or None,
+            )
+
+            time.sleep(random.uniform(*config['comment_delay_range']))
+            self._close_comment_popup()
+            return result
+
+        except Exception as exc:
+            self.logger.error(f"Error replying to @{handle}: {exc}")
+            result['message'] = str(exc)
+            return result
+
+    def _find_comment_reply_control(self, username: str):
+        """Bounds of the Reply affordance on ``username``'s comment row."""
+        from taktik.core.social_media.instagram.workflows.common.comments_thread import (
+            find_comment_reply_target,
+        )
+
+        root = self._dump_comments_root()
+        if root is None:
+            return None
+        return find_comment_reply_target(root, username, list(self.post_selectors.reply_button_labels))
+
+    def _dump_comments_root(self):
+        """The tree of one screen photo (the tree `d.xpath()` sees), or None."""
+        try:
+            return self.device.snapshot().root
+        except Exception as exc:
+            self.logger.debug(f"screen photo failed: {exc}")
+            return None
+
+    def _find_comment_like_control(self, username: str) -> Optional[Dict[str, Any]]:
+        """The like control of ``username``'s comment row, with its liked state."""
+        from taktik.core.social_media.instagram.workflows.common.comments_thread import (
+            find_comment_like_target,
+        )
+
+        root = self._dump_comments_root()
+        if root is None:
+            return None
+
+        return find_comment_like_target(
+            root,
+            username,
+            self.post_selectors.comment_like_labels,
+            self.post_selectors.comment_unlike_labels,
+        )
+
+    def _validate_comment(self, comment_text: str, config: dict) -> bool:
+        return validate_comment(comment_text, config, self.logger)

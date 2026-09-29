@@ -7,7 +7,7 @@ reply that was never delivered (the blissand_glow case: a `sent` row in dm_messa
 with no matching message in the real conversation).
 """
 
-from taktik.core.social_media.instagram.workflows.dm_inbox.sender import DMSenderMixin
+from taktik.core.social_media.instagram.workflows.dm.sender import DMSenderMixin
 
 
 class _Verifier(DMSenderMixin):

@@ -33,7 +33,7 @@ from taktik.core.social_media.instagram.workflows.cold_dm.session import (
     close_cold_dm_session,
     open_cold_dm_session,
 )
-from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
+from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
 
 INSTAGRAM_COLD_DM_WORKFLOW_ID = "instagram.engagement.coldDm"

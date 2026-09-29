@@ -88,7 +88,7 @@ class ProfilePostsScrapingMixin:
         """
         navigator = getattr(self, "_post_navigator_instance", None)
         if navigator is None:
-            from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeOrchestration
+            from taktik.core.social_media.instagram.services.like.orchestration import LikeOrchestration
             navigator = LikeOrchestration(self.device)
             self._post_navigator_instance = navigator
         return navigator

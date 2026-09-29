@@ -26,10 +26,10 @@ from taktik.core.social_media.instagram.actions.atomic.detection import Detectio
 from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import (
     show_profile_posts_grid,
 )
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     LikeOrchestration,
 )
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.common import post_navigation as common_navigation

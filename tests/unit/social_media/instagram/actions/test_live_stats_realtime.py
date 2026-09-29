@@ -14,11 +14,11 @@ These tests lock the fixed contract:
 
 import types
 
-import taktik.core.social_media.instagram.actions.core.base_business.interaction_engine as ie
-from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+import taktik.core.social_media.instagram.actions.base.base_business.interaction_engine as ie
+from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
     InteractionEngineMixin,
 )
-from taktik.core.social_media.instagram.actions.core.base_business.config_parsing import (
+from taktik.core.social_media.instagram.actions.base.base_business.config_parsing import (
     ConfigParsingMixin,
 )
 
@@ -244,7 +244,7 @@ def test_like_orchestration_never_publishes_from_its_own_stats_manager():
     its callback at construction so an accidental increment can never publish."""
     from unittest.mock import MagicMock
 
-    from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
+    from taktik.core.social_media.instagram.actions.base.stats import BaseStatsManager
 
     original_init = BaseStatsManager.__init__
     published = []
@@ -255,7 +255,7 @@ def test_like_orchestration_never_publishes_from_its_own_stats_manager():
 
     BaseStatsManager.__init__ = patched_init
     try:
-        from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+        from taktik.core.social_media.instagram.services.like.orchestration import (
             LikeOrchestration,
         )
 

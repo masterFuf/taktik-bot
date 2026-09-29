@@ -10,9 +10,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.core import agent_handler
-from taktik.core.social_media.instagram.workflows.core import automation as automation_module
-from taktik.core.social_media.instagram.workflows.core import runtime_setup as runtime_setup_module
+from taktik.core.social_media.instagram.workflows.automation import agent_handler
+from taktik.core.social_media.instagram.workflows.automation import automation as automation_module
+from taktik.core.social_media.instagram.workflows.common import runtime_setup as runtime_setup_module
 
 
 class FakeRunner:

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.candidates import (
+from taktik.core.social_media.instagram.workflows.automation.unfollow.candidates import (
     FollowersSnapshot,
     FollowingRecord,
     select_candidates,
@@ -121,7 +121,7 @@ def test_an_unknown_mode_unfollows_nobody():
 
 
 def test_rows_become_records_with_bot_ownership_from_the_follow_date():
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.candidates import records_from_rows
+    from taktik.core.social_media.instagram.workflows.automation.unfollow.candidates import records_from_rows
 
     records = records_from_rows([
         {"username": "a", "last_bot_follow_at": "2026-09-10T08:00:00", "first_seen_at": "2026-09-11 09:00:00"},
@@ -152,7 +152,7 @@ def test_an_empty_delay_is_the_default_three_days(empty):
 
 
 def test_a_follow_date_with_an_offset_is_read_in_utc():
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.candidates import records_from_rows
+    from taktik.core.social_media.instagram.workflows.automation.unfollow.candidates import records_from_rows
 
     # 10:00 at UTC-05:00 is 15:00 UTC; the offset used to be dropped, leaving 10:00.
     record = records_from_rows([{"username": "late", "last_bot_follow_at": "2026-09-20T10:00:00-05:00"}])[0]

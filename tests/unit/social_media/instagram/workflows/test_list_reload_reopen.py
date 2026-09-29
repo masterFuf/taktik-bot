@@ -12,11 +12,11 @@ full page there is a position worth keeping, and leaving would trade it for rows
 
 import pytest
 
-import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.navigation_helpers as navigation_helpers
-from taktik.core.social_media.instagram.actions.business.workflows.common.list_reload_policy import (
+import taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.navigation_helpers as navigation_helpers
+from taktik.core.social_media.instagram.workflows.common.list_reload_policy import (
     ListReloadPolicy,
 )
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 
 class _Logger:

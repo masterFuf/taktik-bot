@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from bridges.instagram.common.ipc import send_error, send_log, send_message, send_status
-from taktik.core.social_media.instagram.workflows.management.agent_handler import (
+from taktik.core.social_media.instagram.workflows.account.agent_handler import (
     INSTAGRAM_ACCOUNT_LOGIN_WORKFLOW_ID,
 )
 

@@ -7,10 +7,7 @@ probability therefore never reached the interaction engine for target/hashtag/po
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.management.config import (
-    ActionProbabilities,
-    WorkflowConfigBuilder,
-)
+from taktik.core.social_media.instagram.workflows.automation.config import ActionProbabilities, WorkflowConfigBuilder
 
 
 def test_from_percentages_wires_story_like():

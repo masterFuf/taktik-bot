@@ -8,7 +8,7 @@ would have been reported "target app crashed", and its account's restriction nev
 import pytest
 
 from taktik.core.shared.diagnostics import run_halt
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 
 @pytest.mark.parametrize("code, expected", [

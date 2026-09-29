@@ -16,7 +16,7 @@ from typing import Any, Mapping, Optional
 from loguru import logger
 
 from taktik.cli.hosts.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
-from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
+from taktik.core.social_media.instagram.workflows.automation.agent_handler import InstagramStartError
 
 
 def _log(level: str, message: str) -> None:
@@ -49,7 +49,7 @@ class CliInstagramHost:
 
     def start(self, package_name: Optional[str]) -> bool:
         """The clean restart before the run, on the run's package (a clone when it names one)."""
-        from taktik.core.social_media.instagram.workflows.core.startup import start_instagram_session
+        from taktik.core.social_media.instagram.workflows.common.startup import start_instagram_session
 
         self.app = self._app_for(package_name)
         return start_instagram_session(self.app)
@@ -76,7 +76,7 @@ class CliInstagramHost:
         version and the clean restart through `AppService`, on the device the CLI already connected."""
         from taktik.core.shared.input.keyboard import KeyboardService
         from taktik.core.shared.device.connected_device import on_connected_device
-        from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
+        from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
         from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
 
         base = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
@@ -92,7 +92,7 @@ class CliInstagramHost:
         """The device a Taktik Agent session drives, prepared by the Instagram device base its bridge
         uses too, and its clean restart, on the device the CLI already connected."""
         from taktik.core.shared.device.connected_device import on_connected_device
-        from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
+        from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
         from taktik.core.social_media.instagram.workflows.agent.agent_handler import AgentRuntime
 
         base = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
@@ -105,7 +105,7 @@ class CliInstagramHost:
         runtime on the Instagram device, with the Taktik Keyboard and the clean restart), on the
         device the CLI already connected. A read's events go to the log."""
         from taktik.core.shared.device.connected_device import on_connected_device
-        from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import InstagramDMRuntime
+        from taktik.core.social_media.instagram.workflows.dm.runtime import InstagramDMRuntime
 
         runtime = on_connected_device(InstagramDMRuntime(self.device_id, package_name=package_name),
                                       self.device_manager, self.device_id)
@@ -117,7 +117,7 @@ class CliInstagramHost:
         and its clean restart), on the device the CLI already connected; Instagram restarted first
         when the command asks for it (a scan)."""
         from taktik.core.shared.device.connected_device import on_connected_device
-        from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
+        from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 
         runtime = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
                                       self.device_manager, self.device_id)

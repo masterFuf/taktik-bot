@@ -22,7 +22,7 @@ def create_instagram_device_facade(raw_device):
     from taktik.core.clone import get_active_package
     from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
     from taktik.core.clone.packages.package_map import OFFICIAL_PACKAGE
-    from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+    from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 
     if isinstance(raw_device, CloneAwareDeviceProxy):
         return DeviceFacade(raw_device)
@@ -42,12 +42,12 @@ def build_instagram_action_bundle(device_facade):
     from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
     from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
     from taktik.core.social_media.instagram.actions.atomic.text import TextActions
-    from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
-    from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeOrchestration
-    from taktik.core.social_media.instagram.actions.business.actions.story import StoryBusiness
-    from taktik.core.social_media.instagram.actions.business.workflows.feed.workflow import FeedBusiness
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
-    from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
+    from taktik.core.social_media.instagram.services.comment.action import CommentAction
+    from taktik.core.social_media.instagram.services.like.orchestration import LikeOrchestration
+    from taktik.core.social_media.instagram.services.story import StoryBusiness
+    from taktik.core.social_media.instagram.workflows.automation.feed.workflow import FeedBusiness
+    from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
+    from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
     from taktik.core.shared.behavior.session_state import BehaviorSessionState
 
     logger.info("Building action bundle...")

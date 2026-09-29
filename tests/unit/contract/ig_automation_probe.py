@@ -12,13 +12,13 @@ from taktik.core.contract.schema import Field, ListOf, MapOf, OneOf, Shape, has_
 
 #: Classes the AI hooks patch for a run; a test puts them back.
 HOOKED = (
-    ("taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow", "PostUrlBusiness",
+    ("taktik.core.social_media.instagram.workflows.automation.post_url.workflow", "PostUrlBusiness",
      "in_thread_reply_writer"),
-    ("taktik.core.social_media.instagram.actions.business.actions.comment.action", "CommentAction",
+    ("taktik.core.social_media.instagram.services.comment.action", "CommentAction",
      "comment_on_post"),
-    ("taktik.core.social_media.instagram.actions.core.base_business.interaction_engine", "InteractionEngineMixin",
+    ("taktik.core.social_media.instagram.actions.base.base_business.interaction_engine", "InteractionEngineMixin",
      "_perform_interactions_on_profile"),
-    ("taktik.core.social_media.instagram.actions.business.actions.like.orchestration", "LikeOrchestration",
+    ("taktik.core.social_media.instagram.services.like.orchestration", "LikeOrchestration",
      "like_current_post"),
 )
 
@@ -32,7 +32,7 @@ def use_the_bridge_ipc(monkeypatch) -> None:
 
     import bridges.instagram.common.ipc as instagram_ipc
     import taktik.core.shared.telemetry.sink as telemetry
-    from taktik.core.social_media.instagram.actions.core.ipc import emitter
+    from taktik.core.social_media.instagram.actions.base.ipc import emitter
 
     monkeypatch.setattr(emitter, "_bridge_adapter", sys.modules[instagram_ipc.__name__])
     monkeypatch.setattr(telemetry, "_sink", telemetry._sink)

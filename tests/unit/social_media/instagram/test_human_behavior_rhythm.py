@@ -14,8 +14,8 @@ import time
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.core.behavior import human_behavior as hb_module
-from taktik.core.social_media.instagram.actions.core.behavior.human_behavior import HumanBehavior
+from taktik.core.social_media.instagram.actions.base.behavior import human_behavior as hb_module
+from taktik.core.social_media.instagram.actions.base.behavior.human_behavior import HumanBehavior
 
 SESSIONS = 3000
 OLD_SPACING_SD = statistics.pstdev(range(8, 16))        # uniform 8..15

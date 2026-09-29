@@ -5,13 +5,13 @@ read, and the workflow applied its catalogue defaults (100-50000) whatever the p
 hashtag whose posts get twenty likes could never yield anything, and nothing said why.
 """
 
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import (
     DEFAULT_MAX_POST_LIKES,
     DEFAULT_MIN_POST_LIKES,
     NO_LIKES_CEILING,
     resolve_post_like_bounds,
 )
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
 

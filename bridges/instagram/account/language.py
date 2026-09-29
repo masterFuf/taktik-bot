@@ -10,7 +10,7 @@ injects a notifier callback that maps step callbacks to ``send_message``.
 from __future__ import annotations
 
 from bridges.instagram.common.ipc import send_error, send_log, send_message, send_status
-from taktik.core.social_media.instagram.workflows.management.agent_handler import (
+from taktik.core.social_media.instagram.workflows.account.agent_handler import (
     INSTAGRAM_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID,
 )
 

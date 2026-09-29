@@ -55,7 +55,7 @@ def test_the_halt_codes_are_the_latch_constants():
 
 
 def test_the_instagram_codes_are_the_catalogue_factories():
-    catalogue = CORE / "taktik/core/social_media/instagram/workflows/management/session/stop_reasons.py"
+    catalogue = CORE / "taktik/core/social_media/instagram/workflows/common/session/stop_reasons.py"
     built = {
         _string(node.args[0])
         for node in ast.walk(_tree(catalogue))
@@ -185,10 +185,10 @@ def test_the_tiktok_reasons_are_what_its_workflows_set():
 def test_the_suggestions_visit_reasons_are_what_the_pass_sets():
     instagram = CORE / "taktik/core/social_media/instagram"
     paths = [
-        instagram / "actions" / "business" / "workflows" / "common" / "suggestion_visit.py",
-        instagram / "actions" / "business" / "workflows" / "feed" / "suggestions_visit.py",
-        instagram / "workflows" / "management" / "notifications" / "suggestions_flow.py",
-        instagram / "workflows" / "management" / "notifications" / "commands.py",
+        instagram / "workflows" / "common" / "suggestion_visit.py",
+        instagram / "workflows" / "automation" / "feed" / "suggestions_visit.py",
+        instagram / "workflows" / "notifications" / "suggestions_flow.py",
+        instagram / "workflows" / "notifications" / "commands.py",
     ]
     # A surface that cannot be reached gives its `reach_failure_reason`; the activity screen's
     # is where its descent stopped (`descent_outcome`), whose "reached" never fails the reach.
@@ -221,7 +221,7 @@ def test_every_reason_a_line_carries_is_a_catalogue():
 
 
 def test_the_session_stop_carries_a_catalogue_code():
-    from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+    from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
     fields = stop_reasons.follows_cap(5, 5).event_fields()
     assert fields["reason_code"] in INSTAGRAM_STOP_REASON_CODE.values

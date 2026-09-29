@@ -5,9 +5,9 @@ the checks themselves are held by `test_session_warmup.py` and by the Agent's br
 (`tests/unit/contract/test_workflow_contract_taktik_agent.py`). Here: where the day comes from.
 """
 
-import taktik.core.social_media.instagram.workflows.management.session.warmup_budget as warmup_budget
-from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import (
+import taktik.core.social_media.instagram.workflows.common.session.warmup_budget as warmup_budget
+from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
+from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import (
     WarmupBudget,
     warmup_policy_from_payload,
 )

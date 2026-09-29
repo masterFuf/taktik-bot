@@ -171,7 +171,7 @@ def test_the_login_screen_detection_reads_the_three_answers_of_production(monkey
     """`InstagramLogin._read_login_screen` answers the login form, the saved profiles, or neither
     (the home feed, found on the Pixel 3a on 2026-09-28, where the Lab said "no answer"). The first
     two are login screens; the screen is still checked to be Instagram's and readable."""
-    from taktik.core.social_media.instagram.auth.login import InstagramLogin
+    from taktik.core.social_media.instagram.actions.account.login import InstagramLogin
 
     monkeypatch.setattr(InstagramLogin, "_read_login_screen", lambda self: production)
     result = INSTAGRAM_ACTIONS["account.detect_login_screen"](_instagram(IG_FEED), {})

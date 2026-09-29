@@ -16,13 +16,13 @@ import inspect
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import (
     FEED_DEFAULTS,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.feed.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.feed.workflow import (
     FeedBusiness,
 )
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
 
@@ -104,10 +104,10 @@ def test_swapping_the_base_class_added_methods_without_taking_any_away():
     """`LikersWorkflowBase` replaced `BaseBusinessAction` to reach the likers loop. It only
     extends it — but the feed mixins keep priority in the MRO, so this checks no feed method
     was shadowed by the swap."""
-    from taktik.core.social_media.instagram.actions.business.workflows.common.likers_base import (
+    from taktik.core.social_media.instagram.workflows.common.likers_base import (
         LikersWorkflowBase,
     )
-    from taktik.core.social_media.instagram.actions.business.workflows.feed.post_actions import (
+    from taktik.core.social_media.instagram.workflows.automation.feed.post_actions import (
         FeedPostActionsMixin,
     )
     added = {n for n in vars(LikersWorkflowBase) if not n.startswith('__')}

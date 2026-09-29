@@ -23,9 +23,9 @@ from types import SimpleNamespace
 import pytest
 
 from fake_follow_list import FakeDetection, FakeFacade, FakeScreen, derived_row_button, walk_list
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import sync_following
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
+from taktik.core.social_media.instagram.workflows.automation.unfollow import workflow as unfollow_workflow
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import sync_following
+from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from unit.paths import CORE
 

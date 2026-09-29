@@ -119,7 +119,7 @@ def test_every_typing_entry_point_waits_out_the_keyboard(phone, monkeypatch, act
     from loguru import logger
 
     from taktik.core.shared.actions.base_action import SharedBaseAction
-    from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+    from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 
     cls = SharedBaseAction if action_class == "shared" else BaseAction
     action = cls.__new__(cls)

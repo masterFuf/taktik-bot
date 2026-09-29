@@ -66,10 +66,10 @@ def test_the_builder_emits_a_shape_the_criteria_reader_understands():
 
     The app's filters used to be replaced by the dataclass defaults between the two.
     """
-    from taktik.core.social_media.instagram.workflows.core.config_builder import (
+    from taktik.core.social_media.instagram.workflows.automation.config_builder import (
         build_instagram_automation_config,
     )
-    from taktik.core.social_media.instagram.workflows.management.config.config import (
+    from taktik.core.social_media.instagram.workflows.automation.config import (
         FilterCriteria,
     )
 
@@ -93,7 +93,7 @@ def test_the_builder_emits_a_shape_the_criteria_reader_understands():
 
 def test_the_criteria_reader_accepts_a_nested_only_action():
     """A producer emitting one shape must not silently fall back to the defaults."""
-    from taktik.core.social_media.instagram.workflows.management.config.config import (
+    from taktik.core.social_media.instagram.workflows.automation.config import (
         FilterCriteria,
     )
 

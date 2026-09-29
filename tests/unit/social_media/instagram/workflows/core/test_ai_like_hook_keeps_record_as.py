@@ -6,13 +6,13 @@ by a wrapper that took the post and nothing else: every like of the posts pass r
 TypeError instead of liking, and the author never reached the ledger.
 """
 
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     LikeOrchestration,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.post_url.workflow import (
     PostUrlBusiness,
 )
-from taktik.core.social_media.instagram.workflows.core.ai_hooks import install_instagram_ai_hooks
+from taktik.core.social_media.instagram.workflows.common.ai_hooks import install_instagram_ai_hooks
 
 
 class _Screenshot:

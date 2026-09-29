@@ -115,10 +115,10 @@ def test_from_the_real_following_list_it_backs_out_without_searching_for_the_tab
 
     import taktik.core.shared.actions.base_action as base_action_module
     import taktik.core.shared.device.facade as shared_facade_module
-    import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+    import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
     from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
     from taktik.core.shared.diagnostics import miss_capture
-    from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+    from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
     from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
     from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
     from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS

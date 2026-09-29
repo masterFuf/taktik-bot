@@ -246,13 +246,13 @@ def _no_operator_settings_file(monkeypatch, tmp_path_factory):
 # the AI wrapper instead of the engine and made no gesture (13 failures in reverse order, found
 # 2026-09-24; the polluter was test_instagram_ai_hooks.py).
 _AI_HOOKED_ATTRIBUTES = (
-    ("taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow",
+    ("taktik.core.social_media.instagram.workflows.automation.post_url.workflow",
      "PostUrlBusiness", "in_thread_reply_writer"),
-    ("taktik.core.social_media.instagram.actions.business.actions.comment.action",
+    ("taktik.core.social_media.instagram.services.comment.action",
      "CommentAction", "comment_on_post"),
-    ("taktik.core.social_media.instagram.actions.core.base_business.interaction_engine",
+    ("taktik.core.social_media.instagram.actions.base.base_business.interaction_engine",
      "InteractionEngineMixin", "_perform_interactions_on_profile"),
-    ("taktik.core.social_media.instagram.actions.business.actions.like.orchestration",
+    ("taktik.core.social_media.instagram.services.like.orchestration",
      "LikeOrchestration", "like_current_post"),
 )
 

@@ -87,8 +87,8 @@ def bench(monkeypatch, no_telemetry_left):
     import taktik.core.social_media.instagram.ui.language as language
     from bridges.tools.lab.workflow_test import observability
     from bridges.tools.lab.workflow_test.execution import session
-    from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
-    from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
+    from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
+    from taktik.core.social_media.instagram.actions.base.stats import BaseStatsManager
     from taktik.core.social_media.instagram.ui.watchdog import WorkflowWatchdog
 
     for name in ("emit_follow", "emit_like", "emit_profile_visit", "emit_action", "emit_profile_captured"):
@@ -138,8 +138,8 @@ def bench(monkeypatch, no_telemetry_left):
 
 def _scripted_run(payload, *, device_manager, step_hook, **_kwargs):
     """The production launcher's place: one step, whose screen work answers from a script."""
-    from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
-    from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
+    from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
+    from taktik.core.social_media.instagram.actions.base.stats import BaseStatsManager
     from taktik.core.shared.telemetry import emit_step
 
     def follow_alice(action):
@@ -160,7 +160,7 @@ def _bench_config(**overrides) -> Dict[str, Any]:
 
 
 def test_the_workflow_bench_prints_its_declared_lines(monkeypatch, lines, bench):
-    import taktik.core.social_media.instagram.workflows.core.agent_handler as launcher
+    import taktik.core.social_media.instagram.workflows.automation.agent_handler as launcher
     from bridges.common.ipc import IPC
     from bridges.tools.lab import workflow_test_bridge as workflow_test
 

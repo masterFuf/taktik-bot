@@ -1,7 +1,7 @@
-from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-from taktik.core.social_media.instagram.workflows.management.session import SessionManager
-from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
-from taktik.core.social_media.instagram.actions.compatibility.modern_instagram_actions import ModernInstagramActions
+from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
+from taktik.core.social_media.instagram.workflows.common.session import SessionManager
+from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
+from taktik.core.social_media.instagram.workflows.automation.modern_instagram_actions import ModernInstagramActions
 
 from taktik.core.social_media.instagram.actions import InstagramActions
 

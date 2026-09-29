@@ -35,7 +35,7 @@ def instagram_package_field(doc: str = "An Instagram clone's package, run instea
                                        "installed Instagram.") -> Field:
     """The clone an Instagram run starts: read by its launcher, which hands it to the host's connection."""
     return Field("packageName", "string", doc, aliases=("package_name",),
-                 reader="taktik.core.social_media.instagram.workflows.core.startup:package_name_from_payload")
+                 reader="taktik.core.social_media.instagram.workflows.common.startup:package_name_from_payload")
 
 
 #: `IPC.status`, or `send_message("status", ...)` when a run says why it ended.

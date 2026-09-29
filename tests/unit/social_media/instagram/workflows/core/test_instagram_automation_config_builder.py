@@ -1,6 +1,6 @@
 import pytest
 
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
     build_instagram_session_config_event,
 )
@@ -311,7 +311,7 @@ def test_filters_survive_into_the_runner_interaction_config():
     """End-to-end lock on the exact broken path: front raw config -> action ->
     WorkflowConfigBuilder.build_interaction_config -> filter_criteria consumed by
     _process_profile_on_screen. The UI values and the skip flags must all survive."""
-    from taktik.core.social_media.instagram.workflows.management.config.config import (
+    from taktik.core.social_media.instagram.workflows.automation.config import (
         WorkflowConfigBuilder,
     )
 
@@ -416,7 +416,7 @@ def test_decision_mode_capabilities_replace_legacy_probability_ceilings():
     assert action["ai_decision_dry_run"] is False
     assert action["ai_decision_capabilities"]["comment"] is False
 
-    from taktik.core.social_media.instagram.workflows.management.config.config import (
+    from taktik.core.social_media.instagram.workflows.automation.config import (
         WorkflowConfigBuilder,
     )
 

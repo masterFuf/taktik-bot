@@ -1,4 +1,4 @@
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     LikeOrchestration,
 )
 
@@ -81,11 +81,11 @@ class _ProfileInteractionHarness:
 
 def test_comment_candidate_runs_when_like_target_is_zero(monkeypatch):
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.orchestration.time.sleep",
+        "taktik.core.social_media.instagram.services.like.orchestration.time.sleep",
         lambda _seconds: None,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.orchestration.plan_engagement_sequence",
+        "taktik.core.social_media.instagram.services.like.orchestration.plan_engagement_sequence",
         lambda do_like, do_comment: ["comment"] if do_comment and not do_like else [],
     )
     harness = _CommentOnlyHarness([False, True])

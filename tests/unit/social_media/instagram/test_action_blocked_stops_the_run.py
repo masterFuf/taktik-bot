@@ -21,21 +21,21 @@ import pytest
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
-from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
-from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+from taktik.core.social_media.instagram.workflows.common.session.session import SessionManager
+from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
     InteractionEngineMixin,
 )
-from taktik.core.social_media.instagram.actions.core.base_business.config_parsing import (
+from taktik.core.social_media.instagram.actions.base.base_business.config_parsing import (
     ConfigParsingMixin,
 )
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     FramedLike,
     LikeOrchestration,
 )
-import taktik.core.social_media.instagram.actions.business.workflows.feed.workflow as feed_module
-from taktik.core.social_media.instagram.actions.business.workflows.feed.workflow import FeedBusiness
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import FEED_DEFAULTS
-from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+import taktik.core.social_media.instagram.workflows.automation.feed.workflow as feed_module
+from taktik.core.social_media.instagram.workflows.automation.feed.workflow import FeedBusiness
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import FEED_DEFAULTS
+from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
 
 IG = "com.instagram.android:id"
 
@@ -571,7 +571,7 @@ def test_the_real_dialog_is_still_closed_by_its_ok_after_the_lock():
 
 
 def test_the_hashtag_post_is_not_commented_after_a_refused_like():
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import (
         HashtagBusiness,
     )
 
@@ -593,7 +593,7 @@ def test_the_hashtag_post_is_not_commented_after_a_refused_like():
 
 
 def test_the_hashtag_loop_does_not_open_another_post_after_a_block():
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import (
         HashtagBusiness,
     )
 
@@ -624,8 +624,8 @@ def test_the_hashtag_loop_does_not_open_another_post_after_a_block():
 def test_a_blocked_run_neither_pays_for_nor_loses_the_next_profile(monkeypatch):
     """The AI hooks wrap the engine and pay before its gate; the profile was then marked
     processed with nothing done. The gate now sits before them."""
-    from taktik.core.social_media.instagram.actions.core.base_business import profile_processing
-    from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import (
+    from taktik.core.social_media.instagram.actions.base.base_business import profile_processing
+    from taktik.core.social_media.instagram.actions.base.base_business.profile_processing import (
         ProfileProcessingMixin, ProfileProcessingResult,
     )
 
@@ -660,7 +660,7 @@ def test_a_blocked_run_neither_pays_for_nor_loses_the_next_profile(monkeypatch):
 
 
 def test_no_suggestion_is_visited_after_a_block():
-    from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_visit import (
+    from taktik.core.social_media.instagram.workflows.common.suggestion_visit import (
         visit_suggestions,
     )
 
@@ -675,8 +675,8 @@ def test_no_suggestion_is_visited_after_a_block():
 
 
 def test_a_refused_comment_is_neither_recorded_nor_followed_by_a_share_sheet(monkeypatch):
-    from taktik.core.social_media.instagram.actions.business.actions.comment import action as action_module
-    from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+    from taktik.core.social_media.instagram.services.comment import action as action_module
+    from taktik.core.social_media.instagram.services.comment.action import CommentAction
 
     monkeypatch.setattr(action_module, "validate_comment", lambda *a, **k: True)
     monkeypatch.setattr(action_module.time, "sleep", lambda *a, **k: None)

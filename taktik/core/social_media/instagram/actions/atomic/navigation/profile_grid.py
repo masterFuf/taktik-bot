@@ -21,7 +21,7 @@ from loguru import logger
 from taktik.core.shared.device.facade import as_device_facade
 from taktik.core.shared.device.snapshot import ScreenSnapshot, SnapshotUnavailable
 
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 

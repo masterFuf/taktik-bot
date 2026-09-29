@@ -27,7 +27,7 @@ from taktik.core.social_media.tiktok.ui.labels import (
 from taktik.core.social_media.instagram.ui.labels import (
     classify_action_button as _classify_action_button,
 )
-from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
+from taktik.core.social_media.instagram.workflows.notifications.dump_parsing import (
     find_inline_like_target,
 )
 

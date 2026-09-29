@@ -21,7 +21,7 @@ CLONE = "com.instagram.android.clone"
 BOT = "alpha_bot"
 
 # Where the moved modules live, before and after: the rig patches whichever exists.
-_DM_MODULES = ("bridges.instagram.dm", "taktik.core.social_media.instagram.workflows.dm_inbox")
+_DM_MODULES = ("bridges.instagram.dm", "taktik.core.social_media.instagram.workflows.dm")
 
 
 def dm_command(command: str, **fields) -> dict:
@@ -276,14 +276,14 @@ class InstagramDmRig:
         patch_seam(mp, "taktik.core.clone", "set_active_package",
                    lambda package: rig.calls.append(f"active_package {package}"))
         # The app language read at the start of a run, recorded instead of applied.
-        from taktik.core.social_media.instagram.workflows.core import runtime_setup
+        from taktik.core.social_media.instagram.workflows.common import runtime_setup
 
         mp.setattr(runtime_setup, "detect_and_optimize",
                    lambda device, *a, **k: rig.calls.append("detect_language") or "en")
 
         # The deep screen helpers of the DM runtime the bridge and the CLI both connect: recorded
         # stand-ins.
-        from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import InstagramDMRuntime
+        from taktik.core.social_media.instagram.workflows.dm.runtime import InstagramDMRuntime
 
         def navigate(_self):
             rig.calls.append("navigate_to_dm_inbox")
@@ -384,7 +384,7 @@ class InstagramDmRig:
 
         # The fallback identity read: a visit to our own profile.
         from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-        from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+        from taktik.core.social_media.instagram.services.profile import ProfileBusiness
 
         mp.setattr(NavigationActions, "__init__", lambda _self, *a, **k: None)
         mp.setattr(NavigationActions, "navigate_to_profile_tab",

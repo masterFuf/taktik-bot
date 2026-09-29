@@ -8,7 +8,7 @@ from taktik.core.kernel.executor import AgentPlanExecutor
 from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
 from taktik.core.social_media.instagram.ui.selectors import PROFILE_SELECTORS
-from taktik.core.social_media.instagram.workflows.core import runtime_setup
+from taktik.core.social_media.instagram.workflows.common import runtime_setup
 from taktik.core.social_media.instagram.workflows.scraping import (
     INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID,
     INSTAGRAM_SCRAPING_POST_URL_WORKFLOW_ID,

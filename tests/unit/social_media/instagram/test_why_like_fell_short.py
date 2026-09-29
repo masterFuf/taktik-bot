@@ -15,7 +15,7 @@ from unit.paths import CORE
 
 sys.path.insert(0, str(CORE))
 
-from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (  # noqa: E402
+from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (  # noqa: E402
     why_like_fell_short,
 )
 

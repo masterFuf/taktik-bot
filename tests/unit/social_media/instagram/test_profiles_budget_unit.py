@@ -13,7 +13,7 @@ So the feed publishes no profile ceiling, and these tests pin that down: getting
 is silent, and only shows up as runs that end far too early.
 """
 
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
 

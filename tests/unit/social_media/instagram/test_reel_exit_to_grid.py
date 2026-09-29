@@ -7,11 +7,11 @@ way out (bot stuck, every later workflow failed to navigate to search). The fix:
 the grid (Back still present on the freshly opened reel) and open another post instead of scrolling.
 """
 
-from taktik.core.social_media.instagram.actions.business.actions.like.post_navigation import (
+from taktik.core.social_media.instagram.services.like.post_navigation import (
     PostNavigationMixin,
 )
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post.detail import POST_SELECTORS
-import taktik.core.social_media.instagram.actions.business.actions.like.post_navigation as post_nav
+import taktik.core.social_media.instagram.services.like.post_navigation as post_nav
 
 _CLIPS_BACK = '//*[@resource-id="com.instagram.android:id/clips_action_bar_start_action_buttons"]//android.widget.ImageView'
 

@@ -23,11 +23,11 @@ from types import SimpleNamespace
 
 import pytest
 
-import taktik.core.social_media.instagram.actions.business.actions.like.orchestration as orchestration
-import taktik.core.social_media.instagram.actions.business.actions.like.post_navigation as post_navigation
+import taktik.core.social_media.instagram.services.like.orchestration as orchestration
+import taktik.core.social_media.instagram.services.like.post_navigation as post_navigation
 from taktik.core.shared.behavior.grid_entry import GRID_COLUMNS
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     LikeOrchestration,
 )
 

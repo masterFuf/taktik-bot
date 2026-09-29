@@ -11,8 +11,8 @@ re-processed ~5 min later.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.core.base_business import profile_processing
-from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import (
+from taktik.core.social_media.instagram.actions.base.base_business import profile_processing
+from taktik.core.social_media.instagram.actions.base.base_business.profile_processing import (
     ProfileProcessingMixin,
     ProfileProcessingResult,
 )

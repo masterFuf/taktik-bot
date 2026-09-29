@@ -218,7 +218,7 @@ class InstagramScrapingRig:
         mp.setattr(app_manager, "get_installed_app_version", fake_version)
 
         # The selector and language setup of a run, recorded instead of applied.
-        from taktik.core.social_media.instagram.workflows.core import runtime_setup
+        from taktik.core.social_media.instagram.workflows.common import runtime_setup
 
         mp.setattr(runtime_setup, "patch_selectors_for_package",
                    lambda platform, package: rig.calls.append(f"clone_patch {package}") or 0)

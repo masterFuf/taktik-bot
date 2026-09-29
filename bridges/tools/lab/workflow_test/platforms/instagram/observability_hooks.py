@@ -18,7 +18,7 @@ def setup_instagram_action_hooks(
 
 def _patch_instagram_ipc_emitter(ipc, heartbeat: Callable[[str], None]) -> None:
     try:
-        from taktik.core.social_media.instagram.actions.core.ipc.emitter import IPCEmitter
+        from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
 
         @staticmethod
         def emit_follow(username, success=True, profile_data=None):
@@ -70,7 +70,7 @@ def _patch_instagram_ipc_emitter(ipc, heartbeat: Callable[[str], None]) -> None:
 
 def _patch_instagram_stats_callback(ipc) -> None:
     try:
-        from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
+        from taktik.core.social_media.instagram.actions.base.stats import BaseStatsManager
 
         original_init = BaseStatsManager.__init__
 
@@ -90,7 +90,7 @@ def _patch_instagram_stats_callback(ipc) -> None:
 
 def _patch_instagram_stats_snapshot(record_stats_snapshot: Callable[[dict], None]) -> None:
     try:
-        from taktik.core.social_media.instagram.actions.core.stats import BaseStatsManager
+        from taktik.core.social_media.instagram.actions.base.stats import BaseStatsManager
 
         original_send = BaseStatsManager._send_stats_update
 

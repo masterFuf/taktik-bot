@@ -26,7 +26,7 @@ from bridges.tools.lab.action_test.bundles.instagram import (
     build_instagram_action_bundle,
     create_instagram_device_facade,
 )
-from taktik.core.social_media.instagram.auth.login import InstagramLogin
+from taktik.core.social_media.instagram.actions.account.login import InstagramLogin
 from taktik.core.social_media.instagram.ui.selectors import locales
 
 FIXTURES = Path(__file__).parent / "fixtures"

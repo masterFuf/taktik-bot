@@ -1,7 +1,7 @@
 import json
 from types import SimpleNamespace
 
-from taktik.core.social_media.instagram.workflows.support.workflow_helpers import (
+from taktik.core.social_media.instagram.workflows.common.workflow_helpers import (
     WorkflowHelpers,
 )
 
@@ -14,7 +14,7 @@ def test_finalize_session_emits_frozen_duration(monkeypatch, capsys):
     )
     helpers = WorkflowHelpers(automation)
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.support.workflow_helpers.time.time",
+        "taktik.core.social_media.instagram.workflows.common.workflow_helpers.time.time",
         lambda: 145.9,
     )
     monkeypatch.setattr(helpers, "_close_instagram", lambda: None)

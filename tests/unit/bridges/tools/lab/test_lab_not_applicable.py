@@ -326,7 +326,7 @@ FANS_NOT_SERVED = "our followers list opens on its accounts, Instagram serves it
 
 def _unfollow_on(xml, lang, monkeypatch):
     """The Lab's unfollow engine on our followers list: account bound, the follow graph a spy."""
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import sync_following
+    from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import sync_following
 
     written = []
     monkeypatch.setattr(sync_following, "InstagramFollowGraphService",

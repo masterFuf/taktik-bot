@@ -130,7 +130,7 @@ class InstagramAgentRig(InstagramColdDmRig):
                 return True
 
         self.monkeypatch.setattr("taktik.core.shared.device.manager.DeviceManager", _Manager)
-        self.monkeypatch.setattr("taktik.core.social_media.instagram.core.manager.InstagramManager", _Instagram)
+        self.monkeypatch.setattr("taktik.core.social_media.instagram.manager.InstagramManager", _Instagram)
         args = ["run", "--device", DEVICE_ID]
         for param in params:
             args += ["--param", param]

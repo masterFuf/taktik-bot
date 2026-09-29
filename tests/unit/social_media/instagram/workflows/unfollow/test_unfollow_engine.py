@@ -7,15 +7,15 @@ import pytest
 from fake_follow_list import (
     FakeDetection, FakeFacade, FakeScreen, follow_list_xml, profile_xml, walk_list,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list_proof import (
+from taktik.core.social_media.instagram.workflows.automation.unfollow import workflow as unfollow_workflow
+from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import (
     PROOF_BY_COUNT,
     PROOF_BY_KNOWN_ACCOUNT,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
+from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-from taktik.core.social_media.instagram.workflows.core.config_builder import build_instagram_automation_config
-from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.automation.config_builder import build_instagram_automation_config
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
 
 
 @pytest.fixture(autouse=True)

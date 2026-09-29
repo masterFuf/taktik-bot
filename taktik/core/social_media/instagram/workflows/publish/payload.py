@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
+from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
 #: What `InstagramPostWorkflow` publishes.
 POST_TYPES = ("post", "reel", "carousel", "story")

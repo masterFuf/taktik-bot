@@ -5,7 +5,7 @@ import random
 from typing import Callable, Dict, Any, List, Optional, Tuple
 from loguru import logger
 
-from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 from taktik.core.shared.behavior.gesture_primitives import GestureMixin
 from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
 from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import _BOUNDS_RE

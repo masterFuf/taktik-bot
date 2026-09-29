@@ -2,7 +2,7 @@
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.distribution import (
+from taktik.core.social_media.instagram.workflows.common.distribution import (
     DEFAULT_DISTRIBUTION,
     DISTRIBUTION_BALANCED,
     DISTRIBUTION_INTERLEAVED,

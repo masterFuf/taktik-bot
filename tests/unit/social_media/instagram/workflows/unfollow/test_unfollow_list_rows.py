@@ -9,10 +9,10 @@ import logging
 import pytest
 
 from fake_follow_list import FakeFacade, FakeScreen, PKG, follow_list_xml
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.actions import (
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.actions import (
     UnfollowActionsMixin,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.sync_following import (
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.sync_following import (
     SyncFollowingMixin,
 )
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale

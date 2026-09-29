@@ -4,8 +4,8 @@ This module now uses the new modular architecture with ModernInstagramActions.
 """
 import warnings
 
-from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
-from taktik.core.social_media.instagram.actions.compatibility.modern_instagram_actions import ModernInstagramActions
+from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
+from taktik.core.social_media.instagram.workflows.automation.modern_instagram_actions import ModernInstagramActions
 
 
 class InstagramActions:

@@ -27,16 +27,16 @@ from loguru import logger
 
 import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from profile_posts_phone import PKG, SCREEN_H, ProfilePostsPhone, ReplayGestures, capture
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import PostReadingMixin
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     FramedLike,
     LikeOrchestration,
 )
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 

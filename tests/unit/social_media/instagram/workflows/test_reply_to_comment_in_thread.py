@@ -18,7 +18,7 @@ import types
 import pytest
 
 from taktik.core.shared.device.snapshot import ScreenSnapshot
-from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+from taktik.core.social_media.instagram.services.comment.action import CommentAction
 from unit.paths import CORE
 
 FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
@@ -107,7 +107,7 @@ def _no_db(monkeypatch):
         return 42
 
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.comment.action"
+        "taktik.core.social_media.instagram.services.comment.action"
         ".InstagramPostedComments.record",
         staticmethod(lambda **kw: _record(**kw)),
     )

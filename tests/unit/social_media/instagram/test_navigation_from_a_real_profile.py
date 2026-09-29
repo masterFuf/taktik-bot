@@ -21,14 +21,14 @@ from uiautomator2.xpath import XPathEntry
 
 import taktik.core.shared.actions.base_action as base_action_module
 import taktik.core.shared.device.facade as shared_facade_module
-import taktik.core.social_media.instagram.actions.business.actions.like.post_navigation as post_navigation_module
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.services.like.post_navigation as post_navigation_module
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
 from taktik.core.shared.diagnostics import miss_capture
 from taktik.core.social_media.instagram.actions.atomic.navigation.tab_navigation import TabNavigationMixin
-from taktik.core.social_media.instagram.actions.business.actions.like.post_navigation import PostNavigationMixin
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.services.like.post_navigation import PostNavigationMixin
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS

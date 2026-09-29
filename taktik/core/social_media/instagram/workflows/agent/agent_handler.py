@@ -28,8 +28,8 @@ from typing import Any, Callable, Mapping, Optional
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
-from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
-from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import WarmupBudget
+from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
+from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import WarmupBudget
 
 
 INSTAGRAM_AGENT_WORKFLOW_ID = "instagram.engagement.taktik_agent"

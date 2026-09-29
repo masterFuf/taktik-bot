@@ -211,7 +211,7 @@ class TaktikAgentWorkflow:
         logger.info("[TaktikAgent] Visiting own profile to detect account…")
 
         try:
-            from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+            from taktik.core.social_media.instagram.services.profile import ProfileBusiness
             profile_biz = ProfileBusiness(self.device_manager)
 
             # Navigate to own profile tab
@@ -876,7 +876,7 @@ class TaktikAgentWorkflow:
         if count <= 0:
             return 0
         try:
-            from taktik.core.social_media.instagram.actions.business.actions.like import LikeBusiness
+            from taktik.core.social_media.instagram.services.like import LikeBusiness
             like_biz = LikeBusiness(self.device_manager, automation=self._automation_identity())
             result = like_biz.like_profile_posts(username, max_likes=count, navigate_to_profile=False)
             liked = int(result.get("posts_liked", 0))
@@ -901,7 +901,7 @@ class TaktikAgentWorkflow:
         `_comment_feed_post` (`CommentAction.comment_on_post(username=author)`). Built without
         an identity, the ledger write refused every row: the autopilot's likes and comments left
         no trace and escaped the daily caps."""
-        from taktik.core.social_media.instagram.actions.business.workflows.feed import FeedBusiness
+        from taktik.core.social_media.instagram.workflows.automation.feed import FeedBusiness
 
         return FeedBusiness(self.device_manager, automation=self._automation_identity())
 

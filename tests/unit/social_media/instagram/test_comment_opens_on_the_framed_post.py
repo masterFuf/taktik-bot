@@ -37,8 +37,8 @@ Lab's `post.read_share_url` (the link).
 import pytest
 
 import taktik.core.shared.device.facade as shared_facade_module
-import taktik.core.social_media.instagram.actions.core.base_business.popup_handling as popup_handling
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.actions.base.base_business.popup_handling as popup_handling
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 import taktik.core.social_media.instagram.workflows.common.post_navigation as post_navigation
 import taktik.core.social_media.instagram.workflows.scraping.post_scraping_helpers as post_scraping_helpers
 from bridges.tools.lab.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
@@ -47,9 +47,9 @@ from bridges.tools.lab.action_test.bundles.instagram import build_instagram_acti
 from profile_posts_phone import PKG, ProfilePostsPhone, bounds_of, capture
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.device.ui_dump import parse_ui_dump
-from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
-from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.services.comment.action import CommentAction
+from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import BUTTON_SELECTORS

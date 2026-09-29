@@ -31,10 +31,10 @@ from bridges.tools.lab.actions.instagram.suggestions import (
 )
 from taktik.core.shared.device.snapshot import ScreenSnapshot
 from taktik.core.shared.device.ui_dump import parse_bounds, parse_ui_dump
-from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions import (
+from taktik.core.social_media.instagram.workflows.automation.feed.suggestions import (
     FeedSuggestionsMixin,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_parsing import (
+from taktik.core.social_media.instagram.workflows.automation.feed.suggestions_parsing import (
     parse_feed_suggestions_carousel,
 )
 from taktik.core.social_media.instagram.ui.selectors import FEED_SUGGESTIONS_SELECTORS

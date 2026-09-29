@@ -26,8 +26,8 @@ import taktik.core.database as database
 import taktik.core.shared.device.connection as connection
 from taktik.core.shared.device.connected_device import ConnectedDevice
 from bridges.instagram.notifications import commands as bridge_commands
-from taktik.core.social_media.instagram.workflows.management.notifications import commands
-from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler
+from taktik.core.social_media.instagram.workflows.notifications import commands
+from taktik.core.social_media.instagram.workflows.notifications import agent_handler
 from unit.paths import CORE
 
 PKG = "com.instagram.android"

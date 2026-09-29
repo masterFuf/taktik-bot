@@ -28,7 +28,7 @@ from loguru import logger
 from taktik.core.database.content_relays import ContentRelayService
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
-from taktik.core.social_media.instagram.actions.business.actions.story_relay import (
+from taktik.core.social_media.instagram.services.story_relay import (
     StoryRelayBusiness,
 )
 from taktik.core.social_media.instagram.ui.detectors.action_block import detector_of
@@ -42,7 +42,7 @@ log = logger.bind(module="instagram-story-relay")
 DEFAULT_MAX_STORIES = 5
 
 #: The reason of a pass whose Instagram did not restart: the shared startup's code for the same fact
-#: (`INSTAGRAM_LAUNCH_FAILED`, `workflows/core/startup.py`), in the relay's own lower-case vocabulary.
+#: (`INSTAGRAM_LAUNCH_FAILED`, `workflows/common/startup.py`), in the relay's own lower-case vocabulary.
 INSTAGRAM_LAUNCH_FAILED = "instagram_launch_failed"
 
 

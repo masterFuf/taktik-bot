@@ -83,11 +83,11 @@ ALLOWED: Dict[Tuple[str, str, str], str] = {
      "min(total, rng.uniform(0.032, 0.045) * screen_h)"):
         "Geometry: the touch-slop exit point cannot lie beyond the end of the path. It only "
         "binds on paths shorter than ~0.045h, which are not scrolls.",
-    ("taktik/core/social_media/instagram/actions/business/workflows/common/private_streak_policy.py",
+    ("taktik/core/social_media/instagram/workflows/common/private_streak_policy.py",
      "flings_for_jump", "min(jittered, reachable)"):
         "Functional ceiling: flings past the bottom of the list only land at the bottom. It "
         "binds on short lists only, where the gesture count is set by the list, not drawn.",
-    ("taktik/core/social_media/instagram/actions/business/workflows/common/private_streak_policy.py",
+    ("taktik/core/social_media/instagram/workflows/common/private_streak_policy.py",
      "flings_for_jump", "max(1, int(round(planned * random.uniform(0.75, 1.25))))"):
         "Guard that never binds: planned >= base_flings >= 1, so the jittered value is at "
         "least 0.75 and rounds to 1 or more.",
@@ -96,7 +96,7 @@ ALLOWED: Dict[Tuple[str, str, str], str] = {
      "max(0, min(count, cap, n))"):
         "User hard ceiling (max story likes per profile) and physical ceiling (slides in the "
         "story). The product promises 'at most N': landing on N is the contract.",
-    ("taktik/core/social_media/instagram/actions/core/base_business/interaction_engine.py",
+    ("taktik/core/social_media/instagram/actions/base/base_business/interaction_engine.py",
      "_view_stories_on_current_profile",
      "max(1, sample_story_like_count(watchable, max_story_likes))"):
         "Product floor: when the story-like intent fired, at least one watched slide is liked "

@@ -3,7 +3,7 @@
 Currently installs the **profile relevance verdict** on the Followers workflow: before
 interacting with a follower's profile, take a screenshot and ask the AI whether this
 profile is worth engaging (relative to OUR account niche), then surface the WHY to the
-Taktik Agent panel. Mirrors `instagram/workflows/core/ai_hooks.py` (profile-analysis hook).
+Taktik Agent panel. Mirrors `instagram/workflows/common/ai_hooks.py` (profile-analysis hook).
 
 Smart comments are intentionally NOT hooked yet — TikTok lacks the type/post-comment
 actions (a separate, device-validated lot).

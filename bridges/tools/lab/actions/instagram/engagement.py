@@ -21,7 +21,7 @@ def like_current_post(a, p):
     """Like the CURRENTLY OPEN post via the production orchestration (double-tap vs
     button + already-liked guard) — distinct from the atomic ``post.like``. A post must
     be open. An already-liked post is no gesture and no like: it is said so, never « post liked »."""
-    from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
+    from taktik.core.social_media.instagram.services.like.orchestration import FramedLike
 
     outcome = a.like.like_current_post()
     if outcome is FramedLike.LIKED:
@@ -200,7 +200,7 @@ def _ui_helpers(a):
     # UIHelpers reads only automation.device + automation.logger (verified): give it the warm
     # facade so the REAL interact_with_likers/has_likes prod code runs (not a Lab-only path).
     from types import SimpleNamespace
-    from taktik.core.social_media.instagram.workflows.support.ui_helpers import UIHelpers
+    from taktik.core.social_media.instagram.workflows.common.ui_helpers import UIHelpers
     return UIHelpers(SimpleNamespace(device=a.device, logger=logger))
 
 

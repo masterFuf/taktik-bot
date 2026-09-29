@@ -15,7 +15,7 @@ import inspect
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.support import workflow_helpers
+from taktik.core.social_media.instagram.workflows.common import workflow_helpers
 
 SOURCE = inspect.getsource(workflow_helpers.WorkflowHelpers.create_workflow_session)
 

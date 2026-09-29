@@ -32,7 +32,7 @@ from bridges.tools.lab.action_test.bundles.instagram import (
     build_instagram_action_bundle,
     create_instagram_device_facade,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import sync_following
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import sync_following
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -192,7 +192,7 @@ def test_rows_offering_to_follow_back_without_a_name_fail_the_read(monkeypatch):
 def _runner_on(business):
     from types import SimpleNamespace
 
-    from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
+    from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
 
     runner = WorkflowRunner.__new__(WorkflowRunner)
     runner.automation = SimpleNamespace()

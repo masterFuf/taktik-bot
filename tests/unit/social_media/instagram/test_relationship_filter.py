@@ -8,7 +8,7 @@ single module owns it.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.relationship_filter import (
+from taktik.core.social_media.instagram.workflows.common.relationship_filter import (
     REASON_ALREADY_FOLLOWING,
     REASON_FOLLOWS_US,
     relationship_skip_reason,

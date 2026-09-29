@@ -12,8 +12,8 @@ Two keys, two distinct reasons:
   - ``max_consecutive_private_profiles`` is the threshold itself.
 """
 
-from taktik.core.social_media.instagram.workflows.core.config_builder import _build_action_config
-from taktik.core.social_media.instagram.actions.business.workflows.common.private_streak_policy import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import _build_action_config
+from taktik.core.social_media.instagram.workflows.common.private_streak_policy import (
     PrivateStreakPolicy,
 )
 

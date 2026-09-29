@@ -23,7 +23,7 @@ from .shared import (
 )
 from .stop_reasons import INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON, RUN_HALT_CODE
 
-_NOTIFICATIONS = "taktik.core.social_media.instagram.workflows.management.notifications"
+_NOTIFICATIONS = "taktik.core.social_media.instagram.workflows.notifications"
 
 #: `payload.py`: the commands, and the ones that act on the row of one account.
 ROW_COMMANDS = ("accept", "ignore", "like", "follow_back")

@@ -11,8 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from taktik.core.shared.device.ui_dump import dump_screen_size, parse_ui_dump
-from taktik.core.social_media.instagram.actions.business.workflows.feed import suggestions
-from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions import (
+from taktik.core.social_media.instagram.workflows.automation.feed import suggestions
+from taktik.core.social_media.instagram.workflows.automation.feed.suggestions import (
     FeedSuggestionsMixin,
 )
 

@@ -7,7 +7,7 @@ Covers both the shared signatures (single source of truth) and the ModalRecovery
 
 import logging
 
-from taktik.core.social_media.instagram.actions.core.base_business.modal_recovery import ModalRecoveryMixin
+from taktik.core.social_media.instagram.actions.base.base_business.modal_recovery import ModalRecoveryMixin
 from taktik.core.social_media.instagram.ui.selectors.support.blocking_modals import (
     BLOCKING_MODAL_SELECTORS,
 )
@@ -86,7 +86,7 @@ def test_detect_returns_none_when_clean():
 
 
 def test_recover_backs_out_when_modal_open(monkeypatch):
-    import taktik.core.social_media.instagram.actions.core.base_business.modal_recovery as mod
+    import taktik.core.social_media.instagram.actions.base.base_business.modal_recovery as mod
     monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
     r = _Recoverer(True)
     assert r._recover_from_blocking_modal("someuser", context="test") == "direct_share_sheet"
@@ -96,7 +96,7 @@ def test_recover_backs_out_when_modal_open(monkeypatch):
 
 
 def test_recover_is_noop_when_clean(monkeypatch):
-    import taktik.core.social_media.instagram.actions.core.base_business.modal_recovery as mod
+    import taktik.core.social_media.instagram.actions.base.base_business.modal_recovery as mod
     monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
     r = _Recoverer(False)
     assert r._recover_from_blocking_modal("someuser") is None
@@ -104,7 +104,7 @@ def test_recover_is_noop_when_clean(monkeypatch):
 
 
 def test_recover_never_raises_on_device_error(monkeypatch):
-    import taktik.core.social_media.instagram.actions.core.base_business.modal_recovery as mod
+    import taktik.core.social_media.instagram.actions.base.base_business.modal_recovery as mod
     monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
 
     class _BoomDevice:

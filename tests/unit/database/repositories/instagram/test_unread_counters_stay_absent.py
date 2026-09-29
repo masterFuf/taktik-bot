@@ -17,7 +17,7 @@ one: without all three, no snapshot. A flag not read stays NULL.
 from taktik.core.database.local.client import LocalDatabaseClient
 from taktik.core.database.local.service import LocalDatabaseService
 from taktik.core.database.repositories.instagram.profile.profile_repository import ProfileRepository
-from taktik.core.social_media.instagram.actions.business.management.profile import persistence
+from taktik.core.social_media.instagram.services.profile import persistence
 
 
 def _snapshots(con, profile_id):

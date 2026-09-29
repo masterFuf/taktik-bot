@@ -3,7 +3,7 @@
 from typing import Optional, Dict, Any, List
 from loguru import logger
 
-from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.shared.text import normalize_ui_label
 

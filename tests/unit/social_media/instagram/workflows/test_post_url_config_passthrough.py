@@ -8,10 +8,10 @@ either half on its own.
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
-from taktik.core.social_media.instagram.workflows.management.config.config import (
+from taktik.core.social_media.instagram.workflows.automation.config import (
     WorkflowConfigBuilder,
 )
 

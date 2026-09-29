@@ -11,16 +11,16 @@ could be reached ends on `navigation_lost` (see `test_post_url_several_links.py`
 
 import pytest
 
-import taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow as post_url_module
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
+import taktik.core.social_media.instagram.workflows.automation.post_url.workflow as post_url_module
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import (
     POST_URL_DEFAULTS,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.post_url.workflow import (
     PostUrlBusiness,
 )
-from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 URL = "https://www.instagram.com/p/DOxample1/"
 OTHER_URL = "https://www.instagram.com/p/DOxample2/"

@@ -24,7 +24,7 @@ from taktik.core.social_media.instagram.actions.atomic.detection.profile_extract
     ProfileExtractionMixin,
     _handle_from_node,
 )
-from taktik.core.social_media.instagram.actions.business.management.profile.extraction import (
+from taktik.core.social_media.instagram.services.profile.extraction import (
     ProfileExtraction,
 )
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS

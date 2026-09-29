@@ -14,7 +14,7 @@ from unit.paths import CORE
 sys.path.insert(0, str(CORE))
 
 from taktik.core.shared.diagnostics import run_halt  # noqa: E402
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons  # noqa: E402
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

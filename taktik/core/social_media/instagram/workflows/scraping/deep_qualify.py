@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 try:
-    from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter as _IPCEmitter
+    from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter as _IPCEmitter
 except ImportError:
     _IPCEmitter = None  # type: ignore
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     FramedLike,
     LikeOrchestration,
 )
@@ -100,7 +100,7 @@ def test_comment_current_post_accepts_legacy_boolean_result(
             return legacy_result
 
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.comment.CommentBusiness",
+        "taktik.core.social_media.instagram.services.comment.CommentBusiness",
         _CommentBusiness,
     )
     host = _Host()

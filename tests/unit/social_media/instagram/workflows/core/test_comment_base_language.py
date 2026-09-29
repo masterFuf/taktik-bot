@@ -13,7 +13,7 @@ The app UI language is the OPERATOR's reading preference, never the audience's l
 so it is gone. The account's own persona text is the anchor instead.
 """
 
-from taktik.core.social_media.instagram.workflows.core.ai_hooks import (
+from taktik.core.social_media.instagram.workflows.common.ai_hooks import (
     _resolve_base_language,
     _resolve_comment_language,
 )

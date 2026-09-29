@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
-from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.vision import capture_non_blank
 from taktik.core.social_media.instagram.workflows.common.post_navigation import open_likers_list

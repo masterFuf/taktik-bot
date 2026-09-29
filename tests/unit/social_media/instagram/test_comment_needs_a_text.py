@@ -7,11 +7,11 @@ import types
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
-from taktik.core.social_media.instagram.actions.business.workflows.feed.post_actions import (
+from taktik.core.social_media.instagram.services.comment.action import CommentAction
+from taktik.core.social_media.instagram.workflows.automation.feed.post_actions import (
     FeedPostActionsMixin,
 )
-from taktik.core.social_media.instagram.workflows.core.ai_hooks import install_instagram_ai_hooks
+from taktik.core.social_media.instagram.workflows.common.ai_hooks import install_instagram_ai_hooks
 
 
 def _log():
@@ -58,7 +58,7 @@ class _ScreenlessComment(CommentAction):
 
 @pytest.fixture(autouse=True)
 def _no_wait(monkeypatch):
-    import taktik.core.social_media.instagram.actions.business.actions.comment.action as mod
+    import taktik.core.social_media.instagram.services.comment.action as mod
     monkeypatch.setattr(mod.time, 'sleep', lambda *_a, **_k: None)
 
 

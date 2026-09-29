@@ -8,7 +8,7 @@ selector). Observed on device: "amourlestyliste" logged as accepted 4 times, two
 ~10px apart (the same row read twice).
 """
 
-from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
+from taktik.core.social_media.instagram.workflows.notifications.notifications_workflow import (
     NotificationsEngagementWorkflow,
 )
 
@@ -39,7 +39,7 @@ def _wf(row_sequences):
 
 
 def test_stale_lingering_row_resolves_to_a_new_one_within_the_repoll(monkeypatch):
-    import taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow as mod
+    import taktik.core.social_media.instagram.workflows.notifications.notifications_workflow as mod
     monkeypatch.setattr(mod.time, 'sleep', lambda *_: None)
     # First read after tapping alice still shows only her (lingering); the bounded re-poll then
     # reveals bob, a genuinely new request.
@@ -57,7 +57,7 @@ def test_stale_lingering_row_resolves_to_a_new_one_within_the_repoll(monkeypatch
 
 
 def test_all_lingering_stops_the_batch(monkeypatch):
-    import taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow as mod
+    import taktik.core.social_media.instagram.workflows.notifications.notifications_workflow as mod
     monkeypatch.setattr(mod.time, 'sleep', lambda *_: None)
     # The already-accepted row keeps appearing on every re-poll -> no progress possible, stops cleanly.
     rows_over_time = [[{"username": "alice", "accept": (1, 1)}]] * 6
@@ -68,7 +68,7 @@ def test_all_lingering_stops_the_batch(monkeypatch):
 
 
 def test_case_insensitive_dedup(monkeypatch):
-    import taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow as mod
+    import taktik.core.social_media.instagram.workflows.notifications.notifications_workflow as mod
     monkeypatch.setattr(mod.time, 'sleep', lambda *_: None)
     rows_over_time = [
         [{"username": "Alice", "accept": (1, 1)}],

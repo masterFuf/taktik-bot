@@ -91,7 +91,7 @@ DM_MESSAGE = Shape(
 
 DM_CONVERSATION = Shape(
     name="InstagramDmConversation",
-    doc="A conversation of the inbox (`build_*_conversation`, `dm_inbox/conversation_payload.py`).",
+    doc="A conversation of the inbox (`build_*_conversation`, `workflows/dm/conversation_payload.py`).",
     fields=(
         Field("username", "string", "The other account."),
         Field("inbox_username", "string", "Its name as the inbox row shows it.", optional=True),
@@ -103,8 +103,8 @@ DM_CONVERSATION = Shape(
     ),
 )
 
-_DM_LAUNCHER = f"{_WORKFLOWS}.dm_inbox.agent_handler:run_instagram_dm"
-_DM_READER = f"{_WORKFLOWS}.dm_inbox.payload:dm_command_from_payload"
+_DM_LAUNCHER = f"{_WORKFLOWS}.dm.agent_handler:run_instagram_dm"
+_DM_READER = f"{_WORKFLOWS}.dm.payload:dm_command_from_payload"
 _DM_BRIDGE_FIELDS = (device_field("deviceId"),)
 
 

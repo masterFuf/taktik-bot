@@ -7,10 +7,10 @@ in bulk: its interaction config grants it the right to follow alone, and every o
 the rule. The engine is the real one; only the phone is stubbed (`test_interaction_engine_min_likes`).
 """
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.interaction_config import (
+from taktik.core.social_media.instagram.workflows.common.interaction_config import (
     build_interaction_config,
 )
-from taktik.core.social_media.instagram.workflows.management.notifications import (
+from taktik.core.social_media.instagram.workflows.notifications import (
     DEFAULT_SUGGESTION_INTERACTION_CONFIG,
 )
 

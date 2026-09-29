@@ -54,7 +54,7 @@ ALLOWLIST = {
     # story highlight titles: EN and FR patterns, side by side
     "taktik/core/social_media/instagram/actions/atomic/detection/screen_detection.py",
     # author from a profile-picture content-desc; PRIORITY 1 above it is language-agnostic
-    "taktik/core/social_media/instagram/actions/business/workflows/post_url/mixins/url_handling.py",
+    "taktik/core/social_media/instagram/workflows/automation/post_url/mixins/url_handling.py",
     # already-liked guard, EN + FR
     "taktik/core/social_media/threads/workflows/search_and_interact.py",
     # profile and sound labels, in every supported language
@@ -63,7 +63,7 @@ ALLOWLIST = {
     "taktik/core/social_media/gmail/workflows/account.py",
     # already-liked guard on a feed post ("unlike"/"liked"/"ne plus aimer"), EN + FR. High
     # stakes — a miss re-taps a liked post, i.e. UNLIKES it — but covered on both languages.
-    "taktik/core/social_media/instagram/actions/business/workflows/feed/post_actions.py",
+    "taktik/core/social_media/instagram/workflows/automation/feed/post_actions.py",
     # counter-extraction FALLBACKS ("N likes"/"N J'aime", "N comments"/"N commentaires"),
     # EN + FR with re.IGNORECASE. The PRIMARY path is `count_from_counter_label`, which is
     # language-free; these only run when the counter element itself was not found.

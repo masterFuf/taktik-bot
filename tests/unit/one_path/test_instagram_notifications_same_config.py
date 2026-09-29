@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.management.notifications.agent_handler import (
+from taktik.core.social_media.instagram.workflows.notifications.agent_handler import (
     INSTAGRAM_NOTIFICATIONS_WORKFLOW_ID,
     register_instagram_notifications_handlers,
 )

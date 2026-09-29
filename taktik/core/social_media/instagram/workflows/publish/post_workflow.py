@@ -124,7 +124,7 @@ class InstagramPostWorkflow:
         from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
         from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
         from taktik.core.social_media.instagram.actions.atomic.text import TextActions
-        from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+        from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 
         facade = DeviceFacade(device)
         return {
@@ -234,7 +234,7 @@ class InstagramPostWorkflow:
     def _detect_app_language(self) -> None:
         """The app language, on the feed, before the first localized selector (Create, Next,
         Share): the setup every Instagram launcher shares."""
-        from taktik.core.social_media.instagram.workflows.core import runtime_setup
+        from taktik.core.social_media.instagram.workflows.common import runtime_setup
 
         runtime_setup.prepare_instagram_selectors(device=self.device, log=self._log)
 

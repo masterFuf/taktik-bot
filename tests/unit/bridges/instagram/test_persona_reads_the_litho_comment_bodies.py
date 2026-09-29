@@ -62,7 +62,7 @@ def phone_answers(monkeypatch):
     # process-wide IPC adapter and step telemetry sink: the ones in place before the test come back
     # after it (as `tests/unit/contract/ig_automation_probe.py` does).
     import taktik.core.shared.telemetry.sink as telemetry
-    from taktik.core.social_media.instagram.actions.core.ipc import emitter
+    from taktik.core.social_media.instagram.actions.base.ipc import emitter
 
     monkeypatch.setattr(emitter, "_bridge_adapter", emitter._bridge_adapter)
     monkeypatch.setattr(telemetry, "_sink", telemetry._sink)

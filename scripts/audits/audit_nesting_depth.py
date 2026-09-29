@@ -45,8 +45,8 @@ TOLERE = {
     # Les autres au-dessus du seuil le jour ou ce garde-fou a ete pose (et pas encore redescendues). Les nommer plutot que
     # de relever le seuil : un plafond global assez haut pour les couvrir laisserait passer une
     # nouvelle fonction profonde sans rien dire.
-    "taktik/core/social_media/instagram/workflows/core/config_builder.py::build_instagram_automation_config": 11,
-    "taktik/core/social_media/instagram/workflows/core/workflow_runner.py::_dispatch_workflow_step": 11,
+    "taktik/core/social_media/instagram/workflows/automation/config_builder.py::build_instagram_automation_config": 11,
+    "taktik/core/social_media/instagram/workflows/automation/workflow_runner.py::_dispatch_workflow_step": 11,
     "taktik/core/social_media/instagram/ui/watchdog.py::_attempt_recovery": 9,
 }
 

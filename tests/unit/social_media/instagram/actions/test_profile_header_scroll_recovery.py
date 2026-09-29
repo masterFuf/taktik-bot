@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from taktik.core.social_media.instagram.actions.atomic.scroll.base_scroll import (
     BaseScrollMixin,
 )
-from taktik.core.social_media.instagram.actions.core.base_business.popup_handling import (
+from taktik.core.social_media.instagram.actions.base.base_business.popup_handling import (
     PopupHandlingMixin,
 )
 from taktik.core.social_media.instagram.ui.selectors.shell.popups import PopupSelectors

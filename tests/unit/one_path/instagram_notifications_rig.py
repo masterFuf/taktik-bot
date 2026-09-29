@@ -21,7 +21,7 @@ CLONE = "com.instagram.android.clone"
 BOT = "alpha_bot"
 
 _COMMANDS = "bridges.instagram.notifications.commands"
-_CORE_COMMANDS = "taktik.core.social_media.instagram.workflows.management.notifications.commands"
+_CORE_COMMANDS = "taktik.core.social_media.instagram.workflows.notifications.commands"
 
 
 def notif_command(command: str, **fields) -> dict:
@@ -252,7 +252,7 @@ class InstagramNotificationsRig:
                 rig.record("screen", "home")
 
         self.monkeypatch.setattr(
-            "taktik.core.social_media.instagram.actions.business.management.profile.ProfileBusiness", _Profile)
+            "taktik.core.social_media.instagram.services.profile.ProfileBusiness", _Profile)
         self.monkeypatch.setattr(
             "taktik.core.social_media.instagram.actions.atomic.navigation.NavigationActions", _Navigation)
 

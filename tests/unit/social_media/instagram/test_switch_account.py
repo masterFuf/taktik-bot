@@ -18,7 +18,7 @@ opens the sheet is uiautomator2's own xpath engine on those screens.
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
+from taktik.core.social_media.instagram.actions.account.switch import InstagramSwitchAccount
 from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
 from unit.paths import CORE
 
@@ -142,7 +142,7 @@ def locale():
 @pytest.mark.parametrize("profile, sheet, lang", SHEETS.values(), ids=SHEETS.keys())
 def test_tapping_the_username_opens_the_sheet_and_says_so(monkeypatch, locale, profile, sheet, lang,
                                                           known_language):
-    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
     locale(lang if known_language else None)
     phone = _Phone(profile, after_tap=sheet)
@@ -257,7 +257,7 @@ def _lab_detect_active_account(device):
 
 
 def test_the_lab_says_instagram_is_not_on_screen_instead_of_logged_out(monkeypatch):
-    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
     monkeypatch.setattr(switch_mod.InstagramSwitchAccount, "_read_profile_username", _never("the profile"))
     result = _lab_detect_active_account(_ForegroundDevice(_dump(), "com.android.chrome"))
     assert result["success"] is False
@@ -267,7 +267,7 @@ def test_the_lab_says_instagram_is_not_on_screen_instead_of_logged_out(monkeypat
 
 
 def test_the_lab_still_says_logged_out_on_the_picker(monkeypatch):
-    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
     monkeypatch.setattr(switch_mod.InstagramSwitchAccount, "_on_account_picker", lambda self: True)
     result = _lab_detect_active_account(_ForegroundDevice(_dump(), "com.instagram.android"))
     assert result["details"]["reason"] == "logged_out"
@@ -276,7 +276,7 @@ def test_the_lab_still_says_logged_out_on_the_picker(monkeypatch):
 def test_list_accounts_returns_active_account_when_logged_in(monkeypatch):
     # When an account is active (not on the picker), list_accounts is non-destructive: it reads the
     # active account from the profile and returns just that one (instead of the old empty list).
-    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
     switcher = _switcher()
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)
@@ -288,7 +288,7 @@ def test_list_accounts_returns_active_account_when_logged_in(monkeypatch):
 
 def test_list_saved_accounts_enumerates_directly_on_picker(monkeypatch):
     # Already on the picker (logged out) → no logout, just enumerate the saved accounts.
-    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
     switcher = _switcher("account.one", "account.two,  New notifications", "Use another profile")
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: True)
@@ -297,7 +297,7 @@ def test_list_saved_accounts_enumerates_directly_on_picker(monkeypatch):
 
 def test_list_saved_accounts_recales_db_then_logs_out(monkeypatch):
     # An account is active → recale the DB (detect_active_account) BEFORE logging out to the picker.
-    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
     switcher = _switcher("account.one", "account.two")
     calls = []
@@ -310,7 +310,7 @@ def test_list_saved_accounts_recales_db_then_logs_out(monkeypatch):
 
 def test_list_saved_accounts_empty_when_picker_unreached(monkeypatch):
     # If the picker can't be reached after logout, return [] (no crash, no bogus accounts).
-    import taktik.core.social_media.instagram.auth.switch as switch_mod
+    import taktik.core.social_media.instagram.actions.account.switch as switch_mod
     monkeypatch.setattr(switch_mod.time, "sleep", lambda *a, **k: None)
     switcher = _switcher("account.one")
     monkeypatch.setattr(switcher, "_on_account_picker", lambda: False)

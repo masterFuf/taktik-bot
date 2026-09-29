@@ -5,7 +5,7 @@ of a bio, counters); the bridge never read the language, so they stayed in the u
 locale whatever the phone showed.
 """
 from bridges.instagram.persona.bridge import PersonaAnalysisBridge
-from taktik.core.social_media.instagram.workflows.core import runtime_setup
+from taktik.core.social_media.instagram.workflows.common import runtime_setup
 
 
 def test_the_language_is_read_after_the_restart_and_before_the_profile(monkeypatch):

@@ -4,7 +4,7 @@ The desktop app injects numbers (session_settings.warmup_policy) computed from t
 the bot applies them. Absent (standalone) -> no enforcement, behaviour unchanged.
 """
 
-from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
+from taktik.core.social_media.instagram.workflows.common.session.session import SessionManager
 
 
 def _sm(warmup=None, delay=None):

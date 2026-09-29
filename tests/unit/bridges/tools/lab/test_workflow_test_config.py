@@ -10,7 +10,7 @@ so these tests read it through the same production builder.
 from bridges.tools.lab.workflow_test.platforms.instagram.automation_config import (
     build_workflow_payload,
 )
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
 

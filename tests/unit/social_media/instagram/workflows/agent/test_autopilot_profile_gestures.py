@@ -17,7 +17,7 @@ import pytest
 
 import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
 import taktik.core.social_media.instagram.actions.atomic.interaction as interaction_module
-import taktik.core.social_media.instagram.actions.business.actions.like as like_package
+import taktik.core.social_media.instagram.services.like as like_package
 from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
 from taktik.core.shared.diagnostics import run_halt
 

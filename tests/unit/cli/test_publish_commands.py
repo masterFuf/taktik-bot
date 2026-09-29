@@ -134,7 +134,7 @@ def test_the_cli_has_no_second_publishing_engine():
 
     assert "content" not in management.commands
     assert importlib.util.find_spec(
-        "taktik.core.social_media.instagram.workflows.management.content") is None
+        "taktik.core.social_media.instagram.workflows.account.content") is None
 
 
 def test_the_menu_publishes_through_the_production_workflow(wired, monkeypatch):

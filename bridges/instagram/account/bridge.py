@@ -8,7 +8,7 @@ from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.account.session import AccountSessionLifecycleMixin
 from bridges.instagram.account.workflows import AccountWorkflowRunnerMixin
 from bridges.instagram.common.ipc import _ipc, send_error, send_status
-from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
+from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
 
 class AccountBridge(AccountSessionLifecycleMixin, AccountWorkflowRunnerMixin):

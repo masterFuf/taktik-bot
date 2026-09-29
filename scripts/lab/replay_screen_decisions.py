@@ -442,7 +442,7 @@ def _one_dump_reader_probes(bundle, phone) -> dict:
     from loguru import logger
 
     from bridges.instagram.persona.persona_comments import PersonaCommentsMixin
-    from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
+    from taktik.core.social_media.instagram.workflows.notifications.notifications_workflow import (
         NotificationsEngagementWorkflow)
 
     logger.remove()  # the bridge runtime the persona reader imports adds a debug sink on stderr

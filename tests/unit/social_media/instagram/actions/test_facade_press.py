@@ -12,10 +12,10 @@ import logging
 
 import pytest
 
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from taktik.core.social_media.instagram.actions.atomic.text.text_input import TextInputMixin
-from taktik.core.social_media.instagram.actions.core.base_business.modal_recovery import ModalRecoveryMixin
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.base_business.modal_recovery import ModalRecoveryMixin
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from unit.paths import CORE
 
 
@@ -133,7 +133,7 @@ class _Recoverer(ModalRecoveryMixin):
 
 
 def test_modal_recovery_through_the_facade_closes_the_modal(monkeypatch):
-    import taktik.core.social_media.instagram.actions.core.base_business.modal_recovery as mod
+    import taktik.core.social_media.instagram.actions.base.base_business.modal_recovery as mod
     monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
 
     server = _ServerWithModal()
@@ -200,7 +200,7 @@ _SCANNED = [
 _KNOWN_CHORDS = {
     ("taktik/core/social_media/instagram/actions/atomic/text/keyboard_control.py", "ctrl+a"),
     ("taktik/core/social_media/instagram/actions/atomic/text/keyboard_control.py", "ctrl+v"),
-    ("taktik/core/social_media/instagram/auth/login/credentials.py", "ctrl+a"),
+    ("taktik/core/social_media/instagram/actions/account/login/credentials.py", "ctrl+a"),
 }
 
 

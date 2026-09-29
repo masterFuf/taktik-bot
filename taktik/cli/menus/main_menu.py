@@ -11,7 +11,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 
 from taktik.core.shared.device.manager import DeviceManager
-from taktik.core.social_media.instagram.core.manager import InstagramManager
+from taktik.core.social_media.instagram.manager import InstagramManager
 from taktik.core.social_media.tiktok.core.manager import TikTokManager
 from taktik.cli.menus.instagram import select_target_type, generate_dynamic_workflow
 from taktik.cli.menus.instagram_cold_dm import generate_cold_dm_workflow

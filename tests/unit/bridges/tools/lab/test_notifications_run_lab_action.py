@@ -16,8 +16,8 @@ import pytest
 from bridges.tools.lab.actions.instagram import ACTION_REGISTRY, register_actions
 from bridges.tools.lab.actions.instagram import app as lab_app
 from bridges.instagram.notifications import commands as bridge_commands
-from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
-from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler
+from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
+from taktik.core.social_media.instagram.workflows.notifications import agent_handler
 
 SERIAL = "lab-device"
 

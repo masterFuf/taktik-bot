@@ -9,8 +9,8 @@ import types
 
 import pytest
 
-import taktik.core.social_media.instagram.workflows.management.language.change_language_workflow as module
-from taktik.core.social_media.instagram.workflows.management.language.change_language_workflow import (
+import taktik.core.social_media.instagram.workflows.account.change_language_workflow as module
+from taktik.core.social_media.instagram.workflows.account.change_language_workflow import (
     ChangeLanguageWorkflow,
 )
 

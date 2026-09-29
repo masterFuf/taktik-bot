@@ -23,8 +23,8 @@ import pytest
 import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll as feed_scroll
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
-import taktik.core.social_media.instagram.actions.business.actions.like.orchestration as orchestration
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.services.like.orchestration as orchestration
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from profile_posts_phone import HEADER_ID, HEART_ID, PKG, ProfilePostsPhone, bounds_of, capture, like_on_phone
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 

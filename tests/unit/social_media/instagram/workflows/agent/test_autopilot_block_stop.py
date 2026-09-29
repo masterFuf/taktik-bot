@@ -163,7 +163,7 @@ def test_the_feed_loop_stops_between_a_refused_like_and_its_comment(monkeypatch)
     import time as _time
 
     import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
-    import taktik.core.social_media.instagram.actions.business.workflows.feed as feed_package
+    import taktik.core.social_media.instagram.workflows.automation.feed as feed_package
 
     gestures = []
 

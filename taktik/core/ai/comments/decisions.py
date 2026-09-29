@@ -1,6 +1,6 @@
 """The decisions taken AROUND a generated comment — which language, and is it usable at all.
 
-Extracted from `instagram/workflows/core/ai_hooks.py` on 2026-08-30, unchanged, so TikTok can ask
+Extracted from `instagram/workflows/common/ai_hooks.py` on 2026-08-30, unchanged, so TikTok can ask
 the same questions instead of growing its own answers. Nothing here reads a screen or knows a
 platform: it decides which language a comment may be written in, and whether what the model
 returned is a comment or a refusal dressed as one.

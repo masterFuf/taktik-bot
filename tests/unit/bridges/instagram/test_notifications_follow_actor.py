@@ -15,8 +15,8 @@ follow, aimed at someone we have never checked, from a row that offers no inline
 
 import pytest
 
-import taktik.core.social_media.instagram.workflows.management.notifications.commands as commands
-import taktik.core.social_media.instagram.workflows.management.notifications.follow_actor as follow_actor
+import taktik.core.social_media.instagram.workflows.notifications.commands as commands
+import taktik.core.social_media.instagram.workflows.notifications.follow_actor as follow_actor
 
 
 class _Clicks:

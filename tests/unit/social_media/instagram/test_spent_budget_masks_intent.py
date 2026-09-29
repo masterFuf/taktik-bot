@@ -13,7 +13,7 @@ with it. It now stops following and keeps going.
 from datetime import datetime, timedelta
 
 from taktik.core.shared.behavior.interaction_plan import InteractionPlan, mask_exhausted_intents
-from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
+from taktik.core.social_media.instagram.workflows.common.session.session import SessionManager
 
 
 def _manager(**settings) -> SessionManager:

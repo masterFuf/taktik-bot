@@ -10,10 +10,10 @@ interacts" — this locks the behaviour.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
     InteractionEngineMixin,
 )
-from taktik.core.social_media.instagram.actions.core.base_business.config_parsing import (
+from taktik.core.social_media.instagram.actions.base.base_business.config_parsing import (
     ConfigParsingMixin,
 )
 

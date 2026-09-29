@@ -13,9 +13,9 @@ from __future__ import annotations
 import sys
 
 from bridges.instagram.dm.events import emit_dm_error, emit_dm_json, emit_dm_result
-from taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler import run_instagram_dm
-from taktik.core.social_media.instagram.workflows.dm_inbox.payload import DmCommandError
-from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import InstagramDMRuntime
+from taktik.core.social_media.instagram.workflows.dm.agent_handler import run_instagram_dm
+from taktik.core.social_media.instagram.workflows.dm.payload import DmCommandError
+from taktik.core.social_media.instagram.workflows.dm.runtime import InstagramDMRuntime
 
 
 def _connect(device_id: str, package_name: str = None) -> InstagramDMRuntime:

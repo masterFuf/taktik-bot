@@ -17,7 +17,7 @@ import pytest
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-from taktik.core.social_media.instagram.workflows.management.notifications import (
+from taktik.core.social_media.instagram.workflows.notifications import (
     notifications_workflow as module,
 )
 from unit.paths import CORE

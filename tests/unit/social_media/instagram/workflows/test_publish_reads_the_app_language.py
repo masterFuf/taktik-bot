@@ -6,7 +6,7 @@ of them read the language: the selectors stayed in the union of every locale wha
 """
 import pytest
 
-from taktik.core.social_media.instagram.workflows.core import runtime_setup
+from taktik.core.social_media.instagram.workflows.common import runtime_setup
 from taktik.core.social_media.instagram.workflows.publish.post_workflow import InstagramPostWorkflow
 
 

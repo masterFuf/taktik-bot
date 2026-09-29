@@ -83,7 +83,7 @@ class DesktopBridge:
 
     def run_workflow(self) -> dict:
         """Start Instagram and run the configured workflow (the core launcher)."""
-        from taktik.core.social_media.instagram.workflows.core.agent_handler import (
+        from taktik.core.social_media.instagram.workflows.automation.agent_handler import (
             run_instagram_automation,
         )
 
@@ -107,7 +107,7 @@ class DesktopBridge:
             self.close()
 
     def _run(self) -> int:
-        from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
+        from taktik.core.social_media.instagram.workflows.automation.agent_handler import InstagramStartError
 
         send_status("starting", "TAKTIK Desktop Bridge starting...")
         targets_display, target_count = format_targets_display(self.target)

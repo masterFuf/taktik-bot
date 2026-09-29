@@ -5,7 +5,7 @@ three-valued status and an `error_message` the bot never filled. A run that ende
 `navigation_lost` and one that hit its duration cap were indistinguishable the next day.
 """
 
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 
 def _create_session(db) -> int:

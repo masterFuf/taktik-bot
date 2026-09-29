@@ -27,7 +27,7 @@ from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.actions.atomic.detection.profile_extraction import (
     ProfileExtractionMixin,
 )
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, PROFILE_SELECTORS
 
 STOCK = "com.instagram.android"
@@ -173,11 +173,11 @@ def test_the_bounded_bio_read_is_one_dump_through_the_timeout(name, region):
 
 def _walkers(facade):
     from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import PostReadingMixin
-    from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
-    from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions import (
+    from taktik.core.social_media.instagram.services.comment.action import CommentAction
+    from taktik.core.social_media.instagram.workflows.automation.feed.suggestions import (
         FeedSuggestionsMixin,
     )
-    from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
+    from taktik.core.social_media.instagram.workflows.notifications.notifications_workflow import (
         NotificationsEngagementWorkflow,
     )
 

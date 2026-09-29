@@ -53,7 +53,7 @@ def test_a_component_the_bundle_never_built_is_skipped():
 
 def test_a_business_action_built_without_an_automation_has_no_identity():
     """The source of the whole family: this used to be a real account id."""
-    from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
+    from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
 
     action = BaseBusinessAction.__new__(BaseBusinessAction)
     action.automation = None
@@ -64,7 +64,7 @@ def test_a_business_action_built_without_an_automation_has_no_identity():
 
 def test_recording_without_an_identity_refuses_instead_of_writing_elsewhere():
     """The guard already existed; the default of 1 is what kept it from ever firing."""
-    from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import (
+    from taktik.core.social_media.instagram.actions.base.base_business.stats_recording import (
         StatsRecordingMixin,
     )
 

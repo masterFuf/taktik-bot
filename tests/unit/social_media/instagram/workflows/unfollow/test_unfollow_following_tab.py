@@ -3,8 +3,8 @@
 import pytest
 
 from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml, unified_tabs
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
+from taktik.core.social_media.instagram.workflows.automation.unfollow import workflow as unfollow_workflow
+from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 ROWS = [("ghost", "Suivi(e)"), ("friend", "Suivi(e)")]

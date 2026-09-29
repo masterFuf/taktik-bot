@@ -119,7 +119,7 @@ class _Ai:
 def _scraping_class():
     from loguru import logger
 
-    from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+    from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
     from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 
     class Scraping(ScrapingWorkflow):
@@ -167,8 +167,8 @@ def scraping_bridge(monkeypatch):
 
     import bridges.instagram.common.ipc as ipc_adapter
     import bridges.instagram.scraping.runner as runner
-    from taktik.core.social_media.instagram.actions.core.ipc import emitter
-    from taktik.core.social_media.instagram.workflows.core import runtime_setup
+    from taktik.core.social_media.instagram.actions.base.ipc import emitter
+    from taktik.core.social_media.instagram.workflows.common import runtime_setup
     from taktik.core.social_media.instagram.workflows.scraping import agent_handler, profile_posts_scraping
 
     device_manager = SimpleNamespace(device=object())
@@ -305,12 +305,12 @@ def test_a_cold_dm_without_a_message_is_refused_in_its_last_line(cold_dm_bridge,
 
 
 def _dm_class():
-    from taktik.core.social_media.instagram.workflows.dm_inbox.conversation_payload import (
+    from taktik.core.social_media.instagram.workflows.dm.conversation_payload import (
         build_answered_conversation,
         build_conversation_payload,
         build_up_to_date_conversation,
     )
-    from taktik.core.social_media.instagram.workflows.dm_inbox.runtime import InstagramDMRuntime
+    from taktik.core.social_media.instagram.workflows.dm.runtime import InstagramDMRuntime
 
     class Dm(InstagramDMRuntime):
         """The bridge's runtime and its announcements; only the walk of the inbox answers here."""
@@ -358,10 +358,10 @@ def _dm_class():
 @pytest.fixture
 def dm_bridge(monkeypatch):
     import taktik.core.shared.device.connection as connection
-    import taktik.core.social_media.instagram.workflows.dm_inbox.runtime as runtime
+    import taktik.core.social_media.instagram.workflows.dm.runtime as runtime
     import bridges.instagram.dm.commands as bridge
-    from taktik.core.social_media.instagram.workflows.core import runtime_setup
-    from taktik.core.social_media.instagram.workflows.dm_inbox import agent_handler
+    from taktik.core.social_media.instagram.workflows.common import runtime_setup
+    from taktik.core.social_media.instagram.workflows.dm import agent_handler
 
     monkeypatch.setattr(connection, "ConnectionService", lambda device_id: SimpleNamespace())
     monkeypatch.setattr(runtime, "KeyboardService", lambda device_id: object())

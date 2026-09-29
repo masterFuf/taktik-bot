@@ -16,7 +16,7 @@ import taktik.core.shared.device.adb as adb
 import taktik.core.shared.input.taktik_keyboard as kb
 from unit.android_shell import is_keyboard_check, run_keyboard_check
 from taktik.core.shared.input.keyboard import KeyboardService
-from taktik.core.social_media.instagram.workflows.dm_inbox.sender import DMSenderMixin
+from taktik.core.social_media.instagram.workflows.dm.sender import DMSenderMixin
 from taktik.core.social_media.instagram.actions.atomic.interaction.story_interaction import (
     StoryInteractionMixin,
 )
@@ -24,13 +24,13 @@ from taktik.core.social_media.instagram.actions.atomic.navigation.search_navigat
     SearchNavigationMixin,
 )
 from taktik.core.social_media.instagram.actions.atomic.text import TextActions, dm_composer
-from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
-from taktik.core.social_media.instagram.actions.business.management.content import (
+from taktik.core.social_media.instagram.services.comment.action import CommentAction
+from taktik.core.social_media.instagram.services.content import (
     navigation as content_navigation,
 )
-from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
-from taktik.core.social_media.instagram.auth.login.credentials import CredentialsMixin
-from taktik.core.social_media.instagram.auth.signup.signup import InstagramSignup
+from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.account.login.credentials import CredentialsMixin
+from taktik.core.social_media.instagram.actions.account.signup.signup import InstagramSignup
 from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
@@ -42,7 +42,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages im
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 from taktik.core.social_media.instagram.workflows.cold_dm.sender import ColdDMSenderMixin
-from taktik.core.social_media.instagram.workflows.management.notifications import (
+from taktik.core.social_media.instagram.workflows.notifications import (
     notifications_workflow as nw,
 )
 from taktik.core.social_media.instagram.workflows.publish.post_workflow import InstagramPostWorkflow

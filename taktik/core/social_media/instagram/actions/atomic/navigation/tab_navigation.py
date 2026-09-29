@@ -3,7 +3,7 @@
 import time
 from loguru import logger
 
-from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 
 
 class TabNavigationMixin(BaseAction):

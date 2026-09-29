@@ -4,7 +4,7 @@ Synthetic fragment dicts keep the test independent of the live locale catalog â€
 we assert the classification/username/time/action logic, not the IG strings.
 """
 
-from taktik.core.social_media.instagram.workflows.management.notifications.classifier import (
+from taktik.core.social_media.instagram.workflows.notifications.classifier import (
     classify_row,
     extract_time,
     row_has_action,

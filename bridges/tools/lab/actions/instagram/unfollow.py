@@ -115,7 +115,7 @@ def plan(a, p):
     rule, from the base (production `select_candidates`). No followers sync is run here: the
     non-followers mode then refuses everyone (reciprocity unknown), as the engine would."""
     from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.candidates import (
+    from taktik.core.social_media.instagram.workflows.automation.unfollow.candidates import (
         records_from_rows,
         select_candidates,
     )

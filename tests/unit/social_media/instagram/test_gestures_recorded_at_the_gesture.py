@@ -11,14 +11,14 @@ import types
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.comment.action import CommentAction
+from taktik.core.social_media.instagram.services.like.orchestration import (
     FramedLike,
     LikeOrchestration,
 )
 
-COMMENT_MODULE = "taktik.core.social_media.instagram.actions.business.actions.comment.action"
-LIKE_MODULE = "taktik.core.social_media.instagram.actions.business.actions.like.orchestration"
+COMMENT_MODULE = "taktik.core.social_media.instagram.services.comment.action"
+LIKE_MODULE = "taktik.core.social_media.instagram.services.like.orchestration"
 
 
 class _RunStopped(BaseException):
@@ -187,7 +187,7 @@ def test_the_profile_sequence_still_records_its_own_likes(monkeypatch):
 # ─────────────────────────────────────────────────────────────── the hashtag posts pass
 
 def test_the_posts_pass_files_its_like_under_the_post_author(monkeypatch):
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow as mod
+    from taktik.core.social_media.instagram.workflows.automation.hashtag import workflow as mod
 
     monkeypatch.setattr(mod.random, 'randint', lambda a, b: a)
     calls = []
@@ -206,7 +206,7 @@ def test_the_posts_pass_files_its_like_under_the_post_author(monkeypatch):
 
 def test_the_posts_pass_leaves_a_post_whose_author_it_cannot_read(monkeypatch):
     """No author: no ledger row, no deduplication, no cap. The gesture is not made."""
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow as mod
+    from taktik.core.social_media.instagram.workflows.automation.hashtag import workflow as mod
 
     monkeypatch.setattr(mod.random, 'randint', lambda a, b: a)
     calls = []

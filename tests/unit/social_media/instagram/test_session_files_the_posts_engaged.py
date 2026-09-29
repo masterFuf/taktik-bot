@@ -10,9 +10,9 @@ posts. And the feed runner built a new FeedBusiness for each step, whose manager
 import time
 import types
 
-import taktik.core.social_media.instagram.workflows.support.workflow_helpers as helpers_module
-from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
-from taktik.core.social_media.instagram.workflows.support.workflow_helpers import WorkflowHelpers
+import taktik.core.social_media.instagram.workflows.common.workflow_helpers as helpers_module
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.common.workflow_helpers import WorkflowHelpers
 
 
 class _Db:
@@ -73,7 +73,7 @@ def test_the_feed_runner_keeps_one_workflow_for_the_session(monkeypatch):
             return {'success': True}
 
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.workflows.feed.FeedBusiness", _Feed)
+        "taktik.core.social_media.instagram.workflows.automation.feed.FeedBusiness", _Feed)
     automation = types.SimpleNamespace(
         device=None, session_manager=None,
         stats={'likes': 0, 'follows': 0, 'comments': 0, 'interactions': 0},

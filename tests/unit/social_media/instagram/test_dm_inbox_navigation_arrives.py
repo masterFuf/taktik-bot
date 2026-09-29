@@ -19,9 +19,9 @@ import pytest
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
-import taktik.core.social_media.instagram.workflows.dm_inbox.navigation as navigation
+import taktik.core.social_media.instagram.workflows.dm.navigation as navigation
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
-from taktik.core.social_media.instagram.workflows.dm_inbox.navigation import DMInboxNavigationMixin
+from taktik.core.social_media.instagram.workflows.dm.navigation import DMInboxNavigationMixin
 
 PKG = "com.instagram.android"
 FIXTURES = Path(__file__).parent / "fixtures"

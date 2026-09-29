@@ -1,6 +1,6 @@
 """Unit tests for follow-request row geometry helpers (pure)."""
 
-from taktik.core.social_media.instagram.workflows.management.notifications.row_layout import (
+from taktik.core.social_media.instagram.workflows.notifications.row_layout import (
     center,
     index_of_closest_row,
     parse_bounds,

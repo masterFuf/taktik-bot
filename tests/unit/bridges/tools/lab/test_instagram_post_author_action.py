@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-import taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow as post_url_module
+import taktik.core.social_media.instagram.workflows.automation.post_url.workflow as post_url_module
 from bridges.tools.lab.actions.instagram.scraping import read_post_author
 
 

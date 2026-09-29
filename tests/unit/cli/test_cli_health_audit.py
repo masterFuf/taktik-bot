@@ -84,7 +84,7 @@ def test_same_name_in_two_scopes_is_not_confused(audit, tmp_path):
     """
     findings = audit.missing_attributes(_write(tmp_path, """
 import click
-from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
 
 @click.group()
 def automation():

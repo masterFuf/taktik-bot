@@ -67,8 +67,8 @@ def run_instagram_scraping(
     """Start Instagram when the host asks, match the selectors to the phone, then scrape the source
     a payload names."""
     # Resolved at call time, so a run gets the modules' current objects.
-    from taktik.core.social_media.instagram.workflows.core import runtime_setup
-    from taktik.core.social_media.instagram.workflows.core.agent_handler import (
+    from taktik.core.social_media.instagram.workflows.common import runtime_setup
+    from taktik.core.social_media.instagram.workflows.automation.agent_handler import (
         InstagramStartError,
         _log_to_logger,
     )

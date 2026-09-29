@@ -27,18 +27,18 @@ from taktik.core.kernel.registry import WorkflowRegistry
 
 #: (label, module path, registrar name). Label is what the operator sees when one fails.
 REGISTRARS: tuple[tuple[str, str, str], ...] = (
-    ("Instagram automation", "taktik.core.social_media.instagram.workflows.core.agent_handler",
+    ("Instagram automation", "taktik.core.social_media.instagram.workflows.automation.agent_handler",
      "register_instagram_automation_handlers"),
-    ("Instagram account", "taktik.core.social_media.instagram.workflows.management.agent_handler",
+    ("Instagram account", "taktik.core.social_media.instagram.workflows.account.agent_handler",
      "register_instagram_account_handlers"),
     ("Instagram scraping", "taktik.core.social_media.instagram.workflows.scraping.agent_handler",
      "register_instagram_scraping_handlers"),
     ("Instagram cold DM", "taktik.core.social_media.instagram.workflows.cold_dm.agent_handler",
      "register_instagram_cold_dm_handlers"),
-    ("Instagram DM", "taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler",
+    ("Instagram DM", "taktik.core.social_media.instagram.workflows.dm.agent_handler",
      "register_instagram_dm_handlers"),
     ("Instagram notifications",
-     "taktik.core.social_media.instagram.workflows.management.notifications.agent_handler",
+     "taktik.core.social_media.instagram.workflows.notifications.agent_handler",
      "register_instagram_notifications_handlers"),
     ("Taktik Agent (Instagram)", "taktik.core.social_media.instagram.workflows.agent.agent_handler",
      "register_instagram_agent_handlers"),

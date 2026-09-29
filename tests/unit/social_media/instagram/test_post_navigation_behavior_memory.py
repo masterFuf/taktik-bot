@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
-from taktik.core.social_media.instagram.actions.business.actions.like.post_navigation import (
+from taktik.core.social_media.instagram.services.like.post_navigation import (
     PostNavigationMixin,
 )
 
@@ -67,15 +67,15 @@ class _Host(PostNavigationMixin):
 def test_profile_post_navigation_uses_session_mode_choice(monkeypatch):
     sleeps = []
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         sleeps.append,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.content_dwell",
+        "taktik.core.social_media.instagram.services.like.post_navigation.content_dwell",
         lambda _chars: 10.0,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.random.uniform",
+        "taktik.core.social_media.instagram.services.like.post_navigation.random.uniform",
         lambda lower, _upper: lower,
     )
     host = _Host()
@@ -104,11 +104,11 @@ def test_profile_post_flick_keeps_session_reach_below_the_safe_cap(monkeypatch):
             return True
 
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         lambda _seconds: None,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.random.uniform",
+        "taktik.core.social_media.instagram.services.like.post_navigation.random.uniform",
         lambda lower, _upper: lower,
     )
     host = _Host()
@@ -142,11 +142,11 @@ def test_failed_primary_uses_vertical_retry_never_horizontal_carousel_swipe(monk
             return True
 
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         lambda _seconds: None,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.content_dwell",
+        "taktik.core.social_media.instagram.services.like.post_navigation.content_dwell",
         lambda _chars: 0.0,
     )
     host = _Host()
@@ -184,11 +184,11 @@ def test_profile_grid_scroll_uses_the_same_session_timeline(monkeypatch):
 
     sleeps = []
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         sleeps.append,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.random.uniform",
+        "taktik.core.social_media.instagram.services.like.post_navigation.random.uniform",
         lambda lower, _upper: lower,
     )
     host = _Host()
@@ -241,7 +241,7 @@ def test_failed_vertical_gestures_reach_the_real_next_button_property(monkeypatc
             return _Button()
 
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         lambda _seconds: None,
     )
     host = _Host()
@@ -321,7 +321,7 @@ def test_reel_reentry_scrolls_grid_to_find_a_new_absolute_position(monkeypatch):
     host._is_in_post_view = lambda: True
     host._emit_entry_decision = lambda *_args, **_kwargs: None
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         lambda _seconds: None,
     )
 
@@ -351,7 +351,7 @@ def test_reel_reentry_stops_when_visible_grid_is_exhausted(monkeypatch):
         AssertionError("an exhausted grid must not reopen a post")
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         lambda _seconds: None,
     )
 
@@ -378,11 +378,11 @@ def test_small_profile_entry_keeps_the_requested_inspection_window(monkeypatch):
     host._is_in_post_view = lambda: True
     host._emit_entry_decision = lambda *_args, **_kwargs: None
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.plan_prescroll",
+        "taktik.core.social_media.instagram.services.like.post_navigation.plan_prescroll",
         lambda _posts_count: 0,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.actions.like.post_navigation.time.sleep",
+        "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         lambda _seconds: None,
     )
 

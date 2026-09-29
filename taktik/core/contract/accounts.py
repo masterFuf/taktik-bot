@@ -15,7 +15,7 @@ from typing import Tuple
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT, instagram_package_field
 
-_INSTAGRAM = "taktik.core.social_media.instagram.workflows.management.agent_handler"
+_INSTAGRAM = "taktik.core.social_media.instagram.workflows.account.agent_handler"
 _TIKTOK = "taktik.core.social_media.tiktok.workflows.management.agent_handler"
 _GMAIL = "taktik.core.social_media.gmail.workflows.agent_handler"
 _YOUTUBE = "taktik.core.social_media.youtube.workflows.account.agent_handler"

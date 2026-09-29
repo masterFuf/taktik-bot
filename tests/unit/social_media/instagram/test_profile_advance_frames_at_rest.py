@@ -21,17 +21,17 @@ from loguru import logger
 
 import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll as feed_scroll
-import taktik.core.social_media.instagram.actions.business.actions.like.post_navigation as post_navigation
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.services.like.post_navigation as post_navigation
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from profile_posts_phone import PKG, ProfilePostsPhone, ReplayGestures, bounds_of, capture
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
 from taktik.core.social_media.instagram.actions.atomic.scroll.base_scroll import BaseScrollMixin
 from taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll import FeedScrollMixin
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     LikeOrchestration,
 )
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
 

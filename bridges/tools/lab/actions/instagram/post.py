@@ -4,7 +4,7 @@ from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action, detection_action
 from bridges.tools.lab.action_test.not_applicable import not_applicable
-from taktik.core.social_media.instagram.actions.core.base_business.popup_handling import (
+from taktik.core.social_media.instagram.actions.base.base_business.popup_handling import (
     COMMENTS_EMPTY,
     COMMENTS_OPENED,
 )
@@ -214,7 +214,7 @@ def read_post_context(a, p):
     (PostReadingMixin.framed_post_context + clean_post_caption), so what the Lab
     reports here is literally what the comment model would be given.
     """
-    from taktik.core.social_media.instagram.workflows.core.caption_hygiene import (
+    from taktik.core.social_media.instagram.workflows.common.caption_hygiene import (
         clean_post_caption,
     )
 

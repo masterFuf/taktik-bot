@@ -30,13 +30,13 @@ def _connect(seen):
 
 
 def _dm(payload, connect):
-    from taktik.core.social_media.instagram.workflows.dm_inbox.agent_handler import run_instagram_dm
+    from taktik.core.social_media.instagram.workflows.dm.agent_handler import run_instagram_dm
 
     return run_instagram_dm(payload, connect=connect)
 
 
 def _notifications(payload, connect):
-    from taktik.core.social_media.instagram.workflows.management.notifications.agent_handler import (
+    from taktik.core.social_media.instagram.workflows.notifications.agent_handler import (
         run_instagram_notifications,
     )
 
@@ -62,7 +62,7 @@ def _story_relay(payload, connect):
 
 
 def _automation(payload, connect):
-    from taktik.core.social_media.instagram.workflows.core.agent_handler import run_instagram_automation
+    from taktik.core.social_media.instagram.workflows.automation.agent_handler import run_instagram_automation
 
     return run_instagram_automation({"workflowType": "feed", **payload}, device_manager=object(),
                                     instagram_start=connect)

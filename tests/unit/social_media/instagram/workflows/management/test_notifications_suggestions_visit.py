@@ -19,10 +19,10 @@ that ends on another people section, are the older screen with its real header r
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
+from taktik.core.social_media.instagram.workflows.notifications.notifications_workflow import (
     NotificationsEngagementWorkflow,
 )
-from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import (
+from taktik.core.social_media.instagram.actions.base.base_business.profile_processing import (
     ProfileProcessingResult,
 )
 from unit.paths import CORE

@@ -13,7 +13,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional
 
-from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import (
+from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import (
     warmup_policy_from_payload,
 )
 

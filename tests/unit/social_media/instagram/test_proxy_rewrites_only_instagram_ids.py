@@ -22,7 +22,7 @@ from uiautomator2.xpath import XPathEntry
 
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.device.snapshot import ScreenSnapshot
-from taktik.core.social_media.instagram.auth.login import InstagramLogin
+from taktik.core.social_media.instagram.actions.account.login import InstagramLogin
 from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.notifications import (
     NOTIFICATION_SELECTORS,

@@ -15,8 +15,8 @@ Two levels of proof, deliberately:
 
 from datetime import datetime, timedelta
 
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons as sr
-from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons as sr
+from taktik.core.social_media.instagram.workflows.common.session.session import SessionManager
 
 
 # -- Level 1: proven against the real SessionManager ---------------------------

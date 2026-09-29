@@ -1,6 +1,6 @@
 """Reading the comments thread of a post from a UI dump.
 
-The counterpart of `notifications/dump_parsing.py`, for the comments surface. Pure functions
+The counterpart of `workflows/notifications/dump_parsing.py`, for the comments surface. Pure functions
 over a `parse_ui_dump` root (tag = widget class): no device, no side effect, so the pairing
 rules below are testable against captured dumps.
 

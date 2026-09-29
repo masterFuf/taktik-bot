@@ -22,10 +22,10 @@ import pytest
 from loguru import logger
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
-from taktik.core.social_media.instagram.actions.business.actions.like.post_navigation import (
+from taktik.core.social_media.instagram.services.like.post_navigation import (
     PostNavigationMixin,
 )
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post.detail import POST_SELECTORS
 

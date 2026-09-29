@@ -20,7 +20,7 @@ RUN_HALT_CODE = OneOf(
 )
 
 #: `session_stop.reason_code` of an Instagram run: the factories of
-#: `social_media/instagram/workflows/management/session/stop_reasons.py`.
+#: `social_media/instagram/workflows/common/session/stop_reasons.py`.
 INSTAGRAM_STOP_REASON_CODE = OneOf(
     (
         # ok: a cap reached
@@ -81,9 +81,9 @@ INSTAGRAM_SCRAPING_COMPLETION_REASON = OneOf(
 #: `result.suggestions.stop_reason` of an Instagram notifications scan: how the visit of the
 #: suggested accounts ended. A sub-pass of the scan, not the run: the scan itself goes on. Set by
 #: the shared visit (`.../workflows/common/suggestion_visit.py`), its two surfaces (the bottom of
-#: the activity screen, `.../notifications/suggestions_flow.py`; the people screen,
-#: `.../feed/suggestions_visit.py`, with the reasons of its entry, `enter_discover_people_screen` of
-#: `.../feed/suggestions.py`) and the scan that runs it (`.../notifications/commands.py`).
+#: the activity screen, `.../workflows/notifications/suggestions_flow.py`; the people screen,
+#: `.../workflows/automation/feed/suggestions_visit.py`, with the reasons of its entry, `enter_discover_people_screen` of
+#: `.../workflows/automation/feed/suggestions.py`) and the scan that runs it (`.../notifications/commands.py`).
 INSTAGRAM_SUGGESTIONS_VISIT_STOP_REASON = OneOf(
     (
         # done, or nothing asked

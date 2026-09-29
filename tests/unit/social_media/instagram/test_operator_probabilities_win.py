@@ -9,22 +9,22 @@ reader downstream takes the percentage first.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
+from taktik.core.social_media.instagram.services.like.orchestration import FramedLike
 
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import (
     HASHTAG_DEFAULTS,
     POST_URL_DEFAULTS,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.common.interaction_config import (
+from taktik.core.social_media.instagram.workflows.common.interaction_config import (
     merge_operator_config,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import (
     HashtagBusiness,
 )
-from taktik.core.social_media.instagram.actions.core.base_business.config_parsing import (
+from taktik.core.social_media.instagram.actions.base.base_business.config_parsing import (
     ConfigParsingMixin,
 )
-from taktik.core.social_media.instagram.workflows.management.config import WorkflowConfigBuilder
+from taktik.core.social_media.instagram.workflows.automation.config import WorkflowConfigBuilder
 
 
 def _runner_config(like=100, follow=0, comment=0, story=0, story_like=0):
@@ -43,8 +43,8 @@ def _runner_config(like=100, follow=0, comment=0, story=0, story_like=0):
 @pytest.fixture
 def every_roll_succeeds(monkeypatch):
     """`randint(1, 100)` always returns 1: any intent above 0 % fires."""
-    import taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow as hashtag_mod
-    import taktik.core.social_media.instagram.actions.core.base_business.config_parsing as parsing_mod
+    import taktik.core.social_media.instagram.workflows.automation.hashtag.workflow as hashtag_mod
+    import taktik.core.social_media.instagram.actions.base.base_business.config_parsing as parsing_mod
     monkeypatch.setattr(hashtag_mod.random, 'randint', lambda a, b: a)
     monkeypatch.setattr(parsing_mod.random, 'randint', lambda a, b: a)
 
@@ -139,7 +139,7 @@ class _Hashtag(HashtagBusiness):
 
 @pytest.fixture
 def no_wait(monkeypatch):
-    import taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow as mod
+    import taktik.core.social_media.instagram.workflows.automation.hashtag.workflow as mod
     monkeypatch.setattr(mod.time, 'sleep', lambda *_a, **_k: None)
 
 
@@ -166,7 +166,7 @@ def test_a_liker_is_not_followed_when_the_operator_said_zero(every_roll_succeeds
 # ─────────────────────────────────────────────────────────────── post URL
 
 def test_the_post_url_workflow_merges_the_same_way(monkeypatch):
-    import taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow as mod
+    import taktik.core.social_media.instagram.workflows.automation.post_url.workflow as mod
 
     merged = []
 

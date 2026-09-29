@@ -2,7 +2,7 @@
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.management.notifications import notifications_workflow as nw
+from taktik.core.social_media.instagram.workflows.notifications import notifications_workflow as nw
 
 
 @pytest.mark.parametrize("composer,mention", [

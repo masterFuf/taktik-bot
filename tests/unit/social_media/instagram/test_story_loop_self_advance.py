@@ -14,8 +14,8 @@ from unit.paths import CORE
 
 sys.path.insert(0, str(CORE))
 
-import taktik.core.social_media.instagram.actions.core.base_business.interaction_engine as ie  # noqa: E402
-from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (  # noqa: E402
+import taktik.core.social_media.instagram.actions.base.base_business.interaction_engine as ie  # noqa: E402
+from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (  # noqa: E402
     InteractionEngineMixin,
 )
 from taktik.core.social_media.instagram.actions.atomic.story_state import (  # noqa: E402

@@ -11,7 +11,7 @@ from typing import Iterable, List, Optional, Tuple
 
 from lxml import etree
 
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import (
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import (
     sync_followers as followers_mixin,
     sync_following as following_mixin,
 )

@@ -11,8 +11,8 @@ the session row is aggregated from at finalisation.
 import time
 import types
 
-import taktik.core.social_media.instagram.workflows.support.workflow_helpers as helpers_module
-from taktik.core.social_media.instagram.workflows.support.workflow_helpers import WorkflowHelpers
+import taktik.core.social_media.instagram.workflows.common.workflow_helpers as helpers_module
+from taktik.core.social_media.instagram.workflows.common.workflow_helpers import WorkflowHelpers
 
 _ZERO_TALLY = {'likes': 0, 'follows': 0, 'unfollows': 0, 'comments': 0, 'interactions': 0,
                'skipped': 0, 'stories_viewed': 0, 'stories_liked': 0}
@@ -72,7 +72,7 @@ def test_the_bridge_sends_the_ledger_totals_not_the_run_tally(monkeypatch):
     """The bridge side of the chain: the reporter's `finished` receives `automation.final_stats()`
     from the core launcher, and prints it as the final `stats` event."""
     import bridges.instagram.automation.events as events
-    from taktik.core.social_media.instagram.workflows.core.agent_handler import run_instagram_automation
+    from taktik.core.social_media.instagram.workflows.automation.agent_handler import run_instagram_automation
 
     sent = []
 

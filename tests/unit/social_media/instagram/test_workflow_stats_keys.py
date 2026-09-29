@@ -10,12 +10,12 @@ re-navigate to the target and re-scroll the followers list from the top.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.core.stats.workflow_stats import (
+from taktik.core.social_media.instagram.actions.base.stats.workflow_stats import (
     create_workflow_stats,
     sync_aliases,
 )
 
-# Keys that direct/main_loop.py + profile_processing.py mutate with `+=` (must be
+# Keys that workflows/automation/followers/workflows/direct/main_loop.py + profile_processing.py mutate with `+=` (must be
 # pre-initialized). Includes the pre-click DB-skip buckets `already_processed`
 # (60-day cooldown) and `already_filtered` (filtered in a prior session): main_loop
 # increments these instead of folding them into skipped/filtered, so the factory must

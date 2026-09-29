@@ -1,0 +1,766 @@
+"""Post navigation helpers for the like workflow (open, next, return)."""
+
+import time
+import random
+import re
+from typing import TYPE_CHECKING, Callable, Optional
+from loguru import logger
+
+from taktik.core.shared.behavior.grid_entry import (
+    GRID_COLUMNS,
+    plan_prescroll,
+    reentry_positions,
+    sample_entry_index,
+)
+from taktik.core.shared.behavior.dwell import content_dwell
+from taktik.core.shared.diagnostics.miss_capture import signaler_ecran_inconnu
+from taktik.core.shared.telemetry import emit_step
+from taktik.core.social_media.instagram.actions.atomic.navigation.profile_grid import show_profile_posts_grid
+from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
+
+if TYPE_CHECKING:
+    from loguru import Logger
+
+# Long-run advance mix when browsing a profile's posts. Session memory turns this baseline into
+# short brisk/steady/deliberate bursts instead of an independent 85/15 draw on every post.
+_ADVANCE_MODE_WEIGHTS = (("flick", 0.85), ("drag", 0.15))
+
+# Grid cells expose their position in content-desc ("... à la ligne R, colonne C" /
+# "row R, column C"). Lets us narrate the real post position to the copilot.
+_GRID_POS_RE = re.compile(r'(?:ligne|row)\D*(\d+)\D+(?:colonne|column)\D*(\d+)', re.IGNORECASE)
+
+
+class PostNavigationMixin:
+    """Mixin providing post navigation methods.
+
+    Must be used with a class that inherits from BaseBusinessAction
+    (provides self.device, self.logger, self.post_selectors, self.detection_selectors,
+    self.scroll_actions, etc.)
+    """
+
+    # What the host provides, declared as an interface would be (no value: nothing is shadowed).
+    logger: "Logger"
+    _behavior_reading_scale: Callable[[str], float]
+
+    def _open_entry_post_of_profile(
+        self,
+        posts_count: int = 0,
+        username: Optional[str] = None,
+        *,
+        reopening: bool = False,
+        posts_to_inspect: int = 0,
+    ) -> bool:
+        """Open a post to start engaging — but NOT always the top-left (newest) one.
+
+        Humanised entry (see ``shared/behavior/grid_entry``): on a profile large
+        enough, optionally scroll the grid down a little first, then open a
+        thumbnail chosen with a top-weighted-but-spread distribution and a human
+        tap on its real bounds. Always falls back to the legacy "open first post"
+        on any problem, so this is a zero-regression replacement of the constant
+        entry point.
+
+        ``posts_count`` is the profile's publication count (already read upstream);
+        it drives whether pre-scrolling the grid looks natural at all. A reopen after leaving a
+        Reel is stricter: it resumes past the furthest post reached during this profile visit,
+        swiping the grid down when that part is not on screen (``_find_reentry_cell``), and never
+        falls back to another cell.
+        """
+        try:
+            thumb_selector = self.detection_selectors.post_thumbnail_selectors[0]
+
+            posts = self._visible_grid_thumbnails(thumb_selector)
+            if not posts:
+                if reopening:
+                    self.logger.info("Profile grid unavailable during Reel exit; stopping safely")
+                    return False
+                self.logger.debug("Grid not visible — using legacy first-post open")
+                return self._open_first_post_of_profile(username=username)
+
+            prescroll = 0
+            if reopening:
+                found = self._find_reentry_cell(posts, thumb_selector, posts_count, username)
+                if found is None:
+                    self.logger.info(
+                        "No unseen profile-grid thumbnail remains past the furthest post "
+                        "reached; stopping instead of walking posts already seen"
+                    )
+                    return False
+                posts, index = found
+            else:
+                # 1. Adaptive grid pre-scroll (only on big-enough profiles; human flick).
+                prescroll = plan_prescroll(int(posts_count or 0))
+                for _ in range(prescroll):
+                    scrolled = self._session_grid_scroll(
+                        "profile_grid_prescroll", distance_ratio=0.40, coast=True
+                    )
+                    if not scrolled:
+                        break
+                if prescroll:
+                    posts = self._visible_grid_thumbnails(thumb_selector)
+                    if not posts:
+                        return self._open_first_post_of_profile(username=username)
+
+                # 2. Open a varied visible thumbnail (top-weighted, spread), early enough in the
+                # profile to leave the posts the run intends to inspect after it.
+                candidates = None
+                if int(posts_count or 0) > 0 and int(posts_to_inspect or 0) > 0:
+                    latest_start = max(
+                        1,
+                        int(posts_count) - min(int(posts_count), int(posts_to_inspect)) + 1,
+                    )
+                    candidates = [
+                        visible_index
+                        for visible_index, post in enumerate(posts)
+                        if self._grid_entry_position(post, visible_index) <= latest_start
+                    ] or None
+                index = self._choose_session_grid_entry(
+                    posts, username=username, candidates=candidates
+                )
+                if index is None:
+                    self.logger.warning("No grid entry drawn — using legacy first-post open")
+                    return self._open_first_post_of_profile(username=username)
+            target = posts[index]
+            self.logger.info(
+                f"Opening entry post: thumbnail #{index + 1}/{len(posts)} "
+                f"(prescroll={prescroll}, profile posts={posts_count})"
+            )
+
+            # Narrate the entry decision to the live copilot (Taktik Agent):
+            # "profile has N posts → opening post #X". Reuses the instagram_action
+            # channel; no-op in standalone / Lab (guarded on username).
+            if username:
+                self._emit_entry_decision(username, posts_count, prescroll, target, index)
+
+            self.scroll_actions._plan_behavior_gesture("profile_grid_open", "tap")
+            if not self._human_tap_grid_thumbnail(target):
+                target.click()  # centre-click fallback if bounds unreadable
+
+            time.sleep(3)
+            if self._is_in_post_view():
+                self._remember_session_grid_entry(
+                    target, index, username=username, continuing_visit=reopening
+                )
+                self.logger.success("Entry post opened successfully")
+                return True
+
+            if reopening:
+                self.logger.warning("Unseen grid entry did not open; refusing a repeated fallback")
+                return False
+            self.logger.warning("Entry post did not open — falling back to first post")
+            return self._open_first_post_of_profile(username=username)
+
+        except Exception as e:
+            if reopening:
+                self.logger.error(f"Error reopening unseen grid post: {e}")
+                return False
+            self.logger.error(f"Error opening entry post: {e} — falling back to first post")
+            try:
+                return self._open_first_post_of_profile(username=username)
+            except Exception:
+                return False
+
+    def _open_post_at_position(self, index: int) -> bool:
+        """Open a SPECIFIC grid post by absolute position (1-based), scrolling the
+        grid (human flick) to reveal it if needed. Returns True if the post viewer
+        opened. Deterministic — used by the Lab to test post targeting; prod entry
+        stays humanised via `_open_entry_post_of_profile`.
+        """
+        if index < 1:
+            index = 1
+        row = (index - 1) // 3 + 1
+        col = (index - 1) % 3 + 1
+        selector = self.detection_selectors.post_grid_cell_by_position(row, col)
+        try:
+            if not self._visible_grid_thumbnails(self.detection_selectors.post_thumbnail_selectors[0]):
+                self.logger.warning("Grid not visible — cannot open post by position")
+                return False
+
+            target = None
+            for _ in range(6):
+                el = self.device.xpath(selector)
+                if el.exists:
+                    target = el
+                    break
+                if not self._session_grid_scroll(
+                    "profile_grid_target_seek", distance_ratio=0.40, coast=True
+                ):
+                    break
+
+            if target is None:
+                self.logger.warning(
+                    f"Post #{index} (row {row}, column {col}) not found after scrolling"
+                )
+                return False
+
+            self.logger.info(f"Opening post #{index} (row {row}, column {col})")
+            self.scroll_actions._plan_behavior_gesture("profile_grid_open", "tap")
+            tapped = False
+            try:
+                el = target.get(timeout=1.0)
+                bounds = tuple(el.bounds)
+                if bounds and len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
+                    tapped = bool(self.device.human_tap(bounds))
+            except Exception as e:
+                self.logger.debug(f"position tap bounds unreadable ({e}); click fallback")
+            if not tapped:
+                target.click()
+
+            time.sleep(3)
+            if self._is_in_post_view():
+                self._remember_session_grid_entry(target, index - 1, username=None)
+                self.logger.success(f"Post #{index} opened successfully")
+                return True
+            self.logger.warning(f"Post #{index} did not open")
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error opening post #{index}: {e}")
+            return False
+
+    def _emit_entry_decision(self, username, posts_count, prescroll, target, index):
+        """Tell the copilot which post we're opening and why (the humanised entry
+        decision). Best-effort: reads the chosen thumbnail's grid position from its
+        content-desc so the narration says the real post number."""
+        try:
+            row = col = position = None
+            try:
+                cd = (target.attrib.get('content-desc') if hasattr(target, 'attrib') else None) or ''
+                m = _GRID_POS_RE.search(cd)
+                if m:
+                    row, col = int(m.group(1)), int(m.group(2))
+                    position = (row - 1) * GRID_COLUMNS + col
+            except Exception:
+                pass
+            IPCEmitter.emit_action('entry', username, {
+                'posts_count': int(posts_count or 0),
+                'prescroll': int(prescroll or 0),
+                'visible_index': int(index) + 1,
+                'row': row,
+                'col': col,
+                'position': position,
+            })
+            # Also on the step_metric channel: the IPC action feeds the copilot
+            # narration, but the metrics cards (Choix du post) read step_metric.
+            emit_step(
+                "post_entry", target=username,
+                posts_count=int(posts_count or 0), prescroll=int(prescroll or 0),
+                visible_index=int(index) + 1, position=position,
+            )
+        except Exception as e:
+            self.logger.debug(f"entry decision narration failed: {e}")
+
+    def _visible_grid_thumbnails(self, thumb_selector: str):
+        """Return the currently rendered grid thumbnails, the posts grid shown first (a profile
+        can show its Reels, Reposts or Tagged sub-tab, which hold none), revealing the grid
+        with a small scroll if none are on screen yet."""
+        show_profile_posts_grid(self.device)
+        posts = self.device.xpath(thumb_selector).all()
+        if posts:
+            return posts
+        self.logger.debug("No thumbnail on screen, scrolling down to reveal the grid")
+        # Humanized controlled scroll to reveal the grid (was facade swipe_ext / Direction.UP).
+        self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.30)
+        posts = self.device.xpath(thumb_selector).all()
+        if posts:
+            return posts
+        self._session_grid_scroll("profile_grid_reveal", distance_ratio=0.50)
+        return self.device.xpath(thumb_selector).all()
+
+    def _session_grid_scroll(
+        self, context: str, distance_ratio: float, coast: bool = False
+    ) -> bool:
+        """Route profile-grid motion through the same per-session gesture timeline."""
+        try:
+            _, height = self.device.get_screen_size()
+            decision = self.scroll_actions._plan_behavior_gesture(
+                context, "flick" if coast else "controlled_swipe"
+            )
+            distance_px = height * float(distance_ratio) * decision["distance_scale"]
+            if coast:
+                ok = self.scroll_actions._strong_flick(
+                    "up", distance_px=distance_px,
+                    velocity_scale=decision["velocity_scale"],
+                )
+                base_settle = (0.45, 0.75)
+            else:
+                ok = self.scroll_actions._human_swipe(
+                    "up", distance_px=distance_px, controlled=True,
+                    velocity_scale=decision["velocity_scale"],
+                )
+                base_settle = (0.30, 0.55)
+            if ok:
+                time.sleep(random.uniform(*base_settle) * decision["settle_scale"])
+            return bool(ok)
+        except Exception as exc:
+            self.logger.debug(f"Grid session scroll failed: {exc}")
+            return False
+
+    @staticmethod
+    def _grid_entry_position(element, index: int) -> int:
+        """Return the one-based absolute grid position exposed by Instagram."""
+        desc = ""
+        try:
+            desc = (element.attrib.get("content-desc") or "") if hasattr(element, "attrib") else ""
+        except Exception:
+            desc = ""
+        if not desc:
+            try:
+                info = getattr(element, "info", {}) or {}
+                desc = info.get("contentDescription") or info.get("content-desc") or ""
+            except Exception:
+                desc = ""
+        match = _GRID_POS_RE.search(desc)
+        if match:
+            return ((int(match.group(1)) - 1) * GRID_COLUMNS + int(match.group(2)))
+        return int(index) + 1
+
+    @staticmethod
+    def _grid_entry_key(element, index: int, username: Optional[str] = None) -> str:
+        """Stable per-profile cell key from live grid metadata, with an index fallback."""
+        position = PostNavigationMixin._grid_entry_position(element, index)
+        cell = f"position:{position}"
+        return f"{username or 'current-profile'}:{cell}"
+
+    def _choose_session_grid_entry(
+        self,
+        posts,
+        username: Optional[str] = None,
+        *,
+        require_unseen: bool = False,
+        candidates: Optional[list] = None,
+    ) -> Optional[int]:
+        """Index in ``posts`` of the cell to open, drawn among ``candidates`` (indexes into
+        ``posts``; every visible cell by default) with the session's grid memory and row weights.
+        None when ``require_unseen`` leaves nothing to draw."""
+        indexes = list(range(len(posts))) if candidates is None else list(candidates)
+        if not indexes:
+            return None
+        keys = [self._grid_entry_key(posts[index], index, username) for index in indexes]
+        chooser = getattr(getattr(self, "behavior_state", None), "choose_grid_entry_index", None)
+        if callable(chooser):
+            choice = chooser(
+                context=username or "current-profile",
+                candidate_keys=keys,
+                avoid_recent=None,
+                require_unseen=require_unseen,
+            )
+            return indexes[int(choice)] if choice is not None else None
+        return indexes[sample_entry_index(len(indexes))]
+
+    def _find_reentry_cell(self, posts, thumb_selector: str, posts_count: int, username: Optional[str] = None):
+        """The cell a reopen opens after a Reel exit, as ``(visible cells, index)``, or None.
+
+        The viewer walks a profile one position at a time, so a cell before the furthest position
+        already reached leads straight back through posts already seen, even when that cell itself
+        was never opened. The reopen therefore resumes past that position, among the next few
+        (``reentry_positions``; the chooser's row weights favour the nearest). When none of them
+        is on screen, the grid is swiped down towards them. None when the profile has nothing new,
+        or when the grid stops moving before showing it.
+        """
+        posts_count = int(posts_count or 0)
+        furthest = self._furthest_position_reached(username)
+        wanted = reentry_positions(furthest, posts_count)
+        if not wanted:
+            return None
+        positions = [self._grid_entry_position(post, index) for index, post in enumerate(posts)]
+        # A grid swipe moves about two rows: one per row still to go, and one more, is enough.
+        rows_to_go = (wanted[0] - 1) // GRID_COLUMNS - (max(positions) - 1) // GRID_COLUMNS
+        seeks_left = max(0, rows_to_go) + 1
+        while True:
+            past_furthest = [
+                index for index, position in enumerate(positions)
+                if position > furthest and (posts_count <= 0 or position <= posts_count)
+            ]
+            if past_furthest:
+                in_spread = [index for index in past_furthest if positions[index] in wanted]
+                index = self._choose_session_grid_entry(
+                    posts,
+                    username=username,
+                    require_unseen=True,
+                    candidates=in_spread or past_furthest,
+                )
+                if index is None:
+                    return None
+                self.logger.info(
+                    f"Reel exit: furthest post reached #{furthest}, reopening #{positions[index]}"
+                )
+                return posts, index
+            if seeks_left <= 0:
+                return None
+            seeks_left -= 1
+            if not self._session_grid_scroll(
+                "profile_grid_reopen_seek", distance_ratio=0.40, coast=False
+            ):
+                return None
+            moved = self._visible_grid_thumbnails(thumb_selector)
+            moved_positions = [
+                self._grid_entry_position(post, index) for index, post in enumerate(moved)
+            ]
+            if not moved or moved_positions == positions:
+                # The grid did not move (end of the profile, or cells without their absolute
+                # position): nothing on screen can be told apart from a post already seen.
+                return None
+            posts, positions = moved, moved_positions
+
+    def _furthest_position_reached(self, username: Optional[str] = None) -> int:
+        """The furthest absolute position reached during this profile visit (0 before any)."""
+        cursor = getattr(self, "_profile_post_cursor", None) or {}
+        if cursor.get("context") != (username or "current-profile"):
+            return 0
+        return int(cursor.get("furthest") or 0)
+
+    def _remember_session_grid_entry(
+        self, target, index: int, username: Optional[str] = None, *, continuing_visit: bool = False
+    ) -> None:
+        """Remember a grid cell that opened: in the session memory, and in the visit's cursor.
+
+        The cursor holds the position on screen and the furthest position reached so far. Any
+        other entry starts a new visit; a reopen after a Reel (``continuing_visit``) keeps the
+        furthest position of the visit it continues.
+        """
+        context = username or "current-profile"
+        position = self._grid_entry_position(target, index)
+        furthest = position
+        cursor = getattr(self, "_profile_post_cursor", None) or {}
+        if continuing_visit and cursor.get("context") == context:
+            furthest = max(position, int(cursor.get("furthest") or 0))
+        self._profile_post_cursor = {
+            "context": context,
+            "position": position,
+            "furthest": furthest,
+        }
+        remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
+        if callable(remember):
+            remember(
+                context=context,
+                key=self._grid_entry_key(target, index, username),
+                index=index,
+            )
+
+    def _remember_sequential_profile_post(self) -> None:
+        """Mark the next absolute profile position reached through the vertical viewer.
+
+        Grid-only memory is incomplete: after opening position 3 and scrolling to position 4,
+        returning from a Reel must not consider position 4 unseen merely because it was reached in
+        the viewer. The cursor is reset from every real grid entry and advances only after a
+        verified vertical navigation.
+        """
+        cursor = getattr(self, "_profile_post_cursor", None) or {}
+        context = cursor.get("context")
+        position = cursor.get("position")
+        if not context or position is None:
+            return
+        next_position = int(position) + 1
+        self._profile_post_cursor = {
+            "context": context,
+            "position": next_position,
+            "furthest": max(next_position, int(cursor.get("furthest") or 0)),
+        }
+        remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
+        if callable(remember):
+            remember(
+                context=context,
+                key=f"{context}:position:{next_position}",
+                index=next_position - 1,
+            )
+
+    def _human_tap_grid_thumbnail(self, element) -> bool:
+        """Human-tap a grid thumbnail at a sampled point within its bounds (never the
+        exact centre). Returns False if bounds are unreadable so the caller can
+        fall back to a plain ``element.click()``."""
+        try:
+            bounds = getattr(element, "bounds", None)
+            if bounds and len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
+                return bool(self.device.human_tap(tuple(bounds)))
+        except Exception as e:
+            self.logger.debug(f"thumbnail human-tap bounds unreadable ({e}); centre-click fallback")
+        return False
+
+    def _open_first_post_of_profile(self, username: Optional[str] = None) -> bool:
+        try:
+            self.logger.info("Opening first post of profile...")
+
+            # The grid shown, then revealed by a scroll or two when it sits below the header (after
+            # a follow, a hidden suggestions popup can leave the page scrolled up).
+            posts = self._visible_grid_thumbnails(self.detection_selectors.post_thumbnail_selectors[0])
+
+            if not posts:
+                self.logger.error("No posts found in grid after scrolling")
+                # Les deux revelations ont echoue : la grille n'est pas « plus bas », elle n'est
+                # pas la. 86 des 87 pertes mesurees du 04 au 06/09 suivent immediatement une story,
+                # et personne n'a jamais vu cet ecran -- ce chemin lit `xpath(...).all()` en direct,
+                # hors de `_wait_for_element`, donc aucune capture ne se declenchait ici.
+                # `compter_serie=False` : ce selecteur ne doit pas remettre a 1 la serie de blocage
+                # d'un autre. `forcer_fichiers=True` : c'est l'ecran lui-meme qu'on vient chercher.
+                # Ne decide rien -- le retour reste `False`, a l'identique.
+                signaler_ecran_inconnu(
+                    self.device,
+                    selectors=[self.detection_selectors.post_thumbnail_selectors[0]],
+                    platform="instagram",
+                    action="grid_absent",
+                    contexte="grille_absente",
+                    compter_serie=False,
+                    forcer_fichiers=True,
+                )
+                return False
+            
+            first_post = posts[0]
+            self.scroll_actions._plan_behavior_gesture("profile_grid_open", "tap")
+            if not self._human_tap_grid_thumbnail(first_post):
+                first_post.click()
+            self.logger.debug("Clicking on first post...")
+            
+            time.sleep(3)  # Increased from 2s to 3s for slower devices
+            
+            if self._is_in_post_view():
+                self._remember_session_grid_entry(first_post, 0, username=username)
+                self.logger.success("First post opened successfully")
+                return True
+            else:
+                self.logger.error("Failed to open first post")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error opening first post: {e}")
+            return False
+    
+    def _is_in_post_view(self) -> bool:
+        try:
+            # Use both post_view_indicators and post_detail_indicators for better detection
+            post_indicators = self.post_selectors.post_view_indicators + self.post_selectors.post_detail_indicators
+            
+            for indicator in post_indicators:
+                if self.device.xpath(indicator).exists:
+                    self.logger.debug(f"Post view detected via: {indicator[:50]}...")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error checking post view: {e}")
+            return False
+    
+    def _glance_at_post(self) -> None:
+        """Look at the post just reached: a short, varied glance (``content_dwell``), scaled by the
+        session's attention. The caller takes it once it knows the post deserves it; the move
+        itself (``_navigate_to_next_post_in_sequence``) never does."""
+        time.sleep(content_dwell(0) * self._behavior_reading_scale("profile_post_glance"))
+
+    def _navigate_to_next_post_in_sequence(self) -> bool:
+        try:
+            self.logger.debug("Navigating to next post...")
+            
+            # Get screen dimensions for adaptive swipe coordinates
+            _, height = self.device.get_screen_size()
+
+            try:
+                # Vertical advance to the next post — humanised like the FEED browse:
+                # alternate a decisive flick (most of the time) with an occasional slow
+                # drag, instead of the single fixed swipe that read as a robotic identical
+                # scroll every post. The glance at the post reached is NOT taken here: only the
+                # caller knows whether that post is new (`_glance_at_post`), and a post met
+                # again is passed at once.
+                mode_decision = self.scroll_actions._choose_advance_mode(
+                    "profile_posts",
+                    base_drag_probability=dict(_ADVANCE_MODE_WEIGHTS)["drag"],
+                )
+                mode = mode_decision["mode"]
+                distance_scale = float(mode_decision.get("distance_scale", 1.0))
+                velocity_scale = float(mode_decision.get("velocity_scale", 1.0))
+                settle_scale = float(mode_decision.get("settle_scale", 1.0))
+                if mode == "drag":
+                    advanced = self.scroll_actions._long_drag(
+                        direction="up",
+                        distance_px=(random.uniform(0.80, 0.90) * height
+                                     * distance_scale),
+                        guard_start=True,
+                        velocity_scale=velocity_scale,
+                    )
+                else:
+                    advanced = self.scroll_actions._strong_flick(
+                        direction="up",
+                        # Stay below the primitive's safe 0.45h fling cap in most cases so the
+                        # session reach multiplier changes real travel instead of being clipped.
+                        distance_px=(random.uniform(0.34, 0.41) * height
+                                     * distance_scale),
+                        guard_start=True,
+                        velocity_scale=velocity_scale,
+                    )
+                # Evaluate the landing exactly like the feed, once the list has settled as it does
+                # after the feed's advance: severity, dump confidence, current session style, and
+                # recent corrections decide whether a precise 1:1 lift is useful. A moderate
+                # imperfection may remain; a severe half-shown post is always repaired.
+                if advanced:
+                    try:
+                        self.scroll_actions.land_on_post_header(
+                            advance_mode=mode, settle_scale=settle_scale
+                        )
+                    except Exception as land_exc:
+                        self.logger.warning(f"land_on_post_header skipped: {land_exc}")
+
+                if advanced and self._is_in_post_view():
+                    self._remember_sequential_profile_post()
+                    self.logger.debug(
+                        f"Navigation successful via human {mode} "
+                        f"(style={mode_decision.get('style')}, "
+                        f"burst_left={mode_decision.get('burst_remaining')})"
+                    )
+                    return True
+            except Exception as e:
+                self.logger.debug(f"Vertical advance failed: {e}")
+            
+            try:
+                # A horizontal fallback is unsafe here: on a carousel it only changes SLIDE while
+                # `_is_in_post_view()` stays true, falsely reporting a new post. Retry vertically
+                # with a controlled production gesture instead.
+                retry = self.scroll_actions._plan_behavior_gesture(
+                    "profile_posts_retry", "controlled_swipe"
+                )
+                advanced = self.scroll_actions._human_swipe(
+                    direction="up",
+                    distance_px=0.68 * height * retry["distance_scale"],
+                    start_band=(0.78 * height, 0.86 * height),
+                    controlled=True,
+                    guard_start=True,
+                    velocity_scale=retry["velocity_scale"],
+                )
+                time.sleep(random.uniform(0.25, 0.50) * retry["settle_scale"])
+                if advanced:
+                    try:
+                        self.scroll_actions.land_on_post_header()
+                    except Exception as land_exc:
+                        self.logger.warning(f"retry land_on_post_header skipped: {land_exc}")
+                if advanced and self._is_in_post_view():
+                    self._remember_sequential_profile_post()
+                    self.logger.debug("Navigation successful via controlled vertical retry")
+                    return True
+            except Exception as e:
+                self.logger.debug(f"Controlled vertical retry failed: {e}")
+            
+            try:
+                next_button_selectors = self.post_selectors.next_post_button_selectors
+                
+                for selector in next_button_selectors:
+                    if self.device.xpath(selector).exists:
+                        self.device.xpath(selector).click()
+                        time.sleep(1)
+                        
+                        if self._is_in_post_view():
+                            self._remember_sequential_profile_post()
+                            self.logger.debug("Navigation successful via Next button")
+                            return True
+            except Exception as e:
+                self.logger.debug(f"Next button failed: {e}")
+            
+            self.logger.warning("All navigation methods failed")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error navigating to next post: {e}")
+            return False
+
+    def _advance_or_exit_reel(self, is_reel: bool, total_posts_on_profile: int = 0, username: Optional[str] = None) -> bool:
+        """Advance to the next post — but a REEL must be handled specially.
+
+        A reel opened from the grid drops us in the full-screen clips viewer, where the vertical
+        advance (_navigate_to_next_post_in_sequence) scrolls the REELS FEED instead of the profile's
+        posts, and after the first reel the top-left Back button disappears, trapping the run with no
+        way out (device bug). So for a reel we EXIT to the grid (Back still present on this first
+        reel) and open another post; for a normal post we advance in-viewer as before. Returns False
+        when we couldn't advance (the caller should stop the scroll)."""
+        if is_reel:
+            return self._return_to_grid_and_open_another_post(total_posts_on_profile, username=username)
+        cursor = getattr(self, "_profile_post_cursor", None) or {}
+        if (
+            int(total_posts_on_profile or 0) > 0
+            and cursor.get("position") is not None
+            and int(cursor["position"]) >= int(total_posts_on_profile)
+        ):
+            self.logger.info("Last profile post reached; no vertical advance attempted")
+            return False
+        return self._navigate_to_next_post_in_sequence()
+
+    def _return_to_grid_and_open_another_post(self, posts_count: int = 0, username: Optional[str] = None) -> bool:
+        """Leave a Reel safely, return to the profile grid, and open an unseen post.
+
+        Swiping vertically from a freshly opened Reel enters Instagram's global Reels feed and
+        loses the profile-scoped Back control. Normal posts therefore remain in sequential viewer
+        navigation, while this path is reserved for Reel escape (and its Cartography probe).
+
+        Reuses the humanised entry path, which resumes past the furthest post reached during this
+        profile visit (swiping the grid down when that part is off screen) and stops instead of
+        walking posts already seen again. Returns True only if we ended up back in a post view."""
+        try:
+            self.logger.debug("Navigating via grid: back to profile → reopen another post")
+            if not self._return_to_profile_from_post():
+                # Back didn't land on the grid (still in a post) → let the caller scroll instead.
+                self.logger.debug("Grid-return: still in post view after back, aborting")
+                return False
+            opened = self._open_entry_post_of_profile(
+                posts_count, username=username, reopening=True
+            )
+            if opened:
+                self.logger.info("Navigated via grid (back → reopened another post)")
+            return bool(opened)
+        except Exception as e:
+            self.logger.debug(f"Grid-return navigation failed: {e}")
+            return False
+
+    def _return_to_profile_from_post(self) -> bool:
+        try:
+            self.logger.info("Returning to profile from post...")
+            
+            back_selectors = self.post_selectors.back_button_selectors
+            
+            for selector in back_selectors:
+                if self.device.xpath(selector).exists:
+                    decision = self.scroll_actions._plan_behavior_gesture(
+                        "profile_viewer_back", "tap"
+                    )
+                    self.device.xpath(selector).click()
+                    time.sleep(random.uniform(0.60, 1.10) * decision["settle_scale"])
+                    returned = self._wait_for_post_view_exit()
+                    self.logger.debug(f"Returned via back button: {returned}")
+                    if returned:
+                        return True
+                    # The selector was real but the tap was swallowed; continue into the gesture
+                    # fallback instead of reporting failure immediately.
+                    break
+            
+            # Humanised downward swipe fallback (sampled geometry, not fixed coords).
+            _, height = self.device.get_screen_size()
+            dist = height * random.uniform(0.40, 0.55)
+            decision = self.scroll_actions._plan_behavior_gesture(
+                "profile_viewer_dismiss", "controlled_swipe"
+            )
+            injected = self.scroll_actions._human_swipe(
+                direction="down", distance_px=dist * decision["distance_scale"],
+                controlled=True, guard_start=True,
+                velocity_scale=decision["velocity_scale"],
+            )
+            if not injected:
+                # The old coordinate fallback moved UP, the opposite of the intended dismiss.
+                # Back is directionally correct and does not reintroduce hard-coded coordinates.
+                self.device.press("back")
+            time.sleep(random.uniform(0.60, 1.10) * decision["settle_scale"])
+            returned = self._wait_for_post_view_exit()
+            if injected and not returned:
+                # A technically injected dismiss can still be ignored by the viewer. Fall back on
+                # observed UI state, not only on the primitive's transport-level boolean.
+                self.device.press("back")
+                returned = self._wait_for_post_view_exit()
+            self.logger.debug(f"Returned via downward swipe: {returned}")
+            return returned
+            
+        except Exception as e:
+            self.logger.error(f"Error returning to profile: {e}")
+            return False
+
+    def _wait_for_post_view_exit(self, attempts: int = 8, interval_s: float = 0.25) -> bool:
+        """Wait briefly for a viewer transition instead of sampling the UI at one fixed instant."""
+        for attempt in range(max(1, int(attempts))):
+            if not self._is_in_post_view():
+                return True
+            if attempt + 1 < attempts:
+                time.sleep(max(0.0, float(interval_s)))
+        return False

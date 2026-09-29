@@ -12,8 +12,8 @@ opened, and the session was filed COMPLETED with half its budget unspent.
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 
 class _Logger:
@@ -54,7 +54,7 @@ class _Driver(InstagramAutomation):
 
 @pytest.fixture(autouse=True)
 def _no_ipc(monkeypatch):
-    import taktik.core.social_media.instagram.workflows.core.automation as automation
+    import taktik.core.social_media.instagram.workflows.automation.automation as automation
     monkeypatch.setattr(automation, "ipc_source_progress", lambda kind: None)
 
 

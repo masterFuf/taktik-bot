@@ -10,7 +10,7 @@ unenforceable — the run merely happened to stay under it.
 
 import types
 
-from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
     InteractionEngineMixin,
 )
 

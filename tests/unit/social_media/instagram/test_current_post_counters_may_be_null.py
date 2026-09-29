@@ -30,7 +30,7 @@ def test_the_metadata_declares_both_counters_up_front():
     """They are initialised to None, never left absent: an absent key and a null value read
     the same to a consumer, but only one of them is a stated contract."""
     import inspect
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins import (
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.mixins import (
         post_finder,
     )
     source = inspect.getsource(post_finder.HashtagPostFinderMixin._extract_current_post_metadata)
@@ -42,7 +42,7 @@ def test_the_reel_fallback_asks_the_shared_extractor():
     """The two selector loops above it are POST selectors; on a reel they come back empty
     while the shared extractor reads the very same counter without trouble."""
     import inspect
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins import (
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.mixins import (
         post_finder,
     )
     source = inspect.getsource(post_finder.HashtagPostFinderMixin._extract_current_post_metadata)

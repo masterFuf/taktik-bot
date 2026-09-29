@@ -5,7 +5,7 @@ trailing collapse control "moins" (72.7%), leftover "… plus" truncation marker
 dot-run captions whose emoji the XML dump ate (8.3% — the ones the model invented from).
 """
 
-from taktik.core.social_media.instagram.workflows.core.caption_hygiene import (
+from taktik.core.social_media.instagram.workflows.common.caption_hygiene import (
     clean_post_caption,
 )
 

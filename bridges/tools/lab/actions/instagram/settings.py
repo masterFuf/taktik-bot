@@ -23,7 +23,7 @@ def change_language(a, p):
     (``en`` / ``en-GB`` / ``fr-FR`` / ``fr-CA``). Returns the standard action
     result dict consumed by the Lab runner.
     """
-    from taktik.core.social_media.instagram.workflows.management.language.change_language_workflow import (
+    from taktik.core.social_media.instagram.workflows.account.change_language_workflow import (
         ChangeLanguageWorkflow,
     )
 

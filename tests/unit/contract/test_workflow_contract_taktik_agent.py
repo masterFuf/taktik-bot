@@ -109,7 +109,7 @@ class _Screen:
 def _feed_class():
     from loguru import logger
 
-    from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import StatsRecordingMixin
+    from taktik.core.social_media.instagram.actions.base.base_business.stats_recording import StatsRecordingMixin
 
     class Feed(StatsRecordingMixin):
         """The feed's own recording of a gesture (`_record_action`); only its screen answers here."""
@@ -150,7 +150,7 @@ class _OwnProfile:
         pass
 
     def get_complete_profile_info(self, navigate_if_needed=True, **kwargs):
-        from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+        from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 
         info = {"username": "acting", "full_name": "Acting", "biography": "Bakery", "followers_count": 340,
                 "following_count": 12, "posts_count": 9, "is_private": False, "is_verified": False}
@@ -190,7 +190,7 @@ class _Click:
 def _likes_class():
     from loguru import logger
 
-    from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import StatsRecordingMixin
+    from taktik.core.social_media.instagram.actions.base.base_business.stats_recording import StatsRecordingMixin
 
     class Likes(StatsRecordingMixin):
         """The likes on a profile, filed in one batch like the production sequence."""
@@ -218,13 +218,13 @@ def agent_bridge(monkeypatch, tmp_path):
     import taktik.core.shared.diagnostics.action_block as action_block
     import taktik.core.social_media.instagram.actions.atomic.interaction as interaction
     import taktik.core.social_media.instagram.actions.atomic.navigation as navigation
-    import taktik.core.social_media.instagram.actions.business.actions.like as like
-    import taktik.core.social_media.instagram.actions.business.management.profile as profile
-    import taktik.core.social_media.instagram.actions.business.workflows.feed as feed
+    import taktik.core.social_media.instagram.services.like as like
+    import taktik.core.social_media.instagram.services.profile as profile
+    import taktik.core.social_media.instagram.workflows.automation.feed as feed
     import taktik.core.social_media.instagram.ui.detectors.problematic_page as problematic_page
     import taktik.core.social_media.instagram.ui.language as language
     import taktik.core.social_media.instagram.workflows.common.post_navigation as post_navigation
-    import taktik.core.social_media.instagram.workflows.management.session.warmup_budget as warmup_budget
+    import taktik.core.social_media.instagram.workflows.common.session.warmup_budget as warmup_budget
     from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 
     state = SimpleNamespace(restarts=True, packages=[])
@@ -342,7 +342,7 @@ def ledger(agent_bridge, monkeypatch, tmp_path):
     import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
     import taktik.core.database as database
     import taktik.core.database.local.service as service
-    import taktik.core.social_media.instagram.workflows.management.session.warmup_budget as warmup_budget
+    import taktik.core.social_media.instagram.workflows.common.session.warmup_budget as warmup_budget
 
     base = service.LocalDatabaseService(db_path=str(tmp_path / "agent.db"))
     monkeypatch.setattr(service, "_local_db_instance", base)
@@ -464,7 +464,7 @@ def test_two_gestures_are_never_closer_than_the_warmup_gap(agent_bridge, ledger,
     gestures of the session: the like, its comment, the follow, the like on the author's profile.
     The Agent chained them 1.5 to 6 s apart."""
     import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
-    from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import StatsRecordingMixin
+    from taktik.core.social_media.instagram.actions.base.base_business.stats_recording import StatsRecordingMixin
 
     clock = SimpleNamespace(now=0.0)
     monkeypatch.setattr(autopilot.time, "sleep", lambda seconds: setattr(clock, "now", clock.now + seconds))
@@ -503,8 +503,8 @@ def test_a_base_busy_through_a_like_and_its_comment_does_not_end_the_session(age
     comments it costs two failed reads, under the three in a row that stop a session
     (`daily_budget_unreadable`). Two reads per gesture ended the session at its second gesture."""
     import taktik.core.database as database
-    import taktik.core.social_media.instagram.actions.business.workflows.feed as feed
-    import taktik.core.social_media.instagram.workflows.management.session.warmup_budget as warmup_budget
+    import taktik.core.social_media.instagram.workflows.automation.feed as feed
+    import taktik.core.social_media.instagram.workflows.common.session.warmup_budget as warmup_budget
 
     sync = SimpleNamespace(taken=False, holds=False)
 

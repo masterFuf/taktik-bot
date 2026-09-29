@@ -7,7 +7,7 @@ scrolled ~50 times (~40s) doing nothing. It must detect the wrong screen and lea
 
 import logging
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.likers_base import (
+from taktik.core.social_media.instagram.workflows.common.likers_base import (
     LikersWorkflowBase,
 )
 

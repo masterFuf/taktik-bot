@@ -8,7 +8,7 @@ different row source — which is exactly how the scraping side already models i
 
 import types
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.list_sources import (
+from taktik.core.social_media.instagram.workflows.common.list_sources import (
     make_commenters_source,
     make_likers_source,
     resolve_list_source,

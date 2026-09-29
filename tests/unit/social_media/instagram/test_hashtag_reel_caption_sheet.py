@@ -19,14 +19,14 @@ import pytest
 from lxml import etree
 
 from taktik.core.compat.selectors.setup import _load_yaml_overrides, _resolve_overrides_for_version
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import (
     HashtagBusiness,
 )
 from taktik.core.social_media.instagram.ui.selectors import locales
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.hashtag import HASHTAG_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 ID = "com.instagram.android:id/"
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -156,7 +156,7 @@ def _reader(xml):
 
 @pytest.fixture
 def no_wait(monkeypatch):
-    import taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_finder as finder
+    import taktik.core.social_media.instagram.workflows.automation.hashtag.mixins.post_finder as finder
     monkeypatch.setattr(finder.time, 'sleep', lambda *_a, **_k: None)
 
 
@@ -203,7 +203,7 @@ def _sheet_host(closes_after):
 
 @pytest.fixture
 def no_sheet_wait(monkeypatch):
-    import taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_detection as detection
+    import taktik.core.social_media.instagram.workflows.automation.hashtag.mixins.post_detection as detection
     monkeypatch.setattr(detection.time, 'sleep', lambda *_a, **_k: None)
 
 
@@ -264,13 +264,13 @@ class _Loop(HashtagBusiness):
 
 @pytest.fixture
 def no_store(monkeypatch):
-    import taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow as mod
+    import taktik.core.social_media.instagram.workflows.automation.hashtag.workflow as mod
     monkeypatch.setattr(mod.InstagramHashtagPostService, 'is_processed', staticmethod(lambda **k: False))
     monkeypatch.setattr(mod.IPCEmitter, 'emit_current_post', staticmethod(lambda **k: None))
 
 
 def _run(loop):
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import (
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.interaction_plan import (
         resolve_interaction_plan,
     )
     plan = resolve_interaction_plan({'engage_posts': True, 'max_posts': 3})

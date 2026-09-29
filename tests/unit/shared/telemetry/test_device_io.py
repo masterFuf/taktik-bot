@@ -158,7 +158,7 @@ def test_the_connection_instruments_the_device(monkeypatch):
 
 def test_every_workflow_step_emits_what_it_cost(steps):
     from types import SimpleNamespace
-    from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
+    from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
 
     runner = WorkflowRunner(SimpleNamespace())
     assert runner.run_workflow_step({"type": "initialize"}) is True

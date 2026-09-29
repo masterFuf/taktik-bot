@@ -13,7 +13,7 @@ a relaunch every single time.
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.management.notifications import commands
+from taktik.core.social_media.instagram.workflows.notifications import commands
 
 HOST = commands.NotificationsHost(connect=lambda restart: None, emit=lambda payload: None)
 
@@ -44,7 +44,7 @@ def _spy(monkeypatch):
             calls.append('navigate_to_home')
             return True
 
-    import taktik.core.social_media.instagram.actions.business.management.profile as profile_mod
+    import taktik.core.social_media.instagram.services.profile as profile_mod
     import taktik.core.social_media.instagram.actions.atomic.navigation as nav_mod
     monkeypatch.setattr(profile_mod, 'ProfileBusiness', _Profile)
     monkeypatch.setattr(nav_mod, 'NavigationActions', _Nav)
@@ -76,7 +76,7 @@ def test_the_front_keeps_deciding_when_it_knows_the_account(_spy):
 def test_a_failed_profile_read_still_hands_the_feed_back(monkeypatch, _spy):
     """Refreshing a counter must never cost the scan it rides in on — and above all must
     not leave Instagram parked on the profile page, where the activity entry is absent."""
-    import taktik.core.social_media.instagram.actions.business.management.profile as profile_mod
+    import taktik.core.social_media.instagram.services.profile as profile_mod
 
     class _Broken:
         def __init__(self, device):
@@ -92,7 +92,7 @@ def test_a_failed_profile_read_still_hands_the_feed_back(monkeypatch, _spy):
 
 
 def test_an_unreadable_profile_does_not_invent_an_account(monkeypatch, _spy):
-    import taktik.core.social_media.instagram.actions.business.management.profile as profile_mod
+    import taktik.core.social_media.instagram.services.profile as profile_mod
 
     class _Empty:
         def __init__(self, device):

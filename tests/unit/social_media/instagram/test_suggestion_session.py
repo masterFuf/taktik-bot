@@ -9,9 +9,7 @@ is absent.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.common import (
-    suggestion_session as module,
-)
+from taktik.core.social_media.instagram.workflows.common import suggestion_session as module
 
 
 class _FakeDb:
@@ -97,7 +95,7 @@ def test_the_session_manager_carries_the_id_the_recorder_reads():
     """The session id is looked up on the manager, but the attribute existed nowhere,
     so every run outside the full automation object wrote its interactions with no
     session id."""
-    from taktik.core.social_media.instagram.workflows.management.session import SessionManager
+    from taktik.core.social_media.instagram.workflows.common.session import SessionManager
 
     manager = SessionManager({"session_settings": {}})
 
@@ -108,7 +106,7 @@ def test_the_session_manager_carries_the_id_the_recorder_reads():
 def test_the_built_pipeline_reports_the_session_to_the_recorder():
     from unittest.mock import MagicMock
 
-    from taktik.core.social_media.instagram.workflows.management.notifications import (
+    from taktik.core.social_media.instagram.workflows.notifications import (
         build_notifications_profile_pipeline,
     )
 

@@ -24,12 +24,12 @@ constructor on a phone that replays the capture (`profile_posts_phone.py`).
 import pytest
 
 import taktik.core.shared.device.facade as shared_facade_module
-import taktik.core.social_media.instagram.actions.core.base_business.popup_handling as popup_handling
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.actions.base.base_business.popup_handling as popup_handling
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from profile_posts_phone import PKG, ProfilePostsPhone, bounds_of, capture
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
-from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from unit.paths import CORE

@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from bridges.instagram.common.ipc import send_error, send_status
-from taktik.core.social_media.instagram.workflows.management.agent_handler import (
+from taktik.core.social_media.instagram.workflows.account.agent_handler import (
     instagram_account_params,
     run_instagram_account,
 )

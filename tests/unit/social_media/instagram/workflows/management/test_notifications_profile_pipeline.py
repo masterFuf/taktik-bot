@@ -11,9 +11,9 @@ from unittest.mock import MagicMock
 
 from taktik.core.shared.behavior.interaction_plan import allows_follow_alone
 from taktik.core.shared.device.facade import BaseDeviceFacade
-from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
-from taktik.core.social_media.instagram.workflows.management.notifications import (
+from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.workflows.notifications import (
     DEFAULT_SUGGESTION_INTERACTION_CONFIG,
     build_notifications_profile_pipeline,
 )

@@ -12,7 +12,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 from loguru import logger
 
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 
 COLD_DM_WORKFLOW_TYPE = "cold_dm"

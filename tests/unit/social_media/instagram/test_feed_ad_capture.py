@@ -69,7 +69,7 @@ def test_a_failing_callback_cannot_break_the_crawl():
 
 def test_capture_is_off_by_default():
     """An untouched feed run must behave exactly as before — no screenshot, no callback."""
-    from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
+    from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import (
         FEED_DEFAULTS,
     )
     assert FEED_DEFAULTS['capture_ads'] is False
@@ -107,7 +107,7 @@ def _recorded(monkeypatch):
 
 
 def test_it_records_the_advertiser_and_a_fingerprint(_recorded):
-    from taktik.core.social_media.instagram.actions.business.workflows.feed.ad_capture import (
+    from taktik.core.social_media.instagram.workflows.automation.feed.ad_capture import (
         make_ad_capturer,
     )
     capture = make_ad_capturer(_Device(), account_id=42, read_text=False)
@@ -124,7 +124,7 @@ def test_it_records_the_advertiser_and_a_fingerprint(_recorded):
 def test_the_same_ad_twice_yields_the_same_key(_recorded):
     """Dedup happens on this value: if it moved between two sightings of one creative, the
     corpus would count encounters as distinct ads and `times_seen` would mean nothing."""
-    from taktik.core.social_media.instagram.actions.business.workflows.feed.ad_capture import (
+    from taktik.core.social_media.instagram.workflows.automation.feed.ad_capture import (
         make_ad_capturer,
     )
     device = _Device()
@@ -137,7 +137,7 @@ def test_the_same_ad_twice_yields_the_same_key(_recorded):
 
 
 def test_a_broken_screenshot_records_nothing_and_raises_nothing(_recorded):
-    from taktik.core.social_media.instagram.actions.business.workflows.feed.ad_capture import (
+    from taktik.core.social_media.instagram.workflows.automation.feed.ad_capture import (
         make_ad_capturer,
     )
 
@@ -151,7 +151,7 @@ def test_a_broken_screenshot_records_nothing_and_raises_nothing(_recorded):
 
 def test_an_ad_with_no_readable_advertiser_is_still_worth_recording(_recorded):
     """The creative and how often it comes back are the signal; the account name is a bonus."""
-    from taktik.core.social_media.instagram.actions.business.workflows.feed.ad_capture import (
+    from taktik.core.social_media.instagram.workflows.automation.feed.ad_capture import (
         make_ad_capturer,
     )
     make_ad_capturer(_Device(), read_text=False)({'ad_tops': [120], 'posts': []})

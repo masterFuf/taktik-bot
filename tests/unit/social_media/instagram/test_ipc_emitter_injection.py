@@ -2,7 +2,7 @@
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter, emitter
+from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter, emitter
 
 
 class RecordingAdapter:

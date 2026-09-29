@@ -1,6 +1,6 @@
 """SessionManager pacing: explicit user delay wins (back-compat); else the profile drives it."""
 
-from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
+from taktik.core.social_media.instagram.workflows.common.session.session import SessionManager
 
 
 def test_explicit_user_delay_wins_backcompat():

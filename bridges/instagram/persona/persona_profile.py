@@ -14,7 +14,7 @@ class PersonaProfileMixin:
         _ipc.status("navigating_own_profile", "Navigation vers l'onglet profil\u2026")
 
         from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-        from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+        from taktik.core.social_media.instagram.services.profile import ProfileBusiness
 
         nav = NavigationActions(self.device_manager)
         profile_biz = ProfileBusiness(self.device_manager)

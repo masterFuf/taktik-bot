@@ -107,7 +107,7 @@ def test_the_target_workflow_no_longer_asks_for_the_deep_link():
     """The atomic's default is not enough: the target workflow passes the value EXPLICITLY,
     so a stale 90 there would have kept the old behaviour whatever the atomic said."""
     import inspect
-    from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct import (
+    from taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct import (
         main_loop,
     )
     source = inspect.getsource(main_loop)

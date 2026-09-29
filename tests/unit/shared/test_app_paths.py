@@ -49,7 +49,7 @@ def test_a_subfolder_is_not_prefixed_twice(monkeypatch, tmp_path):
 def test_the_writers_land_in_that_folder(monkeypatch, tmp_path):
     """The two writers whose output went missing, checked against the same root."""
     monkeypatch.setenv("TAKTIK_DATA_DIR", str(tmp_path))
-    from taktik.core.social_media.instagram.actions.business.workflows.common.followers_tracker import (
+    from taktik.core.social_media.instagram.workflows.common.followers_tracker import (
         FollowersTracker,
     )
     from taktik.core.shared.diagnostics.screen_snapshot import _snapshot_dir

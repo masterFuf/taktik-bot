@@ -5,8 +5,8 @@ a real device.
 
 import types  # noqa: F401  (kept for parity with sibling test helpers)
 
-import taktik.core.social_media.instagram.actions.business.actions.story as story_mod
-from taktik.core.social_media.instagram.actions.business.actions.story import StoryBusiness
+import taktik.core.social_media.instagram.services.story as story_mod
+from taktik.core.social_media.instagram.services.story import StoryBusiness
 
 
 def _make_business():

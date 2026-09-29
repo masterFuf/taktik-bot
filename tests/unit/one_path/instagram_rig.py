@@ -177,7 +177,7 @@ class InstagramRig:
         mp.setattr(app_manager, "get_installed_app_version", fake_version)
 
         # The selector and language setup of a run, recorded instead of applied.
-        from taktik.core.social_media.instagram.workflows.core import runtime_setup
+        from taktik.core.social_media.instagram.workflows.common import runtime_setup
 
         mp.setattr(runtime_setup, "set_active_package", lambda package: rig.calls.append(f"active_package {package}"))
         mp.setattr(runtime_setup, "patch_selectors_for_package",
@@ -189,7 +189,7 @@ class InstagramRig:
         mp.setattr(compat_setup, "apply_version_overrides",
                    lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
 
-        from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
+        from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
 
         def fake_init(automation, device_manager, config=None, session_name=None):
             automation.device_manager = device_manager
@@ -228,7 +228,7 @@ class InstagramRig:
                 "decision_provider": decision_provider is not None,
             })
 
-        mp.setattr("taktik.core.social_media.instagram.workflows.core.ai_hooks.install_instagram_ai_hooks",
+        mp.setattr("taktik.core.social_media.instagram.workflows.common.ai_hooks.install_instagram_ai_hooks",
                    fake_install)
 
     # ------------------------------------------------------------------ paths

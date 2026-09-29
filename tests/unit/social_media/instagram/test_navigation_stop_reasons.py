@@ -12,7 +12,7 @@ read once it stops matching sentences.
 
 import types
 
-from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.navigation_helpers import (
+from taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.navigation_helpers import (
     DirectNavigationMixin,
 )
 

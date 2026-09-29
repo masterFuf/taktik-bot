@@ -1,7 +1,7 @@
 import sys
 from types import SimpleNamespace
 
-from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
+from taktik.core.social_media.instagram.workflows.common.session.session import SessionManager
 
 
 def test_record_action_is_local_and_does_not_require_api(monkeypatch):

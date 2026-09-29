@@ -325,7 +325,7 @@ def run_pass(a, p):
 
 def _visit_config(p):
     """Interaction config of the visit: acquisition, so follow and nothing else."""
-    from taktik.core.social_media.instagram.workflows.management.notifications import (
+    from taktik.core.social_media.instagram.workflows.notifications import (
         DEFAULT_SUGGESTION_INTERACTION_CONFIG,
     )
     return dict(DEFAULT_SUGGESTION_INTERACTION_CONFIG)
@@ -338,7 +338,7 @@ def _attach_session(a, session_id):
     opened per action, so it is attached here — and without it the interactions belong to
     nothing and never surface in the history.
     """
-    from taktik.core.social_media.instagram.workflows.management.session import SessionManager
+    from taktik.core.social_media.instagram.workflows.common.session import SessionManager
 
     if a.feed.session_manager is None:
         a.feed.session_manager = SessionManager({"session_settings": {}})
@@ -367,7 +367,7 @@ def open_profile(a, p):
     right side, and aiming at the middle would follow from the list, which is
     exactly what this visit replaces.
     """
-    from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_parsing import (
+    from taktik.core.social_media.instagram.workflows.automation.feed.suggestions_parsing import (
         followable_rows,
     )
     rows = followable_rows(a.feed.scan_discover_suggestions())

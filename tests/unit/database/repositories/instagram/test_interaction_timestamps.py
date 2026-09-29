@@ -123,7 +123,7 @@ def test_update_stats_from_interaction_result_records_neither_db_nor_action_coun
     engine moves likes/follows/comments/stories as each gesture lands so the desktop live
     panel ticks in real time; adding the totals back here would double every counter.
     """
-    from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import StatsRecordingMixin
+    from taktik.core.social_media.instagram.actions.base.base_business.stats_recording import StatsRecordingMixin
 
     calls = []
     monkeypatch.setattr(

@@ -33,7 +33,7 @@ from .shared import (
 from .stop_reasons import INSTAGRAM_STOP_REASON_CODE
 
 _AGENT = "taktik.core.social_media.instagram.workflows.agent"
-_WARMUP_BUDGET = "taktik.core.social_media.instagram.workflows.management.session.warmup_budget"
+_WARMUP_BUDGET = "taktik.core.social_media.instagram.workflows.common.session.warmup_budget"
 
 NEXT_STEP = Shape(
     name="InstagramTaktikAgentNextStep",

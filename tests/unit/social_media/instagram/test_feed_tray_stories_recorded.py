@@ -12,7 +12,7 @@ import types
 import pytest
 
 from taktik.core.shared.diagnostics import run_halt
-from taktik.core.social_media.instagram.actions.business.actions.story import StoryBusiness
+from taktik.core.social_media.instagram.services.story import StoryBusiness
 
 
 def _log():

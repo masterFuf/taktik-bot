@@ -76,7 +76,7 @@ def scroll_hashtag_next_post(a, p):
     reel — that is what "it takes several tries to change reel" was), a post detail is a list
     and keeps the controlled curve so the extractor never reads the wrong post. Run it on a
     reel: that is where the workflow used to loop on one post until its budget ran out."""
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import HashtagBusiness
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import HashtagBusiness
 
     hashtag = HashtagBusiness(a.device)
     is_reel = hashtag._is_reel_post()
@@ -112,7 +112,7 @@ def hashtag_read_post_metadata(a, p):
     The exact production read of the hashtag workflow (`_extract_current_post_metadata`). On IG
     447 a tap on a reel's collapsed caption opens the comments sheet over the reel, so this read
     must leave the screen as it found it: run it on a reel, then check that no sheet opened."""
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import HashtagBusiness
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import HashtagBusiness
 
     hashtag = HashtagBusiness(a.device)
     is_reel = hashtag._is_reel_post()
@@ -133,7 +133,7 @@ def hashtag_read_post_metadata(a, p):
 def hashtag_close_stray_comments_sheet(a, p):
     """Post viewer (hashtag) -> close a comments sheet the run did not open, as the posts pass
     does before engaging a post (production `_close_stray_comments_sheet`). No sheet: no key."""
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import HashtagBusiness
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import HashtagBusiness
 
     hashtag = HashtagBusiness(a.device)
     was_open = hashtag._is_comments_view_open()

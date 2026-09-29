@@ -15,12 +15,12 @@ the tap: longer than the pause the sync takes after its sort, as on that run.
 import pytest
 
 from fake_follow_list import FakeClock, FakeFacade, FakeScreen, Graph
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list_proof import PROOF_BY_KNOWN_ACCOUNT
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import (
+from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import PROOF_BY_KNOWN_ACCOUNT
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import (
     actions as actions_module,
     sync_following as following_module,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
+from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from unit.paths import CORE
 

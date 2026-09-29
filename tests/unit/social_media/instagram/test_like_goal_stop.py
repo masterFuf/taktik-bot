@@ -1,6 +1,6 @@
-import taktik.core.social_media.instagram.actions.business.actions.like.orchestration as module
-import taktik.core.social_media.instagram.actions.business.actions.like.post_navigation as post_navigation
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+import taktik.core.social_media.instagram.services.like.orchestration as module
+import taktik.core.social_media.instagram.services.like.post_navigation as post_navigation
+from taktik.core.social_media.instagram.services.like.orchestration import (
     LikeOrchestration,
 )
 

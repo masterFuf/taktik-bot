@@ -36,7 +36,7 @@ def _workflow(a, p=None):
     probe. ``p`` attaches the per-profile pipeline, the same object the bridge
     injects.
     """
-    from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
+    from taktik.core.social_media.instagram.workflows.notifications.notifications_workflow import (
         NotificationsEngagementWorkflow,
     )
     device_id = getattr(a.device, "device_id", None) or "lab"
@@ -51,7 +51,7 @@ def _pipeline(a, p, session_id=None):
     ``session_id`` is what attaches each follow to a session; without it the
     interactions belong to nothing and never surface in the history.
     """
-    from taktik.core.social_media.instagram.workflows.management.notifications import (
+    from taktik.core.social_media.instagram.workflows.notifications import (
         build_notifications_profile_pipeline,
     )
     return build_notifications_profile_pipeline(
@@ -67,7 +67,7 @@ def lab_suggestion_session(p, source):
     Without an account no session is opened, so the work is never attributed to
     someone else.
     """
-    from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_session import (
+    from taktik.core.social_media.instagram.workflows.common.suggestion_session import (
         suggestion_session,
     )
     account_id = resolve_lab_account_id(p)
@@ -408,7 +408,7 @@ def open_suggestion_profile(a, p):
     """
     wf = _workflow(a, p)
     rows = wf.scan_suggestions()
-    from taktik.core.social_media.instagram.workflows.management.notifications.suggestions_parsing import (
+    from taktik.core.social_media.instagram.workflows.notifications.suggestions_parsing import (
         followable_suggestions,
     )
     candidates = followable_suggestions(rows)
@@ -492,7 +492,7 @@ def run_notifications(a, p):
     restarts Instagram first and closes it at the end, as in production. The run's events come
     back in ``details.events``; stdout stays the session's.
     """
-    from taktik.core.social_media.instagram.workflows.management.notifications import agent_handler
+    from taktik.core.social_media.instagram.workflows.notifications import agent_handler
 
     device_id = bundle_device_id(a)
     if not device_id:
@@ -533,7 +533,7 @@ def _connected_runtime(a, device_id: str, package_name, restart: bool):
     bridge and the CLI, through the helper the CLI uses, without a second connection."""
     from taktik.core.shared.device.connected_device import on_connected_device
     from bridges.tools.lab.actions.instagram.app import _session_app_manager
-    from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
+    from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 
     # The session's app manager (the bridge's `AppService` stops and launches through it), on the
     # raw device under the session's facade: the bridge puts its own proxy and facade on it.

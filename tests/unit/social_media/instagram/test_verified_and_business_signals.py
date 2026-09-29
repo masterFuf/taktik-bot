@@ -33,13 +33,13 @@ from taktik.core.shared.filtering import apply_comprehensive_filter
 from taktik.core.social_media.instagram.actions.atomic.detection.profile_extraction import (
     ProfileExtractionMixin,
 )
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
-from taktik.core.social_media.instagram.workflows.management.config import WorkflowConfigBuilder
+from taktik.core.social_media.instagram.workflows.automation.config import WorkflowConfigBuilder
 
 P = "com.instagram.android:id/"
 FIXTURES = Path(__file__).parent / "fixtures"

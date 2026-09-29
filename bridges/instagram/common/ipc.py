@@ -43,7 +43,7 @@ from bridges.instagram.common.ipc_stats import (
 def _register_core_ipc_emitter() -> None:
     """Expose Instagram IPC helpers to core workflows without core importing bridges."""
     try:
-        from taktik.core.social_media.instagram.actions.core.ipc import IPCEmitter
+        from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 
         IPCEmitter.configure_bridge_adapter(sys.modules[__name__])
     except Exception as exc:

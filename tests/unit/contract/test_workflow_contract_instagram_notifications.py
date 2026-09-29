@@ -35,14 +35,14 @@ from test_workflow_contract_instagram_bridges import app_file, assert_reads, pri
 from unit.paths import CORE
 
 _SCREEN = CORE / "tests/unit/social_media/instagram/fixtures/ig410_en_notifications.xml"
-_MODULE = "taktik.core.social_media.instagram.workflows.management.notifications"
+_MODULE = "taktik.core.social_media.instagram.workflows.notifications"
 
 
 # ------------------------------------------------------------------------------------ vocabulary
 
 
 def test_the_declared_commands_are_the_ones_the_launcher_runs():
-    from taktik.core.social_media.instagram.workflows.management.notifications import commands, payload
+    from taktik.core.social_media.instagram.workflows.notifications import commands, payload
 
     assert COMMANDS == payload.NOTIFICATIONS_COMMANDS
     assert ROW_COMMANDS == payload.ROW_COMMANDS
@@ -56,7 +56,7 @@ def test_the_declared_families_are_the_classifier_s():
 
 
 def test_the_declared_batch_verbs_are_the_batch_s():
-    from taktik.core.social_media.instagram.workflows.management.notifications import commands
+    from taktik.core.social_media.instagram.workflows.notifications import commands
 
     assert set(BATCH_VERBS) == set(commands._batch_verbs(SimpleNamespace(), SimpleNamespace(device=None)))
 
@@ -101,7 +101,7 @@ class _Phone:
 
 
 def _workflow_class(screen):
-    from taktik.core.social_media.instagram.workflows.management.notifications.notifications_workflow import (
+    from taktik.core.social_media.instagram.workflows.notifications.notifications_workflow import (
         NotificationsEngagementWorkflow,
     )
 
@@ -194,10 +194,10 @@ def _script_the_profile_screen(monkeypatch) -> None:
         ProfileInteractionMixin,
     )
     from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-    from taktik.core.social_media.instagram.actions.business.management.profile.extraction import ProfileExtraction
-    from taktik.core.social_media.instagram.actions.core.base_business import interaction_engine
-    from taktik.core.social_media.instagram.actions.core.base_business.modal_recovery import ModalRecoveryMixin
-    from taktik.core.social_media.instagram.actions.core.base_business.popup_handling import PopupHandlingMixin
+    from taktik.core.social_media.instagram.services.profile.extraction import ProfileExtraction
+    from taktik.core.social_media.instagram.actions.base.base_business import interaction_engine
+    from taktik.core.social_media.instagram.actions.base.base_business.modal_recovery import ModalRecoveryMixin
+    from taktik.core.social_media.instagram.actions.base.base_business.popup_handling import PopupHandlingMixin
 
     shown = _SHOWN
 

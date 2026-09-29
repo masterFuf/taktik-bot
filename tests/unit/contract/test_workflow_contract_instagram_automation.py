@@ -56,8 +56,8 @@ def desktop_bridge(monkeypatch):
     """`DesktopBridge` with the phone, the network, the base and the automation replaced."""
     import bridges.common.network as network
     import bridges.instagram.automation.bridge as bridge
-    import taktik.core.social_media.instagram.workflows.core.automation as automation
-    import taktik.core.social_media.instagram.workflows.core.runtime_setup as runtime_setup
+    import taktik.core.social_media.instagram.workflows.automation.automation as automation
+    import taktik.core.social_media.instagram.workflows.common.runtime_setup as runtime_setup
     from bridges.common.ipc import IPC
     from bridges.instagram.automation.session import InstagramDesktopRuntime
 
@@ -108,8 +108,8 @@ def test_the_desktop_bridge_reads_the_declared_file(desktop_bridge):
 
 
 def test_the_family_is_the_readers_and_the_manifests():
-    from taktik.core.social_media.instagram.workflows.core.agent_handler import INSTAGRAM_AUTOMATION_WORKFLOW_TYPES
-    from taktik.core.social_media.instagram.workflows.core.config_builder import SUPPORTED_WORKFLOW_TYPES
+    from taktik.core.social_media.instagram.workflows.automation.agent_handler import INSTAGRAM_AUTOMATION_WORKFLOW_TYPES
+    from taktik.core.social_media.instagram.workflows.automation.config_builder import SUPPORTED_WORKFLOW_TYPES
 
     manifest = json.loads((CORE / "workflows.manifest.json").read_text(encoding="utf-8-sig"))
     automation = manifest["instagram"]["automation"]
@@ -123,7 +123,7 @@ def test_the_family_is_the_readers_and_the_manifests():
 
 
 def test_the_reader_refuses_a_workflow_outside_the_declaration():
-    from taktik.core.social_media.instagram.workflows.core.config_builder import build_instagram_automation_config
+    from taktik.core.social_media.instagram.workflows.automation.config_builder import build_instagram_automation_config
 
     for workflow_type in ("notifications", "cold_dm"):
         with pytest.raises(ValueError):
@@ -132,8 +132,8 @@ def test_the_reader_refuses_a_workflow_outside_the_declaration():
 
 def test_the_closed_sets_are_the_bots():
     from taktik.core.shared.behavior.policy import PROFILE_IDS
-    from taktik.core.social_media.instagram.actions.business.workflows.common.distribution import _VALID_MODES
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.candidates import MODES
+    from taktik.core.social_media.instagram.workflows.common.distribution import _VALID_MODES
+    from taktik.core.social_media.instagram.workflows.automation.unfollow.candidates import MODES
 
     ai = INSTAGRAM_AUTOMATION.setting("ai").type
     assert set(INSTAGRAM_AUTOMATION.setting("behaviorPolicy").type.fields[0].type.values) == set(PROFILE_IDS)

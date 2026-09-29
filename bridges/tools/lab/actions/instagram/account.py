@@ -24,22 +24,22 @@ def _result(r, fallback):
 
 
 def _login(a):
-    from taktik.core.social_media.instagram.auth.login import InstagramLogin
+    from taktik.core.social_media.instagram.actions.account.login import InstagramLogin
     return InstagramLogin(a.device, _device_id(a))
 
 
 def _logout(a):
-    from taktik.core.social_media.instagram.auth.logout import InstagramLogout
+    from taktik.core.social_media.instagram.actions.account.logout import InstagramLogout
     return InstagramLogout(a.device, _device_id(a))
 
 
 def _signup(a):
-    from taktik.core.social_media.instagram.auth.signup.signup import InstagramSignup
+    from taktik.core.social_media.instagram.actions.account.signup.signup import InstagramSignup
     return InstagramSignup(a.device, _device_id(a))
 
 
 def _switch(a):
-    from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
+    from taktik.core.social_media.instagram.actions.account.switch import InstagramSwitchAccount
     return InstagramSwitchAccount(a.device, _device_id(a))
 
 

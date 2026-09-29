@@ -12,7 +12,7 @@ excluded — the oldest since December.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.revisit_policy import (
+from taktik.core.social_media.instagram.workflows.common.revisit_policy import (
     DEFAULT_REFILTER_DAYS,
     DEFAULT_REINTERACTION_DAYS,
     RevisitPolicy,

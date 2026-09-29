@@ -2,7 +2,7 @@
 tab bar (a reel, a search, the 410 notifications), it now goes back to the feed once first."""
 
 import taktik.core.social_media.instagram.actions.atomic.navigation as navigation
-from taktik.core.social_media.instagram.workflows.management.language.change_language_workflow import (
+from taktik.core.social_media.instagram.workflows.account.change_language_workflow import (
     ChangeLanguageWorkflow,
 )
 
@@ -20,7 +20,7 @@ def test_without_the_tab_bar_it_goes_home_once_before_giving_up(monkeypatch):
 
     monkeypatch.setattr(navigation, "NavigationActions", _Nav)
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.management.language.change_language_workflow.detect_and_optimize",
+        "taktik.core.social_media.instagram.workflows.account.change_language_workflow.detect_and_optimize",
         lambda device: None,
     )
     workflow = ChangeLanguageWorkflow(device=object(), device_id="test-device")

@@ -8,7 +8,7 @@ post before opening the likers of a post it had just rejected.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_detection import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.mixins.post_detection import (
     HashtagPostDetectionMixin,
 )
 
@@ -48,7 +48,7 @@ class _Host(HashtagPostDetectionMixin):
 @pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_detection.time.sleep",
+        "taktik.core.social_media.instagram.workflows.automation.hashtag.mixins.post_detection.time.sleep",
         lambda *_a, **_k: None,
     )
 

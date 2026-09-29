@@ -7,8 +7,8 @@ could not see the difference.
 """
 import inspect
 
-from taktik.core.social_media.instagram.workflows.management.notifications import commands
-from taktik.core.social_media.instagram.workflows.management.notifications.profile_pipeline import (
+from taktik.core.social_media.instagram.workflows.notifications import commands
+from taktik.core.social_media.instagram.workflows.notifications.profile_pipeline import (
     build_notifications_profile_pipeline,
 )
 

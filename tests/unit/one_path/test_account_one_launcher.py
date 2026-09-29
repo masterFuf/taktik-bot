@@ -93,7 +93,7 @@ def _instagram_bridge(config, app):
 
 
 def _instagram_cli(workflow_id, params, app, factories):
-    from taktik.core.social_media.instagram.workflows.management.agent_handler import (
+    from taktik.core.social_media.instagram.workflows.account.agent_handler import (
         register_instagram_account_handlers,
     )
 
@@ -114,7 +114,7 @@ def _bridge_uses(monkeypatch, run, factories):
 
 def test_every_instagram_account_flow_of_the_bridge_is_declared_and_launched():
     from taktik.core.kernel.manifest import load_workflow_manifest
-    from taktik.core.social_media.instagram.workflows.management.agent_handler import (
+    from taktik.core.social_media.instagram.workflows.account.agent_handler import (
         register_instagram_account_handlers,
     )
 
@@ -127,7 +127,7 @@ def test_every_instagram_account_flow_of_the_bridge_is_declared_and_launched():
 
 
 def test_instagram_login_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch):
-    from taktik.core.social_media.instagram.workflows.management import agent_handler
+    from taktik.core.social_media.instagram.workflows.account import agent_handler
 
     page = {"username": "alice", "password": "pw", "saveSession": False, "saveLoginInfoInstagram": True}
     bridge_calls, cli_calls = [], []
@@ -142,7 +142,7 @@ def test_instagram_login_is_the_same_call_from_the_bridge_and_the_cli(monkeypatc
 
 
 def test_instagram_language_change_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch):
-    from taktik.core.social_media.instagram.workflows.management import agent_handler
+    from taktik.core.social_media.instagram.workflows.account import agent_handler
 
     bridge_calls, cli_calls = [], []
     _bridge_uses(monkeypatch, agent_handler.run_instagram_account, _instagram_factories(bridge_calls))
@@ -158,7 +158,7 @@ def test_instagram_language_change_is_the_same_call_from_the_bridge_and_the_cli(
 
 
 def test_instagram_switch_keeps_the_screen_instagram_shows(monkeypatch):
-    from taktik.core.social_media.instagram.workflows.management import agent_handler
+    from taktik.core.social_media.instagram.workflows.account import agent_handler
 
     bridge_calls, cli_calls = [], []
     _bridge_uses(monkeypatch, agent_handler.run_instagram_account, _instagram_factories(bridge_calls))
@@ -174,7 +174,7 @@ def test_instagram_switch_keeps_the_screen_instagram_shows(monkeypatch):
 
 
 def test_instagram_account_list_restarts_an_instagram_that_is_not_open(monkeypatch):
-    from taktik.core.social_media.instagram.workflows.management import agent_handler
+    from taktik.core.social_media.instagram.workflows.account import agent_handler
 
     calls = []
     _bridge_uses(monkeypatch, agent_handler.run_instagram_account, _instagram_factories(calls))
@@ -185,7 +185,7 @@ def test_instagram_account_list_restarts_an_instagram_that_is_not_open(monkeypat
 
 def test_instagram_bridge_refuses_a_payload_before_touching_the_phone(monkeypatch):
     from bridges.instagram.account import launch
-    from taktik.core.social_media.instagram.workflows.management import agent_handler
+    from taktik.core.social_media.instagram.workflows.account import agent_handler
 
     calls, errors = [], []
     _bridge_uses(monkeypatch, agent_handler.run_instagram_account, _instagram_factories(calls))
@@ -200,7 +200,7 @@ def test_instagram_bridge_refuses_a_payload_before_touching_the_phone(monkeypatc
 def test_cli_auth_login_runs_the_account_launcher(monkeypatch):
     from taktik.cli.commands.instagram import management as management_cmds
     from taktik.cli.hosts.instagram import CliInstagramHost
-    from taktik.core.social_media.instagram.workflows.management import agent_handler
+    from taktik.core.social_media.instagram.workflows.account import agent_handler
 
     calls = []
 

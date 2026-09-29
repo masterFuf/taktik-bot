@@ -8,7 +8,7 @@ from bridges.instagram.persona.persona_comments import PersonaCommentsMixin
 from bridges.instagram.persona.persona_media import PersonaMediaMixin
 from bridges.instagram.persona.persona_posts import PersonaPostsMixin
 from bridges.instagram.persona.persona_profile import PersonaProfileMixin
-from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
+from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 from bridges.instagram.common.ipc import _ipc, logger
 
 
@@ -83,8 +83,8 @@ class PersonaAnalysisBridge(
     def _detect_app_language(self) -> None:
         """The app language, on the feed the restart opens, before the profile's localized reads:
         the setup every Instagram launcher shares."""
-        from taktik.core.social_media.instagram.workflows.core import runtime_setup
-        from taktik.core.social_media.instagram.workflows.core.agent_handler import _log_to_logger
+        from taktik.core.social_media.instagram.workflows.common import runtime_setup
+        from taktik.core.social_media.instagram.workflows.automation.agent_handler import _log_to_logger
 
         runtime_setup.prepare_instagram_selectors(device=self.device, log=_log_to_logger)
 

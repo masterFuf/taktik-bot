@@ -112,7 +112,7 @@ def test_a_bridge_started_by_the_desktop_leaves_the_give_back_to_it(monkeypatch)
 
 
 def test_the_instagram_typing_path_switches_through_the_shared_owner(monkeypatch):
-    from taktik.core.social_media.instagram.actions.core.base_action.typing import TypingMixin
+    from taktik.core.social_media.instagram.actions.base.base_action.typing import TypingMixin
 
     adb = FakeAdb(default=SAMSUNG, enabled=(SAMSUNG, ADB))
     monkeypatch.setattr(kb, "run_adb_shell", adb)
@@ -151,7 +151,7 @@ def test_uiautomator2_s_own_keyboard_is_never_given_back(monkeypatch):
 
 
 def test_the_instagram_typing_check_goes_through_the_shared_owner(monkeypatch):
-    from taktik.core.social_media.instagram.actions.core.base_action.typing import TypingMixin
+    from taktik.core.social_media.instagram.actions.base.base_action.typing import TypingMixin
 
     adb = FakeAdb(default=SAMSUNG, enabled=(SAMSUNG, ADB))
     monkeypatch.setattr(kb, "run_adb_shell", adb)

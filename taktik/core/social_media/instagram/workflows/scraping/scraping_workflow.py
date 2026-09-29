@@ -30,7 +30,7 @@ from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.social_media.instagram.actions.atomic.scroll import ScrollActions
-from taktik.core.social_media.instagram.actions.business.management.profile import ProfileBusiness
+from taktik.core.social_media.instagram.services.profile import ProfileBusiness
 from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
 from taktik.core.database.local.service import get_local_database
 
@@ -38,7 +38,7 @@ from taktik.core.social_media.instagram.workflows.scraping.post_scraping_helpers
 from taktik.core.social_media.instagram.workflows.scraping.list_scraping import ScrapingListMixin
 from taktik.core.social_media.instagram.workflows.scraping.profile_posts_scraping import ProfilePostsScrapingMixin
 from taktik.core.social_media.instagram.workflows.scraping.persistence import ScrapingPersistenceMixin
-from taktik.core.social_media.instagram.workflows.common.session import should_continue_session
+from taktik.core.social_media.instagram.workflows.scraping.session import should_continue_session
 
 
 console = Console()

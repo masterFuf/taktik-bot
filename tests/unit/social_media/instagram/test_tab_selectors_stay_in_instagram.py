@@ -36,7 +36,7 @@ from uiautomator2.xpath import XPathEntry
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.actions import base_action as shared_base_action
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import active_locale, set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS

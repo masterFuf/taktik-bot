@@ -12,7 +12,7 @@ behave exactly as it did, or this is a rewrite dressed up as a refactor.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.interaction_plan import (
     resolve_interaction_plan,
 )
 
@@ -112,7 +112,7 @@ def test_the_plan_can_be_recorded_on_the_session():
 
 # ────────────────────────────────────────── the per-post engagement building block
 
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import (
     HashtagBusiness,
 )
 
@@ -169,7 +169,7 @@ class _Host(HashtagBusiness):
 def _stub_list_source(monkeypatch):
     """`resolve_list_source` reaches into real selectors; which population the rows come
     from is covered by its own tests. Here we measure the open/walk/close choreography."""
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow
+    from taktik.core.social_media.instagram.workflows.automation.hashtag import workflow
     monkeypatch.setattr(workflow, 'resolve_list_source', lambda wf, mode: mode)
 
 

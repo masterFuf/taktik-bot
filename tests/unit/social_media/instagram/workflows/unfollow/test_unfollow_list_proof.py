@@ -3,8 +3,8 @@
 import pytest
 
 from fake_follow_list import FakeFacade, FakeScreen, Graph, follow_list_xml, unified_tabs
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list_proof import (
+from taktik.core.social_media.instagram.workflows.automation.unfollow import workflow as unfollow_workflow
+from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import (
     PROOF_BY_COUNT,
     PROOF_BY_SUGGESTIONS_END,
     count_tolerance,
@@ -15,7 +15,7 @@ from taktik.core.social_media.instagram.actions.business.workflows.unfollow.list
     read_is_complete,
     scrolls_for,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
+from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 
@@ -220,7 +220,7 @@ def test_one_dump_answers_for_the_whole_screen(monkeypatch):
 
 
 def test_a_drag_of_the_list_travels_about_45_percent_and_varies(monkeypatch):
-    from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import actions
+    from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import actions
 
     drags = []
     monkeypatch.setattr(actions, "human_drag_between_raw",

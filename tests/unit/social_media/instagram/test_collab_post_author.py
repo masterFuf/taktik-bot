@@ -16,10 +16,10 @@ import types
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.mixins.post_finder import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.mixins.post_finder import (
     HashtagPostFinderMixin,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.post_url.mixins.url_handling import (
+from taktik.core.social_media.instagram.workflows.automation.post_url.mixins.url_handling import (
     PostUrlHandlingMixin,
 )
 from taktik.core.social_media.instagram.ui.extractors import username_from_author_header

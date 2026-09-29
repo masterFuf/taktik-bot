@@ -100,7 +100,7 @@ def _run_instagram_automation(
     behavior_policy: dict | None = None,
     options: dict | None = None,
 ):
-    from taktik.core.social_media.instagram.workflows.core.agent_handler import run_instagram_automation
+    from taktik.core.social_media.instagram.workflows.automation.agent_handler import run_instagram_automation
 
     payload = build_workflow_payload(
         workflow_type, target, limits, probabilities, session_duration, delays,

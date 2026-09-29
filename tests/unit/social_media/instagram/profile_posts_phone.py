@@ -23,8 +23,8 @@ from taktik.core.shared.behavior.gesture import SWIPE_FLOOR_H
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 from taktik.core.social_media.instagram.actions.atomic.interaction import ClickActions
 from taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll import FeedScrollMixin
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import LikeOrchestration
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.services.like.orchestration import LikeOrchestration
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 
 PKG = "com.instagram.android"
 FIXTURES = Path(__file__).parent / "fixtures"

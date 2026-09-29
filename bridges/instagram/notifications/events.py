@@ -1,7 +1,7 @@
 """JSON stdout emitters for the Instagram notifications engagement bridge.
 
 The run's own lines (`notification_step`, the command's `result`) are built by the core
-(`management/notifications/commands.py`); the bridge prints them, and says in a `result` line
+(`workflows/notifications/commands.py`); the bridge prints them, and says in a `result` line
 of its own why a command could not run.
 """
 

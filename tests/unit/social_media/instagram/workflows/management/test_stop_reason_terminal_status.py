@@ -7,7 +7,7 @@ contradicted it, so nothing downstream — the recap, the sessions page, the ana
 a finished run from a failed one.
 """
 
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 
 class TestTerminalStatus:

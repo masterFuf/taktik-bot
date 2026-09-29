@@ -11,7 +11,7 @@ product behaviour of an unconfigured run, not an implementation detail.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.interaction_config import (
+from taktik.core.social_media.instagram.workflows.common.interaction_config import (
     build_interaction_config,
 )
 

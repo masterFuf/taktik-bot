@@ -16,7 +16,7 @@ import itertools
 import pytest
 
 from taktik.core.shared.filtering import apply_comprehensive_filter
-from taktik.core.social_media.instagram.actions.business.management.filtering import FilteringBusiness
+from taktik.core.social_media.instagram.services.filtering import FilteringBusiness
 
 
 PROFILES = [

@@ -15,7 +15,7 @@ import logging
 import pytest
 
 from taktik.core.shared.device.snapshot import ScreenSnapshot
-from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions import (
+from taktik.core.social_media.instagram.workflows.automation.feed.suggestions import (
     FeedSuggestionsMixin,
 )
 
@@ -114,7 +114,7 @@ class _Harness(FeedSuggestionsMixin):
 def no_pacing(monkeypatch):
     """Neutralise the human pacing, so the test stays instant."""
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions.time.sleep",
+        "taktik.core.social_media.instagram.workflows.automation.feed.suggestions.time.sleep",
         lambda _s: None,
     )
 

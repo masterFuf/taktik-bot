@@ -1,7 +1,7 @@
 """The AI service the desktop's notifications pass qualifies its visited profiles with.
 
 The qualification itself (hooks, decision mode, fallbacks) is the core's
-(`management/notifications/ai.py`); the bridge only builds the service, without spend
+(`workflows/notifications/ai.py`); the bridge only builds the service, without spend
 reporting: nothing on the desktop side reads it for this pass.
 """
 

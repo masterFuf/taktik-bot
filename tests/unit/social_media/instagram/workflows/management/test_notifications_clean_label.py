@@ -1,6 +1,6 @@
 """Unit tests for the notification display-label cleaner."""
 
-from taktik.core.social_media.instagram.workflows.management.notifications.classifier import (
+from taktik.core.social_media.instagram.workflows.notifications.classifier import (
     clean_label,
     longest_clean_run,
     sanitize_text,

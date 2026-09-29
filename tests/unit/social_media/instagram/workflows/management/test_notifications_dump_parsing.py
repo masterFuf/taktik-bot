@@ -17,11 +17,11 @@ import pytest
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-from taktik.core.social_media.instagram.workflows.management.notifications.classifier import (
+from taktik.core.social_media.instagram.workflows.notifications.classifier import (
     classify_row,
     row_has_action,
 )
-from taktik.core.social_media.instagram.workflows.management.notifications.dump_parsing import (
+from taktik.core.social_media.instagram.workflows.notifications.dump_parsing import (
     find_inline_follow_back_target,
     find_inline_like_target,
     find_row_reply_target,

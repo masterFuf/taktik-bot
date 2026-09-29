@@ -19,7 +19,7 @@ tap.
 from lxml import etree
 
 from taktik.core.shared.filtering import apply_comprehensive_filter
-from taktik.core.social_media.instagram.actions.business.management.profile.extraction import (
+from taktik.core.social_media.instagram.services.profile.extraction import (
     ProfileExtraction,
 )
 

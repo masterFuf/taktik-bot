@@ -133,7 +133,7 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
         cursor.execute("ALTER TABLE sessions_unified ADD COLUMN ai_cost_by_kind TEXT")
     except sqlite3.OperationalError:
         pass
-    # WHY a run ended, in the vocabulary of `workflows/management/session/stop_reasons.py`
+    # WHY a run ended, in the vocabulary of `workflows/common/session/stop_reasons.py`
     # (`duration_cap`, `navigation_lost`, `crashed`, ...). The motive travelled on the wire in the
     # `session_stop` event and died with the process: the row kept a three-valued `status` and an
     # `error_message` the bot never filled, so no post-mortem was possible from the database.

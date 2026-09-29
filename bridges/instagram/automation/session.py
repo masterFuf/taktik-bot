@@ -100,7 +100,7 @@ class InstagramDesktopRuntime:
         The sequence is the core's (`start_instagram_session`), shared with the CLI; the bridge
         brings its app service, its uiautomator2 check and its stdout.
         """
-        from taktik.core.social_media.instagram.workflows.core.startup import start_instagram_session
+        from taktik.core.social_media.instagram.workflows.common.startup import start_instagram_session
 
         return start_instagram_session(
             self.app_service,

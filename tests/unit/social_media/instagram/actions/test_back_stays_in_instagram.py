@@ -20,15 +20,15 @@ import logging
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.actions.base_action import SharedBaseAction
 from taktik.core.shared.device.snapshot import ScreenSnapshot
-from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions import FeedSuggestionsMixin
-from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_visit import (
+from taktik.core.social_media.instagram.workflows.automation.feed.suggestions import FeedSuggestionsMixin
+from taktik.core.social_media.instagram.workflows.automation.feed.suggestions_visit import (
     DiscoverSuggestionsVisitMixin,
 )
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS

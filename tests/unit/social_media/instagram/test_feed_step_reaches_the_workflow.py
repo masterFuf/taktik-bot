@@ -12,14 +12,14 @@ import types
 
 import pytest
 
-import taktik.core.social_media.instagram.actions.business.workflows.feed.workflow as feed_module
+import taktik.core.social_media.instagram.workflows.automation.feed.workflow as feed_module
 from taktik.core.shared.diagnostics import run_halt
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import FEED_DEFAULTS
-from taktik.core.social_media.instagram.actions.business.workflows.feed.workflow import FeedBusiness
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import FEED_DEFAULTS
+from taktik.core.social_media.instagram.workflows.automation.feed.workflow import FeedBusiness
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
-from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
 
 
 def _log():

@@ -7,7 +7,7 @@ twice, keep going after the session said stop, or invent text when no AI is atta
 
 import types
 
-from taktik.core.social_media.instagram.actions.business.workflows.post_url.in_thread import (
+from taktik.core.social_media.instagram.workflows.automation.post_url.in_thread import (
     engage_thread,
 )
 

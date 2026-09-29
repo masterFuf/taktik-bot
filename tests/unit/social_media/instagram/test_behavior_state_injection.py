@@ -1,8 +1,8 @@
 from types import SimpleNamespace
 
 from taktik.core.shared.behavior.session_state import BehaviorSessionState
-from taktik.core.social_media.instagram.actions.core.base_business import BaseBusinessAction
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 
 
 def test_business_facades_share_one_session_behavior_timeline():

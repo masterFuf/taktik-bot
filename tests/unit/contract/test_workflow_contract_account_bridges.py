@@ -20,7 +20,7 @@ from taktik.core.contract import accounts
 from test_workflow_contract_bridges import assert_reads, bridge_file, check_lines, lines  # noqa: F401 (fixture)
 from unit.paths import CORE
 
-_IG = "taktik.core.social_media.instagram.workflows.management.agent_handler"
+_IG = "taktik.core.social_media.instagram.workflows.account.agent_handler"
 _TT = "taktik.core.social_media.tiktok.workflows.management.agent_handler"
 _GMAIL = "taktik.core.social_media.gmail.workflows.agent_handler"
 _YOUTUBE = "taktik.core.social_media.youtube.workflows.account.agent_handler"

@@ -7,7 +7,7 @@ flings past the end of a short list.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.private_streak_policy import (
+from taktik.core.social_media.instagram.workflows.common.private_streak_policy import (
     DEFAULT_BASE_FLINGS,
     DEFAULT_MAX_JUMPS,
     DEFAULT_THRESHOLD,

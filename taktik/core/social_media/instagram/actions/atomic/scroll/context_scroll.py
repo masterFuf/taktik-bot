@@ -7,7 +7,7 @@ skip, browse session) lives in `feed_scroll.py`; the humanized gesture/dwell pri
 the followers / comments / grid flows.
 """
 
-from taktik.core.social_media.instagram.actions.core.base_action import BaseAction
+from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post.comments import POST_COMMENTS_SELECTORS
 
 

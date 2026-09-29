@@ -30,7 +30,7 @@ from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
     classify_follow_state,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_parsing import (
+from taktik.core.social_media.instagram.workflows.automation.feed.suggestions_parsing import (
     followable_rows,
     is_discover_people_screen,
     parse_feed_suggestions_carousel,

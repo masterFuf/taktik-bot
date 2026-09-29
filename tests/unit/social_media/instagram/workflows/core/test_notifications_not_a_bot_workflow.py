@@ -11,7 +11,7 @@ start engaging profiles. It raises instead.
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
 
@@ -39,6 +39,4 @@ def test_legacy_notifications_business_is_gone():
     # Its only caller was the removed runner branch; the module must not come back as a
     # second implementation of the same surface.
     with pytest.raises(ImportError):
-        from taktik.core.social_media.instagram.actions.business.workflows import (  # noqa: F401
-            NotificationsBusiness,
-        )
+        from taktik.core.social_media.instagram.workflows.automation import NotificationsBusiness

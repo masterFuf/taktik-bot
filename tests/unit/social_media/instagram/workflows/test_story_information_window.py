@@ -324,7 +324,7 @@ class RelayPhone(RawPhone):
 
 def test_the_story_relay_publishes_past_the_same_window():
     """The relay taps the same "Your story" button, through the same step."""
-    from taktik.core.social_media.instagram.actions.business.actions.story_relay import (
+    from taktik.core.social_media.instagram.services.story_relay import (
         StoryRelayBusiness,
     )
 

@@ -17,16 +17,16 @@ import json
 
 import pytest
 
-import taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow as post_url_module
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
+import taktik.core.social_media.instagram.workflows.automation.post_url.workflow as post_url_module
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import (
     POST_URL_DEFAULTS,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.post_url.workflow import (
     PostUrlBusiness,
 )
-from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 URL_A = "https://www.instagram.com/p/DOxampleA/"
 URL_B = "https://www.instagram.com/p/DOxampleB/"

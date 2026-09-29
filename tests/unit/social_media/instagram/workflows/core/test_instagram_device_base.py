@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 import taktik.core.clone as clone
-from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
+from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.compat.selectors import setup as compat_setup
 from taktik.core.shared.device import app_manager, connection

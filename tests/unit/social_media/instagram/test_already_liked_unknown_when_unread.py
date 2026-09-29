@@ -35,15 +35,15 @@ from lxml import etree
 import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll as feed_scroll
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
-import taktik.core.social_media.instagram.actions.business.actions.like.orchestration as orchestration
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.services.like.orchestration as orchestration
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from bridges.tools.lab.actions.instagram import ACTION_REGISTRY as INSTAGRAM_ACTIONS
 from bridges.tools.lab.actions.instagram import register_actions as register_instagram
 from bridges.tools.lab.action_test.bundles.instagram import build_instagram_action_bundle
 from profile_posts_phone import HEART_ID, PKG, ProfilePostsPhone, bounds_of, capture, like_on_phone
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.device.ui_dump import parse_ui_dump
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 ROW_BELOW = capture("ig410_en_profile_posts_video_row_below_screen.xml")
@@ -304,7 +304,7 @@ def test_off_a_list_an_already_liked_post_is_no_like_given():
 
 
 def test_the_hashtag_pass_does_not_count_an_already_liked_post(monkeypatch):
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag import workflow as hashtag
+    from taktik.core.social_media.instagram.workflows.automation.hashtag import workflow as hashtag
 
     monkeypatch.setattr(hashtag.random, "randint", lambda a, b: a)
     counted = []
@@ -321,7 +321,7 @@ def test_the_hashtag_pass_does_not_count_an_already_liked_post(monkeypatch):
 
 
 def test_the_compatibility_facade_does_not_count_an_already_liked_post():
-    from taktik.core.social_media.instagram.actions.compatibility.modern_instagram_actions import (
+    from taktik.core.social_media.instagram.workflows.automation.modern_instagram_actions import (
         ModernInstagramActions,
     )
 

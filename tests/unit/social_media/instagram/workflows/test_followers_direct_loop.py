@@ -19,15 +19,15 @@ Each test names the failure it guards. The scenarios come from the commit histor
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop import (
+from taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.main_loop import (
     FollowerDirectWorkflowMixin,
 )
-import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop as main_loop
+import taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.main_loop as main_loop
 # The "already known" decision lives with the profile-processing mixin, so its collaborators
 # (database service, IPC) are patched there rather than on the loop module.
-import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.profile_processing as profile_processing
+import taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.profile_processing as profile_processing
 # The transport out of a private zone lives with the navigation mixin, and emits from there.
-import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.navigation_helpers as navigation_helpers
+import taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.navigation_helpers as navigation_helpers
 
 
 class _Logger:
@@ -354,7 +354,7 @@ def test_scattered_returns_to_the_top_do_not_add_up_into_a_false_stop():
             self.calls += 1
             return self.calls % 2 == 1  # every other scan lands back at the top
 
-    import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop as ml
+    import taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.main_loop as ml
     original = ml.FollowersTracker
     ml.FollowersTracker = _AlternatingTracker
     try:
@@ -382,7 +382,7 @@ def test_a_list_stuck_at_the_top_does_eventually_end_the_run():
         def log_visible_followers(self, usernames, kind):
             return True  # every scan lands back at the top
 
-    import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop as ml
+    import taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.main_loop as ml
     original = ml.FollowersTracker
     ml.FollowersTracker = _AlwaysLooping
     try:
@@ -590,7 +590,7 @@ def test_the_landing_zone_is_not_read_as_a_loop():
                 return True
             return False
 
-    import taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.main_loop as ml
+    import taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.main_loop as ml
     original = ml.FollowersTracker
     ml.FollowersTracker = _LoopsAfterTransport
     try:
@@ -689,7 +689,7 @@ def test_the_transport_reports_the_gestures_it_actually_spent():
     Tested directly rather than through the loop, because the budget is a local counter
     whose only visible effect is a stop hundreds of gestures later.
     """
-    from taktik.core.social_media.instagram.actions.business.workflows.followers.workflows.direct.navigation_helpers import (
+    from taktik.core.social_media.instagram.workflows.automation.followers.workflows.direct.navigation_helpers import (
         DirectNavigationMixin,
     )
 
@@ -705,7 +705,7 @@ def test_the_transport_reports_the_gestures_it_actually_spent():
         def _record_restriction_signal(self, **k):
             self.recorded = k
 
-    from taktik.core.social_media.instagram.actions.business.workflows.common.private_streak_policy import (
+    from taktik.core.social_media.instagram.workflows.common.private_streak_policy import (
         PrivateStreakPolicy,
     )
 

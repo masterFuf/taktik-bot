@@ -6,7 +6,7 @@ The fake device ignores key names it does not know, as uiautomator2 does.
 """
 
 from taktik.core.social_media.instagram.actions.atomic.navigation.tab_navigation import TabNavigationMixin
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade as InstagramDeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade as InstagramDeviceFacade
 
 
 class _Uiautomator2:

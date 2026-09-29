@@ -23,19 +23,19 @@ from lxml import etree
 import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.atomic.scroll.feed_scroll as feed_scroll
 import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
-import taktik.core.social_media.instagram.actions.business.actions.like.orchestration as orchestration
-import taktik.core.social_media.instagram.actions.business.workflows.feed.workflow as feed_module
-import taktik.core.social_media.instagram.actions.core.device.facade as facade_module
+import taktik.core.social_media.instagram.services.like.orchestration as orchestration
+import taktik.core.social_media.instagram.workflows.automation.feed.workflow as feed_module
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
 from profile_posts_phone import HEART_ID, ProfilePostsPhone, bounds_of, capture, like_on_phone
 from taktik.core.shared.diagnostics import run_halt
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import (
+from taktik.core.social_media.instagram.services.like.orchestration import (
     LikeOrchestration,
 )
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import FEED_DEFAULTS
-from taktik.core.social_media.instagram.actions.business.workflows.feed.post_actions import (
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import FEED_DEFAULTS
+from taktik.core.social_media.instagram.workflows.automation.feed.post_actions import (
     FeedPostActionsMixin,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.feed.workflow import FeedBusiness
+from taktik.core.social_media.instagram.workflows.automation.feed.workflow import FeedBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
 FEED_POST = capture("ig410_fr_feed_heart_of_post_above_at_top.xml")

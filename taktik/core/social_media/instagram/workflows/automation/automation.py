@@ -1,0 +1,414 @@
+import time
+import random
+import json
+import os
+import signal
+import sys
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any, Union
+from pathlib import Path
+from loguru import logger
+
+from taktik.core.database import InstagramProfile
+from taktik.core.database.account_health import witness_for
+from taktik.core.shared.diagnostics import run_halt
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.common.session import SessionManager
+from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
+from taktik.core.social_media.instagram.workflows.automation.modern_instagram_actions import ModernInstagramActions
+
+from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_SELECTORS
+from taktik.core.social_media.instagram.workflows.automation.config import WorkflowConfigBuilder
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.common.workflow_helpers import WorkflowHelpers
+from taktik.core.social_media.instagram.workflows.common.distribution import (
+    ipc_source_progress,
+    normalize_distribution,
+    run_distributed,
+)
+
+
+class InstagramAutomation:
+
+    def __init__(self, device_manager, config: Optional[Dict[str, Any]] = None, session_name: Optional[str] = None):
+
+        if device_manager is None:
+            raise ValueError("device_manager cannot be None")
+            
+        self.device_manager = device_manager
+        
+        if hasattr(device_manager, 'device') and device_manager.device is not None:
+            self.device = device_manager.device
+        else:
+            raise ValueError("Cannot initialize device: device_manager.device is None or invalid")
+            
+        self.logger = logger.bind(module="instagram-automation")
+        self.config = config or {}
+        
+        session_settings = self.config.get('session_settings', {})
+        duration_minutes = session_settings.get('session_duration_minutes', 'NOT_DEFINED')
+        
+        self.session_manager = SessionManager(self.config)
+        
+        self.actions = ModernInstagramActions(self.device, self.session_manager, self)
+        
+        self.nav_actions = self.actions.profile_business.nav_actions
+        self.profile_actions = self.actions.profile_business
+        self.like_actions = self.actions.like_business
+        self.follow_actions = self.actions.follower_business
+        
+        self.session_name = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        self.stats = {
+            'likes': 0,
+            'follows': 0,
+            'unfollows': 0,
+            'comments': 0,
+            'interactions': 0,
+            'skipped': 0,
+            'stories_viewed': 0,
+            'stories_liked': 0,
+            'start_time': time.time()
+        }
+        self.min_sleep = self.config.get('min_sleep_between_actions', 1.0)
+        self.max_sleep = self.config.get('max_sleep_between_actions', 4.0)
+        
+        self.active_username = None
+        self.active_account_id = None
+        
+        self.hashtag_interaction_manager = self.actions.hashtag_business
+        self.story_liker = self.actions.story_business
+        
+        self.current_session_id = None
+        
+        self.workflow_runner = WorkflowRunner(self)
+        self.helpers = WorkflowHelpers(self)
+        
+        from taktik.core.social_media.instagram.workflows.common.ui_helpers import UIHelpers
+        self.ui_helpers = UIHelpers(self)
+        
+        self.helpers.setup_signal_handlers()
+        
+    def load_config(self, config_path: str) -> bool:
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                self.config = json.load(f)
+            
+            session_settings = self.config.get('session_settings', {})
+            duration_minutes = session_settings.get('session_duration_minutes', 'NOT_DEFINED')
+            self.logger.debug(f"Configuration loaded from {config_path}: duration={duration_minutes}min, settings={session_settings}")
+            
+            if hasattr(self, 'session_manager') and self.session_manager:
+                self.session_manager.update_config(self.config)
+            else:
+                self.session_manager = SessionManager(self.config)
+            
+            self.logger.info(f"Configuration loaded from {config_path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error loading configuration: {e}")
+            return False
+    
+    def like_profile_posts(self, username: str, max_posts: int = 9, like_posts: bool = True, 
+                         max_likes: int = 3, scroll_attempts: int = 3) -> Dict[str, int]:
+        self.logger.info(f"Starting post liking for @{username} via LikeProfilePostsManager")
+        
+        stats = self.like_actions.like_profile_posts(
+            username=username,
+            max_posts=max_posts,
+            like_posts=like_posts,
+            max_likes=max_likes,
+            scroll_attempts=scroll_attempts
+        )
+        
+        return stats
+
+    def interact_with_followers(self, target_username: str = None, target_usernames: List[str] = None,
+                           max_interactions: int = 100, like_posts: bool = True,
+                           max_likes_per_profile: int = 2, skip_processed: bool = True,
+                           config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Interact with the followers of one or several target accounts, through the direct
+        workflow, tapping in the list with no deep-link navigation. With several targets,
+        the budget is split according to the configured distribution.
+        """
+        if not self.active_account_id:
+            self.logger.info("Active account not detected, retrieving current profile...")
+            self.get_profile_info(username=None, save_to_db=True)
+
+        if not self.active_account_id:
+            self.logger.error("Cannot get or create active Instagram account")
+            return {}
+
+        # Support both single and multi-target
+        if target_usernames is None:
+            target_usernames = [target_username] if target_username else []
+
+        if not target_usernames:
+            self.logger.error("No target username(s) provided")
+            return {}
+
+        all_results = {
+            'processed': 0,
+            'liked': 0,
+            'followed': 0,
+            'stories_viewed': 0,
+            'errors': 0,
+            'skipped': 0
+        }
+        last_stop_reason = ''
+
+        def run_one_target(target: str, quota: int):
+            nonlocal last_stop_reason
+            self.logger.info(f"📍 Processing target: @{target} (quota: {quota})")
+            # finalize=False: the driver finalises ONCE below — the per-target runner
+            # finalising would end the session (and tell the front) after target 1.
+            result = self.actions.follower_business.interact_with_followers_direct(
+                target_username=target,
+                max_interactions=quota,
+                config=config,
+                account_id=self.active_account_id,
+                finalize=False
+            )
+            for key in all_results:
+                all_results[key] += result.get(key, 0)
+            stop_reason = result.get('stop_reason') or ''
+            if stop_reason:
+                last_stop_reason = stop_reason
+            # A spent SOURCE hands over to the next target; only a session motive cancels what
+            # the remaining ones were allotted. `bool(stop_reason)` made no such distinction,
+            # so one target's list ending ended the run — half a budget left unspent.
+            return result.get('processed', 0), stop_reasons.ends_the_session(stop_reason)
+
+        distribution = normalize_distribution((config or {}).get('distribution'))
+        if len(target_usernames) > 1:
+            self.logger.info(f"🎯 {len(target_usernames)} targets, distribution: {distribution}")
+        outcome = run_distributed(
+            target_usernames, max_interactions, distribution, run_one_target,
+            on_progress=ipc_source_progress('target'),
+        )
+
+        if not getattr(self, 'session_finalized', False):
+            reason = last_stop_reason or stop_reasons.completed(outcome['processed'])
+            # The STATUS follows the motive. This line used to say COMPLETED whatever had
+            # happened, so a run that lost navigation after 44 seconds was filed exactly like one
+            # that did its whole job — the motive said otherwise two fields away.
+            self._finalize_session(status=stop_reasons.terminal_status(reason), reason=reason)
+
+        self.logger.debug(f"Workflow completed: {all_results['processed']} profiles processed, {all_results['liked']} likes, {all_results['followed']} follows")
+        return all_results
+
+    def interact_with_profiles(self, target_usernames: List[str] = None,
+                               target_username: str = None,
+                               max_interactions: int = 100,
+                               config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Interact with the given profiles THEMSELVES — not with their followers/following.
+
+        Same entry contract as interact_with_followers (the desktop bridge sends one comma-joined
+        list either way), but no budget distribution: the usernames are not sources to split a
+        quota across, they ARE the profiles to visit, one after another.
+        """
+        if not self.active_account_id:
+            self.logger.info("Active account not detected, retrieving current profile...")
+            self.get_profile_info(username=None, save_to_db=True)
+
+        if not self.active_account_id:
+            self.logger.error("Cannot get or create active Instagram account")
+            return {}
+
+        if target_usernames is None:
+            target_usernames = [target_username] if target_username else []
+
+        if not target_usernames:
+            self.logger.error("No profile(s) provided")
+            return {}
+
+        # finalize=False: this driver owns the single finalisation, like the followers one.
+        result = self.actions.follower_business.interact_with_profile_list(
+            usernames=target_usernames,
+            max_interactions=max_interactions,
+            config=config,
+            account_id=self.active_account_id,
+            finalize=False,
+        )
+
+        if not getattr(self, 'session_finalized', False):
+            reason = result.get('stop_reason') or stop_reasons.completed(result.get('interacted', 0))
+            self._finalize_session(status=stop_reasons.terminal_status(reason), reason=reason)
+
+        return result
+
+    def get_profile_info(self, username: Optional[str] = None, save_to_db: bool = False, log_result: bool = True) -> Dict[str, Any]:
+        from taktik.core.database import get_db_service
+        
+        profile_manager = self.actions.profile_business
+        
+        profile_info = profile_manager.get_complete_profile_info(username, navigate_if_needed=True)
+        
+        if profile_info and profile_info.get('username'):
+            self.active_username = profile_info['username']
+            
+            if username is None and save_to_db:
+                try:
+                    self.active_account_id, created = get_db_service().get_or_create_account(self.active_username, is_bot=True)
+                    
+                    if created:
+                        self.logger.info(f"New Instagram account created: {self.active_username} (ID: {self.active_account_id})")
+                    else:
+                        self.logger.info(f"Active Instagram account identified: {self.active_username} (ID: {self.active_account_id})")
+                    
+                    self.logger.info(f"Active account configured: {self.active_username} (ID: {self.active_account_id})")
+                        
+                except Exception as e:
+                    # Deliberately NOT falling back to a default id here. The account could
+                    # not be resolved, so any row written now would be filed under another
+                    # account. The caller's own guard refuses the run instead, which is the
+                    # outcome we want: no run beats a run recorded against the wrong account.
+                    self.logger.error(f"Error retrieving/creating active account: {e}")
+                    self.active_account_id = None
+            
+        return profile_info
+    
+    def update_session_manager_config(self):
+        if hasattr(self, 'session_manager') and self.session_manager:
+            self.session_manager.update_config(self.config)
+        else:
+            self.session_manager = SessionManager(self.config)
+
+        # Warmup daily budget: the SessionManager's budget reads TODAY's totals of the active
+        # account from the ledger, so its in-session cap sees this session's own live writes. A
+        # reader of the attribute, not a captured id: before the account is identified the day is
+        # empty (cap no-op), and real numbers are read the moment active_account_id is set. A read
+        # error is counted by the budget, not swallowed here. No-op end to end when the desktop
+        # injected no warmup caps. The front launch gate stays the primary guard.
+        self.session_manager.warmup.count_against_account(lambda: getattr(self, 'active_account_id', None))
+
+        session_settings = self.config.get('session_settings', {})
+        duration_minutes = session_settings.get('session_duration_minutes', 'NOT_DEFINED')
+        self.logger.debug(f"SessionManager config update: duration={duration_minutes}min, keys={list(self.config.keys())}")
+
+    def _install_health_witness(self) -> None:
+        """A block seen anywhere in this run becomes one entry of the account's health history.
+
+        Readers, not values: the account and the session are resolved after this point.
+        """
+        run_halt.configurer_temoin(witness_for(
+            'instagram',
+            lambda: self.active_username,
+            source_type=lambda: str((self.config.get('session_settings') or {}).get('workflow_type') or '').upper() or None,
+            session_id=lambda: getattr(self, 'current_session_id', None),
+        ))
+
+    def _create_workflow_session(self, action_override: Dict[str, Any] = None) -> Optional[int]:
+        return self.helpers.create_workflow_session(action_override)
+
+    def _update_workflow_session(self, session_id: int, status: str = 'COMPLETED', reason: Any = None) -> bool:
+        return self.helpers.update_workflow_session(session_id, status, reason=reason)
+
+
+    def final_stats(self) -> Dict[str, int]:
+        """The session's totals for the end-of-run event, from the action ledger
+        (see `WorkflowHelpers.final_stats`)."""
+        return self.helpers.final_stats()
+
+    def display_session_stats(self, profile_username: str = None) -> None:
+        self.helpers.display_session_stats(profile_username)
+
+    def run_workflow(self) -> None:
+        if not self.config:
+            self.logger.error("No configuration loaded. Use load_config() first.")
+            return
+            
+        self.update_session_manager_config()
+        self.session_finalized = False  # Reset flag at start
+        self._install_health_witness()
+        self.logger.info("=== Starting Instagram automation session ===")
+        
+        session_id = self.helpers.initialize_session()
+        if not session_id:
+            return
+        
+        try:
+            should_continue, stop_reason = self.session_manager.should_continue()
+            while should_continue:
+                if 'steps' in self.config:
+                    workflow_steps = self.config['steps']
+                elif 'actions' in self.config:
+                    workflow_steps = self.config['actions']
+                else:
+                    self.logger.error("No action or step found in configuration")
+                    break
+                
+                iteration_made_progress = False
+                for step in workflow_steps:
+                    should_continue_step, stop_reason_step = self.session_manager.should_continue()
+                    if not should_continue_step:
+                        stop_reason = stop_reason_step
+                        break
+
+                    action = step if 'type' in step else step
+
+                    try:
+                        step_made_progress = self.workflow_runner.run_workflow_step(action)
+                        if step_made_progress:
+                            iteration_made_progress = True
+
+                        # Check if session was finalized by the workflow itself
+                        if self.session_finalized:
+                            self.logger.info("Session was finalized by workflow, exiting run_workflow")
+                            return
+
+                        delay = self.session_manager.get_delay_between_actions()
+                        if delay > 0:
+                            time.sleep(delay)
+
+                    except Exception as e:
+                        self.logger.error(f"Error executing action: {str(e)[:200]}", exc_info=True)
+                        time.sleep(5)
+
+                should_continue, stop_reason = self.session_manager.should_continue()
+                if not should_continue:
+                    self._finalize_session(status=stop_reasons.terminal_status(stop_reason), reason=stop_reason)
+                    return
+
+                # The loop exists to retry while there is still potential (session limits not
+                # reached). An iteration where EVERY step reported no progress means the sources
+                # are dry — looping again would re-search the same exhausted lists until the
+                # session duration ran out, doing nothing but navigation.
+                if not iteration_made_progress:
+                    self.logger.info("Full iteration made no progress — sources exhausted, ending session")
+                    self._finalize_session(status='COMPLETED', reason=stop_reasons.sources_exhausted())
+                    return
+
+                self.logger.info("End of complete workflow iteration")
+                time.sleep(random.uniform(10, 30))
+
+                should_continue, stop_reason = self.session_manager.should_continue()
+
+            # The loop can also end on its own condition: a stop decided before the first step
+            # (a block seen while closing the launch popups), or after the pause between two
+            # passes. Both used to leave the session open, announced "completed" by the bridge.
+            if not should_continue and not self.session_finalized:
+                self._finalize_session(status=stop_reasons.terminal_status(stop_reason), reason=stop_reason)
+
+        except Exception as e:
+            self.logger.error(f"Critical error executing workflow: {str(e)[:200]}", exc_info=True)
+            # Emit the terminal event. This path used to log, mark the row ERROR and return, so
+            # the desktop never received `session_stop`: its live card hung on a run that was
+            # already dead, and the session kept no motive. finalize_session also writes the
+            # status and closes the app, so the DB update below it is no longer needed here.
+            try:
+                self._finalize_session(status='ERROR', reason=stop_reasons.crashed(e))
+            except Exception as finalize_error:
+                # Never let the cleanup hide the crash that caused it.
+                self.logger.error(f"Failed to finalize crashed session: {finalize_error}")
+                if hasattr(self, 'current_session_id') and self.current_session_id:
+                    self._update_workflow_session(self.current_session_id, status='ERROR')
+
+    def _finalize_session(self, status='COMPLETED', reason='Limits reached'):
+        self.helpers.finalize_session(status, reason)
+
+    def _setup_signal_handlers(self):
+        self.helpers.setup_signal_handlers()

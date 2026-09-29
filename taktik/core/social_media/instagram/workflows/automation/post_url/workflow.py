@@ -1,0 +1,263 @@
+"""Business logic for Instagram post URL interactions."""
+
+from typing import Optional, Dict, Any, List, Tuple
+from loguru import logger
+import random
+import re
+import time
+
+from taktik.core.social_media.instagram.workflows.common.likers_base import LikersWorkflowBase
+from taktik.core.social_media.instagram.workflows.common.list_sources import resolve_list_source
+from taktik.core.social_media.instagram.workflows.common.interaction_config import merge_operator_config
+from taktik.core.social_media.instagram.workflows.automation.post_url.in_thread import engage_thread
+from taktik.core.social_media.instagram.actions.base.stats import create_workflow_stats
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
+
+from taktik.core.social_media.instagram.workflows.automation.post_url.mixins.url_handling import PostUrlHandlingMixin
+from taktik.core.social_media.instagram.workflows.automation.post_url.mixins.extractors import PostUrlExtractorsMixin
+
+
+class PostUrlBusiness(
+    PostUrlHandlingMixin,
+    PostUrlExtractorsMixin,
+    LikersWorkflowBase
+):
+    
+    def __init__(self, device, session_manager=None, automation=None):
+        super().__init__(device, session_manager, automation, "post-url", init_business_modules=True)
+        from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import POST_URL_DEFAULTS
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.hashtag import HASHTAG_SELECTORS
+        self.default_config = {**POST_URL_DEFAULTS}
+        self._hashtag_sel = HASHTAG_SELECTORS
+    
+    def interact_with_post_likers(self, post_url: str, config: Dict[str, Any] = None,
+                                  finalize: bool = True) -> Dict[str, Any]:
+        """
+        Direct navigation inside the likers list.
+        
+        Instead of scraping every liker and then navigating by deeplink:
+        1. open the post by deeplink
+        2. open the likers sheet
+        3. for each visible liker: direct tap, interaction, back
+        4. scroll only once every visible one is handled
+        
+        Avantages:
+        - no more one deeplink per profile, which is a recognisable pattern
+        - navigation entirely by taps
+        - ✅ Comportement humain réaliste
+        """
+        # The operator's probabilities must beat the default percentages, which the profile
+        # pass reads first (see `merge_operator_config`).
+        effective_config = merge_operator_config(self.default_config, config)
+
+        self.logger.info(f"[DEBUG] POST_URL config received: {config}")
+        self.logger.info(f"[DEBUG] POST_URL effective config: max_interactions={effective_config.get('max_interactions', 'N/A')}")
+        
+        max_interactions = effective_config.get('max_interactions_per_session', effective_config.get('max_interactions', 20))
+        self.current_max_interactions = max_interactions
+        self.logger.info(f"Max interactions target: {max_interactions}")
+        
+        stats = create_workflow_stats('post_url', source=post_url)
+        # The stats manager lives as long as this object, which serves every link of a run: its
+        # counts are the run's. What this post did is the difference from here (`_final_stats`).
+        baseline = None
+
+        try:
+            self.logger.info(f"Starting Post URL workflow (direct navigation): {post_url}")
+            self.logger.info(f"Max interactions: {max_interactions}")
+
+            if not self._validate_instagram_url(post_url):
+                self.logger.error("Invalid Instagram URL")
+                stats['errors'] += 1
+                return self._link_failed(stats, stop_reasons.navigation_lost(), finalize)
+
+            baseline = dict(self.stats_manager.to_dict())
+
+            # 1. Navigate to the post by deeplink
+            if not self.nav_actions.navigate_to_post_via_deep_link(post_url):
+                self.logger.error("Failed to navigate to post")
+                stats['errors'] += 1
+                # The post was never reached, so nobody was examined: this is not a post that
+                # ran dry. Returning without a motive let the driver see "zero interactions, no
+                # reason", and the session loop filed the run COMPLETED as "sources exhausted".
+                return self._link_failed(stats, stop_reasons.navigation_lost(), finalize)
+
+            time.sleep(2)
+
+            # Extract the post metadata
+            is_reel = self._is_reel_post()
+            post_metadata = {
+                'author_username': self._extract_author_username(),
+                'likes_count': self.ui_extractors.extract_likes_count_from_ui(is_reel=is_reel),
+                'is_reel': is_reel
+            }
+
+            if not post_metadata.get('author_username'):
+                # No author, no post: the screen the link opened cannot be told to be that post,
+                # and nothing done on it could be filed. Same end as a link that did not open.
+                self.logger.error("Failed to extract author username")
+                stats['errors'] += 1
+                return self._link_failed(stats, stop_reasons.navigation_lost(), finalize)
+
+            stats['post_reached'] = True
+            self.logger.info(f"Post from @{post_metadata['author_username']} - {post_metadata['likes_count']} likes")
+            
+            # Validate the bounds
+            validation_result = self._validate_interaction_limits(post_metadata, effective_config)
+            if not validation_result['valid']:
+                self.logger.warning(f"⚠️ {validation_result['warning']}")
+                if validation_result.get('suggestion'):
+                    self.logger.info(f"💡 Suggestion: {validation_result['suggestion']}")
+                if validation_result.get('adjusted_max'):
+                    max_interactions = validation_result['adjusted_max']
+                    self.current_max_interactions = max_interactions
+                    self.logger.info(f"✅ Adjusted max interactions to {max_interactions}")
+            
+            # 2. Open the profile source chosen for this run.
+            # A post gathers TWO populations: those who liked it, and those who took the
+            # time to write a comment, which is a stronger signal. The rest of the loop is
+            # identical; only the list the profiles come from changes.
+            source_mode = str(effective_config.get('source_mode') or 'likers').strip().lower()
+            if source_mode not in ('likers', 'commenters'):
+                self.logger.warning(f"Unknown source_mode '{source_mode}' — falling back to likers")
+                source_mode = 'likers'
+            is_reel = post_metadata.get('is_reel', False)
+            effective_config['source'] = post_url
+            effective_config.setdefault('post_author', post_metadata.get('author_username'))
+
+            # In-thread engagement — likes and replies ON the comments, without leaving the
+            # post. It runs FIRST and on its own: it needs the thread open, whereas walking
+            # likers needs the bottom sheet, and the two cannot be open at once.
+            in_thread_requested = bool(effective_config.get('like_comments')) or \
+                bool(effective_config.get('reply_to_comments'))
+            if in_thread_requested:
+                if self._open_comments_view():
+                    engage_thread(self, effective_config, stats, self._resolve_reply_writer())
+                    self._close_comments_view()
+                else:
+                    self.logger.warning("In-thread engagement skipped: no comments thread on this post")
+
+            # Then the profile-discovery family, unless the run only asked for in-thread work.
+            if not effective_config.get('walk_profiles', True):
+                stats['success'] = True
+                return self._final_stats(stats, baseline)
+
+            # A list that does not open is a failure of THIS post, not a post whose list ran
+            # dry: it used to return without a motive, and a run with that one link ended
+            # COMPLETED as "sources exhausted". `list_unavailable` is the catalogue's motive for
+            # a list the run cannot reach.
+            if source_mode == 'commenters':
+                if not self._open_comments_view():
+                    self.logger.error("Failed to open the comments thread")
+                    stats['errors'] += 1
+                    return self._link_failed(stats, stop_reasons.list_unavailable(), finalize, baseline)
+            elif not self._open_likers_popup(is_reel):
+                self.logger.error("Failed to open likers popup")
+                stats['errors'] += 1
+                return self._link_failed(stats, stop_reasons.list_unavailable(), finalize, baseline)
+            
+            # Start the interaction phase
+            if self.session_manager:
+                self.session_manager.start_interaction_phase()
+            
+            self.logger.info(f"🚀 Starting direct interactions in the {source_mode} list (target: {max_interactions})")
+
+            # Shared interaction loop (from LikersWorkflowBase)
+            self._interact_with_likers_list(
+                stats=stats,
+                effective_config=effective_config,
+                max_interactions=max_interactions,
+                source_type='POST_URL',
+                source_name=post_url,
+                list_source=resolve_list_source(self, source_mode),
+            )
+            
+            stats['success'] = stats['users_interacted'] > 0
+            self.logger.info(f"Workflow completed: {stats['users_interacted']} interactions out of {stats['users_found']} users")
+            
+            self.stats_manager.display_final_stats(workflow_name="POST_URL")
+
+            # finalize=False: a multi-URL run finalises ONCE at the driver level —
+            # finalising here would end the session after the first post.
+            if finalize and stats.get('stop_reason') and self.automation and hasattr(self.automation, 'helpers'):
+                self.automation.helpers.finalize_session(
+                    status=stop_reasons.terminal_status(stats['stop_reason']),
+                    reason=stats['stop_reason'],
+                )
+
+        except Exception as e:
+            self.logger.error(f"General error in Post URL workflow: {e}")
+            stats['errors'] += 1
+            self.stats_manager.add_error(f"General error: {e}")
+        return self._final_stats(stats, baseline)
+
+    def _link_failed(self, stats: Dict[str, Any], motive, finalize: bool,
+                     baseline: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """End THIS post on `motive`: the link was not reached, or its list did not open.
+
+        The motive is the post's, carried twice: `stop_reason` for a caller that runs one post
+        and finalises (`finalize=True`), `link_failure` for the multi-link driver, which moves
+        on to the next link instead of ending the session (`WorkflowRunner._run_post_url_workflow`).
+        `baseline` is given once the post was reached: what it did before failing (in-thread
+        likes and replies) is still reported.
+        """
+        stats['stop_reason'] = motive
+        stats['link_failure'] = motive
+        if finalize and self.automation and hasattr(self.automation, 'helpers'):
+            self.automation.helpers.finalize_session(
+                status=stop_reasons.terminal_status(motive),
+                reason=motive,
+            )
+        if baseline is None:
+            return stats
+        return self._final_stats(stats, baseline)
+
+    def _final_stats(self, stats: Dict[str, Any],
+                     baseline: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """This post's result, from the stats manager (the source of truth for gestures).
+
+        The manager counts the whole run, since one PostUrlBusiness serves every link: the
+        post's figures are its counts minus `baseline`, taken when the post started. Reported
+        whole, the second link announced the first one's profiles as its own, and the driver
+        took them off the budget of the links still waiting.
+        """
+        real_stats = self.stats_manager.to_dict()
+        base = baseline or {}
+
+        def done(key: str) -> int:
+            return max(int(real_stats.get(key, 0) or 0) - int(base.get(key, 0) or 0), 0)
+
+        comment_likes = stats.get('comment_likes', 0)
+        replies = stats.get('comment_replies', 0)
+        return {
+            'post_url': stats.get('post_url', ''),
+            'users_found': stats.get('users_found', 0),
+            'users_interacted': done('profiles_visited'),
+            'likes_made': done('likes'),
+            'follows_made': done('follows'),
+            'comments_made': done('comments'),
+            'stories_watched': done('stories_watched'),
+            'comment_likes': comment_likes,
+            'comment_replies': replies,
+            'skipped': stats.get('skipped', 0),
+            'errors': done('errors'),
+            # An in-thread-only run visits nobody, so profiles alone cannot define success.
+            'success': (done('profiles_visited') + comment_likes + replies) > 0,
+            # Session-level stop, surfaced for the multi-URL driver (see finalize above).
+            'stop_reason': stats.get('stop_reason', ''),
+            # Did the link open on its post, and if this post failed, why (`_link_failed`).
+            'post_reached': bool(stats.get('post_reached')),
+            'link_failure': stats.get('link_failure', ''),
+        }
+
+    def _resolve_reply_writer(self):
+        """The callable that decides and writes an in-thread reply, or None.
+
+        The AI hooks attach it when the run has replies enabled and an AI service; without
+        it the in-thread mode still likes comments and publishes nothing, rather than
+        inventing text of its own.
+        """
+        writer = getattr(self, 'in_thread_reply_writer', None)
+        if writer is None:
+            self.logger.info("In-thread replies requested but no AI writer attached — liking only")
+        return writer

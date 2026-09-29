@@ -11,13 +11,13 @@ from types import SimpleNamespace
 import pytest
 
 from fake_follow_list import FakeFacade, FakeScreen, follow_list_xml, walk_list
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import UNFOLLOW_DEFAULTS
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow import workflow as unfollow_workflow
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import UNFOLLOW_DEFAULTS
+from taktik.core.social_media.instagram.workflows.automation.unfollow import workflow as unfollow_workflow
+from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-from taktik.core.social_media.instagram.workflows.core.config_builder import build_instagram_automation_config
-from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
-from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
+from taktik.core.social_media.instagram.workflows.automation.config_builder import build_instagram_automation_config
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.common.session.session import SessionManager
 
 
 def _sm(warmup=None):

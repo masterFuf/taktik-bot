@@ -11,9 +11,9 @@ already in production changed.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.actions.like.orchestration import FramedLike
+from taktik.core.social_media.instagram.services.like.orchestration import FramedLike
 
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import (
     HashtagBusiness,
 )
 
@@ -135,7 +135,7 @@ def _config(**overrides):
 @pytest.fixture(autouse=True)
 def _no_persistence(monkeypatch):
     """Stub the dedup store: `is_processed` answers from the host, `record_processed` logs."""
-    import taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow as mod
+    import taktik.core.social_media.instagram.workflows.automation.hashtag.workflow as mod
 
     class _Service:
         host = None
@@ -157,7 +157,7 @@ def _no_persistence(monkeypatch):
 def _run(host, service, **config_overrides):
     """Runs the unified loop with a posts-only plan — the shape the old `posts` mode
     resolves to, so these behaviours are pinned across the refactor rather than dropped."""
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import (
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.interaction_plan import (
         resolve_interaction_plan,
     )
     service.host = host
@@ -178,7 +178,7 @@ def _run(host, service, **config_overrides):
 def test_the_default_mode_is_still_the_likers_path():
     """The whole point of shipping this as a MODE: an unset `interaction_mode` must run
     exactly what production ran yesterday."""
-    from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
+    from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import (
         HASHTAG_DEFAULTS,
     )
     assert HASHTAG_DEFAULTS['interaction_mode'] == 'likers'
@@ -261,11 +261,11 @@ def test_the_mode_survives_the_whole_config_chain():
     """Page -> config builder -> runner -> workflow. Each hop is a WHITELIST, and a key
     missing from any one of them is dropped in silence: that is exactly how the post-like
     bounds were lost (the page sent them, the workflow never saw them)."""
-    from taktik.core.social_media.instagram.workflows.core.config_builder import (
+    from taktik.core.social_media.instagram.workflows.automation.config_builder import (
         build_instagram_automation_config,
     )
     import inspect
-    from taktik.core.social_media.instagram.workflows.core import workflow_runner
+    from taktik.core.social_media.instagram.workflows.automation import workflow_runner
 
     built = build_instagram_automation_config({
         'workflowType': 'hashtags', 'target': 'esthetique', 'interactionMode': 'posts',
@@ -283,7 +283,7 @@ def test_the_mode_survives_the_whole_config_chain():
 def test_a_page_that_says_nothing_leaves_the_mode_unset():
     """Unset must stay unset all the way down, so the workflow applies its own default
     ('likers') rather than a value invented mid-chain."""
-    from taktik.core.social_media.instagram.workflows.core.config_builder import (
+    from taktik.core.social_media.instagram.workflows.automation.config_builder import (
         build_instagram_automation_config,
     )
     built = build_instagram_automation_config({'workflowType': 'hashtags', 'target': 'esthetique'})
@@ -294,7 +294,7 @@ def test_a_page_that_says_nothing_leaves_the_mode_unset():
 
 def test_the_default_plan_is_still_the_historical_one():
     """No plan stated and no mode stated -> what the workflow has always done."""
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import (
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.interaction_plan import (
         resolve_interaction_plan,
     )
     plan = resolve_interaction_plan({})
@@ -303,7 +303,7 @@ def test_the_default_plan_is_still_the_historical_one():
 
 
 def test_an_unknown_mode_still_falls_back_to_likers():
-    from taktik.core.social_media.instagram.actions.business.workflows.hashtag.interaction_plan import (
+    from taktik.core.social_media.instagram.workflows.automation.hashtag.interaction_plan import (
         resolve_interaction_plan,
     )
     assert resolve_interaction_plan({'interaction_mode': 'nonsense'}).walk_likers is True

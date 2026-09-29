@@ -20,7 +20,7 @@ from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.common.ipc import _ipc, send_error, send_message, send_status
-from taktik.core.social_media.instagram.workflows.core.agent_handler import InstagramStartError
+from taktik.core.social_media.instagram.workflows.automation.agent_handler import InstagramStartError
 
 TASK_ID_PREFIX = "instagram.task."
 

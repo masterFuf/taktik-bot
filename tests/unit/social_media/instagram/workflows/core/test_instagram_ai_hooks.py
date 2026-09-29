@@ -4,7 +4,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.post import (
 import pytest
 
 from taktik.core.shared.text import detect_text_language
-from taktik.core.social_media.instagram.workflows.core.ai_hooks import (
+from taktik.core.social_media.instagram.workflows.common.ai_hooks import (
     crop_screenshot_to_post,
     install_instagram_ai_hooks,
     _load_cached_qualification,
@@ -74,7 +74,7 @@ def test_install_ai_hooks_without_device_is_noop_and_logs_warning():
 def test_decide_comment_analyzes_exact_post_and_can_skip(monkeypatch):
     from types import SimpleNamespace
 
-    from taktik.core.social_media.instagram.actions.business.actions.comment.action import (
+    from taktik.core.social_media.instagram.services.comment.action import (
         CommentAction,
     )
 
@@ -87,7 +87,7 @@ def test_decide_comment_analyzes_exact_post_and_can_skip(monkeypatch):
 
     monkeypatch.setattr(CommentAction, "comment_on_post", original_comment)
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks.IPCEmitter.emit_action",
         staticmethod(lambda *args, **kwargs: captured["actions"].append((args, kwargs))),
     )
 
@@ -310,7 +310,7 @@ def _install_profile_hook(
     decision_provider=None,
     device=None,
 ):
-    from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+    from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
         InteractionEngineMixin,
     )
 
@@ -323,7 +323,7 @@ def _install_profile_hook(
     monkeypatch.setattr(InteractionEngineMixin, "_perform_interactions_on_profile", fake_perform)
     # Silence the Agent-card emission (module-level IPCEmitter writes JSON to stdout).
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks.IPCEmitter.emit_action",
         staticmethod(lambda *a, **k: None),
     )
     install_instagram_ai_hooks(
@@ -499,7 +499,7 @@ def test_decide_mode_requests_front_plan_for_cached_profile(monkeypatch):
 def test_decide_mode_sends_fresh_classification_facts_to_front(monkeypatch):
     captured = {}
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks._load_cached_qualification",
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks._load_cached_qualification",
         lambda _username: None,
     )
 
@@ -544,7 +544,7 @@ def test_decide_mode_sends_fresh_classification_facts_to_front(monkeypatch):
             },
         }
 
-    from taktik.core.social_media.instagram.actions.core.base_business.interaction_engine import (
+    from taktik.core.social_media.instagram.actions.base.base_business.interaction_engine import (
         InteractionEngineMixin,
     )
 
@@ -558,11 +558,11 @@ def test_decide_mode_sends_fresh_classification_facts_to_front(monkeypatch):
         fake_perform,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks.IPCEmitter.emit_action",
         staticmethod(lambda *a, **k: None),
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_profile_classification",
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks.IPCEmitter.emit_profile_classification",
         staticmethod(lambda *a, **k: None),
     )
 
@@ -665,7 +665,7 @@ class _ScreenshotDevice:
 def _run_vision_path(monkeypatch, ai_config, captured):
     _patch_db(monkeypatch, [])  # nothing cached -> the vision path runs
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter"
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks.IPCEmitter"
         ".emit_profile_classification",
         staticmethod(lambda *a, **k: None),
     )
@@ -777,7 +777,7 @@ class _CroppableShot:
 
 
 def _install_comment_hook(monkeypatch, ai, captured, ai_config=None):
-    from taktik.core.social_media.instagram.actions.business.actions.comment.action import (
+    from taktik.core.social_media.instagram.services.comment.action import (
         CommentAction,
     )
 
@@ -787,14 +787,14 @@ def _install_comment_hook(monkeypatch, ai, captured, ai_config=None):
 
     monkeypatch.setattr(CommentAction, "comment_on_post", original_comment)
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks.IPCEmitter.emit_action",
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks.IPCEmitter.emit_action",
         staticmethod(lambda *a, **k: None),
     )
     # The analysis cache facade reaches the LIVE local DB — a unit test must neither read a
     # stale row from it nor WRITE a fixture row into it.
     for method in ("load", "store", "mark_reused"):
         monkeypatch.setattr(
-            "taktik.core.social_media.instagram.workflows.core.ai_hooks."
+            "taktik.core.social_media.instagram.workflows.common.ai_hooks."
             f"InstagramPostAnalysis.{method}",
             staticmethod(lambda *a, **k: None),
         )
@@ -838,7 +838,7 @@ def test_verified_framing_always_runs_vision_and_passes_publish_date(monkeypatch
         _get_account_id=lambda: None,
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks."
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks."
         "InstagramPostedComments.recent_texts",
         staticmethod(lambda account_id=None, limit=12: ["Le rendu est top 🔥"]),
     )
@@ -875,7 +875,7 @@ def test_an_italian_caption_is_not_commented_by_a_french_account(monkeypatch):
 
     action_cls = _install_comment_hook(monkeypatch, FakeAI(), captured)
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks."
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks."
         "InstagramPostedComments.recent_texts",
         staticmethod(lambda account_id=None, limit=12: []),
     )
@@ -912,7 +912,7 @@ def test_an_account_without_a_known_language_does_not_comment_a_spanish_post(mon
         monkeypatch, FakeAI(), captured, ai_config={"smartComments": True, "postAnalysis": False},
     )
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.workflows.core.ai_hooks."
+        "taktik.core.social_media.instagram.workflows.common.ai_hooks."
         "InstagramPostedComments.recent_texts",
         staticmethod(lambda account_id=None, limit=12: []),
     )
@@ -932,7 +932,7 @@ def test_an_account_without_a_known_language_does_not_comment_a_spanish_post(mon
 def test_a_french_account_does_not_answer_a_german_comment_in_a_thread(monkeypatch):
     """Same rule for a reply as for a comment: {account language, English}. A German comment
     used to come back None, and the reply was written in the account's own language."""
-    from taktik.core.social_media.instagram.actions.business.workflows.post_url.workflow import (
+    from taktik.core.social_media.instagram.workflows.automation.post_url.workflow import (
         PostUrlBusiness,
     )
 

@@ -8,7 +8,7 @@ to click there. The fix: detect the open composer and type directly.
 
 import logging
 
-from taktik.core.social_media.instagram.actions.business.actions.comment.action import CommentAction
+from taktik.core.social_media.instagram.services.comment.action import CommentAction
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 
 
@@ -107,7 +107,7 @@ def _make_share(present):
 
 
 def test_dismiss_share_sheet_when_open(monkeypatch):
-    import taktik.core.social_media.instagram.actions.business.actions.comment.action as mod
+    import taktik.core.social_media.instagram.services.comment.action as mod
     monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
     c = _make_share(True)
     assert c._dismiss_share_sheet_if_open() is True

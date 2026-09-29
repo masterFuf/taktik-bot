@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
+from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 from taktik.core.social_media.instagram.workflows.agent.agent_handler import AgentRuntime
 
 

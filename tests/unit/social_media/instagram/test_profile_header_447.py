@@ -9,7 +9,7 @@ The 447 entries live in the version overrides, never in the baseline.
 import yaml
 
 from taktik.core.shared.device.ui_dump import parse_ui_dump
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors import DETECTION_SELECTORS, PROFILE_SELECTORS
 from unit.paths import CORE
 

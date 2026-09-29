@@ -6,15 +6,15 @@ returned without a motive, the runner saw zero interactions, and the session loo
 search screen.
 """
 
-from taktik.core.social_media.instagram.actions.business.common.workflow_defaults import (
+from taktik.core.social_media.instagram.workflows.automation.workflow_defaults import (
     HASHTAG_DEFAULTS,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.hashtag.workflow import (
+from taktik.core.social_media.instagram.workflows.automation.hashtag.workflow import (
     HashtagBusiness,
 )
-from taktik.core.social_media.instagram.workflows.core.automation import InstagramAutomation
-from taktik.core.social_media.instagram.workflows.core.workflow_runner import WorkflowRunner
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons
+from taktik.core.social_media.instagram.workflows.automation.automation import InstagramAutomation
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 
 
 class _Log:

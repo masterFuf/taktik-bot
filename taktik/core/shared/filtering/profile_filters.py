@@ -1,6 +1,6 @@
 """Profile filtering, evaluated on data alone.
 
-Extracted verbatim from `instagram/actions/business/management/filtering.py`, which turned out to
+Extracted verbatim from `instagram/services/filtering.py`, which turned out to
 depend on nothing but its two dictionaries: no device, no session, no platform. It sat under
 `instagram/` only because that is where it was first needed, and TikTok -- which filtered nothing
 at all -- could not reach it without crossing the platform boundary the layering forbids.

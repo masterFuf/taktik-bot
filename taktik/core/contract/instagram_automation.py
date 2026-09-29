@@ -32,10 +32,10 @@ from .shared import (
 )
 from .stop_reasons import INSTAGRAM_STOP_REASON_CODE
 
-_CORE = "taktik.core.social_media.instagram.workflows.core"
+_CORE = "taktik.core.social_media.instagram.workflows.automation"
 _BUILDER = f"{_CORE}.config_builder:build_instagram_automation_config"
 _LAUNCHER = f"{_CORE}.agent_handler:run_instagram_automation"
-_AI_HOOKS = f"{_CORE}.ai_hooks:install_instagram_ai_hooks"
+_AI_HOOKS = "taktik.core.social_media.instagram.workflows.common.ai_hooks:install_instagram_ai_hooks"
 _AI_SERVICE = "taktik.core.ai.factory:create_ai_service"
 _PACING = "taktik.core.shared.behavior.policy:parse_behavior_policy"
 

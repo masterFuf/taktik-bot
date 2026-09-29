@@ -62,7 +62,7 @@ def test_a_cold_dm_run_stopped_by_a_block_says_so():
 
 
 def test_a_refused_inbox_reply_is_not_recorded_and_stays_on_screen(monkeypatch):
-    from taktik.core.social_media.instagram.workflows.dm_inbox import agent_handler as module
+    from taktik.core.social_media.instagram.workflows.dm import agent_handler as module
 
     monkeypatch.setattr(module, "ProblematicPageDetector", _Refusing)
     monkeypatch.setattr(module, "ensure_dm_inbox", lambda runtime: True)
@@ -82,7 +82,7 @@ def test_a_refused_inbox_reply_is_not_recorded_and_stays_on_screen(monkeypatch):
 
 
 def test_a_refused_notification_tap_says_why_nothing_was_done(monkeypatch):
-    from taktik.core.social_media.instagram.workflows.management.notifications import (
+    from taktik.core.social_media.instagram.workflows.notifications import (
         notifications_workflow as module,
     )
 

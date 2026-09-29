@@ -24,7 +24,7 @@ from taktik.core.social_media.instagram.ui.selectors import (
     PROFILE_SELECTORS,
 )
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-from taktik.core.social_media.instagram.workflows.management.notifications.suggestions_parsing import (
+from taktik.core.social_media.instagram.workflows.notifications.suggestions_parsing import (
     find_suggestions_header_y,
     followable_suggestions,
     parse_notification_suggestions,

@@ -13,9 +13,9 @@ import time
 import pytest
 
 from taktik.core.shared.diagnostics import run_halt
-from taktik.core.social_media.instagram.workflows.management.session import stop_reasons as sr
-from taktik.core.social_media.instagram.workflows.management.session.session import SessionManager
-from taktik.core.social_media.instagram.workflows.support.workflow_helpers import WorkflowHelpers
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons as sr
+from taktik.core.social_media.instagram.workflows.common.session.session import SessionManager
+from taktik.core.social_media.instagram.workflows.common.workflow_helpers import WorkflowHelpers
 
 
 @pytest.fixture(autouse=True)

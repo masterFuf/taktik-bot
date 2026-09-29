@@ -1,5 +1,5 @@
-from taktik.core.social_media.instagram.workflows.core import runtime_setup
-from taktik.core.social_media.instagram.workflows.core.runtime_setup import (
+from taktik.core.social_media.instagram.workflows.common import runtime_setup
+from taktik.core.social_media.instagram.workflows.common.runtime_setup import (
     prepare_instagram_automation_runtime,
     prepare_instagram_selectors,
 )

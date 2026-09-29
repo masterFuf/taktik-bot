@@ -13,7 +13,7 @@ config whichever path it arrives by.
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.core.config_builder import (
+from taktik.core.social_media.instagram.workflows.automation.config_builder import (
     build_instagram_automation_config,
 )
 

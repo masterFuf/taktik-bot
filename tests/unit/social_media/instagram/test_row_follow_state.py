@@ -37,8 +37,8 @@ from taktik.core.shared.device.ui_dump import parse_bounds
 from taktik.core.social_media.instagram.actions.atomic.detection.list_detection import (
     ListDetectionMixin,
 )
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
-from taktik.core.social_media.instagram.actions.core.utils import ActionUtils
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.utils import ActionUtils
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 

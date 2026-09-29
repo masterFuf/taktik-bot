@@ -35,7 +35,7 @@ import taktik.core.social_media.instagram.workflows.cold_dm.navigation as cold_d
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.diagnostics import miss_capture
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
-from taktik.core.social_media.instagram.actions.core.device.facade import DeviceFacade
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.instagram.workflows.cold_dm.navigation import NOT_ON_PROFILE
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import ColdDmRecipientPolicy

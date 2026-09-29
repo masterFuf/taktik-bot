@@ -18,8 +18,8 @@ import json
 
 import pytest
 
-import taktik.core.social_media.instagram.actions.business.workflows.common.followers_tracker as tracker_module
-from taktik.core.social_media.instagram.actions.business.workflows.common.followers_tracker import (
+import taktik.core.social_media.instagram.workflows.common.followers_tracker as tracker_module
+from taktik.core.social_media.instagram.workflows.common.followers_tracker import (
     FollowersTracker,
 )
 

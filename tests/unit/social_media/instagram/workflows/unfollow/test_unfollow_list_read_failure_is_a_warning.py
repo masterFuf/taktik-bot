@@ -15,7 +15,7 @@ import pytest
 from loguru import logger
 
 from fake_follow_list import FakeFacade, FakeScreen
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.workflow import UnfollowBusiness
+from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from unit.paths import CORE
 

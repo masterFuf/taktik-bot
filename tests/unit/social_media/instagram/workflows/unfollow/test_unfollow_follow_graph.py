@@ -10,8 +10,8 @@ import pytest
 
 from taktik.core.database import instagram_follow_graph
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins import actions, sync_following
-from taktik.core.social_media.instagram.actions.business.workflows.unfollow.mixins.actions import (
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import actions, sync_following
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.actions import (
     UnfollowActionsMixin,
 )
 

@@ -12,14 +12,14 @@ notifications zone stays identical.
 
 import pytest
 
-from taktik.core.social_media.instagram.actions.business.workflows.common.suggestion_visit import (
+from taktik.core.social_media.instagram.workflows.common.suggestion_visit import (
     SuggestionSurface,
     visit_suggestions,
 )
-from taktik.core.social_media.instagram.actions.business.workflows.feed.suggestions_visit import (
+from taktik.core.social_media.instagram.workflows.automation.feed.suggestions_visit import (
     _DiscoverSuggestionSurface,
 )
-from taktik.core.social_media.instagram.actions.core.base_business.profile_processing import (
+from taktik.core.social_media.instagram.actions.base.base_business.profile_processing import (
     ProfileProcessingResult,
 )
 
@@ -202,7 +202,7 @@ def test_only_handle_shaped_labels_are_looked_up(monkeypatch, label, queried):
         return True, "already_processed"
 
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.workflows.feed."
+        "taktik.core.social_media.instagram.workflows.automation.feed."
         "suggestions_visit.InstagramWorkflowStateService.is_profile_skippable",
         staticmethod(_fake_skippable),
     )
@@ -220,7 +220,7 @@ def test_a_database_error_makes_us_visit_rather_than_skip(monkeypatch):
         raise RuntimeError("db down")
 
     monkeypatch.setattr(
-        "taktik.core.social_media.instagram.actions.business.workflows.feed."
+        "taktik.core.social_media.instagram.workflows.automation.feed."
         "suggestions_visit.InstagramWorkflowStateService.is_profile_skippable",
         staticmethod(_boom),
     )

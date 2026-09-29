@@ -16,8 +16,8 @@ from bridges.instagram.notifications.ai import notifications_ai_service
 from bridges.instagram.notifications.events import emit_notif_error, emit_notif_json
 from bridges.instagram.common.ipc import logger
 from taktik.core.database import configure_db_service
-from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
-from taktik.core.social_media.instagram.workflows.management.notifications.agent_handler import (
+from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
+from taktik.core.social_media.instagram.workflows.notifications.agent_handler import (
     NotificationsCommandError,
     run_instagram_notifications,
 )

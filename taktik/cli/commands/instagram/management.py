@@ -4,7 +4,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.prompt import Prompt
 from taktik.core.shared.device.manager import DeviceManager
-from taktik.core.social_media.instagram.core.manager import InstagramManager
+from taktik.core.social_media.instagram.manager import InstagramManager
 
 console = Console()
 

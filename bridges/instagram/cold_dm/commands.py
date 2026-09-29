@@ -16,7 +16,7 @@ from bridges.common.network import enforce_pre_session_ip_rotation
 from bridges.common.entrypoint import MISSING_CONFIG
 from taktik.core.shared.input.keyboard import KeyboardService
 from bridges.instagram.cold_dm.progress import emit_cold_dm_progress
-from taktik.core.social_media.instagram.workflows.core.device import InstagramDeviceBase
+from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 from bridges.instagram.common.ipc import _ipc, logger
 
 

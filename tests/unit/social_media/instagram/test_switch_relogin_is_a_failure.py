@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import pytest
 
-import taktik.core.social_media.instagram.auth.switch as switch_mod
-from taktik.core.social_media.instagram.auth.switch import InstagramSwitchAccount
-from taktik.core.social_media.instagram.workflows.management.switch.switch_workflow import (
+import taktik.core.social_media.instagram.actions.account.switch as switch_mod
+from taktik.core.social_media.instagram.actions.account.switch import InstagramSwitchAccount
+from taktik.core.social_media.instagram.workflows.account.switch_workflow import (
     SwitchAccountWorkflow,
 )
 

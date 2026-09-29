@@ -236,7 +236,7 @@ def test_dm_typing_delay_is_not_five_seconds_flat(chars, draws):
     ("balanced", 8.0, 8.0, 15.0, DRAWS),        # part of 5-15 s does: redrawn, not raised
 ])
 def test_warmup_floor_is_not_a_metronome(profile, floor, lo, hi, draws):
-    from taktik.core.social_media.instagram.workflows.management.session.session import (
+    from taktik.core.social_media.instagram.workflows.common.session.session import (
         SessionManager,
     )
 
@@ -249,7 +249,7 @@ def test_warmup_floor_is_not_a_metronome(profile, floor, lo, hi, draws):
 
 
 def test_micro_delay_has_no_edge_spike():
-    from taktik.core.social_media.instagram.actions.core.behavior.human_behavior import (
+    from taktik.core.social_media.instagram.actions.base.behavior.human_behavior import (
         HumanBehavior,
     )
 
