@@ -85,7 +85,7 @@ class ScrapingWorkflow(
         self.detection_actions = DetectionActions(self.device)
         self.scroll_actions = ScrollActions(self.device)
         self.profile_manager = ProfileBusiness(self.device)
-        self.ui_extractors = InstagramUIExtractors(self.device)
+        self.ui_extractors = InstagramUIExtractors(self.device, framed_post=self.scroll_actions)
         self.local_db = get_local_database()
         
         # Stats

@@ -63,11 +63,12 @@ class BaseBusinessAction(
         self.button_selectors = BUTTON_SELECTORS
         
         self.selectors = DETECTION_SELECTORS
-        
-        self.ui_extractors = InstagramUIExtractors(device)
-        
+
         self._init_atomic_actions()
-        
+        # The scroll owner reads which post the screen frames (as the like does): the extractor
+        # takes that post's like counter only.
+        self.ui_extractors = InstagramUIExtractors(device, framed_post=self.scroll_actions)
+
         self.stats_manager = BaseStatsManager(module_name)
         
         # No identity means NO identity. This used to fall back to account id 1, which is a

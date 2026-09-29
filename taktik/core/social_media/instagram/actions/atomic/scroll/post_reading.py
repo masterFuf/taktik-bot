@@ -689,8 +689,10 @@ class PostReadingMixin:
         media between its header and its button row (for a double tap), `heart` the like button of
         that row and `liked` its state. Both are None unless that heart is on screen: the post
         above can fill most of the screen with its media and its heart, and nothing may then be
-        liked there (`PostReadingMixin.show_framed_post_buttons` can bring the row up first). Off a
-        list (the full-screen Reel viewer), {"list": False}: its single post is liked as that
+        liked there (`PostReadingMixin.show_framed_post_buttons` can bring the row up first).
+        `row` is that button row, None when it is not on screen: the framed post's like counter,
+        which opens its likers, is read there (`InstagramUIExtractors.find_like_count_element`).
+        Off a list (the full-screen Reel viewer), {"list": False}: its single post is liked as that
         viewer does.
         """
         root = root if root is not None else self._dump_root()
@@ -703,11 +705,13 @@ class PostReadingMixin:
         if window is None or window["heart_bounds"] is None:
             return {"list": True, "identity": window["header_desc"] if window is not None else None,
                     "header": window["header_bounds"] if window is not None else None,
+                    "row": window["buttons_bounds"] if window is not None else None,
                     "media": None, "heart": None, "liked": None}
         return {
             "list": True,
             "identity": window["header_desc"],
             "header": window["header_bounds"],
+            "row": window["buttons_bounds"],
             "media": window["media_bounds"],
             "heart": window["heart_bounds"],
             "liked": window["heart_selected"],
