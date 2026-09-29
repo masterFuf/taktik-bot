@@ -1,80 +1,30 @@
-# 📂 Workflows - Structure organisée
+# Instagram workflows
 
-Ce dossier contient tous les modules liés à l'orchestration des workflows Instagram.
+One folder per feature, named with the vocabulary the platforms and their bridges share (the tree gate,
+`scripts/audits/audit_tree_layout.py`, holds the list). Each feature keeps its launcher, `agent_handler.py`:
+the `run_*` function a bridge and the CLI both call, and the handlers the workflow registry resolves by id.
 
-## 🗂️ Structure
-
-```
+```text
 workflows/
-├── core/                    # 🎯 Orchestration principale
-│   ├── automation.py        # Classe principale InstagramAutomation
-│   └── workflow_runner.py   # Exécuteur de workflows (targets, hashtags, etc.)
-│
-├── management/              # ⚙️ Gestion de session et configuration
-│   ├── session.py           # SessionManager - Gestion des sessions
-│   └── config.py            # WorkflowConfigBuilder - Configuration des workflows
-│
-├── helpers/                 # 🛠️ Utilitaires et helpers
-│   ├── workflow_helpers.py  # Helpers généraux (signaux, finalisation, stats)
-│   ├── ui_helpers.py        # Helpers UI (posts, likes, popups)
-│   ├── filtering_helpers.py # Helpers de filtrage utilisateurs
-│   └── license_helpers.py   # Helpers de gestion de licence
-│
-├── docs/                    # 📚 Documentation
-│   └── REFACTORING.md       # Historique de refactorisation
-│
-└── __init__.py             # Exports publics du module
+  automation/      the automation of a run (targets, hashtags, post URL, feed, unfollow, syncs):
+                   its launcher, InstagramAutomation, the step runner, its config
+                   (config.py, config_builder.py, workflow_defaults.py) and its workflows,
+                   one folder each (feed/, followers/, hashtag/, messaging/, post_url/,
+                   profile_list/, unfollow/)
+  account/         log in, log out, sign up, switch account, change the app language
+  agent/           the Taktik Agent session (autopilot.py)
+  cold_dm/         the cold DM
+  dm/              the DM inbox: read it, read its requests, reply
+  notifications/   the notifications pass
+  publish/         a publication (post, reel, carousel, story)
+  scraping/        the scraping of lists, hashtags, post URLs and profile posts
+  tasks/           the one-shots with no target list (story relay)
+  ads/             reading the ads a feed run collected, out of any run
+  common/          what the workflows share: the start of Instagram (startup.py), the
+                   selectors matched to the phone (runtime_setup.py), the Instagram device
+                   base (device.py), the AI hooks, the session of a run (session/: its limits,
+                   its stop reasons, its warmup budget), the helpers of the workflows
 ```
 
-## 📦 Imports recommandés
-
-### Import depuis le package principal
-```python
-from taktik.core.social_media.instagram.workflows import (
-    InstagramAutomation,      # Classe principale
-    WorkflowRunner,           # Exécuteur de workflows
-    SessionManager,           # Gestion de session
-    WorkflowConfigBuilder,    # Configuration
-    WorkflowHelpers,          # Helpers généraux
-    UIHelpers,                # Helpers UI
-    FilteringHelpers,         # Helpers de filtrage
-    LicenseHelpers           # Helpers de licence
-)
-```
-
-### Import direct (si nécessaire)
-```python
-from taktik.core.social_media.instagram.workflows.core import InstagramAutomation
-from taktik.core.social_media.instagram.workflows.management import SessionManager
-from taktik.core.social_media.instagram.workflows.support import WorkflowHelpers
-```
-
-## 🎯 Responsabilités
-
-### Core (`core/`)
-- **automation.py** : Orchestration principale, initialisation, gestion des workflows
-- **workflow_runner.py** : Exécution des 4 workflows (targets, hashtags, post_url, place)
-
-### Management (`management/`)
-- **session.py** : Gestion des sessions (durée, limites, compteurs, statistiques)
-- **config.py** : Configuration des workflows (probabilités, filtres, critères)
-
-### Helpers (`helpers/`)
-- **workflow_helpers.py** : Initialisation, finalisation, affichage stats, signaux
-- **ui_helpers.py** : Interactions UI bas niveau (posts, likes, popups)
-- **filtering_helpers.py** : Décisions de filtrage et d'interaction
-- **license_helpers.py** : Vérification licence et limites d'actions
-
-## ✅ Avantages de cette structure
-
-1. **Séparation des responsabilités** : Chaque module a un rôle clair
-2. **Maintenabilité** : Fichiers plus petits et focalisés
-3. **Testabilité** : Modules indépendants faciles à tester
-4. **Extensibilité** : Facile d'ajouter de nouveaux workflows ou helpers
-5. **Lisibilité** : Organisation logique et intuitive
-
-## 📝 Notes
-
-- Tous les imports publics sont disponibles via `workflows/__init__.py`
-- La rétrocompatibilité est maintenue pour les imports existants
-- Les `__pycache__` sont automatiquement ignorés par Git
+A workflow composes the actions of `../actions/` (gestures and readings) and the services of `../services/`;
+an action never imports a workflow (rule `actions-no-workflows` of `scripts/audits/audit_import_layers.py`).
