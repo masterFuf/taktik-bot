@@ -366,22 +366,15 @@ class LocalDatabaseService:
             Dict with 'profile_id' and 'created' keys
         """
         profile_id, created = self.get_or_create_profile(profile_data)
-        
-        # If we have enriched data (followers_count > 0 or other stats), record in profile_stats_history
-        has_enriched_data = (
-            profile_data.get('followers_count', 0) > 0 or
-            profile_data.get('following_count', 0) > 0 or
-            profile_data.get('posts_count', 0) > 0 or
-            profile_data.get('biography') or
-            profile_data.get('full_name')
-        )
-        
-        if has_enriched_data and profile_id:
+
+        # A snapshot of the counters that were read: `record_stats_history` records none without
+        # them (a row of a list, never opened, has a name and no count).
+        if profile_id:
             try:
-                self.profiles.record_stats_history(profile_id, profile_data)
-                logger.debug(f"Recorded enriched stats for profile {profile_id}")
+                if self.profiles.record_stats_history(profile_id, profile_data):
+                    logger.debug(f"Recorded stats snapshot for profile {profile_id}")
             except Exception as e:
-                logger.warning(f"Failed to record enriched stats for profile {profile_id}: {e}")
+                logger.warning(f"Failed to record stats snapshot for profile {profile_id}: {e}")
         
         return {'profile_id': profile_id, 'created': created}
     

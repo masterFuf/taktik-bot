@@ -26,10 +26,10 @@ class InstagramProfile:
         self,
         username=None,
         full_name=None,
-        followers_count=0,
-        following_count=0,
-        posts_count=0,
-        is_private=False,
+        followers_count=None,
+        following_count=None,
+        posts_count=None,
+        is_private=None,
         biography=None,
         notes=None,
         profile_pic_path=None,
@@ -38,10 +38,11 @@ class InstagramProfile:
     ):
         self.username = username
         self.full_name = full_name or ""
-        self.followers_count = followers_count or 0
-        self.following_count = following_count or 0
-        self.posts_count = posts_count or 0
-        self.is_private = is_private or False
+        # A counter or a privacy not read stays None: it is no 0, and no « public ».
+        self.followers_count = followers_count
+        self.following_count = following_count
+        self.posts_count = posts_count
+        self.is_private = is_private
         self.biography = biography or ""
         self.notes = notes or ""
         self.profile_pic_path = profile_pic_path or ""

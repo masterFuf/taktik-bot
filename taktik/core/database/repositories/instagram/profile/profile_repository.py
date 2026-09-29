@@ -3,6 +3,7 @@ Profile Repository - Manages instagram_profiles table
 """
 
 from typing import Dict, List, Optional, Tuple, Any
+from loguru import logger
 from ..._base.base_repository import BaseRepository
 from ..._base.handle_guard import require_handle
 from ..profile_ai_read_model import profile_ai_read_model
@@ -15,6 +16,17 @@ MARK_UNREACHABLE_SQL = """UPDATE social_profiles
           unreachable_count = COALESCE(unreachable_count, 0) + 1,
           updated_at = datetime('now')
     WHERE platform = ? AND username = ?"""
+
+
+#: The counters of a `profile_stats_history` snapshot. They are NOT NULL in that table: a snapshot
+#: holds all three, read, or is not recorded.
+SNAPSHOT_COUNTERS = ('followers_count', 'following_count', 'posts_count')
+
+
+def flag_as_stored(value: Any) -> Optional[int]:
+    """A flag as the base keeps it: 1 or 0 when it was read, NULL (None) when it was not. An unread
+    privacy is not « public »."""
+    return None if value is None else (1 if value else 0)
 
 
 class ProfileRepository(BaseRepository):
@@ -39,7 +51,8 @@ class ProfileRepository(BaseRepository):
             return profile_id, False
 
         # Create new profile in the unified social_profiles (full_name -> display_name);
-        # legacy_profile_id = per-platform id generated atomically.
+        # legacy_profile_id = per-platform id generated atomically. A counter or a flag not read
+        # stays NULL: a row of a list, never opened, is no public profile with 0 followers.
         self.execute(
             """INSERT INTO social_profiles (
                 platform, legacy_profile_id, username, display_name, biography, followers_count, following_count,
@@ -52,12 +65,12 @@ class ProfileRepository(BaseRepository):
                 username,
                 kwargs.get('full_name', ''),
                 kwargs.get('biography'),
-                kwargs.get('followers_count', 0),
-                kwargs.get('following_count', 0),
-                kwargs.get('posts_count', 0),
-                1 if kwargs.get('is_private') else 0,
-                1 if kwargs.get('is_verified') else 0,
-                1 if kwargs.get('is_business') else 0,
+                kwargs.get('followers_count'),
+                kwargs.get('following_count'),
+                kwargs.get('posts_count'),
+                flag_as_stored(kwargs.get('is_private')),
+                flag_as_stored(kwargs.get('is_verified')),
+                flag_as_stored(kwargs.get('is_business')),
                 kwargs.get('business_category'),
                 kwargs.get('website'),
                 kwargs.get('profile_pic_path'),
@@ -101,7 +114,7 @@ class ProfileRepository(BaseRepository):
         for key in ('is_private', 'is_verified', 'is_business'):
             if key in kwargs and kwargs[key] is not None:
                 updates.append(f"{key} = COALESCE(?, {key})")
-                values.append(1 if kwargs[key] else 0)
+                values.append(flag_as_stored(kwargs[key]))
 
         if updates:
             updates.append("updated_at = datetime('now')")
@@ -160,7 +173,16 @@ class ProfileRepository(BaseRepository):
         return [dict(row) for row in rows]
 
     def record_stats_history(self, profile_id: int, profile_data: Dict[str, Any]) -> bool:
-        """Record a profile_stats_history snapshot for enriched profile data."""
+        """Record a `profile_stats_history` snapshot of what was read of the profile; False when
+        nothing was recorded.
+
+        A snapshot is a point of a series: a counter that was not read has no value there, never 0
+        (a row of a list, never opened, dropped its series to 0 followers). The three counters are
+        NOT NULL in the table: without all three read, no snapshot. A flag not read stays NULL."""
+        unread = [key for key in SNAPSHOT_COUNTERS if profile_data.get(key) is None]
+        if unread:
+            logger.debug(f"No stats snapshot for profile {profile_id}: not read: {', '.join(unread)}")
+            return False
         cursor = self.execute(
             """
             INSERT INTO profile_stats_history
@@ -170,10 +192,10 @@ class ProfileRepository(BaseRepository):
             """,
             (
                 profile_id,
-                profile_data.get('followers_count', 0),
-                profile_data.get('following_count', 0),
-                profile_data.get('posts_count', 0),
-                1 if profile_data.get('is_verified') else 0,
+                profile_data['followers_count'],
+                profile_data['following_count'],
+                profile_data['posts_count'],
+                flag_as_stored(profile_data.get('is_verified')),
                 profile_data.get('external_url'),
                 profile_data.get('profile_pic_url'),
             ),
@@ -288,11 +310,11 @@ class ProfileRepository(BaseRepository):
         """Map database row to dict"""
         if row is None:
             return None
-        # Convert sqlite3.Row to dict first to use .get() safely
+        # Convert sqlite3.Row to dict first to use .get() safely. A flag not read (NULL) stays
+        # None: an unknown privacy is not « public ».
         row_dict = dict(row)
         return {
             **row_dict,
-            'is_private': bool(row_dict.get('is_private', 0)),
-            'is_verified': bool(row_dict.get('is_verified', 0)),
-            'is_business': bool(row_dict.get('is_business', 0))
+            **{key: (None if row_dict.get(key) is None else bool(row_dict[key]))
+               for key in ('is_private', 'is_verified', 'is_business')},
         }

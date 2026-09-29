@@ -21,10 +21,12 @@ def save_profile_to_database(profile_info: Dict[str, Any], log: logger = None):
             'username': profile_info['username'],
             'full_name': profile_info.get('full_name', ''),
             'biography': profile_info.get('biography', ''),
-            'followers_count': profile_info.get('followers_count', 0),
-            'following_count': profile_info.get('following_count', 0),
-            'posts_count': profile_info.get('posts_count', 0),
-            'is_private': profile_info.get('is_private', False),
+            # A counter or a privacy the visit did not read stays None down to the base: never 0
+            # nor « public », which would also overwrite what the base knew of the profile.
+            'followers_count': profile_info.get('followers_count'),
+            'following_count': profile_info.get('following_count'),
+            'posts_count': profile_info.get('posts_count'),
+            'is_private': profile_info.get('is_private'),
             'notes': ''  # Don't auto-populate notes
         }
         
