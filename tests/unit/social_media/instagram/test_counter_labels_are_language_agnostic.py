@@ -118,8 +118,16 @@ class _DeviceServing:
         return _Query()
 
 
+class _ReelViewerReader:
+    """The framed post's reader on the full-screen Reel viewer, which is no list of posts: no row
+    to keep to (a list is `test_likers_open_on_the_framed_post.py`'s, on real captures)."""
+
+    def framed_post_like_target(self):
+        return {"list": False}
+
+
 def _finder_for(element):
-    return InstagramUIExtractors(_DeviceServing(element)).find_like_count_element()
+    return InstagramUIExtractors(_DeviceServing(element), framed_post=_ReelViewerReader()).find_like_count_element()
 
 
 @pytest.mark.parametrize("label", [

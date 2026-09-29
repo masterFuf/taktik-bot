@@ -96,7 +96,7 @@
   "taktik/core/social_media/instagram/media/proxy/proxy_manager.py": 2,
   "taktik/core/social_media/instagram/recorder/human_behavior_recorder.py": 2,
   "taktik/core/social_media/instagram/ui/detectors/problematic_page.py": 2,
-  "taktik/core/social_media/instagram/ui/extractors.py": 2,
+  "taktik/core/social_media/instagram/ui/extractors.py": 1,
   "taktik/core/social_media/instagram/ui/watchdog.py": 4,
   "taktik/core/social_media/instagram/workflows/common/comments_thread.py": 1,
   "taktik/core/social_media/instagram/workflows/common/detection.py": 5,

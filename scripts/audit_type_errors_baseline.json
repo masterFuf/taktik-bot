@@ -172,7 +172,7 @@
   "taktik/core/social_media/instagram/actions/business/workflows/feed/post_actions.py": 25,
   "taktik/core/social_media/instagram/actions/business/workflows/feed/suggestions.py": 55,
   "taktik/core/social_media/instagram/actions/business/workflows/feed/suggestions_parsing.py": 2,
-  "taktik/core/social_media/instagram/actions/business/workflows/feed/suggestions_visit.py": 21,
+  "taktik/core/social_media/instagram/actions/business/workflows/feed/suggestions_visit.py": 17,
   "taktik/core/social_media/instagram/actions/business/workflows/feed/workflow.py": 5,
   "taktik/core/social_media/instagram/actions/business/workflows/followers/mixins/checkpoints.py": 13,
   "taktik/core/social_media/instagram/actions/business/workflows/followers/mixins/extraction.py": 31,

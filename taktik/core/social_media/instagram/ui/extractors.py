@@ -10,9 +10,13 @@ log = logger.bind(module="instagram-ui-extractors")
 
 
 class InstagramUIExtractors:
-    def __init__(self, device):
+    def __init__(self, device, framed_post=None):
+        """`framed_post`: the reader of the framed post of a list of posts, the scroll owner built on
+        the same device (`PostReadingMixin.framed_post_like_target`, the reading the like uses). It
+        says which button row is the framed post's; without it no like counter is taken on a list."""
         self.device = device
-        
+        self.framed_post = framed_post
+
         from .selectors import POST_SELECTORS, POPUP_SELECTORS, DETECTION_SELECTORS
         self.post_selectors = POST_SELECTORS
         self.popup_selectors = POPUP_SELECTORS
@@ -274,14 +278,33 @@ class InstagramUIExtractors:
     
     
     def find_like_count_element(self, logger_instance=None):
+        """The like counter that opens the likers of the post the screen frames; None when the
+        screen shows none.
+
+        On a list of posts (the home feed, a hashtag's or a profile's posts), only the framed
+        post's own button row counts: the row at the top of the screen is often the post above's.
+        In that row the counter is the button just after the heart (`like_count_selectors`); a post
+        that hides its likes has none there, and the first number of its row is its comment count.
+        Off a list (the full-screen Reel viewer), the viewer's own counter.
+        """
         logger_to_use = logger_instance if logger_instance else log
-        
+        target = self._framed_post_target(logger_to_use)
+        if target is None:
+            return None
+        on_a_list, framed_row = target["list"], target.get("row")
+        if on_a_list and framed_row is None:
+            logger_to_use.warning("The framed post's button row is not on screen: no like counter")
+            return None
+
         for selector in self.post_selectors.like_count_selectors:
             try:
                 elements = self.device.xpath(selector).all()
                 logger_to_use.debug(f"Selector '{selector}' found {len(elements)} elements")
-                
+
                 for element in elements:
+                    if on_a_list and not _in_row(element.bounds, framed_row):
+                        logger_to_use.debug(f"Counter of another post's row skipped: {element.bounds}")
+                        continue
                     try:
                         text = None
                         if hasattr(element, 'text'):
@@ -295,8 +318,8 @@ class InstagramUIExtractors:
                         try:
                             element_info = element.info
                             content_desc = element_info.get('contentDescription', '')
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger_to_use.debug(f"Counter description unreadable, its text read alone: {exc}")
                         
                         logger_to_use.debug(f"Checking element - text: '{text}', content-desc: '{content_desc}' (clickable: {element.attrib.get('clickable', 'unknown')})")
                         
@@ -323,7 +346,18 @@ class InstagramUIExtractors:
         
         logger_to_use.warning("❌ No like counter found with all selectors")
         return None
-    
+
+    def _framed_post_target(self, logger_to_use) -> Optional[Dict[str, Any]]:
+        """What the framed post's reader says of the screen: a list of posts and the framed post's
+        button row, or no list at all. None when it cannot be told."""
+        if self.framed_post is None:
+            logger_to_use.error("No reader of the framed post: its like counter cannot be told from another post's")
+            return None
+        target = self.framed_post.framed_post_like_target()
+        if target is None:
+            logger_to_use.warning("Screen unreadable: no like counter")
+        return target
+
     def extract_usernames_from_likers_popup(
         self,
         max_interactions: int = None,
@@ -569,6 +603,12 @@ class InstagramUIExtractors:
 def parse_instagram_number(text: str) -> int:
     """Parse Instagram number - delegates to parse_number_from_text"""
     return parse_number_from_text(text)
+
+
+def _in_row(bounds, row) -> bool:
+    """An element of a post's button row lies between the row's top and bottom, as the framed
+    post's reader keeps the counters and the heart of its row (`PostReadingMixin._framed_window`)."""
+    return row[1] <= bounds[1] and bounds[3] <= row[3]
 
 
 # The first number inside a counter label, and nothing else. Digits, thousand separators

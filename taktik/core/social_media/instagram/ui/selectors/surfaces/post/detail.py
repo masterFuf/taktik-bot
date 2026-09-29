@@ -90,16 +90,13 @@ class PostSelectors:
     
     # === Détection et extraction de likes ===
     _like_count_selectors_base: List[str] = field(default_factory=lambda: [
-        # PRIORITY 1: Reel-specific selector (most specific, check first)
+        # The full-screen Reel viewer's counter.
         '//*[@resource-id="com.instagram.android:id/like_count"]',
-        # PRIORITY 2: Regular post selectors
-        # Most reliable selector: ALWAYS the first Button carrying text (= likes)
-        # Structure Instagram : ViewGroup[0]=J'aime, Button[1]=Likes, ViewGroup[2]=Commentaire, Button[3]=Nb commentaires, Button[4-6]=Partages
-        '(//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/android.widget.Button[@text])[1]',
-        # Fallback: the button right after the like-button container
-        '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/*[@resource-id="com.instagram.android:id/row_feed_button_like"]/parent::*/following-sibling::android.widget.Button[@text][1]',
-        # Further fallbacks, for compatibility
-        '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/android.widget.Button[@text and @clickable="true"][1]',
+        # A post of a list: in its button row, the button right after the ViewGroup of the heart
+        # (the Lab's 410 dumps). A post that hides its likes has its comment button there, and
+        # the first number of its row is its comment count. Which row is the framed post's is
+        # `find_like_count_element`'s.
+        '//*[@resource-id="com.instagram.android:id/row_feed_view_group_buttons"]/*[.//*[@resource-id="com.instagram.android:id/row_feed_button_like"]]/following-sibling::*[1][self::android.widget.Button and string-length(@text) > 0]',
         '//*[@resource-id="com.instagram.android:id/row_feed_like_count_facepile"]',
     ])
 
