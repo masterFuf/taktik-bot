@@ -3,7 +3,7 @@
 
 The bridge owns desktop concerns only: config loading, DB bootstrap, device
 connection, cleanup and stdout JSON events. Gmail account operations live in
-`taktik.core.app.email.gmail.workflows.account`.
+`taktik.core.social_media.gmail.workflows.account`.
 """
 
 from __future__ import annotations

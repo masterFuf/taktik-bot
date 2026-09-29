@@ -10,8 +10,8 @@ This one adds a line to the prompt and gets out of the way. Measured: +4 % cost 
 cached prefix), no loss of variety, and on a forced probe 1 mistake in 30 uses became 0 in 40.
 """
 
-from taktik.core.app.ai import glossary
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai import glossary
+from taktik.core.ai.providers.openrouter import AIService
 
 
 def system_prompt(language, reply=False):

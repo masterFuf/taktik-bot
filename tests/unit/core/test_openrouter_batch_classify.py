@@ -5,7 +5,7 @@ batch was dropped. Now the token budget scales with the batch size and, if a res
 truncated, every COMPLETE '"user": {...}' entry is salvaged so only the cut-off tail is lost.
 """
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 def _service(monkeypatch, model_text):

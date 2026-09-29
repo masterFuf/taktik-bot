@@ -3,7 +3,7 @@
 from typing import Any, Callable
 
 from bridges.gmail.account.runtime.workflow_result import finish_account_result
-from taktik.core.app.email.gmail.workflows.agent_handler import (
+from taktik.core.social_media.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
     read_otp_params_from_payload,
     run_gmail_account,

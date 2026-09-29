@@ -1,4 +1,4 @@
-from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+from taktik.core.social_media.gmail.workflows.account import GmailWorkflow
 
 
 class _FakeNotifier:

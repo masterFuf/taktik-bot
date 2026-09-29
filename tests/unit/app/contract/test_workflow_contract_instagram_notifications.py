@@ -22,7 +22,7 @@ import pytest
 
 from contract_probe import Recording
 from ig_automation_probe import protect_hooks
-from taktik.core.app.contract.instagram_notifications import (
+from taktik.core.contract.instagram_notifications import (
     BATCH_VERBS,
     COMMANDS,
     INSTAGRAM_NOTIFICATIONS,

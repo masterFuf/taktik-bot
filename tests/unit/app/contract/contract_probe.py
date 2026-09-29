@@ -6,7 +6,7 @@ import importlib
 import inspect
 from typing import Any, Dict, Iterable, Mapping, Set, Tuple
 
-from taktik.core.app.contract.schema import (
+from taktik.core.contract.schema import (
     Field,
     ListOf,
     MapOf,

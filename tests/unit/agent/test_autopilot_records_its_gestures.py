@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
+import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
 import taktik.core.social_media.instagram.actions.business.workflows.feed as feed_package
-from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
+from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
 from taktik.core.shared.diagnostics import run_halt
 
 #: The screen the run reads between gestures (the block check): a real home feed of Instagram

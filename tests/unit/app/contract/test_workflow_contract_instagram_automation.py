@@ -22,8 +22,8 @@ import pytest
 
 from contract_probe import Recording, declared_reads, under
 from ig_automation_probe import bridge_file, file_paths, protect_hooks
-from taktik.core.app.contract.instagram_automation import INSTAGRAM_AUTOMATION, WORKFLOW_TYPES
-from taktik.core.app.contract.schema import HOST
+from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION, WORKFLOW_TYPES
+from taktik.core.contract.schema import HOST
 
 CORE = Path(__file__).resolve().parents[4]
 

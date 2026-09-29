@@ -9,7 +9,7 @@ call with reasoning off. Three separate defects showed up at once, and each is l
 import io
 import json
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 class _Response:

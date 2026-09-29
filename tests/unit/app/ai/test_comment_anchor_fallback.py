@@ -5,7 +5,7 @@ take that option by default (bland answers 5 -> 10 of 18, average length 97 -> 6
 So the model writes both and states its anchor; this module verifies the claim and picks.
 """
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 VISION = "A wet cobblestone square at night, reflets sur les paves"
 CAPTION = "Sous la chaleur de la pluie"

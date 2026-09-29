@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from taktik.core.app.ai.spend import AI_SPEND_AD
+from taktik.core.ai.spend import AI_SPEND_AD
 
 log = logger.bind(module="instagram-ad-analysis")
 

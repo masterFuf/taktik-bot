@@ -4,7 +4,7 @@ Besides the raw comment texts used to infer the persona, this also captures the 
 account's OWN lines in the comments (its top-level comments and its replies to other people) —
 an authentic corpus of how it writes. Those samples ride along on the persona result and are fed
 to the AI so Taktik Agent's smart comments sound like the account
-(`app/ai/providers/openrouter.py::_build_style_block`). "Self" = the analyzed profile owner, so
+(`ai/providers/openrouter.py::_build_style_block`). "Self" = the analyzed profile owner, so
 the same flow serves a prospect (public) and our own account (connected).
 """
 

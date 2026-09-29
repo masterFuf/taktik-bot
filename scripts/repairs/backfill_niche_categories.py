@@ -33,7 +33,7 @@ from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from taktik.core.app.ai.providers.openrouter import AIService  # noqa: E402
+from taktik.core.ai.providers.openrouter import AIService  # noqa: E402
 
 try:
     from loguru import logger

@@ -10,7 +10,7 @@ import sqlite3
 
 import pytest
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 from taktik.core.database.local.schema import create_schema
 from taktik.core.database.repositories.eval import PromptCaptureRepository
 

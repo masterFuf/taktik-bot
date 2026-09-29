@@ -19,7 +19,7 @@ import pytest
 
 from contract_probe import Recording
 from ig_automation_probe import use_the_bridge_ipc
-from taktik.core.app.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
+from taktik.core.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from test_workflow_contract_bridges import check_lines
 from test_workflow_contract_instagram_bridges import app_file, assert_reads, printed  # noqa: F401
@@ -214,7 +214,7 @@ def agent_bridge(monkeypatch, tmp_path):
     import tempfile
 
     import bridges.instagram.agent.runtime.commands as commands
-    import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
+    import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
     import taktik.core.shared.diagnostics.action_block as action_block
     import taktik.core.social_media.instagram.actions.atomic.interaction as interaction
     import taktik.core.social_media.instagram.actions.atomic.navigation as navigation
@@ -339,7 +339,7 @@ _FILE_GESTURES = InstagramWorkflowStateService.__dict__["record_individual_actio
 @pytest.fixture
 def ledger(agent_bridge, monkeypatch, tmp_path):
     """A real, empty base: the session files its gestures in it, the budget reads the day from it."""
-    import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
+    import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
     import taktik.core.database as database
     import taktik.core.database.local.service as service
     import taktik.core.social_media.instagram.workflows.management.session.warmup_budget as warmup_budget
@@ -463,7 +463,7 @@ def test_two_gestures_are_never_closer_than_the_warmup_gap(agent_bridge, ledger,
     """The automation's pace floor (`minActionGapSeconds`, 45 s on a cold account) between every two
     gestures of the session: the like, its comment, the follow, the like on the author's profile.
     The Agent chained them 1.5 to 6 s apart."""
-    import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
+    import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
     from taktik.core.social_media.instagram.actions.core.base_business.stats_recording import StatsRecordingMixin
 
     clock = SimpleNamespace(now=0.0)
@@ -537,7 +537,7 @@ def test_every_line_helper_of_the_agent_is_declared():
     import inspect
 
     from bridges.common.runtime.ipc_agent import AgentIpcMixin
-    from taktik.core.agent.scenarios import instagram_feed_autopilot
+    from taktik.core.social_media.instagram.workflows.agent import autopilot as instagram_feed_autopilot
 
     sent = set()
     for source in (inspect.getsource(AgentIpcMixin), inspect.getsource(instagram_feed_autopilot)):

@@ -1,7 +1,9 @@
 import pytest
 
 import taktik.core.clone as clone
-from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
+from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
+from taktik.core.kernel.executor import AgentPlanExecutor
+from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.tiktok.workflows.publish import (
     TIKTOK_UPLOAD_POST_WORKFLOW_ID,
     register_tiktok_publish_handlers,

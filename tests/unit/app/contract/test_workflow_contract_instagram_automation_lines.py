@@ -32,7 +32,7 @@ from ig_automation_probe import (
     protect_hooks,
     use_the_bridge_ipc,
 )
-from taktik.core.app.contract.instagram_automation import INSTAGRAM_AUTOMATION, WORKFLOW_TYPES
+from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION, WORKFLOW_TYPES
 
 _BUSINESS = "taktik.core.social_media.instagram.actions.business"
 #: IPCEmitter entry points only the scraping workflows call: not on this path.

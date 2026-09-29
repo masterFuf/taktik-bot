@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.threads.workflows import agent_handler
 from taktik.core.social_media.threads.workflows.search_and_interact import InteractStats
 

@@ -25,8 +25,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
 from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.management.session.warmup_budget import WarmupBudget
@@ -79,7 +79,7 @@ def run_instagram_agent(
         ipc.status("instagram_ready", "Instagram launched successfully")
 
     # Imported here, by name: the app's config contract test follows the config into the class.
-    from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
+    from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
 
     workflow = TaktikAgentWorkflow(
         device_manager=runtime.device_manager,

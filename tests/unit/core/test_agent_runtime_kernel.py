@@ -1,4 +1,5 @@
-from taktik.core.agent import AgentAI, TaktikAgentWorkflow
+from taktik.core.ai.agent_decisions import AgentAI
+from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
 
 
 class _DummyDeviceManager:

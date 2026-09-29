@@ -54,7 +54,7 @@ from typing import Any, Dict, List, Optional
 # the prompt would benchmark the reimplementation.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from taktik.core.app.ai.factory import build_ai_service  # noqa: E402
+from taktik.core.ai.factory import build_ai_service  # noqa: E402
 from taktik.core.database.ai_benchmark import AIBenchmark  # noqa: E402
 
 # Cost of one replayed call on the reference model, measured on the production ledger over

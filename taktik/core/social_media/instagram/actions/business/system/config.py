@@ -64,7 +64,7 @@ class ConfigBusiness(BaseAction):
         """
         try:
             # Dynamic import, to avoid circular dependencies
-            from taktik.core.app.config import APIEndpointManager
+            from taktik.core.shared.config.api_endpoints import APIEndpointManager
             
             endpoint_manager = APIEndpointManager()
             base_url = endpoint_manager.get_primary_endpoint()

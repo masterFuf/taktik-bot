@@ -18,9 +18,9 @@ from typing import Any, Dict, List
 import pytest
 
 from contract_probe import DEVICE, Recording, probe
-from taktik.core.app.contract.schema import Field, ListOf, MapOf, OneOf, Shape, WorkflowContract, has_default
-from taktik.core.app.contract.tiktok import TIKTOK_DM_OUTREACH, TIKTOK_SCRAPING, TIKTOK_UNFOLLOW
-from taktik.core.app.contract.tiktok_automation import TIKTOK_FOR_YOU, TIKTOK_SEARCH
+from taktik.core.contract.schema import Field, ListOf, MapOf, OneOf, Shape, WorkflowContract, has_default
+from taktik.core.contract.tiktok import TIKTOK_DM_OUTREACH, TIKTOK_SCRAPING, TIKTOK_UNFOLLOW
+from taktik.core.contract.tiktok_automation import TIKTOK_FOR_YOU, TIKTOK_SEARCH
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
 
@@ -459,7 +459,7 @@ def test_the_followers_bridge_follows_its_contract(monkeypatch, lines, no_ip_rot
     import bridges.tiktok.workflows.automation.followers as runner
     import taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler as launcher
     import taktik.core.social_media.tiktok.actions.business.workflows.followers.workflow as workflow
-    from taktik.core.app.contract.tiktok_profiles import TIKTOK_FOLLOWERS
+    from taktik.core.contract.tiktok_profiles import TIKTOK_FOLLOWERS
 
     dispatcher = _profile_run(monkeypatch, runner, workflow, "FollowersWorkflow", fail)
     monkeypatch.setattr(launcher, "_return_home", lambda device: True)
@@ -484,7 +484,7 @@ def test_the_followers_bridge_follows_its_contract(monkeypatch, lines, no_ip_rot
 def test_the_single_pass_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotation, name):
     import importlib
 
-    from taktik.core.app.contract import tiktok_profiles
+    from taktik.core.contract import tiktok_profiles
 
     contract = {"target_profiles": tiktok_profiles.TIKTOK_TARGET_PROFILES,
                 "post_url": tiktok_profiles.TIKTOK_POST_URL}[name]
@@ -557,7 +557,7 @@ def _printed(lines):
 def test_the_sync_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation):
     import bridges.tiktok.workflows.automation.sync_lists as runner
     import taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.workflow as workflow
-    from taktik.core.app.contract.tiktok_engagement import TIKTOK_SYNC
+    from taktik.core.contract.tiktok_engagement import TIKTOK_SYNC
     from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import SyncListsStats
 
     class Sync(_Scripted):
@@ -579,7 +579,7 @@ def test_the_sync_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation
 
 
 def test_the_dm_read_and_send_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotation):
-    from taktik.core.app.contract.tiktok_engagement import TIKTOK_DM_READ, TIKTOK_DM_SEND
+    from taktik.core.contract.tiktok_engagement import TIKTOK_DM_READ, TIKTOK_DM_SEND
     from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import ConversationData, DMStats
 
     class Dm(_Scripted):
@@ -666,7 +666,7 @@ _INBOX_RUNS = (
 @pytest.mark.parametrize("runner, name, overrides, printed, other_mode", _INBOX_RUNS)
 def test_the_inbox_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotation, runner, name, overrides,
                                                  printed, other_mode):
-    from taktik.core.app.contract import tiktok_engagement
+    from taktik.core.contract import tiktok_engagement
 
     contract = getattr(tiktok_engagement, name)
     code, data, log = _engagement_run(monkeypatch, runner, contract, _Inbox, **overrides)
@@ -680,7 +680,7 @@ def test_the_inbox_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotat
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_notifications_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
     import taktik.core.social_media.tiktok.actions.business.workflows.notifications.scan as scan
-    from taktik.core.app.contract.tiktok_engagement import TIKTOK_NOTIFICATIONS
+    from taktik.core.contract.tiktok_engagement import TIKTOK_NOTIFICATIONS
 
     def scanned(device, account_username, max_resolutions):
         if fail:

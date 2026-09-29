@@ -147,20 +147,6 @@ CONTRACTS = (
 
 #: (contract, file): (ceiling, why it holds and what removes it). The list only shrinks.
 EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
-    ("transverse-no-platform", "taktik/core/agent/scenarios/instagram_feed_autopilot.py"): (
-        17, "The Taktik Agent session (`TaktikAgentWorkflow`) drives Instagram from `agent/scenarios/`, "
-            "the place AGENTS.md gives the legacy autopilots. A module of one platform lives under it: "
-            "moving it to `social_media/instagram/workflows/agent/` removes the entry."),
-    ("transverse-no-platform", "taktik/core/app/ai/comments/generation.py"): (
-        1, "Comment generation, shared by Instagram and TikTok, reads the anchor rules from "
-           "`social_media/instagram/workflows/common/comment_context` (lazily, to break an import "
-           "loop): a TikTok run loads Instagram code. The anchor rules are not Instagram-specific; "
-           "moving them under `app/ai/comments/` removes the entry."),
-    ("transverse-no-platform", "taktik/core/app/email/gmail/workflows/agent_handler.py"): (
-        1, "The Gmail Agent handlers reuse TikTok's internal adaptation helpers "
-           "(`tiktok/actions/business/workflows/_internal/agent_runtime.py`), which AGENTS.md keeps for "
-           "the handlers of one platform. Shared by two families, they belong with the handler "
-           "contract (`agent/kernel/`); moving them removes the entry."),
     ("cli-no-bridges", "taktik/cli/hosts/instagram.py"): (
         10, "The Instagram host of the CLI opens its session through `bridges.common.device` "
             "(connection, app lifecycle, IP rotation) and `bridges.instagram.runtime.bridge`, the "
@@ -362,7 +348,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
     def listed(module: SourceModule, expect: str) -> dict:
         return {"modules": {**modules, module.path: module}, "expect": expect}
 
-    one = modules["taktik/core/app/ai/comments/generation.py"]
+    one = modules["taktik/core/ai/comments/generation.py"]
     two = modules["taktik/core/compat/selectors/setup.py"]
     without_tiktok = tuple(s for s in two.statements
                            if not any(t.startswith("taktik.core.social_media.tiktok") for t in s.targets))

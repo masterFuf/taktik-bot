@@ -4,7 +4,7 @@ YouTube Upload Bridge
 =====================
 Bridge for publishing a video (Short or standard Video) on YouTube.
 
-Config JSON (declared in `taktik/core/app/contract/publish.py`):
+Config JSON (declared in `taktik/core/contract/publish.py`):
   {
     "deviceId": "...",
     "localPath": "/absolute/path/to/file.mp4",

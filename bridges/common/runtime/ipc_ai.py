@@ -16,7 +16,7 @@ class AIIpcMixin:
         agent decision all cost real money and emit no card — that spend used to be invisible
         in the session total and in Analytics.
 
-        `kind` is the closed spend vocabulary (`taktik.core.app.ai.spend`): profile, post,
+        `kind` is the closed spend vocabulary (`taktik.core.ai.spend`): profile, post,
         comment, verdict, audience, decision, dm, other. It is what the desktop groups the
         session's cost BY — the `label` beside it carries a username and is free text, so it
         can only ever be read by a human.

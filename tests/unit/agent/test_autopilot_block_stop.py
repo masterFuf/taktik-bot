@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
+from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
 from taktik.core.shared.diagnostics import run_halt
 
 
@@ -32,7 +32,7 @@ _FEED_SCREEN = (Path(__file__).parents[1] / "social_media" / "instagram" / "fixt
 @pytest.fixture(autouse=True)
 def _lock_lifted(monkeypatch):
     monkeypatch.setattr(
-        "taktik.core.agent.scenarios.instagram_feed_autopilot.time.sleep", lambda *_a, **_k: None
+        "taktik.core.social_media.instagram.workflows.agent.autopilot.time.sleep", lambda *_a, **_k: None
     )
     run_halt.reinitialiser()
     yield
@@ -163,7 +163,7 @@ class _FeedAI:
 def test_the_feed_loop_stops_between_a_refused_like_and_its_comment(monkeypatch):
     import time as _time
 
-    import taktik.core.agent.scenarios.instagram_feed_autopilot as autopilot
+    import taktik.core.social_media.instagram.workflows.agent.autopilot as autopilot
     import taktik.core.social_media.instagram.actions.business.workflows.feed as feed_package
 
     gestures = []

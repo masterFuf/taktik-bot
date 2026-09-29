@@ -11,7 +11,7 @@ running without an injected taxonomy keeps answering exactly as it did before th
 """
 import pytest
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 APP_CATEGORIES = [

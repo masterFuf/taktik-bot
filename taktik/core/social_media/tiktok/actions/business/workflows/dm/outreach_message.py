@@ -30,9 +30,9 @@ def generate_outreach_message(username: str, ai_prompt: str, api_key: str, *, ip
     """A personalised cold DM for @username, or "" on any failure (the caller then falls back on
     the static list)."""
     try:
-        from taktik.core.app.ai import factory
-        from taktik.core.app.ai.providers.openrouter import MODEL_GENERATION
-        from taktik.core.app.ai.spend import AI_SPEND_DM
+        from taktik.core.ai import factory
+        from taktik.core.ai.providers.openrouter import MODEL_GENERATION
+        from taktik.core.ai.spend import AI_SPEND_DM
 
         user_prompt = (
             f"Génère un message de prospection TikTok pour @{username}.\n\n"

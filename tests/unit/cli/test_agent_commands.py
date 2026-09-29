@@ -1,6 +1,6 @@
 """The Agent must be startable without the desktop app.
 
-`TaktikAgentWorkflow` lives in `taktik/core/agent/`, takes its device manager and config by
+`TaktikAgentWorkflow` lives in `taktik/core/social_media/instagram/workflows/agent/`, takes its device manager and config by
 injection, and treats the notifier as optional — nothing about it required a bridge. Yet its
 desktop bridge was the only caller, so a standalone user could not start the bot's autonomous
 path at all.
@@ -40,7 +40,7 @@ def test_the_cli_does_not_import_a_bridge():
     """
     source = Path("taktik/cli/commands/instagram/agent.py").read_text(encoding="utf-8")
     assert "bridges" not in source.replace("bridges/", "")  # the word only appears in prose
-    assert "taktik.core.app.ai.factory" in source
+    assert "taktik.core.ai.factory" in source
     assert "AIService(" not in source, "build through the shared factory, never directly"
 
 

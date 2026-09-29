@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The declared bot/app contract (`taktik/core/app/contract/`) still names real things.
+"""The declared bot/app contract (`taktik/core/contract/`) still names real things.
 
 Rule 3 of the anti-drift doctrine: the contract is declared once and the app's types are generated
 from it. The readers are held to the declaration by `tests/unit/app/contract`; this audit holds the
@@ -76,8 +76,8 @@ def app_root(root: Path = ROOT) -> Path:
 
 def problems(root: Path = ROOT, app: Path | None = None) -> List[str]:
     import workflow_contract
-    from taktik.core.app.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS
-    from taktik.core.app.contract.schema import nested_fields
+    from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS
+    from taktik.core.contract.schema import nested_fields
 
     found: List[str] = []
     runnable, bridges = _runnable(root), _bridges(root)
@@ -135,7 +135,7 @@ def main() -> int:
         for line in found:
             print(f"  - {line}")
         return 1
-    from taktik.core.app.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS
+    from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS
 
     app = app_root()
     checked = "generated file up to date" if app.is_dir() else "app not found, generated file not checked"

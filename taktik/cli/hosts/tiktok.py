@@ -92,7 +92,7 @@ def cli_tiktok_welcome_qualifier(ai_config: Mapping[str, Any], language: str):
     if ai_config is None:
         return None
 
-    from taktik.core.app.ai.factory import create_ai_service
+    from taktik.core.ai.factory import create_ai_service
     from taktik.core.social_media.tiktok.workflows.core.ai_hooks import build_tiktok_profile_qualifier
 
     enabled, service = create_ai_service(

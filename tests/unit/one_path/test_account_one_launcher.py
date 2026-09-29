@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 from click.testing import CliRunner
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowRegistry
 
 DEVICE = object()
 DEVICE_ID = "emulator-5554"
@@ -113,7 +113,7 @@ def _bridge_uses(monkeypatch, run, factories):
 
 
 def test_every_instagram_account_flow_of_the_bridge_is_declared_and_launched():
-    from taktik.core.agent import load_workflow_manifest
+    from taktik.core.kernel.manifest import load_workflow_manifest
     from taktik.core.social_media.instagram.workflows.management.agent_handler import (
         register_instagram_account_handlers,
     )

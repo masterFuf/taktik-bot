@@ -7,8 +7,8 @@ import json
 from typing import Any, Dict, List
 
 from contract_probe import DEVICE
-from taktik.core.app.contract.instagram_automation import INSTAGRAM_AUTOMATION
-from taktik.core.app.contract.schema import Field, ListOf, MapOf, OneOf, Shape, has_default
+from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION
+from taktik.core.contract.schema import Field, ListOf, MapOf, OneOf, Shape, has_default
 
 #: Classes the AI hooks patch for a run; a test puts them back.
 HOOKED = (

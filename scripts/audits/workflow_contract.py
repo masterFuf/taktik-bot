@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the bot/app contract (`taktik/core/app/contract/`) for the desktop app.
+"""Render the bot/app contract (`taktik/core/contract/`) for the desktop app.
 
 The app's types for the declared workflows are generated from the declaration, never written by
 hand: the settings each workflow reads, the file its bridge reads, the lines its bridge prints; the
@@ -28,8 +28,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from taktik.core.app.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS  # noqa: E402
-from taktik.core.app.contract.schema import (  # noqa: E402
+from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS  # noqa: E402
+from taktik.core.contract.schema import (  # noqa: E402
     HOST,
     Computed,
     Event,
@@ -42,7 +42,7 @@ from taktik.core.app.contract.schema import (  # noqa: E402
     WorkflowContract,
     scalar_default,
 )
-from taktik.core.app.contract.shared import (  # noqa: E402
+from taktik.core.contract.shared import (  # noqa: E402
     AI_COMMENT_DONE_EVENT,
     AI_COMMENT_START_EVENT,
     AI_ERROR_EVENT,
@@ -58,7 +58,7 @@ from taktik.core.app.contract.shared import (  # noqa: E402
     STATUS_EVENT,
     STEP_METRIC_EVENT,
 )
-from taktik.core.app.contract.stop_reasons import CATALOGUES  # noqa: E402
+from taktik.core.contract.stop_reasons import CATALOGUES  # noqa: E402
 
 #: Lines every bridge shares get one interface, referenced by each workflow.
 SHARED_LINES = {
@@ -81,7 +81,7 @@ SHARED_LINES = {
 HEADER = """/**
  * GENERATED from the bot - do not edit: `npm run workflow:contract -- --write`.
  *
- * The bot/app contract as the bot declares it (`core/taktik/core/app/contract/`): for each declared
+ * The bot/app contract as the bot declares it (`core/taktik/core/contract/`): for each declared
  * workflow, the settings its launcher reads (`<Name>Settings`, `<NAME>_BOT_DEFAULTS` the defaults the
  * bot applies when a key is absent), the file its bridge reads (`<Name>BridgePayload`) and the stdout lines the app
  * reads (`<Name>BridgeLine`); the lines of the diagnostic tools the app runs beside them; the catalogues

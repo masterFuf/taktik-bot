@@ -3,13 +3,13 @@
 The Agent is the bot's autonomous Instagram path, and it was reachable only from the desktop app:
 its bridge was the single caller, so a standalone user had no way to start it.
 
-Nothing about the workflow required that. `TaktikAgentWorkflow` lives in `taktik/core/agent/`,
+Nothing about the workflow required that. `TaktikAgentWorkflow` lives in `taktik/core/social_media/instagram/workflows/agent/`,
 takes its device manager and its config by injection, and treats the notifier as optional. A run
 goes through `run_instagram_agent`, the launcher the desktop bridge calls: the device is prepared
 the way the bridge prepares it (clone-aware proxy, device facade, selector overrides of the
 installed version) and Instagram gets the same clean restart. It used to be launched hot on the raw
 device, on the official package whatever `packageName` said. The AI factory builds the same
-provider as the bridge's, from `taktik/core/app/ai/`.
+provider as the bridge's, from `taktik/core/ai/`.
 
 The Agent is AI by nature: its decisions are the model's. The OpenRouter key is therefore made sure
 of before the phone is touched (`ai_key.py`): the environment, the key typed earlier, the saved
@@ -27,7 +27,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from taktik.cli.hosts.ai_key import MISSING_KEY_EXIT, MissingAIKeyError, ensure_ai_key, is_interactive
-from taktik.core.app.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
+from taktik.core.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 
 console = Console()
 
@@ -121,7 +121,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
         console.print(f"[red]Cannot connect to {device_id}.[/red]")
         raise SystemExit(1)
 
-    from taktik.core.app.ai.factory import build_ai_service
+    from taktik.core.ai.factory import build_ai_service
 
     def ai_service_factory(*, api_key: str, ipc=None, vision_model=None, text_model=None):
         # Standalone CLI: no premium taxonomy to inject, the classifier stays free-form.

@@ -1,7 +1,9 @@
 import pytest
 
-from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
-from taktik.core.app.email.gmail.workflows import (
+from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
+from taktik.core.kernel.executor import AgentPlanExecutor
+from taktik.core.kernel.registry import WorkflowRegistry
+from taktik.core.social_media.gmail.workflows import (
     GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
     GMAIL_ACCOUNT_LOGOUT_WORKFLOW_ID,
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,

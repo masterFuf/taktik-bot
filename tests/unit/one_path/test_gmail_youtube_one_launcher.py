@@ -7,8 +7,8 @@ the payload: `youtube/workflows/publish/payload.py`).
 """
 from __future__ import annotations
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowRegistry
 
 DEVICE = object()
 DEVICE_ID = "emulator-5554"
@@ -43,7 +43,7 @@ def _fake_gmail(recorder):
 
 
 def _gmail_handler(workflow_id, params, factory, persisted):
-    from taktik.core.app.email.gmail.workflows.agent_handler import register_gmail_account_handlers
+    from taktik.core.social_media.gmail.workflows.agent_handler import register_gmail_account_handlers
 
     registry = WorkflowRegistry()
     register_gmail_account_handlers(registry, device=DEVICE, device_id=DEVICE_ID,
@@ -54,7 +54,7 @@ def _gmail_handler(workflow_id, params, factory, persisted):
 
 def test_gmail_login_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch):
     from bridges.gmail.account.runtime import workflow_login
-    from taktik.core.app.email.gmail.workflows import agent_handler
+    from taktik.core.social_media.gmail.workflows import agent_handler
 
     bridge, cli = Recorder(), Recorder()
     bridge_saved: list[str] = []
@@ -78,7 +78,7 @@ def test_gmail_login_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch):
 
 def test_gmail_scan_persists_the_same_accounts_from_both_hosts(monkeypatch):
     from bridges.gmail.account.runtime import workflow_scan
-    from taktik.core.app.email.gmail.workflows import agent_handler
+    from taktik.core.social_media.gmail.workflows import agent_handler
 
     bridge, cli = Recorder(), Recorder()
     bridge_saved: list[str] = []

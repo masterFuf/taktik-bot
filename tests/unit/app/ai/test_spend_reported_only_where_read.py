@@ -10,7 +10,7 @@ notifications pass and the TikTok welcome pass. An event emitted without a reade
 import json
 import urllib.request
 
-from taktik.core.app.ai.factory import build_ai_service
+from taktik.core.ai.factory import build_ai_service
 
 
 class _RecordingIpc:

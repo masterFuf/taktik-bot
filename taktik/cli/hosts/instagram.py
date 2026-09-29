@@ -158,7 +158,7 @@ def cli_instagram_scraping_ai_service(*, api_key: str, ipc=None, vision_model: s
                                       text_model: str = None, niche_taxonomy: dict = None):
     """The AI service a scraping run builds: the core's, as the bridge's factory builds it
     (no `ai_spend`: nothing reads it for this run)."""
-    from taktik.core.app.ai.factory import build_ai_service
+    from taktik.core.ai.factory import build_ai_service
 
     return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model,
                             text_model=text_model, niche_taxonomy=niche_taxonomy,
@@ -169,7 +169,7 @@ def cli_instagram_agent_ai_service_factory(*, api_key: str, ipc=None, vision_mod
                                             text_model: str = None):
     """The AI service a Taktik Agent session builds (its key: the config's or the environment's):
     the core's, as the bridge's factory builds it; no premium taxonomy in standalone, no `ai_spend`."""
-    from taktik.core.app.ai.factory import build_ai_service
+    from taktik.core.ai.factory import build_ai_service
 
     return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model,
                             report_spend=False)
@@ -182,7 +182,7 @@ def cli_instagram_ai_service(ai_config: Mapping[str, Any]):
     if ai_config is None:
         return None
 
-    from taktik.core.app.ai.factory import create_ai_service
+    from taktik.core.ai.factory import create_ai_service
 
     enabled, service = create_ai_service(
         ai_config=ai_config,
@@ -208,7 +208,7 @@ def _run_through_handler(device_manager: Any, device_id: str, workflow_id: str,
     gets its key first (asked for at a terminal, `MissingAIKeyError` otherwise)."""
     from taktik.cli.hosts.ai_key import ensure_ai_key, is_interactive
     from taktik.cli.hosts.registry import build_registry
-    from taktik.core.agent.kernel.contracts import WorkflowInvocation
+    from taktik.core.kernel.contracts import WorkflowInvocation
 
     ensure_ai_key(workflow_id, payload, interactive=is_interactive())
 

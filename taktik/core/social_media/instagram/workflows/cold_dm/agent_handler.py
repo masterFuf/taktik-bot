@@ -25,8 +25,8 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.cold_dm.payload import cold_dm_request_from_payload
 from taktik.core.social_media.instagram.workflows.cold_dm.results import validate_cold_dm_inputs
 from taktik.core.social_media.instagram.workflows.cold_dm.session import (

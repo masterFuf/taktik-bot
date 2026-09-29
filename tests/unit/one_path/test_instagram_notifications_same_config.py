@@ -7,8 +7,8 @@ bridge does; what each host prints is its own business, the result is the same.
 """
 from __future__ import annotations
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.management.notifications.agent_handler import (
     INSTAGRAM_NOTIFICATIONS_WORKFLOW_ID,
     register_instagram_notifications_handlers,

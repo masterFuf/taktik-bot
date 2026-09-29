@@ -11,7 +11,7 @@ red, and the only thing that says a task moved to the wrong model is the bill, w
 
 import json
 
-from taktik.core.app.ai.providers.openrouter import (
+from taktik.core.ai.providers.openrouter import (
     MODEL_ANALYSIS,
     MODEL_CLASSIFICATION,
     MODEL_GENERATION,

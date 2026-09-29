@@ -124,7 +124,7 @@ def run_sessions_unification_migrations(cursor: sqlite3.Cursor) -> None:
     except sqlite3.OperationalError:
         pass
     # What the session's AI money went ON, as a JSON map keyed by the closed spend vocabulary
-    # of `taktik/core/app/ai/spend.py`: {"profile": 0.102, "post": 0.0048, ...}. A map rather
+    # of `taktik/core/ai/spend.py`: {"profile": 0.102, "post": 0.0048, ...}. A map rather
     # than one column per kind because the vocabulary grows and each addition would otherwise
     # be a migration. `ai_total_cost_usd` stays the authoritative total; this explains it.
     # Written by Electron (it owns the session row); declared here so a standalone bot base

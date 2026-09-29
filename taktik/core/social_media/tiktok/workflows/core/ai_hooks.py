@@ -171,12 +171,12 @@ def generate_tiktok_comment(
     is, which is exactly what having no default list protects against.
 
     The three decisions around the generation — which language, is this a refusal, what has this
-    account said lately — are the SHARED ones (`app/ai/comments/decisions.py`), not TikTok
+    account said lately — are the SHARED ones (`ai/comments/decisions.py`), not TikTok
     copies. They were extracted from the Instagram hook unchanged on 2026-08-30 so both
     platforms ask the same questions; the language rule in particular has an asymmetry that took
     a real incident to find.
     """
-    from taktik.core.app.ai.comments.decisions import (
+    from taktik.core.ai.comments.decisions import (
         is_comment_refusal,
         resolve_base_language,
         resolve_comment_language,
@@ -436,7 +436,7 @@ def install_profile_ai_hooks_for_run(
     if not ai_config.get("enabled"):
         return
     try:
-        from taktik.core.app.ai.factory import create_ai_service
+        from taktik.core.ai.factory import create_ai_service
 
         ai_enabled, ai_service = create_ai_service(
             ai_config=ai_config,

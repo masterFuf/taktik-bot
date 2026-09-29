@@ -1,0 +1,10 @@
+"""AI provider owners."""
+
+from taktik.core.ai.providers.openrouter import (
+    AIService, MODEL_ANALYSIS, MODEL_CLASSIFICATION, MODEL_GENERATION, DEFAULT_TEXT_MODEL, DEFAULT_VISION_MODEL,
+)
+
+__all__ = [
+    "AIService", "MODEL_ANALYSIS", "MODEL_CLASSIFICATION", "MODEL_GENERATION",
+    "DEFAULT_TEXT_MODEL", "DEFAULT_VISION_MODEL",
+]

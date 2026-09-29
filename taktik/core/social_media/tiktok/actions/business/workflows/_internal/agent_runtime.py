@@ -4,14 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-
-
-def merge_invocation_payload(invocation: WorkflowInvocation, payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Merge executor variables and step params, keeping step params authoritative."""
-    merged = dict(payload)
-    merged.update(invocation.params)
-    return merged
+from taktik.core.kernel.handler_params import value_param
 
 
 def attach_video_callbacks(workflow: Any, notifier: Any) -> None:
@@ -96,11 +89,3 @@ def list_param(payload: Mapping[str, Any], *names: str) -> list[str]:
     if isinstance(value, (list, tuple, set)):
         return [str(item).strip().lstrip("#") for item in value if str(item).strip()]
     return []
-
-
-def value_param(payload: Mapping[str, Any], *names: str, default: Any) -> Any:
-    for name in names:
-        value = payload.get(name)
-        if value is not None:
-            return value
-    return default

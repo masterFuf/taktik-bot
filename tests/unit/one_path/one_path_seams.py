@@ -1,7 +1,7 @@
 """Patching a name the product code copies, without leaving the double behind.
 
-A rig replaces a seam at its source (`taktik.core.app.ai.factory.build_ai_service`). Some modules
-copy that name when they are imported (`from taktik.core.app.ai.factory import build_ai_service`).
+A rig replaces a seam at its source (`taktik.core.ai.factory.build_ai_service`). Some modules
+copy that name when they are imported (`from taktik.core.ai.factory import build_ai_service`).
 If such a module is imported for the first time WHILE the source holds the double, it keeps the
 double: `monkeypatch` puts back the source, not the copy, and every test collected afterwards runs
 on the double (12 contract tests failed that way behind the one-path rigs).

@@ -21,8 +21,8 @@ def ai_reached(monkeypatch):
     """Wrap every way to an AI client; the list says which ones a run took."""
     import urllib.request
 
-    from taktik.core.app.ai import factory
-    from taktik.core.app.ai.providers import openrouter
+    from taktik.core.ai import factory
+    from taktik.core.ai.providers import openrouter
 
     reached = []
 
@@ -34,9 +34,9 @@ def ai_reached(monkeypatch):
 
     def install():
         # After the rig: its fakes stay what answers, the wrap only records who called them.
-        patch_seam(monkeypatch, "taktik.core.app.ai.factory", "create_ai_service",
+        patch_seam(monkeypatch, "taktik.core.ai.factory", "create_ai_service",
                    wrap("create_ai_service", factory.create_ai_service))
-        patch_seam(monkeypatch, "taktik.core.app.ai.factory", "build_ai_service",
+        patch_seam(monkeypatch, "taktik.core.ai.factory", "build_ai_service",
                    wrap("build_ai_service", factory.build_ai_service))
 
     def refuse_client(*_args, **_kwargs):

@@ -102,8 +102,8 @@ class TaskBridge:
         return device
 
     def _run_task(self, device) -> int:
-        from taktik.core.agent.kernel.contracts import WorkflowInvocation
-        from taktik.core.agent.kernel.registry import WorkflowRegistry
+        from taktik.core.kernel.contracts import WorkflowInvocation
+        from taktik.core.kernel.registry import WorkflowRegistry
         from taktik.core.social_media.instagram.workflows.tasks import (
             register_instagram_task_handlers,
         )

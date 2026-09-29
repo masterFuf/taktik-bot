@@ -11,9 +11,9 @@ import ast
 from pathlib import Path
 from typing import Iterable, Set
 
-from taktik.core.app.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS
-from taktik.core.app.contract.schema import OneOf, nested_fields
-from taktik.core.app.contract.stop_reasons import (
+from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS
+from taktik.core.contract.schema import OneOf, nested_fields
+from taktik.core.contract.stop_reasons import (
     CATALOGUES,
     INSTAGRAM_SCRAPING_COMPLETION_REASON,
     INSTAGRAM_STOP_REASON_CODE,

@@ -1,6 +1,7 @@
 import pytest
 
-from taktik.core.agent import agent_plan_from_payload, agent_plan_to_payload, load_workflow_manifest
+from taktik.core.kernel.manifest import load_workflow_manifest
+from taktik.core.kernel.plan import agent_plan_from_payload, agent_plan_to_payload
 
 
 def test_agent_plan_from_payload_builds_plan_with_workflow_step():

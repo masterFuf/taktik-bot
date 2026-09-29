@@ -15,8 +15,8 @@ import urllib.request
 
 import pytest
 
-from taktik.core.app.ai.providers import openrouter as provider
-from taktik.core.app.ai.providers.openrouter import MODEL_GENERATION
+from taktik.core.ai.providers import openrouter as provider
+from taktik.core.ai.providers.openrouter import MODEL_GENERATION
 
 REPO = pathlib.Path(__file__).resolve().parents[4]  # tests/unit/app/ai/<file> -> core
 

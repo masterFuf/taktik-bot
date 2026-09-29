@@ -6,12 +6,12 @@ skip it BEFORE the screenshot + the vision call (no wasted AI cost) and never re
 
 import pytest
 
-from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
+from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
 
 
 @pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):
-    monkeypatch.setattr("taktik.core.agent.scenarios.instagram_feed_autopilot.time.sleep", lambda *_a, **_k: None)
+    monkeypatch.setattr("taktik.core.social_media.instagram.workflows.agent.autopilot.time.sleep", lambda *_a, **_k: None)
 
 
 class _FakeAI:

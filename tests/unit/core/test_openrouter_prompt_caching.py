@@ -12,7 +12,7 @@ two things that would kill it are pinned here:
     account and each language gets its own cache entry, and back-to-back profiles miss).
 """
 
-from taktik.core.app.ai.providers.openrouter import AIService, cacheable_system
+from taktik.core.ai.providers.openrouter import AIService, cacheable_system
 
 
 TAXONOMY = {
@@ -110,7 +110,7 @@ def test_the_summary_asks_for_a_claim_not_an_essay():
 
 def test_the_request_states_a_backend_preference_that_can_still_fall_back():
     """The prompt cache is warm per backend; a hard pin would fail a whole run when it is down."""
-    from taktik.core.app.ai.providers.openrouter import PROVIDER_PREFERENCE
+    from taktik.core.ai.providers.openrouter import PROVIDER_PREFERENCE
 
     assert PROVIDER_PREFERENCE["allow_fallbacks"] is True
     assert PROVIDER_PREFERENCE["order"], "a preference with no order is not a preference"

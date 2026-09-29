@@ -260,7 +260,7 @@ question. Les pull requests extérieures ne sont pas acceptées pour l'instant. 
 
 Ce projet est sous licence **GNU General Public License v3.0**. Voir [LICENSE](LICENSE).
 
-Un fichier de données relève d'une autre licence : `taktik/core/app/ai/data/agreement_fr.tsv` dérive
+Un fichier de données relève d'une autre licence : `taktik/core/ai/data/agreement_fr.tsv` dérive
 de Lexique 3.83 et est distribué sous CC BY-SA 4.0. Voir [NOTICE](NOTICE).
 
 L'application desktop est un produit commercial ; les conditions actuelles sont détaillées sur le site.

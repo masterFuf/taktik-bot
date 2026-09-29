@@ -3,7 +3,7 @@
 from typing import Any, Callable
 
 from bridges.gmail.account.runtime.persistence import persist_gmail_account
-from taktik.core.app.email.gmail.workflows.agent_handler import (
+from taktik.core.social_media.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
     run_gmail_account,
 )

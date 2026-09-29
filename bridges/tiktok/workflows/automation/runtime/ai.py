@@ -1,6 +1,6 @@
 """AI service setup for the TikTok automation bridge runtime.
 
-Same factory as every other bridge (`taktik.core.app.ai.factory`), so TikTok classifies
+Same factory as every other bridge (`taktik.core.ai.factory`), so TikTok classifies
 against the same taxonomy as Instagram instead of quietly running free-form.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from taktik.core.app.ai.factory import create_ai_service
+from taktik.core.ai.factory import create_ai_service
 
 LogCallback = Callable[[str, str], None]
 

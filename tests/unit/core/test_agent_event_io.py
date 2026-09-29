@@ -1,6 +1,7 @@
 import json
 
-from taktik.core.agent import AgentEvent, agent_event_to_payload, agent_events_to_payload
+from taktik.core.kernel.contracts import AgentEvent
+from taktik.core.kernel.events import agent_event_to_payload, agent_events_to_payload
 
 
 def test_agent_event_to_payload_returns_json_safe_dict():

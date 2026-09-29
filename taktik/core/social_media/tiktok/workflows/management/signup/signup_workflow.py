@@ -34,7 +34,7 @@ from taktik.core.social_media.tiktok.ui.selectors.shell.auth import (
     COUNTRY_PICKER_SELECTORS,
     TIKTOK_PACKAGE,
 )
-from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+from taktik.core.social_media.gmail.workflows.account import GmailWorkflow
 from taktik.core.social_media.tiktok.workflows.runtime.notifier import create_workflow_notifier_context
 from taktik.core.shared.device.wait import wait_for_element
 

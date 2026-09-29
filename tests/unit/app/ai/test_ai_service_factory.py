@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from taktik.core.app.ai.factory import build_ai_service, create_ai_service
+from taktik.core.ai.factory import build_ai_service, create_ai_service
 
 TAXONOMY = {"beauty_wellness": ["Naturopathy", "Massage"], "fashion": ["Streetwear"]}
 

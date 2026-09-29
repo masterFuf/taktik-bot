@@ -3,7 +3,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
+from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
+from taktik.core.kernel.executor import AgentPlanExecutor
+from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
 from taktik.core.social_media.instagram.ui.selectors import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.core import runtime_setup

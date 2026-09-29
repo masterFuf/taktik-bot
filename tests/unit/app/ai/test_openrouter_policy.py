@@ -10,8 +10,8 @@ import ast
 import runpy
 from pathlib import Path
 
-from taktik.core.app.ai import openrouter_policy as policy
-from taktik.core.app.ai.providers import openrouter
+from taktik.core.ai import openrouter_policy as policy
+from taktik.core.ai.providers import openrouter
 
 POLICY_FILE = Path(policy.__file__)
 

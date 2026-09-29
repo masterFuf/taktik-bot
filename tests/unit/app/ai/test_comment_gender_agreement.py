@@ -10,8 +10,8 @@ profiles and simply never plumbed through — so the prompt now states it. OURS 
 so the only honest instruction is to forbid the forms that would require it.
 """
 
-from taktik.core.app.ai.comments.generation import _agreement_self, _agreement_target
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.comments.generation import _agreement_self, _agreement_target
+from taktik.core.ai.providers.openrouter import AIService
 
 
 def prompts(**kwargs):

@@ -1,6 +1,6 @@
 """Fail-closed normalization for account-relative engagement verdicts."""
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 norm = AIService._normalize_engagement

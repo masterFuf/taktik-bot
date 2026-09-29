@@ -4,7 +4,7 @@ from typing import Any, Callable
 
 from bridges.gmail.account.runtime.persistence import persist_gmail_account
 from bridges.gmail.account.runtime.workflow_result import finish_account_result
-from taktik.core.app.email.gmail.workflows.agent_handler import (
+from taktik.core.social_media.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_LOGIN_WORKFLOW_ID,
     login_params_from_payload,
     run_gmail_account,

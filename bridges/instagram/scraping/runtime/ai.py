@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from taktik.core.app.ai.factory import build_ai_service
+from taktik.core.ai.factory import build_ai_service
 
 
 def build_scraping_ai_service(*, api_key: str, ipc=None, vision_model: str = None, text_model: str = None,

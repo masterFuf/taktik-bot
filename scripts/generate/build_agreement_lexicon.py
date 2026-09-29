@@ -1,4 +1,4 @@
-"""Rebuild `app/ai/data/agreement_fr.tsv` from Lexique plus our own corpus.
+"""Rebuild `ai/data/agreement_fr.tsv` from Lexique plus our own corpus.
 
 A noun ships only when TWO INDEPENDENT AUTHORITIES agree on its gender. That rule is the whole
 design, and it comes from measurement rather than caution:
@@ -35,7 +35,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "generate"))
 
 from mine_agreement_glossary import _corpora, merged_lexicon  # noqa: E402
 
-OUT = ROOT / "taktik" / "core" / "app" / "ai" / "data" / "agreement_fr.tsv"
+OUT = ROOT / "taktik" / "core" / "ai" / "data" / "agreement_fr.tsv"
 
 # A SECOND way for a noun to earn its place, next to the usage corpus.
 #

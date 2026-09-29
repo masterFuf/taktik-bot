@@ -12,7 +12,7 @@ is precisely what a single retry fixes.
 
 import pytest
 
-from taktik.core.app.ai.providers.openrouter import AIService, parse_json_response
+from taktik.core.ai.providers.openrouter import AIService, parse_json_response
 
 
 # ── parse_json_response ────────────────────────────────────────────────────────

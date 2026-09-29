@@ -13,13 +13,12 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Mapping, Optional
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.kernel.handler_params import merge_invocation_payload, value_param
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
     bool_param,
     int_param,
-    merge_invocation_payload,
-    value_param,
 )
 from taktik.core.social_media.tiktok.workflows.management.language.change_language_workflow import (
     TikTokChangeLanguageWorkflow,

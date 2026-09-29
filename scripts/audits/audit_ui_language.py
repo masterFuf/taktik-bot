@@ -40,7 +40,7 @@ LOCALE_DIRS = (
 
 SCAN_ROOTS = (
     ROOT / "taktik" / "core" / "social_media",
-    ROOT / "taktik" / "core" / "app" / "email",
+    ROOT / "taktik" / "core" / "social_media" / "gmail",
 )
 
 STRAIGHT = "'"
@@ -61,7 +61,7 @@ ALLOWLIST = {
     # profile and sound labels, in every supported language
     "taktik/core/social_media/tiktok/actions/atomic/detection/video_detector.py",
     # "connected as" / "connecté en tant que", EN + FR
-    "taktik/core/app/email/gmail/workflows/account.py",
+    "taktik/core/social_media/gmail/workflows/account.py",
     # already-liked guard on a feed post ("unlike"/"liked"/"ne plus aimer"), EN + FR. High
     # stakes — a miss re-taps a liked post, i.e. UNLIKES it — but covered on both languages.
     "taktik/core/social_media/instagram/actions/business/workflows/feed/post_actions.py",

@@ -4,7 +4,7 @@ used to fail-open (qualification reused, verdict never computed, gate had nothin
 without re-paying the vision classification.
 """
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 CACHED = {
     "username": "karyu_nails",

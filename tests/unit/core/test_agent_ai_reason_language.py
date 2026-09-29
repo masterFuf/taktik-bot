@@ -4,7 +4,7 @@ The `reason` is shown in the Taktik Agent panel, so it must follow the desktop a
 es/...). The `comment` field stays audience-language (the post's language) — not covered here.
 """
 
-from taktik.core.agent.decision.agent_ai import AgentAI, _reason_language_rule
+from taktik.core.ai.agent_decisions import AgentAI, _reason_language_rule
 
 
 def test_reason_rule_maps_code_to_full_language_name():

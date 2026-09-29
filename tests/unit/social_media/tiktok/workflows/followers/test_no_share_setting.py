@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from taktik.core.app.contract.tiktok_profiles import PROFILE_SETTINGS
+from taktik.core.contract.tiktok_profiles import PROFILE_SETTINGS
 from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersConfig
 from taktik.core.social_media.tiktok.actions.business.workflows.followers.payload import (
     followers_settings_from_payload,

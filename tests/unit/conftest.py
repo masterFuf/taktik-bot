@@ -230,7 +230,7 @@ def _no_operator_settings_file(monkeypatch, tmp_path_factory):
     there would turn every "no key" test green or red depending on the machine), and no key typed
     in one test serves the next."""
     from taktik.cli.hosts import ai_key
-    from taktik.core.app.config.runtime import user_config
+    from taktik.core.shared.config import user_config
 
     path = str(tmp_path_factory.mktemp("taktik_home") / "api_config.json")
     monkeypatch.setattr(user_config, "user_config_path", lambda: path)
@@ -285,7 +285,7 @@ def _ai_hooks_never_outlive_their_test():
 _TESTS_ROOT = os.path.join(_CORE_ROOT, "tests") + os.sep
 _AI_FACTORY_NAMES = ("build_ai_service", "create_ai_service")
 
-from taktik.core.app.ai import factory as _ai_factory  # noqa: E402 - after the guard
+from taktik.core.ai import factory as _ai_factory  # noqa: E402 - after the guard
 
 _REAL_AI_FACTORY = {name: getattr(_ai_factory, name) for name in _AI_FACTORY_NAMES}
 

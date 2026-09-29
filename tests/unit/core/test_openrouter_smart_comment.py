@@ -5,7 +5,7 @@ The model is asked for a single-line JSON object; parsing must be robust and fal
 "whole text = comment" when the model doesn't comply (backward compatible).
 """
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 def _service(monkeypatch, model_text):

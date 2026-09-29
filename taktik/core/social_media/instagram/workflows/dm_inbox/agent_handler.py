@@ -20,10 +20,10 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
-from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.dm_inbox.persistence import (
     account_id_for_send,
     account_id_from_inbox_header,

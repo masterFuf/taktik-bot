@@ -12,8 +12,8 @@ from click.testing import CliRunner
 
 from taktik.cli.commands.workflows import workflows
 from taktik.cli.hosts.registry import build_registry
-from taktik.core.agent.io.manifest import load_workflow_manifest
-from taktik.core.app.contract.registry import contracts_by_id
+from taktik.core.kernel.manifest import load_workflow_manifest
+from taktik.core.contract.registry import contracts_by_id
 
 SEARCH_ID = "tiktok.automation.search"
 HASHTAG_ID = "tiktok.automation.hashtag"

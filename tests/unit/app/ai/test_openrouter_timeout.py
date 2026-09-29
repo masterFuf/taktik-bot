@@ -1,7 +1,7 @@
 import threading
 import time
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 def test_openrouter_call_has_a_total_wall_clock_deadline(monkeypatch):
@@ -13,7 +13,7 @@ def test_openrouter_call_has_a_total_wall_clock_deadline(monkeypatch):
 
     monkeypatch.setattr("urllib.request.urlopen", stalled_urlopen)
     monkeypatch.setattr(
-        "taktik.core.app.ai.providers.openrouter.OPENROUTER_TOTAL_TIMEOUT_SECONDS",
+        "taktik.core.ai.providers.openrouter.OPENROUTER_TOTAL_TIMEOUT_SECONDS",
         0.03,
     )
     started_at = time.monotonic()

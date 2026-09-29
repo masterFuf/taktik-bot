@@ -1,6 +1,7 @@
 import pytest
 
-from taktik.core.agent import AgentRuntime, WorkflowRegistry
+from taktik.core.kernel.registry import WorkflowRegistry
+from taktik.core.kernel.runtime import AgentRuntime
 
 
 def test_agent_runtime_executes_payload_through_injected_registry():

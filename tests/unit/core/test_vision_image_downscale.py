@@ -11,7 +11,7 @@ import io
 
 import pytest
 
-from taktik.core.app.ai.providers.openrouter import AIService, VISION_IMAGE_MAX_EDGE
+from taktik.core.ai.providers.openrouter import AIService, VISION_IMAGE_MAX_EDGE
 
 PIL = pytest.importorskip("PIL")
 from PIL import Image  # noqa: E402

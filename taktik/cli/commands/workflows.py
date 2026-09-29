@@ -172,7 +172,7 @@ def list_workflows(platform: str | None) -> None:
 def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...],
                  json_blob: str | None, dry_run: bool, yes: bool) -> None:
     """Run WORKFLOW_ID through the Agent registry."""
-    from taktik.core.agent.kernel.contracts import WorkflowInvocation
+    from taktik.core.kernel.contracts import WorkflowInvocation
 
     resolved_params = _parse_params(params, json_blob)
 

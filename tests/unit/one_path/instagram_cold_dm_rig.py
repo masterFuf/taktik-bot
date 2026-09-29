@@ -441,7 +441,7 @@ class InstagramColdDmRig:
         def fake_build_ai_service(*, api_key, ipc=None, **_kwargs):
             return FakeAI(api_key, ipc)
 
-        patch_seam(mp, "taktik.core.app.ai.factory", "build_ai_service", fake_build_ai_service)
+        patch_seam(mp, "taktik.core.ai.factory", "build_ai_service", fake_build_ai_service)
 
     # ------------------------------------------------------------------ paths
 

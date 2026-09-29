@@ -13,8 +13,8 @@ import json
 import types
 import urllib.request
 
-from taktik.core.agent.scenarios.instagram_feed_autopilot import TaktikAgentWorkflow
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.social_media.instagram.workflows.agent.autopilot import TaktikAgentWorkflow
+from taktik.core.ai.providers.openrouter import AIService
 
 _FALLBACK_HEAD = "socialmediamarketing"
 

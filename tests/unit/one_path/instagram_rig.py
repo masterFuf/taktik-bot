@@ -217,7 +217,7 @@ class InstagramRig:
             rig.ai_services.append({"key": key, "ipc": ipc is not None})
             return True, service
 
-        patch_seam(mp, "taktik.core.app.ai.factory", "create_ai_service", fake_create_ai_service)
+        patch_seam(mp, "taktik.core.ai.factory", "create_ai_service", fake_create_ai_service)
 
         def fake_install(*, ai, ai_config, device=None, language="en", log=None, decision_provider=None, **_k):
             rig.ai_installs.append({

@@ -1,6 +1,8 @@
 import pytest
 
-from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
+from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
+from taktik.core.kernel.executor import AgentPlanExecutor
+from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.youtube.workflows.publish import (
     YOUTUBE_UPLOAD_POST_WORKFLOW_ID,
     register_youtube_publish_handlers,

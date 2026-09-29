@@ -8,7 +8,7 @@ slugifies to `arts_culture`, against a table holding `arts_and_culture`.
 
 import pytest
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 @pytest.mark.parametrize('raw,expected', [

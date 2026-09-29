@@ -33,7 +33,7 @@ def test_the_registry_covers_the_platforms_that_had_no_cli_surface():
 
 
 def test_workflow_ids_are_canonical_and_namespaced():
-    from taktik.core.agent.io.manifest import load_workflow_manifest
+    from taktik.core.kernel.manifest import load_workflow_manifest
 
     # An Agent plan only reaches ids the manifest declares; `coldDm` is spelled that way there.
     manifest = load_workflow_manifest()

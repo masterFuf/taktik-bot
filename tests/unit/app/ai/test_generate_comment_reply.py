@@ -7,10 +7,10 @@ account read as automated), and publishing raw model output.
 
 import pytest
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 # The writing rules moved with the generators they belong to; AIService still exposes the
 # methods through the mixin, so only this import changed.
-from taktik.core.app.ai.comments.generation import _COMMENT_WRITING_RULES
+from taktik.core.ai.comments.generation import _COMMENT_WRITING_RULES
 
 
 def _service(response_text, success=True):

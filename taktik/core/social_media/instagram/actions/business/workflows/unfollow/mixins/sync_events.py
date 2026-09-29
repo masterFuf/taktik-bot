@@ -1,7 +1,7 @@
 """The stdout lines of the follow-graph sync: an account read, a list's progress.
 
 One place for both lists, so the desktop reads the same line whichever list printed it
-(`instagram_automation` in `taktik/core/app/contract` declares them).
+(`instagram_automation` in `taktik/core/contract` declares them).
 """
 
 import json

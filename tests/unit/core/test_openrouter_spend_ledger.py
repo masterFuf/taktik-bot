@@ -11,7 +11,7 @@ paid call passes through, so that is where the ledger belongs.
 import json as _json
 import urllib.request as _urllib
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 class _RecordingIpc:
@@ -138,8 +138,8 @@ def test_every_paid_call_site_declares_a_kind():
     import inspect
     import re
 
-    from taktik.core.app.ai.providers import openrouter as provider
-    from taktik.core.app.ai.comments import generation
+    from taktik.core.ai.providers import openrouter as provider
+    from taktik.core.ai.comments import generation
 
     for module in (provider, generation):
         source = inspect.getsource(module)

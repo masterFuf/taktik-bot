@@ -54,7 +54,7 @@ def run_registry_menu(platform: str, device_manager, device_id: str) -> None:
     `device_manager` must already be connected: the handlers receive the device, they never open
     the connection themselves.
     """
-    from taktik.core.agent.kernel.contracts import WorkflowInvocation
+    from taktik.core.kernel.contracts import WorkflowInvocation
 
     build = build_registry(
         device=getattr(device_manager, "device", None),

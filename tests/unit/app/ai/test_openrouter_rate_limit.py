@@ -10,8 +10,8 @@ import json
 import urllib.error
 import urllib.request
 
-from taktik.core.app.ai.providers import openrouter
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers import openrouter
+from taktik.core.ai.providers.openrouter import AIService
 
 
 def _http_error(code, body="rate-limited upstream. Please retry shortly"):

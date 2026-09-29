@@ -1,6 +1,6 @@
 """Find a writing model's gender-agreement mistakes by confronting it with a reference model.
 
-WHY THIS EXISTS — `app/ai/glossary.py` suppresses the determiner mistakes a cheap model makes,
+WHY THIS EXISTS — `ai/glossary.py` suppresses the determiner mistakes a cheap model makes,
 but it only covers words somebody noticed by hand. Three automatic detectors were built and
 measured on 2026-09-09 and all three were net-negative: an LLM proofreader rewrote correct text,
 a lower temperature kept the mistakes, and a determiner corrector fed by the model's own

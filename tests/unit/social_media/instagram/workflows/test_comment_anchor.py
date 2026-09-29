@@ -15,11 +15,10 @@ check below is a cheap backstop on a claim, not a hallucination shield, and thes
 edges rather than a bug it has caught.
 """
 
+from taktik.core.ai.comments.anchor import anchor_material, verify_anchor
 from taktik.core.social_media.instagram.workflows.common.comment_context import (
     ThreadSelection,
-    anchor_material,
     select_thread_comments,
-    verify_anchor,
 )
 
 CAPTION = "Recette du soir, tout est fait maison #tofusoyeux"

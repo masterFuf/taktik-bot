@@ -7,7 +7,7 @@ four different spellings of the same arts concept — fragmenting one bucket acr
 values and breaking any downstream aggregation (Smart Target, audience persona).
 """
 
-from taktik.core.app.ai.providers.openrouter import AIService
+from taktik.core.ai.providers.openrouter import AIService
 
 
 def test_canonical_values_pass_through():

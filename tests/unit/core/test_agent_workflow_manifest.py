@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from taktik.core.agent import canonical_workflow_id, load_workflow_manifest
+from taktik.core.kernel.manifest import canonical_workflow_id, load_workflow_manifest
 
 
 def test_agent_workflow_manifest_loads_canonical_ids_from_repo_manifest():

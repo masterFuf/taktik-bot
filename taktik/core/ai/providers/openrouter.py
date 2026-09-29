@@ -1,0 +1,1737 @@
+"""
+AI Service for bridge scripts — calls OpenRouter API directly from the Python process.
+
+This avoids round-tripping through Electron IPC for AI operations during automation.
+The bridge receives the OpenRouter API key via the session config (ai.openrouterApiKey)
+and calls the API directly.
+
+Usage:
+    from taktik.core.ai.providers.openrouter import AIService
+
+    ai = AIService(api_key="sk-or-...", ipc=_ipc)
+    result = ai.classify_profile(username="travel_lover", screenshot_path="/tmp/screenshot.png")
+    result = ai.analyze_post(screenshot_path="/tmp/post.png")
+    # Comment/persona generation is mixed in from `ai/comments/generation.py`:
+    result = ai.generate_smart_comment(post_description="...", username="travel_lover", niche="travel")
+"""
+
+import time
+import base64
+import hashlib
+import json
+import os
+import re
+from typing import Optional, Dict, Any, Tuple, Union
+from loguru import logger
+
+from taktik.core.shared.actions.optional_call import run_bounded_optional
+from ..prompting import platform_label as _platform_label
+from ..prompting import cacheable_system
+from ..spend import (
+    AI_SPEND_AUDIENCE, AI_SPEND_OTHER, AI_SPEND_POST, AI_SPEND_PROFILE, AI_SPEND_VERDICT,
+    normalize_spend_kind,
+)
+from ..comments.generation import CommentGenerationMixin
+# Models, retry schedule, reasoning and routing: declared once in `openrouter_policy.py`, which
+# the desktop app's copy is generated from.
+from ..openrouter_policy import (
+    MODEL_ANALYSIS,
+    MODEL_CLASSIFICATION,
+    MODEL_GENERATION,
+    PROVIDER_PREFERENCE,
+    RATE_LIMIT_BACKOFF_SECONDS,
+    REASONING_MINIMAL,
+    REASONING_OFF,
+    RETRYABLE_HTTP_STATUSES,
+)
+
+# MODEL_ANALYSIS: analyse / describe / text (post analysis).
+#
+# MODEL_CLASSIFICATION: the profile classifier, and ONLY it. A third constant is a deliberate exception to the
+# two-fixed-models rule, and it exists because the two tasks stopped having the same evidence
+# behind them on 2026-09-09:
+#
+#   - Profile classification was BENCHED on 60 real cases against the model it replaces:
+#     41 µ$ against 590 (-93 %), better on gender (91 % vs 87 %) and on cities (83 % vs 79 %),
+#     never a WRONG country (0 % against 5 %), and its category spread sits inside the noise our
+#     own model shows against its own stored answers (66 % vs 61 %). It carries 84 % of the bill.
+#   - Post analysis was NOT benched, and it is not a field-by-field answer a bench can score: it
+#     is free text, and that text is fed to the comment writer as `post_description`. Switching it
+#     blind would let a worse description degrade comments through the back door — the one part of
+#     the product where being wrong is visible to a real person.
+#
+# So the classifier moves and the describer stays, until a bench says otherwise. Collapse this
+# back into MODEL_ANALYSIS the day post analysis is measured too. It was measured on
+# 2026-09-10 and refused (language contract broken on 20 posts out of 30).
+#
+# MODEL_GENERATION: comment / DM / persona / scheduler.
+# Switched from gemini-3-flash on 2026-09-10, after the determiner check made it safe.
+# The measurement, on 1 370 generated comments: 477 -> 28 uSD each, and the ONE class of
+# mistake this model makes that the other did not -- a determiner disagreeing with its
+# noun -- is caught by `ai/agreement.py` against a lexicon two independent authorities
+# agree on. At 200 accounts with DM conversations that is 60 $/month against 3,50 $.
+# What is NOT solved and is the reason to keep watching: compound nouns ("le face a face"),
+# and every word the lexicon does not yet cover. Read a run before trusting a number.
+# Back-compat aliases for the few `import DEFAULT_*` sites; both resolve to the analysis model.
+DEFAULT_TEXT_MODEL = MODEL_ANALYSIS
+DEFAULT_VISION_MODEL = MODEL_ANALYSIS
+
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+# urllib's timeout is a socket-inactivity timeout, not a total request deadline. A
+# provider can therefore drip bytes and keep a profile run blocked indefinitely.
+OPENROUTER_SOCKET_TIMEOUT_SECONDS = 30.0
+OPENROUTER_TOTAL_TIMEOUT_SECONDS = 45.0
+
+# Vision models (Gemini) bill images by 768px tiles — a QUANTIZED step, not a continuous
+# cost/quality dial: any long edge in (768, 1536] costs the SAME 2 tiles as 1536 itself
+# (ceil(edge/768) doesn't change until you cross a multiple of 768). Raw device screenshots
+# are ~1080x2220 PNGs → ~6 tiles (~1550 image tokens) raw. 768 keeps a single tile
+# (~-80% vs raw) at ~375px wide, which is the floor for VISUAL judgment (post-thumbnail
+# style, subtle gender/age cues). Bio/stats/captions are not at risk — they are sent as
+# TEXT separately (scraped, not OCR'd). Re-validate before going lower.
+VISION_IMAGE_MAX_EDGE = 768
+
+# PROVIDER_PREFERENCE: which upstream backend OpenRouter should route to, and why it is a
+# PREFERENCE and not a pin.
+#
+# The prompt cache only pays off when consecutive calls land on the same warm instance, which is
+# why this preference exists. It WORKS — do not tighten it further.
+#
+# Re-measured 2026-09-09 on 1 501 logged production calls, now that `_call_openrouter` records the
+# served backend: routing is honoured 100 % of the time (Google AI Studio for the Gemini models,
+# Alibaba for qwen), and the cache is hit **98 % on `classify_profile_niche` via flash-lite (919
+# calls) and 99 % via qwen (366 calls)**. The 48,7 % measured over 3 879 August calls, and the note
+# that used to sit here saying we were losing the cache to routing, are both STALE: the preference
+# fixed it. The calls that showed 0 % were the ones whose prompt was never SPLIT (comment
+# generation, since fixed) or that have no cacheable prefix at all (`analyze_post`, whose ~200
+# prompt tokens sit under an image that changes every call).
+#
+# `allow_fallbacks` stays TRUE on purpose, and the measurement above is the argument FOR leaving it
+# alone rather than against: a hard pin to a slug that is renamed, saturated or down fails EVERY
+# call in a run, and we are already getting the routing we want without paying that risk.
+#
+# RATE_LIMIT_BACKOFF_SECONDS: waits before retrying a transient failure. Two, growing: the
+# upstream says "retry shortly", and a burst typically clears within seconds.
+
+# Platform display label for prompts (so the provider is reusable across platforms,
+# not hardcoded to Instagram). Defaults keep the Instagram wording byte-equivalent.
+
+
+def parse_json_response(text: str) -> Any:
+    """Parse a model answer that is supposed to be JSON, tolerating markdown fences.
+
+    Models wrap JSON in ```json ... ``` about half the time. The three call sites that
+    needed this each carried their own `text.split("```")[1]`, which breaks on the one
+    input that matters: a response cut off mid-answer opens the fence and never closes it,
+    so the split yields a fragment and the failure surfaces as a confusing IndexError or
+    "Unterminated string". Observed in production on a profile classification whose whole
+    answer was ``` ```json\\n{\\n  "n ``` — the profile silently lost its AI qualification.
+
+    Raises ValueError when the text does not contain usable JSON, so every caller reports
+    the same way. Never raises IndexError.
+    """
+    if not text or not text.strip():
+        raise ValueError("empty response")
+
+    candidate = text.strip()
+    if "```" in candidate:
+        # Take what follows the FIRST fence; the closing one may be missing (truncation).
+        after_open = candidate.split("```", 1)[1]
+        if after_open.lower().startswith("json"):
+            after_open = after_open[4:]
+        candidate = after_open.split("```", 1)[0].strip()
+
+    if not candidate:
+        raise ValueError("no JSON payload in response")
+
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON: {exc}") from exc
+
+
+
+
+class AIService(CommentGenerationMixin):
+    """Lightweight OpenRouter client for Bot AI operations."""
+
+    def __init__(self, api_key: str, ipc=None, text_model: str = None, vision_model: str = None,
+                 niche_taxonomy: Dict[str, list] = None, report_spend: bool = True):
+        self.api_key = api_key
+        self.ipc = ipc
+        # `ai_spend` is emitted only for runs whose session reads it; the others keep their IPC
+        # for the Agent cards and pass False.
+        self.report_spend = report_spend
+        # Two fixed models by task. The desktop app no longer injects models; the text_model/
+        # vision_model params remain for signature compatibility but are ignored.
+        self.model_analysis = MODEL_ANALYSIS
+        self.model_generation = MODEL_GENERATION
+        # The profile classifier — see MODEL_CLASSIFICATION for why it is not model_analysis.
+        self.model_classification = MODEL_CLASSIFICATION
+        # Back-compat aliases: some callers read .vision_model / .text_model for display labels;
+        # both point at the analysis model (classification/vision is the common case).
+        self.vision_model = MODEL_ANALYSIS
+        self.text_model = MODEL_ANALYSIS
+        # Endpoints that refuse to have reasoning switched off (see `_call_openrouter`).
+        # Learned from their first 400 and remembered, so the refusal is provoked once per
+        # model rather than once per call.
+        self._models_requiring_reasoning: set = set()
+        # Hashes of the stable prompt halves this PROCESS has already handed out in a capture.
+        # The body travels once; every later call carries only its 64-character pointer, which
+        # is what keeps 9 KB of identical text from being written on all 15 000 profiles a month.
+        self._captured_prompt_hashes: set = set()
+        # Premium niche taxonomy injected by the desktop app via the bridge config
+        # (slug -> [sub-niche labels]). The open-source bot does NOT own this list;
+        # when nothing is injected, profile classification stays free-form so the
+        # standalone bot keeps working without the premium taxonomy.
+        self.niche_taxonomy: Dict[str, list] = niche_taxonomy or {}
+
+    # ------------------------------------------------------------------
+    # Low-level API call
+    # ------------------------------------------------------------------
+
+    def _call_openrouter(self, model: str, messages: list, temperature: float = 0.7,
+                         max_tokens: int = 2000, label: str = "",
+                         kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
+        """Call OpenRouter chat completions API. Returns dict with success, text, usage, cost.
+
+        `label` names the calling operation (classify / comment / post…) for the one-line
+        cost log emitted on success — without it a finished run gave no way to tell which
+        model actually served a call, nor what each call cost.
+
+        `kind` is the STABLE spend category reported to the desktop (see AI_SPEND_KINDS).
+        The label carries a username and is free text, so it can only ever be read by a
+        human; the kind is what a cost breakdown can be grouped by."""
+        import urllib.request
+        import urllib.error
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://taktik-bot.com",
+            "X-Title": "TAKTIK Bot",
+        }
+        def build_body(reasoning: dict) -> bytes:
+            return json.dumps({
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                # Asks for the cost + cache breakdown alongside the token counts, so a run log
+                # can prove whether the cached prefix is actually being HIT. Without it a
+                # regression that silently kills caching reads exactly like a working setup.
+                "usage": {"include": True},
+                "reasoning": reasoning,
+                "provider": PROVIDER_PREFERENCE,
+            }).encode("utf-8")
+
+        # Every call here asks for a JSON answer, never for a train of thought, and nothing
+        # downstream reads a `reasoning` field. Left on its default a reasoning model spends
+        # its whole output budget thinking: measured 2026-09-09 on the same prompt and capture,
+        # qwen3.7-flash returned 900 reasoning tokens, `content = null`, `finish_reason=length`
+        # and SEVEN times the price — paid in full, unusable.
+        #
+        # No single value works everywhere, which is why both are here:
+        #   qwen3.7-flash        accepts {"enabled": false}, IGNORES {"effort": "minimal"}
+        #   gpt-5-nano, glm-5.3  REJECT  {"enabled": false} with HTTP 400 "Reasoning is
+        #                        mandatory for this endpoint", accept {"effort": "minimal"}
+        # So we ask for the strong form first and fall back once on that specific 400. Both
+        # were verified INERT on the two production models (gemini-3.1-flash-lite and
+        # gemini-3-flash-preview answer the same tokens at the same cost with or without),
+        # so this changes nothing today and makes a model swap safe by construction.
+        # Both forms are declared in `openrouter_policy.py`.
+
+        # Remembered per model for the life of the service: the endpoint's answer does not
+        # change between two calls, and without this the 400 is re-provoked on EVERY call --
+        # 60 wasted round trips over one benchmark run. The refusal is free in money, not in
+        # time, and the classification sits on the critical path of a run.
+        first_choice = (
+            REASONING_MINIMAL
+            if model in self._models_requiring_reasoning
+            else REASONING_OFF
+        )
+
+        req = urllib.request.Request(
+            OPENROUTER_API_URL, data=build_body(first_choice), headers=headers, method="POST"
+        )
+
+        # One-element list rather than a flag: the retry happens inside a closure, and a
+        # rebound local would not survive back out of it.
+        attempted_minimal_reasoning: list = []
+        rate_limit_waits: list = []
+
+        def request_once(request) -> Dict[str, Any]:
+            try:
+                with urllib.request.urlopen(
+                    request, timeout=OPENROUTER_SOCKET_TIMEOUT_SECONDS
+                ) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    choice = data.get("choices", [{}])[0]
+                    message = choice.get("message", {}) or {}
+                    # `content` can be present AND null — a reasoning model that spent its
+                    # whole budget thinking returns exactly that. `.get(key, "")` hands back
+                    # the None, not the default, and the caller died on `.strip()` with
+                    # "'NoneType' object has no attribute 'strip'" — an error that names a
+                    # Python type instead of the empty answer that caused it.
+                    text = message.get("content") or ""
+                    usage = data.get("usage", {})
+                    # OpenRouter returns cost in usage.cost (not usage.total_cost)
+                    cost = usage.get("cost") or usage.get("total_cost")
+                    finish_reason = choice.get("finish_reason")
+                    # Keep the finish reason so an upstream cut-off is distinguishable
+                    # from a malformed model answer.
+                    if finish_reason == "length":
+                        logger.warning(
+                            f"[AIService] {model} hit the {max_tokens}-token ceiling "
+                            f"(completion={usage.get('completion_tokens')}); response is truncated"
+                        )
+                    # An answer that came back empty is a FAILED call, not a successful one
+                    # carrying an empty string: reported as success it travels down the
+                    # pipeline as an unparsable payload and surfaces three layers later as a
+                    # JSON error, naming the parser instead of the model. `cost_usd` is kept
+                    # on the failure so the caller still bills it — see the ledger gate below,
+                    # which reports on "were we charged", not on "did it work".
+                    if not text.strip():
+                        reasoning_tokens = (
+                            (usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0
+                        )
+                        detail = (
+                            f" — the model spent {reasoning_tokens} tokens reasoning and returned no answer"
+                            if reasoning_tokens else ""
+                        )
+                        logger.error(
+                            f"[AIService] {model} returned an empty answer "
+                            f"(finish_reason={finish_reason}){detail}"
+                        )
+                        return {
+                            "success": False,
+                            "error": f"empty answer from {model} (finish_reason={finish_reason})",
+                            "model": data.get("model", model),
+                            "usage": usage,
+                            "cost_usd": cost,
+                        }
+                    return {
+                        "success": True,
+                        "text": text.strip(),
+                        "model": data.get("model", model),
+                        "provider": "openrouter",
+                        # The BACKEND OpenRouter routed to, which is what the prompt cache is
+                        # warm on. `provider` above is the gateway and is always "openrouter",
+                        # so the run log could never answer "did we land on the same instance
+                        # as the previous call?" — the question the cache hit rate turns on.
+                        "upstream": data.get("provider"),
+                        "usage": usage,
+                        "cost_usd": cost,
+                        "finish_reason": finish_reason,
+                    }
+            except urllib.error.HTTPError as exc:
+                error_body = ""
+                try:
+                    error_body = exc.read().decode("utf-8")
+                except Exception:
+                    pass
+                # Some endpoints refuse to have reasoning switched off at all and answer
+                # 400 "Reasoning is mandatory for this endpoint" — gpt-5-nano and glm-5.3
+                # both do. Asking them for the MINIMAL effort instead gets the same result
+                # we wanted (0 reasoning tokens, measured) and is the only form they accept.
+                # Retried once, on this message only: a blanket retry would re-send every
+                # 400, and a quota or malformed-request error must stay one call.
+                if (
+                    exc.code == 400
+                    and "reasoning" in error_body.lower()
+                    and not attempted_minimal_reasoning
+                ):
+                    attempted_minimal_reasoning.append(True)
+                    self._models_requiring_reasoning.add(model)
+                    logger.info(
+                        f"[AIService] {model} requires reasoning — retrying with minimal "
+                        f"effort, and remembering it for this model"
+                    )
+                    return request_once(
+                        urllib.request.Request(
+                            OPENROUTER_API_URL,
+                            data=build_body(REASONING_MINIMAL),
+                            headers=headers,
+                            method="POST",
+                        )
+                    )
+                # 429 is the one HTTP failure that says what to do: OpenRouter's upstream
+                # rate limit answers "Please retry shortly". Returning it as a plain failure
+                # threw the generation away — a comment silently not written. Measured on
+                # 2026-09-10: 0 rate limits in 396 production calls on qwen, but repeated ones
+                # the moment calls were fired back to back, which is what 200 accounts in
+                # parallel will look like. Two waits, growing, then give up: a third would only
+                # hold a run hostage to an upstream that is not coming back.
+                # 502 and 503 (bad upstream answer, no provider available) are not billed and
+                # clear the same way, so they get the same waits (RETRYABLE_HTTP_STATUSES).
+                if (
+                    exc.code in RETRYABLE_HTTP_STATUSES
+                    and len(rate_limit_waits) < len(RATE_LIMIT_BACKOFF_SECONDS)
+                ):
+                    wait = RATE_LIMIT_BACKOFF_SECONDS[len(rate_limit_waits)]
+                    rate_limit_waits.append(wait)
+                    reason = "rate-limited upstream" if exc.code == 429 else f"HTTP {exc.code} upstream"
+                    logger.warning(
+                        f"[AIService] {model} {reason} — waiting {wait:.0f}s "
+                        f"before retry {len(rate_limit_waits)}/{len(RATE_LIMIT_BACKOFF_SECONDS)}"
+                    )
+                    time.sleep(wait)
+                    return request_once(
+                        urllib.request.Request(
+                            OPENROUTER_API_URL, data=request.data, headers=headers,
+                            method="POST",
+                        )
+                    )
+                logger.error(
+                    f"[AIService] OpenRouter HTTP {exc.code}: {error_body[:300]}"
+                )
+                return {
+                    "success": False,
+                    "error": f"HTTP {exc.code}: {error_body[:200]}",
+                    # Distinguishable from a real failure, so a caller can decide to fall back
+                    # to another model rather than drop the work.
+                    "rate_limited": exc.code == 429,
+                }
+            except Exception as exc:
+                logger.error(f"[AIService] OpenRouter error: {exc}")
+                return {"success": False, "error": str(exc)}
+
+        # The worker only performs the HTTP read and has no IPC/UI side effects.
+        # If it outlives the deadline, the profile pipeline resumes and emits one
+        # normal ai_error from the caller thread; a late response cannot revive a
+        # stale Agent card.
+        bounded = run_bounded_optional(
+            lambda: request_once(req),
+            timeout_seconds=OPENROUTER_TOTAL_TIMEOUT_SECONDS,
+            label=f"OpenRouter {model} request",
+        )
+        if bounded.timed_out:
+            message = (
+                f"OpenRouter request exceeded its "
+                f"{OPENROUTER_TOTAL_TIMEOUT_SECONDS:.0f}s total deadline"
+            )
+            logger.error(f"[AIService] {message}")
+            return {"success": False, "error": message}
+        if bounded.error is not None:
+            logger.error(f"[AIService] OpenRouter worker error: {bounded.error}")
+            return {"success": False, "error": str(bounded.error)}
+        result = bounded.value
+        if not result:
+            return {
+                "success": False,
+                "error": "OpenRouter request ended without a response",
+            }
+        # Gated on "were we BILLED", not on "did it work". A call the provider charged for
+        # and that came back empty is still money out of the account, and reporting it only
+        # on success is how spend escapes the ledger again — the exact defect the ai_spend
+        # transport was introduced to close. A reasoning model that burns its budget thinking
+        # bills in full and answers nothing, so this is not a theoretical case.
+        if result.get("success") or isinstance(result.get("cost_usd"), (int, float)):
+            # Single audit line per LLM call: which model ACTUALLY served it (the API may
+            # route elsewhere than the requested slug), how many tokens, and what it cost.
+            # Previously both were captured and silently dropped, so a post-hoc audit of a
+            # finished run could not answer "which model ran?" or "where did the cost go?".
+            usage = result.get("usage") or {}
+            cost = result.get("cost_usd")
+            cost_txt = f"${cost:.6f}" if isinstance(cost, (int, float)) else "n/a"
+            served = result.get("model") or model
+            routed = "" if served == model else f" (requested {model})"
+            # Cached prompt tokens bill at a tenth of the normal input price. Log them so a
+            # cache that stops being hit is visible in the run log instead of only in the bill.
+            cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
+            cached_txt = f" (cached {cached})" if cached else ""
+            # The BACKEND, not the gateway: the prompt cache is warm per instance, so a run whose
+            # hit rate collapses is answered by whether this value keeps changing between calls.
+            upstream = result.get("upstream")
+            upstream_txt = f" · via={upstream}" if upstream else ""
+            # A billed call that answered nothing must not read like a normal one in the run
+            # log: same shape, one word of difference, so a grep over the costs still finds it.
+            outcome_txt = "" if result.get("success") else " · EMPTY ANSWER"
+            logger.info(
+                f"[AIService] {label or 'call'} · model={served}{routed} · "
+                f"tokens={usage.get('prompt_tokens', '?')}{cached_txt}+{usage.get('completion_tokens', '?')} · "
+                f"cost={cost_txt}{upstream_txt}{outcome_txt}"
+            )
+            # The session's ONLY cost ledger. Reported here, at the single point every paid
+            # call passes through, so spend cannot escape accounting: the per-card events
+            # only fire on paths that produce a card, and a declined comment, a declined
+            # reply, a batch username classification or an agent decision produce none while
+            # costing real money. Best effort — accounting must never break a run.
+            reports = getattr(self, "report_spend", True)
+            if self.ipc is not None and reports and isinstance(cost, (int, float)):
+                try:
+                    self.ipc.ai_spend(cost, model=served, label=label,
+                                      kind=normalize_spend_kind(kind))
+                except Exception as exc:
+                    logger.debug(f"[AIService] ai_spend emit failed: {exc}")
+        return result
+
+
+    def build_prompt_capture(self, system_prompt: Union[str, list], user_prompt: str) -> Dict[str, Any]:
+        """What was actually sent, in the shape the capture store expects.
+
+        Returns `{hash, system?, user}` — the sha256 of the stable half, that half's TEXT only the
+        first time this process hands out that hash, and the variable half in full.
+
+        The image is deliberately absent: it already lives in `media` under `ai_<username>.jpg`,
+        and inlining its base64 (~55 KB) would put back exactly the weight this design removes.
+
+        Pure: it reads nothing and writes nothing. The database layer decides what to do with it,
+        which is what keeps a provider from owning a table.
+        """
+        if isinstance(system_prompt, list):
+            # `cacheable_system()` returns blocks; the stable half is what carries the breakpoint,
+            # and the rest is joined behind it so the hash describes the WHOLE system message.
+            text = "\n".join(
+                block.get("text", "") for block in system_prompt if isinstance(block, dict)
+            )
+        else:
+            text = system_prompt or ""
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        capture: Dict[str, Any] = {"hash": digest, "user": user_prompt}
+        # Created on demand rather than read straight off the instance: the mixin is exercised on
+        # services built without `__init__` (test doubles, partial construction), and a capture is
+        # diagnostic material — it must never be the reason a real call raises.
+        seen = getattr(self, "_captured_prompt_hashes", None)
+        if seen is None:
+            seen = set()
+            self._captured_prompt_hashes = seen
+        if digest not in seen:
+            seen.add(digest)
+            capture["system"] = text
+        return capture
+
+    def _image_to_base64_url(self, image_path: str) -> Optional[str]:
+        """Convert an image file to a data URL for vision models."""
+        if not os.path.isfile(image_path):
+            return None
+        ext = os.path.splitext(image_path)[1].lower()
+        mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}.get(ext.lstrip("."), "image/png")
+        with open(image_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("ascii")
+        return f"data:{mime};base64,{b64}"
+
+    def _image_for_vision(self, image_path: str) -> Optional[str]:
+        """Downscale + JPEG-encode a screenshot before sending it to the vision model.
+
+        Device screenshots are ~1080x2220 PNGs; sent raw they tile into ~1550 image
+        tokens per call on Gemini (the dominant cost of each profile/post analysis).
+        Capping the long edge at VISION_IMAGE_MAX_EDGE drops a portrait shot to ~2 tiles
+        (~-67%) while keeping the width near 750px, so text stays legible (and
+        classify_profile_niche also feeds bio/name as text). Falls back to the raw image
+        if PIL is unavailable — never worse than before.
+        """
+        if not os.path.isfile(image_path):
+            return None
+        try:
+            from PIL import Image as PILImage
+            import io
+            with PILImage.open(image_path) as img:
+                img = img.convert("RGB")
+                img.thumbnail((VISION_IMAGE_MAX_EDGE, VISION_IMAGE_MAX_EDGE), PILImage.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=85, optimize=True)
+                b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                return f"data:image/jpeg;base64,{b64}"
+        except ImportError:
+            # PIL missing (open-source standalone): send the raw image, as before.
+            return self._image_to_base64_url(image_path)
+        except Exception:
+            return self._image_to_base64_url(image_path)
+
+    def _image_to_thumbnail_url(self, image_path: str, max_size: int = 400) -> Optional[str]:
+        """Convert image to a small JPEG thumbnail for IPC display (lightweight, ~30-60KB)."""
+        if not os.path.isfile(image_path):
+            return None
+        try:
+            from PIL import Image as PILImage
+            import io
+            with PILImage.open(image_path) as img:
+                img = img.convert("RGB")
+                img.thumbnail((max_size, max_size), PILImage.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=60, optimize=True)
+                b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                return f"data:image/jpeg;base64,{b64}"
+        except ImportError:
+            # PIL not available — send full image (capped at first 200KB of base64)
+            return self._image_to_base64_url(image_path)
+        except Exception:
+            return None
+
+    def _extract_avatar_thumbnail(self, image_path: str, size: int = 64) -> Optional[str]:
+        """Crop the profile picture area from an Instagram profile screenshot.
+
+        Instagram Android layout: the avatar circle is in the top-left of the profile
+        header, just below the navigation bar. Coordinates are expressed as a fraction
+        of image width so they stay consistent across device densities (1080p, 720p…).
+        """
+        if not os.path.isfile(image_path):
+            return None
+        try:
+            from PIL import Image as PILImage
+            import io
+            with PILImage.open(image_path) as img:
+                img = img.convert("RGB")
+                w, h = img.size
+                # Only crop when the image is portrait (i.e. a real full screenshot,
+                # not an already-resized thumbnail).
+                if h > w:
+                    x1 = int(0.02 * w)
+                    y1 = int(0.19 * w)
+                    crop_size = int(0.32 * w)
+                    x2 = min(x1 + crop_size, w)
+                    y2 = min(y1 + crop_size, h)
+                    img = img.crop((x1, y1, x2, y2))
+                img = img.resize((size, size), PILImage.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=75)
+                b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                return f"data:image/jpeg;base64,{b64}"
+        except Exception:
+            return None
+
+    # ------------------------------------------------------------------
+    # Text completion
+    # ------------------------------------------------------------------
+
+    def text_completion(self, system_prompt: str, user_prompt: str,
+                        temperature: float = 0.7, max_tokens: int = 2000,
+                        model: str = None, label: str = "text",
+                        kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
+        """Simple text completion. Defaults to the analysis model; generation callers pass
+        `model=self.model_generation` explicitly."""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        return self._call_openrouter(model or self.model_analysis, messages, temperature,
+                                     max_tokens, label=label, kind=kind)
+
+    def classify_following_usernames_batch(
+        self,
+        usernames: list,
+        batch_size: int = 20,
+    ) -> Dict[str, Dict[str, str]]:
+        """
+        Infer niche_category, niche and gender for a list of Instagram usernames
+        using text-only LLM (no screenshot required — username is the sole signal).
+
+        Uses the same niche taxonomy as classify_profile_niche for consistency.
+        Processes in batches of *batch_size* to keep prompt size manageable.
+
+        Returns a dict: {username: {"niche_category": ..., "niche": ..., "gender": ...}}
+        Unclassifiable usernames get niche_category="other", niche="Other", gender="unknown".
+        """
+        if not usernames:
+            return {}
+
+        niche_map = self._niche_map_text()
+        system_prompt = (
+            "You are an Instagram username analyst.\n"
+            "Given a list of Instagram usernames, infer for each:\n"
+            "  - niche_category: choose from the keys below\n"
+            "  - niche: choose from that category's sub-niches (after the colon)\n"
+            "  - gender: 'male', 'female', 'brand' (company/org/product), or 'unknown'\n\n"
+            "Niche taxonomy (category: sub-niche1 | sub-niche2 | ...):\n"
+            + niche_map + "\n\n"
+            "Base your inference solely on the username (words, patterns, name cues, brand signals).\n"
+            "IMPORTANT: always try to match an existing sub-niche first. "
+            "Only if the account genuinely doesn't fit ANY listed sub-niche, pick the closest niche_category "
+            "and write a short descriptive sub-niche label freely (e.g. 'Associative & Non-Profit', 'Motorsport & Racing'). "
+            "Do NOT invent a new sub-niche just to be more specific — use the existing one whenever reasonable.\n"
+            "Use 'other' / 'Other' / 'unknown' only when no category applies at all.\n"
+            "Respond ONLY with a valid JSON object, keys are usernames:\n"
+            '{"username1": {"niche_category": "travel", "niche": "Adventure & Backpacking", "gender": "female"}, '
+            '"username2": {"niche_category": "other", "niche": "Other", "gender": "unknown"}}'
+        )
+
+        results: Dict[str, Dict[str, str]] = {}
+        clean = [u for u in usernames if u]
+
+        known_sub_niches = self._known_sub_niches
+        # Scale the token budget with the batch size: each username yields a small JSON object, and a
+        # full batch of 20 overflowed the old flat 1200 cap — the response was truncated
+        # ("Unterminated string") and the WHOLE batch was dropped.
+        max_tokens = max(1200, 220 + batch_size * 140)
+
+        def _ingest(username: str, data: Any) -> None:
+            if not isinstance(data, dict):
+                return
+            niche_val = str(data.get("niche") or "Other")
+            if niche_val not in known_sub_niches and niche_val != "Other":
+                logger.info(f"[AIService] Proposed new sub-niche '{niche_val}' for @{username}")
+            results[username] = {
+                "niche_category": self._canonicalize_niche_category(
+                    data.get("niche_category"), self._niche_categories),
+                "niche": niche_val,
+                "gender": str(data.get("gender") or "unknown"),
+            }
+
+        for i in range(0, len(clean), batch_size):
+            batch = clean[i:i + batch_size]
+            user_prompt = "Classify these Instagram usernames:\n" + "\n".join(f"- {u}" for u in batch)
+            text = ""
+            try:
+                result = self.text_completion(system_prompt, user_prompt, temperature=0.1,
+                                              max_tokens=max_tokens,
+                                              label=f"classify_following_batch ({len(batch)})",
+                                              kind=AI_SPEND_AUDIENCE)
+                if not result.get("success"):
+                    logger.warning(f"[AIService] classify_following_usernames_batch failed: {result.get('error')}")
+                    continue
+                text = result["text"].strip()
+                batch_result = parse_json_response(text)
+                for username, data in batch_result.items():
+                    _ingest(username, data)
+            except Exception as e:
+                # A truncated/malformed batch used to be dropped whole. Salvage every COMPLETE
+                # "username": {...} entry so a cut-off tail loses only its last (partial) item.
+                salvaged = self._salvage_batch_entries(text)
+                for username, data in salvaged.items():
+                    _ingest(username, data)
+                logger.warning(
+                    f"[AIService] classify_following_usernames_batch batch error: {e}; "
+                    f"salvaged {len(salvaged)}/{len(batch)} entr(y/ies)"
+                )
+                continue
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Vision completion
+    # ------------------------------------------------------------------
+
+    def vision_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
+                          temperature: float = 0.3, max_tokens: int = 1500,
+                          label: str = "vision", kind: str = AI_SPEND_OTHER,
+                          model: str = None) -> Dict[str, Any]:
+        """Vision completion — sends an image + prompt to a vision model.
+
+        `system_prompt` is either a plain string or the block list built by
+        `cacheable_system()` when the prefix is worth caching.
+
+        `model` defaults to the describer; the profile classifier passes its own, which is a
+        different model since 2026-09-09 (see MODEL_CLASSIFICATION)."""
+        # Downscaled + JPEG (see _image_for_vision): device screenshots are huge PNGs and
+        # the image dominates each vision call's token cost. Never sends more than the raw.
+        image_url = self._image_for_vision(image_path)
+        if not image_url:
+            return {"success": False, "error": f"Image not found: {image_path}"}
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": image_url}},
+                {"type": "text", "text": user_prompt},
+            ]},
+        ]
+        return self._call_openrouter(model or self.vision_model, messages, temperature, max_tokens,
+                                     kind=kind, label=label)
+
+    def vision_json_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
+                               temperature: float = 0.3, max_tokens: int = 1500,
+                               label: str = "vision",
+                               kind: str = AI_SPEND_OTHER,
+                               model: str = None) -> Dict[str, Any]:
+        """Vision completion whose answer must be JSON — retried once if it comes back unusable.
+
+        Upstream truncation is rare but real: replaying the exact production call 9 times in a
+        row returned clean JSON every time (~230-390 completion tokens against a 1100 ceiling),
+        yet a live run got a completion cut after four characters. A single retry therefore
+        recovers it with very high probability, and costs nothing on the normal path.
+
+        Returns the usual completion dict plus `payload` (the parsed JSON) on success, or
+        success=False with `error`/`raw` when both attempts failed to parse.
+        """
+        last: Dict[str, Any] = {}
+        for attempt in (1, 2):
+            last = self.vision_completion(system_prompt, user_prompt, image_path,
+                                          temperature=temperature, max_tokens=max_tokens,
+                                          label=label, kind=kind, model=model)
+            if not last.get("success"):
+                return last  # transport/HTTP failure: retrying here would just double the wait
+
+            try:
+                last["payload"] = parse_json_response(last.get("text", ""))
+                return last
+            except ValueError as exc:
+                finish = last.get("finish_reason")
+                if attempt == 1:
+                    logger.warning(
+                        f"[AIService] {label}: unusable answer ({exc}; finish_reason={finish}) — retrying once"
+                    )
+                    continue
+                logger.warning(f"[AIService] {label}: unusable answer after retry ({exc}; finish_reason={finish})")
+                return {
+                    "success": False,
+                    "error": f"JSON parse error: {exc}",
+                    "raw": last.get("text", ""),
+                    "finish_reason": finish,
+                }
+        return last
+
+    def _extract_partial_classification(self, text: str) -> Optional[Dict[str, Any]]:
+        """Fallback parser: extract key fields from a truncated/malformed JSON string."""
+        import re
+        result: Dict[str, Any] = {}
+
+        for field in ("niche_category", "niche", "summary", "language", "content_type", "country"):
+            m = re.search(rf'"{field}"\s*:\s*"([^"]*)', text)
+            if m:
+                result[field] = m.group(1)
+        # cities array fallback
+        m = re.search(r'"cities"\s*:\s*\[([^\]]*)', text)
+        if m:
+            raw = m.group(1)
+            result["cities"] = [t.strip().strip('"') for t in raw.split(',') if t.strip().strip('"')]
+
+        # tags array (may also be truncated)
+        m = re.search(r'"tags"\s*:\s*\[([^\]]*)', text)
+        if m:
+            raw_tags = m.group(1)
+            result["tags"] = [t.strip().strip('"') for t in raw_tags.split(",") if t.strip().strip('"')]
+
+        return result if result.get("niche_category") else None
+
+    def _salvage_batch_entries(self, text: str) -> Dict[str, Dict[str, Any]]:
+        """Recover complete '"username": { ... }' objects from a truncated/malformed batch JSON,
+        so a cut-off response loses only its last (incomplete) entry instead of the whole batch.
+        The batch entries are flat objects (no nesting), so a non-greedy brace match is enough."""
+        import re
+        salvaged: Dict[str, Dict[str, Any]] = {}
+        if not text:
+            return salvaged
+        for m in re.finditer(r'"([^"\\]+)"\s*:\s*(\{[^{}]*\})', text):
+            try:
+                salvaged[m.group(1)] = json.loads(m.group(2))
+            except json.JSONDecodeError:
+                continue
+        return salvaged
+
+    # ------------------------------------------------------------------
+    # High-level AI operations
+    # ------------------------------------------------------------------
+
+    # Fallback list for the STANDALONE bot, which receives no injected taxonomy.
+    #
+    # It used to be the only list, under a comment asking the next editor to keep it in step with
+    # niche-taxonomy.ts. That did not hold: the desktop app added `visual_media` (Photo, Video &
+    # Film) on 2026-08-21 and this copy never learnt it, so every profile the model correctly
+    # classified there failed the exact-match test below and was clamped to `other`. Measured on
+    # the production base: 1 115 of the 9 136 qualifications written since carry `other` with a
+    # photography or cinema sub-niche.
+    #
+    # When a taxonomy IS injected, `_niche_categories` derives the buckets from its keys and this
+    # list is not consulted — a copy that cannot drift because it is no longer the source.
+    NICHE_CATEGORIES = [
+        "lifestyle", "travel", "fitness_sports", "food_drink", "fashion",
+        "beauty_wellness", "tech_education", "business_marketing", "music_entertainment",
+        "art_design", "finance", "health_family", "home_interior", "events_services",
+        "community_causes", "other",
+    ]
+
+    # Free-text drift the model actually produces, mapped back onto the canonical buckets.
+    # Built from real runs: the model returned `fashion_and_beauty`,
+    # `personal_blog`, `spam`, and four spellings of arts_* despite the prompt listing the keys.
+    _NICHE_CATEGORY_SYNONYMS = {
+        # entertainment / culture cluster
+        "arts_and_entertainment": "music_entertainment",
+        "arts_entertainment": "music_entertainment",
+        "entertainment": "music_entertainment",
+        "arts_and_culture": "music_entertainment",
+        "music": "music_entertainment",
+        "media": "music_entertainment",
+        # image as a TRADE — see `visual_media` in the app's taxonomy. `_SYNONYM_FALLBACK` sends
+        # these back to their pre-split bucket for the standalone bot, which has no such niche.
+        "cinema": "visual_media",
+        "film_and_cinema": "visual_media",
+        "film": "visual_media",
+        "video": "visual_media",
+        "videography": "visual_media",
+        "cinematography": "visual_media",
+        "photography": "visual_media",
+        "photo": "visual_media",
+        "acting": "visual_media",
+        # visual arts / craft / literature
+        "art": "art_design",
+        "arts": "art_design",
+        "design": "art_design",
+        "art_and_design": "art_design",
+        "arts_and_crafts": "art_design",
+        "crafts": "art_design",
+        "books_and_literature": "art_design",
+        "literature": "art_design",
+        # beauty
+        "beauty": "beauty_wellness",
+        "wellness": "beauty_wellness",
+        "cosmetics": "beauty_wellness",
+        "fashion_and_beauty": "beauty_wellness",
+        # lifestyle
+        # Business / commerce. `real_estate` is a deliberate call: an estate agent's
+        # account sells a service, so it belongs with business.
+        "real_estate": "business_marketing",
+        "realestate": "business_marketing",
+        "property": "business_marketing",
+        "shopping": "business_marketing",
+        "retail": "business_marketing",
+        "ecommerce": "business_marketing",
+        # Unambiguous singles the token overlap cannot reach, because it compares whole
+        # tokens: "technology" never overlaps "tech", "books" never overlaps "art_design".
+        "technology": "tech_education",
+        "tech": "tech_education",
+        "education": "tech_education",
+        "books": "art_design",
+        "social_issues": "community_causes",
+        "nonprofit": "community_causes",
+        "non_profit": "community_causes",
+        "charity": "community_causes",
+        "activism": "community_causes",
+        "personal_lifestyle": "lifestyle",
+        "personal_blog": "lifestyle",
+        "lifestyle_blog": "lifestyle",
+        "blog": "lifestyle",
+        "blogger": "lifestyle",
+        # food
+        "food": "food_drink",
+        "food_and_drink": "food_drink",
+        "food_and_beverage": "food_drink",
+        "restaurant": "food_drink",
+        "cooking": "food_drink",
+        # business
+        "business": "business_marketing",
+        "business_and_entrepreneurship": "business_marketing",
+        "entrepreneurship": "business_marketing",
+        "marketing": "business_marketing",
+        # home
+        "home_improvement": "home_interior",
+        "home_and_garden": "home_interior",
+        "home_decor": "home_interior",
+        "interior_design": "home_interior",
+        # fitness / sports
+        "fitness": "fitness_sports",
+        "sports": "fitness_sports",
+        "health_and_fitness": "fitness_sports",
+        # health / family
+        "health": "health_family",
+        "family": "health_family",
+        "parenting": "health_family",
+        "family_and_parenting": "health_family",
+        "health_and_family": "health_family",
+        # tech / education
+        "tech": "tech_education",
+        "technology": "tech_education",
+        "education": "tech_education",
+        # travel
+        "travel_and_tourism": "travel",
+        "tourism": "travel",
+        # finance
+        "finance_and_investing": "finance",
+        "investing": "finance",
+        # events / services
+        "events": "events_services",
+        "services": "events_services",
+        # community
+        "community": "community_causes",
+        "causes": "community_causes",
+        "nonprofit": "community_causes",
+        # junk / non-buckets
+        "spam": "other",
+        "scam": "other",
+        "spam_and_scam": "other",
+        "unknown": "other",
+        "none": "other",
+    }
+
+    # Where each redirected synonym goes when this instance has no `visual_media` bucket.
+    #
+    # Keyed on the INCOMING slug, not on the target: before the 2026-08-21 split the image trades
+    # were spread over two niches — the camera crafts under Art & Design, the screen ones under
+    # Music & Entertainment — so a single target-keyed fallback would send `cinema` to Art & Design,
+    # which is not where the standalone bot used to put it.
+    _SYNONYM_FALLBACK = {
+        "cinema": "music_entertainment",
+        "film_and_cinema": "music_entertainment",
+        "film": "music_entertainment",
+        "acting": "music_entertainment",
+        "photography": "art_design",
+        "photo": "art_design",
+        "video": "art_design",
+        "videography": "art_design",
+        "cinematography": "art_design",
+    }
+
+    @classmethod
+    def _synonyms_without_joiners(cls) -> Dict[str, str]:
+        """The synonym table keyed on its joiner-free form, built once.
+
+        `arts_and_culture` and `arts_culture` are the same key to a reader and two
+        different keys to a dict; this is what makes the lookup agree with the reader.
+        """
+        cached = getattr(cls, "_SYNONYMS_NO_JOINERS", None)
+        if cached is None:
+            stop = {"and", "the", "of", "a", "et"}
+            cached = {
+                "_".join(t for t in key.split("_") if t and t not in stop): value
+                for key, value in cls._NICHE_CATEGORY_SYNONYMS.items()
+            }
+            cls._SYNONYMS_NO_JOINERS = cached
+        return cached
+
+    @property
+    def _niche_categories(self) -> list:
+        """The category keys this instance may return.
+
+        The injected taxonomy IS the list when there is one: the prompt asks the model to pick
+        among its keys, so anything else here would reject the answer we asked for. `other` is
+        appended because the payload deliberately omits it — it is the catch-all, never a choice.
+        Without an injection (standalone bot), the frozen list stands.
+        """
+        if self.niche_taxonomy:
+            return [*self.niche_taxonomy.keys(), "other"]
+        return self.NICHE_CATEGORIES
+
+    @classmethod
+    def _canonicalize_niche_category(cls, raw: Any, allowed: Any = None) -> str:
+        """Clamp a model-emitted niche_category onto the canonical buckets.
+
+        The classification prompt lists the allowed keys, but the output was never
+        validated: real runs persisted free-text slugs into the indexed
+        profile_following.niche_category column, fragmenting one concept across
+        several spellings. Resolution order: exact match, then synonym remap, then
+        single-token overlap; anything ambiguous fails closed to 'other'.
+
+        `allowed` names the buckets to clamp onto; callers with an injected taxonomy pass
+        `self._niche_categories`, so a bucket the app added is accepted the day it is added
+        rather than the day someone remembers to copy it here.
+        """
+        categories = list(allowed) if allowed else cls.NICHE_CATEGORIES
+        if not raw:
+            return "other"
+        slug = re.sub(r"[^a-z0-9]+", "_", str(raw).strip().lower()).strip("_")
+        if not slug:
+            return "other"
+        if slug in categories:
+            return slug
+
+        # Look the synonym up on the JOINER-FREE form, on both sides. "arts & culture"
+        # slugifies to `arts_culture` while the table holds `arts_and_culture`: the same
+        # concept, spelled by the model with an ampersand instead of the word. Measured on
+        # the real base: 156 profiles fell to "other" on that difference alone.
+        stop = {"and", "the", "of", "a", "et"}
+        def _strip_joiners(value: str) -> str:
+            return "_".join(t for t in value.split("_") if t and t not in stop)
+
+        mapped = cls._NICHE_CATEGORY_SYNONYMS.get(slug) or cls._synonyms_without_joiners().get(_strip_joiners(slug))
+        if mapped:
+            # A synonym may name a bucket this instance does not have — the table sends the image
+            # trades to `visual_media`, which the standalone bot does not know. Fall back to where
+            # that same slug landed before the split rather than dropping the answer.
+            if mapped not in categories:
+                mapped = cls._SYNONYM_FALLBACK.get(slug) or cls._SYNONYM_FALLBACK.get(_strip_joiners(slug))
+            if mapped and mapped in categories:
+                return mapped
+        # Last resort: token overlap with the canonical buckets (unique winner only).
+        tokens = {t for t in slug.split("_") if t and t not in stop}
+        best, best_overlap, tied = "other", 0, False
+        for cat in categories:
+            overlap = len(tokens & set(cat.split("_")))
+            if overlap > best_overlap:
+                best, best_overlap, tied = cat, overlap, False
+            elif overlap == best_overlap and overlap > 0:
+                tied = True
+        if best_overlap > 0 and not tied:
+            logger.debug(f"[AIService] niche_category '{raw}' clamped to '{best}' (token overlap)")
+            return best
+        logger.debug(f"[AIService] niche_category '{raw}' not recognized — clamped to 'other'")
+        return "other"
+
+    @property
+    def _known_sub_niches(self) -> set:
+        """Flat set of all injected sub-niche labels (premium taxonomy, may be empty)."""
+        return {s for subs in self.niche_taxonomy.values() for s in subs}
+
+    def _niche_map_text(self) -> str:
+        """Render the injected taxonomy as a 'category: sub1 | sub2' block.
+
+        Returns a free-form hint when no premium taxonomy is injected, so the
+        standalone open-source bot still produces a usable classification.
+        """
+        if not self.niche_taxonomy:
+            return "  (no taxonomy provided — infer a concise niche_category slug and a short niche label)"
+        return "\n".join(
+            f"  {cat}: {' | '.join(subs)}" for cat, subs in self.niche_taxonomy.items()
+        )
+
+    @staticmethod
+    def _normalize_engagement(raw: Any) -> Optional[Dict[str, Any]]:
+        """Coerce the model's `engagement` block into a safe, typed verdict (or None).
+
+        The semantic tier is mandatory. Weak, missing or malformed evidence fails
+        closed. An adjacent profile may receive a discovery like, but never a
+        follow or comment from this profile-level verdict alone.
+        """
+        if not isinstance(raw, dict):
+            return None
+
+        score = raw.get("score")
+        try:
+            score = max(0.0, min(1.0, float(score)))
+        except (TypeError, ValueError):
+            score = None
+
+        reason = raw.get("reason")
+        reason = reason.strip()[:200] if isinstance(reason, str) else None
+        evidence = raw.get("evidence")
+        evidence = evidence.strip()[:240] if isinstance(evidence, str) else None
+
+        tier = str(raw.get("relevance_tier") or "").strip().lower()
+        if tier not in {"direct", "adjacent", "weak", "none"}:
+            tier = "none"
+        if tier in {"direct", "adjacent"} and not evidence:
+            tier = "weak"
+
+        # The model chooses one semantic tier; deterministic code derives the
+        # permitted candidates. This avoids asking a small model for four
+        # correlated booleans that it can copy mechanically from an example.
+        relevant = tier in {"direct", "adjacent"}
+        follow = tier == "direct"
+        comment = tier == "direct"
+        like = tier in {"direct", "adjacent"}
+
+        if tier == "adjacent":
+            if score is not None:
+                score = min(score, 0.79)
+        elif tier == "weak":
+            relevant = False
+            follow = comment = like = False
+            if score is not None:
+                score = min(score, 0.44)
+        elif tier == "none":
+            relevant = False
+            follow = comment = like = False
+            if score is not None:
+                score = min(score, 0.20)
+        return {
+            "relevant": relevant,
+            "relevance_tier": tier,
+            "evidence": evidence,
+            "follow": follow,
+            "comment": comment,
+            "like": like,
+            "score": score,
+            "reason": reason,
+        }
+
+    @staticmethod
+    def _engagement_relativity(
+        account_niche: Optional[str],
+        account_sub_niche: Optional[str],
+        account_persona: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """The shared 'judge THIS profile relative to OUR account' instruction — single source for
+        both the vision classification and the text-only cached-profile verdict, so the two paths
+        can never drift apart in what 'relevant' means."""
+        persona = account_persona if isinstance(account_persona, dict) else {}
+        niche = account_niche or persona.get("niche")
+        if niche:
+            identity = f"Niche: {niche}"
+            if account_sub_niche:
+                identity += f" / {account_sub_niche}"
+            details = [identity]
+            for label, key in (
+                ("Product/service", "productService"),
+                ("Objective", "objective"),
+                ("Target audience", "targetAudience"),
+                ("Unique selling point", "uniqueSellingPoint"),
+                ("Additional context", "customContext"),
+            ):
+                value = persona.get(key)
+                if isinstance(value, str) and value.strip():
+                    details.append(f"{label}: {value.strip()[:500]}")
+            account_context = "\n".join(details)
+        else:
+            account_context = "No operated-account persona is available."
+
+        return (
+            "We are evaluating acquisition targets for the operated account below:\n"
+            f"{account_context}\n"
+            "Judge MARKET FIT, not whether the candidate has the same job title and not whether "
+            "the candidate personally performs the operated account's objective. The objective "
+            "describes what OUR account wants to achieve; it is not a job description that every "
+            "valuable target must satisfy.\n"
+            "Evaluate these independent fit paths and use the strongest one supported by an "
+            "observed candidate fact:\n"
+            "1. core ecosystem: same field, supply chain, professional community or creator scene;\n"
+            "2. target audience: the candidate is explicitly one of the people the account serves;\n"
+            "3. shared customer/problem: both address the same concrete clientele, need or business problem;\n"
+            "4. complementary market: the candidate offers a credible one-hop complementary service "
+            "or reaches the same concrete audience;\n"
+            "5. distribution/context: explicit media, event, community or geographic fit that makes "
+            "the candidate a credible participant in this market.\n"
+            "Use this evidence-based relevance ladder:\n"
+            "- direct: a concrete candidate fact places the profile in the core ecosystem, explicit "
+            "target audience, or same customer/problem market. Exact job-title equality is unnecessary.\n"
+            "- adjacent: a concrete candidate fact shows a credible one-hop complementary market, "
+            "shared audience, distribution channel or professional community.\n"
+            "- weak: only a broad theme, vague aspiration, hypothetical collaboration, generic "
+            "lifestyle/culture/creativity/business wording, or a multi-hop connection can be invented.\n"
+            "- none: no credible overlap, spam, generic store/service, or unrelated fan account.\n"
+            "Broad words such as culture, events, community, lifestyle, visual or creativity are NOT "
+            "evidence by themselves; an observed profession, service, audience, portfolio topic, "
+            "business category, bio claim or repeated content theme can be evidence. A cinema account "
+            "versus a generic hair salon or football fan is weak/none, while an actor, filmmaker or "
+            "cinematographer is direct and a working musician, photographer or cultural journalist can "
+            "be adjacent when the operated persona targets the broader cultural ecosystem. For a "
+            "business-coaching account serving beauty institutes, institute owners and estheticians are "
+            "direct; a coach, marketer, trainer or wellness professional is adjacent only when a concrete "
+            "shared clientele, entrepreneurial problem or complementary service is visible. Do not infer "
+            "relevance merely because the candidate follows the source account or because both profiles "
+            "are generically entrepreneurial or creative. "
+            "For direct/adjacent, 'evidence' must cite the concrete candidate fact that overlaps; "
+            "phrases such as 'could interest', 'might be useful' or 'potential collaboration' are weak. "
+            "Consistency check before answering: if the extracted profession, tags or bio explicitly "
+            "name a role inside the operated account's core ecosystem or target audience, do not return "
+            "weak/none. If you return weak/none despite a concrete profession, verify that none of the "
+            "five fit paths above is actually supported. "
+        )
+
+    def engagement_verdict_for_known_profile(
+        self,
+        username: str,
+        cached: Dict[str, Any],
+        account_niche: str = None,
+        account_sub_niche: str = None,
+        account_persona: Dict[str, Any] = None,
+        response_language: str = 'en',
+    ) -> Dict[str, Any]:
+        """Engagement verdict for a profile whose AI classification is ALREADY stored — TEXT-ONLY
+        (no screenshot, no vision tokens). Judges the KNOWN niche/profession/bio against the
+        operated account's niche, so relevance gating also covers cached profiles (they used to
+        fail-open: qualification reused, verdict never computed, gate had nothing to act on).
+        The verdict is account-relative, so it is recomputed per run and never persisted.
+
+        Returns {"success": True, "engagement": {...normalized...}} or {"success": False, ...}."""
+        t0 = time.time()
+        _lang_map = {'fr': 'French', 'en': 'English', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese', 'it': 'Italian', 'nl': 'Dutch'}
+        _lang_full = _lang_map.get(response_language, 'English')
+
+        system_prompt = (
+            "You judge Instagram engagement targets for an account we operate.\n"
+            + self._engagement_relativity(
+                account_niche, account_sub_niche, account_persona
+            ) +
+            "Choose the semantic tier only; deterministic code derives the permitted action "
+            "candidates from it. 'score' is 0.0-1.0 relevance confidence.\n"
+            f"Write 'reason' (one short sentence) in {_lang_full}.\n"
+            "Respond ONLY with valid JSON using this schema (the placeholders are not a verdict):\n"
+            '{"relevant": "<true for direct/adjacent, otherwise false>", '
+            '"relevance_tier": "<direct|adjacent|weak|none>", '
+            '"evidence": "<concrete observed fit, or null>", '
+            '"score": "<number 0.0-1.0>", "reason": "<short reason>"}'
+        )
+
+        parts = [f"Profile @{username} — already-classified data:"]
+        if cached.get("niche_category") or cached.get("niche"):
+            parts.append(f"Niche: {cached.get('niche_category') or '?'} / {cached.get('niche') or '?'}")
+        if cached.get("profession"):
+            parts.append(f"Profession: {cached['profession']}")
+        profession_tags = cached.get("profession_tags")
+        if isinstance(profession_tags, list) and profession_tags:
+            parts.append(f"Profession tags: {', '.join(str(tag) for tag in profession_tags[:8])}")
+        tags = cached.get("tags")
+        if isinstance(tags, list) and tags:
+            parts.append(f"Content tags: {', '.join(str(tag) for tag in tags[:10])}")
+        bio = (cached.get("biography") or "").strip()
+        if bio:
+            parts.append(f"Bio: {bio[:400]}")
+        summary = (cached.get("summary") or "").strip()
+        if summary:
+            parts.append(f"Profile summary: {summary[:500]}")
+        following_insights = (cached.get("following_insights") or "").strip()
+        if following_insights:
+            parts.append(f"Audience/community signals: {following_insights[:400]}")
+        if cached.get("full_name"):
+            parts.append(f"Full name: {cached['full_name']}")
+        if cached.get("is_business"):
+            parts.append("Business account: yes")
+        user_prompt = "\n".join(parts)
+
+        result = self.text_completion(system_prompt, user_prompt, temperature=0.2, max_tokens=220,
+                                      label=f"engagement_verdict @{username}", kind=AI_SPEND_VERDICT)
+        duration_ms = int((time.time() - t0) * 1000)
+        if not result.get("success"):
+            return {"success": False, "error": result.get("error", "verdict failed"), "duration_ms": duration_ms}
+
+        raw = (result.get("text") or "").strip()
+        engagement = None
+        try:
+            start, end = raw.find("{"), raw.rfind("}")
+            if start != -1 and end > start:
+                engagement = self._normalize_engagement(json.loads(raw[start:end + 1]))
+        except Exception:
+            engagement = None
+        if engagement is None:
+            return {"success": False, "error": "unparseable verdict", "raw": raw, "duration_ms": duration_ms}
+        return {
+            "success": True,
+            "engagement": engagement,
+            "duration_ms": duration_ms,
+            "model": result.get("model"),
+            "cost_usd": result.get("cost_usd"),
+        }
+
+    def classify_profile_niche(self, username: str, screenshot_path: str,
+                               profile_context: dict = None,
+                               response_language: str = 'en',
+                               include_engagement: bool = False,
+                               account_niche: str = None,
+                               account_sub_niche: str = None,
+                               account_persona: Dict[str, Any] = None,
+                               platform: str = "instagram") -> Dict[str, Any]:
+        """
+        Classify an Instagram profile from a screenshot into a niche (scraping mode).
+        No relevance score — focus is on niche classification + profile summary.
+        Emits IPC events for the AgentPanel.
+
+        Args:
+            profile_context: Optional dict with enriched profile data (bio, website,
+                             business_category, linked_accounts, full_name) to augment
+                             the vision classification with text hints.
+            include_engagement: When True, ALSO return an `engagement` verdict
+                             {relevant, follow, comment, like, score, reason} judging whether
+                             engaging this profile is worthwhile (opt-in so the scraping path,
+                             which reuses this call, pays no extra tokens). See
+                             `internal docs`.
+            account_niche / account_sub_niche / account_persona: factual context for the
+                             operated account, so the verdict is judged relative to its real
+                             market rather than a broad niche label alone.
+        """
+        t0 = time.time()
+
+        # ── Build a human-readable context summary for the AgentPanel ────────────
+        context_lines: list[str] = []
+        if profile_context:
+            bio = (profile_context.get('biography') or '').strip()
+            if bio:
+                bio_short = bio[:120] + ('…' if len(bio) > 120 else '')
+                context_lines.append(f"Bio: {bio_short}")
+            cat = profile_context.get('business_category') or ''
+            if cat:
+                context_lines.append(f"Category: {cat}")
+            following_sample = profile_context.get('_following_sample') or []
+            if following_sample:
+                preview = ', '.join(f"@{u}" for u in following_sample[:5])
+                extra = len(following_sample) - 5
+                extra_str = f' +{extra} more' if extra > 0 else ''
+                context_lines.append(f"Following ({len(following_sample)}): {preview}{extra_str}")
+            known = profile_context.get('_known_followings') or []
+            if known:
+                context_lines.append(f"{len(known)} already-classified in DB")
+        ipc_prompt = '\n'.join(context_lines) if context_lines else f"Classifying @{username}"
+
+        # Avatar crop coordinates are Instagram-Android-specific; skip on other platforms.
+        _plat_label = _platform_label(platform)
+        if self.ipc:
+            screenshot_thumb = self._image_to_thumbnail_url(screenshot_path)
+            avatar_thumb = self._extract_avatar_thumbnail(screenshot_path) if platform == "instagram" else None
+            self.ipc.ai_profile_analyzing(
+                username,
+                prompt=ipc_prompt,
+                # The classifier, not the describer: a card that names the wrong model is how a
+                # switch looks like it never happened.
+                model=self.model_classification,
+                image_url=screenshot_thumb,
+                avatar_url=avatar_thumb,
+                prompt_key="promptClassifyProfile",
+            )
+
+        niche_map = self._niche_map_text()
+        _lang_map = {'fr': 'French', 'en': 'English', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese', 'it': 'Italian', 'nl': 'Dutch'}
+        _lang_full = _lang_map.get(response_language, 'English')
+
+        # Optional engagement-relevance verdict (Lot 1 of the AI-relevance spec). Opt-in so the
+        # scraping path pays no extra tokens. Judged vs the operated account's niche when known.
+        engagement_instr = ""
+        engagement_json = ""
+        if include_engagement:
+            relativity = self._engagement_relativity(
+                account_niche, account_sub_niche, account_persona
+            )
+            engagement_instr = (
+                "\nENGAGEMENT RELEVANCE: " + relativity +
+                "Return an 'engagement' object consistent with the ladder: 'relevance_tier' "
+                "(direct|adjacent|weak|none), 'evidence' (a concrete observed overlap, otherwise null), "
+                "'relevant' (true only for direct/adjacent), 'score' (0.0-1.0), and 'reason' "
+                "(one short sentence). Do not choose individual actions: deterministic code derives "
+                "them from the tier, then evaluates any comment against the real post.\n"
+            )
+            engagement_json = (
+                ', "engagement": {"relevant": "<true for direct/adjacent, otherwise false>", '
+                '"relevance_tier": "<direct|adjacent|weak|none>", '
+                '"evidence": "<concrete observed fit, or null>", '
+                '"score": "<number 0.0-1.0>", "reason": "<short reason>"}'
+            )
+
+        # `following_insights` only means something when a following sample was actually sent, and
+        # only `deep_qualify` sends one. Asked unconditionally it came back empty on every
+        # automation profile — three lines of instruction and a JSON field paid for on ~10 000
+        # calls a month to be told there was nothing to say. Asked only when there IS a sample,
+        # the answer is worth its tokens and the other path stops carrying the question.
+        has_following_sample = bool((profile_context or {}).get('_following_sample'))
+        insights_instr = (
+            "For 'following_insights': write 1-2 sentences explaining what the following sample "
+            "reveals about this person (interests, community circles, cultural background, location "
+            "signals, professional network, etc.). Be concrete: name specific patterns you observe.\n"
+        ) if has_following_sample else ""
+        insights_field_label = ", 'following_insights'" if has_following_sample else ""
+        insights_json = (
+            '"following_insights": "What the following sample reveals about this person.", '
+        ) if has_following_sample else ""
+
+        # The prompt is deliberately split in two. Everything down to `age_group` is
+        # byte-identical on every call — ~2.2k tokens in production, taxonomy included — so it
+        # is sent as a cached prefix billed at a tenth of the input price. The output language
+        # and the engagement block depend on the app language and on the operated account, so
+        # they sit AFTER the breakpoint: putting them earlier would give each account its own
+        # cache entry and cancel most of the saving. See `cacheable_system`.
+        stable_prompt = (
+            f"You are a {_plat_label} profile classifier.\n"
+            "Analyze this profile screenshot and identify the account's niche.\n"
+            "Choose niche_category from the keys below, then choose niche from that category's sub-niches:\n"
+            + niche_map + "\n"
+            "IMPORTANT: always match an existing sub-niche when possible. "
+            "Only if the account genuinely doesn't fit any listed sub-niche, pick the closest niche_category "
+            "and write a short descriptive sub-niche label freely (e.g. 'Associative & Non-Profit', 'Motorsport & Racing'). "
+            "Do NOT invent a new sub-niche just to be more specific — use the existing one whenever reasonable.\n"
+            "Extract all cities explicitly mentioned in the bio (e.g. 'Paris - Metz' → both cities). Use empty array if none.\n"
+            "If the person has a clear professional trade (Actor, Director, Screenwriter, Photographer, Chef, Coach, Tattoo Artist, Musician, Model, etc.), set profession to that trade in the profile language. "
+            "Set profession_tags to up to 3 subcategory tags (e.g. ['UGC', 'short film', 'coaching'] for an actor). "
+            "If no clear profession is identifiable, set profession to null and profession_tags to [].\n"
+            # Output is the expensive half of this call: ~250 completion tokens at $1.49/M against
+            # ~2 900 prompt tokens at $0.25/M, so a sentence removed here is worth six removed
+            # above. 'summary' was asking for 2-3 sentences (~75 tokens, 12 % of the call) where
+            # 1-2 carry the same signal — it feeds the profile card and the text-only verdict on
+            # an already-classified profile, both of which read a claim, not an essay.
+            "For 'summary': write 1-2 sentences describing who this person is, their content style, typical audience, and likely purpose. Be specific and insightful — avoid generic descriptions.\n"
+            + insights_instr +
+            "For 'country': the country this account is most likely based in, as an English country name "
+            "(e.g. 'France', 'Switzerland', 'United States'). Infer it from the bio, the cities, the writing "
+            "language and the following sample. Only answer when the signals reasonably support one country; "
+            "set null when you would just be guessing.\n"
+            "For 'gender': determine if this is a 'female', 'male', 'brand' (company/organization/product page), or 'unknown' account. Base this on profile photo, name, and bio cues.\n"
+            "For 'age_group': estimate the person's age range as 'teen' (<18), 'young_adult' (18-24), 'adult' (25-34), 'mature' (35+), or 'unknown'. Use 'unknown' for brands or if unclear.\n"
+        )
+        variable_prompt = (
+            f"Write the human-readable text fields — 'summary'{insights_field_label} and the engagement 'reason' — in {_lang_full} (they are shown to the user in the app). "
+            "All structured fields (niche_category, niche, language, content_type, tags, cities, country, profession, profession_tags, gender, age_group) must remain in English.\n"
+            + engagement_instr +
+            "Respond ONLY with valid JSON — no extra text:\n"
+            '{"niche_category": "travel", "niche": "Adventure & Backpacking", '
+            '"summary": "1-2 sentences describing the account.", '
+            + insights_json +
+            '"language": "en", "content_type": "creator", "tags": ["tag1", "tag2"], '
+            '"cities": [], "country": null, "profession": null, "profession_tags": [], '
+            '"gender": "female", "age_group": "young_adult"'
+            + engagement_json + '}'
+        )
+        system_prompt = cacheable_system(stable_prompt, variable_prompt)
+
+        # Build user prompt — include enriched text context when available
+        user_prompt = f"Classify this {_plat_label} profile: @{username}"
+        if profile_context:
+            ctx_parts = []
+            if profile_context.get('full_name'):
+                ctx_parts.append(f"Full name: {profile_context['full_name']}")
+            if profile_context.get('biography'):
+                ctx_parts.append(f"Bio: {profile_context['biography']}")
+            if profile_context.get('website'):
+                ctx_parts.append(f"Website: {profile_context['website']}")
+            if profile_context.get('business_category'):
+                ctx_parts.append(f"Instagram category: {profile_context['business_category']}")
+            if profile_context.get('linked_accounts'):
+                names = [a.get('name', '') for a in profile_context['linked_accounts'] if a.get('name')]
+                if names:
+                    ctx_parts.append(f"Linked accounts: {', '.join(names)}")
+            if ctx_parts:
+                user_prompt += "\n\nAdditional profile context (use to improve classification accuracy):\n" + "\n".join(ctx_parts)
+
+            # Deep qualify context — following sample + already-classified profiles from DB
+            following_sample = profile_context.get('_following_sample') or []
+            known_followings = profile_context.get('_known_followings') or []
+
+            if following_sample:
+                user_prompt += (
+                    f"\n\nFollowing sample ({len(following_sample)} accounts this user follows):\n"
+                    + ", ".join(f"@{u}" for u in following_sample)
+                )
+
+            if known_followings:
+                lines = []
+                for kf in known_followings[:20]:  # cap at 20 to keep prompt size reasonable
+                    parts = [f"@{kf.get('username', '?')}"]
+                    if kf.get('niche_category'):
+                        parts.append(f"niche={kf['niche_category']}")
+                    if kf.get('niche'):
+                        parts.append(f"({kf['niche']})")
+                    if kf.get('cities'):
+                        parts.append(f"city={kf['cities']}")
+                    if kf.get('profession'):
+                        parts.append(f"profession={kf['profession']}")
+                    if kf.get('tags') and isinstance(kf['tags'], list):
+                        parts.append(f"tags=[{', '.join(kf['tags'][:4])}]")
+                    lines.append(' '.join(parts))
+                user_prompt += (
+                    "\n\nAlready-classified profiles from following list "
+                    "(use to infer interests, location, community):\n"
+                    + "\n".join(f"  • {l}" for l in lines)
+                )
+
+        logger.debug(
+            f"[AIService] classify_profile_niche @{username} — prompt sent:\n"
+            f"{'─' * 60}\n{user_prompt}\n{'─' * 60}"
+        )
+
+        result = self.vision_json_completion(system_prompt, user_prompt, screenshot_path,
+                                             temperature=0.2,
+                                             max_tokens=1100 if include_engagement else 900,
+                                             label=f"classify_profile_niche @{username}",
+                                             kind=AI_SPEND_PROFILE,
+                                             model=self.model_classification)
+        duration_ms = int((time.time() - t0) * 1000)
+        # What was SENT, beside what came back. Built here and carried on the result rather than
+        # written from this file: a provider that writes to SQLite is the layering this codebase
+        # keeps undoing. The image is not in it — it already lives in `media`.
+        prompt_capture = self.build_prompt_capture(system_prompt, user_prompt)
+
+        logger.debug(
+            f"[AIService] classify_profile_niche @{username} — raw response:\n"
+            f"{'─' * 60}\n{result.get('text', '(no text)')}\n{'─' * 60}"
+        )
+
+        classification = result.get("payload")
+        if not result["success"] or classification is None:
+            # Both attempts came back unusable. Salvage whatever fields survived a partial
+            # answer before giving up — a truncated classification still often carries the
+            # niche, which is most of the value.
+            classification = self._extract_partial_classification(result.get("raw") or result.get("text") or "")
+            if classification:
+                logger.warning(
+                    f"[AIService] classify_profile_niche @{username} used partial extraction "
+                    f"after: {result.get('error')}"
+                )
+            else:
+                if self.ipc:
+                    self.ipc.ai_error(result.get("error", "Classification failed"), username)
+                return result
+
+        # Normalize the optional engagement verdict (defensive: coerce types, drop if unusable).
+        if include_engagement:
+            classification["engagement"] = self._normalize_engagement(classification.get("engagement"))
+
+        niche = classification.get("niche", "?")
+        # Clamp the model's category onto the 16 canonical buckets and write it back so the
+        # emitted event AND the persisted row both carry the canonical slug (never free text).
+        niche_cat = self._canonicalize_niche_category(
+            classification.get("niche_category"), self._niche_categories)
+        classification["niche_category"] = niche_cat
+        # Detect proposed sub-niches (not in canonical taxonomy) for monitoring
+        if niche and niche not in self._known_sub_niches and niche != "Other":
+            logger.info(f"[AIService] Proposed new sub-niche '{niche}' for @{username} (cat: {niche_cat})")
+        summary = classification.get("summary", "")
+        result_text = f"[{niche_cat}] {niche}"
+        if summary:
+            result_text += f" · {summary}"
+
+        # Inject deep-qualify context so the frontend card can display it
+        following_sample = (profile_context or {}).get('_following_sample') or []
+        if following_sample:
+            classification['following_sample'] = following_sample
+
+        if self.ipc:
+            screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=800)
+            self.ipc.ai_profile_analyzed(
+                username=username,
+                result=result_text,
+                duration_ms=duration_ms,
+                model=result.get("model"),
+                provider="openrouter",
+                cost_usd=result.get("cost_usd"),
+                classification=classification,
+                screenshot=screenshot_b64,
+            )
+
+        return {
+            "success": True,
+            "classification": classification,
+            "prompt_capture": prompt_capture,
+            "model": result.get("model"),
+            "provider": "openrouter",
+            "cost_usd": result.get("cost_usd"),
+            "duration_ms": duration_ms,
+        }
+
+    def classify_profile(self, username: str, screenshot_path: str,
+                         account_username: str = None) -> Dict[str, Any]:
+        """
+        Classify an Instagram profile from a screenshot.
+        Returns niche, score, summary etc.
+        Emits IPC events for the AgentPanel.
+        """
+        t0 = time.time()
+
+        # Signal start
+        if self.ipc:
+            prompt_text = f"Classifying @{username}" + (f" (scored for @{account_username})" if account_username else "")
+            screenshot_thumb = self._image_to_thumbnail_url(screenshot_path)
+            self.ipc.ai_profile_analyzing(username, prompt=prompt_text, model=self.vision_model,
+                                          image_url=screenshot_thumb)
+
+        sub_niche_list = " | ".join(self.niche_taxonomy) or "(infer a concise niche)"
+        system_prompt = (
+            "You are an expert Instagram profile analyst. Given a screenshot of an Instagram profile page, extract and analyze:\n"
+            "1. The niche/category of the account\n"
+            "2. A relevance score (0-100) indicating how relevant this profile is as a potential follower/engagement target\n"
+            "3. A quality score (0-100) indicating the quality of the account\n"
+            "4. Content type (creator, brand, personal, business, media, etc.)\n"
+            "5. Engagement level (low, medium, high, very_high)\n"
+            "6. Language of the account\n"
+            "7. A brief summary (1 sentence)\n\n"
+            f"Choose niche from exactly one of these predefined sub-niches: {sub_niche_list}\n\n"
+            "Respond ONLY with valid JSON in this exact format:\n"
+            '{\n'
+            '  "niche": "Adventure & Backpacking",\n'
+            '  "niche_category": "travel",\n'
+            '  "score": 75,\n'
+            '  "relevance_score": 80,\n'
+            '  "quality_score": 70,\n'
+            '  "content_type": "creator",\n'
+            '  "engagement_level": "medium",\n'
+            '  "language": "en",\n'
+            '  "audience_type": "general",\n'
+            '  "tags": ["tag1", "tag2"],\n'
+            '  "summary": "Brief description"\n'
+            '}'
+        )
+
+        user_prompt = f"Analyze this Instagram profile: @{username}"
+        if account_username:
+            user_prompt += f"\nScore relevance relative to the automation account @{account_username}."
+
+        result = self.vision_json_completion(system_prompt, user_prompt, screenshot_path,
+                                             temperature=0.2, max_tokens=500,
+                                             label=f"analyze_profile_screenshot @{username}", kind=AI_SPEND_PROFILE)
+        duration_ms = int((time.time() - t0) * 1000)
+
+        classification = result.get("payload")
+        if not result["success"] or classification is None:
+            if self.ipc:
+                self.ipc.ai_error(result.get("error", "Classification failed"), username)
+            return result
+
+        # Build result summary for AgentPanel
+        niche = classification.get("niche", "?")
+        score = classification.get("score", 0)
+        niche_cat = self._canonicalize_niche_category(
+            classification.get("niche_category"), self._niche_categories)
+        classification["niche_category"] = niche_cat
+        summary = classification.get("summary", "")
+        result_text = f"[{niche_cat}] {niche} — Score: {score}/100"
+        if summary:
+            result_text += f" · {summary}"
+
+        if self.ipc:
+            screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=800)
+            self.ipc.ai_profile_analyzed(
+                username=username, result=result_text, duration_ms=duration_ms,
+                model=result.get("model"), provider="openrouter",
+                cost_usd=result.get("cost_usd"),
+                classification=classification,
+                screenshot=screenshot_b64,
+            )
+
+        return {
+            "success": True,
+            "classification": classification,
+            "model": result.get("model"),
+            "provider": "openrouter",
+            "cost_usd": result.get("cost_usd"),
+            "duration_ms": duration_ms,
+        }
+
+    def analyze_post(self, screenshot_path: str, username: str = None, response_language: str = 'en',
+                     post_caption: str = '') -> Dict[str, Any]:
+        """
+        Analyze a post screenshot to understand its content.
+        Returns a text description of the post.
+        `response_language` is the APP language: the human-readable DESCRIPTION is written in it so
+        the desktop panel shows it in the user's language. The "Post language:" line stays in English
+        (a stable token) so the comment-language logic can parse the post's ACTUAL language.
+        Emits IPC events for the AgentPanel.
+        """
+        t0 = time.time()
+
+        if self.ipc:
+            screenshot_thumb = self._image_to_thumbnail_url(screenshot_path)
+            self.ipc.ai_screenshot_analyzing(username, prompt="Analyzing post content", model=self.vision_model,
+                                             image_url=screenshot_thumb, prompt_key="promptAnalyzePost")
+
+        _lang_full = {'fr': 'French', 'en': 'English', 'de': 'German', 'es': 'Spanish',
+                      'pt': 'Portuguese', 'it': 'Italian', 'nl': 'Dutch'}.get(response_language, 'English')
+        system_prompt = f"""You are an expert at analyzing Instagram posts. Describe the post concisely (2-4 sentences) in {_lang_full}.
+Identify: main subject, visual style, mood, any visible text (quote it exactly).
+At the end, on a new line, write in ENGLISH: "Post language: <language>" — the ACTUAL language the post is written in (e.g. "Post language: French"), regardless of the description language above. Determine it from the author's CAPTION when one is provided (it is the most reliable signal — an image can carry English design text while the post is French); otherwise from the visible text.
+No markdown formatting."""
+
+        caption_block = ''
+        if post_caption and post_caption.strip():
+            # The author's own words are the most reliable language signal (the screenshot's overlay
+            # text is often stylised/English while the post is another language). Feed it to the model.
+            caption_block = f"\n\nAuthor's caption (authoritative for the post language):\n{post_caption.strip()[:600]}"
+        user_prompt = f"Describe this Instagram post. Be concise and precise.{caption_block}"
+
+        result = self.vision_completion(system_prompt, user_prompt, screenshot_path,
+                                        temperature=0.2, max_tokens=300,
+                                        label=f"analyze_post @{username or '?'}", kind=AI_SPEND_POST)
+        duration_ms = int((time.time() - t0) * 1000)
+
+        if not result["success"]:
+            if self.ipc:
+                self.ipc.ai_error(result.get("error", "Post analysis failed"), username)
+            return result
+
+        description = result["text"]
+
+        # The model appends a "Post language: <language>" trailer (always written in English) so the
+        # comment-language policy can read the POST's real language without it leaking into what the
+        # operator sees. Split it out: the displayed description stays in the app language; the
+        # detected language is returned as a separate, normalized field (lowercase English name).
+        import re
+        post_language = None
+        kept_lines = []
+        for line in description.splitlines():
+            match = re.match(r'\s*post\s+language\s*:\s*(.+?)\s*$', line, re.IGNORECASE)
+            if match:
+                post_language = match.group(1).strip().rstrip('.').strip().lower() or None
+            else:
+                kept_lines.append(line)
+        description = "\n".join(kept_lines).strip()
+
+        if self.ipc:
+            screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=600)
+            self.ipc.ai_screenshot_analyzed(
+                result=description[:200], username=username, duration_ms=duration_ms,
+                model=result.get("model"), provider="openrouter",
+                cost_usd=result.get("cost_usd"),
+                screenshot=screenshot_b64,
+            )
+
+        return {
+            "success": True,
+            "description": description,
+            "post_language": post_language,
+            "model": result.get("model"),
+            "provider": "openrouter",
+            "cost_usd": result.get("cost_usd"),
+            "duration_ms": duration_ms,
+        }

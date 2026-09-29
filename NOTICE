@@ -4,7 +4,7 @@ Licensed under the GNU General Public License v3.0 (see LICENSE).
 
 This repository includes one file distributed under another licence:
 
-taktik/core/app/ai/data/agreement_fr.tsv
+taktik/core/ai/data/agreement_fr.tsv
     The grammatical gender of French nouns, used to make a determiner agree
     with its noun in AI-written French comments.
 

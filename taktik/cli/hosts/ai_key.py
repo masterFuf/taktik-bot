@@ -20,7 +20,7 @@ from typing import Any, Callable, Mapping, Optional
 
 import click
 
-from taktik.core.app.config.runtime.user_config import (
+from taktik.core.shared.config.user_config import (
     read_user_setting,
     user_config_path,
     write_user_setting,

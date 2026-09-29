@@ -413,7 +413,7 @@ class Rig:
             return SimpleNamespace(name="fake-ai", classify_profile_niche=classify_profile_niche,
                                    text_completion=text_completion)
 
-        patch_seam(mp, "taktik.core.app.ai.factory", "build_ai_service", fake_build_ai_service)
+        patch_seam(mp, "taktik.core.ai.factory", "build_ai_service", fake_build_ai_service)
 
         from taktik.core.social_media.tiktok.workflows.core import ai_hooks
 

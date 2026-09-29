@@ -1,4 +1,4 @@
-"""The payload readers follow the declared contract (`taktik/core/app/contract/`).
+"""The payload readers follow the declared contract (`taktik/core/contract/`).
 
 The declaration is the source of the app's types. These tests hold each reader to it: it reads
 the declared keys and no other, applies the declared default when a key is absent, puts the
@@ -37,8 +37,8 @@ from contract_probe import (
     under,
     value_of,
 )
-from taktik.core.app.contract import WORKFLOW_CONTRACTS
-from taktik.core.app.contract.schema import Computed, Shape, nested_fields
+from taktik.core.contract import WORKFLOW_CONTRACTS
+from taktik.core.contract.schema import Computed, Shape, nested_fields
 
 SETTINGS = [
     pytest.param(contract, path, item, when, id=f"{contract.workflow_id}:{'.'.join(path)}")

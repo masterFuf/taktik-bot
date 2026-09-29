@@ -22,7 +22,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from taktik.core.agent.kernel.registry import WorkflowRegistry
+from taktik.core.kernel.registry import WorkflowRegistry
 
 
 #: (label, module path, registrar name). Label is what the operator sees when one fails.
@@ -79,7 +79,7 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
      "register_tiktok_publish_handlers"),
     ("Threads automation", "taktik.core.social_media.threads.workflows.agent_handler",
      "register_threads_automation_handlers"),
-    ("Gmail account", "taktik.core.app.email.gmail.workflows.agent_handler",
+    ("Gmail account", "taktik.core.social_media.gmail.workflows.agent_handler",
      "register_gmail_account_handlers"),
     ("YouTube account", "taktik.core.social_media.youtube.workflows.account.agent_handler",
      "register_youtube_account_handlers"),

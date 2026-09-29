@@ -1,11 +1,7 @@
-from taktik.core.agent import (
-    AgentPlan,
-    AgentPlanExecutor,
-    MissingWorkflowHandlersError,
-    PlanStep,
-    WorkflowInvocation,
-    WorkflowRegistry,
-)
+from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
+from taktik.core.kernel.errors import MissingWorkflowHandlersError
+from taktik.core.kernel.executor import AgentPlanExecutor
+from taktik.core.kernel.registry import WorkflowRegistry
 
 
 def test_workflow_registry_registers_and_resolves_handlers():

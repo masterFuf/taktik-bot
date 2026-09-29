@@ -19,8 +19,8 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.management.notifications import commands
 from taktik.core.social_media.instagram.workflows.management.notifications.payload import (

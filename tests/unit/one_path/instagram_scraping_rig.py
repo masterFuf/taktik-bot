@@ -235,7 +235,7 @@ class InstagramScrapingRig:
                                   "niche_taxonomy": niche_taxonomy, "report_spend": report_spend})
             return {"ai": len(rig.ai_builds)}
 
-        patch_seam(mp, "taktik.core.app.ai.factory", "build_ai_service", fake_build_ai_service)
+        patch_seam(mp, "taktik.core.ai.factory", "build_ai_service", fake_build_ai_service)
 
         from taktik.core.social_media.instagram.workflows.scraping.scraping_workflow import ScrapingWorkflow
 

@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Mapping, Optional
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.core.startup import package_name_from_payload
 
 

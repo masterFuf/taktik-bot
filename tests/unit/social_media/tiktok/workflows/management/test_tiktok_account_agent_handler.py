@@ -1,6 +1,8 @@
 import pytest
 
-from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
+from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
+from taktik.core.kernel.executor import AgentPlanExecutor
+from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.tiktok.workflows.management import (
     TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID,
     TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID,

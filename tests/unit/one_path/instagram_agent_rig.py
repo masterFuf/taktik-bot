@@ -57,7 +57,7 @@ class InstagramAgentRig(InstagramColdDmRig):
             def stop(self):
                 rig.calls.append("agent_stop")
 
-        mp.setattr("taktik.core.agent.scenarios.instagram_feed_autopilot.TaktikAgentWorkflow", RecordingAgent)
+        mp.setattr("taktik.core.social_media.instagram.workflows.agent.autopilot.TaktikAgentWorkflow", RecordingAgent)
         patch_seam(mp, "taktik.core.database", "configure_db_service",
                    lambda *a, **k: rig.calls.append("configure_db"))
         mp.setattr("bridges.instagram.agent.runtime.commands.start_agent_stop_listener",

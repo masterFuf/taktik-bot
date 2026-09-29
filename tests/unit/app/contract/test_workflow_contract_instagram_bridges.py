@@ -15,9 +15,9 @@ from typing import Any, Dict, List
 import pytest
 
 from contract_probe import DEVICE, Recording, lookup, merge, probe
-from taktik.core.app.contract.instagram_engagement import INSTAGRAM_COLD_DM, INSTAGRAM_DM_READ, INSTAGRAM_DM_SEND
-from taktik.core.app.contract.instagram_scraping import INSTAGRAM_SCRAPING, SCRAPING_TYPES
-from taktik.core.app.contract.schema import Shape, WorkflowContract, has_default, nested_fields
+from taktik.core.contract.instagram_engagement import INSTAGRAM_COLD_DM, INSTAGRAM_DM_READ, INSTAGRAM_DM_SEND
+from taktik.core.contract.instagram_scraping import INSTAGRAM_SCRAPING, SCRAPING_TYPES
+from taktik.core.contract.schema import Shape, WorkflowContract, has_default, nested_fields
 from test_workflow_contract_bridges import check_lines, declared_paths, file_paths, no_ip_rotation  # noqa: F401
 
 

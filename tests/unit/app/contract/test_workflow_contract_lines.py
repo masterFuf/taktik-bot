@@ -19,11 +19,11 @@ from typing import Any, Dict, List
 import pytest
 
 from contract_probe import Recording
-from taktik.core.app.contract import WORKFLOW_CONTRACTS
-from taktik.core.app.contract.schema import Field, Shape
-from taktik.core.app.contract.shared import AI_SPEND_EVENT
-from taktik.core.app.contract.tiktok_automation import AI_BLOCK
-from taktik.core.app.contract.tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
+from taktik.core.contract import WORKFLOW_CONTRACTS
+from taktik.core.contract.schema import Field, Shape
+from taktik.core.contract.shared import AI_SPEND_EVENT
+from taktik.core.contract.tiktok_automation import AI_BLOCK
+from taktik.core.contract.tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
 
 ROOT = Path(__file__).resolve().parents[4]
 _TIKTOK = ROOT / "taktik" / "core" / "social_media" / "tiktok"
@@ -130,7 +130,7 @@ def _scripted_provider(monkeypatch, tmp_path) -> None:
 
 def test_ai_profile_done_is_what_the_provider_prints(monkeypatch, lines, tmp_path):
     from bridges.tiktok.runtime.ipc import _ipc
-    from taktik.core.app.ai.factory import create_ai_service
+    from taktik.core.ai.factory import create_ai_service
     from taktik.core.social_media.tiktok.workflows.core import ai_hooks
 
     _scripted_provider(monkeypatch, tmp_path)
@@ -226,7 +226,7 @@ def _wire_block(shape: Shape) -> Dict[str, Any]:
 
 
 def test_the_ai_block_readers_read_the_declared_keys_and_no_other(monkeypatch):
-    from taktik.core.app.ai.factory import create_ai_service
+    from taktik.core.ai.factory import create_ai_service
     from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_comment import VideoCommentMixin
     from taktik.core.social_media.tiktok.actions.business.workflows.followers.interaction import (
         VideoInteractionMixin,

@@ -20,10 +20,10 @@ from typing import Any, Dict, List
 import pytest
 from loguru import logger
 
-from taktik.core.app.contract import TOOL_CONTRACTS
-from taktik.core.app.contract.diagnostics import ACTION_SESSION, INSTAGRAM_DEBUG, SELECTOR_TEST, WORKFLOW_TEST
-from taktik.core.app.contract.instagram_automation import INSTAGRAM_AUTOMATION
-from taktik.core.app.contract.schema import ToolContract
+from taktik.core.contract import TOOL_CONTRACTS
+from taktik.core.contract.diagnostics import ACTION_SESSION, INSTAGRAM_DEBUG, SELECTOR_TEST, WORKFLOW_TEST
+from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION
+from taktik.core.contract.schema import ToolContract
 from test_workflow_contract_bridges import problems_of
 
 DEVICE = "emulator-5554"

@@ -5,7 +5,7 @@ and the notifications engagement, whose suggestions visit walks the same
 per-profile pipeline, qualification included. The factory therefore lives here
 rather than in either caller.
 
-It is a thin alias over `taktik.core.app.ai.factory.create_ai_service`: this module used to
+It is a thin alias over `taktik.core.ai.factory.create_ai_service`: this module used to
 build the AIService itself and forgot the premium taxonomy, so automation runs classified
 against a free-form taxonomy while scraping runs classified against the real one. Building
 the service is now one function for the whole product.
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from taktik.core.app.ai.factory import create_ai_service
+from taktik.core.ai.factory import create_ai_service
 
 LogCallback = Callable[[str, str], None]
 

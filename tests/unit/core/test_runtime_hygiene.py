@@ -1,5 +1,5 @@
-from taktik.core.app.config import APIEndpointManager
-from taktik.core.app.config.runtime.api_endpoints import APIEndpointManager as ScopedAPIEndpointManager
+from taktik.core.shared.config.api_endpoints import APIEndpointManager
+from taktik.core.shared.config.api_endpoints import APIEndpointManager as ScopedAPIEndpointManager
 
 
 def test_app_config_exports_point_to_scoped_owners():

@@ -9,9 +9,9 @@ to build its own request and did neither.
 from __future__ import annotations
 
 from loguru import logger
-from taktik.core.app.ai.factory import build_ai_service
-from taktik.core.app.ai.providers.openrouter import MODEL_GENERATION
-from taktik.core.app.ai.spend import AI_SPEND_DM
+from taktik.core.ai.factory import build_ai_service
+from taktik.core.ai.providers.openrouter import MODEL_GENERATION
+from taktik.core.ai.spend import AI_SPEND_DM
 
 
 def generate_ai_message(username: str, ai_prompt: str, openrouter_api_key: str, ipc=None) -> str:

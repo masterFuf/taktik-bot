@@ -1,7 +1,9 @@
 import pytest
 
 import taktik.core.database.tiktok_scraping as scraping_store
-from taktik.core.agent import AgentPlan, AgentPlanExecutor, PlanStep, WorkflowInvocation, WorkflowRegistry
+from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
+from taktik.core.kernel.executor import AgentPlanExecutor
+from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.tiktok.actions.business.workflows.scraping import (
     TIKTOK_STANDALONE_SCRAPING_WORKFLOW_ID,
     register_tiktok_scraping_handlers,

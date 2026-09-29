@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.kernel.handler_params import (
     merge_invocation_payload,
 )
 from taktik.core.social_media.tiktok.actions.business.workflows.notifications.payload import (

@@ -20,7 +20,7 @@ from taktik.cli.hosts.ai_key import (
     resolve_openrouter_key,
     run_uses_ai,
 )
-from taktik.core.app.config.runtime import user_config
+from taktik.core.shared.config import user_config
 
 
 @pytest.fixture(autouse=True)
@@ -137,7 +137,7 @@ def test_a_scripted_run_or_ci_is_never_interactive(monkeypatch):
 
 
 def test_the_api_url_still_lives_in_the_same_file():
-    from taktik.core.app.config.runtime.api_endpoints import APIEndpointManager
+    from taktik.core.shared.config.api_endpoints import APIEndpointManager
 
     manager = APIEndpointManager()
     assert manager.save_api_url("https://api.example.test/") is True
@@ -208,7 +208,7 @@ def test_a_dry_run_says_whether_the_key_is_there_without_asking(monkeypatch):
 def test_the_agent_handler_takes_the_cli_key_when_the_payload_has_none(monkeypatch):
     """`workflows run instagram.engagement.taktik_agent`: a typed or saved key reaches the Agent,
     which otherwise only looks at its config and the environment."""
-    from taktik.core.agent.kernel.contracts import WorkflowInvocation
+    from taktik.core.kernel.contracts import WorkflowInvocation
     from taktik.core.social_media.instagram.workflows.agent import agent_handler
 
     seen = []

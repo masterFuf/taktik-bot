@@ -9,7 +9,7 @@ from loguru import logger
 from taktik.core.database.instagram_post_analysis import InstagramPostAnalysis
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
 from taktik.core.shared.telemetry.sink import emit_step
-from taktik.core.app.ai.comments.decisions import (
+from taktik.core.ai.comments.decisions import (
     COMMENT_LANG_ALIASES,
     detect_language_code,
     is_comment_refusal,
@@ -45,7 +45,7 @@ def _skipped_comment_result(reason: str) -> dict[str, Any]:
     }
 
 
-# The language rules and the refusal test now live in `app/ai/comments/decisions.py`, shared
+# The language rules and the refusal test now live in `ai/comments/decisions.py`, shared
 # with TikTok. They were never Instagram-specific — they decide which language a comment may be
 # written in and whether the model answered with a comment or an apology — and a second copy
 # would drift the day one platform learns something the other does not. The private aliases stay

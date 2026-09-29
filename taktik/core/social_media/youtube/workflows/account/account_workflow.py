@@ -285,7 +285,7 @@ def _query_selector(device, kind: str, value: str):
 
 
 def _default_gmail_workflow_factory(device, device_id: str, notifier=None):
-    from taktik.core.app.email.gmail.workflows.account import GmailWorkflow
+    from taktik.core.social_media.gmail.workflows.account import GmailWorkflow
 
     return GmailWorkflow(device, device_id, notifier=notifier)
 

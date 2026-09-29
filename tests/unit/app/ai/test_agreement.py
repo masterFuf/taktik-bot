@@ -12,7 +12,7 @@ This one consults a dictionary, and only where a second authority agrees with it
 
 import pytest
 
-from taktik.core.app.ai import agreement
+from taktik.core.ai import agreement
 
 
 # ── the mistakes the model actually makes ───────────────────────────────────────────────────

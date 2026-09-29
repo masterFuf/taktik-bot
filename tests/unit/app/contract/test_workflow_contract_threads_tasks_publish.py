@@ -14,11 +14,11 @@ from typing import Any, Dict
 import pytest
 
 from contract_probe import DEVICE, Recording, expected, merge, nest, payload_for, probe, skeleton, value_of
-from taktik.core.app.contract.publish import INSTAGRAM_PUBLISH, TIKTOK_UPLOAD, YOUTUBE_UPLOAD
-from taktik.core.app.contract import WORKFLOW_CONTRACTS
-from taktik.core.app.contract.schema import OneOf, Shape, WorkflowContract, has_default, nested_fields
-from taktik.core.app.contract.tasks import INSTAGRAM_STORY_RELAY
-from taktik.core.app.contract.threads import THREADS_FEED, THREADS_SEARCH
+from taktik.core.contract.publish import INSTAGRAM_PUBLISH, TIKTOK_UPLOAD, YOUTUBE_UPLOAD
+from taktik.core.contract import WORKFLOW_CONTRACTS
+from taktik.core.contract.schema import OneOf, Shape, WorkflowContract, has_default, nested_fields
+from taktik.core.contract.tasks import INSTAGRAM_STORY_RELAY
+from taktik.core.contract.threads import THREADS_FEED, THREADS_SEARCH
 from test_workflow_contract_bridges import assert_reads, check_lines, lines  # noqa: F401 (fixture)
 
 _DEVICE_KEYS = ("deviceId", "device_id")

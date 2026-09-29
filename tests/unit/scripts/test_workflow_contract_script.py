@@ -1,6 +1,6 @@
 """The generator of the app's contract types is deterministic, and its audit sees drift.
 
-`scripts/audits/workflow_contract.py` renders the declaration (`taktik/core/app/contract/`) as the
+`scripts/audits/workflow_contract.py` renders the declaration (`taktik/core/contract/`) as the
 TypeScript the app commits; `scripts/audits/audit_workflow_contract.py` holds the declaration to the
 manifests and the events census, and the app's file to the declaration.
 """
@@ -15,8 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "audits
 
 import audit_workflow_contract as audit  # noqa: E402
 import workflow_contract as generator  # noqa: E402
-from taktik.core.app import contract as contract_package  # noqa: E402
-from taktik.core.app.contract import registry  # noqa: E402
+from taktik.core import contract as contract_package  # noqa: E402
+from taktik.core.contract import registry  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[3]
 

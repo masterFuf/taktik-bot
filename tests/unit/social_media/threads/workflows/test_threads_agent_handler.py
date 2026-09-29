@@ -1,7 +1,7 @@
 import pytest
 
-from taktik.core.agent.kernel.contracts import WorkflowInvocation
-from taktik.core.agent.kernel.registry import WorkflowRegistry
+from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.social_media.threads.workflows.agent_handler import (
     THREADS_AUTOMATION_WORKFLOW_IDS,
     build_threads_automation_handler,
