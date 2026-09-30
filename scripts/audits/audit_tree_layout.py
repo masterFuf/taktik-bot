@@ -14,7 +14,8 @@ How to read an entry (`Folder`):
   folder of tests that mirrors a folder of the code, and every folder below it too: see below);
 - `vocabulary=True`: the listed names are a vocabulary, any of them may be there and none is required (not
   every platform has every kind of bridge);
-- `never_below`: a folder name that may appear nowhere under the folder (no `runtime/` under `bridges/`).
+- `never_below`: a folder name that may appear nowhere under the folder (no `runtime/` under `bridges/`; no
+  `utils/`, `helpers/` nor `misc/` under `taktik/` and `bridges/`, names that say nothing of what a folder holds).
 
 A key may hold `PLATFORM` (`bridges/<platform>`: the folder of each platform) or `*` (`bridges/<platform>/*`:
 each folder its parent allows); the most precise key wins (`bridges/tiktok/automation` over
@@ -126,6 +127,10 @@ MIRRORED_ROOTS = {"bridges": "bridges", "cli": "taktik/cli", "scripts": "scripts
 CODE_CEILING = 25
 SCRIPTS_AND_TESTS_CEILING = 40
 
+#: Folder names that say nothing of what the folder holds: never a folder of the code (`never_below` of `taktik`
+#: and `bridges`). A folder is named by its role, as the conventions of AGENTS.md (Structure) name them.
+VAGUE_NAMES = frozenset({"helpers", "misc", "utils"})
+
 #: The folders above their ceiling today, each with its count: a ratchet (`ratchet.py`), one folder per line.
 SIZES = Ratchet(
     label="Folder sizes",
@@ -177,6 +182,7 @@ LAYOUT: dict[str, Folder] = {
         folders=frozenset({"cli", "core"}),
         files=frozenset({"__init__.py", "__main__.py"}),
         owner="the package: its CLI and the engine (the families of `core/` are checked by audit_import_layers.py)",
+        never_below=VAGUE_NAMES,
         max_python=CODE_CEILING,
     ),
     "taktik/cli": Folder(
@@ -229,7 +235,7 @@ LAYOUT: dict[str, Folder] = {
         folders=frozenset({"common", "tools", PLATFORM}),
         files=frozenset({"__init__.py", "launcher.py", "bridges.manifest.json"}),
         owner="the bridges the app launches: what they all share, the tools, one folder per platform",
-        never_below=frozenset({"runtime"}),
+        never_below=frozenset({"runtime"}) | VAGUE_NAMES,
         max_python=CODE_CEILING,
     ),
     "bridges/common": Folder(
@@ -465,8 +471,9 @@ def folder_findings(folder: str, rule: Folder, paths: Sequence[str], platforms: 
         if path.startswith(prefix):
             below = path[len(prefix):].split("/")[:-1]
             for name in sorted(rule.never_below.intersection(below)):
-                errors.append(f"{path}: no `{name}/` folder under `{folder}/`; the support of a bridge lives next "
-                              f"to its entry, what a platform shares in its `common/`.")
+                errors.append(f"{path}: no `{name}/` folder under `{folder}/`; a folder is named by what it holds: "
+                              f"the support of a bridge lives next to its entry, what a platform shares in its "
+                              f"`common/`.")
     return errors
 
 
@@ -688,6 +695,11 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
                                                  "expect": "no `runtime/` folder under `bridges/`"},
         "a runtime/ deep in the Lab": {"paths": fake(["bridges/tools/lab/actions/instagram/runtime/x.py"]),
                                        "expect": "no `runtime/` folder under `bridges/`"},
+        # A vague name deep under the code, in a folder no other entry of the table describes: only `never_below`.
+        **{f"a {name}/ folder deep under {root}/": {"paths": fake([f"{deep}/{name}/x.py"]),
+                                                     "expect": f"no `{name}/` folder under `{root}/`"}
+           for root, deep in (("taktik", "taktik/core/shared"), ("bridges", "bridges/tools/lab/action_test"))
+           for name in sorted(VAGUE_NAMES)},
         "a sub-folder in the folder of a bridge": {"paths": fake(["bridges/instagram/dm/helpers/x.py"]),
                                                    "expect": "a folder `bridges/instagram/dm/` does not list"},
         "a bridge folder out of the vocabulary": {"paths": fake(["bridges/instagram/engagement/x.py"]),
