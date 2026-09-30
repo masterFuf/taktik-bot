@@ -92,8 +92,15 @@ class SharedBaseAction:
     # =========================================================================
     
     def _find_and_click(self, selectors: Union[List[str], str], timeout: float = 5.0,
-                       human_delay: bool = True) -> bool:
-        """Find element using selectors and click it."""
+                       human_delay: bool = True, keep_out: Optional[List[str]] = None) -> bool:
+        """Find element using selectors and click it.
+
+        `keep_out`: selectors of the elements this tap must never land on, when the screen draws
+        them over the target (TikTok's follow button over the bottom of the author's avatar). The
+        tap then aims only at the part of the target they leave free, read on the screen; when that
+        part cannot be read or is too small, nothing is tapped and the answer is False, never a
+        centre click that could land on them.
+        """
         if isinstance(selectors, str):
             selectors = [selectors]
         
@@ -121,7 +128,12 @@ class SharedBaseAction:
                         self.logger.debug(f"✅ Element found with selector #{i+1}: {selector[:50]}...")
                         # Tap a varied point inside the element (never its exact centre);
                         # fall back to a plain centre click if the bounds are unreadable.
-                        tapped_human = self._human_tap_element(element)
+                        tapped_human = self._human_tap_element(element, keep_out=keep_out)
+                        if not tapped_human and keep_out:
+                            self.logger.warning(
+                                f"🚫 Not tapped: no part of the target is known to be clear of "
+                                f"{keep_out[0][:60]}...")
+                            return False
                         if not tapped_human:
                             element.click()
                         self._method_stats['clicks'] += 1
@@ -277,10 +289,14 @@ class SharedBaseAction:
             return state.snapshot()
         return {}
 
-    def _human_tap_element(self, element) -> bool:
+    def _human_tap_element(self, element, keep_out: Optional[List[str]] = None) -> bool:
         """Tap a uiautomator2 XPath element at a human-sampled point within its bounds
         (never its exact centre). Returns False if the bounds can't be read, so the
-        caller can fall back to a plain centre ``element.click()``."""
+        caller can fall back to a plain centre ``element.click()``.
+
+        With `keep_out`, the point is sampled only in the part of the element that the elements
+        they find leave free (`free_tap_zone`); False, and no tap, when that part is unknown or
+        too small: the caller must not fall back to a centre click then."""
         try:
             el = element.get(timeout=0.5)
             bounds = tuple(el.bounds)  # (left, top, right, bottom)
@@ -290,7 +306,31 @@ class SharedBaseAction:
         if not bounds or len(bounds) != 4 or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
             self.logger.debug(f"human tap: unusable bounds {bounds}; centre-click fallback")
             return False
+        if keep_out:
+            bounds = self._part_clear_of(bounds, keep_out)
+            if bounds is None:
+                return False
         return bool(self.device.human_tap(bounds))
+
+    def _part_clear_of(self, bounds, keep_out: List[str]):
+        """The part of `bounds` that none of the elements `keep_out` finds on the screen covers
+        (`free_tap_zone`), or None when the screen cannot be read or nothing large enough is left.
+        What covers the target is read on one photo of the screen, every selector of `keep_out`
+        asked of it."""
+        from taktik.core.shared.behavior.tap import free_tap_zone
+
+        photo = self._turn_photo()
+        if photo is None:
+            self.logger.warning("guarded tap: the screen could not be read, what covers the target is unknown")
+            return None
+        covering = [tuple(found.bounds) for _selector, elements in self._each_found(photo, keep_out)
+                    for found in elements]
+        zone = free_tap_zone(bounds, covering)
+        if zone is None:
+            self.logger.warning(f"guarded tap: {covering} leave no part of {bounds} large enough to tap")
+        elif zone != bounds:
+            self.logger.debug(f"guarded tap: {bounds} narrowed to {zone}, clear of {covering}")
+        return zone
 
     def _human_tap_bounds(self, element) -> bool:
         """Tap a human-sampled point within an ALREADY-RESOLVED element's bounds — e.g. an

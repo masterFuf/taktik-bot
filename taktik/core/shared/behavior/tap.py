@@ -13,7 +13,7 @@ the device execution lives in `taktik/core/shared/device/facade.py::human_tap`.
 from __future__ import annotations
 
 import random
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 from loguru import logger as _logger
 
@@ -39,6 +39,60 @@ PRESS_THRESHOLD_MS = 200.0
 _LAG_HEADROOM_MS = 30.0
 # Longest finger-down ever requested.
 MAX_TAP_HOLD_MS = PRESS_THRESHOLD_MS - INJECTION_LAG_MAX_MS - _LAG_HEADROOM_MS
+
+# What must be left of a target, on each side, once the elements drawn over it are cut out, for a
+# tap to aim at it: a share of the target (below it, the rest is a sliver along the edge of what
+# covers it, not a place a finger goes for), and a size from which `sample_tap_point` keeps a whole
+# pixel off each edge (its margin is 12 % of the side), so a rounded point never lands on the edge.
+_MIN_FREE_SHARE = 0.2
+_MIN_FREE_SIDE_PX = 9
+
+
+def free_tap_zone(bounds: Bounds, keep_out: Sequence[Bounds]) -> Optional[Bounds]:
+    """The part of `bounds` a tap may land in: the target, minus each `keep_out` box crossing it.
+
+    A keep-out box is an element drawn over the target that the tap must never reach. Android hands
+    a touch to the element on top, so a point of the target inside that box is a tap on the box: on
+    TikTok the follow button covers the bottom of the author's avatar, and a tap in their common band
+    follows the author instead of opening the profile.
+
+    Each box that crosses the zone cuts it down to the largest strip it leaves free (above, below,
+    left or right of it). None when what is left is too small to aim at, or nothing: then no point of
+    the target is safe, and the caller must not tap it.
+    """
+    left, top, right, bottom = bounds
+    zone = (min(left, right), min(top, bottom), max(left, right), max(top, bottom))
+    width, height = zone[2] - zone[0], zone[3] - zone[1]
+    for box in keep_out:
+        zone = _outside_of(zone, box)
+        if zone is None:
+            return None
+    free_width, free_height = zone[2] - zone[0], zone[3] - zone[1]
+    if free_width < max(width * _MIN_FREE_SHARE, _MIN_FREE_SIDE_PX):
+        return None
+    if free_height < max(height * _MIN_FREE_SHARE, _MIN_FREE_SIDE_PX):
+        return None
+    return zone
+
+
+def _outside_of(zone: Bounds, box: Bounds) -> Optional[Bounds]:
+    """`zone` cut down to the largest strip `box` leaves of it: `zone` itself when they do not
+    cross, None when `box` covers all of it. Bounds as Android writes them: the right and bottom
+    edges belong to the next pixel, so two boxes that only touch do not cross."""
+    left, top, right, bottom = zone
+    box_left, box_top, box_right, box_bottom = box
+    if box_right <= left or box_left >= right or box_bottom <= top or box_top >= bottom:
+        return zone
+    strips = [
+        (left, top, right, min(bottom, box_top)),  # above the box
+        (left, max(top, box_bottom), right, bottom),  # below it
+        (left, top, min(right, box_left), bottom),  # left of it
+        (max(left, box_right), top, right, bottom),  # right of it
+    ]
+    free = [strip for strip in strips if strip[2] > strip[0] and strip[3] > strip[1]]
+    if not free:
+        return None
+    return max(free, key=lambda strip: (strip[2] - strip[0]) * (strip[3] - strip[1]))
 
 
 def sample_tap_point(bounds: Bounds, *, rng: Optional[random.Random] = None) -> Tuple[int, int]:
