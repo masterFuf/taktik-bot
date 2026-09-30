@@ -43,6 +43,17 @@ only (a capture goes to `fixtures/`). At the root of `tests/unit/`: the tests of
 repository and of the harness. No folder of tests waits any more: the last ones, inside Instagram and TikTok,
 follow their code since phase 3 of the tree reorganisation (tree lots 9 and 10).
 
+The size of a folder is capped (tree lot 8): a folder holds at most so many `.py` files directly, 25 in the code
+(`taktik/`, `bridges/`), 40 in the scripts and the tests (`scripts/`, `tests/unit/`), where a module of code may
+have several test files; past it, a reader no longer takes the folder in at a glance, and it is split into
+sub-folders by subject. The ceilings are fields of the table (`max_python`, set on the four roots; the nearest
+entry on the way up decides). The folders above their ceiling today are listed with their count, one per line,
+in `scripts/audits/audit_tree_layout_baseline.json`, written like the other ratchets (`ratchet.write_baseline`,
+by `--update-baseline`). The list only shrinks: a listed folder that grows is red, and so is a folder above its
+ceiling that the list does not name; a listed folder that shrinks or goes away is not red, the green line says
+so and the next `--update-baseline` records it. To recompute the list on a tree other lots changed first, delete
+the file and run `--update-baseline`: it freezes the state of the tree, as it did the day the gate was laid.
+
 The files are the ones git has or would add: tracked, or untracked and not ignored (`git ls-files --cached
 --others --exclude-standard`), still on disk. A script forgotten at the root of `scripts/` is seen before its
 first commit, as a stray file of a working copy is (the private `audit_sqlite_schema_docs.py`, until it is
@@ -52,7 +63,8 @@ filed where `.gitignore` expects it); what git ignores is not part of the tree: 
 The table today: `scripts/` filed by usage (tree lot 2), `taktik/` and its CLI (tree lot 3), the folder of the
 platforms (tree lot 4), `bridges/` with its tools and the Cartography Lab (tree lot 5; the Lab layout gate of
 the old tree, `audit_diagnostics_runtime_layout.py`, is folded in here), `bridges/common/` flat (tree lot 6: the
-device primitives went to the core), `tests/unit/` (tree lot 7), the inside of the platforms (tree lot 9).
+device primitives went to the core), `tests/unit/` (tree lot 7), the inside of the platforms (tree lots 9 and
+10), the size of every folder (tree lot 8).
 
 The gate is red when:
 
@@ -67,10 +79,13 @@ The gate is red when:
   bridge is no entry;
 - a folder of `tests/unit/` mirrors no folder of the code and is neither a declared theme suite nor a
   `fixtures/` folder; a mirrored folder holds a file that is not Python;
-- an entry of `PLATFORMS_NOT_FILED` is no platform any more, or its inside keeps to the table now (drop it).
+- an entry of `PLATFORMS_NOT_FILED` is no platform any more, or its inside keeps to the table now (drop it);
+- a folder holds more `.py` files directly than its ceiling and the list of the oversized folders does not name
+  it, or a listed folder holds more than its count in the list.
 
-    python scripts/audits/audit_tree_layout.py              # green / red
-    python scripts/audits/audit_tree_layout.py --self-test  # each kind of misplaced entry turns it red
+    python scripts/audits/audit_tree_layout.py                    # green / red
+    python scripts/audits/audit_tree_layout.py --self-test        # each kind of misplaced entry turns it red
+    python scripts/audits/audit_tree_layout.py --update-baseline  # record the oversized folders that shrank
 """
 
 from __future__ import annotations
@@ -79,9 +94,12 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Mapping, Optional, Sequence
+
+from ratchet import Ratchet, enforce, load_baseline
 
 CORE = Path(__file__).resolve().parents[2]
 MANIFEST = "bridges/bridges.manifest.json"
@@ -101,6 +119,22 @@ FIXTURES = "fixtures"
 #: The roots a folder of `tests/unit/` mirrors, by its first folder; any other first folder is a family of the
 #: engine, `taktik/core/<first>` (`tests/unit/kernel/` tests `taktik/core/kernel/`).
 MIRRORED_ROOTS = {"bridges": "bridges", "cli": "taktik/cli", "scripts": "scripts"}
+
+#: The most `.py` files a folder holds directly (`Folder.max_python`), in the code and in the scripts and tests.
+#: On the final tree of the reorganisation, the largest folder of code holds 25 (the helpers of the Instagram
+#: workflows) and the largest folder of scripts 29 (the gates); two folders of tests are above 40, listed.
+CODE_CEILING = 25
+SCRIPTS_AND_TESTS_CEILING = 40
+
+#: The folders above their ceiling today, each with its count: a ratchet (`ratchet.py`), one folder per line.
+SIZES = Ratchet(
+    label="Folder sizes",
+    noun=".py file(s)",
+    remedy="Split the folder into sub-folders by subject.",
+    command="python scripts/audits/audit_tree_layout.py",
+    baseline=CORE / "scripts" / "audits" / "audit_tree_layout_baseline.json",
+    unit="folder",
+)
 
 #: The platforms whose inside is not filed yet, and why. The two entries of LAYOUT for the inside of a platform skip
 #: them, and so does the rule `actions-no-workflows` of `audit_import_layers.py`, which reads this list. The list only
@@ -122,6 +156,9 @@ class Folder:
     owner: str
     vocabulary: bool = False
     never_below: frozenset[str] = frozenset()
+    #: The most `.py` files a folder holds directly, for this folder and the folders below it: the nearest entry on
+    #: the way up that sets one decides (`ceiling_for`).
+    max_python: Optional[int] = None
 
 
 def lab_modules(*names: str) -> frozenset[str]:
@@ -134,11 +171,13 @@ LAYOUT: dict[str, Folder] = {
         folders=frozenset({"audits", "build", "dev", "eval", "generate", "hooks", "lab", "repairs"}),
         files=frozenset({"install.ps1", "install.sh"}),
         owner="the tooling, filed by usage; at the root, the public install commands only",
+        max_python=SCRIPTS_AND_TESTS_CEILING,
     ),
     "taktik": Folder(
         folders=frozenset({"cli", "core"}),
         files=frozenset({"__init__.py", "__main__.py"}),
         owner="the package: its CLI and the engine (the families of `core/` are checked by audit_import_layers.py)",
+        max_python=CODE_CEILING,
     ),
     "taktik/cli": Folder(
         folders=frozenset({"commands", "menus", "hosts", "support", "locales"}),
@@ -191,6 +230,7 @@ LAYOUT: dict[str, Folder] = {
         files=frozenset({"__init__.py", "launcher.py", "bridges.manifest.json"}),
         owner="the bridges the app launches: what they all share, the tools, one folder per platform",
         never_below=frozenset({"runtime"}),
+        max_python=CODE_CEILING,
     ),
     "bridges/common": Folder(
         folders=frozenset(),
@@ -293,6 +333,7 @@ LAYOUT: dict[str, Folder] = {
         owner="the unit tests, filed like the code they test (a folder mirrors a folder of the code, the captures "
               "of its tests in `fixtures/`); at the root, the tests of the package itself, of the repository and of "
               "the harness (conftest.py, its guards, the shared helpers); `one_path/`, a theme suite",
+        max_python=SCRIPTS_AND_TESTS_CEILING,
     ),
     f"{TESTS}/one_path": Folder(
         folders=frozenset(), files=frozenset({ANY_PYTHON, ANY_JSON}),
@@ -517,10 +558,59 @@ def not_filed_findings(paths: Sequence[str], folders: set[str], platforms: froze
     return errors
 
 
+def ceiling_for(folder: str, platforms: frozenset[str], layout: Mapping[str, Folder]) -> Optional[int]:
+    """The most `.py` files `folder` may hold directly: the `max_python` of the nearest entry of the table, its own
+    or one on the way up; None under a root that sets none."""
+    parts = folder.split("/")
+    for depth in range(len(parts), 0, -1):
+        rule = rule_for("/".join(parts[:depth]), platforms, layout)
+        if rule is not None and rule.max_python is not None:
+            return rule.max_python
+    return None
+
+
+def oversized(paths: Sequence[str], platforms: frozenset[str], layout: Mapping[str, Folder]) -> dict[str, int]:
+    """Each folder that holds more `.py` files directly than its ceiling, with its count."""
+    held = Counter(folder for folder, _, name in (path.rpartition("/") for path in paths)
+                   if folder and name.endswith(".py"))
+    over: dict[str, int] = {}
+    for folder, count in sorted(held.items()):
+        ceiling = ceiling_for(folder, platforms, layout)
+        if ceiling is not None and count > ceiling:
+            over[folder] = count
+    return over
+
+
+def size_findings(over: Mapping[str, int], size_list: Mapping[str, int], platforms: frozenset[str],
+                  layout: Mapping[str, Folder]) -> list[str]:
+    """A folder above its ceiling that the list of the oversized folders does not name, or a listed folder that
+    grew. A listed folder that shrinks or goes away is no finding (`size_notes`)."""
+    errors: list[str] = []
+    for folder, count in over.items():
+        ceiling = ceiling_for(folder, platforms, layout)
+        listed = size_list.get(folder)
+        if listed is None:
+            errors.append(f"{folder}/: more .py files than its ceiling of {ceiling} ({count}). Split it into "
+                          f"sub-folders by subject; a test goes to the folder of the code it tests.")
+        elif count > listed:
+            errors.append(f"{folder}/: more .py files than the {listed} of the list ({count}; its ceiling is "
+                          f"{ceiling}). A folder above its ceiling only shrinks: split it into sub-folders by subject.")
+    return errors
+
+
+def size_notes(over: Mapping[str, int], size_list: Mapping[str, int]) -> list[str]:
+    """Each listed folder that holds fewer files than its count, or no longer more than its ceiling: not red, the
+    next `--update-baseline` lowers or drops its line."""
+    return [f"{folder}/ ({listed} listed, {over[folder] if folder in over else 'not above its ceiling any more'})"
+            for folder, listed in sorted(size_list.items()) if over.get(folder, 0) < listed]
+
+
 def check(paths: Sequence[str], is_ignored: IgnoreCheck = git_ignores, layout: Mapping[str, Folder] = LAYOUT,
           manifest: Optional[Mapping[str, Mapping[str, str]]] = None,
-          not_filed: Mapping[str, str] = PLATFORMS_NOT_FILED) -> list[str]:
+          not_filed: Mapping[str, str] = PLATFORMS_NOT_FILED,
+          size_list: Optional[Mapping[str, int]] = None) -> list[str]:
     manifest = read_manifest() if manifest is None else manifest
+    size_list = load_baseline(SIZES.baseline) if size_list is None else size_list
     platforms = platforms_of(paths)
     entries = entry_files(manifest)
     folders = {"/".join(path.split("/")[:depth]) for path in paths for depth in range(1, path.count("/") + 1)}
@@ -535,7 +625,19 @@ def check(paths: Sequence[str], is_ignored: IgnoreCheck = git_ignores, layout: M
     errors.extend(manifest_findings(paths, manifest, platforms, layout))
     errors.extend(tests_findings(paths, folders, layout))
     errors.extend(not_filed_findings(paths, folders, platforms, layout, not_filed))
+    errors.extend(size_findings(oversized(paths, platforms, layout), size_list, platforms, layout))
     return errors
+
+
+#: New folders of the fakes of the size rule: a fake folder holds exactly the files the fake writes in it.
+FAKE_CODE_FOLDER = "taktik/core/kernel/fake_folder"
+FAKE_BRIDGES_FOLDER = "bridges/tools/lab/action_test/fake_folder"
+FAKE_SCRIPTS_FOLDER = "scripts/audits/fake_folder"
+FAKE_TESTS_FOLDER = f"{TESTS}/kernel/fake_folder"
+
+
+def fake_files(folder: str, count: int) -> list[str]:
+    return [f"{folder}/fake_{index}.py" for index in range(count)]
 
 
 def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
@@ -543,6 +645,8 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
     def fake(extra: Iterable[str] = (), without: str = "") -> list[str]:
         return [p for p in paths if not (without and p.startswith(without))] + list(extra)
 
+    # A folder of tests mirrors a folder of the code: the fake folder of tests comes with its folder of code.
+    tests_above = fake_files(FAKE_CODE_FOLDER, 1) + fake_files(FAKE_TESTS_FOLDER, SCRIPTS_AND_TESTS_CEILING + 1)
     manifest = read_manifest()
     misplaced = json.loads(json.dumps(manifest))
     misplaced["instagram"]["cold_dm_bridge"] = "bridges.instagram.cold_dm.commands"
@@ -656,20 +760,57 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
         "a platform waiting for phase 3 gone": {
             "paths": fake(without=f"{PLATFORMS_FOLDER}/gmail/"),
             "expect": f"{PLATFORMS_FOLDER}/gmail/: listed in PLATFORMS_NOT_FILED but is no platform any more"},
+        # The size of a folder: one file past the ceiling of its root is red, a listed folder that grows too.
+        "a folder of code above its ceiling": {
+            "paths": fake(fake_files(FAKE_CODE_FOLDER, CODE_CEILING + 1)),
+            "expect": f"{FAKE_CODE_FOLDER}/: more .py files than its ceiling of {CODE_CEILING} "},
+        "a folder of the bridges above its ceiling": {
+            "paths": fake(fake_files(FAKE_BRIDGES_FOLDER, CODE_CEILING + 1)),
+            "expect": f"{FAKE_BRIDGES_FOLDER}/: more .py files than its ceiling of {CODE_CEILING} "},
+        "a folder of scripts above its ceiling": {
+            "paths": fake(fake_files(FAKE_SCRIPTS_FOLDER, SCRIPTS_AND_TESTS_CEILING + 1)),
+            "expect": f"{FAKE_SCRIPTS_FOLDER}/: more .py files than its ceiling of {SCRIPTS_AND_TESTS_CEILING} "},
+        "a folder of tests above its ceiling": {
+            "paths": fake(tests_above),
+            "expect": f"{FAKE_TESTS_FOLDER}/: more .py files than its ceiling of {SCRIPTS_AND_TESTS_CEILING} "},
+        "a listed folder that grows": {
+            "paths": fake(tests_above + [f"{FAKE_TESTS_FOLDER}/one_more.py"]),
+            "size_list": {**load_baseline(SIZES.baseline), FAKE_TESTS_FOLDER: SCRIPTS_AND_TESTS_CEILING + 1},
+            "expect": f"{FAKE_TESTS_FOLDER}/: more .py files than the {SCRIPTS_AND_TESTS_CEILING + 1} of the list"},
     }
 
 
 def caught(case: dict) -> bool:
     is_ignored = case.get("is_ignored", lambda _path: False)
     errors = check(case["paths"], is_ignored, manifest=case.get("manifest"),
-                   not_filed=case.get("not_filed", PLATFORMS_NOT_FILED))
+                   not_filed=case.get("not_filed", PLATFORMS_NOT_FILED), size_list=case.get("size_list"))
     return any(case["expect"] in error for error in errors)
+
+
+def size_rule_left_alone(paths: Sequence[str]) -> bool:
+    """What the size rule leaves green: a folder at its ceiling exactly (code 25, scripts 40, tests 40), a listed
+    folder that shrinks, a listed folder gone; the two listed folders come back as notes."""
+    at_the_ceiling = (fake_files(FAKE_CODE_FOLDER, CODE_CEILING)
+                      + fake_files(FAKE_SCRIPTS_FOLDER, SCRIPTS_AND_TESTS_CEILING)
+                      + fake_files(FAKE_TESTS_FOLDER, SCRIPTS_AND_TESTS_CEILING))
+    shrunk = f"{TESTS}/kernel/shrunk_folder"
+    gone = f"{TESTS}/kernel/gone_folder"
+    tree = [*paths, *at_the_ceiling, *fake_files(shrunk, SCRIPTS_AND_TESTS_CEILING + 1)]
+    # The folder of tests mirrors a folder of the code: its folder of code comes with it.
+    tree += fake_files("taktik/core/kernel/shrunk_folder", 1)
+    size_list = {**load_baseline(SIZES.baseline), shrunk: SCRIPTS_AND_TESTS_CEILING + 5,
+                 gone: SCRIPTS_AND_TESTS_CEILING + 1}
+    notes = size_notes(oversized(tree, platforms_of(tree), LAYOUT), size_list)
+    noted = [note for note in notes if note.startswith((f"{shrunk}/", f"{gone}/"))]
+    return check(tree, lambda _path: False, size_list=size_list) == [] and len(noted) == 2
 
 
 def self_test() -> int:
     paths = tree_paths()
     cases = self_test_cases(paths)
     missed = [name for name, case in cases.items() if not caught(case)]
+    if not size_rule_left_alone(paths):
+        missed.append("a folder at its ceiling, a listed folder that shrinks or goes away, left green")
     control = check(paths)
     if missed or control:
         for name in missed:
@@ -691,11 +832,25 @@ def main() -> int:
             print(f" - {error}")
         return 1
     platforms = platforms_of(paths)
+    over = oversized(paths, platforms, LAYOUT)
     print(f"Tree layout OK ({len(LAYOUT)} folder(s) of the table, {len(platforms)} platforms, "
           f"{len(paths)} files, every one in its place; {len(platforms) - len(PLATFORMS_NOT_FILED)} platforms filed "
-          f"inside, {len(PLATFORMS_NOT_FILED)} wait for phase 3; the tests mirror the code)")
+          f"inside, {len(PLATFORMS_NOT_FILED)} wait for phase 3; the tests mirror the code; {len(over)} folder(s) "
+          f"above their ceiling, listed in {SIZES.baseline.name}, none grown)")
+    notes = size_notes(over, load_baseline(SIZES.baseline))
+    if notes:
+        print(f"Note, not red: {len(notes)} listed folder(s) shrank or went away: {'; '.join(notes)}. "
+              f"`{SIZES.command} --update-baseline` records it.")
     return 0
 
 
+def update_size_list() -> int:
+    """`--update-baseline`: the oversized folders of the tree, written through the ratchet, which refuses a rise."""
+    paths = tree_paths()
+    return enforce(oversized(paths, platforms_of(paths), LAYOUT), SIZES, update=True)
+
+
 if __name__ == "__main__":
-    raise SystemExit(self_test() if "--self-test" in sys.argv else main())
+    if "--self-test" in sys.argv:
+        raise SystemExit(self_test())
+    raise SystemExit(update_size_list() if "--update-baseline" in sys.argv else main())

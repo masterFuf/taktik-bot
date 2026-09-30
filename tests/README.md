@@ -32,7 +32,9 @@ A test goes to the folder of the code it tests. A path out of its own folder is 
 reads next to it stays written from its own file (`Path(__file__).parent / "fixtures"`). A screen a test
 reads is a real dump, anonymized, in a `fixtures/` folder (the captures a platform's tests share sit in
 `tests/unit/social_media/<platform>/fixtures/`). `python scripts/audits/audit_tree_layout.py` keeps the
-layout: a folder of `tests/unit/` that mirrors no folder of the code turns it red.
+layout: a folder of `tests/unit/` that mirrors no folder of the code turns it red, and so does a folder that
+holds more than 40 test files directly (the ones above it today are listed in
+`scripts/audits/audit_tree_layout_baseline.json`, a list that only shrinks).
 
 ## Local diagnostics
 

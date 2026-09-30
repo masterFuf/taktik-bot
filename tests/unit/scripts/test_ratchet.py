@@ -29,6 +29,11 @@ def test_a_new_file_with_the_defect_is_red():
     assert failures == ["b.py: 1 defect(s), file absent from the baseline"]
 
 
+def test_a_ratchet_that_counts_per_folder_names_a_folder():
+    failures, _ = ratchet.compare({"tests/unit/x": 41}, {}, ".py file(s)", unit="folder")
+    assert failures == ["tests/unit/x: 41 .py file(s), folder absent from the baseline"]
+
+
 def test_a_decrease_not_recorded_in_the_baseline_is_red():
     failures, stale = ratchet.compare({"a.py": 1}, {"a.py": 2, "gone.py": 4}, NOUN)
     assert failures == []

@@ -1,8 +1,9 @@
 """A per-file ratchet: the count of a defect in each file may only go down. One mechanism for the
 counting gates (swallowed errors, type errors, duplicated lines).
 
-A gate counts one kind of defect per file and keeps a baseline, a JSON object `{path: count}`
-frozen the day the gate was laid. The gate is red when:
+A gate counts one kind of defect per file (or per folder: the `.py` files a folder holds, for the
+tree gate) and keeps a baseline, a JSON object `{path: count}` frozen the day the gate was laid.
+The gate is red when:
 
 * a file exceeds its count;
 * a file absent from the baseline has the defect;
@@ -36,7 +37,8 @@ class Ratchet:
     """What a gate counts and how it speaks about it.
 
     `label` opens the green line ("Swallowed errors OK (...)"), `noun` names one unit of the count
-    ("swallowed error(s)"), `remedy` follows a rise, `command` is how to run the gate.
+    ("swallowed error(s)"), `remedy` follows a rise, `command` is how to run the gate, `unit` is what
+    the baseline counts per (a file, or a folder).
     """
 
     label: str
@@ -44,6 +46,7 @@ class Ratchet:
     remedy: str
     command: str
     baseline: Path
+    unit: str = "file"
 
 
 def source_files(root: Path, scan_roots: Iterable[str], suffixes: Iterable[str]) -> List[Path]:
@@ -74,14 +77,14 @@ def relative(file: Path, root: Path) -> str:
 
 
 def compare(actual: Mapping[str, int], baseline: Mapping[str, int],
-            noun: str) -> Tuple[List[str], List[str]]:
+            noun: str, unit: str = "file") -> Tuple[List[str], List[str]]:
     """Return (failures, stale): stale lines are counts the baseline must lower."""
     failures: List[str] = []
     stale: List[str] = []
     for path, count in sorted(actual.items()):
         allowed = baseline.get(path)
         if allowed is None:
-            failures.append(f"{path}: {count} {noun}, file absent from the baseline")
+            failures.append(f"{path}: {count} {noun}, {unit} absent from the baseline")
         elif count > allowed:
             failures.append(f"{path}: {count} {noun}, baseline {allowed}")
     for path, allowed in sorted(baseline.items()):
@@ -113,7 +116,7 @@ def enforce(actual: Mapping[str, int], ratchet: Ratchet, update: bool = False,
         print(f"FAIL: {line}")
     total = sum(actual.values())
     baseline = load_baseline(ratchet.baseline)
-    failures, stale = compare(actual, baseline, ratchet.noun)
+    failures, stale = compare(actual, baseline, ratchet.noun, ratchet.unit)
 
     if update:
         if other_failures:
@@ -121,7 +124,7 @@ def enforce(actual: Mapping[str, int], ratchet: Ratchet, update: bool = False,
             return 1
         if not ratchet.baseline.exists():
             write_baseline(actual, ratchet.baseline)
-            print(f"Baseline created: {total} {ratchet.noun} in {len(actual)} file(s).")
+            print(f"Baseline created: {total} {ratchet.noun} in {len(actual)} {ratchet.unit}(s).")
             return 0
         if failures:
             for line in failures:
@@ -129,11 +132,11 @@ def enforce(actual: Mapping[str, int], ratchet: Ratchet, update: bool = False,
             print(f"The baseline only goes down: fix the new {ratchet.noun} instead.")
             return 1
         write_baseline(actual, ratchet.baseline)
-        print(f"Baseline lowered: {len(stale)} file(s) updated, {total} {ratchet.noun} left.")
+        print(f"Baseline lowered: {len(stale)} {ratchet.unit}(s) updated, {total} {ratchet.noun} left.")
         return 0
 
     if not failures and not stale and not other_failures:
-        print(f"{ratchet.label} OK ({total} in {len(actual)} file(s), none above the baseline)")
+        print(f"{ratchet.label} OK ({total} in {len(actual)} {ratchet.unit}(s), none above the baseline)")
         return 0
     for line in failures:
         print(f"FAIL: {line}. {ratchet.remedy}")
