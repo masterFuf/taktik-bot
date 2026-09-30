@@ -32,6 +32,11 @@ imports what it may not:
   `workflows/`: a workflow composes actions, never the other way round. It holds for every platform: the
   platforms whose inside is not filed yet (`PLATFORMS_NOT_FILED` of `audit_tree_layout.py`) were exempt until
   tree lot 11, an exemption that covered no import (neither has an `actions/` folder).
+- `bridges-independent`: a bridge imports no other bridge. A bridge is a folder of `bridges/<platform>/`
+  (its entry and its support) or a tool of `bridges/tools/` (the Cartography Lab, the schema gate); what the
+  bridges share lives in `bridges/common/`, and what the bridges of one platform share in its `common/`: any
+  bridge may import those. Code two bridges need lives in the core or in a `common/`. The imports of today are
+  named in `EXCEPTIONS`, a ratchet: none is added.
 - `known-core-families`: `taktik/core` holds only the families above; a new root family documents
   its owner in AGENTS.md first, then joins the contracts here.
 - `import-resolves`: every import of our own packages (`taktik`, `bridges`) names a module that
@@ -150,6 +155,22 @@ def actions_import_workflows(importer: str, imported: str) -> bool:
             and source[1] == "actions" and target[1] == "workflows")
 
 
+def bridge_of(name: str) -> str | None:
+    """The bridge a dotted name belongs to: `bridges.instagram.dm.bridge` -> `bridges.instagram.dm`,
+    `bridges.tools.lab.events` -> `bridges.tools.lab`; None for what the bridges share (`bridges.common`, the
+    `common` of a platform), the launcher and the packages above a bridge."""
+    parts = name.split(".")
+    if parts[0] != "bridges" or len(parts) < 3 or "common" in parts[1:3]:
+        return None
+    return ".".join(parts[:3])
+
+
+def bridge_imports_bridge(importer: str, imported: str) -> bool:
+    """`bridges-independent`: a module of one bridge names a module of another bridge."""
+    source, target = bridge_of(importer), bridge_of(imported)
+    return source is not None and target is not None and source != target
+
+
 def in_core(name: str) -> bool:
     return name == "core" or name in CORE_FAMILIES or is_platform(name)
 
@@ -182,6 +203,8 @@ CONTRACTS = (
              lambda src, dst: src == "cli" and dst == "bridges"),
     Contract("actions-no-workflows", "a platform's actions never import its workflows",
              actions_import_workflows, on_names=True),
+    Contract("bridges-independent", "a bridge never imports another bridge, only what the bridges share",
+             bridge_imports_bridge, on_names=True),
 )
 
 #: (contract, file): (ceiling, why it holds and what removes it). The list only shrinks.
@@ -207,6 +230,20 @@ EXCEPTIONS: dict[tuple[str, str], tuple[int, str]] = {
            "wraps `ModernInstagramActions`, which lives with the automation it serves "
            "(`workflows/automation/modern_instagram_actions.py`). Removing the deprecated class, a break of the "
            "package's API, removes the entry."),
+    ("bridges-independent", "bridges/tiktok/automation/inbox/new_followers.py"): (
+        1, "The new-followers flow of the automation bridge borrows the notifier of the cold DM bridge "
+           "(`BridgeNotifier`, `bridges/tiktok/cold_dm/dm_outreach.py`) for the welcome DMs it sends. Moving that "
+           "notifier to `bridges/tiktok/common/`, what the TikTok bridges share, removes the entry."),
+    ("bridges-independent", "bridges/tools/lab/actions/instagram/comment.py"): (
+        1, "The Lab reads the comments of an open sheet with the reader of the persona bridge "
+           "(`PersonaCommentsMixin`, `bridges/instagram/persona/persona_comments.py`), the production function as "
+           "the Lab rule asks. That reader is business code living in a bridge: moving it to the core (the "
+           "comment services of Instagram) removes the entry."),
+    ("bridges-independent", "bridges/tools/lab/workflow_test/platforms/instagram/workflows/scraping.py"): (
+        1, "The workflow bench runs a scraping through the scraping bridge's runner (`run_scraping_workflow`, "
+           "`bridges/instagram/scraping/workflow.py`), which calls the core launcher `run_instagram_scraping` with "
+           "the bridge's AI service and result shape. Calling the core launcher, with what the bench injects, "
+           "removes the entry."),
 }
 
 
@@ -518,6 +555,20 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
         "an action of a platform whose inside is not filed yet imports its workflows": fake(
             "taktik/core/social_media/threads/actions/fake.py", "import taktik.core.social_media.threads.workflows\n",
             "(actions-no-workflows)"),
+        "a bridge imports another bridge of its platform": fake(
+            "bridges/instagram/dm/fake.py", "from bridges.instagram.cold_dm.commands import x\n",
+            "(bridges-independent)"),
+        "a bridge imports a bridge of another platform lazily": fake(
+            "bridges/tiktok/scraping/fake.py", "def f():\n    import bridges.instagram.scraping.workflow\n",
+            "(bridges-independent)"),
+        "a bridge imports the package of another bridge": fake(
+            "bridges/tiktok/publish/fake.py", "from bridges.tiktok import cold_dm\n", "(bridges-independent)"),
+        "the Lab imports a bridge": fake(
+            "bridges/tools/lab/actions/tiktok/fake.py", "from bridges.tiktok.dm.bridge import x\n",
+            "(bridges-independent)"),
+        "a bridge imports a tool": fake(
+            "bridges/instagram/account/fake.py", "from bridges.tools.lab.events import configure_logger\n",
+            "(bridges-independent)"),
     }
 
 
@@ -533,12 +584,26 @@ def caught(fake: dict) -> bool:
     return any(fake["expect"] in failure for failure in check(fake["modules"]))
 
 
+def shared_bridge_code_left_alone(modules: Mapping[str, SourceModule]) -> bool:
+    """A bridge imports what the bridges share, its own modules and the core: none of it is a finding."""
+    path = "bridges/tiktok/dm/fake.py"
+    source = ("from bridges.common.ipc import IPC\n"
+              "from bridges.tiktok.common.ipc import _ipc\n"
+              "from bridges.tiktok.dm.bridge import x\n"
+              "import bridges.launcher\n"
+              "from taktik.core.shared.text import normalize\n")
+    fake = {**modules, path: read_module(path, source)}
+    return not any(path in failure and "(bridges-independent)" in failure for failure in check(fake))
+
+
 def self_test() -> int:
     modules = read_tree()
     cases = self_test_cases(modules)
     missed = [name for name, fake in cases.items() if not caught(fake)]
     if not deep_relative_caught(modules):
         missed.append("a new relative import of 3 dots")
+    if not shared_bridge_code_left_alone(modules):
+        missed.append("a bridge that imports what the bridges share, left green")
     control = check(modules)
     if missed or control:
         for name in missed:
