@@ -37,6 +37,11 @@ def test_a_new_deep_relative_import_turns_the_ratchet_red():
     assert audit.deep_relative_caught(MODULES)
 
 
+def test_a_bridge_may_import_what_the_bridges_share():
+    """`bridges/common/`, the `common/` of its platform, its own folder, the launcher and the core: no finding."""
+    assert audit.shared_bridge_code_left_alone(MODULES)
+
+
 def test_a_test_may_import_what_does_not_exist_to_prove_it_is_gone():
     path = "tests/unit/fake_test.py"
     source = ("import pytest\n\n"
