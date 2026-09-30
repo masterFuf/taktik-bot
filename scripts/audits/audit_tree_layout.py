@@ -101,11 +101,6 @@ _PHASE_3_TIKTOK = ("phase 3 of the tree reorganisation: the TikTok workflows lea
 #: Folders of `tests/unit/` that mirror no folder of the code yet, and why. The list only shrinks: an entry that
 #: holds no file, or that mirrors a folder of the code, turns the gate red.
 TESTS_NOT_MIRRORED: dict[str, str] = {
-    "tests/unit/social_media/instagram/actions/navigation":
-        "phase 3: the code is actions/atomic/navigation/, whose tests are among the flat Instagram tests",
-    "tests/unit/social_media/instagram/workflows/unfollow":
-        "phase 3: the unfollow workflow lives in actions/business/workflows/unfollow/ until the Instagram workflows "
-        "get one home",
     "tests/unit/social_media/tiktok/workflows/_internal": _PHASE_3_TIKTOK,
     "tests/unit/social_media/tiktok/workflows/dm": _PHASE_3_TIKTOK,
     "tests/unit/social_media/tiktok/workflows/followers": _PHASE_3_TIKTOK,

@@ -61,54 +61,54 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (1,
          "Instagram's Try again later dialog, invented: none in the corpus, and it only shows once "
          "Instagram refuses a gesture. The ordinary screen is a real feed."),
-    "tests/unit/social_media/instagram/test_action_blocked_stops_the_run.py":
+    "tests/unit/social_media/instagram/actions/base/base_business/test_action_blocked_stops_the_run.py":
         (8,
          "the rate-limit dialog and the contacts request, invented: neither is in the corpus; "
          "capture both (410, French)."),
-    "tests/unit/social_media/instagram/test_profile_header_447.py":
+    "tests/unit/social_media/instagram/ui/selectors/test_profile_header_447.py":
         (9,
          "447 and 410 profile headers in the real shapes: no 447 professional profile in the "
          "corpus; capture one (447, French). 447 personal and 410 headers are in the corpus."),
-    "tests/unit/social_media/instagram/test_verified_and_business_signals.py":
+    "tests/unit/social_media/instagram/actions/atomic/detection/test_verified_and_business_signals.py":
         (7,
          "two verified signals no capture shows: a profile title whose description carries the "
          "word Verified, and a certified card in the suggestions of a profile. A certified 410 FR "
          "profile (Pixel 4a) shows neither: its title's description is the handle, and the "
          "certified accounts of its suggestions carry no mark. Every other case reads a real "
          "profile (410 FR and EN, 447 FR)."),
-    "tests/unit/social_media/instagram/ui/test_unfollow_selector_catalogs.py":
+    "tests/unit/social_media/instagram/ui/selectors/test_unfollow_selector_catalogs.py":
         (2,
          "the private account's unfollow confirmation, invented: it only shows once a followed "
          "account's button is tapped, which is the unfollow itself; tabs, categories and the sort "
          "button read real lists (447 FR, 410 EN and FR)."),
-    "tests/unit/social_media/instagram/workflows/management/test_notifications_dump_parsing.py":
+    "tests/unit/social_media/instagram/workflows/notifications/test_notifications_dump_parsing.py":
         (2,
          "the follow-requests screen (with and without its row containers), invented: the Pixel 4a "
          "account is public and the 3a shows the entry but no capture opened it; capture it on a "
          "private account with a pending request (410, French). The activity rows are real (410 "
          "FR and EN)."),
-    "tests/unit/social_media/instagram/workflows/management/test_notifications_suggestions_parsing.py":
+    "tests/unit/social_media/instagram/workflows/notifications/test_notifications_suggestions_parsing.py":
         (14,
          "the suggestions zone at the bottom of the activity screen, rebuilt by helpers from an "
          "old capture: no capture reaches it (Pixel 4a, 410 FR: 220 scrolls without it); capture "
          "it on an account with few notifications. The list above it is real."),
-    "tests/unit/social_media/instagram/workflows/test_like_comment_in_thread.py":
+    "tests/unit/social_media/instagram/services/comment/test_like_comment_in_thread.py":
         (1,
          "a comment WE already liked and a like control with an unknown label, written by hand: "
          "capture a comments sheet after a like (410, French and English); the like lands on a "
          "real sheet."),
-    "tests/unit/social_media/instagram/workflows/unfollow/fake_follow_list.py":
+    "tests/unit/social_media/instagram/workflows/automation/unfollow/fake_follow_list.py":
         (17,
          "follow lists of 410 and 447 rendered by a helper for the engine's scripted runs: the 410 "
          "lists are in fixtures/ (ig410_*_followers_list*); no unfollow dialog in the corpus: "
          "capture it (410, French) and a 447 list."),
-    "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_list_proof.py":
+    "tests/unit/social_media/instagram/workflows/automation/unfollow/test_unfollow_list_proof.py":
         (1, "one extra follow-list row, invented."),
-    "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_list_rows.py":
+    "tests/unit/social_media/instagram/workflows/automation/unfollow/test_unfollow_list_rows.py":
         (2,
          "unfollow dialog and rows, invented: capture the unfollow dialog (410, French); rows are "
          "in fixtures/."),
-    "tests/unit/social_media/instagram/workflows/unfollow/test_unfollow_verification.py":
+    "tests/unit/social_media/instagram/workflows/automation/unfollow/test_unfollow_verification.py":
         (2,
          "unfollow dialog and rows, invented: capture the unfollow dialog (410, French); rows are "
          "in fixtures/."),
@@ -154,7 +154,7 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
          "French)."),
     "tests/unit/social_media/tiktok/workflows/unfollow/conftest.py":
         (4, "following list of 46.6.3 rendered by a helper."),
-    "tests/unit/social_media/instagram/test_switch_account.py":
+    "tests/unit/social_media/instagram/actions/account/switch/test_switch_account.py":
         (4,
          "account rows by a helper: a sheet of several accounts with the notifications suffix, and "
          "the logged-out picker (no phone of the bench holds several accounts; the picker needs a "
@@ -197,22 +197,22 @@ MINIMAL_TREES: dict[str, tuple[int, str]] = {
         (2, "the tree normalisation d.xpath() applies, on the shape of a real dump."),
     "tests/unit/shared/ui/test_language_engine.py":
         (5, "the language scoring rules shared by both platforms."),
-    "tests/unit/social_media/instagram/test_feed_suggestions_carousel_framing.py":
+    "tests/unit/social_media/instagram/workflows/automation/feed/test_feed_suggestions_carousel_framing.py":
         (1,
          "a carousel with no visible band (no feed list, no tab bar): the framing guard; every "
          "real dump carries the list, and the carousel itself is read on real feeds."),
-    "tests/unit/social_media/instagram/test_one_dump_readers_on_photo.py":
+    "tests/unit/social_media/instagram/actions/atomic/detection/test_one_dump_readers_on_photo.py":
         (1,
          "an empty hierarchy, what the device answers when it cannot read a screen: the guard of "
          "every reader. The screens read are real (a professional profile, a cut bio, the "
          "activity list) or their clone (the package renamed)."),
-    "tests/unit/social_media/instagram/test_feed_suggestions_follow_loop.py":
+    "tests/unit/social_media/instagram/workflows/automation/feed/test_feed_suggestions_follow_loop.py":
         (15, "which bounds the finger starts from and what is booked; the parsing is proven elsewhere."),
-    "tests/unit/social_media/instagram/test_post_reading_caption.py":
+    "tests/unit/social_media/instagram/actions/atomic/scroll/test_post_reading_caption.py":
         (2,
          "a caption below the screen: the off-screen guard is geometry, and uiautomator clips its "
          "dump to the screen (no capture holds one); the other readings run on real feeds."),
-    "tests/unit/social_media/instagram/test_post_reading_reframe.py":
+    "tests/unit/social_media/instagram/actions/atomic/scroll/test_post_reading_reframe.py":
         (16, "the reframe scroll computed from a caption's bounds."),
     "tests/unit/social_media/tiktok/actions/test_probes_on_one_photo.py":
         (4, "how many photos the TikTok probes take per turn."),
@@ -228,9 +228,9 @@ MINIMAL_TREES: dict[str, tuple[int, str]] = {
 
 #: (c) An excerpt copied from a real dump, inline; new ones go to fixtures/.
 DUMP_EXCERPTS: dict[str, tuple[int, str]] = {
-    "tests/unit/social_media/instagram/test_own_avatar_from_tab.py":
+    "tests/unit/social_media/instagram/actions/atomic/detection/test_own_avatar_from_tab.py":
         (1, "own profile of Instagram 410 in French, trimmed to the two avatars, bounds kept."),
-    "tests/unit/social_media/instagram/workflows/test_comments_thread_parsing.py":
+    "tests/unit/social_media/instagram/workflows/common/test_comments_thread_parsing.py":
         (3, "comment thread copied from a device dump, trimmed to its rows."),
     "tests/unit/social_media/tiktok/ui/test_tiktok_43_1_4_search_rows.py":
         (3, "Users tab of TikTok 43.1.4 (Pixel 3a, French), anonymized, ids and bounds kept."),
