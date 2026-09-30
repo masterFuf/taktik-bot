@@ -13,7 +13,6 @@ from taktik.core.social_media.instagram.workflows.automation.post_url import Pos
 from taktik.core.social_media.instagram.services.like.orchestration import FramedLike
 from taktik.core.social_media.instagram.services.like import LikeBusiness
 from taktik.core.social_media.instagram.services.story import StoryBusiness
-from taktik.core.social_media.instagram.services.config import ConfigBusiness
 
 
 class ModernInstagramActions(BaseAction):
@@ -34,7 +33,6 @@ class ModernInstagramActions(BaseAction):
         self.post_url_business = PostUrlBusiness(device, session_manager, automation)
         self.like_business = LikeBusiness(device, session_manager, automation)
         self.story_business = StoryBusiness(device, session_manager)
-        self.config_business = ConfigBusiness(device, session_manager)
         
         self.logger.info("ModernInstagramActions initialized with BaseStatsManager and new architecture")
     
