@@ -11,7 +11,7 @@ from taktik.core.shared.device.ui_dump import parse_ui_dump
 
 # The popup families and the unlabelled dialog belong to the detection layer, which also reads
 # them on a screen photo (`read_screen`); `unlabelled_overlay_region` stays importable from here.
-from ....atomic.detection.screen_reading import (
+from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import (
     note_action_block,
     popup_families,
     unlabelled_overlay_region,
@@ -227,7 +227,7 @@ class PopupHandler:
 
     def _close_all_slow(self) -> bool:
         """Original sequential-polling implementation used as fallback."""
-        from .....ui.selectors.shell.popups import POPUP_SELECTORS
+        from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 
         # Android system popups (input method selection, etc.)
         if self.click.close_system_popup():

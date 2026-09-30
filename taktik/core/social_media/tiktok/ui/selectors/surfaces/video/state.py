@@ -3,8 +3,11 @@
 from dataclasses import dataclass, field
 from typing import List
 
-from ...locales import L
-from ._shared import resource_id_with_descendant, resource_ids_with
+from taktik.core.social_media.tiktok.ui.selectors.locales import L
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video._shared import (
+    resource_id_with_descendant,
+    resource_ids_with,
+)
 
 
 @dataclass

@@ -7,8 +7,8 @@ Extracted from click_actions.py — contains only video-specific actions
 
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
 class VideoActions(BaseAction):

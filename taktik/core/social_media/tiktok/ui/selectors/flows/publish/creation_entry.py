@@ -3,8 +3,8 @@
 from dataclasses import dataclass, field
 from typing import List
 
-from ...locales import L
-from ._shared import resource_ids
+from taktik.core.social_media.tiktok.ui.selectors.locales import L
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish._shared import resource_ids
 
 
 @dataclass

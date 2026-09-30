@@ -8,10 +8,10 @@ and get every method via a single class.
 
 from loguru import logger
 
-from .video_actions import VideoActions
-from .popup_actions import PopupActions
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.actions.atomic.interaction.video_actions import VideoActions
+from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions import PopupActions
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class ClickActions(VideoActions, PopupActions):

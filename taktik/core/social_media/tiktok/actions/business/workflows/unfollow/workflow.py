@@ -17,22 +17,22 @@ from loguru import logger
 import time
 import random
 
-from ....atomic.navigation.navigation_actions import NavigationActions
-from ....atomic.scroll.scroll_actions import ScrollActions
-from ....core.base_action import BaseAction
-from ....core.utils import first_matching
-from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
-from .....ui.labels import is_friends_button
-from .....services.followers.listing import (
+from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
+from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import ScrollActions
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from taktik.core.social_media.tiktok.ui.labels import is_friends_button
+from taktik.core.social_media.tiktok.services.followers.listing import (
     find_username_for_bounds,
     get_element_bounds,
     row_follow_state,
 )
-from .....services.followers.stop_policy import normalize_username
+from taktik.core.social_media.tiktok.services.followers.stop_policy import normalize_username
 from taktik.core.database.tiktok_follow_graph import TikTokFollowGraphService
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
-from .models import (
+from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.models import (
     SKIP_FOLLOW_DATE_UNKNOWN,
     SKIP_FOLLOWED_TOO_RECENTLY,
     SKIP_FRIENDS,
@@ -256,7 +256,7 @@ class UnfollowWorkflow:
     def _block_detector(self):
         """The production block detector on this run's device, built once."""
         if getattr(self, "_detection", None) is None:
-            from ....atomic.detection.detection_actions import DetectionActions
+            from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
 
             self._detection = DetectionActions(self.device)
         return self._detection

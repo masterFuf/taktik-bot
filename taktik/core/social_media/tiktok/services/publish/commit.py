@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from .progress import PublishProgress
+from taktik.core.social_media.tiktok.services.publish.progress import PublishProgress
 
 
 LogFn = Callable[[str, str], None]

@@ -1,12 +1,15 @@
 """TikTok surface selectors."""
 
-from .activity import ActivitySelectors, ACTIVITY_SELECTORS
-from .conversation import ConversationSelectors, CONVERSATION_SELECTORS
-from .followers import FollowersSelectors, FOLLOWERS_SELECTORS
-from .inbox import InboxSelectors, INBOX_SELECTORS
-from .profile import ProfileSelectors, PROFILE_SELECTORS
-from .search import SearchSelectors, SEARCH_SELECTORS
-from .video import (
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.activity import ActivitySelectors, ACTIVITY_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import (
+    ConversationSelectors,
+    CONVERSATION_SELECTORS,
+)
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FollowersSelectors, FOLLOWERS_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import InboxSelectors, INBOX_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import ProfileSelectors, PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SearchSelectors, SEARCH_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import (
     CommentSelectors,
     COMMENT_SELECTORS,
     VideoCreatorSelectors,

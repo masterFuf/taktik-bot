@@ -4,7 +4,7 @@ Detects which page the UI is currently on:
 video playback, user profile, story view, or followers list.
 """
 
-from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class PageDetectionMixin:

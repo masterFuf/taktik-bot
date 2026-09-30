@@ -17,8 +17,8 @@ from taktik.core.social_media.tiktok.services.behavior.watch_time import video_w
 from taktik.core.shared.telemetry.sink import emit_step
 from taktik.core.shared.telemetry.device_io import DeviceIoMeasure
 
-from .._internal import BaseVideoWorkflow, VideoWorkflowStats
-from .models import SearchConfig
+from taktik.core.social_media.tiktok.actions.business.workflows._internal import BaseVideoWorkflow, VideoWorkflowStats
+from taktik.core.social_media.tiktok.actions.business.workflows.search.models import SearchConfig
 
 
 # Backward-compat alias

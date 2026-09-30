@@ -19,7 +19,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_
     first_given,
 )
 
-from .models import DMConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import DMConfig
 
 NEW_FOLLOWERS = "new_followers"
 UNREPLIED = "dm_unreplied"

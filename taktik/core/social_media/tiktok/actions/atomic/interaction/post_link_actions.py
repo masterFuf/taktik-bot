@@ -23,15 +23,15 @@ than trusting the tap.
 import time
 from typing import Any, Dict, Optional
 
-from ...core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
 from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import VideoDetector
-from ...core.utils import first_matching, first_text
-from ....ui.selectors.surfaces.video import (
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching, first_text
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import (
     VIDEO_ENGAGEMENT_SELECTORS,
     VIDEO_MEDIA_SELECTORS,
     VIDEO_SHARE_SELECTORS,
 )
-from ....ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
 
 #: What a copied TikTok link looks like, whichever shape the app hands out.
 _LINK_MARKERS = ("tiktok.com", "vm.tiktok", "vt.tiktok")

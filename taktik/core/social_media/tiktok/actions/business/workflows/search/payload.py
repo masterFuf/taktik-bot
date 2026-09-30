@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from .models import SearchConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.search.models import SearchConfig
 
 
 def search_queries_from_payload(payload: Mapping[str, Any], *, hashtag: bool) -> list[str]:

@@ -14,9 +14,9 @@ shapes folded) against the locale catalogues, so adding a language stays a catal
 
 from typing import Iterable, Optional
 
-from ....shared.text import normalize_ui_label
-from .selectors.surfaces.profile import PROFILE_SELECTORS
-from .selectors.surfaces.video.media import VIDEO_MEDIA_SELECTORS
+from taktik.core.shared.text import normalize_ui_label
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.media import VIDEO_MEDIA_SELECTORS
 
 
 def _matches(text: str, labels: Iterable[str]) -> bool:

@@ -1,6 +1,6 @@
 """TikTok DM workflow: read and send, the four inbox flows, the welcome pass, the cold-DM outreach."""
 
-from .agent_handler import (
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler import (
     TIKTOK_DM_OUTREACH_WORKFLOW_ID,
     TIKTOK_DM_READ_WORKFLOW_ID,
     TIKTOK_DM_SEND_WORKFLOW_ID,
@@ -13,7 +13,7 @@ from .agent_handler import (
     run_tiktok_dm_read,
     run_tiktok_dm_send,
 )
-from .inbox_agent_handler import (
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_agent_handler import (
     TIKTOK_DM_ACTIVITY_WORKFLOW_ID,
     TIKTOK_DM_REQUESTS_WORKFLOW_ID,
     TIKTOK_DM_UNREPLIED_WORKFLOW_ID,
@@ -23,8 +23,13 @@ from .inbox_agent_handler import (
     register_tiktok_inbox_handlers,
     run_tiktok_inbox,
 )
-from .outreach import TikTokDMOutreachWorkflow
-from .workflow import DMWorkflow, DMConfig, DMStats, ConversationData
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach import TikTokDMOutreachWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import (
+    DMWorkflow,
+    DMConfig,
+    DMStats,
+    ConversationData,
+)
 
 __all__ = [
     "TIKTOK_DM_READ_WORKFLOW_ID",

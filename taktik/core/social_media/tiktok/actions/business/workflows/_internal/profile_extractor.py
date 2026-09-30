@@ -12,9 +12,9 @@ from loguru import logger
 
 from taktik.core.shared.text import handle_from_screen_text
 
-from ....core.utils import parse_count, first_matching, first_text
-from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from .....ui.labels import classify_profile_stat_label
+from taktik.core.social_media.tiktok.actions.core.utils import parse_count, first_matching, first_text
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
 
 
 def read_profile_stats(raw_device) -> Dict[str, int]:

@@ -41,7 +41,7 @@ from loguru import logger
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 
-from .payload import NotificationsSettings
+from taktik.core.social_media.tiktok.actions.business.workflows.notifications.payload import NotificationsSettings
 
 
 def _emit(notifier: Any, method: str, *args: Any, **kwargs: Any) -> None:
@@ -131,7 +131,7 @@ def run_notifications_pass(
 def _scan_followers(device, settings: NotificationsSettings, bot_username, stats, notifier) -> None:
     if not settings.scan_new_followers:
         return
-    from .scan import scan_new_followers
+    from taktik.core.social_media.tiktok.actions.business.workflows.notifications.scan import scan_new_followers
 
     _emit(notifier, "status", "running", "Reading new followers")
     outcome = scan_new_followers(

@@ -39,7 +39,9 @@ class ProfileDataMixin:
             return None
 
         try:
-            from .._internal.profile_extractor import extract_profile_from_screen
+            from taktik.core.social_media.tiktok.actions.business.workflows._internal.profile_extractor import (
+                extract_profile_from_screen,
+            )
             
             # Get raw uiautomator2 device for the shared extractor
             raw_device = self.device._device if hasattr(self.device, '_device') else self.device

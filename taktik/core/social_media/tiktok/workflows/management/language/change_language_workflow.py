@@ -27,12 +27,12 @@ from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.device.wait import find_element
 from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions import PopupActions
 
-from ....services.navigation.reset import return_to_tiktok_shell
+from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 
-from ....ui.language import detect_language, reset_detected_language
-from ....ui.selectors.flows.settings import APP_LANGUAGE_NATIVE_NAMES, SETTINGS_SELECTORS
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.language import detect_language, reset_detected_language
+from taktik.core.social_media.tiktok.ui.selectors.flows.settings import APP_LANGUAGE_NATIVE_NAMES, SETTINGS_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 StepNotifier = Callable[..., None]
 

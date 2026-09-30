@@ -16,7 +16,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_
     first_given,
 )
 
-from .models import SyncListsConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import SyncListsConfig
 
 #: Workflow type (the bridge's `workflowType`, the CLI id's last part) -> which list(s) to read.
 LIST_TYPE_BY_WORKFLOW = {

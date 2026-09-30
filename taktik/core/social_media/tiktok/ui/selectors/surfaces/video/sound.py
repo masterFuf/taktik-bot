@@ -23,7 +23,7 @@ seconds. So a sound is reached from a video that uses it, never from a search bo
 from typing import List
 from dataclasses import dataclass, field
 
-from ...locales import L
+from taktik.core.social_media.tiktok.ui.selectors.locales import L
 
 
 @dataclass

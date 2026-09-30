@@ -3,8 +3,8 @@ import random
 from typing import Optional, Dict, Any, List, Union
 from loguru import logger
 
-from .device_facade import DeviceFacade
-from .utils import ActionUtils
+from taktik.core.social_media.tiktok.actions.core.device_facade import DeviceFacade
+from taktik.core.social_media.tiktok.actions.core.utils import ActionUtils
 
 from taktik.core.shared.actions.base_action import SharedBaseAction
 
@@ -285,7 +285,7 @@ class BaseAction(SharedBaseAction):
     
     def _close_popup(self) -> bool:
         """Try to close any popup."""
-        from ...ui.selectors.shell.popups import POPUP_SELECTORS
+        from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
         
         if self._find_and_click(POPUP_SELECTORS.close_button, timeout=2):
             self.logger.debug("✅ Popup closed")

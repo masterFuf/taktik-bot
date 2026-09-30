@@ -35,9 +35,9 @@ from taktik.core.social_media.tiktok.services.profile.username import (
 )
 from taktik.core.social_media.tiktok.ui.labels import is_following_button, is_friends_button
 
-from .._internal import BaseTikTokWorkflow
-from .models import SyncListsConfig, SyncListsStats
-from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from taktik.core.social_media.tiktok.actions.business.workflows._internal import BaseTikTokWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import SyncListsConfig, SyncListsStats
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 
 FOLLOWING = "following"
 FOLLOWERS = "followers"

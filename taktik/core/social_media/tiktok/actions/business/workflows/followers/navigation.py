@@ -10,7 +10,7 @@ import time
 from taktik.core.social_media.tiktok.actions.business.workflows._internal.profile_extractor import (
     read_profile_stats,
 )
-from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class NavigationMixin:

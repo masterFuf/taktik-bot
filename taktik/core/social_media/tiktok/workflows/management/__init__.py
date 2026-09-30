@@ -1,6 +1,6 @@
 """TikTok account management workflows."""
 
-from .agent_handler import (
+from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
     TIKTOK_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID,
     TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID,
     TIKTOK_ACCOUNT_LOGOUT_WORKFLOW_ID,

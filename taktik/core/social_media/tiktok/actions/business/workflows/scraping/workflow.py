@@ -10,20 +10,26 @@ import time
 
 from taktik.core.shared.text import handle_from_screen_text
 
-from ....atomic.navigation.navigation_actions import NavigationActions
-from ....atomic.navigation.search_actions import SearchActions
-from ....atomic.scroll.scroll_actions import ScrollActions
-from ....core.base_action import BaseAction
-from ....core.utils import extract_resource_id as _extract_rid, first_matching
-from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
-from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from .....ui.selectors.surfaces.search import SEARCH_SELECTORS
-from .....services.profile.username import read_open_profile_handle
-from .....services.navigation.deeplink import open_post_by_url
-from ....atomic.interaction.comment_actions import CommentActions
-from .....ui.selectors.surfaces.video import VIDEO_SELECTORS
-from .models import ScrapingConfig, ScrapingStats, empty_profile
-from .._internal.profile_extractor import extract_profile_from_screen
+from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
+from taktik.core.social_media.tiktok.actions.atomic.navigation.search_actions import SearchActions
+from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import ScrollActions
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.utils import extract_resource_id as _extract_rid, first_matching
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
+from taktik.core.social_media.tiktok.services.profile.username import read_open_profile_handle
+from taktik.core.social_media.tiktok.services.navigation.deeplink import open_post_by_url
+from taktik.core.social_media.tiktok.actions.atomic.interaction.comment_actions import CommentActions
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
+from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import (
+    ScrapingConfig,
+    ScrapingStats,
+    empty_profile,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows._internal.profile_extractor import (
+    extract_profile_from_screen,
+)
 
 
 class ScrapingWorkflow:

@@ -24,8 +24,10 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_
     text_list,
 )
 
-from .filtering import resolve_tiktok_filter_criteria
-from .models import FollowersConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.filtering import (
+    resolve_tiktok_filter_criteria,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersConfig
 
 #: Profiles a run visits when the payload names no budget (the bridge's; the handler's was 50).
 DEFAULT_PROFILE_BUDGET = 20

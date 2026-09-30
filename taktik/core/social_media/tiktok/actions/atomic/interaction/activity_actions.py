@@ -15,13 +15,13 @@ opening it.
 import time
 from typing import Any, Dict, List, Optional
 
-from ...core.base_action import BaseAction
-from ...core.utils import first_matching
-from ..messaging.dm_actions import DMActions
-from ....ui.selectors.surfaces.activity import ACTIVITY_SELECTORS
-from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
-from ....services.notifications.activity import ActivityRow, parse_activity_row
-from ....services.profile.username import read_open_profile_handle
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.activity import ACTIVITY_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
+from taktik.core.social_media.tiktok.services.notifications.activity import ActivityRow, parse_activity_row
+from taktik.core.social_media.tiktok.services.profile.username import read_open_profile_handle
 from taktik.core.shared.behavior.tap import tap_element_human
 
 

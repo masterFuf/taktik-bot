@@ -84,9 +84,9 @@ def popup_families(present: Callable) -> Set[str]:
     """The popup families on a screen, named as the popup handler handles them. `present(selectors)`
     says whether one of them is on the screen: the handler's own dump scan and the photo share
     this one table."""
-    from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-    from ....ui.selectors.shell.popups import POPUP_SELECTORS
-    from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
+    from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+    from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
+    from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
     table = (
         ('system_deny', (POPUP_SELECTORS.system_deny_button,)),
@@ -110,7 +110,7 @@ def action_block_evidence(tree) -> Optional[str]:
     Read on the dump tree (`parse_ui_dump`), so the popup handler asks it of the photo it already
     took. A phrase inside what people wrote (caption, comment, message, bio) proves nothing.
     """
-    from ....ui.selectors.shell.screen_state import DETECTION_SELECTORS
+    from taktik.core.social_media.tiktok.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 
     if tree is None:
         return None
@@ -193,7 +193,7 @@ class ScreenReading:
 
     def screen_of(self, photo) -> TikTokScreen:
         """What `photo` shows, by the production readers asked of it."""
-        from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
         popups = popup_families(lambda selectors: self._element_exists(selectors, screen=photo))
         if note_action_block(getattr(getattr(photo, 'source', None), 'root', None)):

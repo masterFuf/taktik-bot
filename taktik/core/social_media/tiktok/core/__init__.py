@@ -1,5 +1,5 @@
 """TikTok core — manager and high-level orchestration."""
 
-from .manager import TikTokManager
+from taktik.core.social_media.tiktok.core.manager import TikTokManager
 
 __all__ = ['TikTokManager']

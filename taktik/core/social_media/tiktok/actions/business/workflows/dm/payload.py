@@ -21,7 +21,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_
     text_list,
 )
 
-from .models import DMConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import DMConfig
 
 
 def dm_read_config_from_payload(payload: Mapping[str, Any]) -> DMConfig:

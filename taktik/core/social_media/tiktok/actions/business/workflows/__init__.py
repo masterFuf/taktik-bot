@@ -2,11 +2,23 @@
 
 """
 
-from .for_you import ForYouWorkflow, ForYouConfig, ForYouStats
-from .dm import DMWorkflow, DMConfig, DMStats, ConversationData
-from .search import SearchWorkflow, SearchConfig, SearchStats
-from .followers import FollowersWorkflow, FollowersConfig, FollowersStats
-from .target_profiles import TargetProfilesWorkflow, TargetProfilesConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.for_you import ForYouWorkflow, ForYouConfig, ForYouStats
+from taktik.core.social_media.tiktok.actions.business.workflows.dm import (
+    DMWorkflow,
+    DMConfig,
+    DMStats,
+    ConversationData,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows.search import SearchWorkflow, SearchConfig, SearchStats
+from taktik.core.social_media.tiktok.actions.business.workflows.followers import (
+    FollowersWorkflow,
+    FollowersConfig,
+    FollowersStats,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows.target_profiles import (
+    TargetProfilesWorkflow,
+    TargetProfilesConfig,
+)
 
 __all__ = [
     'ForYouWorkflow',

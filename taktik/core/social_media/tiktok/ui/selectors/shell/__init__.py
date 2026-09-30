@@ -1,6 +1,6 @@
 """TikTok shell selectors."""
 
-from .auth import (
+from taktik.core.social_media.tiktok.ui.selectors.shell.auth import (
     AUTH_SELECTORS,
     COUNTRY_PICKER_SELECTORS,
     LOGOUT_SELECTORS,
@@ -11,9 +11,9 @@ from .auth import (
     LogoutSelectors,
     SignupSelectors,
 )
-from .navigation import NavigationSelectors, NAVIGATION_SELECTORS
-from .popups import PopupSelectors, POPUP_SELECTORS
-from .screen_state import DetectionSelectors, DETECTION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NavigationSelectors, NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.popups import PopupSelectors, POPUP_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.screen_state import DetectionSelectors, DETECTION_SELECTORS
 
 __all__ = [
     "AUTH_SELECTORS",

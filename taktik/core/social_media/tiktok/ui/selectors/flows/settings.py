@@ -22,7 +22,7 @@ carries both languages.
 from typing import Dict, List
 from dataclasses import dataclass, field
 
-from ..locales import L
+from taktik.core.social_media.tiktok.ui.selectors.locales import L
 
 #: Target language -> the label the picker shows for it, in its own spelling.
 #: Read off the real picker; the keys are the codes `ui/language.py` detects.

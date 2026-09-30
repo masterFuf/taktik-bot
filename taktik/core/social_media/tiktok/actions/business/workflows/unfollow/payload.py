@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
-from .models import UnfollowConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.models import UnfollowConfig
 
 
 def _first_present(*values: Any) -> Optional[Any]:

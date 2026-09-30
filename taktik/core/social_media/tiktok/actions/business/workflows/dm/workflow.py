@@ -11,9 +11,9 @@ from typing import Optional, Dict, Any, List, Callable
 from loguru import logger
 import time
 
-from .._internal import BaseTikTokWorkflow
-from ....atomic.messaging.dm_actions import DMActions
-from .models import DMConfig, DMStats, ConversationData
+from taktik.core.social_media.tiktok.actions.business.workflows._internal import BaseTikTokWorkflow
+from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
+from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import DMConfig, DMStats, ConversationData
 
 
 class DMWorkflow(BaseTikTokWorkflow):

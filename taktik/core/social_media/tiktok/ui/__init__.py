@@ -2,7 +2,7 @@
 
 """
 
-from .selectors import (
+from taktik.core.social_media.tiktok.ui.selectors import (
     TIKTOK_PACKAGE,
     AUTH_SELECTORS,
     NAVIGATION_SELECTORS,

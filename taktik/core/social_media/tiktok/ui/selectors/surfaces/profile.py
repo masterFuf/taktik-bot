@@ -3,7 +3,7 @@
 from typing import Any, Dict, List
 from dataclasses import dataclass, field
 
-from ..locales import L
+from taktik.core.social_media.tiktok.ui.selectors.locales import L
 
 
 @dataclass

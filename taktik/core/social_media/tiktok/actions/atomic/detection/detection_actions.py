@@ -9,12 +9,12 @@ and get every method via a single class.
 
 from loguru import logger
 
-from .video_detector import VideoDetector
-from .popup_detector import PopupDetector
-from .screen_reading import ScreenReading, note_action_block
+from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import VideoDetector
+from taktik.core.social_media.tiktok.actions.atomic.detection.popup_detector import PopupDetector
+from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import ScreenReading, note_action_block
 from taktik.core.shared.device.ui_dump import parse_ui_dump
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
 
 class DetectionActions(ScreenReading, VideoDetector, PopupDetector):

@@ -34,18 +34,20 @@ from taktik.core.social_media.tiktok.services.followers.scroll_policy import (
 )
 from taktik.core.database.repositories.tiktok.followers import TikTokFollowersRepository
 
-from .._internal import BaseTikTokWorkflow
-from .filtering import evaluate_tiktok_profile
-from .models import FollowersConfig, FollowersStats
-from .page_detection import PageDetectionMixin
-from .story_handling import StoryHandlingMixin
-from .interaction import VideoInteractionMixin
-from .profile_data import ProfileDataMixin
-from .profile_processing import ProfileProcessingMixin
-from .navigation import NavigationMixin
-from .....ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
-from .....ui.selectors.surfaces.search import SEARCH_SELECTORS
-from .....ui.selectors.surfaces.video import VIDEO_SELECTORS
+from taktik.core.social_media.tiktok.actions.business.workflows._internal import BaseTikTokWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.filtering import evaluate_tiktok_profile
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersConfig, FollowersStats
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.page_detection import PageDetectionMixin
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.story_handling import StoryHandlingMixin
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.interaction import VideoInteractionMixin
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.profile_data import ProfileDataMixin
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.profile_processing import (
+    ProfileProcessingMixin,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.navigation import NavigationMixin
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
 class FollowersWorkflow(

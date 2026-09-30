@@ -9,9 +9,9 @@ and get every method via a single class.
 
 from loguru import logger
 
-from .search_actions import SearchActions
+from taktik.core.social_media.tiktok.actions.atomic.navigation.search_actions import SearchActions
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 
 
 class NavigationActions(SearchActions):

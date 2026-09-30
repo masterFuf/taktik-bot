@@ -8,14 +8,14 @@ search hashtag.
 
 from loguru import logger
 
-from ...core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
 from taktik.core.social_media.tiktok.services.navigation.reset import (
     is_home_tab_selected,
     return_to_tiktok_home,
     return_to_tiktok_shell,
 )
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.surfaces.search import SEARCH_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
 
 
 class SearchActions(BaseAction):

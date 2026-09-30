@@ -18,10 +18,10 @@ from taktik.core.shared.telemetry.sink import emit_step
 
 from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import video_signature
 
-from .video_comment import VideoCommentMixin
-from ....core.utils import parse_count
-from .base_workflow import BaseTikTokWorkflow
-from .models import VideoWorkflowStats
+from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_comment import VideoCommentMixin
+from taktik.core.social_media.tiktok.actions.core.utils import parse_count
+from taktik.core.social_media.tiktok.actions.business.workflows._internal.base_workflow import BaseTikTokWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows._internal.models import VideoWorkflowStats
 
 
 # ---------------------------------------------------------------------------

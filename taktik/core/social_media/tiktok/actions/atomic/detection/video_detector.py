@@ -14,10 +14,10 @@ from loguru import logger
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
 
-from ...core.base_action import BaseAction
-from ....ui.labels import is_expandable_description, strip_more_suffix
-from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
-from .screen_reading import TikTokScreen, read_until
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.ui.labels import is_expandable_description, strip_more_suffix
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
+from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import TikTokScreen, read_until
 
 
 def _parse_description(raw: str) -> Dict[str, Any]:

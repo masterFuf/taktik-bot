@@ -30,8 +30,8 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from taktik.core.shared.input.taktik_keyboard import type_text_checked
-from ...actions.core.utils import first_matching, first_text
-from ...ui.selectors.flows.publish import (
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching, first_text
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_CREATION_ENTRY_SELECTORS,
     PUBLISH_TEXT_POST_SELECTORS,
 )

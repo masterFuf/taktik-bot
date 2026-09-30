@@ -1,11 +1,29 @@
 """TikTok publish selector catalogs grouped by flow stage."""
 
-from .composer import PublishComposerSelectors, PUBLISH_COMPOSER_SELECTORS
-from .creation_entry import PublishCreationEntrySelectors, PUBLISH_CREATION_ENTRY_SELECTORS
-from .editor import PublishEditorSelectors, PUBLISH_EDITOR_SELECTORS
-from .media_picker import PublishMediaPickerSelectors, PUBLISH_MEDIA_PICKER_SELECTORS
-from .progress import PublishProgressSelectors, PUBLISH_PROGRESS_SELECTORS
-from .text_post import PublishTextPostSelectors, PUBLISH_TEXT_POST_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish.composer import (
+    PublishComposerSelectors,
+    PUBLISH_COMPOSER_SELECTORS,
+)
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish.creation_entry import (
+    PublishCreationEntrySelectors,
+    PUBLISH_CREATION_ENTRY_SELECTORS,
+)
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish.editor import (
+    PublishEditorSelectors,
+    PUBLISH_EDITOR_SELECTORS,
+)
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish.media_picker import (
+    PublishMediaPickerSelectors,
+    PUBLISH_MEDIA_PICKER_SELECTORS,
+)
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish.progress import (
+    PublishProgressSelectors,
+    PUBLISH_PROGRESS_SELECTORS,
+)
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish.text_post import (
+    PublishTextPostSelectors,
+    PUBLISH_TEXT_POST_SELECTORS,
+)
 
 
 class PublishSelectors:

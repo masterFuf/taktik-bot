@@ -3,7 +3,7 @@
 from typing import List
 from dataclasses import dataclass, field
 
-from ..locales import L
+from taktik.core.social_media.tiktok.ui.selectors.locales import L
 
 
 @dataclass
@@ -29,10 +29,10 @@ class DetectionSelectors:
     def user_written_text(self) -> List[str]:
         """Nodes that carry what people wrote (caption, comment, message, bio): a refusal phrase
         read there proves nothing."""
-        from ..surfaces.conversation import CONVERSATION_SELECTORS
-        from ..surfaces.profile import PROFILE_SELECTORS
-        from ..surfaces.video.comments import COMMENT_SELECTORS
-        from ..surfaces.video.media import VIDEO_MEDIA_SELECTORS
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
+        from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.media import VIDEO_MEDIA_SELECTORS
 
         return [*VIDEO_MEDIA_SELECTORS.video_description, *COMMENT_SELECTORS.comment_text,
                 *CONVERSATION_SELECTORS.message_text, *PROFILE_SELECTORS.bio]

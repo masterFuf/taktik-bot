@@ -184,8 +184,8 @@ def generate_tiktok_comment(
     from taktik.core.database.instagram_posted_comments import InstagramPostedComments
     from taktik.core.shared.text import detect_text_language
 
-    from ...actions.core.utils import first_text
-    from ...ui.selectors.surfaces.video import VIDEO_MEDIA_SELECTORS
+    from taktik.core.social_media.tiktok.actions.core.utils import first_text
+    from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_MEDIA_SELECTORS
 
     if not ai:
         return None

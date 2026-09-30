@@ -9,10 +9,10 @@ import time
 
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ...core.utils import first_matching
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.shell.popups import POPUP_SELECTORS
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 
 #: The message banner sits at the top (measured bottom edge: 15 % of the screen height).

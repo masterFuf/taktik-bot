@@ -1,6 +1,6 @@
 """TikTok UI selectors organized by UI scope."""
 
-from .flows import (
+from taktik.core.social_media.tiktok.ui.selectors.flows import (
     APP_LANGUAGE_NATIVE_NAMES,
     SETTINGS_SELECTORS,
     SettingsSelectors,
@@ -17,7 +17,7 @@ from .flows import (
     PublishProgressSelectors,
     PublishSelectors,
 )
-from .shell import (
+from taktik.core.social_media.tiktok.ui.selectors.shell import (
     AuthSelectors,
     AUTH_SELECTORS,
     CountryPickerSelectors,
@@ -34,8 +34,8 @@ from .shell import (
     SIGNUP_SELECTORS,
     TIKTOK_PACKAGE,
 )
-from .support import ScrollSelectors, SCROLL_SELECTORS
-from .surfaces import (
+from taktik.core.social_media.tiktok.ui.selectors.support import ScrollSelectors, SCROLL_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces import (
     ActivitySelectors,
     ACTIVITY_SELECTORS,
     CommentSelectors,

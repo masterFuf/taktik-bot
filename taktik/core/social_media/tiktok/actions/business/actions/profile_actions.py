@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from typing import Optional
 from loguru import logger
 
-from ...core.base_action import BaseAction
-from ...core.utils import parse_count
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from ....ui.labels import classify_profile_stat_label
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.utils import parse_count
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
 
 
 @dataclass

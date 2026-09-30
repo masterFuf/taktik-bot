@@ -17,7 +17,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_
     first_given,
 )
 
-from .models import ScrapingConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import ScrapingConfig
 
 
 def _text(value: Any) -> str:

@@ -2,7 +2,7 @@
 
 """
 
-from .workflows import ForYouWorkflow, ForYouConfig, ForYouStats
+from taktik.core.social_media.tiktok.actions.business.workflows import ForYouWorkflow, ForYouConfig, ForYouStats
 
 __all__ = [
     'ForYouWorkflow',

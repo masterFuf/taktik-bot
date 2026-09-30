@@ -22,12 +22,12 @@ from taktik.core.shared.input.taktik_keyboard import (
     type_text_checked,
 )
 
-from ...core.base_action import BaseAction
-from ...core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching
 
-from ....services.profile.username import read_open_profile_handle
-from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
-from ....ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
+from taktik.core.social_media.tiktok.services.profile.username import read_open_profile_handle
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 
 

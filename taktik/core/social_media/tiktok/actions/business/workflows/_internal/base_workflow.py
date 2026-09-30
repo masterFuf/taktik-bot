@@ -21,11 +21,11 @@ from taktik.core.shared.behavior.session_state import (
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 
-from ....atomic.interaction.click_actions import ClickActions
-from ....atomic.navigation.navigation_actions import NavigationActions
-from ....atomic.scroll.scroll_actions import ScrollActions
-from ....atomic.detection.detection_actions import DetectionActions
-from .popup_handler import PopupHandler
+from taktik.core.social_media.tiktok.actions.atomic.interaction.click_actions import ClickActions
+from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
+from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import ScrollActions
+from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
+from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import PopupHandler
 
 
 class BaseTikTokWorkflow:

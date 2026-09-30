@@ -21,14 +21,14 @@ Aggregate classes (backward-compatible):
     DetectionActions   — VideoDetector + PopupDetector + page/error/app state
 """
 
-from .detection import (
+from taktik.core.social_media.tiktok.actions.atomic.detection import (
     AvatarActions,
     DetectionActions,
     PopupDetector,
     SoundActions,
     VideoDetector,
 )
-from .interaction import (
+from taktik.core.social_media.tiktok.actions.atomic.interaction import (
     ActivityActions,
     ClickActions,
     CommentActions,
@@ -38,9 +38,9 @@ from .interaction import (
     RepostActions,
     VideoActions,
 )
-from .messaging import DMActions
-from .navigation import NavigationActions, SearchActions
-from .scroll import ScrollActions
+from taktik.core.social_media.tiktok.actions.atomic.messaging import DMActions
+from taktik.core.social_media.tiktok.actions.atomic.navigation import NavigationActions, SearchActions
+from taktik.core.social_media.tiktok.actions.atomic.scroll import ScrollActions
 
 __all__ = [
     # Aggregate (backward-compat)

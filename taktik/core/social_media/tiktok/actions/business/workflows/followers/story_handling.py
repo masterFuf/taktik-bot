@@ -7,7 +7,7 @@ then navigates to the profile.
 import time
 import random
 
-from .....ui.selectors.surfaces.profile import PROFILE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
 class StoryHandlingMixin:

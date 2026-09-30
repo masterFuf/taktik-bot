@@ -26,12 +26,12 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
-from ...core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
 from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
-from ...core.utils import first_matching, first_text, parse_count
-from ....ui.selectors.surfaces.video import VIDEO_SOUND_SELECTORS
-from ....ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
-from ....services.profile.username import read_open_profile_handle
+from taktik.core.social_media.tiktok.actions.core.utils import first_matching, first_text, parse_count
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SOUND_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
+from taktik.core.social_media.tiktok.services.profile.username import read_open_profile_handle
 
 #: `Umbrella Rihanna <bidi>3,3 M publications` -> the count, whatever separators the locale uses.
 _COUNT_IN_TITLE = re.compile(r"([\d  .,]+\s*[KkMmBb]?[dD]?)\s*(?:publication|post)", re.IGNORECASE)

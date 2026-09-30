@@ -13,8 +13,8 @@ Main components:
 
 """
 
-from .core.manager import TikTokManager
-from .actions import (
+from taktik.core.social_media.tiktok.core.manager import TikTokManager
+from taktik.core.social_media.tiktok.actions import (
     ClickActions,
     NavigationActions,
     ScrollActions,
@@ -23,7 +23,7 @@ from .actions import (
     ForYouConfig,
     ForYouStats,
 )
-from .ui import (
+from taktik.core.social_media.tiktok.ui import (
     TIKTOK_PACKAGE,
     VIDEO_SELECTORS,
     NAVIGATION_SELECTORS,

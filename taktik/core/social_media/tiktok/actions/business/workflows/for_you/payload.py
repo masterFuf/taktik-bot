@@ -20,7 +20,7 @@ from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_
     video_settings_from_payload,
 )
 
-from .models import ForYouConfig
+from taktik.core.social_media.tiktok.actions.business.workflows.for_you.models import ForYouConfig
 
 
 def for_you_config_from_payload(payload: Mapping[str, Any]) -> ForYouConfig:

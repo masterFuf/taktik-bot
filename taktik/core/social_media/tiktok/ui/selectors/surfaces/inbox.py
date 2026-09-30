@@ -23,7 +23,7 @@ Resource-IDs (dumps device réel) :
 from typing import List
 from dataclasses import dataclass, field
 
-from ..locales import L
+from taktik.core.social_media.tiktok.ui.selectors.locales import L
 
 # The unread count of a row: a View whose content-desc is only digits, inside a tap target.
 _UNREAD_COUNT = ('//*[@clickable="true"]//android.view.View[string-length(@content-desc)>0]'

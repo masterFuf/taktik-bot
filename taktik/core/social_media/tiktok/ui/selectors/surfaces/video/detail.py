@@ -1,9 +1,9 @@
 """Compatibility facade for the TikTok video detail surface."""
 
-from .creator import VIDEO_CREATOR_SELECTORS
-from .engagement import VIDEO_ENGAGEMENT_SELECTORS
-from .media import VIDEO_MEDIA_SELECTORS
-from .state import VIDEO_STATE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.creator import VIDEO_CREATOR_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.engagement import VIDEO_ENGAGEMENT_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.media import VIDEO_MEDIA_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.state import VIDEO_STATE_SELECTORS
 
 
 class VideoSelectors:

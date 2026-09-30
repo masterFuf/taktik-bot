@@ -27,8 +27,11 @@ from loguru import logger
 from taktik.core.shared.telemetry.sink import emit_step
 from taktik.core.social_media.tiktok.services.navigation.deeplink import open_post_by_url
 
-from ..followers.models import FollowersConfig, FollowersStats
-from ..target_profiles.workflow import TargetProfilesConfig, TargetProfilesWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersConfig, FollowersStats
+from taktik.core.social_media.tiktok.actions.business.workflows.target_profiles.workflow import (
+    TargetProfilesConfig,
+    TargetProfilesWorkflow,
+)
 
 
 @dataclass
@@ -93,7 +96,7 @@ class PostUrlWorkflow(TargetProfilesWorkflow):
         # workflow carries -- calling it off `self.click` would have raised on the first real run.
         self.logger.info("💬 Reading the comment sheet")
         try:
-            from ....atomic.interaction.comment_actions import CommentActions
+            from taktik.core.social_media.tiktok.actions.atomic.interaction.comment_actions import CommentActions
 
             rows = CommentActions(self.device).read_commenter_handles(
                 max_commenters=self.config.max_commenters,

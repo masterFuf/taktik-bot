@@ -1,13 +1,19 @@
 """TikTok video surface selectors."""
 
-from .comments import CommentSelectors, COMMENT_SELECTORS
-from .creator import VideoCreatorSelectors, VIDEO_CREATOR_SELECTORS
-from .detail import VideoSelectors, VIDEO_SELECTORS
-from .engagement import VideoEngagementSelectors, VIDEO_ENGAGEMENT_SELECTORS
-from .media import VideoMediaSelectors, VIDEO_MEDIA_SELECTORS
-from .share import VIDEO_SHARE_SELECTORS, VideoShareSelectors
-from .sound import VIDEO_SOUND_SELECTORS, VideoSoundSelectors
-from .state import VideoStateSelectors, VIDEO_STATE_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import CommentSelectors, COMMENT_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.creator import (
+    VideoCreatorSelectors,
+    VIDEO_CREATOR_SELECTORS,
+)
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.detail import VideoSelectors, VIDEO_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.engagement import (
+    VideoEngagementSelectors,
+    VIDEO_ENGAGEMENT_SELECTORS,
+)
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.media import VideoMediaSelectors, VIDEO_MEDIA_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.share import VIDEO_SHARE_SELECTORS, VideoShareSelectors
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.sound import VIDEO_SOUND_SELECTORS, VideoSoundSelectors
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.state import VideoStateSelectors, VIDEO_STATE_SELECTORS
 
 VideoDetailSelectors = VideoSelectors
 VIDEO_DETAIL_SELECTORS = VIDEO_SELECTORS

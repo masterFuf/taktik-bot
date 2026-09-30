@@ -1,6 +1,6 @@
 """Runtime primitives shared by TikTok workflow families."""
 
-from .notifier import (
+from taktik.core.social_media.tiktok.workflows.runtime.notifier import (
     LoggingWorkflowNotifier,
     NullWorkflowNotifier,
     WorkflowNotifierProxy,

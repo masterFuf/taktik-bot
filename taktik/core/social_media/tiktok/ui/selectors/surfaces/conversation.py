@@ -3,7 +3,7 @@
 from typing import List
 from dataclasses import dataclass, field
 
-from ..locales import L
+from taktik.core.social_media.tiktok.ui.selectors.locales import L
 
 # A row of a list that is not a tap target itself: a date, a notice, a message. Inbox and
 # follower rows are clickable, so they never qualify. Same shape on 43.1.4 and 46.9.3.

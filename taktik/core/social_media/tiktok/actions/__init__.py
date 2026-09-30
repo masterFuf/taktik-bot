@@ -2,8 +2,13 @@
 
 """
 
-from .atomic import ClickActions, NavigationActions, ScrollActions, DetectionActions
-from .business import ForYouWorkflow, ForYouConfig, ForYouStats
+from taktik.core.social_media.tiktok.actions.atomic import (
+    ClickActions,
+    NavigationActions,
+    ScrollActions,
+    DetectionActions,
+)
+from taktik.core.social_media.tiktok.actions.business import ForYouWorkflow, ForYouConfig, ForYouStats
 
 __all__ = [
     # Atomic actions

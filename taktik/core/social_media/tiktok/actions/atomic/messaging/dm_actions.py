@@ -19,14 +19,14 @@ from taktik.core.shared.input.taktik_keyboard import (
     type_text_checked,
 )
 from taktik.core.shared.text import fold_for_match
-from ....services.notifications.activity import clean_row_text
-from ....services.profile.username import read_open_profile_handle
-from ...core.base_action import BaseAction
-from ...core.utils import extract_resource_id, first_matching, first_text
+from taktik.core.social_media.tiktok.services.notifications.activity import clean_row_text
+from taktik.core.social_media.tiktok.services.profile.username import read_open_profile_handle
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.core.utils import extract_resource_id, first_matching, first_text
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
-from ....ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from ....ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
-from ....ui.selectors.surfaces.inbox import INBOX_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
 
 class _XPathCollection:

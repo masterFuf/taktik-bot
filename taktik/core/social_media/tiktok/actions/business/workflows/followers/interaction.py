@@ -14,7 +14,7 @@ from taktik.core.shared.behavior.interaction_plan import sample_like_target
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.telemetry.sink import emit_step
 
-from .._internal.video_comment import VideoCommentMixin
+from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_comment import VideoCommentMixin
 
 
 class VideoInteractionMixin(VideoCommentMixin):

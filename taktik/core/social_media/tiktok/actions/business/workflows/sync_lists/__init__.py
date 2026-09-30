@@ -1,8 +1,12 @@
 """TikTok follow-graph sync: read the operated account's own Following / Followers lists."""
 
-from .models import SyncListsConfig, SyncListsStats
-from .workflow import FOLLOWERS, FOLLOWING, SyncListsWorkflow
-from .agent_handler import (
+from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import SyncListsConfig, SyncListsStats
+from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.workflow import (
+    FOLLOWERS,
+    FOLLOWING,
+    SyncListsWorkflow,
+)
+from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.agent_handler import (
     TIKTOK_SYNC_WORKFLOW_IDS,
     SyncAccountUnknownError,
     build_tiktok_sync_lists_handler,

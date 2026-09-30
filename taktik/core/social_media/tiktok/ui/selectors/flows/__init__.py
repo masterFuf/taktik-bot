@@ -1,11 +1,11 @@
 """TikTok flow-specific selectors."""
 
-from .settings import (
+from taktik.core.social_media.tiktok.ui.selectors.flows.settings import (
     APP_LANGUAGE_NATIVE_NAMES,
     SETTINGS_SELECTORS,
     SettingsSelectors,
 )
-from .publish import (
+from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_COMPOSER_SELECTORS,
     PUBLISH_CREATION_ENTRY_SELECTORS,
     PUBLISH_EDITOR_SELECTORS,

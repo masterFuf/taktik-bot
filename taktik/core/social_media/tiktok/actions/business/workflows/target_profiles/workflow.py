@@ -25,8 +25,8 @@ from typing import List, Optional
 from taktik.core.social_media.tiktok.services.followers.stop_policy import normalize_username
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_home
 
-from ..followers.models import FollowersConfig, FollowersStats
-from ..followers.workflow import FollowersWorkflow
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersConfig, FollowersStats
+from taktik.core.social_media.tiktok.actions.business.workflows.followers.workflow import FollowersWorkflow
 
 
 @dataclass

@@ -8,10 +8,10 @@ import random
 
 from taktik.core.shared.behavior.sampling import sample_within
 
-from ...core.base_action import BaseAction
-from ..detection.screen_reading import read_until
-from ....ui.selectors.support.scroll import SCROLL_SELECTORS
-from ....ui.selectors.surfaces.video import VIDEO_SELECTORS
+from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import read_until
+from taktik.core.social_media.tiktok.ui.selectors.support.scroll import SCROLL_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
 
 
 class ScrollActions(BaseAction):
@@ -60,7 +60,7 @@ class ScrollActions(BaseAction):
     def _video_detector(self):
         detector = self.__dict__.get("_detector")
         if detector is None:
-            from ..detection.video_detector import VideoDetector
+            from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import VideoDetector
             detector = self.__dict__["_detector"] = VideoDetector(self.device)
         return detector
 
