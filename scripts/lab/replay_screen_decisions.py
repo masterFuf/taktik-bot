@@ -223,7 +223,7 @@ def _child_decisions(files, version, language, dump_ms, only=None):
 
     from bridges.tools.lab.action_test.runner import _detect_screen
     from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
-    from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import PopupHandler
+    from taktik.core.social_media.tiktok.workflows.common.popup_handler import PopupHandler
 
     detection = DetectionActions(phone)
     handler = PopupHandler(None, detection)

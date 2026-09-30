@@ -11,8 +11,8 @@ from types import SimpleNamespace
 import pytest
 from uiautomator2.xpath import XPathEntry
 
-import taktik.core.social_media.tiktok.actions.core.base_action as base_action_module
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+import taktik.core.social_media.tiktok.actions.base.base_action as base_action_module
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 
 DUMP_S = 0.25
 

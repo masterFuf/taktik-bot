@@ -50,7 +50,7 @@ def install_run_ai_hooks(ai_config: dict, language: str, *, log: LogCallback = l
 
     try:
         from bridges.tiktok.common.ipc import _ipc, send_profile_classification, send_relevance
-        from taktik.core.social_media.tiktok.workflows.core.ai_hooks import (
+        from taktik.core.social_media.tiktok.workflows.common.ai_hooks import (
             install_profile_ai_hooks_for_run,
         )
 
@@ -90,7 +90,7 @@ def build_welcome_qualifier(ai_config: dict, language: str, *, log: LogCallback 
     the same function that hook runs, called directly.
     """
     from bridges.tiktok.common.ipc import send_profile_classification, send_relevance
-    from taktik.core.social_media.tiktok.workflows.core.ai_hooks import build_tiktok_profile_qualifier
+    from taktik.core.social_media.tiktok.workflows.common.ai_hooks import build_tiktok_profile_qualifier
 
     # No `ai_spend`: the new-followers stdout reader does not store it.
     ai_enabled, ai_service = create_tiktok_ai_service(ai_config=ai_config, ipc=None, log=log,

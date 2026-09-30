@@ -13,7 +13,7 @@ import time
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.actions.atomic.interaction.comment_actions import CommentActions
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
 

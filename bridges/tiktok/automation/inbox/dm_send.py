@@ -16,7 +16,7 @@ from bridges.tiktok.common.startup import tiktok_startup_provider
 
 def run_dm_send_workflow(config: Dict[str, Any]):
     """Run the TikTok DM sending workflow."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.payload import (
+    from taktik.core.social_media.tiktok.workflows.dm.payload import (
         dm_messages_from_payload,
     )
 
@@ -35,7 +35,7 @@ def run_dm_send_workflow(config: Dict[str, Any]):
     send_status("starting", f"Sending {len(messages)} messages")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.dm.agent_handler import (
             run_tiktok_dm_send,
         )
 

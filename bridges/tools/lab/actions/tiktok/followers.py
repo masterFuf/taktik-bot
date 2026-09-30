@@ -11,7 +11,7 @@ scrolled a list it could not read.
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.services.followers.listing import find_follower_rows
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
@@ -85,7 +85,7 @@ def open_own_followers(a, p):
 
 
 def _open_own_list(a, list_type: str):
-    from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import (
+    from taktik.core.social_media.tiktok.services.profile.profile_actions import (
         ProfileActions,
     )
 

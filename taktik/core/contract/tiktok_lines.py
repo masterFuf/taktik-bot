@@ -1,7 +1,7 @@
 """Lines every TikTok bridge may print besides its workflow's own.
 
 `bot_profile` is the acting account, read on the phone by the session start
-(`workflows/runtime/startup.py`) that every TikTok bridge runs. `ai_profile_done` is the AI
+(`workflows/common/startup.py`) that every TikTok bridge runs. `ai_profile_done` is the AI
 provider's verdict on a profile (`IPC.ai_profile_analyzed`, from `ai/providers/openrouter.py`),
 printed when a run classifies profiles, and its copy for the base (`send_profile_classification`);
 it is declared in `shared`, with the other AI lines. `ai_relevance` is the engagement verdict the

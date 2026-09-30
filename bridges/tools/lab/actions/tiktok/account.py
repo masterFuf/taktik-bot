@@ -29,7 +29,7 @@ def login(a, p):
     password = p.get("password") or ""
     if not username or not password:
         return {"success": False, "message": "username and password params are required"}
-    from taktik.core.social_media.tiktok.workflows.management.login.login_workflow import TikTokLoginWorkflow
+    from taktik.core.social_media.tiktok.workflows.account.login_workflow import TikTokLoginWorkflow
     logger.info(f"tt.account.login: @{username}")
     return _wrap(TikTokLoginWorkflow(a.device, _device_id(a)).execute(username, password), "login attempted")
 
@@ -38,7 +38,7 @@ def login(a, p):
 def logout(a, p):
     """Full production TikTok logout (TikTokLogoutWorkflow.execute: settings + scroll-to +
     confirm). Run on a TEST account."""
-    from taktik.core.social_media.tiktok.workflows.management.logout.logout_workflow import TikTokLogoutWorkflow
+    from taktik.core.social_media.tiktok.workflows.account.logout_workflow import TikTokLogoutWorkflow
     return _wrap(TikTokLogoutWorkflow(a.device, _device_id(a)).execute(), "logout attempted")
 
 
@@ -47,7 +47,7 @@ def signup(a, p):
     """Full production TikTok signup (TikTokSignupWorkflow.execute). Params: method
     (email/phone, default email), email, phone, birth_year/birth_month/birth_day. Run on a
     fresh app state."""
-    from taktik.core.social_media.tiktok.workflows.management.signup.signup_workflow import TikTokSignupWorkflow
+    from taktik.core.social_media.tiktok.workflows.account.signup_workflow import TikTokSignupWorkflow
 
     def _int(key, default):
         try:
@@ -69,7 +69,7 @@ def signup(a, p):
 @action("tt.account.signup_detect_screen")
 def signup_detect_screen(a, p):
     """Detection: classify the current signup screen (drives the whole signup state machine)."""
-    from taktik.core.social_media.tiktok.workflows.management.signup.signup_workflow import TikTokSignupWorkflow
+    from taktik.core.social_media.tiktok.workflows.account.signup_workflow import TikTokSignupWorkflow
     screen = TikTokSignupWorkflow(a.device, _device_id(a))._detect_screen()
     logger.info(f"tt.account.signup_detect_screen: {screen}")
     return {"success": bool(screen), "message": f"screen={screen}", "details": {"screen": screen}}
@@ -79,7 +79,7 @@ def signup_detect_screen(a, p):
 def signup_fill_birthday(a, p):
     """Signup: fill the birthday (the most intricate gesture — SeekBar swipe-until-target).
     Params: birth_day, birth_month, birth_year (defaults 15/6/1995)."""
-    from taktik.core.social_media.tiktok.workflows.management.signup.signup_workflow import TikTokSignupWorkflow
+    from taktik.core.social_media.tiktok.workflows.account.signup_workflow import TikTokSignupWorkflow
 
     def _int(key, default):
         try:

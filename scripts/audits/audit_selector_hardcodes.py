@@ -142,7 +142,7 @@ KNOWN_SELECTOR_DEBT = (
 
 NON_RUNTIME_SIGNATURES = (
     AllowlistEntry(
-        "taktik/core/social_media/tiktok/actions/core/utils.py",
+        "taktik/core/social_media/tiktok/actions/base/utils.py",
         "selector-string",
         '@resource-id="([^"]+)"',
         "Regex parser for catalog-provided XPath, not a selector used against the UI.",

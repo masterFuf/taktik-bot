@@ -56,9 +56,9 @@ def _conforms(event, printed):
 
 
 def test_bot_profile_is_what_the_session_start_prints(monkeypatch, lines):
-    import taktik.core.social_media.tiktok.actions.business.actions.profile_actions as profile_actions
+    import taktik.core.social_media.tiktok.services.profile.profile_actions as profile_actions
     from bridges.tiktok.common.ipc import _ipc
-    from taktik.core.social_media.tiktok.workflows.runtime import startup
+    from taktik.core.social_media.tiktok.workflows.common import startup
 
     own = profile_actions.TikTokProfileInfo(username="acting", display_name="Acting", following_count=3,
                                             followers_count=12, likes_count=40, bio=None,
@@ -110,7 +110,7 @@ def _scripted_provider(monkeypatch, tmp_path) -> None:
     """The profile's screenshot and the model's answer: all the AI path touches outside the bot."""
     from PIL import Image
 
-    from taktik.core.social_media.tiktok.workflows.core import ai_hooks
+    from taktik.core.social_media.tiktok.workflows.common import ai_hooks
 
     shot = tmp_path / "profile.png"
     Image.new("RGB", (40, 80), (30, 30, 30)).save(shot)
@@ -131,7 +131,7 @@ def _scripted_provider(monkeypatch, tmp_path) -> None:
 def test_ai_profile_done_is_what_the_provider_prints(monkeypatch, lines, tmp_path):
     from bridges.tiktok.common.ipc import _ipc
     from taktik.core.ai.factory import create_ai_service
-    from taktik.core.social_media.tiktok.workflows.core import ai_hooks
+    from taktik.core.social_media.tiktok.workflows.common import ai_hooks
 
     _scripted_provider(monkeypatch, tmp_path)
     enabled, service = create_ai_service(ai_config={"enabled": True, "openrouterApiKey": "sk-or-" + "x" * 48},
@@ -148,8 +148,8 @@ def test_ai_relevance_is_what_the_bridge_ai_hooks_print(monkeypatch, lines, tmp_
     """A run that qualifies the profiles it visits: the bridge's hooks (`install_run_ai_hooks`) on
     the shared mixin, the real AI service, the verdict, its copy for the base, the relevance."""
     from bridges.tiktok.automation.ai import install_run_ai_hooks
-    from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_comment import VideoCommentMixin
-    from taktik.core.social_media.tiktok.actions.business.workflows.followers.interaction import (
+    from taktik.core.social_media.tiktok.workflows.common.video_comment import VideoCommentMixin
+    from taktik.core.social_media.tiktok.workflows.automation.followers.interaction import (
         VideoInteractionMixin,
     )
 
@@ -227,12 +227,12 @@ def _wire_block(shape: Shape) -> Dict[str, Any]:
 
 def test_the_ai_block_readers_read_the_declared_keys_and_no_other(monkeypatch):
     from taktik.core.ai.factory import create_ai_service
-    from taktik.core.social_media.tiktok.actions.business.workflows._internal.video_comment import VideoCommentMixin
-    from taktik.core.social_media.tiktok.actions.business.workflows.followers.interaction import (
+    from taktik.core.social_media.tiktok.workflows.common.video_comment import VideoCommentMixin
+    from taktik.core.social_media.tiktok.workflows.automation.followers.interaction import (
         VideoInteractionMixin,
     )
     from taktik.core.social_media.tiktok.services.welcome.decision import parse_welcome_policy
-    from taktik.core.social_media.tiktok.workflows.core import ai_hooks
+    from taktik.core.social_media.tiktok.workflows.common import ai_hooks
 
     # The hooks patch two mixins for the process: put them back after the test.
     monkeypatch.setattr(VideoInteractionMixin, "_interact_with_profile_posts",
@@ -284,8 +284,8 @@ def _literal_keys(path: Path, function: str) -> List[set]:
     ("actions/atomic/messaging/dm_actions.py", "get_message_requests", "TikTokMessageRequestRow"),
     ("actions/atomic/messaging/dm_actions.py", "get_inbox_notifications", "TikTokActivityNotificationRow"),
     ("actions/atomic/messaging/dm_actions.py", "get_messages", "TikTokDmMessageRead"),
-    ("actions/business/workflows/dm/workflow.py", "follow_back_users", "TikTokFollowBackResult"),
-    ("actions/business/workflows/dm/workflow.py", "process_message_requests", "TikTokRequestResult"),
+    ("workflows/dm/workflow.py", "follow_back_users", "TikTokFollowBackResult"),
+    ("workflows/dm/workflow.py", "process_message_requests", "TikTokRequestResult"),
 ])
 def test_the_screen_readers_build_the_declared_rows(module, function, shape_name):
     shapes = {}

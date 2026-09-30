@@ -9,7 +9,7 @@ import types
 
 import pytest
 
-import taktik.core.social_media.tiktok.actions.core.base_action as base_action
+import taktik.core.social_media.tiktok.actions.base.base_action as base_action
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
 

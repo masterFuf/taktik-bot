@@ -19,7 +19,7 @@ from uiautomator2.xpath import XPathEntry
 
 from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.shared.behavior.tap import sample_tap_point
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching, parse_count
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching, parse_count
 from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
 from taktik.core.social_media.tiktok.ui.selectors.locales import active_locale, set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS

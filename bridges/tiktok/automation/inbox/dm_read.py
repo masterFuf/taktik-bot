@@ -24,7 +24,7 @@ def run_dm_read_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok DM workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.dm.agent_handler import (
             run_tiktok_dm_read,
         )
 

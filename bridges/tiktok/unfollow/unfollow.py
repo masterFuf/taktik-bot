@@ -18,7 +18,7 @@ from bridges.tiktok.common.startup import tiktok_startup_provider
 
 def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok Unfollow workflow."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.payload import (
+    from taktik.core.social_media.tiktok.workflows.automation.unfollow.payload import (
         unfollow_config_from_payload,
     )
 
@@ -37,7 +37,7 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.automation.unfollow.agent_handler import (
             run_tiktok_unfollow,
         )
 

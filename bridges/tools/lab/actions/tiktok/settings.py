@@ -26,7 +26,7 @@ def change_language(a, p):
     if not target:
         return {"success": False, "message": "target is required (e.g. 'fr', 'en')"}
 
-    from taktik.core.social_media.tiktok.workflows.management.language import (
+    from taktik.core.social_media.tiktok.workflows.account.change_language_workflow import (
         TikTokChangeLanguageWorkflow,
     )
 

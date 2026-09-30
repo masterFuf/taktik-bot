@@ -3,7 +3,7 @@
 import types
 
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
-from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import (
+from taktik.core.social_media.tiktok.workflows.dm.workflow import (
     DMConfig,
     DMWorkflow,
 )

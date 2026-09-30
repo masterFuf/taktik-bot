@@ -1,7 +1,7 @@
 """TikTok account login adapter (the run is the core's `run_tiktok_account`)."""
 
 from bridges.tiktok.common.ipc import send_error, send_log, send_message, send_status
-from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+from taktik.core.social_media.tiktok.workflows.account.agent_handler import (
     TIKTOK_ACCOUNT_LOGIN_WORKFLOW_ID,
 )
 

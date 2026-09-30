@@ -20,7 +20,7 @@ from bridges.tiktok.common.startup import tiktok_startup_provider
 
 def run_message_requests_workflow(config: Dict[str, Any]):
     """Run the TikTok message-requests workflow (scrape or execute)."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_payload import (
+    from taktik.core.social_media.tiktok.workflows.dm.inbox_payload import (
         EXECUTE,
         REQUESTS,
         inbox_mode_from_payload,
@@ -37,7 +37,7 @@ def run_message_requests_workflow(config: Dict[str, Any]):
         return False
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.dm.inbox_agent_handler import (
             run_tiktok_inbox,
         )
 

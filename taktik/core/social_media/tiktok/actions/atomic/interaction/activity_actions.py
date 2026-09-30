@@ -15,8 +15,8 @@ opening it.
 import time
 from typing import Any, Dict, List, Optional
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.activity import ACTIVITY_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS

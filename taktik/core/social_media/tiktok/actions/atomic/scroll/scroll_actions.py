@@ -8,7 +8,7 @@ import random
 
 from taktik.core.shared.behavior.sampling import sample_within
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import read_until
 from taktik.core.social_media.tiktok.ui.selectors.support.scroll import SCROLL_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS

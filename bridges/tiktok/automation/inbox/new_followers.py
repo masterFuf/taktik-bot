@@ -36,7 +36,7 @@ def _bridge_log(level: str, message: str) -> None:
 
 def run_new_followers_workflow(config: Dict[str, Any]):
     """Run the TikTok new-followers workflow (scrape or follow-back)."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_payload import (
+    from taktik.core.social_media.tiktok.workflows.dm.inbox_payload import (
         FOLLOW_BACK,
         follow_back_usernames_from_payload,
         inbox_mode_from_payload,
@@ -54,7 +54,7 @@ def run_new_followers_workflow(config: Dict[str, Any]):
     try:
         from bridges.tiktok.cold_dm.dm_outreach import BridgeNotifier
         from bridges.tiktok.automation.ai import build_welcome_qualifier
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.dm.inbox_agent_handler import (
             run_tiktok_inbox,
         )
 

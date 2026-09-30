@@ -27,7 +27,7 @@ from bridges.tiktok.common.ipc import (
 from bridges.tiktok.common.startup import tiktok_startup
 from bridges.tiktok.automation.ai import install_run_ai_hooks
 from bridges.tiktok.automation.workflow_callbacks import wire_single_pass_callbacks
-from taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler import (
+from taktik.core.social_media.tiktok.workflows.automation.followers.agent_handler import (
     new_session_totals,
 )
 
@@ -38,7 +38,7 @@ def _bridge_log(level: str, message: str) -> None:
 
 def _startup(device_id: str):
     def start():
-        from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+        from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
         manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
         return TikTokStartup(device=manager.device_manager.device, bot_username=bot_username)
@@ -71,7 +71,7 @@ def _send_final_stats(stats, profiles: List[str]) -> None:
 
 def run_target_profiles_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok Target Profiles workflow."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.target_profiles.payload import (
+    from taktik.core.social_media.tiktok.workflows.automation.target_profiles.payload import (
         target_profiles_from_payload,
     )
 
@@ -91,7 +91,7 @@ def run_target_profiles_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", f"Initializing TikTok Target Profiles workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.target_profiles.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.automation.target_profiles.agent_handler import (
             run_tiktok_target_profiles,
         )
 

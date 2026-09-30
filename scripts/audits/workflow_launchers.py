@@ -494,7 +494,7 @@ def run_checks(inputs: Inputs, exceptions: Mapping = EXCEPTIONS) -> list[str]:
 # --------------------------------------------------------------------------- self-test
 
 FAKE_BRIDGE_ENGINE = (
-    "from taktik.core.social_media.tiktok.actions.business.workflows.for_you.workflow import ForYouWorkflow\n"
+    "from taktik.core.social_media.tiktok.workflows.automation.for_you.workflow import ForYouWorkflow\n"
     "ForYouWorkflow(None, {}).run()\n"
 )
 FAKE_CLI_ENGINE = (

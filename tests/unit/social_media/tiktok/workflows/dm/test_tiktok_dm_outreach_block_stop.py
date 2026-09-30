@@ -1,7 +1,7 @@
 """A TikTok DM that TikTok refuses is not a sent DM, and the run stops before the next recipient."""
 
 from taktik.core.shared.diagnostics import run_halt
-from taktik.core.social_media.tiktok.actions.business.workflows.dm import TikTokDMOutreachWorkflow
+from taktik.core.social_media.tiktok.workflows.dm import TikTokDMOutreachWorkflow
 
 from test_tiktok_dm_outreach_workflow import (  # noqa: E402 - sibling test module
     FakeBaseAction,

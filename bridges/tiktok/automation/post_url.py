@@ -26,7 +26,7 @@ from bridges.tiktok.common.ipc import (
 from bridges.tiktok.common.startup import tiktok_startup
 from bridges.tiktok.automation.ai import install_run_ai_hooks
 from bridges.tiktok.automation.workflow_callbacks import wire_single_pass_callbacks
-from taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler import (
+from taktik.core.social_media.tiktok.workflows.automation.followers.agent_handler import (
     new_session_totals,
 )
 
@@ -37,7 +37,7 @@ def _bridge_log(level: str, message: str) -> None:
 
 def _startup(device_id: str):
     def start():
-        from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+        from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
         manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
         return TikTokStartup(device=manager.device_manager.device, bot_username=bot_username)
@@ -73,7 +73,7 @@ def _send_final_stats(stats) -> None:
 
 def run_post_url_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok Post URL workflow."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.post_url.payload import (
+    from taktik.core.social_media.tiktok.workflows.automation.post_url.payload import (
         post_url_from_payload,
     )
 
@@ -93,7 +93,7 @@ def run_post_url_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", f"Initializing TikTok Post URL workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.post_url.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.automation.post_url.agent_handler import (
             run_tiktok_post_url,
         )
 

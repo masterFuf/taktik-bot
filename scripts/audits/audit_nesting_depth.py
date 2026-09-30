@@ -41,7 +41,7 @@ TOLERE = {
     # handlers, jamais les transitions elles-memes.
     "taktik/cli/menus/main_menu.py::run_main_menu": 11,
     "taktik/core/social_media/gmail/workflows/account.py::ensure_account_added": 17,
-    "taktik/core/social_media/tiktok/workflows/management/signup/signup_workflow.py::execute": 12,
+    "taktik/core/social_media/tiktok/workflows/account/signup_workflow.py::execute": 12,
     # Les autres au-dessus du seuil le jour ou ce garde-fou a ete pose (et pas encore redescendues). Les nommer plutot que
     # de relever le seuil : un plafond global assez haut pour les couvrir laisserait passer une
     # nouvelle fonction profonde sans rien dire.

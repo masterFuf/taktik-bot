@@ -15,12 +15,12 @@ from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 import taktik.core.shared.device.snapshot as snapshot_module
-import taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler as popup_module
-import taktik.core.social_media.tiktok.actions.core.base_action as base_action_module
+import taktik.core.social_media.tiktok.workflows.common.popup_handler as popup_module
+import taktik.core.social_media.tiktok.actions.base.base_action as base_action_module
 from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
 from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import TikTokScreen
-from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import PopupHandler
+from taktik.core.social_media.tiktok.workflows.common.popup_handler import PopupHandler
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from unit.paths import CORE
 

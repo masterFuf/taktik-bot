@@ -22,8 +22,8 @@ from taktik.core.shared.input.taktik_keyboard import (
     type_text_checked,
 )
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 
 from taktik.core.social_media.tiktok.services.profile.username import read_open_profile_handle
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS

@@ -19,8 +19,8 @@ reports success whether or not the sheet was even open.
 import time
 from typing import Optional
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching, first_text
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching, first_text
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import (
     VIDEO_ENGAGEMENT_SELECTORS,
     VIDEO_SHARE_SELECTORS,

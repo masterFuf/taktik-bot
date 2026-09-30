@@ -36,7 +36,7 @@ def _bridge_log(level: str, message: str) -> None:
 
 def _startup(device_id: str):
     def start():
-        from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+        from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
         manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
         return TikTokStartup(device=manager.device_manager.device, bot_username=bot_username)
@@ -90,7 +90,7 @@ def _query_hook(sent_pics: set):
 
 def run_search_workflow(config: Dict[str, Any]):
     """Run the TikTok Search/Hashtag workflow."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.search.payload import (
+    from taktik.core.social_media.tiktok.workflows.automation.search.payload import (
         query_label,
         search_queries_from_payload,
     )
@@ -115,7 +115,7 @@ def run_search_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok Search workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.search.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.automation.search.agent_handler import (
             run_tiktok_search,
         )
 

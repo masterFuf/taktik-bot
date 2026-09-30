@@ -7,7 +7,7 @@ exact failure the app was left stranded with no bottom nav visible, and every la
 navigate_to_home/open_search call in the workflow kept failing.
 """
 
-from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import (
+from taktik.core.social_media.tiktok.services.profile.profile_actions import (
     ProfileActions,
     TikTokProfileInfo,
 )

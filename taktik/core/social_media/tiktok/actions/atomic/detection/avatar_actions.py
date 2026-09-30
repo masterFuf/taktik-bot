@@ -20,7 +20,7 @@ import base64
 import io
 from typing import Any, Optional
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 #: The smallest thing that can be the avatar, as a FRACTION OF SCREEN WIDTH -- not a pixel count.

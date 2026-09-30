@@ -12,10 +12,10 @@ needs the action bundle to grow.
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
-from taktik.core.social_media.tiktok.actions.business.workflows._internal.profile_extractor import (
+from taktik.core.social_media.tiktok.workflows.common.profile_extractor import (
     extract_profile_from_screen,
 )
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching, first_text
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching, first_text
 from taktik.core.social_media.tiktok.ui.labels import classify_profile_stat_label
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
@@ -154,7 +154,7 @@ def open_own(a, p):
     passed and their follower count was recorded as the bot's. The Lab now asks the same two
     questions production asks, on a real screen.
     """
-    from taktik.core.social_media.tiktok.actions.business.actions.profile_actions import (
+    from taktik.core.social_media.tiktok.services.profile.profile_actions import (
         ProfileActions,
     )
 

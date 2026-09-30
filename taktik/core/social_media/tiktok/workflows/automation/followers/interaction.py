@@ -1,0 +1,330 @@
+"""Video interaction mixin for the TikTok Followers workflow.
+
+Handles watching videos, liking, favoriting, following,
+and recording interactions in the database.
+"""
+
+import time
+import random
+
+from taktik.core.social_media.tiktok.services.behavior.watch_time import video_watch_seconds
+
+from taktik.core.shared.behavior.grid_entry import sample_entry_index
+from taktik.core.shared.behavior.interaction_plan import sample_like_target
+from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.telemetry.sink import emit_step
+
+from taktik.core.social_media.tiktok.workflows.common.video_comment import VideoCommentMixin
+
+
+class VideoInteractionMixin(VideoCommentMixin):
+    """Methods for interacting with videos on a follower's profile.
+
+    Commenting lives in `VideoCommentMixin`, shared with the video-feed workflows: the For You
+    page and the hashtag search reach a video by another road and arrive at the same screen.
+    Keeping it here is what let the For You page like, follow and favourite a video while being
+    unable to comment on it.
+    """
+
+    def _interact_with_profile_posts(self):
+        """Interact with posts on the current profile.
+        
+        Flow:
+        1. Count available posts on profile (max 9 visible without scroll)
+        2. Open ONE cell of the grid, chosen by the session (not always the first)
+        3. Watch video, interact (like/favorite/etc)
+        4. Swipe up to next video (instead of going back and clicking next post)
+        5. Repeat for a count drawn in the configured range, within the posts available
+        6. Press back to return to profile page
+        """
+        # Count available posts before interacting
+        available_posts = self._count_visible_posts()
+
+        if available_posts == 0:
+            self.logger.info(f"⚠️ No posts to interact with on profile @{self._current_profile_username}")
+            self._send_action('no_posts', self._current_profile_username)
+            return
+
+        posts_to_interact = self._posts_to_view(available_posts)
+        self.logger.debug(
+            f"📹 Will interact with {posts_to_interact} posts (available: {available_posts}, "
+            f"range: {self.config.min_posts_per_profile}-{self.config.max_posts_per_profile})"
+        )
+        if posts_to_interact <= 0:
+            return
+        
+        # Enter the grid somewhere, not always at the top-left. A profile visited twice used to
+        # open the same first post twice; a real visitor's eye lands where the thumbnail catches
+        # it, and comes back to a different one. The weighting and the short memory of which cells
+        # this run already opened come from the same session state Instagram uses.
+        entry = self._choose_grid_entry(available_posts)
+        if not self._click_profile_post(entry):
+            self.logger.debug(f"Failed to click post {entry}")
+            return
+        self._remember_grid_entry(entry)
+        
+        self._human_delay()
+        
+        for i in range(posts_to_interact):
+            if not self._running:
+                break
+            
+            if self._check_limits_reached():
+                break
+            
+            # Watch the video. Content-driven and session-scaled, bounded by the operator's
+            # range: a flat draw gave a three-word clip the same dwell as a wall of text, and
+            # gave the whole run the same rhythm from the first video to the last.
+            watch_time = video_watch_seconds(
+                self.detection.get_video_info(),
+                minimum=self.config.min_watch_time,
+                maximum=self.config.max_watch_time,
+                reading_scale=self._behavior_reading_scale('tiktok_profile_video'),
+            )
+            self.logger.debug(f"Watching video {i+1}/{posts_to_interact} for {watch_time:.1f}s")
+            time.sleep(watch_time)
+            
+            self.stats.posts_watched += 1
+            
+            # Interact with the video
+            self._interact_with_current_video()
+            
+            self._actions_since_pause += 1
+
+            # Refused: the dialog stays on screen, no swipe and no way back.
+            if self._halted():
+                self._send_stats_update()
+                return
+            
+            # Swipe up to next video (except for last one)
+            if i < posts_to_interact - 1:
+                self._swipe_to_next_video()
+                self._human_delay()
+        
+        self._send_stats_update()
+        
+        # Exit video feed back to profile
+        self._go_back()
+        time.sleep(0.5)
+    
+    def _posts_to_view(self, available_posts: int) -> int:
+        """Videos to watch on this profile: drawn in the configured range, never more than the
+        grid shows. The ceiling is applied to the range before the draw, not to the value drawn."""
+        hi = min(int(self.config.max_posts_per_profile), int(available_posts))
+        lo = min(int(self.config.min_posts_per_profile), hi)
+        state = getattr(self, "behavior_state", None)
+        if state is not None and callable(getattr(state, "posts_to_view", None)):
+            count = state.posts_to_view(lo, hi)
+        else:
+            count = sample_like_target(lo, hi) if hi > 0 else 0
+        emit_step("behavior", action="posts_to_view", target=self._current_profile_username,
+                  count=count, lo=lo, hi=hi)
+        return count
+
+    def _choose_grid_entry(self, available_posts: int) -> int:
+        """Which cell of the profile grid to open. Weighted, and never the same one twice in a run.
+
+        The grid is read left-to-right, top-to-bottom, so `row_weights` behind the chooser favours
+        what a thumb reaches first without ever excluding the rest; the run's memory of which cells
+        it already opened on this profile is what stops a second visit landing on the same video.
+
+        Falls back to the plain weighted draw when there is no session memory, and to 0 when there
+        is neither -- the previous behaviour, kept reachable rather than assumed away.
+        """
+        if available_posts <= 1:
+            return 0
+        keys = [f"{self._current_profile_username or 'profile'}:cell:{i}"
+                for i in range(available_posts)]
+        chooser = getattr(getattr(self, "behavior_state", None), "choose_grid_entry_index", None)
+        if callable(chooser):
+            try:
+                choice = chooser(context=self._current_profile_username or "profile",
+                                 candidate_keys=keys, avoid_recent=None)
+                if choice is not None:
+                    return int(choice)
+            except Exception as exc:
+                self.logger.debug(f"grid entry chooser unavailable: {exc}")
+        try:
+            return int(sample_entry_index(available_posts))
+        except Exception:
+            return 0
+
+    def _remember_grid_entry(self, index: int) -> None:
+        """Record an entry only once the video actually opened, so a failed tap is not remembered."""
+        remember = getattr(getattr(self, "behavior_state", None), "remember_grid_entry", None)
+        if not callable(remember):
+            return
+        try:
+            remember(context=self._current_profile_username or "profile",
+                     key=f"{self._current_profile_username or 'profile'}:cell:{index}",
+                     index=int(index))
+        except Exception as exc:
+            self.logger.debug(f"grid entry memory unavailable: {exc}")
+
+    def _swipe_to_next_video(self):
+        """Swipe up to go to next video in the feed.
+        
+        Uses the scroll action for consistent behavior across all screen sizes.
+        """
+        try:
+            self.scroll.scroll_to_next_video()
+        except Exception as e:
+            self.logger.debug(f"Error swiping to next video: {e}")
+    
+    def _count_visible_posts(self) -> int:
+        """Count the number of visible posts on the current profile.
+        
+        Returns:
+            Number of posts visible in the grid (max 9 without scrolling).
+        """
+        try:
+            posts = []
+            for sel in self.followers_selectors.profile_post_item:
+                posts = self.device.xpath(sel).all()
+                if posts:
+                    break
+            count = len(posts)
+            self.logger.debug(f"📊 Found {count} visible posts on profile")
+            return count
+        except Exception as e:
+            self.logger.debug(f"Error counting posts: {e}")
+            return 0
+    
+    def _click_profile_post(self, index: int = 0) -> bool:
+        """Click on a post in the profile grid."""
+        try:
+            posts = []
+            for sel in self.followers_selectors.profile_post_item:
+                posts = self.device.xpath(sel).all()
+                if posts:
+                    break
+            
+            if index < len(posts):
+                # The cell is a thumbnail, big enough that its exact centre is a choice rather
+                # than a necessity -- so sample a point inside it, like every other tap.
+                if not tap_element_human(self.device, posts[index], logger=self.logger):
+                    posts[index].click()
+                time.sleep(1)  # Wait for video to load
+                return True
+            
+            # Fallback: click first post
+            if self.click._find_and_click(self.followers_selectors.first_post, timeout=3):
+                time.sleep(1)
+                return True
+                
+        except Exception as e:
+            self.logger.debug(f"Error clicking profile post: {e}")
+        
+        return False
+    
+    def _interact_with_current_video(self):
+        """Interact with the currently playing video (like, comment, share, favorite)."""
+        
+        # Check if video is already liked
+        if self._is_video_already_liked():
+            self.logger.debug("Video already liked, skipping like")
+            self._send_action('already_liked', self._current_profile_username)
+        else:
+            # Like - use probability to distribute likes randomly across posts
+            if random.random() < self.config.like_probability:
+                if self.stats.likes < self.config.max_likes_per_session:
+                    if (self._try_like_video()
+                            and not self._stop_if_action_blocked(self._current_profile_username, 'like')):
+                        self.stats.likes += 1
+                        emit_step("like", action="button", target=self._current_profile_username)
+                        self._send_action('like', self._current_profile_username)
+                        self._record_interaction('LIKE', self._current_profile_username)
+
+        # Favorite. From here on, the first refusal ends the video's gestures.
+        if self._halted():
+            return
+        if random.random() < self.config.favorite_probability:
+            if (self._try_favorite_video()
+                    and not self._stop_if_action_blocked(self._current_profile_username, 'favorite')):
+                self.stats.favorites += 1
+                emit_step("favorite", action="button", target=self._current_profile_username)
+                self._send_action('favorite', self._current_profile_username)
+                self._record_interaction('FAVORITE', self._current_profile_username)
+        
+        # Comment (less frequent)
+        if self._halted():
+            return
+        if random.random() < self.config.comment_probability:
+            if self.stats.comments < self.config.max_comments_per_session:
+                if (self._try_comment_video()
+                        and not self._stop_if_action_blocked(self._current_profile_username, 'comment')):
+                    self.stats.comments += 1
+                    emit_step("comment", action="sheet", target=self._current_profile_username)
+                    self._send_action('comment', self._current_profile_username)
+                    self._record_interaction('COMMENT', self._current_profile_username)
+
+        self._send_stats_update()
+    
+    def _is_video_already_liked(self) -> bool:
+        """Check if the current video is already liked."""
+        try:
+            for selector in self.video_selectors.video_already_liked:
+                elem = self.device.xpath(selector)
+                if elem.exists:
+                    return True
+        except Exception as e:
+            self.logger.debug(f"Error checking if video liked: {e}")
+        return False
+    
+    def _try_like_video(self) -> bool:
+        """Try to like the current video."""
+        try:
+            for selector in self.video_selectors.like_button_unliked:
+                elem = self.device.xpath(selector)
+                if elem.exists:
+                    elem.click()
+                    self.logger.info("❤️ Liked video")
+                    self._human_delay()
+                    return True
+        except Exception as e:
+            self.logger.debug(f"Error liking video: {e}")
+        return False
+    
+    def _try_favorite_video(self) -> bool:
+        """Try to favorite/bookmark the current video."""
+        try:
+            selectors = self.video_selectors.favorite_button
+            if self.click._find_and_click(selectors, timeout=2):
+                self.logger.info("⭐ Favorited video")
+                self._human_delay()
+                return True
+        except Exception as e:
+            self.logger.debug(f"Error favoriting video: {e}")
+        return False
+    
+    def _try_follow_current_profile(self) -> bool:
+        """Try to follow the user from their profile page."""
+        try:
+            # Look for Follow button on profile
+            selectors = self.followers_selectors.profile_follow_button
+            if self.click._find_and_click(selectors, timeout=2):
+                if self._stop_if_action_blocked(self._current_profile_username, 'follow'):
+                    return False
+                self.stats.follows += 1
+                emit_step("follow", action="button", target=self._current_profile_username)
+                self.logger.info(f"👤 Followed user ({self.stats.follows}/{self.config.max_follows_per_session})")
+                self._send_action('follow', self._current_profile_username)
+                self._record_interaction('FOLLOW', self._current_profile_username)
+                self._human_delay()
+                return True
+        except Exception as e:
+            self.logger.debug(f"Error following user: {e}")
+        return False
+    
+    def _record_interaction(self, interaction_type: str, target_username: str):
+        """Record an interaction in the database."""
+        try:
+            self._followers_repository.record_interaction(
+                account_id=self._account_id,
+                target_username=target_username,
+                interaction_type=interaction_type,
+                success=True,
+                session_id=self._session_id,
+            )
+        except Exception as e:
+            self.logger.debug(f"Failed to record interaction: {e}")

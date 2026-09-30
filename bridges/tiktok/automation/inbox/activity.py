@@ -17,7 +17,7 @@ from bridges.tiktok.common.startup import tiktok_startup_provider
 
 def run_activity_workflow(config: Dict[str, Any]):
     """Run the TikTok activity/system notifications read workflow."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_payload import (
+    from taktik.core.social_media.tiktok.workflows.dm.inbox_payload import (
         ACTIVITY,
         max_items_from_payload,
     )
@@ -33,7 +33,7 @@ def run_activity_workflow(config: Dict[str, Any]):
     send_status("running", "Reading activity / system notifications")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.dm.inbox_agent_handler import (
             run_tiktok_inbox,
         )
 

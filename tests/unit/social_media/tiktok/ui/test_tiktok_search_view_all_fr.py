@@ -15,7 +15,7 @@ import pytest
 from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
 from unit.paths import CORE

@@ -8,7 +8,7 @@ from bridges.common.signal_handler import setup_signal_handlers
 from bridges.tiktok.account.account_session import TikTokAccountSessionMixin
 from bridges.tiktok.account.account_workflows import TikTokAccountWorkflowMixin
 from bridges.tiktok.common.ipc import _ipc, send_error, send_status
-from taktik.core.social_media.tiktok.workflows.management.agent_handler import package_name_from_payload
+from taktik.core.social_media.tiktok.workflows.account.agent_handler import package_name_from_payload
 
 
 class TikTokAccountBridge(TikTokAccountWorkflowMixin, TikTokAccountSessionMixin):

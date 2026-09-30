@@ -29,7 +29,7 @@ def _bridge_log(level: str, message: str) -> None:
 
 def _startup(device_id: str):
     def start():
-        from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+        from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
         manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
         return TikTokStartup(device=manager.device_manager.device, bot_username=bot_username)
@@ -52,7 +52,7 @@ def _bind_target(workflow, target) -> None:
 
 def run_followers_workflow(config: Dict[str, Any]):
     """Run the TikTok Followers workflow over every target of the payload."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.followers.payload import (
+    from taktik.core.social_media.tiktok.workflows.automation.followers.payload import (
         followers_targets_from_payload,
         names_a_target_list,
     )
@@ -72,7 +72,7 @@ def run_followers_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok Followers workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.automation.followers.agent_handler import (
             run_tiktok_followers,
         )
 

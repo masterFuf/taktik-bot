@@ -11,9 +11,9 @@ from types import SimpleNamespace
 import pytest
 
 import bridges.tiktok.unfollow.unfollow as bridge
-import taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow as workflow_module
-from taktik.core.social_media.tiktok.actions.business.workflows.unfollow import UnfollowStats
-from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.payload import (
+import taktik.core.social_media.tiktok.workflows.automation.unfollow.workflow as workflow_module
+from taktik.core.social_media.tiktok.workflows.automation.unfollow import UnfollowStats
+from taktik.core.social_media.tiktok.workflows.automation.unfollow.payload import (
     unfollow_config_from_payload,
 )
 
@@ -43,7 +43,7 @@ class _FakeWorkflow:
 
 @pytest.fixture
 def run_bridge(monkeypatch):
-    from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+    from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
     _FakeWorkflow.built = []
     started = TikTokStartup(device=object(), bot_username=None)

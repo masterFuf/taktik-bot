@@ -23,14 +23,14 @@ from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.kernel.handler_params import merge_invocation_payload
-from taktik.core.social_media.tiktok.actions.business.workflows._internal.agent_runtime import (
+from taktik.core.social_media.tiktok.workflows.common.agent_runtime import (
     notify,
 )
 from taktik.core.social_media.tiktok.workflows.publish.payload import (
     PublishRequest,
     publish_request_from_payload,
 )
-from taktik.core.social_media.tiktok.workflows.runtime.startup import (
+from taktik.core.social_media.tiktok.workflows.common.startup import (
     patch_clone_selectors as _patch_clone_selectors,
 )
 
@@ -150,7 +150,7 @@ def run_tiktok_publish(
 ) -> dict[str, Any]:
     """Publish what a payload asks on `device`. Raises `PublishRequestError` before touching the
     phone when there is nothing to publish."""
-    from taktik.core.social_media.tiktok.workflows.runtime.notifier import LoggingWorkflowNotifier
+    from taktik.core.social_media.tiktok.workflows.common.notifier import LoggingWorkflowNotifier
 
     notifier = notifier if notifier is not None else LoggingWorkflowNotifier()
     request = publish_request_from_payload(payload)

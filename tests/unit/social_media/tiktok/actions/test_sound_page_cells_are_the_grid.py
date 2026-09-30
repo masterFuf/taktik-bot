@@ -13,7 +13,7 @@ drives on the phone.
 
 from uiautomator2.xpath import XPathEntry
 
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SOUND_SELECTORS
 from unit.paths import CORE
 

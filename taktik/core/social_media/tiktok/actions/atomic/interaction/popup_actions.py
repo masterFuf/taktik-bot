@@ -9,8 +9,8 @@ import time
 
 from loguru import logger
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human

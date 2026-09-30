@@ -80,7 +80,7 @@ from taktik.core.social_media.tiktok.ui.selectors.flows.publish import (
     PUBLISH_EDITOR_SELECTORS,
     PUBLISH_PROGRESS_SELECTORS,
 )
-from taktik.core.social_media.tiktok.workflows.runtime.notifier import (
+from taktik.core.social_media.tiktok.workflows.common.notifier import (
     LoggingWorkflowNotifier,
     create_workflow_notifier_context,
 )

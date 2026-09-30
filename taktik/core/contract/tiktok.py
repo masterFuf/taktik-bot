@@ -10,7 +10,7 @@ from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal,
 from .shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT, device_field, network_reset_field
 from .stop_reasons import TIKTOK_COMPLETION_REASON_OR_NONE
 
-_WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
+_WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
 
 # ------------------------------------------------------------------------------------ unfollow
 
@@ -38,8 +38,8 @@ TIKTOK_UNFOLLOW = WorkflowContract(
     name="TikTokUnfollow",
     bridge="tiktok_unfollow_bridge",
     doc="Unfollow from the acting account's following list.",
-    launcher=f"{_WORKFLOWS}.unfollow.agent_handler:run_tiktok_unfollow",
-    reader=f"{_WORKFLOWS}.unfollow.payload:unfollow_config_from_payload",
+    launcher=f"{_WORKFLOWS}.automation.unfollow.agent_handler:run_tiktok_unfollow",
+    reader=f"{_WORKFLOWS}.automation.unfollow.payload:unfollow_config_from_payload",
     nest="config",
     settings=(
         Field("max_unfollows", "int", "Stop after this many confirmed unfollows.", default=20,

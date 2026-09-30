@@ -11,7 +11,7 @@ from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
 from bridges.tools.lab.action_test.action_bundle import bundle_device_id
-from taktik.core.social_media.tiktok.core.manager import TikTokManager, TIKTOK_PACKAGES
+from taktik.core.social_media.tiktok.manager import TikTokManager, TIKTOK_PACKAGES
 
 
 @action("app.launch")

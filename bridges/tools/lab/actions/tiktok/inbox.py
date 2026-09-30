@@ -8,7 +8,7 @@ from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
 from bridges.tools.lab.action_test.not_applicable import absent_on_screen
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 
 
 def _absent_from_inbox(action_id, a, what):

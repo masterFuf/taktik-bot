@@ -14,7 +14,7 @@ import pytest
 from uiautomator2.xpath import XPathEntry
 
 from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions import PopupActions
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.locales import set_active_locale
 from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 from unit.paths import CORE

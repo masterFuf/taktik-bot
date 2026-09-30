@@ -7,7 +7,7 @@ emitting the callbacks, and the follow-back results. No real device dependency.
 
 import types
 
-from taktik.core.social_media.tiktok.actions.business.workflows.dm.workflow import (
+from taktik.core.social_media.tiktok.workflows.dm.workflow import (
     DMConfig,
     DMWorkflow,
 )

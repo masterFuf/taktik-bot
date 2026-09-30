@@ -230,11 +230,11 @@ class Rig:
                 )
 
         mp.setattr(
-            "taktik.core.social_media.tiktok.actions.business.actions.profile_actions.ProfileActions",
+            "taktik.core.social_media.tiktok.services.profile.profile_actions.ProfileActions",
             FakeProfileActions,
         )
 
-        from taktik.core.social_media.tiktok.actions.business.workflows._internal.models import (
+        from taktik.core.social_media.tiktok.workflows.common.models import (
             VideoWorkflowStats,
         )
 
@@ -273,11 +273,11 @@ class Rig:
                         self.callbacks[name](arg)
                 return VideoWorkflowStats(videos_watched=1, videos_liked=1, users_followed=1)
 
-        from taktik.core.social_media.tiktok.actions.business.workflows.for_you import (
+        from taktik.core.social_media.tiktok.workflows.automation.for_you import (
             agent_handler as for_you_handler,
             workflow as for_you_workflow,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.search import (
+        from taktik.core.social_media.tiktok.workflows.automation.search import (
             agent_handler as search_handler,
             workflow as search_workflow,
         )
@@ -285,7 +285,7 @@ class Rig:
         mp.setattr(for_you_workflow, "ForYouWorkflow", FakeVideoWorkflow)
         mp.setattr(search_workflow, "SearchWorkflow", FakeVideoWorkflow)
 
-        from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import (
+        from taktik.core.social_media.tiktok.workflows.automation.followers.models import (
             FollowersStats,
         )
 
@@ -339,19 +339,19 @@ class Rig:
                     self.callbacks["pause"](9)
                 return ScriptedFollowersStats(**outcome)
 
-        from taktik.core.social_media.tiktok.actions.business.workflows import (
+        from taktik.core.social_media.tiktok.workflows.automation import (
             followers as followers_package,
             post_url as post_url_package,
             target_profiles as target_profiles_package,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.followers import (
+        from taktik.core.social_media.tiktok.workflows.automation.followers import (
             agent_handler as followers_handler,
             workflow as followers_workflow,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.post_url import (
+        from taktik.core.social_media.tiktok.workflows.automation.post_url import (
             workflow as post_url_workflow,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.target_profiles import (
+        from taktik.core.social_media.tiktok.workflows.automation.target_profiles import (
             workflow as target_profiles_workflow,
         )
 
@@ -415,7 +415,7 @@ class Rig:
 
         patch_seam(mp, "taktik.core.ai.factory", "build_ai_service", fake_build_ai_service)
 
-        from taktik.core.social_media.tiktok.workflows.core import ai_hooks
+        from taktik.core.social_media.tiktok.workflows.common import ai_hooks
 
         def fake_install(ai, ai_config, *, log=None, emit_relevance=None,
                          emit_classification=None, language="en"):
@@ -547,14 +547,14 @@ class Rig:
         mp.setattr(signal, "signal", lambda signum, handler: rig.signal_handlers.__setitem__(signum, handler))
         mp.setattr(signal_handler, "_ipc", None)
 
-        from taktik.core.social_media.tiktok.actions.business.workflows import (
+        from taktik.core.social_media.tiktok.workflows import (
             scraping as scraping_package,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.scraping import (
+        from taktik.core.social_media.tiktok.workflows.scraping import (
             agent_handler as scraping_handler,
             workflow as scraping_workflow,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import (
+        from taktik.core.social_media.tiktok.workflows.scraping.models import (
             ScrapingStats,
         )
 
@@ -691,13 +691,13 @@ class Rig:
         rig = self
         mp = self.monkeypatch
 
-        from taktik.core.social_media.tiktok.actions.business.workflows import (
+        from taktik.core.social_media.tiktok.workflows.automation import (
             sync_lists as sync_lists_package,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists import (
+        from taktik.core.social_media.tiktok.workflows.automation.sync_lists import (
             workflow as sync_lists_workflow,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import (
+        from taktik.core.social_media.tiktok.workflows.automation.sync_lists.models import (
             SyncListsStats,
         )
 
@@ -851,14 +851,14 @@ class Rig:
         rig = self
         mp = self.monkeypatch
 
-        from taktik.core.social_media.tiktok.actions.business.workflows import dm as dm_package
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm import (
+        from taktik.core.social_media.tiktok.workflows import dm as dm_package
+        from taktik.core.social_media.tiktok.workflows.dm import (
             agent_handler as dm_handler,
             inbox_agent_handler as inbox_handler,
             outreach as outreach_module,
             workflow as dm_workflow,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import (
+        from taktik.core.social_media.tiktok.workflows.dm.models import (
             ConversationData,
             DMStats,
         )
@@ -1067,12 +1067,12 @@ class Rig:
         rig = self
         mp = self.monkeypatch
 
-        from taktik.core.social_media.tiktok.actions.business.workflows import unfollow as unfollow_package
-        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow import (
+        from taktik.core.social_media.tiktok.workflows.automation import unfollow as unfollow_package
+        from taktik.core.social_media.tiktok.workflows.automation.unfollow import (
             agent_handler as unfollow_handler,
             workflow as unfollow_workflow,
         )
-        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.models import (
+        from taktik.core.social_media.tiktok.workflows.automation.unfollow.models import (
             UnfollowStats,
         )
 
@@ -1141,7 +1141,7 @@ class Rig:
         rig = self
         mp = self.monkeypatch
 
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm import outreach as outreach_module
+        from taktik.core.social_media.tiktok.workflows.dm import outreach as outreach_module
         from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
         real = self._real_outreach

@@ -6,7 +6,7 @@ from bridges.tools.lab.action_test.action_bundle import ActionBundle
 
 
 def create_tiktok_device_facade(raw_device):
-    from taktik.core.social_media.tiktok.actions.core.device_facade import DeviceFacade
+    from taktik.core.social_media.tiktok.actions.base.device_facade import DeviceFacade
 
     return DeviceFacade(raw_device)
 

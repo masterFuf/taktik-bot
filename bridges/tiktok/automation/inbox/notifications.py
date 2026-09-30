@@ -14,7 +14,7 @@ from bridges.tiktok.common.startup import tiktok_startup
 
 def _startup(device_id: str):
     def start():
-        from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+        from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
         manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
         return TikTokStartup(device=manager.device_manager.device, bot_username=bot_username)
@@ -24,7 +24,7 @@ def _startup(device_id: str):
 
 def run_notifications_workflow(config: Dict[str, Any]) -> bool:
     """Run the notifications pass. True when every step it was asked for ran."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.notifications.agent_handler import (
+    from taktik.core.social_media.tiktok.workflows.notifications.agent_handler import (
         run_tiktok_notifications,
     )
 

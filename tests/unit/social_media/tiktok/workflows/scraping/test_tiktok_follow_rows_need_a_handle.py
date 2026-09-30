@@ -10,12 +10,12 @@ from types import SimpleNamespace
 
 import pytest
 
-import taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow as workflow_module
-from taktik.core.social_media.tiktok.actions.business.workflows._internal.profile_extractor import (
+import taktik.core.social_media.tiktok.workflows.scraping.workflow as workflow_module
+from taktik.core.social_media.tiktok.workflows.common.profile_extractor import (
     extract_profile_from_screen,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import ScrapingConfig
-from taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow import ScrapingWorkflow
+from taktik.core.social_media.tiktok.workflows.scraping.models import ScrapingConfig
+from taktik.core.social_media.tiktok.workflows.scraping.workflow import ScrapingWorkflow
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 

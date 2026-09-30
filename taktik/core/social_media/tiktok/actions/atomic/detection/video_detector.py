@@ -14,7 +14,7 @@ from loguru import logger
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.shared.vision.screen_text import screenshot_pil as shared_screenshot_pil
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.ui.labels import is_expandable_description, strip_more_suffix
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
 from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import TikTokScreen, read_until

@@ -11,7 +11,7 @@ import types
 import pytest
 
 import taktik.core.shared.actions.base_action as shared_base_action
-import taktik.core.social_media.tiktok.actions.core.base_action as base_action
+import taktik.core.social_media.tiktok.actions.base.base_action as base_action
 from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.actions.atomic.interaction.activity_actions import ActivityActions
 from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions

@@ -10,12 +10,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import (
+from taktik.core.social_media.tiktok.workflows.common.popup_handler import (
     PopupHandler,
 )
 from taktik.core.social_media.tiktok.services.publish.progress import read_publish_progress
 from taktik.core.social_media.tiktok.services.publish.upload_picker import tap_upload_button_from_dump
-from taktik.core.social_media.tiktok.workflows.management.signup.signup_workflow import (
+from taktik.core.social_media.tiktok.workflows.account.signup_workflow import (
     TikTokSignupWorkflow,
 )
 

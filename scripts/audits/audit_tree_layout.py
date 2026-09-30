@@ -103,21 +103,9 @@ FIXTURES = "fixtures"
 #: engine, `taktik/core/<first>` (`tests/unit/kernel/` tests `taktik/core/kernel/`).
 MIRRORED_ROOTS = {"bridges": "bridges", "cli": "taktik/cli", "scripts": "scripts"}
 
-_PHASE_3_TIKTOK = ("phase 3 of the tree reorganisation: the TikTok workflows leave actions/business/workflows/ for "
-                   "workflows/<feature>/, where these tests already sit")
 #: Folders of `tests/unit/` that mirror no folder of the code yet, and why. The list only shrinks: an entry that
 #: holds no file, or that mirrors a folder of the code, turns the gate red.
 TESTS_NOT_MIRRORED: dict[str, str] = {
-    "tests/unit/social_media/tiktok/workflows/_internal": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/dm": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/followers": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/for_you": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/notifications": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/scraping": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/search": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/sync_lists": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/target_profiles": _PHASE_3_TIKTOK,
-    "tests/unit/social_media/tiktok/workflows/unfollow": _PHASE_3_TIKTOK,
 }
 
 #: The platforms whose inside is not filed yet, and why. The two entries of LAYOUT for the inside of a platform skip
@@ -664,7 +652,7 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
             "paths": fake(["taktik/core/social_media/tiktok/workflows/dm/x.py"]),
             "expect": "mirrors taktik/core/social_media/tiktok/workflows/dm/ now, drop the entry"},
         "a folder waiting for phase 3 gone": {
-            "paths": fake(without="tests/unit/social_media/tiktok/workflows/sync_lists/"),
+            "paths": fake(without="tests/unit/social_media/tiktok/workflows/automation/sync_lists/"),
             "expect": "workflows/sync_lists/: listed in TESTS_NOT_MIRRORED but holds no file"},
         "the word core back inside a filed platform": {
             "paths": fake([f"{PLATFORMS_FOLDER}/instagram/core/manager.py"]),

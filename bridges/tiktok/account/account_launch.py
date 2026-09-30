@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from bridges.tiktok.common.ipc import _ipc, send_error
-from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+from taktik.core.social_media.tiktok.workflows.account.agent_handler import (
     run_tiktok_account,
     tiktok_account_params,
 )

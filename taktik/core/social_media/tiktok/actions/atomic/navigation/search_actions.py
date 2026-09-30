@@ -8,7 +8,7 @@ search hashtag.
 
 from loguru import logger
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.services.navigation.reset import (
     is_home_tab_selected,
     return_to_tiktok_home,

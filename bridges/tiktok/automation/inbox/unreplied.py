@@ -18,7 +18,7 @@ from bridges.tiktok.common.startup import tiktok_startup_provider
 
 def run_unreplied_workflow(config: Dict[str, Any]):
     """Run the TikTok unreplied-conversations scrape workflow."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_payload import (
+    from taktik.core.social_media.tiktok.workflows.dm.inbox_payload import (
         UNREPLIED,
         max_items_from_payload,
     )
@@ -34,7 +34,7 @@ def run_unreplied_workflow(config: Dict[str, Any]):
     send_status("running", "Reading conversations")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.dm.inbox_agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.dm.inbox_agent_handler import (
             run_tiktok_inbox,
         )
 

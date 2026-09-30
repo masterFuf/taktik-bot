@@ -20,8 +20,8 @@ from .stop_reasons import TIKTOK_COMPLETION_REASON_OR_NONE
 from .tiktok_automation import AI_SETTINGS
 from .tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
 
-_WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
-_FOLLOWERS = f"{_WORKFLOWS}.followers.payload"
+_WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
+_FOLLOWERS = f"{_WORKFLOWS}.automation.followers.payload"
 _SETTINGS_READER = f"{_FOLLOWERS}:followers_settings_from_payload"
 
 
@@ -179,7 +179,7 @@ TIKTOK_FOLLOWERS = WorkflowContract(
     name="TikTokFollowers",
     bridge="tiktok_bridge",
     doc="Visit the followers of one or more accounts; the profile budget is shared between them.",
-    launcher=f"{_WORKFLOWS}.followers.agent_handler:run_tiktok_followers",
+    launcher=f"{_WORKFLOWS}.automation.followers.agent_handler:run_tiktok_followers",
     reader=_SETTINGS_READER,
     settings=(
         *PROFILE_SETTINGS,
@@ -213,15 +213,15 @@ TIKTOK_TARGET_PROFILES = WorkflowContract(
     name="TikTokTargetProfiles",
     bridge="tiktok_bridge",
     doc="Visit a list of profiles in one pass.",
-    launcher=f"{_WORKFLOWS}.target_profiles.agent_handler:run_tiktok_target_profiles",
+    launcher=f"{_WORKFLOWS}.automation.target_profiles.agent_handler:run_tiktok_target_profiles",
     reader=_SETTINGS_READER,
     settings=(
         *PROFILE_SETTINGS,
         Field("profiles", ListOf("string"), "The profiles to visit, without @.", required=True,
               aliases=("targetProfiles", "usernames"),
-              reader=f"{_WORKFLOWS}.target_profiles.payload:target_profiles_from_payload"),
+              reader=f"{_WORKFLOWS}.automation.target_profiles.payload:target_profiles_from_payload"),
         Field("maxProfiles", "int", "Profiles the run visits.", default=Computed("one per listed profile"),
-              aliases=("maxFollowers",), reader=f"{_WORKFLOWS}.target_profiles.payload:profile_visit_budget",
+              aliases=("maxFollowers",), reader=f"{_WORKFLOWS}.automation.target_profiles.payload:profile_visit_budget",
               reader_kwargs={"profiles": ["one", "two"]}),
     ),
     bridge_fields=(_device(), _workflow_type("target_profiles"), *_REST),
@@ -236,8 +236,8 @@ TIKTOK_POST_URL = WorkflowContract(
     name="TikTokPostUrl",
     bridge="tiktok_bridge",
     doc="Visit the people who commented on one video.",
-    launcher=f"{_WORKFLOWS}.post_url.agent_handler:run_tiktok_post_url",
-    reader=f"{_WORKFLOWS}.post_url.payload:post_url_config_from_payload",
+    launcher=f"{_WORKFLOWS}.automation.post_url.agent_handler:run_tiktok_post_url",
+    reader=f"{_WORKFLOWS}.automation.post_url.payload:post_url_config_from_payload",
     settings=(
         *(item for item in PROFILE_SETTINGS if item.key not in ("maxLikesPerSession", "maxFollowsPerSession")),
         Field("maxLikesPerSession", "int", "Likes in the run.", default=50, aliases=("max_likes_per_session",),
@@ -254,7 +254,7 @@ TIKTOK_POST_URL = WorkflowContract(
         Field("maxCommentScrolls", "int", "Scrolls of the comments.", default=8,
               aliases=("max_comment_scrolls",), attr="max_comment_scrolls"),
         Field("deviceId", "string", "The adb serial the link is opened on.", required=True, aliases=("device_id",),
-              reader=f"{_WORKFLOWS}.post_url.payload:device_id_from_payload", by=HOST),
+              reader=f"{_WORKFLOWS}.automation.post_url.payload:device_id_from_payload", by=HOST),
     ),
     bridge_fields=(_workflow_type("post_url"), *_REST),
     refusals=(Refusal("postUrl", doc="No link."),),

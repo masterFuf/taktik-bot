@@ -1,0 +1,120 @@
+"""Profile data extraction mixin for the TikTok Followers workflow.
+
+Extracts username, display name, stats, bio from profile pages
+and saves to the local database.
+"""
+
+class ProfileDataMixin:
+    """Methods for extracting and persisting TikTok profile data."""
+
+    def _get_current_profile_username(self) -> str:
+        """Extract the username from the current profile page."""
+        try:
+            from taktik.core.social_media.tiktok.services.profile.username import (
+                get_current_profile_username,
+            )
+
+            return get_current_profile_username(self.device)
+        except Exception as e:
+            self.logger.debug(f"Error getting profile username: {e}")
+        
+        return "unknown"
+    
+    def _extract_and_save_profile_data(self):
+        """Extract profile data from the current profile page and save to database.
+
+        Uses the shared extract_profile_from_screen utility for data extraction,
+        then enriches with video count and saves to the local database.
+
+        Returns the extracted profile dict, or None when nothing could be read. The filtering
+        step needs those very numbers, and re-reading the screen for them would pay the
+        extraction twice and could disagree with what was just persisted.
+
+        The avatar rides on the returned dict and NOT into the database write: it is 11 Ko of
+        base64 and belongs in a file, which is the desktop's job. The bot's part is to look at
+        the screen while it is standing in front of it -- which it had never done here, leaving
+        789 stored TikTok profiles without a picture while the face was on screen every time.
+        """
+        if not self._current_profile_username or self._current_profile_username == "unknown":
+            return None
+
+        try:
+            from taktik.core.social_media.tiktok.workflows.common.profile_extractor import (
+                extract_profile_from_screen,
+            )
+            
+            # Get raw uiautomator2 device for the shared extractor
+            raw_device = self.device._device if hasattr(self.device, '_device') else self.device
+            
+            extracted = extract_profile_from_screen(raw_device, self._current_profile_username)
+            if not extracted:
+                return None
+            
+            # Map to DB schema (bio → biography, display_name stays)
+            #
+            # `website` is here because it was NOT: the extractor read it correctly and this
+            # mapping dropped it on the floor, so `social_profiles.website` held 17 599 Instagram
+            # rows and ZERO TikTok ones while the field was on screen every time. Measured on
+            # @charlidamelio, whose link the extractor returned and the database never saw.
+            profile_data = {
+                'username': extracted.get('username', self._current_profile_username),
+                'display_name': extracted.get('display_name') or None,
+                'followers_count': extracted.get('followers_count', 0),
+                'following_count': extracted.get('following_count', 0),
+                'likes_count': extracted.get('likes_count', 0),
+                'videos_count': 0,
+                'biography': extracted.get('bio') or None,
+                'website': extracted.get('website') or None,
+                'is_private': extracted.get('is_private', False),
+                'is_verified': extracted.get('is_verified', False),
+            }
+            
+            # Count visible videos in profile grid (followers-specific)
+            posts = []
+            for sel in self.followers_selectors.profile_post_item:
+                posts = self.device.xpath(sel).all()
+                if posts:
+                    break
+            if posts:
+                profile_data['videos_count'] = len(posts)
+            
+            # After the DB dict is built, so the picture cannot reach the row.
+            avatar = self._capture_profile_avatar()
+
+            try:
+                saved = self._followers_repository.save_profile(
+                    account_id=self._account_id,
+                    profile_data=profile_data,
+                )
+                if saved:
+                    self.logger.debug(f"📊 Saved profile data for @{self._current_profile_username}: "
+                                     f"{profile_data['followers_count']} followers, "
+                                     f"{profile_data['likes_count']} likes")
+            except Exception as e:
+                self.logger.debug(f"Error saving profile data: {e}")
+
+            if avatar:
+                profile_data['profile_pic_base64'] = avatar
+
+            return profile_data
+
+        except Exception as e:
+            self.logger.debug(f"Error extracting profile data: {e}")
+
+        return None
+
+    def _capture_profile_avatar(self):
+        """The visited profile's avatar, or None.
+
+        Never raises into the visit: a missing picture is a missing picture, and a profile that
+        was read correctly must not be lost because a crop failed.
+        """
+        try:
+            from taktik.core.social_media.tiktok.actions.atomic.detection.avatar_actions import (
+                AvatarActions,
+            )
+
+            return AvatarActions(self.device).capture_avatar()
+        except Exception as exc:
+            self.logger.debug(f"Avatar capture skipped: {exc}")
+            return None

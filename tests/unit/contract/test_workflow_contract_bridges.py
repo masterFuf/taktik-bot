@@ -22,7 +22,7 @@ from taktik.core.contract.schema import Field, ListOf, MapOf, OneOf, Shape, Work
 from taktik.core.contract.tiktok import TIKTOK_DM_OUTREACH, TIKTOK_SCRAPING, TIKTOK_UNFOLLOW
 from taktik.core.contract.tiktok_automation import TIKTOK_FOR_YOU, TIKTOK_SEARCH
 
-_WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
+_WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
 
 
 # ------------------------------------------------------------------------------------ helpers
@@ -159,7 +159,7 @@ def no_ip_rotation(monkeypatch):
 
 
 def started(monkeypatch, bridge_module):
-    from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+    from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
     start = TikTokStartup(device=object(), bot_username="acting")
     monkeypatch.setattr(bridge_module, "tiktok_startup_provider", lambda device_id: lambda: start)
@@ -190,7 +190,7 @@ class _Unfollow:
         raise AttributeError(name)
 
     def run(self):
-        from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.models import UnfollowStats
+        from taktik.core.social_media.tiktok.workflows.automation.unfollow.models import UnfollowStats
 
         if self.fail:
             raise RuntimeError("the list did not open")
@@ -207,7 +207,7 @@ class _Unfollow:
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_unfollow_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
     import bridges.tiktok.unfollow.unfollow as bridge
-    import taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow as workflow
+    import taktik.core.social_media.tiktok.workflows.automation.unfollow.workflow as workflow
 
     started(monkeypatch, bridge)
     monkeypatch.setattr(_Unfollow, "fail", fail)
@@ -227,7 +227,7 @@ def test_the_unfollow_bridge_follows_its_contract(monkeypatch, lines, no_ip_rota
 
 
 def _outreach_class():
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm import outreach
+    from taktik.core.social_media.tiktok.workflows.dm import outreach
 
     class Outreach(outreach.TikTokDMOutreachWorkflow):
         """The production workflow; only what it asks of the phone answers from a script."""
@@ -258,7 +258,7 @@ def _outreach_class():
 def test_the_cold_dm_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation):
     import bridges.tiktok.cold_dm.dm_outreach as bridge
     import taktik.core.database.tiktok_dm as sent_dms
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm import agent_handler
+    from taktik.core.social_media.tiktok.workflows.dm import agent_handler
 
     monkeypatch.setattr(agent_handler, "_default_outreach_factory", _outreach_class)
     monkeypatch.setattr(sent_dms, "cold_dm_already_sent", lambda *a, **k: False)
@@ -284,7 +284,7 @@ def test_the_cold_dm_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotat
 
 class _Scraping:
     def __init__(self, device, navigation, config):
-        from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import ScrapingStats
+        from taktik.core.social_media.tiktok.workflows.scraping.models import ScrapingStats
 
         self.config = config
         self.callbacks = {}
@@ -310,7 +310,7 @@ class _Scraping:
 def test_the_scraping_bridge_follows_its_contract(monkeypatch, lines):
     import bridges.tiktok.scraping.workflow as bridge
     import taktik.core.database.tiktok_scraping as rows
-    from taktik.core.social_media.tiktok.actions.business.workflows.scraping import agent_handler
+    from taktik.core.social_media.tiktok.workflows.scraping import agent_handler
 
     started(monkeypatch, bridge)
     monkeypatch.setattr(agent_handler, "_default_workflow_factory", lambda: _Scraping)
@@ -346,7 +346,7 @@ class _Video:
         raise AttributeError(name)
 
     def run(self):
-        from taktik.core.social_media.tiktok.actions.business.workflows._internal.models import VideoWorkflowStats
+        from taktik.core.social_media.tiktok.workflows.common.models import VideoWorkflowStats
 
         if self.fail:
             raise RuntimeError("the feed did not open")
@@ -363,7 +363,7 @@ class _Video:
 
 def _dispatcher(monkeypatch, runner_module):
     import bridges.tiktok.automation.dispatcher as dispatcher
-    from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+    from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
     monkeypatch.setattr(dispatcher, "force_stop_tiktok", lambda device_id: None)
     start = TikTokStartup(device=object(), bot_username="acting")
@@ -374,7 +374,7 @@ def _dispatcher(monkeypatch, runner_module):
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_for_you_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
     import bridges.tiktok.automation.for_you as runner
-    import taktik.core.social_media.tiktok.actions.business.workflows.for_you.workflow as workflow
+    import taktik.core.social_media.tiktok.workflows.automation.for_you.workflow as workflow
 
     dispatcher = _dispatcher(monkeypatch, runner)
     monkeypatch.setattr(_Video, "fail", fail)
@@ -393,8 +393,8 @@ def test_the_for_you_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotat
 @pytest.mark.parametrize("workflow_type", ["search", "hashtag"])
 def test_the_search_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, workflow_type):
     import bridges.tiktok.automation.search as runner
-    import taktik.core.social_media.tiktok.actions.business.workflows.search.agent_handler as launcher
-    import taktik.core.social_media.tiktok.actions.business.workflows.search.workflow as workflow
+    import taktik.core.social_media.tiktok.workflows.automation.search.agent_handler as launcher
+    import taktik.core.social_media.tiktok.workflows.automation.search.workflow as workflow
 
     dispatcher = _dispatcher(monkeypatch, runner)
     monkeypatch.setattr(_Video, "fail", False)
@@ -433,7 +433,7 @@ class _Profiles:
         raise AttributeError(name)
 
     def run(self, bot_username=None):
-        from taktik.core.social_media.tiktok.actions.business.workflows.followers.models import FollowersStats
+        from taktik.core.social_media.tiktok.workflows.automation.followers.models import FollowersStats
 
         if self.fail:
             raise RuntimeError("the list did not open")
@@ -457,8 +457,8 @@ def _profile_run(monkeypatch, runner_module, workflow_module, class_name, fail=F
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_followers_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
     import bridges.tiktok.automation.followers as runner
-    import taktik.core.social_media.tiktok.actions.business.workflows.followers.agent_handler as launcher
-    import taktik.core.social_media.tiktok.actions.business.workflows.followers.workflow as workflow
+    import taktik.core.social_media.tiktok.workflows.automation.followers.agent_handler as launcher
+    import taktik.core.social_media.tiktok.workflows.automation.followers.workflow as workflow
     from taktik.core.contract.tiktok_profiles import TIKTOK_FOLLOWERS
 
     dispatcher = _profile_run(monkeypatch, runner, workflow, "FollowersWorkflow", fail)
@@ -489,7 +489,7 @@ def test_the_single_pass_bridges_follow_their_contract(monkeypatch, lines, no_ip
     contract = {"target_profiles": tiktok_profiles.TIKTOK_TARGET_PROFILES,
                 "post_url": tiktok_profiles.TIKTOK_POST_URL}[name]
     runner = importlib.import_module(f"bridges.tiktok.automation.{name}")
-    workflow = importlib.import_module(f"{_WORKFLOWS}.{name}.workflow")
+    workflow = importlib.import_module(f"{_WORKFLOWS}.automation.{name}.workflow")
     class_name = {"target_profiles": "TargetProfilesWorkflow", "post_url": "PostUrlWorkflow"}[name]
     dispatcher = _profile_run(monkeypatch, runner, workflow, class_name)
     overrides = {"postUrl": "https://www.tiktok.com/@example/video/1"} if name == "post_url" else {}
@@ -534,7 +534,7 @@ def _engagement_run(monkeypatch, runner_name, contract, workflow_class, *, provi
     import importlib
 
     import bridges.tiktok.automation.dispatcher as dispatcher
-    from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+    from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
     runner = importlib.import_module(f"bridges.tiktok.automation.{runner_name}")
     monkeypatch.setattr(dispatcher, "force_stop_tiktok", lambda device_id: None)
@@ -556,9 +556,9 @@ def _printed(lines):
 
 def test_the_sync_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation):
     import bridges.tiktok.automation.sync_lists as runner
-    import taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.workflow as workflow
+    import taktik.core.social_media.tiktok.workflows.automation.sync_lists.workflow as workflow
     from taktik.core.contract.tiktok_engagement import TIKTOK_SYNC
-    from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.models import SyncListsStats
+    from taktik.core.social_media.tiktok.workflows.automation.sync_lists.models import SyncListsStats
 
     class Sync(_Scripted):
         def run(self, bot_username=None):
@@ -580,7 +580,7 @@ def test_the_sync_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation
 
 def test_the_dm_read_and_send_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotation):
     from taktik.core.contract.tiktok_engagement import TIKTOK_DM_READ, TIKTOK_DM_SEND
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.models import ConversationData, DMStats
+    from taktik.core.social_media.tiktok.workflows.dm.models import ConversationData, DMStats
 
     class Dm(_Scripted):
         def read_conversations(self):
@@ -679,7 +679,7 @@ def test_the_inbox_bridges_follow_their_contract(monkeypatch, lines, no_ip_rotat
 
 @pytest.mark.parametrize("fail", [False, True], ids=["run", "failure"])
 def test_the_notifications_bridge_follows_its_contract(monkeypatch, lines, no_ip_rotation, fail):
-    import taktik.core.social_media.tiktok.actions.business.workflows.notifications.scan as scan
+    import taktik.core.social_media.tiktok.workflows.notifications.scan as scan
     from taktik.core.contract.tiktok_engagement import TIKTOK_NOTIFICATIONS
 
     def scanned(device, account_username, max_resolutions):

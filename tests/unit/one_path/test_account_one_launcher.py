@@ -279,7 +279,7 @@ def _tiktok_bridge(config, app):
 
 
 def _tiktok_cli(workflow_id, params, app, factories):
-    from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+    from taktik.core.social_media.tiktok.workflows.account.agent_handler import (
         register_tiktok_account_handlers,
     )
 
@@ -295,7 +295,7 @@ def _tiktok_app(calls):
 
 
 def test_every_tiktok_account_flow_of_the_bridge_is_launched():
-    from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+    from taktik.core.social_media.tiktok.workflows.account.agent_handler import (
         register_tiktok_account_handlers,
     )
 
@@ -313,7 +313,7 @@ def test_every_tiktok_account_flow_of_the_bridge_is_launched():
     ("change_language", "_run_change_language", {"targetLanguage": "fr"}),
 ])
 def test_tiktok_account_flow_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch, workflow_type, runner, page):
-    from taktik.core.social_media.tiktok.workflows.management import agent_handler
+    from taktik.core.social_media.tiktok.workflows.account import agent_handler
 
     bridge_calls, cli_calls = [], []
     _bridge_uses(monkeypatch, agent_handler.run_tiktok_account, _tiktok_factories(bridge_calls))
@@ -326,7 +326,7 @@ def test_tiktok_account_flow_is_the_same_call_from_the_bridge_and_the_cli(monkey
 
 
 def test_tiktok_language_change_without_a_language_is_refused_before_the_restart(monkeypatch):
-    from taktik.core.social_media.tiktok.workflows.management import agent_handler
+    from taktik.core.social_media.tiktok.workflows.account import agent_handler
 
     calls = []
     _bridge_uses(monkeypatch, agent_handler.run_tiktok_account, _tiktok_factories(calls))

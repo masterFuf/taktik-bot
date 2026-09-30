@@ -21,7 +21,7 @@ from typing import Any, Optional
 
 from loguru import logger
 
-from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.creator import (
     VIDEO_CREATOR_SELECTORS,
 )

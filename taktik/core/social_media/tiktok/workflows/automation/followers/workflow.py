@@ -1,0 +1,641 @@
+"""Followers Workflow for TikTok automation.
+
+
+Interacts with the followers of a target user:
+1. Rechercher un utilisateur cible
+2. tap the users tab
+3. open the target user profile
+4. tap the followers counter
+5. for each follower of the list:
+   a. tap the follower profile, never the follow button
+   b. open one of their posts
+   c. Interagir (like, comment, share, favorite selon config)
+   d. back to the profile
+   e. back to the followers list
+   f. move on to the next follower
+"""
+
+from typing import Optional, Dict, Any, List, Callable, Set
+import time
+import random
+
+from taktik.core.social_media.tiktok.services.followers.stop_policy import (
+    KnownProfileDecision,
+    KnownProfilesStopPolicy,
+    normalize_username,
+)
+from taktik.core.social_media.tiktok.services.followers.listing import (
+    find_follower_rows,
+    tap_follower_username,
+)
+from taktik.core.social_media.tiktok.services.followers.scroll_policy import (
+    calculate_legacy_followers_scroll_attempts,
+    get_visited_ratio,
+)
+from taktik.core.database.repositories.tiktok.followers import TikTokFollowersRepository
+
+from taktik.core.social_media.tiktok.workflows.common.base_workflow import BaseTikTokWorkflow
+from taktik.core.social_media.tiktok.workflows.automation.followers.filtering import evaluate_tiktok_profile
+from taktik.core.social_media.tiktok.workflows.automation.followers.models import FollowersConfig, FollowersStats
+from taktik.core.social_media.tiktok.workflows.automation.followers.page_detection import PageDetectionMixin
+from taktik.core.social_media.tiktok.workflows.automation.followers.story_handling import StoryHandlingMixin
+from taktik.core.social_media.tiktok.workflows.automation.followers.interaction import VideoInteractionMixin
+from taktik.core.social_media.tiktok.workflows.automation.followers.profile_data import ProfileDataMixin
+from taktik.core.social_media.tiktok.workflows.automation.followers.profile_processing import (
+    ProfileProcessingMixin,
+)
+from taktik.core.social_media.tiktok.workflows.automation.followers.navigation import NavigationMixin
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.search import SEARCH_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video import VIDEO_SELECTORS
+
+
+class FollowersWorkflow(
+    PageDetectionMixin,
+    StoryHandlingMixin,
+    VideoInteractionMixin,
+    ProfileDataMixin,
+    ProfileProcessingMixin,
+    NavigationMixin,
+    BaseTikTokWorkflow,
+):
+    """Workflow interacting with the followers of a target TikTok user.
+    
+    Inherits from BaseTikTokWorkflow:
+        - atomic actions (click, navigation, scroll, detection)
+        - popup handler + _handle_popups
+        - lifecycle (stop/pause/resume/_wait_if_paused)
+        - _send_stats_update, set_on_stats_callback
+        - _check_pause_needed, set_on_pause_callback
+    
+    Mixins:
+        - PageDetectionMixin: _is_on_video_page, _is_on_profile_page, _is_on_story_page, _is_on_followers_list
+        - StoryHandlingMixin: _handle_story_view, _try_like_story
+        - VideoInteractionMixin: _interact_with_profile_posts, like/favorite/follow actions
+        - ProfileDataMixin: _get_current_profile_username, _extract_and_save_profile_data
+        - ProfileProcessingMixin: _process_current_profile (shared with target_profiles)
+        - NavigationMixin: _navigate_to_followers_list, _safe_return_to_followers_list, recovery
+    """
+    
+    #: Where a rejected profile is attributed in `filtered_profiles`. Overridden by the
+    #: target-profiles workflow: a profile rejected from a hand-picked list did not come from
+    #: anybody's followers, and filing it as if it did makes the reject stats unreadable.
+    FILTER_SOURCE_TYPE = 'followers'
+
+    #: Log channel. A subclass gets its own so its lines are attributable in a run log.
+    MODULE_NAME = "tiktok-followers-workflow"
+
+    @property
+    def _filter_source_name(self) -> str:
+        return self.config.search_query
+
+    def __init__(self, device, config: FollowersConfig):
+        super().__init__(device, module_name=self.MODULE_NAME)
+        self.config = config
+        self.stats = FollowersStats()
+        
+        # Selectors
+        self.followers_selectors = FOLLOWERS_SELECTORS
+        self.search_selectors = SEARCH_SELECTORS
+        self.video_selectors = VIDEO_SELECTORS
+        
+        # Followers-specific state
+        self._processed_usernames: Set[str] = set()  # Track usernames we've processed in this session
+        self._current_profile_username = ""  # Username of the profile we're currently interacting with
+        self._target_followers_count: int = 0  # Number of followers the target has
+        self._already_visited_count: int = 0  # Number of target's followers we've already visited
+        self._known_profiles_policy = KnownProfilesStopPolicy(self.config.max_consecutive_known_usernames)
+        self._known_stop_requested = False
+        
+        # Database
+        self._followers_repository = TikTokFollowersRepository()
+        self._account_id: Optional[int] = None
+        self._session_id: Optional[int] = None
+        
+        # Followers-specific callbacks
+        self._on_action_callback: Optional[Callable] = None
+        self._on_user_callback: Optional[Callable] = None
+        self._on_profile_callback: Optional[Callable] = None
+    
+    def set_on_profile_callback(self, callback: Callable):
+        """Called once per visited profile, with what was read off its screen.
+
+        Separate from the action callback, which carries a name and nothing else -- and a name is
+        all the panel ever had to show for a visited profile.
+        """
+        self._on_profile_callback = callback
+
+    def set_on_action_callback(self, callback: Callable):
+        """Set callback for action events (like, follow, etc.)."""
+        self._on_action_callback = callback
+    
+    def run(self, bot_username: str = None) -> FollowersStats:
+        """Run the Followers workflow.
+        
+        Args:
+            bot_username: Username of the TikTok bot account (for database tracking)
+        """
+        self._running = True
+        self.stats = FollowersStats()
+        self._processed_usernames.clear()
+        self._known_profiles_policy = KnownProfilesStopPolicy(self.config.max_consecutive_known_usernames)
+        self._known_profiles_policy.reset()
+        self._known_stop_requested = False
+        
+        self.logger.info(f"🚀 Starting Followers workflow for: {self.config.search_query}")
+        self.logger.info(f"📊 Config: max_followers={self.config.max_followers}, posts_per_profile={self.config.min_posts_per_profile}-{self.config.max_posts_per_profile}")
+        
+        # Initialize database tracking
+        if bot_username:
+            try:
+                session_ref = self._followers_repository.create_session(
+                    bot_username=bot_username,
+                    target=self.config.search_query,
+                    config_used=self.config.to_dict() if hasattr(self.config, 'to_dict') else None,
+                )
+                self._account_id = session_ref.account_id
+                self._session_id = session_ref.session_id
+                self.logger.info(f"📊 Database session created: {self._session_id}")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize database tracking: {e}")
+        
+        try:
+            # Navigate to target user's followers list
+            if not self._navigate_to_followers_list():
+                self.logger.error("❌ Failed to navigate to followers list")
+                self._end_session('ERROR', 'Failed to navigate to followers list', completion_reason='navigation_failed')
+                return self.stats
+            
+            # Process followers one by one
+            completion_reason = 'unknown'
+            
+            while self._running and self.stats.profiles_visited < self.config.max_followers:
+                # Check if paused
+                while self._paused and self._running:
+                    time.sleep(1)
+                
+                if not self._running:
+                    completion_reason = 'stopped_by_user'
+                    break
+                
+                # Handle any popups that might block interaction
+                self._handle_popups()
+                
+                # Check limits
+                limit_reached = self._check_limits_reached()
+                if limit_reached:
+                    completion_reason = limit_reached
+                    self.logger.info(f"📊 Session limit reached: {limit_reached}")
+                    break
+                
+                # Find and process next follower
+                if not self._process_next_follower():
+                    if self._known_stop_requested:
+                        completion_reason = 'max_consecutive_known_usernames'
+                        self.logger.info(
+                            "Stopping target because consecutive known usernames limit was reached"
+                        )
+                        break
+
+                    # No more followers found - use smart scroll logic
+                    max_scroll_attempts = self._calculate_smart_scroll_attempts()
+                    scroll_attempts = 0
+                    found_new = False
+                    consecutive_zero_buttons = 0  # Track consecutive scrolls with 0 buttons
+                    
+                    while (
+                        scroll_attempts < max_scroll_attempts
+                        and not found_new
+                        and not self._known_stop_requested
+                    ):
+                        self.logger.debug(f"No new followers found, scrolling... (attempt {scroll_attempts + 1}/{max_scroll_attempts})")
+                        self._scroll_followers_list()
+                        # No need to clear _processed_usernames - usernames are stable across scrolls
+                        time.sleep(1.0)  # Wait for content to load
+                        
+                        # Check if we can find any follow buttons at all
+                        follower_rows = self._find_follower_rows()
+                        if len(follower_rows) == 0:
+                            consecutive_zero_buttons += 1
+                            # If we've had 3+ scrolls with 0 buttons, we might not be on the followers list
+                            if consecutive_zero_buttons >= 3:
+                                self.logger.warning("⚠️ No follow buttons found after multiple scrolls, checking page state...")
+                                if not self._is_on_followers_list():
+                                    self.logger.warning("⚠️ Not on followers list! Attempting recovery...")
+                                    if self._recover_to_followers_list():
+                                        self.logger.info("✅ Recovery successful, continuing workflow")
+                                        consecutive_zero_buttons = 0
+                                        continue
+                                    else:
+                                        self.logger.error("❌ Recovery failed")
+                                        break
+                        else:
+                            consecutive_zero_buttons = 0
+                        
+                        if self._process_next_follower():
+                            found_new = True
+                            break
+                        if self._known_stop_requested:
+                            break
+                        
+                        scroll_attempts += 1
+                    
+                    if self._known_stop_requested:
+                        completion_reason = 'max_consecutive_known_usernames'
+                        self.logger.info(
+                            "Stopping target because consecutive known usernames limit was reached"
+                        )
+                        break
+
+                    if not found_new:
+                        completion_reason = 'no_more_followers'
+                        visited_ratio = self._get_visited_ratio()
+                        self.logger.info(f"No more followers to process after {scroll_attempts} scroll attempts (visited {visited_ratio:.0%} of target's followers)")
+                        break
+                
+                # Check if pause needed
+                self._check_pause_needed()
+            
+            # Determine completion reason if not already set
+            if completion_reason == 'unknown':
+                if self.stats.profiles_visited >= self.config.max_followers:
+                    completion_reason = 'max_profiles_reached'
+            
+            self.logger.info(f"✅ Followers workflow completed: {self.stats.profiles_visited} profiles, {self.stats.likes} likes, {self.stats.follows} follows (reason: {completion_reason})")
+            self._end_session('COMPLETED', completion_reason=completion_reason)
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error in Followers workflow: {e}")
+            self.stats.errors += 1
+            self._end_session('ERROR', str(e))
+        
+        return self.stats
+    
+    def _end_session(self, status: str, error_message: str = None, completion_reason: str = None):
+        """End the database session with final stats.
+        
+        Args:
+            status: Session status (COMPLETED, ERROR, etc.)
+            error_message: Error message if status is ERROR
+            completion_reason: Reason for completion (max_profiles_reached, max_likes_reached, etc.)
+        """
+        # Store completion reason for stats
+        self.stats.completion_reason = completion_reason or 'unknown'
+        
+        try:
+            self._followers_repository.end_session(
+                account_id=self._account_id,
+                session_id=self._session_id,
+                status=status,
+                error_message=error_message,
+                stats={
+                    'profiles_visited': self.stats.profiles_visited,
+                    'posts_watched': self.stats.posts_watched,
+                    'likes': self.stats.likes,
+                    'follows': self.stats.follows,
+                    'favorites': self.stats.favorites,
+                    'comments': self.stats.comments,
+                    'shares': self.stats.shares,
+                    'known_usernames_seen': self.stats.known_usernames_seen,
+                    'new_usernames_seen': self.stats.new_usernames_seen,
+                    'consecutive_known_usernames': self.stats.consecutive_known_usernames,
+                    'errors': self.stats.errors,
+                    'completion_reason': completion_reason,
+                },
+            )
+            if self._session_id and self._account_id:
+                self.logger.info(f"📊 Database session {self._session_id} ended: {status} (reason: {completion_reason})")
+        except Exception as e:
+            self.logger.warning(f"Failed to end database session: {e}")
+
+    # ------------------------------------------------------------------
+    # Follower processing (core loop body)
+    # ------------------------------------------------------------------
+    
+    def _process_next_follower(self) -> bool:
+        """Find and process the next unprocessed follower.
+        
+        Flow:
+        1. Find follower rows in the list
+        2. Check if username already processed (in session or in DB)
+        3. Click on the profile (the row, not the Follow button)
+        4. Open posts and interact
+        5. Go back to followers list
+        """
+        # Find all follower rows
+        follower_rows = self._find_follower_rows()
+        
+        for idx, row_info in enumerate(follower_rows):
+            if not self._running:
+                return False
+            
+            username = row_info.get('username', '')
+            username_key = normalize_username(username)
+            
+            # Skip if already processed in this session (by username)
+            if username_key and username_key in self._processed_usernames:
+                if self._observe_username(username, is_known=True, reason='session_duplicate'):
+                    return False
+                continue
+            
+            # Skip if already interacted in database (past 7 days)
+            if self._followers_repository.has_recent_interaction(
+                account_id=self._account_id,
+                username=username,
+                hours=168,
+            ):
+                self.logger.debug(f"Skipping @{username} - already interacted in past 7 days")
+                self._processed_usernames.add(username_key)
+                if self._observe_username(username, is_known=True, reason='recent_interaction'):
+                    return False
+                continue
+            
+            self.stats.followers_seen += 1
+            
+            # Check if this is a "Friends" account
+            status = row_info.get('status', '')
+            if status in ['Friends', 'Following'] and not self.config.include_friends:
+                self.stats.already_friends += 1
+                if username_key:
+                    self._processed_usernames.add(username_key)
+                    if self._observe_username(username, is_known=True, reason='friends_or_following'):
+                        return False
+                self._send_stats_update()
+                self._send_action('skip_friends', username or 'unknown')
+                self.logger.debug(f"Skipping Friends/Following account @{username}")
+                continue
+            
+            # Already rejected by the filters on an earlier pass. Checked BEFORE the profile is
+            # opened: a profile discarded once for being too small or too empty stays that way,
+            # and re-visiting it would spend a visit to reach the same verdict.
+            if username and self._account_id and self.config.filters:
+                if self._followers_repository.is_profile_filtered(
+                    account_id=self._account_id, username=username
+                ):
+                    self.stats.profiles_filtered += 1
+                    self._processed_usernames.add(username_key)
+                    if self._observe_username(username, is_known=True, reason='already_filtered'):
+                        return False
+                    self._send_stats_update()
+                    self._send_action('skip_filtered', username)
+                    self.logger.debug(f"Skipping previously filtered profile @{username}")
+                    continue
+
+            # Check if already interacted with this profile in database
+            if username and self._account_id:
+                try:
+                    if self._followers_repository.has_interaction(
+                        account_id=self._account_id,
+                        username=username,
+                    ):
+                        self.stats.skipped += 1
+                        self._processed_usernames.add(username_key)
+                        if self._observe_username(username, is_known=True, reason='already_interacted'):
+                            return False
+                        self._send_stats_update()
+                        self._send_action('skip_already_interacted', username)
+                        self.logger.debug(f"Skipping already interacted profile @{username}")
+                        continue
+                except Exception as e:
+                    self.logger.debug(f"Error checking interaction history: {e}")
+            
+            # Mark as processed by username
+            if username_key:
+                if self._observe_username(username, is_known=False, reason='eligible_profile'):
+                    return False
+                self._processed_usernames.add(username_key)
+            
+            # Click on the profile row (not the button)
+            if not self._click_follower_profile(row_info):
+                self.logger.warning("Failed to click follower profile")
+                self.stats.errors += 1
+                continue
+            
+            self._human_delay()
+            
+            # Now we're on the follower's profile — read it, filter it, interact. Same body the
+            # target-profiles workflow runs, kept in one place on purpose.
+            self._process_current_profile()
+
+            # Refused: the dialog stays on screen; the loop reads the latch and stops.
+            if self._halted():
+                return True
+
+            # Safe return to followers list with verification
+            if not self._safe_return_to_followers_list():
+                self.logger.warning("⚠️ Failed to return to followers list, attempting recovery...")
+                if not self._recover_to_followers_list():
+                    self.logger.error("❌ Recovery failed, ending workflow")
+                    return False
+            
+            self._human_delay()
+            
+            return True
+        
+        return False
+
+    def _observe_username(self, username: str, *, is_known: bool, reason: str) -> bool:
+        """Update username-based target exhaustion state.
+
+        Returns True when the current target should stop because too many
+        already-known usernames were encountered in a row.
+        """
+        decision = self._known_profiles_policy.observe(username, is_known=is_known)
+        self._sync_known_profile_stats(decision)
+
+        if decision.status == "ignored":
+            return False
+
+        self.logger.debug(
+            "Known username policy: "
+            f"@{decision.username} status={decision.status} reason={reason} "
+            f"consecutive={decision.consecutive_known_usernames}/"
+            f"{decision.max_consecutive_known_usernames}"
+        )
+
+        if not decision.should_stop:
+            return False
+
+        self._known_stop_requested = True
+        self._send_stats_update()
+        self.logger.info(
+            "Known username limit reached for "
+            f"@{self.config.search_query}: "
+            f"{decision.consecutive_known_usernames}/"
+            f"{decision.max_consecutive_known_usernames}"
+        )
+        return True
+
+    def _sync_known_profile_stats(self, decision: KnownProfileDecision) -> None:
+        self.stats.known_usernames_seen = decision.known_usernames_seen
+        self.stats.new_usernames_seen = decision.new_usernames_seen
+        self.stats.consecutive_known_usernames = decision.consecutive_known_usernames
+    
+    def _find_follower_rows(self) -> List[Dict[str, Any]]:
+        """Find all follower rows on screen with username extraction."""
+        return find_follower_rows(
+            self.device,
+            self.followers_selectors,
+            logger=self.logger,
+        )
+    
+    def _click_follower_profile(self, row_info: Dict[str, Any]) -> bool:
+        """Click on a follower's profile (the username text, not the avatar).
+        
+        IMPORTANT: We click on the USERNAME TEXT area, not the avatar!
+        Clicking on the avatar opens the story if the user has one active.
+        Clicking on the username text opens the profile directly.
+        
+        Layout of a follower row:
+        [Avatar ~0-120] [Username/Name ~120-350] [Follow Button ~350+]
+        """
+        try:
+            username = row_info.get('username', '')
+
+            if not tap_follower_username(self.device, row_info, logger=self.logger):
+                return False
+
+            # Check if we accidentally landed on a story
+            if self._is_on_story_page():
+                self.logger.info(f"📖 Landed on story for @{username}, handling story first...")
+                self._handle_story_view()
+
+            return True
+
+        except Exception as e:
+            self.logger.debug(f"Error clicking follower profile: {e}")
+        return False
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    
+    def _check_limits_reached(self) -> str:
+        """Check if session limits have been reached.
+        
+        Returns:
+            str: The limit reason if reached, empty string otherwise.
+            Possible values: 'device_disconnected', 'target_app_crashed',
+            'max_likes_reached', 'max_follows_reached', ''
+        """
+        # Ce que le run ne peut plus faire passe avant ses plafonds : les deux premiers motifs
+        # disent que le telephone n'est plus la, pas que le budget est epuise.
+        from taktik.core.shared.diagnostics.run_halt import arret_demande
+        arret = arret_demande()
+        if arret:
+            return arret['code']
+
+        # A cap of 0 means "never this action", not "already reached" (same rule as
+        # `BaseVideoWorkflow._check_limits_reached`); `max_followers` still bounds the run.
+        max_likes = self.config.max_likes_per_session
+        if max_likes > 0 and self.stats.likes >= max_likes:
+            return 'max_likes_reached'
+        max_follows = self.config.max_follows_per_session
+        if max_follows > 0 and self.stats.follows >= max_follows:
+            return 'max_follows_reached'
+        return ''
+    
+    def _filter_current_profile(self, profile_data: Optional[Dict[str, Any]]) -> bool:
+        """Return True when the visited profile is rejected by the configured filters.
+
+        No criteria means no filtering, so the whole step costs one boolean test and the run
+        behaves exactly as it did before filters existed.
+
+        A profile whose data could not be read is NOT rejected: an unreadable screen is not a
+        verdict, and treating it as one would silently discard profiles for a device problem.
+        """
+        if not self.config.filters or not profile_data:
+            return False
+
+        username = profile_data.get('username') or self._current_profile_username
+        verdict = evaluate_tiktok_profile(profile_data, self.config.filters)
+        if verdict.get('suitable', True):
+            return False
+
+        reasons = verdict.get('reasons', [])
+        reason_text = ', '.join(reasons) if reasons else 'filtered'
+        self.stats.profiles_filtered += 1
+        self.logger.info(f"🚫 @{username} filtre : {reason_text}")
+
+        # The record is what stops the next pass from coming back to this profile. Without it
+        # the check above would never see it and the same visit would be paid again.
+        self._followers_repository.record_filtered_profile(
+            account_id=self._account_id,
+            username=username,
+            reason=reason_text,
+            source_type=self.FILTER_SOURCE_TYPE,
+            source_name=self._filter_source_name,
+            session_id=self._session_id,
+        )
+        self._send_stats_update()
+        self._send_action('filter', username)
+        return True
+
+    def _send_profile(self, profile_data):
+        """Hand the desktop what was read off a visited profile, picture included."""
+        if not profile_data or not self._on_profile_callback:
+            return
+        try:
+            self._on_profile_callback(profile_data)
+        except Exception as e:
+            self.logger.warning(f"Profile callback error: {e}")
+
+    def _send_action(self, action: str, target: str = ""):
+        """Send action event via callback."""
+        if self._on_action_callback:
+            try:
+                self._on_action_callback({'action': action, 'target': target})
+            except Exception as e:
+                self.logger.warning(f"Action callback error: {e}")
+    
+    def _human_delay(self):
+        """Add a human-like delay."""
+        delay = random.uniform(self.config.min_delay, self.config.max_delay)
+        time.sleep(delay)
+    
+    def _calculate_smart_scroll_attempts(self) -> int:
+        """Calculate the number of scroll attempts based on visited ratio.
+        
+        Logic:
+        - If we know the target's follower count and how many we've visited,
+          we can estimate how many scrolls are needed to find new followers.
+        - If we've visited < 50% of followers, scroll more aggressively
+        - If we've visited > 80% of followers, we're likely near the end
+        - If we don't have total count but have visited count, use heuristics
+        
+        Returns:
+            Number of scroll attempts to make before giving up.
+        """
+        decision = calculate_legacy_followers_scroll_attempts(
+            target_followers_count=self._target_followers_count,
+            already_visited_count=self._already_visited_count,
+            profiles_visited=self.stats.profiles_visited,
+        )
+
+        if self._target_followers_count > 0:
+            self.logger.debug(
+                "Smart scroll: "
+                f"{decision.total_visited}/{self._target_followers_count} visited "
+                f"({decision.visited_ratio:.0%}), {decision.remaining} remaining"
+            )
+        elif decision.total_visited > 0:
+            self.logger.debug(
+                "Smart scroll (no total): "
+                f"{decision.total_visited} visited, using {decision.attempts} scroll attempts"
+            )
+        else:
+            self.logger.debug("Smart scroll: no data, using default 3 attempts")
+
+        return decision.attempts
+    
+    def _get_visited_ratio(self) -> float:
+        """Get the ratio of visited followers to total followers.
+        
+        Returns:
+            Ratio between 0.0 and 1.0, or 0.0 if unknown.
+        """
+        return get_visited_ratio(
+            target_followers_count=self._target_followers_count,
+            already_visited_count=self._already_visited_count,
+            profiles_visited=self.stats.profiles_visited,
+        )

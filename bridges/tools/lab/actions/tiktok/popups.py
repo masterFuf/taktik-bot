@@ -43,7 +43,7 @@ def close_follow_friends(a, p):
 
 @action("tt.popups.dismiss_notification")
 def dismiss_notification(a, p):
-    from taktik.core.social_media.tiktok.actions.core.utils import first_matching
+    from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 
     return _closed_or_absent("tt.popups.dismiss_notification", a, a.popup.dismiss_notification_banner(),
                              lambda: bool(first_matching(a.device, a.popup.popup_selectors.notification_banner)),
@@ -65,7 +65,7 @@ def close_system_popup(a, p):
 def dismiss_update_prompt(a, p):
     """The "update the app" prompt draws no readable node: found by its shape, read by OCR."""
     from taktik.core.shared.device.ui_dump import parse_ui_dump
-    from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import (
+    from taktik.core.social_media.tiktok.workflows.common.popup_handler import (
         unlabelled_overlay_region,
     )
 

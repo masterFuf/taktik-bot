@@ -14,18 +14,18 @@ CANCELLED : le run a fait le temps qu'on lui donnait.
 import pytest
 
 import taktik.core.database.tiktok_scraping as scraping_store
-import taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow as workflow_module
-from taktik.core.social_media.tiktok.actions.business.workflows.scraping.agent_handler import (
+import taktik.core.social_media.tiktok.workflows.scraping.workflow as workflow_module
+from taktik.core.social_media.tiktok.workflows.scraping.agent_handler import (
     run_tiktok_scraping,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.scraping.models import (
+from taktik.core.social_media.tiktok.workflows.scraping.models import (
     ScrapingConfig,
     ScrapingStats,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.scraping.payload import (
+from taktik.core.social_media.tiktok.workflows.scraping.payload import (
     scraping_config_from_payload,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.scraping.workflow import ScrapingWorkflow
+from taktik.core.social_media.tiktok.workflows.scraping.workflow import ScrapingWorkflow
 
 
 class _Clock:

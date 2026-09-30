@@ -118,7 +118,7 @@ def test_a_failing_witness_never_undoes_the_stop():
 def test_the_tiktok_start_installs_the_witness(monkeypatch):
     """Every TikTok bridge and the CLI start through `start_tiktok_session`: that is where the
     operated account becomes known, and where the witness is installed."""
-    from taktik.core.social_media.tiktok.workflows.runtime import startup
+    from taktik.core.social_media.tiktok.workflows.common import startup
 
     manager = types.SimpleNamespace(restart=lambda: True,
                                     device_manager=types.SimpleNamespace(device=object()))

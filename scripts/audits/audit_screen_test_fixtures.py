@@ -148,11 +148,11 @@ HAND_WRITTEN: dict[str, tuple[int, str]] = {
         (3,
          "upload picker: the button is in the publish runs (43.1.4); no hidden, disabled or tiny "
          "candidate in the corpus: capture the picker while it loads."),
-    "tests/unit/social_media/tiktok/workflows/test_tiktok_block_stop.py":
+    "tests/unit/social_media/tiktok/workflows/common/test_tiktok_block_stop.py":
         (4,
          "TikTok refusal toasts and dialogs, invented: none in the corpus; capture one (43.1.4, "
          "French)."),
-    "tests/unit/social_media/tiktok/workflows/unfollow/conftest.py":
+    "tests/unit/social_media/tiktok/workflows/automation/unfollow/conftest.py":
         (4, "following list of 46.6.3 rendered by a helper."),
     "tests/unit/social_media/instagram/actions/account/switch/test_switch_account.py":
         (4,
@@ -218,7 +218,7 @@ MINIMAL_TREES: dict[str, tuple[int, str]] = {
         (4, "how many photos the TikTok probes take per turn."),
     "tests/unit/social_media/tiktok/test_dump_readers_read_the_d_xpath_tree.py":
         (8, "the dump readers evaluate on the tree d.xpath() sees: engine equality."),
-    "tests/unit/social_media/tiktok/workflows/for_you/test_feed_turn_reads_one_photo.py":
+    "tests/unit/social_media/tiktok/workflows/automation/for_you/test_feed_turn_reads_one_photo.py":
         (3, "how many photos a feed turn takes."),
     "tests/unit/social_media/youtube/workflows/account/test_youtube_account_workflow.py":
         (1, "an empty hierarchy: the account flow never reads it."),

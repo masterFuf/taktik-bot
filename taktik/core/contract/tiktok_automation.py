@@ -1,7 +1,7 @@
 """TikTok workflows of the `tiktok_bridge` dispatcher, first half: the video workflows.
 
 For You (`tiktok.automation.for_you`) and the search (`search`, and `hashtag` and `target`, the same
-launcher): one payload, the settings every video workflow shares (`_internal/video_payload.py`),
+launcher): one payload, the settings every video workflow shares (`workflows/common/video_payload.py`),
 the workflow's own, the AI block and the app language. The profile-visiting workflows (followers,
 target profiles, post URL), the follow-graph sync and the inbox are not declared yet.
 """
@@ -12,10 +12,10 @@ from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowC
 from .shared import ERROR_EVENT, STATUS_EVENT, network_reset_field
 from .tiktok_lines import AI_PROFILE_DONE_EVENT, BOT_PROFILE_EVENT
 
-_WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
-_AI_HOOKS = "taktik.core.social_media.tiktok.workflows.core.ai_hooks"
-_VIDEO_READER = f"{_WORKFLOWS}._internal.video_payload:video_settings_from_payload"
-_QUERIES_READER = f"{_WORKFLOWS}.search.payload:search_queries_from_payload"
+_WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
+_AI_HOOKS = "taktik.core.social_media.tiktok.workflows.common.ai_hooks"
+_VIDEO_READER = f"{_WORKFLOWS}.common.video_payload:video_settings_from_payload"
+_QUERIES_READER = f"{_WORKFLOWS}.automation.search.payload:search_queries_from_payload"
 
 
 def _percent(key: str, snake: str, doc: str, default: float) -> Field:
@@ -93,7 +93,7 @@ WELCOME_POLICY = Shape(
 )
 
 #: The run's `ai` block, as the TikTok readers read it: the AI factory (`ai/factory.py`), the
-#: hooks (`workflows/core/ai_hooks.py`) and the welcome policy.
+#: hooks (`workflows/common/ai_hooks.py`) and the welcome policy.
 AI_BLOCK = Shape(
     name="TikTokAiBlock",
     doc="The run's AI settings; the key and the models are injected by the app's main process.",
@@ -183,8 +183,8 @@ TIKTOK_FOR_YOU = WorkflowContract(
     name="TikTokForYou",
     bridge="tiktok_bridge",
     doc="Watch and act on the For You feed.",
-    launcher=f"{_WORKFLOWS}.for_you.agent_handler:run_tiktok_for_you",
-    reader=f"{_WORKFLOWS}.for_you.payload:for_you_config_from_payload",
+    launcher=f"{_WORKFLOWS}.automation.for_you.agent_handler:run_tiktok_for_you",
+    reader=f"{_WORKFLOWS}.automation.for_you.payload:for_you_config_from_payload",
     settings=(
         *VIDEO_SETTINGS,
         Field("trainingKeywords", ListOf("string"), "Niche words: a video off them is marked not interested.",
@@ -212,7 +212,7 @@ TIKTOK_SEARCH = WorkflowContract(
     bridge="tiktok_bridge",
     doc="Search one or more queries (accounts or hashtags) and act on the videos found; the budgets "
         "are shared between the queries.",
-    launcher=f"{_WORKFLOWS}.search.agent_handler:run_tiktok_search",
+    launcher=f"{_WORKFLOWS}.automation.search.agent_handler:run_tiktok_search",
     reader=_VIDEO_READER,
     settings=(
         *VIDEO_SETTINGS,

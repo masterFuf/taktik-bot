@@ -25,7 +25,7 @@ from bridges.tiktok.common.startup import tiktok_startup
 
 def _startup(device_id: str):
     def start():
-        from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+        from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
         manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
         return TikTokStartup(device=manager.device_manager.device, bot_username=bot_username)
@@ -68,7 +68,7 @@ def _send_final_stats(stats, list_type: str) -> None:
 
 def run_sync_lists_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok follow-graph sync. True when it ran without an error."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.payload import (
+    from taktik.core.social_media.tiktok.workflows.automation.sync_lists.payload import (
         list_type_from_payload,
     )
 
@@ -82,7 +82,7 @@ def run_sync_lists_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", f"Initializing TikTok {list_type} sync on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.automation.sync_lists.agent_handler import (
             SyncAccountUnknownError,
             run_tiktok_sync_lists,
         )

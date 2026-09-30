@@ -421,7 +421,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
     two = modules["taktik/core/compat/selectors/setup.py"]
     without_tiktok = tuple(s for s in two.statements
                            if not any(t.startswith("taktik.core.social_media.tiktok") for t in s.targets))
-    signup = modules["taktik/core/social_media/tiktok/workflows/management/signup/signup_workflow.py"]
+    signup = modules["taktik/core/social_media/tiktok/workflows/account/signup_workflow.py"]
     without_gmail = tuple(s for s in signup.statements
                           if not any(t.startswith("taktik.core.social_media.gmail") for t in s.targets))
     return {
@@ -442,7 +442,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
             "taktik/core/social_media/tiktok/fake.py", "from taktik.core.social_media.instagram.ui import selectors\n",
             "(platforms-independent)"),
         "a new platform imports an existing one": fake(
-            "taktik/core/social_media/newplatform/fake.py", "import taktik.core.social_media.tiktok.core\n",
+            "taktik/core/social_media/newplatform/fake.py", "import taktik.core.social_media.tiktok\n",
             "(platforms-independent)"),
         "a transverse family imports a platform": fake(
             "taktik/core/clone/fake.py", "from taktik.core.social_media.instagram import ui\n",
@@ -451,7 +451,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
             "taktik/core/kernel/fake.py", "from taktik.core.social_media.instagram import ui\n",
             "(transverse-no-platform)"),
         "the contract imports a platform": fake(
-            "taktik/core/contract/fake.py", "import taktik.core.social_media.tiktok.core\n",
+            "taktik/core/contract/fake.py", "import taktik.core.social_media.tiktok\n",
             "(transverse-no-platform)"),
         "the AI imports a platform lazily": fake(
             "taktik/core/ai/comments/fake.py",
@@ -468,7 +468,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
             "from taktik.core.social_media.gmail.workflows.account import GmailWorkflow\n",
             "(platforms-independent)"),
         "the provider imports a platform it serves": fake(
-            "taktik/core/social_media/gmail/fake.py", "import taktik.core.social_media.tiktok.core\n",
+            "taktik/core/social_media/gmail/fake.py", "import taktik.core.social_media.tiktok\n",
             "(platforms-independent)"),
         "a provider edge no import uses any more": listed(
             replace(signup, statements=without_gmail), "no longer imports the provider"),
@@ -522,7 +522,7 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
 def deep_relative_caught(modules: Mapping[str, SourceModule]) -> bool:
     """A new relative import of 3 dots turns the ratchet red, against the counts of the real tree."""
     path = "taktik/core/social_media/tiktok/actions/atomic/interaction/fake.py"
-    fake = {**modules, path: read_module(path, "from ...core.utils import parse_count\n")}
+    fake = {**modules, path: read_module(path, "from ...base.utils import parse_count\n")}
     failures, _stale = compare(deep_relative_counts(fake), deep_relative_counts(modules), DEEP_RELATIVE.noun)
     return any(path in failure for failure in failures)
 

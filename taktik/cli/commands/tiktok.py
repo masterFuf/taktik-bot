@@ -5,7 +5,7 @@ from rich.panel import Panel
 
 from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.manager import InstagramManager
-from taktik.core.social_media.tiktok.core.manager import TikTokManager
+from taktik.core.social_media.tiktok.manager import TikTokManager
 from taktik.cli.support import language
 from taktik.cli.support.database import open_database
 

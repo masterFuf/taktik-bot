@@ -26,7 +26,7 @@ def run_scraping_workflow(config: Dict[str, Any]) -> bool:
     send_status("starting", "Initializing TikTok Scraping workflow")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.scraping.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.scraping.agent_handler import (
             run_tiktok_scraping,
         )
 

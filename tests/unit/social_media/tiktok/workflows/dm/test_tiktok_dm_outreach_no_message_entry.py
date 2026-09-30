@@ -20,10 +20,10 @@ import pytest
 from uiautomator2.xpath import XPathEntry
 
 import taktik.core.shared.actions.base_action as shared_base_action
-import taktik.core.social_media.tiktok.actions.core.base_action as tiktok_base_action
+import taktik.core.social_media.tiktok.actions.base.base_action as tiktok_base_action
 from taktik.core.compat.selectors.setup import apply_version_overrides
 from taktik.core.shared.diagnostics import miss_capture
-from taktik.core.social_media.tiktok.actions.business.workflows.dm import outreach
+from taktik.core.social_media.tiktok.workflows.dm import outreach
 from taktik.core.social_media.tiktok.ui.selectors.locales import active_locale, set_active_locale
 from unit.paths import CORE
 

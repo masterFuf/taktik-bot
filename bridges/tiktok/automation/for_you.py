@@ -29,7 +29,7 @@ def _bridge_log(level: str, message: str) -> None:
 
 def _startup(device_id: str):
     def start():
-        from taktik.core.social_media.tiktok.workflows.runtime.startup import TikTokStartup
+        from taktik.core.social_media.tiktok.workflows.common.startup import TikTokStartup
 
         manager, bot_username = tiktok_startup(device_id, fetch_profile=True)
         return TikTokStartup(device=manager.device_manager.device, bot_username=bot_username)
@@ -60,7 +60,7 @@ def run_for_you_workflow(config: Dict[str, Any]):
     send_status("starting", f"Initializing TikTok For You workflow on {device_id}")
 
     try:
-        from taktik.core.social_media.tiktok.actions.business.workflows.for_you.agent_handler import (
+        from taktik.core.social_media.tiktok.workflows.automation.for_you.agent_handler import (
             run_tiktok_for_you,
         )
 

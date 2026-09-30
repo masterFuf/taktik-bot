@@ -29,7 +29,7 @@ Every selector asked of a photo is told to the observers of its source (`Snapsho
 `facade.observe_snapshots`): the Lab traces see a photo's questions as they saw `d.xpath()`'s.
 
 The layer and its proof (`scripts/lab/check_snapshot_equality.py`) are step 1. Step 2 wires it into
-TikTok: its waiting probes take one photo per turn (`tiktok/actions/core/base_action.py`), and a
+TikTok: its waiting probes take one photo per turn (`tiktok/actions/base/base_action.py`), and a
 feed decision is read on one photo (`read_screen`, `tiktok/actions/atomic/detection/`). The
 shared layer imports no platform module.
 """

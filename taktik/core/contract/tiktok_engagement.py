@@ -15,7 +15,7 @@ from .tiktok import TIKTOK_DM_OUTREACH
 from .tiktok_automation import AI_SETTINGS
 from .tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
 
-_WORKFLOWS = "taktik.core.social_media.tiktok.actions.business.workflows"
+_WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
 _DM = f"{_WORKFLOWS}.dm.payload"
 _INBOX = f"{_WORKFLOWS}.dm.inbox_payload"
 _INBOX_LAUNCHER = f"{_WORKFLOWS}.dm.inbox_agent_handler:run_tiktok_inbox"
@@ -69,13 +69,13 @@ TIKTOK_SYNC = WorkflowContract(
     name="TikTokSync",
     bridge="tiktok_bridge",
     doc="Read the acting account's own following and/or followers list into the follow graph.",
-    launcher=f"{_WORKFLOWS}.sync_lists.agent_handler:run_tiktok_sync_lists",
-    reader=f"{_WORKFLOWS}.sync_lists.payload:sync_config_from_payload",
+    launcher=f"{_WORKFLOWS}.automation.sync_lists.agent_handler:run_tiktok_sync_lists",
+    reader=f"{_WORKFLOWS}.automation.sync_lists.payload:sync_config_from_payload",
     reader_kwargs={"list_type": "following"},
     settings=(
         Field("listType", OneOf(("following", "followers", "both")), "Which list(s) to read.",
               default=Computed("the list of the workflow type, else following"), aliases=("list_type",),
-              reader=f"{_WORKFLOWS}.sync_lists.payload:list_type_from_payload"),
+              reader=f"{_WORKFLOWS}.automation.sync_lists.payload:list_type_from_payload"),
         Field("incremental", "bool", "Stop a list at the first account already known.", default=True,
               attr="incremental"),
         Field("maxScrolls", "int", "Scrolls of a list, at most.", default=60, aliases=("max_scrolls",),
@@ -89,7 +89,7 @@ TIKTOK_SYNC = WorkflowContract(
         Field("maxDelay", "number", "Longest pause between two scrolls, in seconds.", default=1.4,
               aliases=("max_delay",), attr="max_delay"),
         Field("botUsername", "string", "The acting account, when the phone does not show it.",
-              aliases=("bot_username",), reader=f"{_WORKFLOWS}.followers.payload:bot_username_from_payload"),
+              aliases=("bot_username",), reader=f"{_WORKFLOWS}.automation.followers.payload:bot_username_from_payload"),
     ),
     bridge_fields=_dispatch("sync_following", "sync_followers", "sync_lists"),
     events=(

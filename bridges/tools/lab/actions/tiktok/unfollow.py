@@ -15,8 +15,8 @@ Open our following list first (`tt.followers.open_own_following`).
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
-from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.models import UnfollowConfig
-from taktik.core.social_media.tiktok.actions.business.workflows.unfollow.workflow import UnfollowWorkflow
+from taktik.core.social_media.tiktok.workflows.automation.unfollow.models import UnfollowConfig
+from taktik.core.social_media.tiktok.workflows.automation.unfollow.workflow import UnfollowWorkflow
 from taktik.core.social_media.tiktok.services.followers.stop_policy import normalize_username
 from taktik.core.social_media.tiktok.ui.labels import classify_follow_button
 

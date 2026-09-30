@@ -22,8 +22,8 @@ def cli_tiktok_startup(device: Any, device_id: str) -> Callable[..., Any]:
 
     def start():
         from taktik.core.social_media.tiktok import TikTokManager
-        from taktik.core.social_media.tiktok.workflows.runtime.notifier import LoggingWorkflowNotifier
-        from taktik.core.social_media.tiktok.workflows.runtime.startup import (
+        from taktik.core.social_media.tiktok.workflows.common.notifier import LoggingWorkflowNotifier
+        from taktik.core.social_media.tiktok.workflows.common.startup import (
             TikTokStartup,
             start_tiktok_session,
         )
@@ -75,7 +75,7 @@ def cli_tiktok_ai_hooks(ai_config: Mapping[str, Any], language: str) -> None:
     if ai_config is None:
         return
 
-    from taktik.core.social_media.tiktok.workflows.core.ai_hooks import install_profile_ai_hooks_for_run
+    from taktik.core.social_media.tiktok.workflows.common.ai_hooks import install_profile_ai_hooks_for_run
 
     install_profile_ai_hooks_for_run(ai_config, language, log=_log)
 
@@ -88,7 +88,7 @@ def cli_tiktok_welcome_qualifier(ai_config: Mapping[str, Any], language: str):
         return None
 
     from taktik.core.ai.factory import create_ai_service
-    from taktik.core.social_media.tiktok.workflows.core.ai_hooks import build_tiktok_profile_qualifier
+    from taktik.core.social_media.tiktok.workflows.common.ai_hooks import build_tiktok_profile_qualifier
 
     enabled, service = create_ai_service(
         ai_config=ai_config, log=_log, ready_message="TikTok AI mode enabled - Profile relevance verdict"
@@ -106,7 +106,7 @@ def cli_tiktok_outreach_message_generator(ai_prompt: str, api_key: str):
         logger.warning(f"AI requested but no OpenRouter key ({OPENROUTER_KEY_ENV}): this run goes on without AI")
         return None
 
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (
+    from taktik.core.social_media.tiktok.workflows.dm.outreach_message import (
         outreach_message_generator,
     )
 

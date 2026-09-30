@@ -6,7 +6,7 @@ Extracted from detection_actions.py — contains only popup-presence checks.
 
 from loguru import logger
 
-from taktik.core.social_media.tiktok.actions.core.base_action import BaseAction
+from taktik.core.social_media.tiktok.actions.base.base_action import BaseAction
 from taktik.core.social_media.tiktok.ui.selectors.shell.popups import POPUP_SELECTORS
 
 

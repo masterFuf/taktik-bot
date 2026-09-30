@@ -14,10 +14,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from taktik.core.social_media.tiktok.actions.business.workflows.notifications.payload import (
+from taktik.core.social_media.tiktok.workflows.notifications.payload import (
     NotificationsSettings,
 )
-from taktik.core.social_media.tiktok.actions.business.workflows.notifications.workflow import (
+from taktik.core.social_media.tiktok.workflows.notifications.workflow import (
     run_notifications_pass,
 )
 
@@ -132,7 +132,7 @@ def phone(monkeypatch):
     monkeypatch.setattr(TikTokFollowGraphService, "record_follow", staticmethod(record_follow), raising=False)
     monkeypatch.setattr(tiktok_dm, "record_say_hello", record_say_hello, raising=False)
     # No refusal on this phone: the block look has its own tests.
-    from taktik.core.social_media.tiktok.actions.business.workflows.notifications import workflow
+    from taktik.core.social_media.tiktok.workflows.notifications import workflow
     monkeypatch.setattr(workflow, "_refused", lambda device, action, target: False)
     return phone
 

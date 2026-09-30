@@ -5,7 +5,7 @@ an `account_result` message, and owns none of the UI logic.
 """
 
 from bridges.tiktok.common.ipc import send_error, send_log, send_message, send_status
-from taktik.core.social_media.tiktok.workflows.management.agent_handler import (
+from taktik.core.social_media.tiktok.workflows.account.agent_handler import (
     TIKTOK_ACCOUNT_CHANGE_LANGUAGE_WORKFLOW_ID,
 )
 

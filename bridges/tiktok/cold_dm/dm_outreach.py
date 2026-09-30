@@ -50,7 +50,7 @@ class BridgeNotifier:
 
 def _message_generator(ai_prompt: str, api_key: str):
     """The core's AI message per recipient, its cost reported on stdout (`ai_spend`)."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.outreach_message import (
+    from taktik.core.social_media.tiktok.workflows.dm.outreach_message import (
         outreach_message_generator,
     )
 
@@ -59,7 +59,7 @@ def _message_generator(ai_prompt: str, api_key: str):
 
 def run_dm_outreach_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok DM outreach workflow. Raises what the launcher refuses."""
-    from taktik.core.social_media.tiktok.actions.business.workflows.dm.agent_handler import (
+    from taktik.core.social_media.tiktok.workflows.dm.agent_handler import (
         run_tiktok_dm_outreach,
     )
 

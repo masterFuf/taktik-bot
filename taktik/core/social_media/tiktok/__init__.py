@@ -13,12 +13,14 @@ Main components:
 
 """
 
-from taktik.core.social_media.tiktok.core.manager import TikTokManager
+from taktik.core.social_media.tiktok.manager import TikTokManager
 from taktik.core.social_media.tiktok.actions import (
     ClickActions,
     NavigationActions,
     ScrollActions,
     DetectionActions,
+)
+from taktik.core.social_media.tiktok.workflows.automation.for_you import (
     ForYouWorkflow,
     ForYouConfig,
     ForYouStats,

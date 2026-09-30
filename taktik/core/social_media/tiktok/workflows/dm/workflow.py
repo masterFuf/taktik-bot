@@ -1,0 +1,781 @@
+"""DM Workflow for TikTok automation.
+
+
+Automates the direct messages:
+- read the conversations
+- send replies, manual or generated
+- handle the group conversations
+"""
+
+from typing import Optional, Dict, Any, List, Callable
+from loguru import logger
+import time
+
+from taktik.core.social_media.tiktok.workflows.common.base_workflow import BaseTikTokWorkflow
+from taktik.core.social_media.tiktok.actions.atomic.messaging.dm_actions import DMActions
+from taktik.core.social_media.tiktok.workflows.dm.models import DMConfig, DMStats, ConversationData
+
+
+class DMWorkflow(BaseTikTokWorkflow):
+    """TikTok DM automation workflow.
+    
+    Inherits from BaseTikTokWorkflow:
+        - atomic actions (click, navigation, scroll, detection)
+        - popup handler + _handle_popups
+        - lifecycle (stop/pause/resume/_wait_if_paused)
+        - _send_stats_update, set_on_stats_callback
+    
+    Adds:
+        - DMActions for DM-specific interactions
+        - DM-specific callbacks and progress tracking
+    """
+
+    # The inbox is this workflow's destination, not an accident: without this the popup
+    # handler would leave the very screen it came to read, and every run would return
+    # nothing at all.
+    OWNED_SURFACES = frozenset({'inbox_page'})
+
+    def __init__(self, device, config: Optional[DMConfig] = None):
+        """Initialize the workflow.
+        
+        Args:
+            device: Device facade for UI interactions
+            config: Optional configuration, uses defaults if not provided
+        """
+        super().__init__(device, module_name="tiktok-dm-workflow")
+        self.config = config or DMConfig()
+        self.stats = DMStats()
+        
+        # DM-specific atomic actions
+        self.dm = DMActions(device)
+        
+        # DM-specific callbacks
+        self._on_conversation_callback: Optional[Callable] = None
+        self._on_message_sent_callback: Optional[Callable] = None
+        self._on_progress_callback: Optional[Callable] = None
+        # New-followers callbacks
+        self._on_new_follower_callback: Optional[Callable] = None
+        self._on_follow_back_result_callback: Optional[Callable] = None
+        # Unanswered-conversations callback
+        self._on_unreplied_callback: Optional[Callable] = None
+        # Message-requests callbacks
+        self._on_message_request_callback: Optional[Callable] = None
+        self._on_request_result_callback: Optional[Callable] = None
+        # Activity feed callback, read-only
+        self._on_notification_callback: Optional[Callable] = None
+        
+        # DM-specific state
+        self._conversations: List[ConversationData] = []
+    
+    def set_on_conversation_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Set callback called for each conversation read."""
+        self._on_conversation_callback = callback
+    
+    def set_on_message_sent_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Set callback called when a message is sent."""
+        self._on_message_sent_callback = callback
+    
+    def set_on_progress_callback(self, callback: Callable[[int, int, str], None]):
+        """Set callback for progress updates (current, total, name)."""
+        self._on_progress_callback = callback
+    
+    def _send_progress_update(self, current: int, total: int, name: str):
+        """Send progress update via callback."""
+        if self._on_progress_callback:
+            try:
+                self._on_progress_callback(current, total, name)
+            except Exception as e:
+                self.logger.warning(f"Error sending progress: {e}")
+    
+    # ==========================================================================
+    # MAIN WORKFLOW: READ CONVERSATIONS
+    # ==========================================================================
+    
+    def read_conversations(self) -> List[ConversationData]:
+        """Read conversations from inbox.
+        
+        Reads AT LEAST the requested number of conversations by scrolling
+        through the inbox to load more if needed.
+        
+        Returns:
+            List of ConversationData objects
+        """
+        self._running = True
+        self._conversations = []
+        self.stats = DMStats()
+        read_names = set()  # Track already read conversations to avoid duplicates
+        
+        self.logger.info("📥 Starting DM reading workflow")
+        target_count = self.config.max_conversations
+        self.logger.info(f"🎯 Target: read at least {target_count} conversations")
+        
+        try:
+            # Navigate to inbox
+            if not self._ensure_on_inbox():
+                self.logger.error("Failed to navigate to inbox")
+                return []
+            
+            max_scroll_attempts = 10  # Prevent infinite scrolling
+            scroll_attempts = 0
+            no_new_items_count = 0
+            
+            while self.stats.conversations_read < target_count and self._running:
+                self._handle_popups()
+                
+                # Get visible inbox items
+                inbox_items = self.dm.get_inbox_items()
+                self.logger.info(f"📋 Found {len(inbox_items)} visible items in inbox")
+
+                # An empty inbox and an inbox that did not render are the same silence. Only one
+                # of them means "this account has no conversations", and reporting the wrong one
+                # sends the operator looking for a problem that is not there.
+                if not inbox_items and self.dm.is_showing_people_suggestions():
+                    self.logger.error(
+                        "L'onglet Messages affiche des suggestions d'abonnement, pas la liste "
+                        "des conversations — rien n'a pu être lu. Un redémarrage de TikTok "
+                        "ramène la liste."
+                    )
+                    break
+                
+                # Filter items
+                new_conversations = []
+                for item in inbox_items:
+                    name = item.get('name', '')
+                    
+                    # Skip already read
+                    if name in read_names:
+                        continue
+                    
+                    if item['type'] == 'notification':
+                        if self.config.skip_notifications:
+                            self.stats.notifications_skipped += 1
+                            continue
+                    
+                    if item.get('is_group', False) and self.config.skip_groups:
+                        self.stats.groups_skipped += 1
+                        continue
+                    
+                    if self.config.only_unread and item.get('unread_count', 0) == 0:
+                        continue
+                    
+                    new_conversations.append(item)
+                
+                if not new_conversations:
+                    no_new_items_count += 1
+                    if no_new_items_count >= 3:
+                        self.logger.info("No more new conversations found after scrolling")
+                        break
+                    
+                    # Scroll to load more
+                    self.logger.debug("Scrolling to load more conversations...")
+                    self.dm.scroll_inbox('down')
+                    time.sleep(1)
+                    scroll_attempts += 1
+                    
+                    if scroll_attempts >= max_scroll_attempts:
+                        self.logger.warning("Max scroll attempts reached")
+                        break
+                    continue
+                
+                no_new_items_count = 0  # Reset counter when we find new items
+                
+                # Read new conversations
+                for item in new_conversations:
+                    if not self._running:
+                        break
+                    
+                    if self.stats.conversations_read >= target_count:
+                        break
+                    
+                    name = item.get('name', 'Unknown')
+                    read_names.add(name)
+                    
+                    self._send_progress_update(
+                        self.stats.conversations_read + 1, 
+                        target_count, 
+                        name
+                    )
+                    
+                    conv_data = self._read_single_conversation(item)
+                    if conv_data:
+                        self._conversations.append(conv_data)
+                        self.stats.conversations_read += 1
+                        
+                        # Send callback
+                        if self._on_conversation_callback:
+                            try:
+                                self._on_conversation_callback(conv_data.to_dict())
+                            except Exception as e:
+                                self.logger.warning(f"Callback error: {e}")
+                    
+                    self._send_stats_update()
+                    
+                    # Delay between conversations
+                    time.sleep(self.config.delay_between_conversations)
+                
+                # If we still need more, scroll
+                if self.stats.conversations_read < target_count:
+                    self.logger.debug(f"Read {self.stats.conversations_read}/{target_count}, scrolling for more...")
+                    self.dm.scroll_inbox('down')
+                    time.sleep(1)
+                    scroll_attempts += 1
+                    
+                    if scroll_attempts >= max_scroll_attempts:
+                        self.logger.warning("Max scroll attempts reached")
+                        break
+            
+            self.logger.info(f"✅ Read {self.stats.conversations_read} conversations")
+            
+        except Exception as e:
+            self.logger.error(f"Error in DM workflow: {e}")
+            self.stats.errors += 1
+        
+        self._running = False
+        return self._conversations
+    
+    def _ensure_on_inbox(self) -> bool:
+        """Ensure we're on the inbox page."""
+        if self.dm.is_on_inbox_page():
+            return True
+        
+        return self.dm.navigate_to_inbox()
+    
+    def _read_single_conversation(self, item: Dict[str, Any]) -> Optional[ConversationData]:
+        """Read a single conversation.
+        
+        Args:
+            item: Inbox item data
+            
+        Returns:
+            ConversationData or None if failed
+        """
+        name = item.get('name', 'Unknown')
+        self.logger.debug(f"📖 Reading conversation: {name}")
+        
+        try:
+            # Click on conversation
+            if not self.dm.click_conversation(name):
+                self.logger.warning(f"Failed to open conversation: {name}")
+                return None
+            
+            # Wait for conversation to load
+            time.sleep(0.5)
+            
+            # Close sticker suggestion if present
+            if self.config.close_sticker_suggestions:
+                self.dm.close_sticker_suggestion()
+            
+            # Get conversation info
+            conv_info = self.dm.get_conversation_info()
+            
+            # Get messages
+            messages = self.dm.get_messages(limit=20)
+            self.stats.messages_read += len(messages)
+            
+            # Create conversation data
+            conv_data = ConversationData(
+                name=conv_info.get('name') or name,
+                is_group=conv_info.get('is_group', item.get('is_group', False)),
+                member_count=conv_info.get('member_count'),
+                messages=messages,
+                last_message=item.get('last_message'),
+                timestamp=item.get('timestamp'),
+                unread_count=item.get('unread_count', 0),
+                can_reply=True,
+            )
+            
+            # Go back to inbox
+            self.dm.go_back_to_inbox()
+            time.sleep(0.3)
+            
+            return conv_data
+            
+        except Exception as e:
+            self.logger.error(f"Error reading conversation {name}: {e}")
+            self.stats.errors += 1
+            
+            # Try to go back to inbox
+            try:
+                self.dm.go_back_to_inbox()
+            except Exception:
+                pass
+            
+            return None
+    
+    # ==========================================================================
+    # SEND MESSAGES
+    # ==========================================================================
+    
+    def send_message(self, conversation_name: str, message: str) -> bool:
+        """Send a message to a conversation.
+        
+        Args:
+            conversation_name: Name of the conversation (username or group name)
+            message: Message text to send
+            
+        Returns:
+            True if message was sent successfully
+        """
+        self.logger.info(f"📤 Sending message to {conversation_name}")
+        
+        try:
+            # Ensure on inbox
+            if not self._ensure_on_inbox():
+                self.logger.error("Failed to navigate to inbox")
+                return False
+            
+            # Open conversation
+            if not self.dm.click_conversation(conversation_name):
+                self.logger.warning(f"Failed to open conversation: {conversation_name}")
+                return False
+            
+            time.sleep(0.5)
+            
+            # Close sticker suggestion if present
+            if self.config.close_sticker_suggestions:
+                self.dm.close_sticker_suggestion()
+            
+            # Send message
+            if not self.dm.send_text_message(message):
+                self.logger.warning(f"Failed to send message to {conversation_name}")
+                return False
+            # Refused: not a sent message, and no way back to the inbox (it would close the dialog).
+            if self._stop_if_action_blocked(conversation_name, 'dm'):
+                return False
+            
+            self.stats.messages_sent += 1
+            self._send_stats_update()
+            
+            # Callback
+            if self._on_message_sent_callback:
+                try:
+                    self._on_message_sent_callback({
+                        'conversation': conversation_name,
+                        'message': message,
+                        'success': True,
+                    })
+                except Exception as e:
+                    self.logger.warning(f"Callback error: {e}")
+            
+            time.sleep(self.config.delay_after_send)
+            
+            # Go back to inbox
+            self.dm.go_back_to_inbox()
+            
+            self.logger.info(f"✅ Message sent to {conversation_name}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error sending message to {conversation_name}: {e}")
+            self.stats.errors += 1
+            
+            # Try to go back to inbox
+            try:
+                if not self._halted():
+                    self.dm.go_back_to_inbox()
+            except Exception:
+                pass
+            
+            return False
+    
+    def send_bulk_messages(
+        self, 
+        messages: List[Dict[str, str]]
+    ) -> List[Dict[str, Any]]:
+        """Send multiple messages to different conversations.
+        
+        Args:
+            messages: List of dicts with 'conversation' and 'message' keys
+            
+        Returns:
+            List of results with 'conversation', 'success', and optional 'error'
+        """
+        results = []
+        total = len(messages)
+        
+        self.logger.info(f"📤 Sending {total} messages")
+        
+        for idx, msg_data in enumerate(messages):
+            if self._halted():
+                self.logger.warning("Run stop requested: no more messages")
+                break
+            conversation = msg_data.get('conversation', '')
+            message = msg_data.get('message', '')
+            
+            if not conversation or not message:
+                results.append({
+                    'conversation': conversation,
+                    'success': False,
+                    'error': 'Missing conversation or message',
+                })
+                continue
+            
+            self._send_progress_update(idx + 1, total, conversation)
+            
+            success = self.send_message(conversation, message)
+            results.append({
+                'conversation': conversation,
+                'success': success,
+                'error': None if success else 'Failed to send',
+            })
+            
+            # Delay between messages
+            if idx < total - 1:
+                time.sleep(self.config.delay_between_conversations)
+        
+        sent_count = sum(1 for r in results if r['success'])
+        self.logger.info(f"✅ Sent {sent_count}/{total} messages")
+        
+        return results
+    
+    # ==========================================================================
+    # GETTERS
+    # ==========================================================================
+    
+    def get_stats(self) -> DMStats:
+        """Get current stats."""
+        return self.stats
+
+    # ==========================================================================
+    # NEW FOLLOWERS: scrape the list, then follow back the selected ones
+    # ==========================================================================
+
+    def set_on_new_follower_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback invoked for each scraped new follower."""
+        self._on_new_follower_callback = callback
+
+    def set_on_follow_back_result_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback invoked for each follow-back result."""
+        self._on_follow_back_result_callback = callback
+
+    def read_new_followers(self, max_items: int = 50) -> List[Dict[str, Any]]:
+        """Open the new-followers page and scrape the list WITHOUT acting.
+
+        Scrolls to load more up to ``max_items``, or until exhaustion, emitting each
+        follower through the callback.
+
+        Returns:
+            List of {username, activity, can_follow_back}
+        """
+        self._running = True
+        self.logger.info("👥 Lecture des nouveaux followers")
+
+        try:
+            self._handle_popups()
+
+            if not self.dm.open_new_followers_page():
+                self.logger.error("Impossible d'ouvrir la page des nouveaux followers")
+                return []
+
+            seen: set = set()
+            collected: List[Dict[str, Any]] = []
+            scroll_budget = 10
+            no_new = 0
+
+            while len(collected) < max_items and self._running:
+                added_this_pass = 0
+                for fol in self.dm.get_new_followers(max_items):
+                    name = fol.get('username', '')
+                    if not name or name in seen:
+                        continue
+                    seen.add(name)
+                    collected.append(fol)
+                    added_this_pass += 1
+                    if self._on_new_follower_callback:
+                        try:
+                            self._on_new_follower_callback(fol)
+                        except Exception as e:
+                            self.logger.warning(f"Callback new_follower erreur: {e}")
+                    if len(collected) >= max_items:
+                        break
+
+                if added_this_pass == 0:
+                    no_new += 1
+                    if no_new >= 3:
+                        break
+                else:
+                    no_new = 0
+
+                if len(collected) < max_items:
+                    self.dm.scroll_inbox('down')
+                    time.sleep(1)
+                    scroll_budget -= 1
+                    if scroll_budget <= 0:
+                        break
+
+            self.logger.info(f"✅ {len(collected)} nouveaux followers listés")
+            return collected
+
+        except Exception as e:
+            self.logger.error(f"Erreur lecture nouveaux followers: {e}")
+            return []
+
+    def follow_back_users(self, usernames: List[str]) -> List[Dict[str, Any]]:
+        """Follow back the selected followers, by username.
+
+        Re-opens the dedicated page, then taps the follow-back button for each name.
+        Emits one result per name through the callback.
+
+        Returns:
+            List of {username, success}
+        """
+        self._running = True
+        results: List[Dict[str, Any]] = []
+
+        if not usernames:
+            return results
+
+        self.logger.info(f"➕ Follow-back de {len(usernames)} follower(s)")
+
+        try:
+            self._handle_popups()
+            if not self.dm.open_new_followers_page():
+                self.logger.error("Impossible d'ouvrir la page des nouveaux followers")
+                for name in usernames:
+                    res = {'username': name, 'success': False, 'error': 'page_unavailable'}
+                    results.append(res)
+                    self._emit_follow_back_result(res)
+                return results
+
+            for name in usernames:
+                if not self._running or self._halted():
+                    break
+                ok = False
+                try:
+                    ok = self.dm.follow_back(name)
+                except Exception as e:
+                    self.logger.warning(f"Follow-back {name} erreur: {e}")
+                if ok and self._stop_if_action_blocked(name, 'follow back'):
+                    ok = False
+                res = {'username': name, 'success': bool(ok)}
+                results.append(res)
+                self._emit_follow_back_result(res)
+                time.sleep(self.config.delay_between_conversations)
+
+            done = sum(1 for r in results if r.get('success'))
+            self.logger.info(f"✅ Follow-back: {done}/{len(usernames)} réussis")
+            return results
+
+        except Exception as e:
+            self.logger.error(f"Erreur follow-back: {e}")
+            return results
+
+    def _emit_follow_back_result(self, result: Dict[str, Any]):
+        if self._on_follow_back_result_callback:
+            try:
+                self._on_follow_back_result_callback(result)
+            except Exception as e:
+                self.logger.warning(f"Callback follow_back_result erreur: {e}")
+
+    # ==========================================================================
+    # CONVERSATIONS NON-RÉPONDUES (Phase 2 inbox v2) — scrape + classer
+    # ==========================================================================
+
+    def set_on_unreplied_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback invoked for each listed conversation, with its unanswered flag."""
+        self._on_unreplied_callback = callback
+
+    def read_unreplied_conversations(
+        self, max_items: int = 30, only_unreplied: bool = True
+    ) -> List[Dict[str, Any]]:
+        """List the inbox conversations, flagging the unanswered ones (their last message
+        came from them), WITHOUT replying. Replying reuses the bulk-send path.
+
+        Args:
+            max_items: nombre max de conversations à parcourir.
+            only_unreplied: report only the unanswered ones, or all of them with the flag.
+
+        Returns:
+            List of {username, preview, unreplied}
+        """
+        self._running = True
+        self.logger.info("📨 Lecture des conversations (non-répondues)")
+
+        try:
+            self._handle_popups()
+            if not self._ensure_on_inbox():
+                self.logger.error("Inbox inatteignable -> non-répondus")
+                return []
+
+            seen: set = set()
+            collected: List[Dict[str, Any]] = []
+            scroll_budget = 10
+            no_new = 0
+
+            while len(collected) < max_items and self._running:
+                added = 0
+                for convo in self.dm.get_inbox_conversations(max_items):
+                    name = convo.get('username', '')
+                    if not name or name in seen:
+                        continue
+                    seen.add(name)
+                    if only_unreplied and not convo.get('unreplied'):
+                        continue
+                    collected.append(convo)
+                    added += 1
+                    if self._on_unreplied_callback:
+                        try:
+                            self._on_unreplied_callback(convo)
+                        except Exception as e:
+                            self.logger.warning(f"Callback unreplied erreur: {e}")
+                    if len(collected) >= max_items:
+                        break
+
+                if added == 0:
+                    no_new += 1
+                    if no_new >= 3:
+                        break
+                else:
+                    no_new = 0
+
+                if len(collected) < max_items:
+                    self.dm.scroll_inbox('down')
+                    time.sleep(1)
+                    scroll_budget -= 1
+                    if scroll_budget <= 0:
+                        break
+
+            self.logger.info(f"✅ {len(collected)} conversation(s) listée(s)")
+            return collected
+
+        except Exception as e:
+            self.logger.error(f"Erreur lecture non-répondus: {e}")
+            return []
+
+    # ==========================================================================
+    # DEMANDES DE MESSAGES (Phase 3 inbox v2) — scrape + accepter/refuser/répondre
+    # ==========================================================================
+
+    def set_on_message_request_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback invoked for each scraped message request."""
+        self._on_message_request_callback = callback
+
+    def set_on_request_result_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback invoked for each result (accept, decline, reply)."""
+        self._on_request_result_callback = callback
+
+    def read_message_requests(self, max_items: int = 30) -> List[Dict[str, Any]]:
+        """Open the message-requests page and list the requests WITHOUT acting.
+
+        Returns:
+            List of {username, preview, timestamp}
+        """
+        self._running = True
+        self.logger.info("📥 Reading the message requests")
+        try:
+            self._handle_popups()
+            if not self.dm.open_message_requests_page():
+                self.logger.error("Impossible d'ouvrir la page des demandes")
+                return []
+
+            requests = self.dm.get_message_requests(max_items)
+            for req in requests:
+                if self._on_message_request_callback:
+                    try:
+                        self._on_message_request_callback(req)
+                    except Exception as e:
+                        self.logger.warning(f"Callback message_request erreur: {e}")
+
+            self.logger.info(f"✅ {len(requests)} demande(s) listée(s)")
+            return requests
+        except Exception as e:
+            self.logger.error(f"Erreur lecture demandes: {e}")
+            return []
+
+    def process_message_requests(self, decisions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Apply the decisions on the selected requests.
+
+        Args:
+            decisions: list of {username, action, optional message}.
+                'accept' + message non vide → accepte puis répond (flux conversation).
+
+        Returns:
+            List of {username, action, success, replied}
+        """
+        self._running = True
+        results: List[Dict[str, Any]] = []
+        if not decisions:
+            return results
+
+        self.logger.info(f"📥 Traitement de {len(decisions)} demande(s)")
+        for decision in decisions:
+            if not self._running:
+                break
+            username = decision.get('username', '')
+            action = decision.get('action', 'accept')
+            message = (decision.get('message') or '').strip()
+            success = False
+            replied = False
+            try:
+                # Re-open the list before each request, for a clean UI state
+                if not self.dm.open_message_requests_page():
+                    raise RuntimeError('requests_page_unavailable')
+                if not self.dm.open_request(username):
+                    raise RuntimeError('request_not_found')
+
+                if action == 'decline':
+                    success = self.dm.decline_request()
+                else:  # accept (+ éventuelle réponse)
+                    success = self.dm.accept_request()
+                    if success and message:
+                        # Once accepted, we are inside the conversation, so reply
+                        if self.dm.is_in_conversation():
+                            replied = self.dm.send_text_message(message)
+                        else:
+                            self.logger.warning(f"Pas dans la conversation après accept: {username}")
+            except Exception as e:
+                self.logger.warning(f"Demande {username} erreur: {e}")
+
+            res = {'username': username, 'action': action, 'success': bool(success), 'replied': bool(replied)}
+            results.append(res)
+            if self._on_request_result_callback:
+                try:
+                    self._on_request_result_callback(res)
+                except Exception as e:
+                    self.logger.warning(f"Callback request_result erreur: {e}")
+            time.sleep(self.config.delay_between_conversations)
+
+        done = sum(1 for r in results if r.get('success'))
+        self.logger.info(f"✅ Demandes traitées: {done}/{len(decisions)}")
+        return results
+
+    # ==========================================================================
+    # ACTIVITÉ / NOTIFICATIONS SYSTÈME (Phase 4 inbox v2) — lecture seule
+    # ==========================================================================
+
+    def set_on_notification_callback(self, callback: Callable[[Dict[str, Any]], None]):
+        """Callback invoked for each read notification section."""
+        self._on_notification_callback = callback
+
+    def read_notifications(self, max_items: int = 20) -> List[Dict[str, Any]]:
+        """Read the activity and system-notification sections of the inbox (READ ONLY).
+
+        Returns:
+            List of {title, preview, category}
+        """
+        self._running = True
+        self.logger.info("🔔 Reading the activity feed")
+        try:
+            self._handle_popups()
+            if not self._ensure_on_inbox():
+                self.logger.error("Inbox inatteignable -> notifications")
+                return []
+
+            # The sections live at the TOP. Being "on the inbox" says nothing about the scroll
+            # position, and a workflow that ran before this one leaves the list scrolled down --
+            # which made this read return an empty list on an account that had notifications.
+            self.dm.scroll_inbox_to_top()
+
+            notifications = self.dm.get_inbox_notifications(max_items)
+            for notif in notifications:
+                if self._on_notification_callback:
+                    try:
+                        self._on_notification_callback(notif)
+                    except Exception as e:
+                        self.logger.warning(f"Callback notification erreur: {e}")
+
+            self.logger.info(f"✅ {len(notifications)} notification(s) lue(s)")
+            return notifications
+        except Exception as e:
+            self.logger.error(f"Erreur lecture notifications: {e}")
+            return []

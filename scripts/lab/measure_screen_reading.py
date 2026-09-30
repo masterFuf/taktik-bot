@@ -181,7 +181,7 @@ def breakdown_reads(detection) -> List[Tuple[str, Callable[[], Any]]]:
 
 def screen_kind(results: Dict[str, Any]) -> str:
     """The kind of screen the reads found, in the loop's vocabulary."""
-    from taktik.core.social_media.tiktok.actions.business.workflows._internal import BaseVideoWorkflow
+    from taktik.core.social_media.tiktok.workflows.common.base_video_workflow import BaseVideoWorkflow
 
     popups = results.get("feed.popups")
     if isinstance(popups, set) and popups and "_fallback" not in popups:
@@ -254,7 +254,7 @@ def run_measure(args) -> int:
     from taktik.core.shared.device.manager import DeviceManager
     from taktik.core.shared.telemetry import clear_telemetry_sink, configure_telemetry_sink
     from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
-    from taktik.core.social_media.tiktok.actions.business.workflows._internal.popup_handler import PopupHandler
+    from taktik.core.social_media.tiktok.workflows.common.popup_handler import PopupHandler
     from taktik.core.social_media.tiktok.ui.language import detect_and_optimize
 
     manager = DeviceManager(args.device)

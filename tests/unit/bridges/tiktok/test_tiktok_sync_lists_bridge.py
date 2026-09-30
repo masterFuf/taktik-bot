@@ -1,7 +1,7 @@
 """One runner, three workflow types — and it has to know which list it was asked for."""
 
 from bridges.tiktok.automation.dispatcher import dispatch_tiktok_workflow
-from taktik.core.social_media.tiktok.actions.business.workflows.sync_lists.payload import (
+from taktik.core.social_media.tiktok.workflows.automation.sync_lists.payload import (
     list_type_from_payload,
 )
 

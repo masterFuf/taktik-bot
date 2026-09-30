@@ -1,7 +1,7 @@
 """The list a Target Profiles run was sent is read as sent, and never invented."""
 
 from bridges.tiktok.automation.dispatcher import dispatch_tiktok_workflow
-from taktik.core.social_media.tiktok.actions.business.workflows.target_profiles.payload import (
+from taktik.core.social_media.tiktok.workflows.automation.target_profiles.payload import (
     target_profiles_from_payload,
 )
 

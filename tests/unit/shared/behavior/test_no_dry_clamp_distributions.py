@@ -94,7 +94,7 @@ def test_tap_press_time_never_sticks_to_its_minimum_nor_to_its_cap():
 # --- TikTok facade -----------------------------------------------------------------------------
 
 def test_tiktok_coordinate_jitter_has_no_rim_nor_centre_spike():
-    from taktik.core.social_media.tiktok.actions.core.device_facade import DeviceFacade
+    from taktik.core.social_media.tiktok.actions.base.device_facade import DeviceFacade
 
     offsets = [DeviceFacade._jitter_point(500, 900) for _ in range(DRAWS)]
     _assert_bounded_without_peak([x - 500 for x, _ in offsets], -8, 8)
@@ -103,7 +103,7 @@ def test_tiktok_coordinate_jitter_has_no_rim_nor_centre_spike():
 
 @pytest.mark.parametrize("scale, draws", [(0.8, DRAWS), (0.4, LIMIT_DRAWS), (1.0, LIMIT_DRAWS)])
 def test_tiktok_list_scroll_ratio_is_never_a_constant(scale, draws):
-    from taktik.core.social_media.tiktok.actions.core.device_facade import DeviceFacade
+    from taktik.core.social_media.tiktok.actions.base.device_facade import DeviceFacade
 
     values = [DeviceFacade._list_scroll_ratio(scale) for _ in range(draws)]
     _assert_bounded_without_peak(values, 0.18, 0.34)
@@ -111,7 +111,7 @@ def test_tiktok_list_scroll_ratio_is_never_a_constant(scale, draws):
 
 @pytest.mark.parametrize("distance_scale", [0.95, 1.1])
 def test_tiktok_pager_drag_does_not_pile_on_its_floor(distance_scale):
-    from taktik.core.social_media.tiktok.actions.core.device_facade import DeviceFacade
+    from taktik.core.social_media.tiktok.actions.base.device_facade import DeviceFacade
 
     values = [DeviceFacade._pager_drag_ratio(distance_scale) for _ in range(DRAWS)]
     _assert_bounded_without_peak(values, 0.56, 0.85)
