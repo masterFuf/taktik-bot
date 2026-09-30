@@ -13,7 +13,7 @@ import pytest
 
 import taktik.core.database.messaging as messaging
 import taktik.core.database.tiktok_dm as tiktok_dm
-import taktik.core.social_media.tiktok.workflows.dm.outreach as outreach_module
+import taktik.core.social_media.tiktok.workflows.cold_dm.outreach as outreach_module
 from taktik.core.social_media.tiktok.workflows.dm import welcome_pass
 from taktik.core.database.local.schemas.messaging import (
     create_messaging_indexes,

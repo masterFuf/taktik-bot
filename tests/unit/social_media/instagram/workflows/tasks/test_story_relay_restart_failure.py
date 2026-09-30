@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from taktik.core.social_media.instagram.workflows.automation.agent_handler import InstagramStartError
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 from taktik.core.social_media.instagram.workflows.tasks import agent_handler
 from taktik.core.social_media.instagram.workflows.tasks.story_relay import INSTAGRAM_LAUNCH_FAILED
 

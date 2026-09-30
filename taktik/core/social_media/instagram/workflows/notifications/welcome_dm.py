@@ -109,7 +109,7 @@ def send_welcome_dm(device, recipient: str, message: str) -> Dict[str, Any]:
     if not text:
         return {"success": False, "error": "empty message"}
 
-    from taktik.core.social_media.instagram.workflows.automation.messaging.workflow import (
+    from taktik.core.social_media.instagram.workflows.dm.messaging import (
         send_dm,
     )
 

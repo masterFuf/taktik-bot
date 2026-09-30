@@ -20,6 +20,16 @@ from loguru import logger
 HealthCheck = Callable[[], Mapping[str, Any]]
 
 
+class InstagramStartError(RuntimeError):
+    """Instagram could not be brought to a clean start; the run did not begin."""
+
+
+def _log_to_logger(level: str, message: str) -> None:
+    from loguru import logger
+
+    getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
+
+
 def package_name_from_payload(payload: Mapping[str, Any]) -> Optional[str]:
     """The Instagram package a run starts (a clone); None: the installed Instagram.
 
@@ -98,4 +108,4 @@ def start_instagram_session(
         return False
 
 
-__all__ = ["LoggingSessionNotifier", "package_name_from_payload", "start_instagram_session"]
+__all__ = ["InstagramStartError", "LoggingSessionNotifier", "package_name_from_payload", "start_instagram_session"]

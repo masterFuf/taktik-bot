@@ -59,7 +59,7 @@ def click_message(a, p):
     """Open the conversation from the open profile: the cold DM's own step
     (`open_conversation_from_profile`). A recognised profile without any message entry answers
     `no_message_entry`, the recipient a run skips; `unexpected_screen` is a failure."""
-    from taktik.core.social_media.tiktok.workflows.dm import outreach
+    from taktik.core.social_media.tiktok.workflows.cold_dm import outreach
 
     # The session's device, not a second connection.
     session = SimpleNamespace(device_manager=SimpleNamespace(connect=lambda: True, device=a.device))

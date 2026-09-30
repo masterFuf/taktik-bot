@@ -19,7 +19,11 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
+from taktik.core.social_media.instagram.workflows.common.startup import (
+    InstagramStartError,
+    _log_to_logger,
+    package_name_from_payload,
+)
 
 
 INSTAGRAM_AUTOMATION_WORKFLOW_TYPES = (
@@ -50,16 +54,6 @@ VersionProvider = Callable[[], Optional[str]]
 LogCallback = Callable[[str, str], None]
 StepRunner = Callable[[Mapping[str, Any]], Any]
 StepHook = Callable[[Mapping[str, Any], StepRunner], Any]
-
-
-class InstagramStartError(RuntimeError):
-    """Instagram could not be brought to a clean start; the run did not begin."""
-
-
-def _log_to_logger(level: str, message: str) -> None:
-    from loguru import logger
-
-    getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
 
 
 def _emit(reporter: Any, method: str, *args: Any) -> None:
@@ -269,7 +263,6 @@ def _alias(payload: dict[str, Any], name: str, alias: str) -> None:
 __all__ = [
     "INSTAGRAM_AUTOMATION_WORKFLOW_IDS",
     "INSTAGRAM_AUTOMATION_WORKFLOW_TYPES",
-    "InstagramStartError",
     "build_instagram_automation_handler",
     "instagram_automation_payload",
     "register_instagram_automation_handlers",

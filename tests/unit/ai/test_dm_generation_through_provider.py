@@ -165,7 +165,7 @@ def test_cold_dm_returns_empty_on_failure_so_the_recipient_is_skipped(http):
 
 
 def test_tiktok_outreach_goes_through_the_provider_and_reports_its_cost(http):
-    from taktik.core.social_media.tiktok.workflows.dm.outreach_message import (
+    from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import (
         generate_outreach_message,
     )
 
@@ -189,7 +189,7 @@ def test_tiktok_outreach_goes_through_the_provider_and_reports_its_cost(http):
 
 def test_tiktok_outreach_retries_a_rate_limit_instead_of_falling_back(http):
     """A 429 used to send the recipient the static list instead of the AI message."""
-    from taktik.core.social_media.tiktok.workflows.dm.outreach_message import (
+    from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import (
         generate_outreach_message,
     )
 
@@ -204,7 +204,7 @@ def test_tiktok_outreach_retries_a_rate_limit_instead_of_falling_back(http):
 
 
 def test_tiktok_outreach_returns_empty_on_failure(http):
-    from taktik.core.social_media.tiktok.workflows.dm.outreach_message import (
+    from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import (
         generate_outreach_message,
     )
 

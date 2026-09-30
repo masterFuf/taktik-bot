@@ -84,7 +84,7 @@ class PersonaAnalysisBridge(
         """The app language, on the feed the restart opens, before the profile's localized reads:
         the setup every Instagram launcher shares."""
         from taktik.core.social_media.instagram.workflows.common import runtime_setup
-        from taktik.core.social_media.instagram.workflows.automation.agent_handler import _log_to_logger
+        from taktik.core.social_media.instagram.workflows.common.startup import _log_to_logger
 
         runtime_setup.prepare_instagram_selectors(device=self.device, log=_log_to_logger)
 

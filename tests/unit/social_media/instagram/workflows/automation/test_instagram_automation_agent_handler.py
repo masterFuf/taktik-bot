@@ -2,10 +2,9 @@ import pytest
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError, package_name_from_payload
 from taktik.core.social_media.instagram.workflows.automation.agent_handler import (
     INSTAGRAM_AUTOMATION_WORKFLOW_IDS,
-    InstagramStartError,
     build_instagram_automation_handler,
     instagram_automation_payload,
     register_instagram_automation_handlers,

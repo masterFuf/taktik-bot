@@ -120,9 +120,9 @@
   "taktik/core/social_media/tiktok/workflows/automation/post_url/agent_handler.py": 8,
   "taktik/core/social_media/tiktok/workflows/automation/search/workflow.py": 11,
   "taktik/core/social_media/tiktok/workflows/automation/target_profiles/agent_handler.py": 8,
+  "taktik/core/social_media/tiktok/workflows/cold_dm/outreach_message.py": 9,
   "taktik/core/social_media/tiktok/workflows/common/profile_extractor.py": 8,
   "taktik/core/social_media/tiktok/workflows/common/startup.py": 8,
-  "taktik/core/social_media/tiktok/workflows/dm/outreach_message.py": 9,
   "taktik/core/social_media/tiktok/workflows/dm/workflow.py": 22,
   "taktik/core/social_media/tiktok/workflows/scraping/models.py": 8,
   "taktik/core/social_media/tiktok/workflows/scraping/workflow.py": 20

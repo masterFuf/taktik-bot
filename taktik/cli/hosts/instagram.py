@@ -16,7 +16,7 @@ from typing import Any, Mapping, Optional
 from loguru import logger
 
 from taktik.cli.hosts.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
-from taktik.core.social_media.instagram.workflows.automation.agent_handler import InstagramStartError
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 
 
 def _log(level: str, message: str) -> None:

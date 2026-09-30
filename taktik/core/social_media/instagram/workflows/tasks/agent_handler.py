@@ -19,8 +19,7 @@ from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.automation.agent_handler import InstagramStartError
-from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError, package_name_from_payload
 from taktik.core.social_media.instagram.workflows.tasks.story_relay import (
     DEFAULT_MAX_STORIES,
     INSTAGRAM_LAUNCH_FAILED,

@@ -291,7 +291,7 @@ def test_a_welcome_dm_walks_to_the_recipient_profile_then_writes(monkeypatch):
     left. The phone's steps are recorded at the production classes (only the screens are not read).
     """
     from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
-    from taktik.core.social_media.instagram.workflows.automation.messaging.workflow import (
+    from taktik.core.social_media.instagram.workflows.dm.messaging import (
         MessagingBusiness,
     )
     from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector

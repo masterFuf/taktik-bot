@@ -50,7 +50,7 @@ class BridgeNotifier:
 
 def _message_generator(ai_prompt: str, api_key: str):
     """The core's AI message per recipient, its cost reported on stdout (`ai_spend`)."""
-    from taktik.core.social_media.tiktok.workflows.dm.outreach_message import (
+    from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import (
         outreach_message_generator,
     )
 

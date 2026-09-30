@@ -855,9 +855,9 @@ class Rig:
         from taktik.core.social_media.tiktok.workflows.dm import (
             agent_handler as dm_handler,
             inbox_agent_handler as inbox_handler,
-            outreach as outreach_module,
             workflow as dm_workflow,
         )
+        from taktik.core.social_media.tiktok.workflows.cold_dm import outreach as outreach_module
         from taktik.core.social_media.tiktok.workflows.dm.models import (
             ConversationData,
             DMStats,
@@ -1141,7 +1141,7 @@ class Rig:
         rig = self
         mp = self.monkeypatch
 
-        from taktik.core.social_media.tiktok.workflows.dm import outreach as outreach_module
+        from taktik.core.social_media.tiktok.workflows.cold_dm import outreach as outreach_module
         from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
         real = self._real_outreach

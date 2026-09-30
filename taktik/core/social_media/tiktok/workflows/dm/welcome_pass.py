@@ -321,7 +321,7 @@ def _send_to_allowed(allowed: List[str], skipped: Dict[str, str], handles: List[
     if not allowed:
         return {"sent": False, "recipients": list(handles), "skipped": skipped, "reason": "all_skipped"}
 
-    from taktik.core.social_media.tiktok.workflows.dm import outreach
+    from taktik.core.social_media.tiktok.workflows.cold_dm import outreach
 
     manager = started.manager
     outreach_workflow = outreach.TikTokDMOutreachWorkflow(

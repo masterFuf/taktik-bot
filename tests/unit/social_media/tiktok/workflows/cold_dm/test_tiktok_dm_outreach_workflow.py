@@ -1,4 +1,4 @@
-from taktik.core.social_media.tiktok.workflows.dm import TikTokDMOutreachWorkflow
+from taktik.core.social_media.tiktok.workflows.cold_dm.outreach import TikTokDMOutreachWorkflow
 
 
 class FakeDeviceManager:

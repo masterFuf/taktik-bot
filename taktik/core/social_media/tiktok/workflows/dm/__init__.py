@@ -23,7 +23,6 @@ from taktik.core.social_media.tiktok.workflows.dm.inbox_agent_handler import (
     register_tiktok_inbox_handlers,
     run_tiktok_inbox,
 )
-from taktik.core.social_media.tiktok.workflows.dm.outreach import TikTokDMOutreachWorkflow
 from taktik.core.social_media.tiktok.workflows.dm.workflow import (
     DMWorkflow,
     DMConfig,
@@ -45,7 +44,6 @@ __all__ = [
     "DMConfig",
     "DMStats",
     "ConversationData",
-    "TikTokDMOutreachWorkflow",
     "build_tiktok_dm_handler",
     "build_tiktok_dm_outreach_handler",
     "build_tiktok_inbox_handler",

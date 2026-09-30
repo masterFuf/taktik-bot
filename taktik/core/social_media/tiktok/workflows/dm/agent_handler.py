@@ -59,7 +59,7 @@ def _default_workflow_factory() -> DMWorkflowFactory:
 
 
 def _default_outreach_factory() -> DMOutreachWorkflowFactory:
-    from taktik.core.social_media.tiktok.workflows.dm import outreach
+    from taktik.core.social_media.tiktok.workflows.cold_dm import outreach
 
     return outreach.TikTokDMOutreachWorkflow
 

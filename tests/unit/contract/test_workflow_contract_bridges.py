@@ -227,7 +227,7 @@ def test_the_unfollow_bridge_follows_its_contract(monkeypatch, lines, no_ip_rota
 
 
 def _outreach_class():
-    from taktik.core.social_media.tiktok.workflows.dm import outreach
+    from taktik.core.social_media.tiktok.workflows.cold_dm import outreach
 
     class Outreach(outreach.TikTokDMOutreachWorkflow):
         """The production workflow; only what it asks of the phone answers from a script."""

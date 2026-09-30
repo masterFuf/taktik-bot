@@ -106,7 +106,7 @@ def cli_tiktok_outreach_message_generator(ai_prompt: str, api_key: str):
         logger.warning(f"AI requested but no OpenRouter key ({OPENROUTER_KEY_ENV}): this run goes on without AI")
         return None
 
-    from taktik.core.social_media.tiktok.workflows.dm.outreach_message import (
+    from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import (
         outreach_message_generator,
     )
 

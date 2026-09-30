@@ -66,7 +66,7 @@ def _detect_app_language(runtime) -> None:
     """The app language, on the feed a clean restart opens, before the inbox's localized selectors:
     the setup every Instagram launcher shares. A reply has no restart, so it keeps what it finds."""
     from taktik.core.social_media.instagram.workflows.common import runtime_setup
-    from taktik.core.social_media.instagram.workflows.automation.agent_handler import _log_to_logger
+    from taktik.core.social_media.instagram.workflows.common.startup import _log_to_logger
 
     runtime_setup.prepare_instagram_selectors(device=getattr(runtime, "device", None), log=_log_to_logger)
 

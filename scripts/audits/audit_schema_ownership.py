@@ -12,7 +12,7 @@ base to that version at startup before it opens it. This audit refuses:
    places that may hold it, on both halves when the app sits beside the core:
      - the numbered list itself;
      - the bot's 1.9.8 steps and the app's `schema.ts` / `migrations.ts`, tied to migration 1 by
-       `tests/unit/database/test_schema_versions.py` and the app's `npm run schema:baseline`;
+       `tests/unit/database/local/versions/test_schema_versions.py` and the app's `npm run schema:baseline`;
      - the app's Turso sync (`electron/sync/`), which writes the REMOTE schema, not the local base.
    Any other file holding DDL is listed in `LISTED` with its count and what removes it. A new
    file, or one more statement in a listed file, fails until it is listed; a listed file holding
