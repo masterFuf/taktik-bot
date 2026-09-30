@@ -390,12 +390,19 @@ class SyncListsWorkflow(BaseTikTokWorkflow):
                 return
 
     def _tap_row_by_display_name(self, display_name: str) -> bool:
-        """Tap the row whose display name is exactly this one."""
+        """Tap the row whose display name is exactly this one, and never the row's own button.
+
+        The row holds its relationship button on the right: « Suivis » / « Amis » on the Following
+        list (a tap there unfollows, TikTok asks nothing), « Suivre » on the Followers list. A tap
+        sampled over the whole row landed on it several times in a hundred; it now aims only at
+        the part of the row the button leaves free.
+        """
         if not display_name:
             return False
         try:
             return bool(self.click._find_and_click(
-                self.selectors.row_selectors_for_display_name(display_name), timeout=3
+                self.selectors.row_selectors_for_display_name(display_name), timeout=3,
+                keep_out=self.selectors.follower_any_button,
             ))
         except Exception as e:
             self.logger.debug(f"Could not tap row «{display_name}»: {e}")
