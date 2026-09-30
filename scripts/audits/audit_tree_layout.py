@@ -696,10 +696,11 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
         "a runtime/ deep in the Lab": {"paths": fake(["bridges/tools/lab/actions/instagram/runtime/x.py"]),
                                        "expect": "no `runtime/` folder under `bridges/`"},
         # A vague name deep under the code, in a folder no other entry of the table describes: only `never_below`.
+        # The names are written out, not read from VAGUE_NAMES: a name dropped from the list keeps its fake.
         **{f"a {name}/ folder deep under {root}/": {"paths": fake([f"{deep}/{name}/x.py"]),
                                                      "expect": f"no `{name}/` folder under `{root}/`"}
            for root, deep in (("taktik", "taktik/core/shared"), ("bridges", "bridges/tools/lab/action_test"))
-           for name in sorted(VAGUE_NAMES)},
+           for name in ("helpers", "misc", "utils")},
         "a sub-folder in the folder of a bridge": {"paths": fake(["bridges/instagram/dm/helpers/x.py"]),
                                                    "expect": "a folder `bridges/instagram/dm/` does not list"},
         "a bridge folder out of the vocabulary": {"paths": fake(["bridges/instagram/engagement/x.py"]),
