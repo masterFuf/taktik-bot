@@ -24,6 +24,7 @@ from typing import List
 from dataclasses import dataclass, field
 
 from taktik.core.social_media.tiktok.ui.selectors.locales import L
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.video._shared import resource_ids
 
 
 @dataclass
@@ -85,6 +86,19 @@ class VideoSoundSelectors:
     sound_video_cell: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/cover")][@clickable="true"]',
     ])
+
+    #: The two buttons floated over the bottom of the page, drawn over its grid: « Ajouter à la
+    #: Story » and « Utiliser le son » (43.1.4: `tbu` [28,1873][546,2044] and `u8m`
+    #: [535,1874][1053,2044], over the third row [0,1780][1080,2088]). A cell is tapped clear of
+    #: them (`keep_out`): a tap under them opens the story editor or the camera. The clickable is
+    #: named, not its label, which is smaller than what takes the touch.
+    _buttons_over_grid_base: List[str] = field(default_factory=lambda: [
+        *resource_ids("tbu", "u8m"),
+    ])
+
+    @property
+    def buttons_over_grid(self) -> List[str]:
+        return self._buttons_over_grid_base + L("video_sound.buttons_over_grid")
 
 
 VIDEO_SOUND_SELECTORS = VideoSoundSelectors()

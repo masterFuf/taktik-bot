@@ -1134,6 +1134,10 @@ STRINGS: Dict[str, List[str]] = {
         '//*[contains(@content-desc, "post")]',
         '//*[contains(@text, "post")]',
     ],
+    # Pas d'entree « video_sound.buttons_over_grid » : aucune page de son capturee en anglais, et un
+    # libelle traduit n'est pas mesure. Les ids de la reference (43.1.4) trouvent les deux boutons
+    # quelle que soit la langue.
+
     # Voir la note francaise. Libelle anglais mesure sur appareil le 2026-08-30.
     "video_share.not_interested_button": [
         '//*[@content-desc="Not interested"]',

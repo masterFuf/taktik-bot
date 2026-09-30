@@ -209,10 +209,9 @@ class SoundActions(BaseAction):
         if index >= len(cells):
             return None
 
-        try:
-            cells[index].click()
-        except Exception as exc:
-            self.logger.debug(f"collect_sound_users: cell {index} not tappable ({exc})")
+        if not self._open_cell(index):
+            # Nothing was tapped: still on the grid, where a Back would leave the page.
+            self.logger.info(f"collect_sound_users: cell {index} skipped, not tapped")
             return None
         time.sleep(4.0)
 
@@ -233,6 +232,23 @@ class SoundActions(BaseAction):
         if not handle:
             return None
         return {"username": handle, "display_name": display_name}
+
+    def _open_cell(self, index: int) -> bool:
+        """Tap the cell at `index` of the grid, and never the buttons floated over the grid.
+
+        « Ajouter à la Story » and « Utiliser le son » are drawn over the bottom rows (43.1.4: the
+        third, from y 1873; the centre of its first cell, (179, 1934), is inside « Ajouter à la
+        Story »): a click at the centre of the cell opened the story editor. The tap aims only at
+        the part of the cell the buttons leave free, and does not tap at all when that part is too
+        small or cannot be read: the cell is skipped, and a scroll of the grid may bring it up
+        clear for the next pass.
+        """
+        return self._find_and_click(
+            self.sound_selectors.sound_video_cell,
+            nth=index,
+            timeout=2,
+            keep_out=self.sound_selectors.buttons_over_grid,
+        )
 
     def _open_video_author(self) -> bool:
         """Tap the author of the video on screen, to open the profile, and never « Suivre ».

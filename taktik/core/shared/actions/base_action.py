@@ -92,7 +92,8 @@ class SharedBaseAction:
     # =========================================================================
     
     def _find_and_click(self, selectors: Union[List[str], str], timeout: float = 5.0,
-                       human_delay: bool = True, keep_out: Optional[List[str]] = None) -> bool:
+                       human_delay: bool = True, keep_out: Optional[List[str]] = None,
+                       nth: Optional[int] = None) -> bool:
         """Find element using selectors and click it.
 
         `keep_out`: selectors of the elements this tap must never land on, when the screen draws
@@ -100,10 +101,15 @@ class SharedBaseAction:
         tap then aims only at the part of the target they leave free, read on the screen; when that
         part cannot be read or is too small, nothing is tapped and the answer is False, never a
         centre click that could land on them.
+
+        `nth`: the element at that index (0-based, in the order of the dump) of the first selector
+        that has one, instead of its first element: a cell of a grid, a row of a list.
         """
         if isinstance(selectors, str):
             selectors = [selectors]
-        
+        if nth is not None:
+            selectors = [f"({selector})[{nth + 1}]" for selector in selectors]
+
         start_time = time.time()
         last_error = None
 

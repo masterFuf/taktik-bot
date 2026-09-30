@@ -1306,6 +1306,14 @@ STRINGS: Dict[str, List[str]] = {
         '//*[contains(@content-desc, "publication")]',
         '//*[contains(@text, "publication")]',
     ],
+    # Les deux boutons poses sur le bas de la grille d'une page de son. Mesure le 2026-09-30 sur
+    # 43.1.4 (Pixel 3a) : « Ajouter à la Story » et « Utiliser le son » ; le 2026-09-29 sur 47.0.3
+    # (Pixel 6a) : « Publier en Story » et « Utiliser le son ». Le libelle ne prend pas le
+    # toucher : c'est son premier ancetre cliquable, plus grand que lui.
+    "video_sound.buttons_over_grid": [
+        '//*[@text="Ajouter à la Story" or @text="Publier en Story" or @text="Utiliser le son"]'
+        '/ancestor::*[@clickable="true"][1]',
+    ],
     # Mesure le 2026-08-30 sur 46.6.3 : « Pas interesse(e) » vit dans la feuille de partage. Le
     # tap referme la feuille ET fait defiler a la video suivante -- l'auteur change, ce qui est la
     # seule preuve lisible que le signal est parti.
