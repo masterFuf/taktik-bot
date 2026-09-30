@@ -183,6 +183,16 @@ class ProfileSelectors:
         '//*[contains(@resource-id, ":id/cover")]',
     ])
 
+    #: « Vient d'être vue », floated over the bottom of the grid once a video of the profile was
+    #: watched; it scrolls the grid to that video (46.6.3: `user_just_watched_btn`
+    #: [639,2106][1038,2206], override of that version). A cell is tapped clear of it. Never
+    #: captured on the baseline: no entry here.
+    _just_watched_button_base: List[str] = field(default_factory=list)
+
+    @property
+    def just_watched_button(self) -> List[str]:
+        return self._just_watched_button_base
+
     _video_view_count_base: List[str] = field(default_factory=lambda: [
         '//*[contains(@resource-id, ":id/xxy")]',
     ])

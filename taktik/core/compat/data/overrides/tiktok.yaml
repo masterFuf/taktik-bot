@@ -35,6 +35,13 @@ versions:
     publish_progress._publish_progress_rids:
       - '//*[contains(@resource-id, ":id/tvProgress")]'
       - '//*[contains(@resource-id, ":id/x44")]'
+    # « Vient d'être vue » over the bottom of a visited profile's grid (Pixel 6a, French, two
+    # profiles, once one of their videos was watched): the clickable `user_just_watched_btn`
+    # [639,2106][1038,2206], which scrolls the grid to that video; it covers the centre of the
+    # third cell of the last row. On none of the other 46.6.3 dumps, nor on any 43.1.4 or 47.0.3
+    # visited profile of the Lab and the corpus. No baseline entry.
+    profile._just_watched_button_base:
+      - '//*[contains(@resource-id, ":id/user_just_watched_btn")]'
   "46.9.3":
     # LIVE preview in the For You feed (Pixel 6a, 2 captures): readable ids, no author. Baseline
     # entries carried along (absent from every 46.x and 47.0.3 dump of the Lab and the corpus).

@@ -268,7 +268,7 @@
   "taktik/core/social_media/tiktok/ui/language.py": 2,
   "taktik/core/social_media/tiktok/workflows/account/signup_workflow.py": 2,
   "taktik/core/social_media/tiktok/workflows/automation/followers/filtering.py": 1,
-  "taktik/core/social_media/tiktok/workflows/automation/followers/interaction.py": 111,
+  "taktik/core/social_media/tiktok/workflows/automation/followers/interaction.py": 110,
   "taktik/core/social_media/tiktok/workflows/automation/followers/navigation.py": 86,
   "taktik/core/social_media/tiktok/workflows/automation/followers/page_detection.py": 14,
   "taktik/core/social_media/tiktok/workflows/automation/followers/profile_data.py": 19,

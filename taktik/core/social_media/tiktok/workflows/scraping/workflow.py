@@ -10,6 +10,7 @@ import time
 
 from taktik.core.shared.text import handle_from_screen_text
 
+from taktik.core.social_media.tiktok.actions.atomic.interaction.click_actions import ClickActions
 from taktik.core.social_media.tiktok.actions.atomic.navigation.navigation_actions import NavigationActions
 from taktik.core.social_media.tiktok.actions.atomic.navigation.search_actions import SearchActions
 from taktik.core.social_media.tiktok.actions.atomic.scroll.scroll_actions import ScrollActions
@@ -47,6 +48,7 @@ class ScrapingWorkflow:
         self.stats = ScrapingStats()
 
         self._base = BaseAction(device)
+        self._click = ClickActions(device)
         self._scroll = ScrollActions(device)
         self._followers_sel = FOLLOWERS_SELECTORS
         self._video_sel = VIDEO_SELECTORS
@@ -438,22 +440,21 @@ class ScrapingWorkflow:
         for index in range(budget):
             if self.stopped:
                 break
-            cells = first_matching(self.device, self._profile_sel.video_item)
+            cells = first_matching(self.device, self._followers_sel.profile_post_item)
             if index >= len(cells):
                 # Out of visible cells: scroll once and look again, then give up rather than
                 # loop. A grid that will not move has nothing more to give.
                 self._scroll.scroll_profile_videos('down')
                 time.sleep(1.5)
-                cells = first_matching(self.device, self._profile_sel.video_item)
+                cells = first_matching(self.device, self._followers_sel.profile_post_item)
                 if index >= len(cells):
                     logger.debug(f"@{username}: no cell {index} on the grid")
                     break
 
-            try:
-                cells[index].click()
-            except Exception as exc:
-                logger.debug(f"Cell {index} not tappable: {exc}")
-                break
+            if not self._click.open_profile_grid_post(index):
+                # Nothing was tapped: still on the grid, where a Back would leave the profile.
+                logger.info(f"@{username}: cell {index} skipped, not tapped")
+                continue
             time.sleep(3.5)
 
             collected = collector.collect_post()

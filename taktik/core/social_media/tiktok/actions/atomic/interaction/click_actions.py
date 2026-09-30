@@ -11,6 +11,7 @@ from loguru import logger
 from taktik.core.social_media.tiktok.actions.atomic.interaction.video_actions import VideoActions
 from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions import PopupActions
 from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
@@ -39,7 +40,23 @@ class ClickActions(VideoActions, PopupActions):
         
         self.logger.warning("Message button not found")
         return False
-    
+
+    def open_profile_grid_post(self, index: int) -> bool:
+        """Open the video at `index` (0-based) of the grid of the profile on screen.
+
+        The cells are the clickable ones of `profile_post_item`: on 43.1.4, `:id/e52` also names
+        the container of the whole page, which a list of every `e52` takes for its first cell. The
+        tap aims only at the part of the cell that nothing floated over the grid covers (46.6.3:
+        « Vient d'être vue », which scrolls the grid instead), and does not tap at all when that
+        part is too small or cannot be read.
+        """
+        return self._find_and_click(
+            FOLLOWERS_SELECTORS.profile_post_item,
+            nth=index,
+            timeout=2,
+            keep_out=PROFILE_SELECTORS.just_watched_button,
+        )
+
     # === Header Tabs (For You page) ===
     
     def click_for_you_tab(self) -> bool:

@@ -11,7 +11,6 @@ from taktik.core.social_media.tiktok.services.behavior.watch_time import video_w
 
 from taktik.core.shared.behavior.grid_entry import sample_entry_index
 from taktik.core.shared.behavior.interaction_plan import sample_like_target
-from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.telemetry.sink import emit_step
 
 from taktik.core.social_media.tiktok.workflows.common.video_comment import VideoCommentMixin
@@ -200,10 +199,8 @@ class VideoInteractionMixin(VideoCommentMixin):
                     break
             
             if index < len(posts):
-                # The cell is a thumbnail, big enough that its exact centre is a choice rather
-                # than a necessity -- so sample a point inside it, like every other tap.
-                if not tap_element_human(self.device, posts[index], logger=self.logger):
-                    posts[index].click()
+                if not self.click.open_profile_grid_post(index):
+                    return False
                 time.sleep(1)  # Wait for video to load
                 return True
             

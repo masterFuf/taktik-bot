@@ -18,6 +18,7 @@ from uiautomator2.xpath import XPathEntry
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.shared.telemetry import sink
+from taktik.core.social_media.tiktok.actions.atomic.interaction.click_actions import ClickActions
 from taktik.core.social_media.tiktok.workflows.automation.followers import interaction
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.followers import FOLLOWERS_SELECTORS
 from unit.paths import CORE
@@ -46,13 +47,13 @@ class _RawPhone:
 
 
 class _Visit(interaction.VideoInteractionMixin):
-    """A profile visit: the real `_click_profile_post`, on the raw phone."""
+    """A profile visit: the real `_click_profile_post`, with the click actions of the workflow."""
 
     def __init__(self, phone):
         self.device = phone
         self.followers_selectors = FOLLOWERS_SELECTORS
         self.logger = types.SimpleNamespace(debug=lambda *_: None, info=lambda *_: None)
-        self.click = None  # the first-post fallback is not reached: the grid has its cells
+        self.click = ClickActions(phone)
 
 
 @pytest.fixture
