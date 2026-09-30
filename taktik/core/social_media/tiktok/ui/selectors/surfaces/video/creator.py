@@ -49,6 +49,9 @@ class VideoCreatorSelectors:
     def follow_button(self) -> List[str]:
         return self._follow_button_base + L("video_creator.follow_button")
 
+    # `yx4` is the avatar, and the follow button is drawn over its bottom (43.1.4, Pixel 3a, 30/09:
+    # `hi1` [914,1027][1080,1122] over `yx4` [936,952][1057,1073]). A tap on the author passes
+    # `keep_out=follow_button`, or it follows the author about one time in four.
     author_username: List[str] = field(default_factory=lambda: [
         *resource_ids("yx4"),
         *resource_ids("title"),

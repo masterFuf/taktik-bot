@@ -218,7 +218,7 @@ class SoundActions(BaseAction):
 
         display_name = first_text(self.device, self.creator_selectors.author_username)
         handle = ""
-        if self._find_and_click(self.creator_selectors.author_username, timeout=4):
+        if self._open_video_author():
             time.sleep(3.0)
             handle = read_open_profile_handle(self.device, label=display_name, timeout=6)
             self.device.press("back")
@@ -233,6 +233,20 @@ class SoundActions(BaseAction):
         if not handle:
             return None
         return {"username": handle, "display_name": display_name}
+
+    def _open_video_author(self) -> bool:
+        """Tap the author of the video on screen, to open the profile, and never « Suivre ».
+
+        The follow button is drawn over the bottom of the avatar (43.1.4: `hi1` [914,1027][1080,1122]
+        over `yx4` [936,952][1057,1073]): a tap sampled over the whole avatar followed the author
+        about one time in four. The tap aims only at the part of the avatar the button leaves free,
+        and does not tap at all when that part cannot be read.
+        """
+        return self._find_and_click(
+            self.creator_selectors.author_username,
+            timeout=4,
+            keep_out=self.creator_selectors.follow_button,
+        )
 
     def _page_labels(self) -> List[str]:
         """Every label the sound page renders that could carry the count."""
