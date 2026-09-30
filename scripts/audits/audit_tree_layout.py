@@ -40,8 +40,8 @@ of the code, at every depth. `tests/unit/<first>/<rest>` tests `<root>/<rest>`, 
 declared by name in the entry of `tests/unit` (`one_path/`: the CLI and the bridge run the same path) and has its
 own entry; a `fixtures/` folder holds the captures of the tests next to it; a mirrored folder holds Python files
 only (a capture goes to `fixtures/`). At the root of `tests/unit/`: the tests of the package itself, of the
-repository and of the harness. `TESTS_NOT_MIRRORED` names the folders that mirror no folder of the code yet, each
-with its reason: the inside of the platforms, filed in phase 3 of the tree reorganisation.
+repository and of the harness. No folder of tests waits any more: the last ones, inside Instagram and TikTok,
+follow their code since phase 3 of the tree reorganisation (tree lots 9 and 10).
 
 The files are the ones git has or would add: tracked, or untracked and not ignored (`git ls-files --cached
 --others --exclude-standard`), still on disk. A script forgotten at the root of `scripts/` is seen before its
@@ -65,9 +65,8 @@ The gate is red when:
 - a folder named in `never_below` appears under its folder;
 - a value of the bridges manifest is out of its place or its file is gone, or a `*_bridge.py` in the folder of a
   bridge is no entry;
-- a folder of `tests/unit/` mirrors no folder of the code and is neither a declared theme suite, nor a
-  `fixtures/` folder, nor named in `TESTS_NOT_MIRRORED`; a mirrored folder holds a file that is not Python; an
-  entry of `TESTS_NOT_MIRRORED` holds no file any more, or mirrors a folder of the code now (drop it);
+- a folder of `tests/unit/` mirrors no folder of the code and is neither a declared theme suite nor a
+  `fixtures/` folder; a mirrored folder holds a file that is not Python;
 - an entry of `PLATFORMS_NOT_FILED` is no platform any more, or its inside keeps to the table now (drop it).
 
     python scripts/audits/audit_tree_layout.py              # green / red
@@ -102,11 +101,6 @@ FIXTURES = "fixtures"
 #: The roots a folder of `tests/unit/` mirrors, by its first folder; any other first folder is a family of the
 #: engine, `taktik/core/<first>` (`tests/unit/kernel/` tests `taktik/core/kernel/`).
 MIRRORED_ROOTS = {"bridges": "bridges", "cli": "taktik/cli", "scripts": "scripts"}
-
-#: Folders of `tests/unit/` that mirror no folder of the code yet, and why. The list only shrinks: an entry that
-#: holds no file, or that mirrors a folder of the code, turns the gate red.
-TESTS_NOT_MIRRORED: dict[str, str] = {
-}
 
 #: The platforms whose inside is not filed yet, and why. The two entries of LAYOUT for the inside of a platform skip
 #: them, and so does the rule `actions-no-workflows` of `audit_import_layers.py`, which reads this list. The list only
@@ -471,11 +465,9 @@ def mirrored_folder(test_folder: str) -> str:
     return f"{root}/{rest}" if rest else root
 
 
-def tests_findings(paths: Sequence[str], folders: set[str], layout: Mapping[str, Folder],
-                   not_mirrored: Mapping[str, str] = TESTS_NOT_MIRRORED) -> list[str]:
-    """Each folder of `tests/unit/` mirrors a folder of the code, or is a declared theme suite (its own entry), a
-    `fixtures/` folder or an entry of `not_mirrored` (TESTS_NOT_MIRRORED); a mirrored folder holds Python files
-    only."""
+def tests_findings(paths: Sequence[str], folders: set[str], layout: Mapping[str, Folder]) -> list[str]:
+    """Each folder of `tests/unit/` mirrors a folder of the code, or is a declared theme suite (its own entry) or a
+    `fixtures/` folder; a mirrored folder holds Python files only."""
     rule = layout.get(TESTS)
     if rule is None or CODE not in rule.folders:
         return []
@@ -488,19 +480,15 @@ def tests_findings(paths: Sequence[str], folders: set[str], layout: Mapping[str,
     errors: list[str] = []
     for folder in sorted(f for f in folders if f.startswith(f"{TESTS}/") and held_to_the_code(f)):
         code = mirrored_folder(folder)
-        if code not in folders and folder not in not_mirrored:
+        if code not in folders:
             errors.append(f"{folder}/: no folder of the code is {code}/. A test goes to the folder of the code it "
                           f"tests (`tests/unit/<family>/` for `taktik/core/<family>/`, `tests/unit/bridges/...`, "
                           f"`tests/unit/cli/`, `tests/unit/scripts/`), or to a theme suite of LAYOUT.")
-        elif code in folders and folder in not_mirrored:
-            errors.append(f"{folder}/: listed in TESTS_NOT_MIRRORED but mirrors {code}/ now, drop the entry.")
     for path in paths:
         folder, _, name = path.rpartition("/")
         if folder.startswith(f"{TESTS}/") and held_to_the_code(folder) and not name.endswith(".py"):
             errors.append(f"{path}: a folder of tests holds Python files; a capture or a recorded file goes to the "
                           f"`{FIXTURES}/` folder next to its tests.")
-    errors += [f"{folder}/: listed in TESTS_NOT_MIRRORED but holds no file, drop the entry."
-               for folder in sorted(not_mirrored) if folder not in folders]
     return errors
 
 
@@ -531,8 +519,7 @@ def not_filed_findings(paths: Sequence[str], folders: set[str], platforms: froze
 
 def check(paths: Sequence[str], is_ignored: IgnoreCheck = git_ignores, layout: Mapping[str, Folder] = LAYOUT,
           manifest: Optional[Mapping[str, Mapping[str, str]]] = None,
-          not_filed: Mapping[str, str] = PLATFORMS_NOT_FILED,
-          not_mirrored: Mapping[str, str] = TESTS_NOT_MIRRORED) -> list[str]:
+          not_filed: Mapping[str, str] = PLATFORMS_NOT_FILED) -> list[str]:
     manifest = read_manifest() if manifest is None else manifest
     platforms = platforms_of(paths)
     entries = entry_files(manifest)
@@ -546,7 +533,7 @@ def check(paths: Sequence[str], is_ignored: IgnoreCheck = git_ignores, layout: M
         if rule is not None:
             errors.extend(folder_findings(folder, rule, paths, platforms, entries, is_ignored))
     errors.extend(manifest_findings(paths, manifest, platforms, layout))
-    errors.extend(tests_findings(paths, folders, layout, not_mirrored))
+    errors.extend(tests_findings(paths, folders, layout))
     errors.extend(not_filed_findings(paths, folders, platforms, layout, not_filed))
     return errors
 
@@ -649,14 +636,6 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
                                             "expect": "a folder `tests/unit/one_path/` does not list"},
         "the theme suite gone": {"paths": fake(without="tests/unit/one_path/"),
                                  "expect": "tests/unit/one_path/: listed in LAYOUT but holds no file"},
-        # The two rules of TESTS_NOT_MIRRORED, each fake with its own list: the proof does not wait for a platform.
-        "a folder waiting for phase 3 that mirrors the code now": {
-            "paths": fake(["taktik/core/social_media/tiktok/workflows/dm/x.py"]),
-            "not_mirrored": {f"{TESTS}/social_media/tiktok/workflows/dm": "a fake entry"},
-            "expect": "mirrors taktik/core/social_media/tiktok/workflows/dm/ now, drop the entry"},
-        "a folder waiting for phase 3 gone": {
-            "paths": fake(), "not_mirrored": {f"{TESTS}/social_media/tiktok/workflows/gone": "a fake entry"},
-            "expect": "workflows/gone/: listed in TESTS_NOT_MIRRORED but holds no file"},
         "the word core back inside a filed platform": {
             "paths": fake([f"{PLATFORMS_FOLDER}/instagram/core/manager.py"]),
             "expect": f"a folder `{PLATFORMS_FOLDER}/instagram/` does not list"},
@@ -683,8 +662,7 @@ def self_test_cases(paths: Sequence[str]) -> dict[str, dict]:
 def caught(case: dict) -> bool:
     is_ignored = case.get("is_ignored", lambda _path: False)
     errors = check(case["paths"], is_ignored, manifest=case.get("manifest"),
-                   not_filed=case.get("not_filed", PLATFORMS_NOT_FILED),
-                   not_mirrored=case.get("not_mirrored", TESTS_NOT_MIRRORED))
+                   not_filed=case.get("not_filed", PLATFORMS_NOT_FILED))
     return any(case["expect"] in error for error in errors)
 
 
@@ -715,8 +693,7 @@ def main() -> int:
     platforms = platforms_of(paths)
     print(f"Tree layout OK ({len(LAYOUT)} folder(s) of the table, {len(platforms)} platforms, "
           f"{len(paths)} files, every one in its place; {len(platforms) - len(PLATFORMS_NOT_FILED)} platforms filed "
-          f"inside, {len(PLATFORMS_NOT_FILED)} wait for phase 3; the tests mirror the code, "
-          f"{len(TESTS_NOT_MIRRORED)} folders of tests wait for phase 3)")
+          f"inside, {len(PLATFORMS_NOT_FILED)} wait for phase 3; the tests mirror the code)")
     return 0
 
 

@@ -12,8 +12,8 @@ tests/unit/
   kernel/  contract/  ai/  compat/  clone/  database/  shared/
       the families of the engine: tests/unit/<family>/ tests taktik/core/<family>/
   social_media/
-      the platforms, social_media/<platform>/ (their inside is filed in phase 3 of the tree
-      reorganisation; the folders still waiting are named in the tree gate)
+      the platforms: tests/unit/social_media/<platform>/ tests taktik/core/social_media/<platform>/,
+      at every depth (tests/unit/social_media/tiktok/workflows/dm/ tests its workflows/dm/)
   bridges/
       bridges/: common/, tools/lab/ (the Cartography Lab), tools/schema/, one folder per platform
   cli/
