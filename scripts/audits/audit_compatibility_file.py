@@ -2,13 +2,14 @@
 
 COMPATIBILITY.md lists the Instagram and TikTok versions the bot supports, with a download search for
 the original APK of each. It is never written by hand: it is rendered from
-``taktik/core/compat/data/app_builds.json`` (installable builds and architectures) and
+``taktik/core/compat/data/app_builds.json`` (installable builds, their validation and architectures) and
 ``taktik/core/compat/data/overrides/<app>.yaml`` (selector reference and version adjustments), the
 same sources the desktop app generates its version list from. This audit fails when the published
 file and those sources disagree.
 
 Run: ``python scripts/audits/audit_compatibility_file.py`` (check), ``--write`` to regenerate,
-``--json`` to print the sources as the desktop app reads them.
+``--json`` to print the sources as the desktop app reads them, ``--promote <verdict.json>`` to record
+the verdict the desktop app's ``npm run lab:exit -- --promote`` hands the bot (then ``--write``).
 """
 
 from __future__ import annotations
@@ -28,21 +29,34 @@ logger.remove()
 logger.add(sys.stderr, level="WARNING")
 
 from taktik.core.compat.selectors.supported_versions import (  # noqa: E402
+    BUILDS_PATH,
     COMPATIBILITY_PATH,
     REGENERATE_COMMAND,
     CompatibilitySourceError,
     as_json,
     compatibility_file_drift,
     load_supported_versions,
+    promote_file,
     render_compatibility_markdown,
 )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--write", action="store_true", help="regenerate COMPATIBILITY.md")
     parser.add_argument("--json", action="store_true", help="print the sources as JSON")
-    args = parser.parse_args()
+    parser.add_argument("--promote", metavar="VERDICT", help="record the validation blocks of a verdict file in app_builds.json")
+    args = parser.parse_args(argv)
+
+    if args.promote:
+        try:
+            promoted = promote_file(Path(args.promote), BUILDS_PATH)
+        except CompatibilitySourceError as error:
+            print(f"[compatibility] promotion refused, app_builds.json left as it was: {error}")
+            return 1
+        names = ", ".join(f"{app} {version}" for app, version in promoted)
+        print(f"[compatibility] promoted: {names}. Now regenerate: {REGENERATE_COMMAND}")
+        return 0
 
     try:
         supported = load_supported_versions()

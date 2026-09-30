@@ -1,21 +1,164 @@
 {
-  "_comment": "Source of the app builds TAKTIK installs, newest first, and of the status of the adjusted versions (override_status: testing = adjusted by the bot, run on none of our phones: Under validation). COMPATIBILITY.md and the desktop app's version lists are generated from this file: python scripts/audits/audit_compatibility_file.py --write",
-  "architectures": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"],
+  "_comment": "Source of the app builds TAKTIK installs, newest first, and of the status of the adjusted versions (override_status: testing = under validation; adjusted = adjusted by the bot, run on none of our phones, no validation planned; absent = validated, which needs a validated build of that version). A validated build carries its validation block (the Lab runs that prove it, the decision, the known limits), recorded by python scripts/audits/audit_compatibility_file.py --promote from the desktop app's npm run lab:exit -- --promote, never by hand. COMPATIBILITY.md and the desktop app's version lists are generated from this file: python scripts/audits/audit_compatibility_file.py --write",
+  "architectures": [
+    "arm64-v8a",
+    "armeabi-v7a"
+  ],
   "apps": {
     "instagram": {
       "name": "Instagram",
-      "override_status": { "442.0.0.0": "testing", "417.0.0.0": "testing" },
+      "override_status": {
+        "442.0.0.0": "adjusted",
+        "417.0.0.0": "adjusted"
+      },
       "builds": [
-        { "version": "444.0.0.46.85", "status": "testing" },
-        { "version": "410.0.0.53.71", "status": "validated", "recommended": true }
+        {
+          "version": "447.0.0.55.81",
+          "status": "validated",
+          "validation": {
+            "date": "2026-09-30",
+            "core_commit": "508919aa582f25da8b39d03aa180010ab98d17f8",
+            "decided_by": "maintainer",
+            "runs": [
+              {
+                "device": "Pixel 6a",
+                "version_code": 385311922,
+                "abi": "arm64-v8a",
+                "language": "fr",
+                "report_sha256": "4a23549a20fcd540aa697c8a8f88eb68d4f8f4d7efac06135197b21fe3ead47f",
+                "core_commit": "071fb85f76e324044cd8098a649569107ac515de",
+                "exception": {
+                  "reason": "Instagram account of a client: no DM thread opened, no typing in a field, no story viewed, no recent search left, and no answer to Instagram's contacts access dialog (so Discover people is never entered)",
+                  "skipped_actions": [
+                    "comment.open_and_type",
+                    "dm.list_unread",
+                    "dm.open_thread",
+                    "keyboard.press_enter",
+                    "keyboard.type_human",
+                    "keyboard.type_text",
+                    "navigation.open_hashtag",
+                    "navigation.open_profile",
+                    "notifications.reply_mention",
+                    "profile.click_message_button",
+                    "publish.type_caption",
+                    "story.go_to_next",
+                    "story.go_to_previous",
+                    "story.open_from_profile",
+                    "story.open_from_tray",
+                    "story.open_highlight",
+                    "suggestions.back_to_list",
+                    "suggestions.handle_contacts_dialog",
+                    "suggestions.is_discover_screen",
+                    "suggestions.open_profile",
+                    "suggestions.open_see_all",
+                    "suggestions.scan_rows",
+                    "suggestions.scroll_list"
+                  ]
+                }
+              }
+            ],
+            "notes": {
+              "fr": "Un passage du Lab du 30/09 sur le Pixel 6a, Instagram en français, qui porte le compte d'un client : joué sans les 23 actions de son exception (aucun fil de messages ouvert, aucune frappe, aucune story vue, aucune recherche laissée, « Découvrir des personnes » jamais ouvert). Quatre échecs connus de la 447 : lecture des commentaires et de leurs auteurs, état et ouverture d'une ligne d'une liste d'abonnés. Aucun passage n'est vert au sens strict de lab:exit (fait sur le commit validé) : c'est la décision du mainteneur qui valide, avec ces preuves et ces limites. versionCode et ABI : ceux de l'APK tiré de ce téléphone le 26/09 ; le rapport ne les relevait pas encore.",
+              "en": "One Lab run of 2026-09-30 on the Pixel 6a, Instagram in French, which holds a client's account: played without the 23 actions of its exception (no message thread opened, no typing, no story viewed, no search left behind, Discover people never opened). Four known failures of 447: reading the comments and their authors, the state and the opening of a row of a followers list. No run is green in the strict sense of lab:exit (made on the validated commit): the maintainer's decision validates, with this evidence and these limits. versionCode and ABI: those of the APK pulled from this phone on 2026-09-26; the report did not record them yet."
+            }
+          }
+        },
+        {
+          "version": "410.0.0.53.71",
+          "status": "validated",
+          "recommended": true,
+          "validation": {
+            "date": "2026-09-30",
+            "core_commit": "508919aa582f25da8b39d03aa180010ab98d17f8",
+            "decided_by": "maintainer",
+            "runs": [
+              {
+                "device": "Pixel 3a",
+                "version_code": 381606582,
+                "abi": "armeabi-v7a",
+                "language": "en",
+                "report_sha256": "c25cd5e4a4121dc231330e701c2beeb5a375d94b48bbacde0a101036214500e8",
+                "core_commit": "071fb85f76e324044cd8098a649569107ac515de"
+              },
+              {
+                "device": "Pixel 3a",
+                "version_code": 381606582,
+                "abi": "armeabi-v7a",
+                "language": "en",
+                "report_sha256": "f0f9946472df2085a09c92d16c0054d59163f08de77c964f0a5f0c4b9486edb0",
+                "core_commit": "ff6d1d208753fa9c667d4def859a09947e503689"
+              }
+            ],
+            "notes": {
+              "fr": "Référence des sélecteurs. Deux passages du Lab du 30/09 sur le Pixel 3a, Instagram en anglais, variante armeabi-v7a (la seule qui ait tourné) : le premier sans échec, le second avec un échec (retour à la grille, qui dépend des tirages de la mémoire de session du Lab). Aucun passage n'est vert au sens strict de lab:exit (fait sur le commit validé) : c'est la décision du mainteneur qui valide, avec ces preuves et ces limites. versionCode et ABI : ceux de l'APK tiré de ce téléphone le 26/09 ; le rapport ne les relevait pas encore.",
+              "en": "Selector reference. Two Lab runs of 2026-09-30 on the Pixel 3a, Instagram in English, armeabi-v7a variant (the only one run): the first without a failure, the second with one (back to the grid, which depends on the random draws of the Lab's session memory). No run is green in the strict sense of lab:exit (made on the validated commit): the maintainer's decision validates, with this evidence and these limits. versionCode and ABI: those of the APK pulled from this phone on 2026-09-26; the report did not record them yet."
+            }
+          }
+        }
       ]
     },
     "tiktok": {
       "name": "TikTok",
-      "override_status": { "46.9.3": "testing", "46.6.3": "testing" },
+      "override_status": {
+        "46.9.3": "adjusted",
+        "46.6.3": "adjusted"
+      },
       "builds": [
-        { "version": "46.6.3", "status": "testing" },
-        { "version": "43.1.4", "status": "validated", "recommended": true }
+        {
+          "version": "47.0.3",
+          "status": "validated",
+          "validation": {
+            "date": "2026-09-30",
+            "core_commit": "508919aa582f25da8b39d03aa180010ab98d17f8",
+            "decided_by": "maintainer",
+            "runs": [
+              {
+                "device": "Pixel 6a",
+                "version_code": 2024700030,
+                "abi": "arm64-v8a",
+                "language": "fr",
+                "report_sha256": "ddcf84f6c51a024733a2bbcc1e31c08b34457b878e09d824e4d60e95ed30dcbe",
+                "core_commit": "4a1963c3208031e29b9d2ba4699bf0a3bd450eb9"
+              }
+            ],
+            "notes": {
+              "fr": "Un passage du Lab du 29/09 sur le Pixel 6a, TikTok en français. Sauf les « nouveaux abonnés » : la page Activité de la 47.0.3 s'ouvre mais n'est pas reconnue (un échec, six tests bloqués), à reprendre après la 1.9.9. Aucun passage n'est vert au sens strict de lab:exit (fait sur le commit validé) : c'est la décision du mainteneur qui valide, avec ces preuves et ces limites. versionCode et ABI : ceux de l'APK tiré de ce téléphone le 26/09 ; le rapport ne les relevait pas encore.",
+              "en": "One Lab run of 2026-09-29 on the Pixel 6a, TikTok in French. Except the new followers: the Activity page of 47.0.3 opens but is not recognised (one failure, six tests blocked), to be taken up after 1.9.9. No run is green in the strict sense of lab:exit (made on the validated commit): the maintainer's decision validates, with this evidence and these limits. versionCode and ABI: those of the APK pulled from this phone on 2026-09-26; the report did not record them yet."
+            }
+          }
+        },
+        {
+          "version": "43.1.4",
+          "status": "validated",
+          "recommended": true,
+          "validation": {
+            "date": "2026-09-30",
+            "core_commit": "508919aa582f25da8b39d03aa180010ab98d17f8",
+            "decided_by": "maintainer",
+            "runs": [
+              {
+                "device": "Pixel 3a",
+                "version_code": 2024301040,
+                "abi": "arm64-v8a",
+                "language": "fr",
+                "report_sha256": "95c2b014c0f55f5efbef7482f6133a766b68e83e8815acb0d99bab443876a1f4",
+                "core_commit": "071fb85f76e324044cd8098a649569107ac515de"
+              },
+              {
+                "device": "Pixel 3a",
+                "version_code": 2024301040,
+                "abi": "arm64-v8a",
+                "language": "fr",
+                "report_sha256": "43ef84eff4e384df97188f50fe76db323f9589fd8a36de0c1afebdac42295b91",
+                "core_commit": "ff6d1d208753fa9c667d4def859a09947e503689"
+              }
+            ],
+            "notes": {
+              "fr": "Référence des sélecteurs. Deux passages du Lab du 30/09 sur le Pixel 3a, TikTok en français : le premier sans échec, le second avec quatre échecs, trois dus au contenu servi (un LIVE sans bouton de partage, une vidéo sans commentaire, une suggestion attendue sous un nom fixe) et un à la récolte par son. Dans les deux, la récolte par son a suivi un compte par erreur (un tap sur l'avatar tombé sur « Suivre »), corrigé depuis dans le core. Aucun passage n'est vert au sens strict de lab:exit (fait sur le commit validé) : c'est la décision du mainteneur qui valide, avec ces preuves et ces limites. versionCode et ABI : ceux de l'APK tiré de ce téléphone le 26/09 ; le rapport ne les relevait pas encore.",
+              "en": "Selector reference. Two Lab runs of 2026-09-30 on the Pixel 3a, TikTok in French: the first without a failure, the second with four failures, three due to the content served (a LIVE without a share button, a video without comments, a suggestion expected under a fixed name) and one to the sound harvest. In both, the sound harvest followed an account by mistake (a tap on the avatar landing on Follow), fixed since in the core. No run is green in the strict sense of lab:exit (made on the validated commit): the maintainer's decision validates, with this evidence and these limits. versionCode and ABI: those of the APK pulled from this phone on 2026-09-26; the report did not record them yet."
+            }
+          }
+        }
       ]
     }
   }
