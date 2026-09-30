@@ -9,6 +9,10 @@ The caller brings the app to restart (`is_installed()`, `restart()`: the bridges
 an optional health check of the device agent. Events go through an injected notifier shaped like
 the bridge IPC (`status`, `error`, `log`); without one they go to the log. This module never opens
 a device connection of its own.
+
+Every Instagram launcher shares two more names from here: `InstagramStartError`, what it raises when
+the start failed and the run must not begin, and `_log_to_logger`, the log of a host that brings no
+log callback of its own (the CLI).
 """
 
 from __future__ import annotations
