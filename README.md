@@ -205,8 +205,8 @@ What TAKTIK is tested on, as of 2026-09-28: real runs and the Lab's test bench, 
 The computer is a Windows PC.
 
 Everything else is **not tested**: other phones and brands, other Android versions, emulators, the
-versions marked "Under validation" in [COMPATIBILITY.md](COMPATIBILITY.md) (the bot carries selector
-adjustments for some of them, but none of these phones runs them), Instagram 447 in English, TikTok
+versions marked "Adjusted, not validated" in [COMPATIBILITY.md](COMPATIBILITY.md) (the bot carries selector
+adjustments for them, but none of these phones runs them), Instagram 447 in English, TikTok
 in English, macOS and Linux. Not tested promises nothing, either way.
 
 ### Development tests
