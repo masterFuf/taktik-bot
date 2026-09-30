@@ -29,9 +29,9 @@ imports what it may not:
   rule 2): what it shares with the bridges (the device primitives, the device bases a run is
   prepared with, the Taktik Keyboard service) lives in the core, which both hosts import.
 - `actions-no-workflows`: inside a platform, `actions/` (a gesture or a reading) imports none of its
-  `workflows/`: a workflow composes actions, never the other way round. It holds for the platforms whose
-  inside is filed (tree lots 9 and 10); the others are named in `PLATFORMS_NOT_FILED` of `audit_tree_layout.py`,
-  read from there, the one list of them.
+  `workflows/`: a workflow composes actions, never the other way round. It holds for every platform: the
+  platforms whose inside is not filed yet (`PLATFORMS_NOT_FILED` of `audit_tree_layout.py`) were exempt until
+  tree lot 11, an exemption that covered no import (neither has an `actions/` folder).
 - `known-core-families`: `taktik/core` holds only the families above; a new root family documents
   its owner in AGENTS.md first, then joins the contracts here.
 - `import-resolves`: every import of our own packages (`taktik`, `bridges`) names a module that
@@ -72,7 +72,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Mapping
 
-from audit_tree_layout import PLATFORMS_NOT_FILED
 from python_imports import ImportStatement, defined_names, import_statements, module_name
 from ratchet import Ratchet, compare, enforce
 
@@ -145,10 +144,10 @@ def platform_part(name: str) -> tuple[str, str] | None:
 
 
 def actions_import_workflows(importer: str, imported: str) -> bool:
-    """`actions-no-workflows`: a module of a filed platform's `actions/` names a module of its `workflows/`."""
+    """`actions-no-workflows`: a module of a platform's `actions/` names a module of its `workflows/`."""
     source, target = platform_part(importer), platform_part(imported)
     return (source is not None and target is not None and source[0] == target[0]
-            and source[0] not in PLATFORMS_NOT_FILED and source[1] == "actions" and target[1] == "workflows")
+            and source[1] == "actions" and target[1] == "workflows")
 
 
 def in_core(name: str) -> bool:
@@ -516,6 +515,9 @@ def self_test_cases(modules: Mapping[str, SourceModule]) -> dict[str, dict]:
             "taktik/core/social_media/youtube/actions/fake.py",
             "def f():\n    import taktik.core.social_media.youtube.workflows.account.agent_handler\n",
             "(actions-no-workflows)"),
+        "an action of a platform whose inside is not filed yet imports its workflows": fake(
+            "taktik/core/social_media/threads/actions/fake.py", "import taktik.core.social_media.threads.workflows\n",
+            "(actions-no-workflows)"),
     }
 
 
@@ -531,22 +533,12 @@ def caught(fake: dict) -> bool:
     return any(fake["expect"] in failure for failure in check(fake["modules"]))
 
 
-def platform_not_filed_left_alone(modules: Mapping[str, SourceModule]) -> bool:
-    """A platform of PLATFORMS_NOT_FILED keeps its actions -> workflows imports until its inside is filed."""
-    platform = sorted(PLATFORMS_NOT_FILED)[0]
-    path = f"taktik/core/social_media/{platform}/actions/fake.py"
-    fake = {**modules, path: read_module(path, f"import taktik.core.social_media.{platform}.workflows\n")}
-    return not any(path in failure and "(actions-no-workflows)" in failure for failure in check(fake))
-
-
 def self_test() -> int:
     modules = read_tree()
     cases = self_test_cases(modules)
     missed = [name for name, fake in cases.items() if not caught(fake)]
     if not deep_relative_caught(modules):
         missed.append("a new relative import of 3 dots")
-    if not platform_not_filed_left_alone(modules):
-        missed.append("a platform whose inside is not filed yet, left to its phase 3")
     control = check(modules)
     if missed or control:
         for name in missed:

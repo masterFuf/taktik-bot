@@ -30,8 +30,8 @@ The manifest of the bridges is read too: each value is `bridges.<platform>.<brid
 The inside of a platform is written once for every platform (tree lot 9, phase 3): what
 `taktik/core/social_media/<platform>/` holds (`actions/`, `services/`, `ui/`, `workflows/`, its `manager.py`...) and
 what its `workflows/` holds (one folder per feature, the vocabulary the bridges share, and `common/`). A platform
-whose inside is not filed yet is named in `PLATFORMS_NOT_FILED`, one line each with why: those two entries skip it,
-and so does the rule `actions-no-workflows` of `audit_import_layers.py`, which reads the same list.
+whose inside is not filed yet is named in `PLATFORMS_NOT_FILED`, one line each with why: those two entries skip it
+(the rule `actions-no-workflows` of `audit_import_layers.py` holds for every platform since tree lot 11).
 
 The tests follow the code, as `tests/` follows `src/` in a framework: a folder of `tests/unit/` mirrors a folder
 of the code, at every depth. `tests/unit/<first>/<rest>` tests `<root>/<rest>`, where `<first>` names the root in
@@ -137,8 +137,8 @@ SIZES = Ratchet(
 )
 
 #: The platforms whose inside is not filed yet, and why. The two entries of LAYOUT for the inside of a platform skip
-#: them, and so does the rule `actions-no-workflows` of `audit_import_layers.py`, which reads this list. The list only
-#: shrinks: an entry that is no platform any more, or whose inside keeps to the table now, turns the gate red.
+#: them. The list only shrinks: an entry that is no platform any more, or whose inside keeps to the table now, turns
+#: the gate red.
 PLATFORMS_NOT_FILED: dict[str, str] = {
     "threads": "core/manager.py (the word core) and its workflows as flat files of workflows/: the manager at its "
                "root, a workflows/automation/ folder",
