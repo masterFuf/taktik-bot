@@ -182,7 +182,7 @@
   "taktik/core/social_media/instagram/services/comment/thread_context.py": 4,
   "taktik/core/social_media/instagram/services/comment/validation.py": 1,
   "taktik/core/social_media/instagram/services/like/orchestration.py": 9,
-  "taktik/core/social_media/instagram/services/like/post_navigation.py": 45,
+  "taktik/core/social_media/instagram/services/like/post_navigation.py": 42,
   "taktik/core/social_media/instagram/services/profile/extraction.py": 17,
   "taktik/core/social_media/instagram/services/profile/persistence.py": 1,
   "taktik/core/social_media/instagram/services/story.py": 2,

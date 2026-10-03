@@ -208,7 +208,13 @@ def test_profile_grid_scroll_uses_the_same_session_timeline(monkeypatch):
     assert sleeps == [0.45 * 1.15]
 
 
-def test_failed_vertical_gestures_reach_the_real_next_button_property(monkeypatch):
+def test_failed_vertical_gestures_tap_no_next_button(monkeypatch):
+    """No 410 post viewer has a next-post control, in any language: on the 3 636 Instagram captures
+    of the corpus, "Next" only names the creation flow's button. When both vertical gestures fail,
+    the walk stops; it never taps whatever "Next" the screen shows."""
+    from taktik.core.social_media.instagram.ui.selectors import locales
+    from taktik.core.social_media.instagram.ui.selectors.surfaces.post.detail import POST_SELECTORS
+
     clicks = []
 
     class _RetryFailure(_Scroll):
@@ -235,22 +241,34 @@ def test_failed_vertical_gestures_reach_the_real_next_button_property(monkeypatc
         def click():
             clicks.append("next")
 
-    class _ButtonDevice(_Device):
+    class _Absent:
+        exists = False
+
+    class _NextOnScreen(_Device):
+        """The creation flow's "Next" on screen: what the old English entry matched."""
+
         @staticmethod
-        def xpath(_selector):
-            return _Button()
+        def xpath(selector):
+            return _Button() if "Next" in selector else _Absent()
 
     monkeypatch.setattr(
         "taktik.core.social_media.instagram.services.like.post_navigation.time.sleep",
         lambda _seconds: None,
     )
     host = _Host()
-    host.device = _ButtonDevice()
+    host.device = _NextOnScreen()
     host.scroll_actions = _RetryFailure()
-    host.post_selectors = type("_Selectors", (), {"next_post_button_selectors": ("next",)})()
+    host.post_selectors = POST_SELECTORS
 
-    assert host._navigate_to_next_post_in_sequence() is True
-    assert clicks == ["next"]
+    before = locales.active_locale()
+    locales.set_active_locale("en")
+    try:
+        advanced = host._navigate_to_next_post_in_sequence()
+    finally:
+        locales.set_active_locale(before)
+
+    assert advanced is False
+    assert clicks == []
 
 
 def test_reopen_selection_excludes_every_successful_grid_cell_in_profile_visit():

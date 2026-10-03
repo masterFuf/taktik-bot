@@ -636,22 +636,9 @@ class PostNavigationMixin:
                     return True
             except Exception as e:
                 self.logger.debug(f"Controlled vertical retry failed: {e}")
-            
-            try:
-                next_button_selectors = self.post_selectors.next_post_button_selectors
-                
-                for selector in next_button_selectors:
-                    if self.device.xpath(selector).exists:
-                        self.device.xpath(selector).click()
-                        time.sleep(1)
-                        
-                        if self._is_in_post_view():
-                            self._remember_sequential_profile_post()
-                            self.logger.debug("Navigation successful via Next button")
-                            return True
-            except Exception as e:
-                self.logger.debug(f"Next button failed: {e}")
-            
+
+            # No "next post" button to fall back on: no 410 post viewer has one, in any language
+            # ("Next" only names the creation flow's button).
             self.logger.warning("All navigation methods failed")
             return False
             

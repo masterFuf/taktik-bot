@@ -738,9 +738,6 @@ STRINGS: Dict[str, List[str]] = {
     "post.likes_count_click_selectors": [
         "//*[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\"))]",
     ],
-    # Empty by measure: no 410 post viewer shows a next-post control, in English or in French; the
-    # English "Next" only names the creation flow's button.
-    "post.next_post_button_selectors": [],
     "post.photo_comment_selectors": [
         "//*[@resource-id=\"com.instagram.android:id/row_feed_photo_imageview\" and contains(@content-desc, \"commentaire\")]",
         "//*[(contains(@content-desc, \"J'aime\") or contains(@content-desc, \"J’aime\")) and contains(@content-desc, \"commentaire\")]",
@@ -844,7 +841,6 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # --- post_grid ---
     "post_grid.back_button_selectors": [],
-    "post_grid.next_post_button_selectors": [],  # empty by measure, as post.next_post_button_selectors
     # --- profile ---
     "profile.about_account_based_in_value": [
         "//*[contains(@content-desc, \"Compte basé\")]/android.view.View[2]",

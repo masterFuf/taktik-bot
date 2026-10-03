@@ -763,10 +763,6 @@ STRINGS: Dict[str, List[str]] = {
     "post.likes_count_click_selectors": [
         "//*[contains(@text, \"likes\")]",
     ],
-    "post.next_post_button_selectors": [
-        "//android.widget.Button[contains(@content-desc, \"Next\")]",
-        "//android.widget.ImageView[contains(@content-desc, \"Next\")]",
-    ],
     "post.photo_comment_selectors": [
         "//*[@resource-id=\"com.instagram.android:id/row_feed_photo_imageview\" and contains(@content-desc, \"comment\")]",
         "//*[contains(@content-desc, \"likes\") and contains(@content-desc, \"comment\")]",
@@ -879,10 +875,6 @@ STRINGS: Dict[str, List[str]] = {
     "post_grid.back_button_selectors": [
         "//android.widget.ImageView[@content-desc=\"Back\"]",
         "//*[@content-desc=\"Back\"]",
-    ],
-    "post_grid.next_post_button_selectors": [
-        "//android.widget.Button[contains(@content-desc, \"Next\")]",
-        "//android.widget.ImageView[contains(@content-desc, \"Next\")]",
     ],
     # --- profile ---
     "profile.about_account_based_in_value": [

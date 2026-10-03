@@ -208,7 +208,6 @@ def _walker(monkeypatch, profile, session, liked_positions):
     host.behavior_state = session
     host.device = SimpleNamespace(get_screen_size=lambda: (1080, 2280))
     host.detection_selectors = SimpleNamespace(post_thumbnail_selectors=("grid-thumbnail",))
-    host.post_selectors = SimpleNamespace(next_post_button_selectors=())
     host.scroll_actions = _ViewerGestures(profile)
 
     # The grid and the viewer.

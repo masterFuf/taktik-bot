@@ -225,10 +225,6 @@ class PostSelectors:
         '//*[contains(@resource-id, "row_feed_button_comment")]',
     ])
     
-    @property
-    def next_post_button_selectors(self) -> List[str]:
-        return L("post.next_post_button_selectors")
-    
     _back_button_selectors_base: List[str] = field(default_factory=lambda: [
         '//android.widget.ImageView[@resource-id="com.instagram.android:id/action_bar_button_back"]',
         # Reels/clips viewer: the top-left Back lives in the clips action bar (there is NO

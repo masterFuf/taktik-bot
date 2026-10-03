@@ -37,10 +37,6 @@ STILL_EMPTY_IN_FRENCH = {
     "AuthSelectors.home_logged_out_screen_indicators",
     # "Review this account before following": Instagram shows it when it decides; never captured.
     "PopupSelectors.review_account_popup_indicators",
-    # No 410 post viewer has a next-post control, in any language (the English "Next" is the
-    # creation flow's button); the grid's property has no caller.
-    "PostSelectors.next_post_button_selectors",
-    "PostGridSelectors.next_post_button_selectors",
     # Creation strings that no code reads.
     "ContentCreationSelectors.caption_placeholder_texts",
     "ContentCreationSelectors.location_button_texts",

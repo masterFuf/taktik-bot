@@ -21,10 +21,6 @@ class PostGridSelectors:
         default_factory=lambda: list(POST_SELECTORS.carousel_indicators)
     )
 
-    @property
-    def next_post_button_selectors(self) -> List[str]:
-        return L("post_grid.next_post_button_selectors")
-
     _back_button_selectors_base: List[str] = field(
         default_factory=lambda: [
             '//android.widget.ImageView[@resource-id="com.instagram.android:id/action_bar_button_back"]',
