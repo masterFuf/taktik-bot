@@ -40,6 +40,7 @@ from taktik.core.shared.vision import locate_text_on_screen
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.notifications import NOTIFICATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from taktik.core.social_media.instagram.workflows.notifications.classifier import clean_label, longest_clean_run
@@ -283,7 +284,16 @@ class NotificationsEngagementWorkflow(NotificationSuggestionsMixin):
         return True
 
     def _on_notifications_screen(self) -> bool:
-        return self._element_exists(self.selectors.notifications_screen_indicators)
+        """The notifications list in front: its own signal, and nothing a Back would close laid over
+        it (a bottom sheet such as Filter, a dialog, a focused field). Under a sheet the list and its
+        title stay in the dump, but a scroll or a tap lands on the sheet. One photo answers both."""
+        try:
+            photo = self.device.snapshot()
+        except Exception as exc:
+            self.logger.warning(f"notifications screen check: screen unreadable ({exc})")
+            return False
+        return (photo.exists(self.selectors.notifications_screen_indicators)
+                and not photo.exists(NAVIGATION_SELECTORS.back_closable_layers))
 
     def _on_follow_requests_screen(self) -> bool:
         if self._element_exists(self.selectors.follow_requests_screen_indicators):

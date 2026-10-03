@@ -6,7 +6,8 @@ no follow request pending, no popup to close, no story ring on the profile, an a
 of a video. The plan never guesses it. Declared on the screen the action expects, read and the app's;
 anywhere else the action still fails, so a broken selector is never taken for absent content.
 
-The screens are real dumps, anonymized: Instagram 410 (English notifications, home feed; French
+The screens are real dumps, anonymized: Instagram 410 (English notifications, and the same list under
+its Filter sheet; home feed; French
 profile with highlights only; our English followers list with and without its categories, and read
 further down), Instagram 447 (our French followers list with and without its categories), TikTok
 43.1.4 in French (For You video, a video without a
@@ -41,6 +42,7 @@ def _dump(platform, name):
 
 
 IG_NOTIFICATIONS = _dump("instagram", "ig410_en_notifications.xml")
+IG_NOTIFICATIONS_FILTER_SHEET = _dump("instagram", "ig410_en_notifications_filter_sheet.xml")
 IG_FEED = _dump("instagram", "ig410_en_home_feed_carousel_post.xml")
 IG_PROFILE_HIGHLIGHTS_ONLY = _dump("instagram", "ig410_fr_profile_highlights_only.xml")
 TT_VIDEO = _dump("tiktok", "tt4314_fr_for_you_video.xml")
@@ -125,6 +127,27 @@ def test_no_follow_request_pending_is_declared_on_the_notifications_screen():
 def test_off_the_notifications_screen_it_stays_a_failure():
     bundle, _phone = _instagram(IG_FEED, "en")
     result = INSTAGRAM_ACTIONS["notifications.open_follow_requests"](bundle, {})
+    assert (result["success"], _declared(result)) == (False, None)
+    assert "not on the notifications screen" in result["message"]
+
+
+@pytest.mark.parametrize("name, in_front", [
+    ("ig410_en_notifications.xml", True),
+    ("ig410_en_notifications_filter_sheet.xml", False),
+])
+def test_the_notifications_screen_is_in_front_only_without_a_sheet_over_it(name, in_front):
+    """The production check (`_on_notifications_screen`, through `notifications.is_open`): under the
+    Filter sheet the list and its title stay in the dump, but a scroll or a tap lands on the sheet."""
+    bundle, _phone = _instagram(_dump("instagram", name), "en")
+    result = INSTAGRAM_ACTIONS["notifications.is_open"](bundle, {})
+    assert (result["success"], result["details"]["found"]) == (True, in_front)
+
+
+def test_under_the_filter_sheet_the_descent_declares_nothing():
+    """Played on the Filter sheet a previous test left open, the descent moves nothing: two identical
+    screens read as the bottom of a list that never left its top. Nothing is declared there."""
+    bundle, _phone = _instagram(IG_NOTIFICATIONS_FILTER_SHEET, "en")
+    result = INSTAGRAM_ACTIONS["notifications.reach_suggestions"](bundle, {"max_scrolls": 3})
     assert (result["success"], _declared(result)) == (False, None)
     assert "not on the notifications screen" in result["message"]
 
