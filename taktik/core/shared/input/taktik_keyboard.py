@@ -96,9 +96,13 @@ def _android_selected(answer: Optional[str], ime: str) -> bool:
     "Unknown input method <ime> cannot be selected for user #0". `run_adb_shell` hands back both
     streams as one text, without the exit code, and both answers contain "selected": only the
     success line naming this input method counts.
+
+    Measured on a Blackview A80 Pro (Android 9): "Input method <ime>  selected", two spaces and
+    nothing after; the refusal is a Java exception ("Unknown id: <ime>"). The words are compared,
+    not the spaces between them.
     """
-    success = f"Input method {ime} selected"
-    return any(line.strip().startswith(success) for line in (answer or "").splitlines())
+    expected = ["Input", "method", ime, "selected"]
+    return any(line.split()[:4] == expected for line in (answer or "").splitlines())
 
 
 def _switch_input_method(device_id: str, ime: str) -> bool:
@@ -199,11 +203,16 @@ def is_taktik_keyboard_active(device_id: str) -> bool:
 _BIND_TIMEOUT_SECONDS = 3.0
 _BIND_POLL_SECONDS = 0.1
 
+#: The connection flag of the `mCurId=` line: `mHaveConnection=` on a Pixel 4a (Android 13),
+#: `mHaveConnect=` on a Blackview A80 Pro (Android 9).
+_CONNECTED_FLAGS = ("mHaveConnection=true", "mHaveConnect=true")
+
 
 def _taktik_keyboard_bound(device_id: str) -> Optional[bool]:
     """Is the ADB keyboard the input method Android has bound, with a live connection?
 
-    Up to Android 15 one line says it (`mCurId=... mHaveConnection=true ... mBoundToMethod=true`).
+    Up to Android 15 one line says it (`mCurId=... mHaveConnection=true ... mBoundToMethod=true`,
+    `mHaveConnect=true` on Android 9).
     Android 16 writes one field per line (`mCurImeId=`, `mHasMainConnection=`, `mBoundToMethod=`)
     and has no `mCurId=`: read as "unknown", a switch there was never waited on.
 
@@ -215,7 +224,7 @@ def _taktik_keyboard_bound(device_id: str) -> Optional[bool]:
         marker = f"mCurId={TAKTIK_KEYBOARD_IME} "
         for line in out.splitlines():
             if marker in line:
-                return "mHaveConnection=true" in line and "mBoundToMethod=true" in line
+                return any(flag in line for flag in _CONNECTED_FLAGS) and "mBoundToMethod=true" in line
         return False
     values: Dict[str, set] = {}
     for token in out.split():

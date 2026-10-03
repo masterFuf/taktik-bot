@@ -9,6 +9,10 @@ without Taktik Keyboard the text broadcast then reached no receiver, and the unc
 The phone below answers each `ime` command in the words of a Pixel 4a (Android 13), recorded in
 `fixtures/ime_answers_android13.json`: the success for an input method it has, the refusal for one
 it has not (recorded with an id no phone has; the same sentence, the id swapped).
+
+A Blackview A80 Pro (Android 9), recorded in `fixtures/ime_answers_android9.json`, words its success
+"Input method <ime>  selected", two spaces and nothing after: read as a refusal, Taktik Keyboard was
+never taken as active there, and nothing could be typed.
 """
 
 import json
@@ -25,6 +29,8 @@ _RECORDED = json.loads(
     (Path(__file__).parent / "fixtures" / "ime_answers_android13.json").read_text(encoding="utf-8"))
 ANSWERS = _RECORDED["answers"]
 RECORDED_ABSENT = _RECORDED["absent_ime"]
+ANSWERS_ANDROID9 = json.loads(
+    (Path(__file__).parent / "fixtures" / "ime_answers_android9.json").read_text(encoding="utf-8"))["answers"]
 
 TAKTIK = kb.TAKTIK_KEYBOARD_IME
 GBOARD = kb.GBOARD_IME
@@ -36,6 +42,8 @@ class Android13Phone:
 
     `stays_on`: the phone answers that it selected an input method but stays on this one (the
     answer and the phone's state disagree)."""
+
+    answers = ANSWERS
 
     def __init__(self, installed, current=GBOARD, stays_on=None):
         self.installed = set(installed)
@@ -58,16 +66,16 @@ class Android13Phone:
         if command.startswith("ime enable "):
             ime = command[len("ime enable "):]
             if ime in self.installed:
-                return ANSWERS["ime_enable_taktik"].replace(TAKTIK, ime)
-            return ANSWERS["ime_enable_absent"].replace(RECORDED_ABSENT, ime)
+                return self.answers["ime_enable_taktik"].replace(TAKTIK, ime)
+            return self.answers["ime_enable_absent"].replace(RECORDED_ABSENT, ime)
         if command.startswith("ime set "):
             ime = command[len("ime set "):]
             if ime not in self.installed:
-                return ANSWERS["ime_set_absent"].replace(RECORDED_ABSENT, ime)
+                return self.answers["ime_set_absent"].replace(RECORDED_ABSENT, ime)
             self.current = self.stays_on or ime
-            return ANSWERS["ime_set_taktik"].replace(TAKTIK, ime)
+            return self.answers["ime_set_taktik"].replace(TAKTIK, ime)
         if command == "dumpsys input_method":
-            return ANSWERS["dumpsys_input_method_bound"] if self.current == TAKTIK else ""
+            return self.answers["dumpsys_input_method_bound"] if self.current == TAKTIK else ""
         if command.startswith("am broadcast"):
             self.sent.append(command)
             # Android's usual answer, which says nothing of the keyboard receiving it (not recorded:
@@ -78,6 +86,15 @@ class Android13Phone:
     @property
     def broadcasts(self):
         return self.sent
+
+
+class Android9Phone(Android13Phone):
+    """The same phone in the words of a Blackview A80 Pro (Android 9), recorded in
+    `fixtures/ime_answers_android9.json`: "Input method <ime>  selected", and `mHaveConnect=` where
+    Android 13 writes `mHaveConnection=`. Only phones that have Taktik Keyboard: the refusal of
+    `ime enable` was not recorded."""
+
+    answers = ANSWERS_ANDROID9
 
 
 @pytest.fixture(autouse=True)
@@ -145,6 +162,34 @@ def test_a_keyboard_android_refuses_is_not_given_back(monkeypatch):
 
     assert kb.restore_original_keyboard("a6") is False
     assert phone.current == TAKTIK
+
+
+# -- Android 9 ------------------------------------------------------------------------------------
+
+def test_android_9_s_answer_is_read():
+    assert kb._android_selected(ANSWERS_ANDROID9["ime_set_taktik"], TAKTIK) is True
+    assert kb._android_selected(ANSWERS_ANDROID9["ime_set_gboard"], GBOARD) is True
+    assert kb._android_selected(ANSWERS_ANDROID9["ime_set_gboard"], TAKTIK) is False
+    assert kb._android_selected(ANSWERS_ANDROID9["ime_set_absent"], RECORDED_ABSENT) is False
+
+
+def test_android_9_s_bound_keyboard_is_read(monkeypatch):
+    """Read as not bound, every switch on the A80 Pro waited the whole timeout, then warned."""
+    _on(monkeypatch, Android9Phone(installed={GBOARD, TAKTIK}, current=TAKTIK))
+
+    assert kb._taktik_keyboard_bound("a80") is True
+
+
+def test_an_android_9_phone_types_then_gets_its_keyboard_back(monkeypatch):
+    phone = _on(monkeypatch, Android9Phone(installed={GBOARD, TAKTIK}))
+
+    assert kb.type_with_taktik_keyboard("a80", "bonjour") is True
+    assert phone.current == TAKTIK
+    assert len(phone.broadcasts) == 1
+    # Bound at the first look: the switch did not wait.
+    assert phone.commands.count("dumpsys input_method") == 1
+    assert kb.restore_original_keyboard("a80") is True
+    assert phone.current == GBOARD
 
 
 # -- Emptying a field from an action (SharedBaseAction) -------------------------------------------

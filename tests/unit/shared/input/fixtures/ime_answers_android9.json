@@ -1,0 +1,13 @@
+{
+  "phone": "Blackview A80 Pro, Android 9 (SDK 28), Taktik Keyboard 3.0.2 installed and enabled",
+  "measured": "2026-10-03",
+  "how": "adb shell from the PC, stdout and stderr in one text, carriage returns removed; the phone on Gboard before and after. The refusal came with exit code 255",
+  "absent_ime": "com.example.absent/.NoIme",
+  "answers": {
+    "ime_enable_taktik": "Input method com.alexal1.adbkeyboard/.AdbIME: already enabled",
+    "ime_set_taktik": "Input method com.alexal1.adbkeyboard/.AdbIME  selected",
+    "ime_set_gboard": "Input method com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME  selected",
+    "ime_set_absent": "\nException occurred while executing:\njava.lang.IllegalArgumentException: Unknown id: com.example.absent/.NoIme\n\tat com.android.server.InputMethodManagerService.setInputMethodLocked(InputMethodManagerService.java:2509)\n\tat com.android.server.InputMethodManagerService.setInputMethodWithSubtypeIdLocked(InputMethodManagerService.java:3282)\n\tat com.android.server.InputMethodManagerService.setInputMethodWithSubtypeId(InputMethodManagerService.java:3261)\n\tat com.android.server.InputMethodManagerService.setInputMethod(InputMethodManagerService.java:3011)\n\tat com.android.server.InputMethodManagerService.handleShellCommandSetInputMethod(InputMethodManagerService.java:4985)\n\tat com.android.server.InputMethodManagerService.access$1700(InputMethodManagerService.java:181)\n\tat com.android.server.InputMethodManagerService$ShellCommandImpl.onCommand(InputMethodManagerService.java:4757)\n\tat android.os.ShellCommand.exec(ShellCommand.java:103)\n\tat com.android.server.InputMethodManagerService.onShellCommand(InputMethodManagerService.java:4719)\n\tat android.os.Binder.shellCommand(Binder.java:634)\n\tat android.os.Binder.onTransact(Binder.java:532)\n\tat com.android.internal.view.IInputMethodManager$Stub.onTransact(IInputMethodManager.java:486)\n\tat com.android.server.InputMethodManagerService.onTransact(InputMethodManagerService.java:1497)\n\tat android.os.Binder.execTransact(Binder.java:731)",
+    "dumpsys_input_method_bound": "  mCurMethodId=com.alexal1.adbkeyboard/.AdbIME\n  mCurId=com.alexal1.adbkeyboard/.AdbIME mHaveConnect=true mBoundToMethod=true\n  mActive=true mRestartOnNextWindowFocus=true mBindSequence=5 mCurId=com.alexal1.adbkeyboard/.AdbIME"
+  }
+}
