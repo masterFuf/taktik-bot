@@ -18,7 +18,7 @@ import time
 import random
 from typing import Callable, Optional, Dict, Any, List
 
-from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS
+from taktik.core.social_media.instagram.ui.selectors.surfaces.feed import FEED_SCROLL_SELECTORS as FS, FEED_SELECTORS
 from taktik.core.social_media.instagram.actions.atomic.scroll.post_reading import PostReadingMixin, _BOUNDS_RE
 
 # Feed-scroll tunables. These are SEEDS to calibrate on the Lab from the measured coast and
@@ -72,7 +72,7 @@ class FeedScrollMixin(PostReadingMixin):
         header_rows: List[int] = []  # tops of the full header rows (the framed post's own anchor)
         list_top: Optional[int] = None
         likes: List[int] = []
-        ad_tops: List[int] = []      # tops of "Sponsorisé(e)" / "Sponsored" markers (ad posts)
+        ad_tops: List[int] = []      # tops of the ad markers: "Sponsorisé(e)" / "Sponsored" / "Ad"
         sugg_tops: List[int] = []    # tops of "Suggestions" / "Suggested" markers (recommended posts/reels)
         top_bar_bottom: Optional[int] = None
         tab_top: Optional[int] = None
@@ -155,6 +155,13 @@ class FeedScrollMixin(PostReadingMixin):
                 if short in FS.video_ids and (
                         video_band is None or (bottom - top) > (video_band[1] - video_band[0])):
                     video_band = (top, bottom)
+            # The sponsored label as the Feed reads it (`FEED_SELECTORS.sponsored_indicators`, by
+            # language): Instagram 410 in English labels an ad "Ad" under its author, and a video
+            # ad carries no "Sponsored" description anywhere on the screen.
+            for selector in FEED_SELECTORS.sponsored_indicators:
+                for label in photo.find(selector):
+                    if label.bounds:
+                        ad_tops.append(label.bounds[1])
         except Exception as e:
             self.logger.debug(f"feed anchor read failed: {e}")
             return {"headers": [], "posts": [], "header_rows": [], "list_top": None,
