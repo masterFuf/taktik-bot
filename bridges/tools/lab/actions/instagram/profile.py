@@ -117,6 +117,9 @@ def open_entry_post(a, p):
     params (optional):
       - posts_count: the profile's number of publications (drives pre-scroll).
       - posts_to_inspect: number of sequential posts the run needs to inspect.
+      - forget_grid_memory: forget the grid cells the session remembers before the entry (the
+        preparation of `post.return_to_grid_and_reopen`, whose reopen resumes among cells never
+        opened: without it, the cells earlier tests opened decide the outcome).
     """
     try:
         posts_count = int(p.get("posts_count") or 0)
@@ -126,15 +129,19 @@ def open_entry_post(a, p):
         posts_to_inspect = int(p.get("posts_to_inspect") or 0)
     except (TypeError, ValueError):
         posts_to_inspect = 0
+    forgotten = None
+    if p.get("forget_grid_memory") is True:
+        forgotten = a.like.behavior_state.forget_grid_entries()
     ok = a.like._open_entry_post_of_profile(
         posts_count,
         posts_to_inspect=posts_to_inspect,
     )
+    memory = "" if forgotten is None else f", {forgotten} remembered grid cell(s) forgotten first"
     return {
         "success": bool(ok),
         "message": (
             f"entry post opened={ok} (posts_count={posts_count}, "
-            f"posts_to_inspect={posts_to_inspect})"
+            f"posts_to_inspect={posts_to_inspect}{memory})"
         ),
     }
 

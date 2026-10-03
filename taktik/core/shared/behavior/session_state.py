@@ -459,6 +459,17 @@ class BehaviorSessionState:
         weights = row_weights(len(keys))
         return int(self._rng.choices(eligible, weights=[weights[i] for i in eligible], k=1)[0])
 
+    def forget_grid_entries(self) -> int:
+        """Forget every grid cell the session remembers, and say how many.
+
+        The Lab calls it before a test whose outcome must not depend on the cells its earlier
+        tests opened (the reopen after a Reel resumes among cells never opened). A run never
+        does: its memory is the whole point of the session.
+        """
+        forgotten = len(self.grid_entry_history)
+        self.grid_entry_history.clear()
+        return forgotten
+
     def remember_grid_entry(self, *, context: str, key: str, index: int) -> None:
         """Record a successfully opened grid cell in the bounded session memory."""
         item = {"context": str(context), "key": str(key), "index": int(index)}
