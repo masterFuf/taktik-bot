@@ -2,7 +2,6 @@
 its radio settings."""
 
 import re
-import shlex
 import time
 
 from loguru import logger
@@ -36,21 +35,15 @@ def _shell(device_id: str, command: str, timeout: int = 15) -> str:
     """
     Run a shell command that may contain pipes, quotes or redirections.
 
-    `run_adb_shell` splits the command on whitespace in its subprocess fallback, which shreds a
-    `printf ... | toybox nc ...` pipeline. Going through `sh -c` keeps the command as one argument
-    so the DEVICE shell parses it, whichever transport adb uses.
-
-    The quoting is not decoration. `adb shell` joins its arguments with spaces and sends the
-    result as ONE command line, without re-quoting: `["sh", "-c", "ping -c 3 1.1.1.1"]` reaches
-    the phone as `sh -c ping -c 3 1.1.1.1`, where `sh -c ping` runs ping with no argument at all
-    and the rest becomes $0, $1… Every command sent through this helper was returning ping's usage
-    text or nothing — measured on a Pixel 4a, which is why `read_public_ip`
-    answered None on the whole fleet and `wait_for_internet` never saw a reply. `shlex.quote`
-    hands the device shell a single quoted word, quotes inside the command included.
+    `sh -c <command>` as three words: the shared door (`taktik.core.shared.device.adb`) hands each
+    word to the phone whole, so the phone's shell runs the pipeline. Sent unquoted, the words were
+    joined by adb into `sh -c ping -c 3 1.1.1.1`, which runs ping with no argument at all (measured
+    on a Pixel 4a): `read_public_ip` answered None on the whole fleet and `wait_for_internet` never
+    saw a reply.
     """
     try:
         result = run_adb_shell_process(
-            device_id, ["sh", "-c", shlex.quote(command)], timeout=timeout)
+            device_id, ["sh", "-c", command], timeout=timeout)
         return f"{result.stdout or ''}\n{result.stderr or ''}".strip()
     except Exception as exc:
         logger.debug(f"ADB shell command failed on {device_id}: {exc}")
