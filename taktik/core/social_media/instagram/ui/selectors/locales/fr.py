@@ -307,7 +307,11 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.conversation_back_description_contains": [
         "Retour",
     ],
-    "direct_message.conversation_back_descriptions": [],
+    "direct_message.conversation_back_descriptions": [
+        # The thread's header_left_button (410). Android's own back button carries the same label,
+        # and pressing it also returns to the inbox.
+        "Retour",
+    ],
     "direct_message.direct_tab_content_desc": [
         "//*[@content-desc=\"Envoyer un message\"]",
     ],
@@ -431,7 +435,9 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.EditText[contains(@hint, \"Rechercher\")]",
         "//*[contains(@content-desc, \"Rechercher\")]",
     ],
-    "navigation.explore_search_bar_texts": [],
+    "navigation.explore_search_bar_texts": [
+        "Rechercher",  # the text of the explore search bar (410)
+    ],
     "navigation.home_tab": [
         # Instagram in French still names its home tab "Home" (410 and 447, after a cold start
         # too); "Accueil" is Android's: its navigation bar, the Pixel launcher, the dialer.
@@ -439,8 +445,12 @@ STRINGS: Dict[str, List[str]] = {
         # The proxy makes the tab_bar id match any package's, hence @package too.
         "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\") and @package=\"com.instagram.android\"]",
     ],
-    "navigation.home_tab_description_contains": [],
-    "navigation.home_tab_descriptions": [],
+    "navigation.home_tab_description_contains": [
+        "Home",  # untranslated in French, as `navigation.home_tab` says
+    ],
+    "navigation.home_tab_descriptions": [
+        "Home",
+    ],
     "navigation.profile_tab": [
         # Inside Instagram's tab bar only: outside it, "Profil" also starts the "Profile picture
         # of ..." of every avatar of an English screen, read while the language is unknown.
@@ -458,8 +468,12 @@ STRINGS: Dict[str, List[str]] = {
         # The proxy makes the tab_bar id match any package's, hence @package too.
         "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Rechercher\") and @package=\"com.instagram.android\"]",
     ],
-    "navigation.search_tab_description_contains": [],
-    "navigation.search_tab_descriptions": [],
+    "navigation.search_tab_description_contains": [
+        "Rechercher",
+    ],
+    "navigation.search_tab_descriptions": [
+        "Rechercher et explorer",  # the search tab of the tab bar (410)
+    ],
     "navigation.top_tab_selectors": [
         "//*[contains(@text, \"Populaires\")]",
     ],
@@ -724,6 +738,8 @@ STRINGS: Dict[str, List[str]] = {
     "post.likes_count_click_selectors": [
         "//*[(contains(@text, \"J'aime\") or contains(@text, \"J’aime\"))]",
     ],
+    # Empty by measure: no 410 post viewer shows a next-post control, in English or in French; the
+    # English "Next" only names the creation flow's button.
     "post.next_post_button_selectors": [],
     "post.photo_comment_selectors": [
         "//*[@resource-id=\"com.instagram.android:id/row_feed_photo_imageview\" and contains(@content-desc, \"commentaire\")]",
@@ -828,7 +844,7 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # --- post_grid ---
     "post_grid.back_button_selectors": [],
-    "post_grid.next_post_button_selectors": [],
+    "post_grid.next_post_button_selectors": [],  # empty by measure, as post.next_post_button_selectors
     # --- profile ---
     "profile.about_account_based_in_value": [
         "//*[contains(@content-desc, \"Compte basé\")]/android.view.View[2]",
