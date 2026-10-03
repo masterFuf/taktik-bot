@@ -41,12 +41,13 @@ class TypingMixin:
         """Paste text via 'adb shell input text': the login's rescue only
         (`TextInputMixin._paste_when_keyboard_fails`).
         
-        Only supports ASCII and replaces spaces with %s (ADB convention).
+        Only supports ASCII and replaces spaces with %s (ADB convention). The text goes as ONE word
+        of a list: the shared door quotes it for the phone's shell, so a `$`, a quote or a
+        backslash of a password reaches `input` as typed.
         """
         try:
             device_serial = self._get_device_serial()
-            safe_text = text.replace(' ', '%s').replace("'", "\\'").replace('"', '\\"')
-            self._run_adb_shell(device_serial, f'input text "{safe_text}"')
+            self._run_adb_shell(device_serial, ["input", "text", text.replace(" ", "%s")])
             self.logger.debug(f"⌨️ Typed via adb input text ({len(text)} chars)")
             return True
         except Exception as e:

@@ -15,12 +15,12 @@ instead of the deep link being honoured.
 
 from __future__ import annotations
 
-import subprocess
 import time
 from typing import Any, Optional
 
 from loguru import logger
 
+from taktik.core.shared.device.adb import run_adb_shell_process
 from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.creator import (
     VIDEO_CREATOR_SELECTORS,
@@ -54,15 +54,14 @@ def open_post_by_url(
         return False
 
     serial = device_id or _serial_of(device)
-    base = ["adb"] + (["-s", serial] if serial else [])
 
     try:
-        subprocess.run(base + ["shell", "am", "force-stop", _PACKAGE],
-                       capture_output=True, timeout=20)
+        run_adb_shell_process(serial, ["am", "force-stop", _PACKAGE], timeout=20)
         time.sleep(1.5)
-        started = subprocess.run(
-            base + ["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url, _PACKAGE],
-            capture_output=True, text=True, timeout=30,
+        # The link is ONE word for the phone: its `&` and `?` (`?is_from_webapp=1&sender_device=pc`)
+        # would otherwise cut the command in two on the phone's shell.
+        started = run_adb_shell_process(
+            serial, ["am", "start", "-a", "android.intent.action.VIEW", "-d", url, _PACKAGE], timeout=30,
         )
     except Exception as exc:
         logger.warning(f"open_post_by_url: could not fire the intent for {url} ({exc})")
