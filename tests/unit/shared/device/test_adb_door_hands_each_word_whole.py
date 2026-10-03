@@ -12,7 +12,7 @@ import types
 
 import pytest
 
-from taktik.core.shared.device import adb, network_probe
+from taktik.core.shared.device import adb
 from unit.android_shell import ShellWouldRewrite, adb_line, phone_words
 
 # Words that the phone's shell would rewrite if they were not quoted: a password, a link with a
@@ -103,14 +103,6 @@ def test_adbutils_receives_the_line_of_a_list(monkeypatch):
     monkeypatch.setitem(sys.modules, "adbutils", fake)
     assert adb.run_adb_shell("SERIAL", ["input", "text", "Pa$$word"]) == "ok"
     assert phone_words(received[0]) == ["input", "text", "Pa$$word"]
-
-
-def test_the_network_probe_pipeline_reaches_the_phone_shell_whole(adb_run):
-    """`sh -c <pipeline>`: three words. Unquoted, the phone ran `sh -c printf` and nothing else."""
-    pipeline = network_probe._IP_PROBE_COMMANDS[0]
-    network_probe._shell("SERIAL", pipeline)
-    (argv,) = adb_run.argv
-    assert phone_words(adb_line(argv)) == ["sh", "-c", pipeline]
 
 
 def test_the_reader_refuses_a_line_the_shell_would_rewrite():

@@ -12,6 +12,7 @@ cette mesure sans jamais changer sa reponse, est tenue par
 `tests/unit/bridges/common/test_network_baseline_at_the_gate.py`.
 """
 
+import subprocess
 import sys
 
 import pytest
@@ -19,7 +20,8 @@ from unit.paths import CORE
 
 sys.path.insert(0, str(CORE))
 
-from taktik.core.shared.device import network_probe  # noqa: E402
+from taktik.core.shared.device import adb, network_probe  # noqa: E402
+from unit.android_shell import adb_line, phone_words  # noqa: E402
 
 PING_COMPLET = """PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
 64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=23.4 ms
@@ -52,33 +54,31 @@ def ping(monkeypatch):
 
 # --- ce que le shell du telephone recoit ------------------------------------------------------
 
-def test_la_commande_arrive_quotee_au_telephone(monkeypatch):
+def test_la_commande_arrive_entiere_au_telephone(monkeypatch):
     """La panne qui rendait toutes les sondes muettes, et qu'aucun test ne voyait.
 
     `adb shell` colle ses arguments avec des espaces et envoie UNE ligne de commande, sans les
-    requoter : `["sh", "-c", "ping -c 3 1.1.1.1"]` arrive comme `sh -c ping -c 3 1.1.1.1`, ou
+    requoter : `["sh", "-c", "ping -c 3 1.1.1.1"]` arrivait comme `sh -c ping -c 3 1.1.1.1`, ou
     `sh -c ping` lance ping sans aucun argument. Mesure sur appareil le 2026-09-06 : chaque sonde
     de ce module rendait le texte d'usage de ping ou rien -- donc `read_public_ip` rendait None sur
     toute la flotte, et une rotation d'IP ne pouvait jamais etre verifiee.
+
+    Ce qui compte est ce que le telephone RECOIT, pas ce que la sonde demande : le test rejoue le
+    trajet sur les arguments avec lesquels adb est lance (la porte `shared/device/adb.py` quote).
     """
-    vus = []
+    lances = []
 
-    class _Resultat:
-        stdout = 'ok'
-        stderr = ''
+    def _run(argv, **kwargs):
+        lances.append(list(argv))
+        return subprocess.CompletedProcess(argv, 0, "ok", "")
 
-    monkeypatch.setattr(
-        network_probe, 'run_adb_shell_process',
-        lambda device_id, args, timeout=10: vus.append(args) or _Resultat(),
-    )
+    monkeypatch.setattr(adb.subprocess, "run", _run)
 
     commande = "printf 'GET / HTTP/1.1' | toybox nc -w 8 ifconfig.me 80"
     network_probe._shell('SERIE', commande)
 
-    assert vus[0][:2] == ['sh', '-c']
-    # Un seul mot pour le shell du telephone, quotes internes comprises.
-    assert vus[0][2].startswith("'") and vus[0][2].endswith("'")
-    assert len(vus[0]) == 3
+    (argv,) = lances
+    assert phone_words(adb_line(argv)) == ['sh', '-c', commande]
 
 
 def test_le_shell_ne_leve_jamais(monkeypatch):
