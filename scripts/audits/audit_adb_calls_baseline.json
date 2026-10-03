@@ -1,0 +1,22 @@
+{
+  "bridges/tools/lab/action_test/artifacts.py": 1,
+  "scripts/dev/check_atx_health.py": 5,
+  "scripts/dev/dump_ui_simple.py": 5,
+  "scripts/dev/record_human_session.py": 1,
+  "scripts/dev/setup_media_capture.py": 5,
+  "scripts/lab/capture_surface.py": 2,
+  "taktik/core/shared/device/manager.py": 4,
+  "taktik/core/shared/device/media_store.py": 3,
+  "taktik/core/shared/device/network_probe.py": 1,
+  "taktik/core/shared/device/network_reset.py": 1,
+  "taktik/core/shared/input/taktik_keyboard.py": 3,
+  "taktik/core/social_media/gmail/workflows/account.py": 1,
+  "taktik/core/social_media/instagram/actions/atomic/navigation/deep_link_navigation.py": 4,
+  "taktik/core/social_media/instagram/media/proxy/proxy_manager.py": 2,
+  "taktik/core/social_media/instagram/services/content/navigation.py": 1,
+  "taktik/core/social_media/tiktok/services/runtime/app_control.py": 3,
+  "taktik/core/social_media/tiktok/services/runtime/package_resolver.py": 1,
+  "taktik/core/social_media/tiktok/ui/detectors/keyboard.py": 1,
+  "taktik/core/social_media/tiktok/workflows/account/signup_workflow.py": 1,
+  "taktik/core/social_media/youtube/workflows/account/account_workflow.py": 3
+}

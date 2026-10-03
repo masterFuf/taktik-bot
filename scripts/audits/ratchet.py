@@ -16,11 +16,18 @@ any rise); it creates the file, freezing the current state, only when the file d
 A gate reads its files through `source_files` and `read_source`: sorted, `__pycache__` and
 `node_modules` left out, a BOM accepted. A file that cannot be read raises `UnreadableSource` with
 its path: it is named, never skipped.
+
+A gate that counts outside Python (the app's `npm run adb:calls`, which reads TypeScript) hands its
+counts to the same verdict on the command line, so both halves keep one ratchet:
+
+    python scripts/audits/ratchet.py --baseline <file> --label <label> --noun <noun>         --remedy <remedy> --command <command> [--update-baseline] < counts.json
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Mapping, Sequence, Tuple
@@ -169,3 +176,25 @@ def print_listing(actual: Mapping[str, int], noun: str,
     print("\nHeaviest files:")
     for path, count in sorted(actual.items(), key=lambda kv: (-kv[1], kv[0]))[:top]:
         print(f"  {count:5d}  {path}")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """The verdict on counts read as a JSON object `{path: count}` on stdin."""
+    parser = argparse.ArgumentParser(description="Per-file ratchet on counts given on stdin.")
+    for name in ("--baseline", "--label", "--noun", "--remedy", "--command"):
+        parser.add_argument(name, required=True)
+    parser.add_argument("--unit", default="file")
+    parser.add_argument("--update-baseline", action="store_true")
+    args = parser.parse_args(argv)
+    counts = json.load(sys.stdin)
+    valid = {path: count for path, count in counts.items()
+             if isinstance(count, int) and not isinstance(count, bool) and count >= 0}
+    bad = [f"{path}: {count!r} is not a count" for path, count in counts.items() if path not in valid]
+    return enforce({path: count for path, count in valid.items() if count}, Ratchet(
+        label=args.label, noun=args.noun, remedy=args.remedy, command=args.command,
+        baseline=Path(args.baseline), unit=args.unit,
+    ), update=args.update_baseline, other_failures=bad)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

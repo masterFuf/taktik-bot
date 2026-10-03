@@ -92,3 +92,24 @@ def test_a_missing_folder_or_an_unreadable_file_is_named(tmp_path):
     bad.write_bytes(b"x = '\xff\xfe\xfa'\n")
     with pytest.raises(ratchet.UnreadableSource, match="bad.py: unreadable"):
         ratchet.read_source(bad, tmp_path)
+
+
+def test_the_command_line_gives_the_same_verdict_on_counts_read_from_stdin(tmp_path, monkeypatch, capsys):
+    """The app's gates that count outside Python (TypeScript) keep the same ratchet."""
+    import io
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps({"a.ts": 2}), encoding="utf-8")
+    args = ["--baseline", str(baseline), "--label", "Calls", "--noun", "call(s)",
+            "--remedy", "Fix it.", "--command", "npm run x --"]
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"a.ts": 3})))
+    assert ratchet.main(args) == 1
+    assert "a.ts: 3 call(s), baseline 2" in capsys.readouterr().out
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"a.ts": 1, "b.ts": 0})))
+    assert ratchet.main(args + ["--update-baseline"]) == 0
+    assert json.loads(baseline.read_text(encoding="utf-8")) == {"a.ts": 1}
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"a.ts": "1"})))
+    assert ratchet.main(args) == 1
