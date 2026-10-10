@@ -22,11 +22,17 @@
 
 <div align="center">
 
+  **The desktop app for Windows is in the [latest release](https://github.com/masterFuf/taktik-bot/releases/latest)**
+
+  It needs a taktik-bot.com account and a subscription, which starts with a 14-day free trial.<br/>
+  A card is asked for when the trial starts, and nothing is charged during those 14 days.
+
+  [Start the free trial](https://taktik-bot.com/en/auth/trial?utm_source=github&utm_medium=readme&utm_campaign=v1.9.9) •
+  [Plans and prices](https://taktik-bot.com/en/pricing?utm_source=github&utm_medium=readme&utm_campaign=v1.9.9)
+
+  <br/>
+
   [![TAKTIK Demo](https://img.youtube.com/vi/mFh0iv3Hzck/maxresdefault.jpg)](https://www.youtube.com/watch?v=mFh0iv3Hzck)
-
-  **Desktop app access details are available on the website**
-
-  <a href="https://taktik-bot.com/en">**See current access details** →</a>
 
   <br/><br/>
 
