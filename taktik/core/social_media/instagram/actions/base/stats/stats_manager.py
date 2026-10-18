@@ -129,6 +129,9 @@ class BaseStatsManager:
             'comments': max(self.stats.get('comments', 0), self.stats.get('comments_made', 0)),
             'stories_watched': self.stats.get('stories_watched', 0),
             'story_likes': self.stats.get('story_likes', 0),
+            # The output of a run that opens no profile (the Feed: its quota counts posts). The
+            # snapshot sent live is this summary: without the key, every snapshot said 0.
+            'posts_engaged': self.stats.get('posts_engaged', 0),
             
             'likes_per_hour': self.get_rate_per_hour('likes'),
             'follows_per_hour': self.get_rate_per_hour('follows'),

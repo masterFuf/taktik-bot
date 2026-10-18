@@ -111,6 +111,7 @@ BENCH_STATS_EVENT = Event("instagram_stats", doc="The run's summary, after each 
             ("comments", "Comments."),
             ("stories_watched", "Stories watched."),
             ("story_likes", "Stories liked."),
+            ("posts_engaged", "Posts engaged: a like or a comment on the post itself, no profile opened."),
             ("errors", "Errors."),
         )),
         Field("likes_per_hour", "number", "Likes per hour."),

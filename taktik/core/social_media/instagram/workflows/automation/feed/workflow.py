@@ -105,6 +105,9 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 username, navigate_if_needed=False,
             )
             result = self._perform_interactions_on_profile(username, config, profile_data=profile_data)
+            if result.get('actually_interacted'):
+                # The live counters too (visited, interacted), as the likers walk files its profiles.
+                self._update_stats_from_interaction_result(username, result)
 
             stats['likes_made'] += result.get('likes', 0)
             stats['follows_made'] = stats.get('follows_made', 0) + result.get('follows', 0)
