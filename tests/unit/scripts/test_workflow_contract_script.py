@@ -17,7 +17,17 @@ import audit_workflow_contract as audit  # noqa: E402
 import workflow_contract as generator  # noqa: E402
 from taktik.core import contract as contract_package  # noqa: E402
 from taktik.core.contract import registry  # noqa: E402
-from taktik.core.contract.schema import Bounds, Field, ListOf, Shape, WorkflowContract, nested_fields  # noqa: E402
+from taktik.core.contract.schema import (  # noqa: E402
+    HOST,
+    Bounds,
+    Field,
+    ListOf,
+    OneOf,
+    Shape,
+    WorkflowContract,
+    nested_fields,
+)
+from workflow_contract import shapes_in  # noqa: E402
 
 
 def test_the_rendering_is_deterministic_and_says_it_is_generated():
@@ -132,3 +142,84 @@ def test_list_text_and_nested_conditions_render_as_the_app_reads_them():
     assert "Names. Bounds: 1 to 3 items, at most 30 characters when `ai.enabled` is true." in text
     assert generator.as_data((contract,), ())["workflows"]["probe.render"]["bounds"] == [
         {"path": ["names"], "minItems": 1, "maxItems": 3, "maxLength": 30, "when": {"ai.enabled": True}}]
+
+
+def _declared_keys(text: str, const: str):
+    body = text.split(f"export const {const}: BotSettings<", 1)[1].split("\n  fields: {", 1)[1].split("\n  },", 1)[0]
+    return {line.strip().split(":", 1)[0] for line in body.splitlines() if line.strip()}
+
+
+def test_every_member_of_a_settings_type_is_in_its_settings_as_data_and_no_other():
+    text, names = generator.render()
+    shapes = {}
+    for contract in registry.WORKFLOW_CONTRACTS:
+        const = f"{generator.constant_name(contract.name)}_BOT_SETTINGS"
+        assert const in names
+        assert _declared_keys(text, const) == {item.key for item in contract.settings
+                                               if item.app and item.by != HOST}
+        for item in contract.settings:
+            shapes.update({shape.name: shape for shape in shapes_in(item.type)})
+    for shape in shapes.values():
+        const = f"{generator.constant_name(shape.name)}_BOT_SETTINGS"
+        assert _declared_keys(text, const) == {item.key for item in shape.fields if item.app}, shape.name
+
+
+def test_the_settings_as_data_carry_type_doc_condition_and_who_fills_them():
+    text, _ = generator.render()
+
+    assert ("    recipients: { type: { listOf: 'string' }, doc: 'Handles to write to, resolved by the app from "
+            "the page\\'s source.', required: true },") in text
+    assert "    limits: { type: { shape: INSTAGRAM_AUTOMATION_LIMITS_BOT_SETTINGS }, doc: 'The run\\'s budget.' }," in text
+    assert "    feed: { type: { shape: INSTAGRAM_AUTOMATION_FEED_BOT_SETTINGS }, doc: 'The feed walk. Read when " \
+           "`workflowType` is \\'feed\\'.', when: { workflowType: 'feed' } }," in text
+    assert "    distribution: { type: { oneOf: ['balanced', 'sequential', 'interleaved'] }," in text
+    ai = text.split("export const INSTAGRAM_AUTOMATION_AI_BOT_SETTINGS: BotSettings<InstagramAutomationAi> = {", 1)[1]
+    assert "openrouterApiKey: { type: 'string'," in ai.split("\n}", 1)[0]
+    assert "host: true" in ai.split("openrouterApiKey: ", 1)[1].split("\n", 1)[0]
+    cold_dm = text.split("export const INSTAGRAM_COLD_DM_BOT_SETTINGS: ", 1)[1].split("\n}", 1)[0]
+    assert "  defaults: INSTAGRAM_COLD_DM_BOT_DEFAULTS,\n  bounds: INSTAGRAM_COLD_DM_BOT_BOUNDS," in cold_dm
+    logout = text.split("export const INSTAGRAM_ACCOUNT_LOGOUT_BOT_SETTINGS: ", 1)[1].split("\n}", 1)[0]
+    assert "  bounds: {}," in logout
+
+
+def test_each_declared_workflow_has_its_settings_and_its_value_of_the_selector():
+    text, names = generator.render()
+    index = text.split("export const WORKFLOW_BOT_SETTINGS: ", 1)[1].split("\n}", 1)[0]
+    served = [workflow_id for contract in registry.WORKFLOW_CONTRACTS for workflow_id in contract.serves]
+
+    assert {"DeclaredWorkflowId", "WORKFLOW_BOT_SETTINGS"} <= set(names)
+    assert len(served) == len(set(served))
+    for workflow_id in served:
+        assert f"\n  '{workflow_id}': {{ settings: " in index
+    assert ("  'instagram.automation.feed': { settings: INSTAGRAM_AUTOMATION_BOT_SETTINGS, "
+            "selector: { key: 'workflowType', value: 'feed' } },") in index
+    assert ("  'instagram.scraping.post_url': { settings: INSTAGRAM_SCRAPING_BOT_SETTINGS, "
+            "selector: { key: 'type', value: 'post_url' } },") in index
+    # One declaration for one workflow: its selector (the notifications' command) stays a setting.
+    assert "  'instagram.engagement.notifications': { settings: INSTAGRAM_NOTIFICATIONS_BOT_SETTINGS }," in index
+    # Several workflows, no selector: the same file for each.
+    assert "  'tiktok.automation.sync_following': { settings: TIKTOK_SYNC_BOT_SETTINGS }," in index
+
+
+def _family(also, *, selector="mode", values=("a", "b")):
+    return WorkflowContract(
+        workflow_id="probe.family.a", also=also, selector=selector, name="ProbeFamily", bridge="probe_bridge",
+        launcher="probe:run", reader="probe:read",
+        settings=(Field("mode", OneOf(values), "The run.", required=True),),
+    )
+
+
+def test_a_workflow_whose_last_segment_is_no_value_of_its_selector_is_refused():
+    text, _ = generator.render((_family(("probe.family.b",)),), ())
+    assert "  'probe.family.b': { settings: PROBE_FAMILY_BOT_SETTINGS, selector: { key: 'mode', value: 'b' } }," in text
+
+    with pytest.raises(ValueError, match="`c` is no value of the selector `mode`"):
+        generator.render((_family(("probe.family.c",)),), ())
+
+
+def test_a_workflow_served_by_two_declarations_is_refused():
+    first = _family(("probe.family.b",))
+    second = replace(first, workflow_id="probe.other", also=("probe.family.b",), selector=None, name="ProbeOther")
+
+    with pytest.raises(ValueError, match="probe.family.b is served by two declarations"):
+        generator.render((first, second), ())

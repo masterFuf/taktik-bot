@@ -3,8 +3,9 @@
 
 The app's types for the declared workflows are generated from the declaration, never written by
 hand: the settings each workflow reads (their defaults, the bounds outside which its reader refuses
-the run), the file its bridge reads, the lines its bridge prints; the
-lines of the diagnostic tools; the catalogues of why a run ends (named unions).
+the run, and the same settings as data the app reads while it runs), the file its bridge reads, the
+lines its bridge prints; the lines of the diagnostic tools; the catalogues of why a run ends (named
+unions).
 The output is deterministic (declaration order, no date), so the app's gate compares it byte for
 byte with the file it commits.
 
@@ -88,10 +89,12 @@ HEADER = """/**
  * The bot/app contract as the bot declares it (`core/taktik/core/contract/`): for each declared
  * workflow, the settings its launcher reads (`<Name>Settings`, `<NAME>_BOT_DEFAULTS` the defaults the
  * bot applies when a key is absent, `<NAME>_BOT_BOUNDS` the bounds outside which its reader refuses the
- * run before the phone is touched), the file its bridge reads (`<Name>BridgePayload`) and the stdout lines the app
- * reads (`<Name>BridgeLine`); the lines of the diagnostic tools the app runs beside them; the catalogues
- * of why a run ends, one union each. Rendered by `core/scripts/audits/workflow_contract.py`;
- * `npm run workflow:contract` fails when this file and the bot disagree.
+ * run before the phone is touched, `<NAME>_BOT_SETTINGS` the same settings as data, for code that reads
+ * them while the app runs, `WORKFLOW_BOT_SETTINGS` by workflow of the manifest), the file its bridge reads
+ * (`<Name>BridgePayload`) and the stdout lines the app reads (`<Name>BridgeLine`); the lines of the
+ * diagnostic tools the app runs beside them; the catalogues of why a run ends, one union each. Rendered
+ * by `core/scripts/audits/workflow_contract.py`; `npm run workflow:contract` fails when this file and the
+ * bot disagree.
  */
 """
 
@@ -259,8 +262,11 @@ def shape_defaults(shape: Shape) -> List[str]:
     return out
 
 
-#: The shape of one setting's bounds in the app, rendered once when a declaration has bounds.
-SETTING_BOUNDS = """/**
+#: The shape of one setting's bounds in the app, rendered once when a declaration has settings.
+SETTING_BOUNDS = """/** The settings under which a key is read or its bounds hold, by dotted path (a list: any of its values). */
+export type SettingCondition = Readonly<Record<string, string | number | boolean | ReadonlyArray<string | number | boolean>>>
+
+/**
  * The bounds of a setting, as the bot declares them (`Field.bounds`): outside them, its reader refuses
  * the run before the phone is touched. A value absent or null is not held to them.
  */
@@ -277,11 +283,72 @@ export interface SettingBounds {
   maxItems?: number
   /** The most characters of a text, or of each text of a list. */
   maxLength?: number
-  /** The settings under which the bounds hold, by dotted path (a list: any of its values); absent: always. */
-  when?: Readonly<Record<string, string | number | boolean | ReadonlyArray<string | number | boolean>>>
+  /** The settings under which the bounds hold; absent: always. */
+  when?: SettingCondition
+}"""
+
+#: The settings as data, rendered once beside `SettingBounds`: the types of a TypeScript interface
+#: vanish when the app is built, and code that reads the contract while the app runs (the parameters
+#: of a tool, a planned step's settings) needs them.
+SETTINGS_DECLARATION = """/** A setting's type as the bot declares it: a scalar, one of a closed set, a list, an object keyed by data, a nested setting. */
+export type SettingType =
+  | 'int'
+  | 'number'
+  | 'bool'
+  | 'string'
+  | 'json'
+  | { readonly oneOf: readonly string[]; readonly empty?: true }
+  | { readonly listOf: SettingType }
+  | { readonly mapOf: SettingType }
+  | { readonly shape: SettingsDeclaration }
+
+/** One setting as data: its type, the comment of its member, and who fills it. */
+export interface SettingDeclaration {
+  readonly type: SettingType
+  readonly doc: string
+  /** The run is refused without it. */
+  readonly required?: true
+  /** It may be null. */
+  readonly nullable?: true
+  /** The host process fills it (an API key, the warmup caps), never the operator. */
+  readonly host?: true
+  /** The settings under which the reader reads it. */
+  readonly when?: SettingCondition
+}
+
+/** The settings of a workflow or of a nested setting as data, with the bot's defaults and bounds. */
+export interface SettingsDeclaration {
+  readonly fields: Readonly<Record<string, SettingDeclaration>>
+  readonly defaults: Readonly<Record<string, string | number | boolean>>
+  readonly bounds: Readonly<Record<string, SettingBounds>>
+}
+
+/** A `SettingsDeclaration` held to its interface: one entry per member, no other. */
+export interface BotSettings<S> extends SettingsDeclaration {
+  readonly fields: { readonly [K in keyof Required<S> & string]: SettingDeclaration }
+}
+
+/** What a workflow of the manifest reads: the settings of its declaration, and its value of the declaration's selector. */
+export interface WorkflowBotSettings {
+  readonly settings: SettingsDeclaration
+  /** Absent when the declaration serves one workflow: the selector, if any, is then a setting like the others. */
+  readonly selector?: { readonly key: string; readonly value: string }
 }"""
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_$][\w$]*$")
+
+
+def ts_key(name: str) -> str:
+    return name if _IDENTIFIER.match(name) else literal(name)
+
+
+def ts_when(when) -> str:
+    """A `when` (of a setting or of its bounds) as a TypeScript object literal."""
+    inner = ", ".join(
+        f"{ts_key(name)}: "
+        f"{'[' + ', '.join(literal(v) for v in wanted) + ']' if isinstance(wanted, list) else literal(wanted)}"
+        for name, wanted in _json_when(when).items())
+    return f"{{ {inner} }}"
 
 
 def bounds_data(bounds: Bounds) -> Dict[str, Any]:
@@ -300,16 +367,8 @@ def bounds_data(bounds: Bounds) -> Dict[str, Any]:
 
 
 def ts_bounds(bounds: Bounds) -> str:
-    parts = []
-    for key, value in bounds_data(bounds).items():
-        if key == "when":
-            inner = ", ".join(
-                f"{name if _IDENTIFIER.match(name) else literal(name)}: "
-                f"{'[' + ', '.join(literal(v) for v in wanted) + ']' if isinstance(wanted, list) else literal(wanted)}"
-                for name, wanted in value.items())
-            parts.append(f"when: {{ {inner} }}")
-        else:
-            parts.append(f"{key}: {literal(value)}")
+    parts = [f"when: {ts_when(bounds.when)}" if key == "when" else f"{key}: {literal(value)}"
+             for key, value in bounds_data(bounds).items()]
     return "{ " + ", ".join(parts) + " }"
 
 
@@ -324,6 +383,86 @@ def bounds_constant(const: str, type_name: str, fields: Iterable[Field]) -> List
     out += [f"  {item.key}: {ts_bounds(item.bounds)}," for item in bounded if item.bounds is not None]
     out.append("}")
     return out
+
+
+def ts_setting_type(spec: Any) -> str:
+    """A type spec as data (`SettingType`); a nested setting names its own `<SHAPE>_BOT_SETTINGS`."""
+    if isinstance(spec, str):
+        return literal(spec)
+    if isinstance(spec, OneOf):
+        values = ", ".join(literal(value) for value in spec.values)
+        return f"{{ oneOf: [{values}]{', empty: true' if spec.empty else ''} }}"
+    if isinstance(spec, ListOf):
+        return f"{{ listOf: {ts_setting_type(spec.item)} }}"
+    if isinstance(spec, MapOf):
+        return f"{{ mapOf: {ts_setting_type(spec.value)} }}"
+    if isinstance(spec, Shape):
+        return f"{{ shape: {constant_name(spec.name)}_BOT_SETTINGS }}"
+    raise TypeError(f"unknown type spec: {spec!r}")
+
+
+def ts_setting(item: Field) -> str:
+    """One setting as data (`SettingDeclaration`); its documentation is the comment of its member."""
+    parts = [f"type: {ts_setting_type(item.type)}", f"doc: {literal(doc_line(item))}"]
+    if item.required:
+        parts.append("required: true")
+    if item.nullable:
+        parts.append("nullable: true")
+    if item.by == HOST:
+        parts.append("host: true")
+    if item.when:
+        parts.append(f"when: {ts_when(item.when)}")
+    return "{ " + ", ".join(parts) + " }"
+
+
+def settings_constant(prefix: str, type_name: str, fields: Iterable[Field],
+                      defaults: bool, bounds: bool) -> List[str]:
+    """`<NAME>_BOT_SETTINGS`: the members of `type_name` as data, beside its defaults and bounds constants."""
+    out = ["", f"/** `{type_name}` as data, for code that reads it while the app runs. */",
+           f"export const {prefix}_BOT_SETTINGS: BotSettings<{type_name}> = {{",
+           "  fields: {"]
+    out += [f"    {ts_key(item.key)}: {ts_setting(item)}," for item in fields]
+    out += ["  },",
+            f"  defaults: {f'{prefix}_BOT_DEFAULTS' if defaults else '{}'},",
+            f"  bounds: {f'{prefix}_BOT_BOUNDS' if bounds else '{}'},",
+            "}"]
+    return out
+
+
+def selector_value(contract: WorkflowContract, workflow_id: str) -> Optional[str]:
+    """The value of the declaration's selector that picks `workflow_id`: its last segment
+    (`instagram.automation.<workflowType>`), when the declaration serves several ids. One declaration
+    for one id (the notifications and their commands) keeps its selector as a setting."""
+    if not contract.selector or not contract.also:
+        return None
+    value = workflow_id.rsplit(".", 1)[-1]
+    allowed = contract.setting(contract.selector).type
+    if not (isinstance(allowed, OneOf) and allowed.allows(value)):
+        raise ValueError(f"{workflow_id}: `{value}` is no value of the selector `{contract.selector}`")
+    return value
+
+
+def workflow_settings_index(contracts: Tuple[WorkflowContract, ...]) -> Tuple[List[str], List[str]]:
+    """`DeclaredWorkflowId` and `WORKFLOW_BOT_SETTINGS`: for each workflow of the manifest a declaration
+    serves, its settings and its value of the selector."""
+    entries: Dict[str, str] = {}
+    for contract in contracts:
+        for workflow_id in contract.serves:
+            if workflow_id in entries:
+                raise ValueError(f"{workflow_id} is served by two declarations")
+            value = selector_value(contract, workflow_id)
+            picked = "" if value is None else (
+                f", selector: {{ key: {literal(contract.selector)}, value: {literal(value)} }}")
+            entries[workflow_id] = f"{{ settings: {constant_name(contract.name)}_BOT_SETTINGS{picked} }}"
+    out = [f"// {'-' * 96}", "// the declared workflows of the manifest, as data", "",
+           "/** Every workflow of the manifest the bot declares. */",
+           "export type DeclaredWorkflowId ="]
+    out += [f"  | {literal(workflow_id)}" for workflow_id in entries]
+    out += ["", "/** For each declared workflow, the settings it reads, as data. */",
+            "export const WORKFLOW_BOT_SETTINGS: Readonly<Record<DeclaredWorkflowId, WorkflowBotSettings>> = {"]
+    out += [f"  {literal(workflow_id)}: {entry}," for workflow_id, entry in entries.items()]
+    out.append("}")
+    return out, ["DeclaredWorkflowId", "WORKFLOW_BOT_SETTINGS"]
 
 
 def render_line(name: str, event: Event) -> List[str]:
@@ -371,6 +510,10 @@ def render_contract(contract: WorkflowContract) -> Tuple[List[str], List[str]]:
     if bounds:
         out += bounds
         exported.append(bounds_const)
+
+    out += settings_constant(constant_name(name), f"{name}Settings", app_settings(contract),
+                             defaults=bool(defaults), bounds=bool(bounds))
+    exported.append(f"{constant_name(name)}_BOT_SETTINGS")
 
     beside =[item for item in contract.bridge_fields if item.key in contract.beside_settings]
     root = [item for item in contract.bridge_fields if item.key not in contract.beside_settings]
@@ -422,9 +565,10 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
         "export type BridgeLine<Lines> = { [K in keyof Lines]: { type: K } & Lines[K] }[keyof Lines]",
         "",
     ]
-    if any(item.bounds is not None for contract in contracts for _, item, _, _ in nested_fields(contract.settings)):
-        lines += [SETTING_BOUNDS, ""]
-        exported.append("SettingBounds")
+    if contracts:
+        lines += [SETTING_BOUNDS, "", SETTINGS_DECLARATION, ""]
+        exported += ["SettingCondition", "SettingBounds", "SettingType", "SettingDeclaration", "SettingsDeclaration",
+                     "BotSettings", "WorkflowBotSettings"]
     shapes: Dict[str, Shape] = {}
     catalogues: Dict[str, OneOf] = {catalogue.name: catalogue for catalogue in CATALOGUES}
     settings: set = set()
@@ -461,6 +605,10 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
             lines += bounds
             if bounds:
                 exported.append(bounds_const)
+            lines += settings_constant(constant_name(shape.name), shape.name,
+                                       [item for item in shape.fields if item.app],
+                                       defaults=bool(defaults), bounds=bool(bounds))
+            exported.append(f"{constant_name(shape.name)}_BOT_SETTINGS")
         lines.append("")
         exported.append(shape.name)
     used = {event.type for owner in (*contracts, *tools) for event in owner.events}
@@ -470,6 +618,10 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
             exported.append(name)
     for contract in contracts:
         body, names = render_contract(contract)
+        lines += body + [""]
+        exported += names
+    if contracts:
+        body, names = workflow_settings_index(contracts)
         lines += body + [""]
         exported += names
     for tool in tools:
