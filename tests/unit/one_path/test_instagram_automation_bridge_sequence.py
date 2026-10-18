@@ -84,7 +84,9 @@ def test_a_workflow_that_raises_reports_it_and_stops_the_app(ig_rig):
     _check("workflow_error", ig_rig, ig_rig.run_bridge(feed_payload()))
 
 
-def test_an_unknown_workflow_type_fails_after_the_restart(ig_rig):
+def test_an_unknown_workflow_type_is_refused_before_instagram_restarts(ig_rig):
+    # Re-recorded on 2026-10-18: the launcher reads its payload before the restart, so a payload it
+    # refuses no longer restarts Instagram (the bridge still stops the app in its cleanup).
     _check("notifications_refused", ig_rig, ig_rig.run_bridge(feed_payload(workflowType="notifications")))
 
 
