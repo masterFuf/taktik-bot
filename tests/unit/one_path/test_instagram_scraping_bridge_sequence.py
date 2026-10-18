@@ -85,6 +85,20 @@ def test_a_device_that_does_not_connect_stops_the_run(igs_rig):
     _check("no_connection", igs_rig, igs_rig.run_bridge(target_payload()))
 
 
+def test_a_setting_out_of_its_bounds_is_refused_before_the_phone_is_touched(igs_rig):
+    code = igs_rig.run_bridge(target_payload(sessionDurationMinutes=601))
+
+    assert code == 1
+    assert [call for call in igs_rig.calls if call.startswith(("connection", "connect"))] == []
+    assert igs_rig.calls == []
+    # The bridge's last line, as before.
+    assert igs_rig.stdout_lines == [{
+        "type": "scraping_result",
+        "success": False,
+        "error": "Refused before the phone is touched: sessionDurationMinutes = 601, outside its bounds (5 to 600)",
+    }]
+
+
 def test_a_payload_without_device_is_refused(igs_rig):
     _check("no_device", igs_rig, igs_rig.run_bridge(target_payload(deviceId=None)))
 

@@ -84,10 +84,47 @@ def test_a_workflow_that_raises_reports_it_and_stops_the_app(ig_rig):
     _check("workflow_error", ig_rig, ig_rig.run_bridge(feed_payload()))
 
 
-def test_an_unknown_workflow_type_is_refused_before_instagram_restarts(ig_rig):
-    # Re-recorded on 2026-10-18: the launcher reads its payload before the restart, so a payload it
-    # refuses no longer restarts Instagram (the bridge still stops the app in its cleanup).
+def test_an_unknown_workflow_type_is_refused_before_the_phone_is_touched(ig_rig):
+    # Re-recorded twice on 2026-10-18. The launcher first read its payload before the restart; the
+    # bridge's entry now reads it before the bridge is built: no connection, no rotation, no app
+    # stop, the same error sentence and code, exit 1 as every entry refusal (5 before, which the app
+    # does not tell apart), and no traceback: a refusal is not a crash.
     _check("notifications_refused", ig_rig, ig_rig.run_bridge(feed_payload(workflowType="notifications")))
+
+
+def _phone_calls(calls) -> dict:
+    """The connections, IP rotations and app stops among the calls the rig recorded."""
+    return {
+        "connections": [call for call in calls if call.startswith("connect ")],
+        "ip_rotations": [call for call in calls if call.startswith("ip_rotation ")],
+        "app_stops": [call for call in calls if call.startswith("stop ")],
+    }
+
+
+def test_a_setting_out_of_its_bounds_is_refused_before_the_phone_is_touched(ig_rig):
+    # A fresh IP asked for: the refusal comes before the rotation, before the connection, and the
+    # bridge leaves the app alone.
+    limits = dict(feed_payload()["limits"], maxProfiles=501)
+    code = ig_rig.run_bridge(feed_payload(limits=limits, networkReset={"enabled": True, "method": "airplane_cell"}))
+
+    assert code != 0
+    assert _phone_calls(ig_rig.calls) == {"connections": [], "ip_rotations": [], "app_stops": []}
+    assert ig_rig.calls == ["stats_callback"]
+    # The line the app reads, as before: its sentence and its code.
+    errors = [(payload["error"], payload["error_code"]) for kind, payload in ig_rig.events if kind == "error"]
+    assert errors == [(
+        "Workflow error: Refused before the phone is touched: limits.maxProfiles = 501, outside its bounds (1 to 500)",
+        "WORKFLOW_ERROR",
+    )]
+
+
+def test_a_setting_inside_its_bounds_still_rotates_then_runs(ig_rig):
+    code = ig_rig.run_bridge(feed_payload(networkReset={"enabled": True, "method": "airplane_cell"}))
+
+    assert code == 0
+    calls = ig_rig.calls
+    assert calls.index("connect emulator-5554") < calls.index("ip_rotation airplane_cell") < calls.index("run_workflow")
+    assert calls[-1] == "stop com.instagram.android"
 
 
 def test_a_device_that_does_not_connect_stops_everything(ig_rig):
