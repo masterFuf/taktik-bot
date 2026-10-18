@@ -13,6 +13,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional
 
+from taktik.core.contract.bounds import refuse_out_of_bounds
+from taktik.core.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import (
     warmup_policy_from_payload,
 )
@@ -86,7 +88,8 @@ def taktik_agent_request_from_payload(config: Mapping[str, Any]) -> TaktikAgentR
     """The session a Taktik Agent payload describes.
 
     Without a key in the payload, the OpenRouter key is the `OPENROUTER_API_KEY` environment
-    variable's, when it is set."""
+    variable's, when it is set. A setting out of its declared bounds is a `ValueError` that names it."""
+    refuse_out_of_bounds(INSTAGRAM_TAKTIK_AGENT, config)
     return TaktikAgentRequest(
         max_likes=config.get("max_likes", 80),
         max_comments=config.get("max_comments", 15),

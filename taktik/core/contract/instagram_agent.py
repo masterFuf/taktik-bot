@@ -18,7 +18,7 @@ account): those are the automation's declarations, not copies; `step_metric` is 
 from __future__ import annotations
 
 from .instagram_automation import INSTAGRAM_AUTOMATION
-from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
+from .schema import HOST, Bounds, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
     AI_PROFILE_DONE_EVENT,
     AI_PROFILE_START_EVENT,
@@ -91,6 +91,9 @@ STATUS_STATS = Shape(
 
 _STRATEGY = OneOf(("feed", "hashtag"))
 
+#: The Agent has no page: the bounds are the ones the form of its scheduler node writes.
+_AT_LEAST_0 = Bounds(minimum=0)
+
 EVENTS = (
     STATUS_EVENT,
     ERROR_EVENT,
@@ -135,13 +138,17 @@ INSTAGRAM_TAKTIK_AGENT = WorkflowContract(
     launcher=f"{_AGENT}.agent_handler:run_instagram_agent",
     reader=f"{_AGENT}.payload:taktik_agent_request_from_payload",
     settings=(
-        Field("max_likes", "int", "Likes the session may give.", default=80, attr="max_likes"),
-        Field("max_comments", "int", "Comments the session may write.", default=15, attr="max_comments"),
-        Field("max_follows", "int", "Follows the session may give.", default=20, attr="max_follows"),
-        Field("max_profile_visits", "int", "Profiles the session may open.", default=40, attr="max_profile_visits"),
-        Field("max_posts_seen", "int", "Posts after which the session ends.", default=150, attr="max_posts_seen"),
+        Field("max_likes", "int", "Likes the session may give.", default=80, attr="max_likes", bounds=_AT_LEAST_0),
+        Field("max_comments", "int", "Comments the session may write.", default=15, attr="max_comments",
+              bounds=_AT_LEAST_0),
+        Field("max_follows", "int", "Follows the session may give.", default=20, attr="max_follows",
+              bounds=_AT_LEAST_0),
+        Field("max_profile_visits", "int", "Profiles the session may open.", default=40, attr="max_profile_visits",
+              bounds=_AT_LEAST_0),
+        Field("max_posts_seen", "int", "Posts after which the session ends.", default=150, attr="max_posts_seen",
+              bounds=_AT_LEAST_0),
         Field("session_duration_min", "number", "Minutes after which the session ends.", default=25,
-              attr="session_duration_min"),
+              attr="session_duration_min", bounds=Bounds(minimum=1)),
         Field("skip_reels", "bool", "Scroll past reels, in the feed and in a hashtag.", default=True,
               attr="skip_reels"),
         Field("skip_related_profiles", "bool", "Leave a profile already in a relationship before its "

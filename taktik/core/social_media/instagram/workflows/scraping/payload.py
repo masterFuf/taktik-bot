@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping, Optional
 
+from taktik.core.contract.bounds import refuse_out_of_bounds
+from taktik.core.contract.instagram_scraping import INSTAGRAM_SCRAPING
 from taktik.core.social_media.instagram.workflows.scraping.profile_posts_scraping import (
     DEFAULT_MAX_POSTS_PER_TARGET,
 )
@@ -46,7 +48,9 @@ def _number(value: Any) -> Any:
 
 
 def scraping_config_from_payload(config: Mapping[str, Any]) -> dict:
-    """The workflow config a scraping payload describes."""
+    """The workflow config a scraping payload describes; a setting out of its declared bounds is a
+    `ValueError` that names it."""
+    refuse_out_of_bounds(INSTAGRAM_SCRAPING, config)
     scraping_config = {
         'type': config.get('type', 'target'),
         'session_duration_minutes': _number(

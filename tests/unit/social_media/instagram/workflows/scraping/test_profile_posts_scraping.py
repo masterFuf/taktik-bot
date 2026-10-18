@@ -345,5 +345,8 @@ def test_bridge_config_maps_the_profile_posts_source():
     assert cfg["target_usernames"] == ["nike", "adidas"]
     assert cfg["max_posts_per_target"] == 5
 
-    defaults = build_scraping_config({"type": "profile_posts", "targetUsernames": ["nike"], "maxPostsPerTarget": 0})
+    defaults = build_scraping_config({"type": "profile_posts", "targetUsernames": ["nike"]})
     assert defaults["max_posts_per_target"] == mod.DEFAULT_MAX_POSTS_PER_TARGET
+    # Below the page's floor, 1: refused before the phone, no longer read as the default.
+    with pytest.raises(ValueError, match="maxPostsPerTarget = 0"):
+        build_scraping_config({"type": "profile_posts", "targetUsernames": ["nike"], "maxPostsPerTarget": 0})

@@ -138,8 +138,9 @@ def test_the_likers_budget_survives_the_chain_and_has_a_floor():
     })['actions'][0]
     assert action['max_likers_per_post'] == 12
 
-    # 0 or missing must not mean "walk nobody" silently — it falls back to the default.
-    zeroed = build_instagram_automation_config({
-        'workflowType': 'feed', 'feed': {'maxLikersPerPost': 0},
-    })['actions'][0]
-    assert zeroed['max_likers_per_post'] == 5
+    # Missing falls back to the default; 0 would walk nobody and is refused before the phone (its
+    # declared floor is the page's, 1).
+    missing = build_instagram_automation_config({'workflowType': 'feed', 'feed': {}})['actions'][0]
+    assert missing['max_likers_per_post'] == 5
+    with pytest.raises(ValueError, match=r"feed\.maxLikersPerPost = 0"):
+        build_instagram_automation_config({'workflowType': 'feed', 'feed': {'maxLikersPerPost': 0}})

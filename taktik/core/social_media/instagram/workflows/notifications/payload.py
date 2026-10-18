@@ -13,6 +13,9 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from loguru import logger
 
+from taktik.core.contract.bounds import refuse_out_of_bounds
+from taktik.core.contract.instagram_notifications import INSTAGRAM_NOTIFICATIONS
+
 #: The commands that act on the row of one account.
 ROW_COMMANDS = ("accept", "ignore", "like", "follow_back")
 NOTIFICATIONS_COMMANDS = ("scan", "list_requests", "accept_all", "reply", "batch", *ROW_COMMANDS)
@@ -67,6 +70,7 @@ def notifications_request_from_payload(payload: Mapping[str, Any]) -> Notificati
     command = payload.get("command")
     if command not in NOTIFICATIONS_COMMANDS:
         raise NotificationsCommandError(f"Unknown command: {command}")
+    refuse_out_of_bounds(INSTAGRAM_NOTIFICATIONS, payload, NotificationsCommandError)
     values: Dict[str, Any] = {"command": command, "account_username": payload.get("accountUsername")}
 
     if command in NEEDS_USERNAME:

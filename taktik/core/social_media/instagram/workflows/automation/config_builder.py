@@ -5,6 +5,8 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
+from taktik.core.contract.bounds import refuse_out_of_bounds
+from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION
 from taktik.core.social_media.instagram.workflows.common.distribution import normalize_distribution
 from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import warmup_policy_from_payload
 
@@ -293,7 +295,12 @@ def _build_action_config(
 
 
 def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, Any]:
-    """Build the legacy CLI-compatible config consumed by Instagram automation."""
+    """Build the legacy CLI-compatible config consumed by Instagram automation.
+
+    A setting outside the bounds its declaration gives it (`INSTAGRAM_AUTOMATION`) is refused
+    first, with a `ValueError` that names it.
+    """
+    refuse_out_of_bounds(INSTAGRAM_AUTOMATION, raw_config)
     target = raw_config.get("target", "")
     workflow_type = raw_config.get("workflowType")
     limits = raw_config.get("limits", {})
