@@ -113,6 +113,38 @@ def test_a_run_with_nothing_to_send_says_so(igc_rig, name, overrides):
     _check(name, igc_rig, igc_rig.run_bridge(cold_dm_payload(**overrides)))
 
 
+FRESH_IP = {"networkReset": {"enabled": True, "method": "airplane_cell"}}
+
+
+def _phone_calls(calls) -> dict:
+    """The connections, IP rotations and app stops among the calls the rig recorded."""
+    return {
+        "connections": [call for call in calls if call == "connect"],
+        "ip_rotations": [call for call in calls if call.startswith("ip_rotation ")],
+        "app_stops": [call for call in calls if call.startswith("stop ")],
+    }
+
+
+@pytest.mark.parametrize("overrides, refusal", [
+    ({"delayMin": 1}, "Refused before the phone is touched: delayMin = 1, outside its bounds (5 to 600)"),
+    ({"recipients": []}, "No recipients provided"),
+])
+def test_a_refused_run_neither_rotates_the_ip_nor_connects(igc_rig, overrides, refusal):
+    code = igc_rig.run_bridge(cold_dm_payload(**overrides, **FRESH_IP))
+
+    assert code == 1
+    assert _phone_calls(igc_rig.calls) == {"connections": [], "ip_rotations": [], "app_stops": []}
+    # The bridge's last line, as before.
+    assert igc_rig.stdout_lines[-1] == {"type": "cold_dm_result", "success": False, "error": refusal}
+
+
+def test_a_run_that_goes_rotates_the_ip_before_it_connects(igc_rig):
+    code = igc_rig.run_bridge(cold_dm_payload(recipients=["open_one"], **FRESH_IP))
+
+    assert code == 0
+    assert igc_rig.calls.index("ip_rotation airplane_cell") < igc_rig.calls.index("connect")
+
+
 def test_a_device_that_does_not_connect_stops_the_run(igc_rig):
     igc_rig.connect_ok = False
     _check("no_connection", igc_rig, igc_rig.run_bridge(cold_dm_payload()))

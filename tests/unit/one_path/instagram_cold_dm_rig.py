@@ -16,7 +16,7 @@ import sys
 
 import pytest
 
-from one_path_seams import patch_seam
+from one_path_seams import patch_seam, record_ip_rotations
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 AI_KEY = "sk-or-v1-" + "d" * 48
@@ -286,6 +286,7 @@ class InstagramColdDmRig:
         from bridges.common import network
 
         mp.setattr(network, "measure_network_baseline", lambda device_id: None)
+        record_ip_rotations(mp, rig.calls)
 
         self.phone = FakePhone(self)
 
