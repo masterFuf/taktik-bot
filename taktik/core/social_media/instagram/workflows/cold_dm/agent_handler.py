@@ -8,6 +8,8 @@ registered as `instagram.engagement.coldDm` (the CLI) calls: read the Cold DM pa
   payload names (`packageName`, a clone; None: the installed one): the bridges' clone-aware,
   facade-wrapped device, its manager, the Taktik Keyboard service and the clean restart.
 - `progress(current, total, username)`: where the per-recipient progress goes (the bridge's stdout).
+- `sent(current, username, message, ai_written)`: where each text the conversation took goes (the
+  bridge's `cold_dm_sent`, which the app journals).
 - `ai_ipc`: where the AI spend is reported (the bridge's stdout IPC).
 - `instagram_ai_key() -> str | None`: the OpenRouter key when the payload brings none (the CLI's
   environment).
@@ -25,6 +27,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
+from taktik.core.ai.dm_rules import AiDmRules
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.social_media.instagram.workflows.cold_dm.payload import cold_dm_request_from_payload
@@ -51,6 +54,7 @@ class ColdDmRuntime:
 
 RuntimeProvider = Callable[[Optional[str]], ColdDmRuntime]
 ProgressCallback = Callable[..., None]
+SentCallback = Callable[..., None]
 AIKeyProvider = Callable[[], Optional[str]]
 WorkflowFactory = Callable[..., Any]
 SessionStartCallback = Callable[[int], None]
@@ -68,6 +72,7 @@ def run_instagram_cold_dm(
     *,
     connect: RuntimeProvider,
     progress: Optional[ProgressCallback] = None,
+    sent: Optional[SentCallback] = None,
     ai_ipc=None,
     instagram_ai_key: Optional[AIKeyProvider] = None,
     workflow_factory: Optional[WorkflowFactory] = None,
@@ -84,11 +89,15 @@ def run_instagram_cold_dm(
     if message_mode == "ai" and not openrouter_api_key:
         logger.warning("AI mode requested but no OpenRouter API key provided, falling back to manual messages")
 
+    use_ai = bool(request.ai_prompt and openrouter_api_key)
     # Nobody to write to, or nothing to write: refused before the phone, from every host.
-    invalid = validate_cold_dm_inputs(recipients=recipients, messages=messages,
-                                      use_ai=bool(request.ai_prompt and openrouter_api_key))
+    invalid = validate_cold_dm_inputs(recipients=recipients, messages=messages, use_ai=use_ai)
     if invalid:
         raise ValueError(invalid["error"])
+    # Texts written by an AI: the frame the app sent, or the most prudent one for the bot's own.
+    ai_dm_rules = request.ai_dm_rules
+    if ai_dm_rules is None and use_ai:
+        ai_dm_rules = AiDmRules()
 
     logger.info(f"Cold DM config: {len(recipients)} recipients, {len(messages)} messages, mode: {message_mode}")
 
@@ -99,6 +108,7 @@ def run_instagram_cold_dm(
         keyboard=runtime.keyboard,
         restart=runtime.restart,
         progress=progress,
+        sent=sent,
         ai_ipc=ai_ipc,
     )
 
@@ -118,6 +128,7 @@ def run_instagram_cold_dm(
             request.ai_prompt,
             openrouter_api_key,
             recipient_policy=request.recipient_policy,
+            ai_dm_rules=ai_dm_rules,
         )
     except BaseException as exc:
         close_cold_dm_session(run_session_id, duration_seconds=int(time.monotonic() - started), error=exc)

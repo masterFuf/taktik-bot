@@ -42,6 +42,7 @@ def build_cold_dm_summary(workflow) -> dict:
         "dms_failed": workflow.dms_failed,
         "private_profiles": workflow.private_profiles,
         "verified_profiles": getattr(workflow, "verified_profiles", 0),
+        "texts_refused": workflow.texts_refused,
     }
     halt = run_halt.arret_demande()
     if halt:

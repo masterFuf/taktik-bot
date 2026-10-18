@@ -12,24 +12,20 @@ from taktik.core.ai.dm_rules import (
     refuse_ai_dm_texts,
 )
 from taktik.core.contract.ai_dm import AI_DM_REFUSAL_REASON
+from unit.ai_dm_texts import EACH_REASON, FRENCH_ACCOUNT, WITHIN_RULES
 
 FRENCH = AiDmRules(base_language="fr")
-GOOD = "Bonjour Léa, ta boulangerie a l'air superbe, on en parle ?"
+GOOD = WITHIN_RULES
 
 
-@pytest.mark.parametrize("text, reason", [
-    pytest.param("Salut, ça va ?", "too_short", id="too_short"),
-    pytest.param("Bonjour " + "a" * 500, "too_long", id="too_long"),
-    pytest.param("Hello Lea, your bakery looks amazing, could we talk about it?", "language", id="language"),
-    pytest.param("Bonjour, va voir maboutique.fr pour la suite, merci", "link", id="bare_domain"),
-    pytest.param("Bonjour, tout est sur https://exemple.com/offre pour toi", "link", id="full_link"),
-    pytest.param("Bonjour, écris-moi sur lea@exemple.fr pour en parler", "email", id="email"),
-    pytest.param("Bonjour, appelle-moi au 06 12 34 56 78 quand tu veux", "phone", id="phone"),
-    pytest.param("Bonjour, c'est GRATUIT pour toi pendant un mois entier", "forbidden_term", id="forbidden_term"),
-    pytest.param("Bonjour, la gratuité dure un mois entier pour toi", "forbidden_term", id="term_accents_and_start"),
+@pytest.mark.parametrize("reason, text", [
+    *EACH_REASON,
+    pytest.param("link", "Bonjour, tout est sur https://exemple.com/offre pour toi", id="full_link"),
+    pytest.param("forbidden_term", "Bonjour, c'est GRATUIT pour toi pendant un mois entier", id="term_case"),
+    pytest.param("forbidden_term", "Bonjour, la gratuité dure un mois entier pour toi", id="term_accents_and_start"),
 ])
-def test_each_rule_refuses_with_its_reason(text, reason):
-    rules = AiDmRules(base_language="fr", forbidden_terms=("gratuit",))
+def test_each_rule_refuses_with_its_reason(reason, text):
+    rules = ai_dm_rules_from_payload(FRENCH_ACCOUNT)
 
     refusal = check_ai_dm_text(text, rules)
 

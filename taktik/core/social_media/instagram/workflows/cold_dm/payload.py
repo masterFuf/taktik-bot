@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, List, Mapping, Optional
 
+from taktik.core.ai.dm_rules import AiDmRules, ai_dm_rules_from_payload, refuse_ai_dm_texts
 from taktik.core.contract.bounds import refuse_out_of_bounds
 from taktik.core.contract.instagram_engagement import INSTAGRAM_COLD_DM
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import ColdDmRecipientPolicy
@@ -33,6 +34,8 @@ class ColdDmRequest:
     skip_private: bool = True
     skip_verified: bool = False
     session_account_id: Optional[int] = None
+    #: The frame of texts written by an AI (`aiDmRules`); None: `messages` are the operator's.
+    ai_dm_rules: Optional[AiDmRules] = None
 
     @property
     def recipient_policy(self) -> ColdDmRecipientPolicy:
@@ -43,11 +46,18 @@ def cold_dm_request_from_payload(config: Mapping[str, Any], *,
                                  default_session_id: Optional[str] = None) -> ColdDmRequest:
     """The run a cold DM payload describes; `default_session_id` tags it when the payload does not.
 
-    A setting out of its declared bounds is a `ValueError` that names it."""
+    A setting out of its declared bounds is a `ValueError` that names it. Messages written by an AI
+    (`aiDmRules` given) are held to the rule here, before the phone: the first one it refuses refuses
+    the run (`AiDmTextRefused`, a `ValueError` carrying the typed reason)."""
     refuse_out_of_bounds(INSTAGRAM_COLD_DM, config)
+    messages = config.get("messages", [])
+    rules_block = config.get("aiDmRules")
+    ai_dm_rules = None if rules_block is None else ai_dm_rules_from_payload(rules_block)
+    if ai_dm_rules is not None:
+        refuse_ai_dm_texts(messages, ai_dm_rules)
     return ColdDmRequest(
         recipients=config.get("recipients", []),
-        messages=config.get("messages", []),
+        messages=messages,
         delay_min=config.get("delayMin", 30),
         delay_max=config.get("delayMax", 60),
         max_dms=config.get("maxDmsPerSession", 50),
@@ -61,6 +71,7 @@ def cold_dm_request_from_payload(config: Mapping[str, Any], *,
         skip_private=config.get("skipPrivateAccounts", True) is not False,
         skip_verified=bool(config.get("skipVerifiedAccounts", False)),
         session_account_id=session_account_id(config),
+        ai_dm_rules=ai_dm_rules,
     )
 
 

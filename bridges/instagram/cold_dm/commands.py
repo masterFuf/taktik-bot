@@ -15,9 +15,10 @@ import sys
 from bridges.common.network import enforce_pre_session_ip_rotation
 from bridges.common.entrypoint import MISSING_CONFIG
 from taktik.core.shared.input.keyboard import KeyboardService
-from bridges.instagram.cold_dm.progress import emit_cold_dm_progress
+from bridges.instagram.cold_dm.progress import emit_cold_dm_progress, emit_cold_dm_sent
 from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 from bridges.instagram.common.ipc import _ipc, logger
+from taktik.core.ai.dm_rules import AiDmTextRefused
 
 
 def print_cold_dm_result(success: bool, **fields) -> None:
@@ -84,6 +85,7 @@ def run_cold_dm(config: dict) -> None:
             config,
             connect=lambda package_name: _connect(config, device_id, package_name),
             progress=emit_cold_dm_progress,
+            sent=emit_cold_dm_sent,
             ai_ipc=_ipc,
             on_session_start=_ipc.session_start,
         )
@@ -94,9 +96,15 @@ def run_cold_dm(config: dict) -> None:
             dmsSuccess=result.get("dms_success", 0),
             dmsFailed=result.get("dms_failed", 0),
             error=result.get("error"),
+            textsRefused=result.get("texts_refused", 0),
             **({"stopReason": result["stop_reason"]} if result.get("stop_reason") else {}),
         )
 
+    except AiDmTextRefused as refused:
+        # A text written by an AI breaks the rule: refused before the phone, the reason typed.
+        logger.warning(f"Cold DM refused: {refused}")
+        print_cold_dm_result(False, error=str(refused), textRefusal=refused.refusal.as_line())
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Cold DM workflow error: {e}", exc_info=True)
         print_cold_dm_result(False, error=str(e))

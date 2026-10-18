@@ -6,6 +6,7 @@ launcher and the bridge to it.
 
 from __future__ import annotations
 
+from .ai_dm import ai_dm_rules_field, ai_dm_text_refusal_field
 from .schema import HOST, Bounds, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import AI_SPEND_EVENT, SESSION_START_EVENT, device_field, instagram_package_field, network_reset_field
 from .stop_reasons import RUN_HALT_CODE
@@ -47,6 +48,10 @@ INSTAGRAM_COLD_DM = WorkflowContract(
               "`sessionAccountId` is absent).", default=1, attr="account_id", app=False),
         Field("sessionId", "string", "Tags the sent-DM markers of this run.", default=Computed("the device id"),
               attr="session_id", app=False),
+        ai_dm_rules_field("The account's frame for a text written by an AI. Present: `messages` were written by "
+                          "an AI and are checked before the phone, the run is refused on the first one the rule "
+                          "refuses. Absent: `messages` are the operator's; in AI mode the bot's own texts are "
+                          "still checked, under the most prudent frame."),
         instagram_package_field(),
     ),
     bridge_fields=(
@@ -65,6 +70,12 @@ INSTAGRAM_COLD_DM = WorkflowContract(
             Field("total", "int", "Recipients this run will process."),
             Field("username", "string", "Its handle."),
         )),
+        Event("cold_dm_sent", doc="A message the conversation took: the text really sent to the recipient.", fields=(
+            Field("current", "int", "The recipient's rank, from 1."),
+            Field("username", "string", "Its handle."),
+            Field("message", "string", "The text sent."),
+            Field("aiWritten", "bool", "Written by an AI (the bot's AI mode, or `aiDmRules` given)."),
+        )),
         Event("cold_dm_result", doc="The run's verdict: its last line.", fields=(
             Field("success", "bool", "The run went through its list."),
             Field("dmsSent", "int", "Messages sent.", optional=True),
@@ -72,6 +83,8 @@ INSTAGRAM_COLD_DM = WorkflowContract(
             Field("dmsFailed", "int", "Recipients that failed.", optional=True),
             Field("error", "string", "What went wrong, for a person.", optional=True, nullable=True),
             Field("stopReason", RUN_HALT_CODE, "Why the run stopped early (`action_blocked`...).", optional=True),
+            Field("textsRefused", "int", "Texts the AI mode wrote and the rule refused: not sent.", optional=True),
+            ai_dm_text_refusal_field("The text of `messages` that refused the run before the phone."),
         )),
     ),
 )
