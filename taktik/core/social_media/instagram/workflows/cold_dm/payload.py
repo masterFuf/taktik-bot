@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, List, Mapping, Optional
 
+from taktik.core.contract.bounds import refuse_out_of_bounds
+from taktik.core.contract.instagram_engagement import INSTAGRAM_COLD_DM
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import ColdDmRecipientPolicy
 from taktik.core.social_media.instagram.workflows.cold_dm.session import session_account_id
 
@@ -39,7 +41,10 @@ class ColdDmRequest:
 
 def cold_dm_request_from_payload(config: Mapping[str, Any], *,
                                  default_session_id: Optional[str] = None) -> ColdDmRequest:
-    """The run a cold DM payload describes; `default_session_id` tags it when the payload does not."""
+    """The run a cold DM payload describes; `default_session_id` tags it when the payload does not.
+
+    A setting out of its declared bounds is a `ValueError` that names it."""
+    refuse_out_of_bounds(INSTAGRAM_COLD_DM, config)
     return ColdDmRequest(
         recipients=config.get("recipients", []),
         messages=config.get("messages", []),

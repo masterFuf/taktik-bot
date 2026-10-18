@@ -7,7 +7,7 @@ One payload, one reader, one launcher: `type` names the source, and so the workf
 
 from __future__ import annotations
 
-from .schema import HOST, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
+from .schema import HOST, Bounds, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import AI_ERROR_EVENT, AI_PROFILE_DONE_EVENT, AI_PROFILE_START_EVENT, device_field
 from .stop_reasons import INSTAGRAM_SCRAPING_COMPLETION_REASON
 
@@ -22,6 +22,10 @@ _POST_URL = {"type": "post_url"}
 _USERNAMES = {"type": "usernames"}
 _PROFILE_POSTS = {"type": "profile_posts"}
 _AI = {"ai.enabled": True}
+
+#: The bounds the app's scraping page writes, declared once (`Field.bounds`): the reader refuses a
+#: value outside them before the phone is touched.
+_AT_LEAST_0 = Bounds(minimum=0)
 
 AI = Shape(
     name="InstagramScrapingAi",
@@ -48,9 +52,11 @@ _SETTINGS = (
           "`instagram.scraping.<type>`.", required=True, attr="type"),
     # Every source.
     Field("sessionDurationMinutes", "number", "Stop after this many minutes.", default=60,
-          aliases=("session_duration_minutes",), attr="session_duration_minutes"),
+          aliases=("session_duration_minutes",), attr="session_duration_minutes",
+          bounds=Bounds(minimum=5, maximum=600)),
+    # The page's ceiling, 10 000, is not one: its follower estimate writes past it. The floor only.
     Field("maxProfiles", "int", "Stop after this many profiles.", default=500, aliases=("max_profiles",),
-          attr="max_profiles"),
+          attr="max_profiles", bounds=Bounds(minimum=1)),
     Field("exportCsv", "bool", "Write the profiles to a CSV file at the end.", default=True,
           aliases=("export_csv",), attr="export_csv"),
     Field("saveToDb", "bool", "File a scraping session and its profiles.", default=True,
@@ -60,14 +66,15 @@ _SETTINGS = (
     Field("fetchLocation", "bool", "Enriched runs: also open \"About this account\" (country, date joined).",
           default=False, aliases=("fetch_location",), attr="fetchLocation"),
     Field("minFollowers", "int", "Skip profiles with fewer followers; null: no rule.", attr="minFollowers",
-          nullable=True),
+          nullable=True, bounds=_AT_LEAST_0),
     Field("minFollowing", "int", "Skip profiles following fewer accounts; null: no rule.", attr="minFollowing",
-          nullable=True),
-    Field("minPosts", "int", "Skip profiles with fewer posts; null: no rule.", attr="minPosts", nullable=True),
+          nullable=True, bounds=_AT_LEAST_0),
+    Field("minPosts", "int", "Skip profiles with fewer posts; null: no rule.", attr="minPosts", nullable=True,
+          bounds=_AT_LEAST_0),
     Field("maxFollowers", "int", "Skip profiles with more followers; null or 0: no limit.", attr="maxFollowers",
-          nullable=True),
+          nullable=True, bounds=_AT_LEAST_0),
     Field("maxFollowing", "int", "Skip profiles following more accounts; null or 0: no limit.",
-          attr="maxFollowing", nullable=True),
+          attr="maxFollowing", nullable=True, bounds=_AT_LEAST_0),
     Field("requireProfilePicture", "bool", "Skip profiles without a picture.", default=False,
           attr="requireProfilePicture"),
     Field("skipPrivateProfiles", "bool", "Skip private profiles.", default=True, attr="skipPrivateProfiles"),
@@ -77,7 +84,7 @@ _SETTINGS = (
           aliases=("deep_qualify",), attr="deep_qualify"),
     Field("deepQualifyMaxFollowing", "int", "Accounts a deep qualification reads.", default=30,
           aliases=("deep_qualify_max_following",), attr="deep_qualify_max_following",
-          when={"deepQualify": True}),
+          when={"deepQualify": True}, bounds=Bounds(minimum=10, maximum=500)),
     Field("appLanguage", "string", "The language the AI answers in.", default="en",
           aliases=("response_language",), attr="response_language"),
     Field("ai", AI, "AI qualification."),
@@ -104,7 +111,7 @@ _SETTINGS = (
     Field("scrapeHashtagCommenters", "bool", "Collect the commenters of the hashtag's posts.", default=False,
           aliases=("scrape_commenters",), attr="scrape_commenters", when=_HASHTAG),
     Field("maxPosts", "int", "Posts of the hashtag to open.", default=50, aliases=("max_posts",),
-          attr="max_posts", when=_HASHTAG),
+          attr="max_posts", when=_HASHTAG, bounds=Bounds(minimum=1, maximum=200)),
     # `post_url`.
     Field("postUrls", ListOf("string"), "Post links whose people to collect (`post_url`).", default=(),
           aliases=("post_urls", "postUrl"), attr="post_urls", when=_POST_URL),
@@ -119,7 +126,8 @@ _SETTINGS = (
           default="manual selection", attr="source_name", when=_USERNAMES),
     # `profile_posts`.
     Field("maxPostsPerTarget", "int", "Posts to collect per account (`profile_posts`); 0 or less: the "
-          "default.", default=20, attr="max_posts_per_target", when=_PROFILE_POSTS),
+          "default.", default=20, attr="max_posts_per_target", when=_PROFILE_POSTS,
+          bounds=Bounds(minimum=1, maximum=200)),
 )
 
 _BRIDGE_FIELDS = (

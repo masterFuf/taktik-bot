@@ -107,7 +107,7 @@ def profile_posts_payload(**overrides) -> dict:
         "deviceId": DEVICE_ID,
         "type": "profile_posts",
         "targetUsernames": ["alpha"],
-        "maxPostsPerTarget": 0,
+        "maxPostsPerTarget": 20,
         "maxProfiles": 1,
         "sessionDurationMinutes": 10,
         "exportCsv": False,

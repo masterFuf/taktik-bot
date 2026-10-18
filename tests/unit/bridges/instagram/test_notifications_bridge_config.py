@@ -73,10 +73,10 @@ def test_a_scan_without_settings_keeps_the_defaults(run):
 def test_a_batch_reads_its_caps_and_its_source(run):
     actions = [{"action": "like", "username": "a"}]
     _, _, calls = run({"command": "batch", "deviceId": "dev", "actions": actions, "source": "autopilot",
-                       "followBackDailyCap": -3, "welcomeDmDailyCap": "x", "followActorDailyCap": 2})
+                       "followBackDailyCap": 3, "welcomeDmDailyCap": "x", "followActorDailyCap": 2})
     assert calls == [("cmd_batch", (actions,), {
         "account_username": None, "source": "autopilot",
-        "follow_back_daily_cap": 0, "welcome_dm_daily_cap": None, "follow_actor_daily_cap": 2})]
+        "follow_back_daily_cap": 3, "welcome_dm_daily_cap": None, "follow_actor_daily_cap": 2})]
 
 
 @pytest.mark.parametrize("command,target", [
@@ -100,6 +100,8 @@ def test_the_counts_of_list_requests_and_accept_all(run):
     ({"command": "reply", "deviceId": "dev"}, "username is required for reply"),
     ({"command": "batch", "deviceId": "dev", "actions": []}, "Batch actions must be a non-empty list"),
     ({"command": "dance", "deviceId": "dev"}, "Unknown command: dance"),
+    ({"command": "batch", "deviceId": "dev", "actions": [{"action": "like", "username": "a"}], "followBackDailyCap": -3},
+     "Refused before the phone is touched: followBackDailyCap = -3, outside its bounds (1 to 30)"),
 ])
 def test_an_incomplete_command_is_refused_before_the_phone(run, config, error):
     code, lines, calls = run(config)

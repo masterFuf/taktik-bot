@@ -28,7 +28,7 @@ def cold_dm_payload(**overrides) -> dict:
         "deviceId": DEVICE_ID,
         "recipients": ["open_one", "closed_one"],
         "messages": ["Hello there"],
-        "delayMin": 3,
+        "delayMin": 5,
         "delayMax": 6,
         "maxDmsPerSession": 5,
         "accountId": 7,

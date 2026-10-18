@@ -12,7 +12,7 @@ carry the scan's rows, the suggestions visit and the batch report.
 from __future__ import annotations
 
 from .instagram_automation import INSTAGRAM_AUTOMATION
-from .schema import HOST, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
+from .schema import HOST, Bounds, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
     AI_ERROR_EVENT,
     AI_PROFILE_DONE_EVENT,
@@ -41,6 +41,9 @@ BATCH_VERBS = (*ROW_COMMANDS, "reply", "welcome_dm", "follow_actor")
 
 _SCAN = {"command": "scan"}
 _BATCH = {"command": "batch"}
+
+#: A daily cap as the Notifications page writes it, declared once (`Field.bounds`).
+_DAILY_CAP = Bounds(minimum=1, maximum=30)
 
 BATCH_ACTION = Shape(
     name="InstagramNotificationBatchAction",
@@ -206,7 +209,7 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
               when={"command": _NEEDS_USERNAME}),
         Field("scroll", "int", "Screens scrolled below the first one.", default=3, attr="scroll", when=_SCAN),
         Field("followSuggestions", "int", "Suggested accounts visited and qualified at the end of the scan; 0: "
-              "none.", default=0, attr="follow_suggestions", when=_SCAN),
+              "none.", default=0, attr="follow_suggestions", when=_SCAN, bounds=Bounds(minimum=0, maximum=50)),
         Field("ai", "json", "The AI block that qualifies the visited suggestions (the automation's).",
               attr="ai", when=_SCAN, app=False),
         Field("language", "string", "The wording of the AI qualification.", default="en", attr="language",
@@ -222,11 +225,11 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
         Field("source", "string", "Who asked, recorded with each action: `batch` (the operator) or "
               "`autopilot` (a policy).", default="batch", attr="source", when=_BATCH),
         Field("followBackDailyCap", "int", "Follow backs a day, counted on the bot's record; absent: uncapped.",
-              attr="follow_back_daily_cap", when=_BATCH),
+              attr="follow_back_daily_cap", when=_BATCH, bounds=_DAILY_CAP),
         Field("welcomeDmDailyCap", "int", "Welcome DMs a day; absent: uncapped.", attr="welcome_dm_daily_cap",
-              when=_BATCH),
+              when=_BATCH, bounds=_DAILY_CAP),
         Field("followActorDailyCap", "int", "Follows of the accounts that engaged with our comments, a day; "
-              "absent: uncapped.", attr="follow_actor_daily_cap", when=_BATCH),
+              "absent: uncapped.", attr="follow_actor_daily_cap", when=_BATCH, bounds=_DAILY_CAP),
         instagram_package_field(),
     ),
     bridge_fields=(device_field("deviceId"),),

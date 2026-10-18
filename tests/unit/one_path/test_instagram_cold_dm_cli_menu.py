@@ -58,7 +58,7 @@ def test_a_menu_run_goes_through_the_desktop_engine(igc_rig):
     igc_rig.users["closed_one"] = {"private": True, "message_button": True}
     result = run_instagram_cold_dm_payload(igc_rig.device_manager, DEVICE_ID, {
         "recipients": ["open_one", "closed_one"], "messageMode": "manual", "messages": ["Hello there"],
-        "delayMin": 3, "delayMax": 6, "maxDmsPerSession": 5,
+        "delayMin": 5, "delayMax": 6, "maxDmsPerSession": 5,
         "skipPrivateAccounts": False, "skipVerifiedAccounts": False,
     })
 

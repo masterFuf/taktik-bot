@@ -6,7 +6,7 @@ import importlib
 import json
 from typing import Any, Dict, List
 
-from contract_probe import DEVICE
+from contract_probe import DEVICE, inside_bounds
 from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION
 from taktik.core.contract.schema import Field, ListOf, MapOf, OneOf, Shape, has_default
 
@@ -49,7 +49,7 @@ def protect_hooks(monkeypatch) -> None:
 
 
 def _value(item: Field) -> Any:
-    """What the app writes for `item`: its default, or a value the run acts on."""
+    """What the app writes for `item`: its default, or a value the run acts on, inside its bounds."""
     if has_default(item) and not isinstance(item.default, tuple):
         return item.default
     spec = item.type
@@ -59,7 +59,9 @@ def _value(item: Field) -> Any:
         return ["alpha", "beta"]
     if isinstance(spec, MapOf):
         return {"fitness": ["yoga"]}
-    return {"int": 7, "number": 2.5, "bool": True, "string": "probe", "json": {}}[spec]
+    if spec in ("int", "number"):
+        return inside_bounds(item, 7 if spec == "int" else 2.5)
+    return {"bool": True, "string": "probe", "json": {}}[spec]
 
 
 def _fill(fields) -> Dict[str, Any]:

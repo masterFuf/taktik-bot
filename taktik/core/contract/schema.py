@@ -82,6 +82,29 @@ HOST = "host"
 
 
 @dataclass(frozen=True)
+class Bounds:
+    """What a reader refuses before the phone is touched: a setting outside what the app's pages let
+    an operator set. A value absent or null is not held to them; `bounds.py` checks them.
+
+    minimum, maximum      a number's ("int", "number"), both included
+    unbounded_at          the number that says "no limit" (0: every conversation), accepted beside
+                          the minimum and the maximum
+    min_items, max_items  how many items a list holds
+    max_length            how many characters a text holds; for a list of texts, each of them
+    when                  the settings under which the bounds hold, by dotted path, as `Field.when`
+                          (a tuple: any of its values); they also hold under the field's own `when`
+    """
+
+    minimum: Optional[float] = None
+    maximum: Optional[float] = None
+    unbounded_at: Optional[float] = None
+    min_items: Optional[int] = None
+    max_items: Optional[int] = None
+    max_length: Optional[int] = None
+    when: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class Field:
     """One key of a payload or of an event.
 
@@ -106,6 +129,8 @@ class Field:
     when      the settings under which the reader reads the key, by dotted path
               (`{"workflowType": "feed"}`; a tuple: any of its values); the keys under a nested
               setting inherit it
+    bounds    what the reader refuses before the phone is touched (`Bounds`): the bounds the app's
+              pages write for this setting, declared here once
     """
 
     key: str
@@ -125,6 +150,7 @@ class Field:
     optional: bool = False
     via: Optional[str] = None
     when: Mapping[str, Any] = field(default_factory=dict)
+    bounds: Optional[Bounds] = None
 
     @property
     def names(self) -> Tuple[str, ...]:
@@ -259,6 +285,7 @@ def scalar_default(item: Field) -> bool:
 
 
 __all__ = [
+    "Bounds",
     "Computed",
     "Event",
     "Field",

@@ -33,7 +33,8 @@ def test_builds_target_followers_config_with_limits_and_targets():
                 "durationMinutes": 45,
                 "minDelay": 2,
                 "maxDelay": 6,
-                "maxConsecutiveKnownUsernames": 0,
+                # The floor the page writes; 0 is refused before the phone (its declared bounds).
+                "maxConsecutiveKnownUsernames": 1,
             },
             "comments": {
                 "customComments": ["nice"],

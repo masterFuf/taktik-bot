@@ -95,10 +95,12 @@ def run_instagram_automation(
     log = log or _log_to_logger
     package_name = package_name_from_payload(payload)
 
+    # Read before Instagram restarts: what the reader refuses never reaches the phone.
+    workflow_config = build_instagram_automation_config(payload)
+
     if instagram_start is not None and not instagram_start(package_name):
         raise InstagramStartError("Instagram did not start cleanly; the run was not started")
 
-    workflow_config = build_instagram_automation_config(payload)
     _emit(reporter, "config_built", workflow_config)
 
     run = (workflow_factory or automation.InstagramAutomation)(device_manager)

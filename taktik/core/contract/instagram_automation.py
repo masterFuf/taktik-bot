@@ -17,7 +17,7 @@ bridge's (`instagram.engagement.notifications`, `instagram_notifications.py`).
 
 from __future__ import annotations
 
-from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Shape, WorkflowContract
+from .schema import HOST, Bounds, Computed, Event, Field, ListOf, MapOf, OneOf, Shape, WorkflowContract
 from .shared import (
     AI_EVENTS,
     ERROR_EVENT,
@@ -58,16 +58,25 @@ _DECIDE = {"ai.decision.mode": "decide"}
 
 _ACTION = "actions.0"
 
+#: The bounds the app's pages write, declared once (`Field.bounds`): the reader refuses a value
+#: outside them before the phone is touched.
+_PERCENT = Bounds(minimum=0, maximum=100)
+_AT_LEAST_0 = Bounds(minimum=0)
+#: The runs whose pages set the profile budget (`limits.maxProfiles`): the profile pages and the feed.
+#: The Unfollow page sets the same value through `unfollow.maxUnfollows`; a list sync sends 0.
+_PROFILE_BUDGET_PAGES = ("target_followers", "target_following", "target_profiles", "hashtags", "post_url", "feed")
+
 LIMITS = Shape(
     name="InstagramAutomationLimits",
     doc="The run's budget.",
     fields=(
         Field("maxProfiles", "int", "Profiles to interact with; posts to browse for the feed.", default=20,
-              attr=f"{_ACTION}.max_interactions"),
+              attr=f"{_ACTION}.max_interactions",
+              bounds=Bounds(minimum=1, maximum=500, when={"workflowType": _PROFILE_BUDGET_PAGES})),
         Field("minLikesPerProfile", "int", "Fewest posts liked on a profile.", default=1,
-              attr=f"{_ACTION}.min_likes_per_profile"),
+              attr=f"{_ACTION}.min_likes_per_profile", bounds=Bounds(minimum=0, maximum=20)),
         Field("maxLikesPerProfile", "int", "Most posts liked on a profile.", default=2,
-              attr=f"{_ACTION}.max_likes_per_profile"),
+              attr=f"{_ACTION}.max_likes_per_profile", bounds=Bounds(minimum=0, maximum=20)),
         Field("maxFeedStoryProfiles", "int", "Story authors of the feed to watch, when `feedStories` omits it.",
               default=5, attr=f"{_ACTION}.max_feed_story_profiles", when=_FEED),
     ),
@@ -77,15 +86,18 @@ PROBABILITIES = Shape(
     name="InstagramAutomationProbabilities",
     doc="Chances of each action on a profile, in percent; decision mode replaces them with its plan.",
     fields=(
-        Field("like", "number", "Like its posts.", default=80, attr=f"{_ACTION}.probabilities.like_percentage"),
-        Field("follow", "number", "Follow it.", default=20, attr=f"{_ACTION}.probabilities.follow_percentage"),
-        Field("comment", "number", "Comment a post.", default=5, attr=f"{_ACTION}.probabilities.comment_percentage"),
+        Field("like", "number", "Like its posts.", default=80, attr=f"{_ACTION}.probabilities.like_percentage",
+              bounds=_PERCENT),
+        Field("follow", "number", "Follow it.", default=20, attr=f"{_ACTION}.probabilities.follow_percentage",
+              bounds=_PERCENT),
+        Field("comment", "number", "Comment a post.", default=5, attr=f"{_ACTION}.probabilities.comment_percentage",
+              bounds=_PERCENT),
         Field("watchStories", "number", "Watch its stories.", default=15,
-              attr=f"{_ACTION}.probabilities.story_percentage"),
+              attr=f"{_ACTION}.probabilities.story_percentage", bounds=_PERCENT),
         Field("likeStories", "number", "Like a story.", default=10,
-              attr=f"{_ACTION}.probabilities.story_like_percentage"),
+              attr=f"{_ACTION}.probabilities.story_like_percentage", bounds=_PERCENT),
         Field("feedStoryReaction", "number", "React to a story of the feed.", default=0,
-              attr=f"{_ACTION}.feed_story_reaction_percentage", when=_FEED),
+              attr=f"{_ACTION}.feed_story_reaction_percentage", when=_FEED, bounds=_PERCENT),
     ),
 )
 
@@ -93,11 +105,13 @@ FILTERS = Shape(
     name="InstagramAutomationFilters",
     doc="Which profiles deserve an interaction.",
     fields=(
-        Field("minFollowers", "int", "Fewest followers.", default=50, attr=f"{_ACTION}.min_followers"),
-        Field("maxFollowers", "int", "Most followers; 0: no limit.", default=50000, attr=f"{_ACTION}.max_followers"),
-        Field("minPosts", "int", "Fewest posts.", default=5, attr=f"{_ACTION}.min_posts"),
+        Field("minFollowers", "int", "Fewest followers.", default=50, attr=f"{_ACTION}.min_followers",
+              bounds=_AT_LEAST_0),
+        Field("maxFollowers", "int", "Most followers; 0: no limit.", default=50000, attr=f"{_ACTION}.max_followers",
+              bounds=_AT_LEAST_0),
+        Field("minPosts", "int", "Fewest posts.", default=5, attr=f"{_ACTION}.min_posts", bounds=_AT_LEAST_0),
         Field("maxFollowing", "int", "Most accounts followed; 0: no limit.", default=7500,
-              attr=f"{_ACTION}.max_following"),
+              attr=f"{_ACTION}.max_following", bounds=_AT_LEAST_0),
         Field("skipFollowsUs", "bool", "Leave profiles that follow the account.", default=False,
               attr=f"{_ACTION}.skip_follows_us"),
         Field("skipAlreadyFollowing", "bool", "Leave profiles the account follows.", default=False,
@@ -108,13 +122,13 @@ FILTERS = Shape(
               attr=f"{_ACTION}.refilter_days"),
         Field("allowPrivate", "bool", "Accept private profiles.", default=False, attr=f"{_ACTION}.allow_private"),
         Field("maxConsecutivePrivateProfiles", "int", "Private profiles in a row before leaving the zone. Absent: the bot's.",
-              attr=f"{_ACTION}.max_consecutive_private_profiles"),
+              attr=f"{_ACTION}.max_consecutive_private_profiles", bounds=Bounds(minimum=0, maximum=50)),
         Field("allowVerified", "bool", "Accept verified accounts.", default=True, attr=f"{_ACTION}.allow_verified"),
         Field("allowBusiness", "bool", "Accept professional accounts.", default=True, attr=f"{_ACTION}.allow_business"),
         Field("minPostLikes", "int", "Fewest likes of a feed post worth engaging; 0: no bound.", default=0,
-              attr=f"{_ACTION}.min_post_likes", when=_FEED),
+              attr=f"{_ACTION}.min_post_likes", when=_FEED, bounds=_AT_LEAST_0),
         Field("maxPostLikes", "int", "Most likes of a feed post worth engaging; 0: no bound.", default=0,
-              attr=f"{_ACTION}.max_post_likes", when=_FEED),
+              attr=f"{_ACTION}.max_post_likes", when=_FEED, bounds=_AT_LEAST_0),
     ),
 )
 
@@ -123,13 +137,13 @@ SESSION = Shape(
     doc="How long the run lasts and when it gives up on a source.",
     fields=(
         Field("durationMinutes", "int", "Stop after this many minutes.", default=60,
-              attr="session_settings.session_duration_minutes"),
+              attr="session_settings.session_duration_minutes", bounds=Bounds(minimum=5, maximum=600)),
         Field("minDelay", "number", "Shortest pause between actions, in seconds. Absent: the pacing profile's.",
               attr="session_settings.delay_between_actions.min"),
         Field("maxDelay", "number", "Longest pause between actions, in seconds. Absent: the pacing profile's.",
               attr="session_settings.delay_between_actions.max"),
         Field("maxConsecutiveKnownUsernames", "int", "Known usernames in a row before leaving a source list.",
-              attr="session_settings.max_consecutive_known_usernames"),
+              attr="session_settings.max_consecutive_known_usernames", bounds=Bounds(minimum=1, maximum=1000)),
         Field("maxNoNewUsernamesScrolls", "int", "Scrolls without a new username before leaving a source list.",
               attr="session_settings.max_no_new_usernames_scrolls"),
     ),
@@ -150,7 +164,8 @@ FEED_STORIES = Shape(
     fields=(
         Field("enabled", "bool", "Watch them.", default=Computed("on when probabilities.watchStories is above 0"),
               attr=f"{_ACTION}.view_feed_stories"),
-        Field("maxProfiles", "int", "Story authors to watch.", default=5, attr=f"{_ACTION}.max_feed_story_profiles"),
+        Field("maxProfiles", "int", "Story authors to watch.", default=5, attr=f"{_ACTION}.max_feed_story_profiles",
+              bounds=Bounds(minimum=1, maximum=20)),
         Field("reaction", "string", "The quick reaction sent.", default="laugh", attr=f"{_ACTION}.feed_story_reaction"),
     ),
 )
@@ -168,7 +183,8 @@ FEED = Shape(
               attr=f"{_ACTION}.interact_with_post_author"),
         Field("interactWithPostLikers", "bool", "Walk the likers of an engaged post.", default=False,
               attr=f"{_ACTION}.interact_with_post_likers"),
-        Field("maxLikersPerPost", "int", "Likers walked per post.", default=5, attr=f"{_ACTION}.max_likers_per_post"),
+        Field("maxLikersPerPost", "int", "Likers walked per post.", default=5, attr=f"{_ACTION}.max_likers_per_post",
+              bounds=Bounds(minimum=1)),
         Field("skipReels", "bool", "Leave the reels of the feed.", default=False, attr=f"{_ACTION}.skip_reels"),
         Field("followSuggestions", "bool", "Follow from the suggestions carousel when it shows.", default=False,
               attr=f"{_ACTION}.follow_suggestions"),
@@ -177,7 +193,7 @@ FEED = Shape(
         Field("maxCarouselScrolls", "int", "Scrolls to find the carousel.", default=12,
               attr=f"{_ACTION}.max_carousel_scrolls"),
         Field("maxSuggestionFollows", "int", "Follows per pass of suggestions.", default=20,
-              attr=f"{_ACTION}.max_suggestion_follows"),
+              attr=f"{_ACTION}.max_suggestion_follows", bounds=Bounds(minimum=0, maximum=100)),
         Field("allowContactsAccess", "bool", "Grant the contacts access Instagram asks for; refused otherwise.",
               default=False, via=_BUILDER),
         Field("maxSuggestionPasses", "int", "Passes of suggestions.", default=1, attr=f"{_ACTION}.max_suggestion_passes"),
@@ -189,17 +205,17 @@ UNFOLLOW = Shape(
     doc="Who to unfollow and how fast (unfollow).",
     fields=(
         Field("maxUnfollows", "int", "Stop after this many unfollows.", default=Computed("limits.maxProfiles"),
-              attr=f"{_ACTION}.max_unfollows"),
+              attr=f"{_ACTION}.max_unfollows", bounds=Bounds(minimum=1, maximum=200)),
         Field("unfollowMode", OneOf(("non-followers", "mutual", "oldest", "all")), "Which accounts.",
               default="non-followers", attr=f"{_ACTION}.unfollow_mode"),
         Field("minDelay", "number", "Shortest pause between two unfollows, in seconds.", default=2,
-              attr=f"{_ACTION}.min_delay"),
+              attr=f"{_ACTION}.min_delay", bounds=Bounds(minimum=1, maximum=120)),
         Field("maxDelay", "number", "Longest pause between two unfollows, in seconds.", default=5,
-              attr=f"{_ACTION}.max_delay"),
+              attr=f"{_ACTION}.max_delay", bounds=Bounds(minimum=1, maximum=120)),
         Field("skipVerified", "bool", "Keep verified accounts.", default=True, attr=f"{_ACTION}.skip_verified"),
         Field("skipBusiness", "bool", "Keep professional accounts.", default=False, attr=f"{_ACTION}.skip_business"),
         Field("minDaysSinceFollow", "int", "Keep accounts followed fewer days ago.", default=3,
-              attr=f"{_ACTION}.min_days_since_follow"),
+              attr=f"{_ACTION}.min_days_since_follow", bounds=Bounds(minimum=0, maximum=30)),
         Field("botFollowsOnly", "bool", "Only accounts the bot followed; manual follows are kept.", default=True,
               attr=f"{_ACTION}.bot_follows_only"),
         Field("whitelist", ListOf("string"), "Never unfollowed.", default=(), attr=f"{_ACTION}.whitelist"),
@@ -220,8 +236,10 @@ POST_CRITERIA = Shape(
     name="InstagramAutomationPostCriteria",
     doc="Which post of a hashtag is worth opening. Absent: the workflow's own bounds.",
     fields=(
-        Field("minLikes", "int", "Fewest likes; 0: no bound.", attr=f"{_ACTION}.post_criteria.min_likes"),
-        Field("maxLikes", "int", "Most likes; 0: no bound.", attr=f"{_ACTION}.post_criteria.max_likes"),
+        Field("minLikes", "int", "Fewest likes; 0: no bound.", attr=f"{_ACTION}.post_criteria.min_likes",
+              bounds=_AT_LEAST_0),
+        Field("maxLikes", "int", "Most likes; 0: no bound.", attr=f"{_ACTION}.post_criteria.max_likes",
+              bounds=_AT_LEAST_0),
     ),
 )
 
@@ -283,7 +301,7 @@ RELEVANCE_GATING = Shape(
     doc="Skip the profiles the AI verdict judges irrelevant, or drop their actions.",
     fields=(
         Field("enabled", "bool", "Enforce the verdict; otherwise it is only shown."),
-        Field("minScore", "number", "Lowest relevance score kept."),
+        Field("minScore", "number", "Lowest relevance score kept.", bounds=Bounds(minimum=0, maximum=1)),
         Field("maskIntents", "bool", "Drop the actions the verdict refuses rather than the profile."),
         Field("dryRun", "bool", "Report what would be skipped, skip nothing."),
     ),
@@ -705,17 +723,21 @@ INSTAGRAM_AUTOMATION = WorkflowContract(
         Field("engagePosts", "bool", "Hashtag: engage each post itself.", attr=f"{_ACTION}.engage_posts"),
         Field("walkLikers", "bool", "Hashtag: walk each post's likers.", attr=f"{_ACTION}.walk_likers"),
         Field("walkCommenters", "bool", "Hashtag: walk each post's commenters.", attr=f"{_ACTION}.walk_commenters"),
-        Field("maxPosts", "int", "Hashtag: posts to open.", attr=f"{_ACTION}.max_posts"),
-        Field("maxLikersPerPost", "int", "Hashtag: likers walked per post.", attr=f"{_ACTION}.max_likers_per_post"),
+        Field("maxPosts", "int", "Hashtag: posts to open.", attr=f"{_ACTION}.max_posts",
+              bounds=Bounds(minimum=1, maximum=100)),
+        Field("maxLikersPerPost", "int", "Hashtag: likers walked per post.", attr=f"{_ACTION}.max_likers_per_post",
+              bounds=Bounds(minimum=1, maximum=200)),
         Field("maxCommentersPerPost", "int", "Hashtag: commenters walked per post.",
-              attr=f"{_ACTION}.max_commenters_per_post"),
+              attr=f"{_ACTION}.max_commenters_per_post", bounds=Bounds(minimum=1, maximum=200)),
         Field("source_mode", OneOf(("likers", "commenters")), "Post URL: the population walked.",
               attr=f"{_ACTION}.source_mode"),
         Field("like_comments", "bool", "Post URL: like comments of the thread.", attr=f"{_ACTION}.like_comments"),
         Field("reply_to_comments", "bool", "Post URL: reply to comments of the thread.",
               attr=f"{_ACTION}.reply_to_comments"),
-        Field("max_comment_likes", "int", "Post URL: comments liked.", attr=f"{_ACTION}.max_comment_likes"),
-        Field("max_comment_replies", "int", "Post URL: comments answered.", attr=f"{_ACTION}.max_comment_replies"),
+        Field("max_comment_likes", "int", "Post URL: comments liked.", attr=f"{_ACTION}.max_comment_likes",
+              bounds=Bounds(minimum=1, maximum=50)),
+        Field("max_comment_replies", "int", "Post URL: comments answered.", attr=f"{_ACTION}.max_comment_replies",
+              bounds=Bounds(minimum=1, maximum=20)),
         Field("walk_profiles", "bool", "Post URL: false stays in the thread and visits nobody.",
               attr=f"{_ACTION}.walk_profiles"),
         Field("behaviorPolicy", BEHAVIOR_POLICY, "The pacing profile.", via=_PACING),

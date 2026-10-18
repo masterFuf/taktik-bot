@@ -1336,10 +1336,6 @@
    "configure_db",
    "connect emulator-5554",
    "network_baseline emulator-5554",
-   "atx_health repair=True retries=3",
-   "is_installed com.instagram.android",
-   "stop com.instagram.android",
-   "launch com.instagram.android com.instagram.mainactivity.InstagramMainActivity stop_first=False",
    "stop com.instagram.android"
   ],
   "events": [
@@ -1397,20 +1393,6 @@
     {
      "level": "info",
      "message": "Media capture disabled in config"
-    }
-   ],
-   [
-    "status",
-    {
-     "status": "launching",
-     "message": "Restarting Instagram..."
-    }
-   ],
-   [
-    "status",
-    {
-     "status": "instagram_ready",
-     "message": "Instagram launched successfully"
     }
    ],
    [

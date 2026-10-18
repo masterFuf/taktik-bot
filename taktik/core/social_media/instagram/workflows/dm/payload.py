@@ -11,6 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
+from taktik.core.contract.bounds import refuse_out_of_bounds
+from taktik.core.contract.instagram_engagement import INSTAGRAM_DM_READ, INSTAGRAM_DM_SEND
+
 DM_COMMANDS = ("read", "read_requests", "send")
 READ_COMMANDS = ("read", "read_requests")
 
@@ -30,11 +33,14 @@ class DmCommand:
 
 
 def dm_command_from_payload(config: Mapping[str, Any]) -> DmCommand:
-    """The command a DM payload describes; refused (`DmCommandError`) when it cannot run."""
+    """The command a DM payload describes; refused (`DmCommandError`) when it cannot run, or when a
+    setting is out of its declared bounds."""
     command = config.get("command")
     if command in READ_COMMANDS:
+        refuse_out_of_bounds(INSTAGRAM_DM_READ, config, DmCommandError)
         return DmCommand(command=command, limit=int(config.get("limit", 10)))
     if command == "send":
+        refuse_out_of_bounds(INSTAGRAM_DM_SEND, config, DmCommandError)
         username = config.get("username")
         message = config.get("message")
         if not username or not message:

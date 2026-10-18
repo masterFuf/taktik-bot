@@ -17,6 +17,7 @@ import audit_workflow_contract as audit  # noqa: E402
 import workflow_contract as generator  # noqa: E402
 from taktik.core import contract as contract_package  # noqa: E402
 from taktik.core.contract import registry  # noqa: E402
+from taktik.core.contract.schema import Bounds, Field, ListOf, Shape, WorkflowContract, nested_fields  # noqa: E402
 
 
 def test_the_rendering_is_deterministic_and_says_it_is_generated():
@@ -88,3 +89,46 @@ def test_the_audit_refuses_a_stale_app_file(tmp_path):
     text, _ = generator.render()
     target.write_text(text, encoding="utf-8")
     assert audit.problems(CORE, app=app) == []
+
+
+def test_the_bounds_are_rendered_for_the_app_and_in_the_data_form():
+    text, names = generator.render()
+
+    assert "export interface SettingBounds {" in text and "SettingBounds" in names
+    assert "INSTAGRAM_AUTOMATION_LIMITS_BOT_BOUNDS" in names
+    assert ("  maxProfiles: { minimum: 1, maximum: 500, when: { workflowType: ['target_followers', "
+            "'target_following', 'target_profiles', 'hashtags', 'post_url', 'feed'] } },") in text
+    assert "  limit: { minimum: 1, maximum: 50, unboundedAt: 0 }," in text
+    assert "Conversations to read; 0: all. Default 10. Bounds: 1 to 50, or 0 for no limit." in text
+    data = generator.as_data()["workflows"]
+    assert data["instagram.engagement.dm_read"]["bounds"] == [
+        {"path": ["limit"], "minimum": 1, "maximum": 50, "unboundedAt": 0}]
+    assert data["tiktok.standalone.tiktok_unfollow"]["bounds"] == []
+
+
+def test_every_bounded_setting_the_app_sends_is_in_a_bounds_constant():
+    text, _ = generator.render()
+    for contract in registry.WORKFLOW_CONTRACTS:
+        for path, item, _, _ in nested_fields(contract.settings):
+            if item.bounds is not None and item.app:
+                assert f"  {item.key}: {generator.ts_bounds(item.bounds)}," in text, ".".join(path)
+
+
+def test_list_text_and_nested_conditions_render_as_the_app_reads_them():
+    inner = Shape(name="ProbeRenderAi", fields=(Field("enabled", "bool", default=False),))
+    contract = WorkflowContract(
+        workflow_id="probe.render", name="ProbeRender", bridge="probe_bridge", launcher="probe:run",
+        reader="probe:read",
+        settings=(
+            Field("ai", inner, "The AI."),
+            Field("names", ListOf("string"), "Names.", bounds=Bounds(min_items=1, max_items=3, max_length=30,
+                                                                     when={"ai.enabled": True})),
+        ),
+    )
+    text, names = generator.render((contract,), ())
+
+    assert "export const PROBE_RENDER_BOT_BOUNDS" in text and "PROBE_RENDER_BOT_BOUNDS" in names
+    assert "  names: { minItems: 1, maxItems: 3, maxLength: 30, when: { 'ai.enabled': true } }," in text
+    assert "Names. Bounds: 1 to 3 items, at most 30 characters when `ai.enabled` is true." in text
+    assert generator.as_data((contract,), ())["workflows"]["probe.render"]["bounds"] == [
+        {"path": ["names"], "minItems": 1, "maxItems": 3, "maxLength": 30, "when": {"ai.enabled": True}}]

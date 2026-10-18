@@ -6,7 +6,7 @@ launcher and the bridge to it.
 
 from __future__ import annotations
 
-from .schema import HOST, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
+from .schema import HOST, Bounds, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import AI_SPEND_EVENT, SESSION_START_EVENT, device_field, instagram_package_field, network_reset_field
 from .stop_reasons import RUN_HALT_CODE
 
@@ -28,10 +28,11 @@ INSTAGRAM_COLD_DM = WorkflowContract(
         Field("messages", ListOf("string"), "Messages to pick from; in AI mode, unused.", default=(),
               attr="messages"),
         Field("delayMin", "number", "Shortest pause between two recipients, in seconds.", default=30,
-              attr="delay_min"),
+              attr="delay_min", bounds=Bounds(minimum=5, maximum=600)),
         Field("delayMax", "number", "Longest pause between two recipients, in seconds.", default=60,
-              attr="delay_max"),
-        Field("maxDmsPerSession", "int", "Stop after this many messages.", default=50, attr="max_dms"),
+              attr="delay_max", bounds=Bounds(minimum=5, maximum=600)),
+        Field("maxDmsPerSession", "int", "Stop after this many messages.", default=50, attr="max_dms",
+              bounds=Bounds(minimum=1, maximum=100)),
         Field("messageMode", OneOf(("manual", "ai")), "The static list, or one message written per recipient.",
               default="manual", attr="message_mode"),
         Field("aiPrompt", "string", "What the AI message says (AI mode).", default="", attr="ai_prompt"),
@@ -127,7 +128,8 @@ INSTAGRAM_DM_READ = WorkflowContract(
     settings=(
         Field("command", OneOf(("read", "read_requests")), "The inbox, or the message requests.", required=True,
               attr="command"),
-        Field("limit", "int", "Conversations to read; 0 or less: all.", default=10, attr="limit"),
+        Field("limit", "int", "Conversations to read; 0: all.", default=10, attr="limit",
+              bounds=Bounds(minimum=1, maximum=50, unbounded_at=0)),
         instagram_package_field(),
     ),
     bridge_fields=_DM_BRIDGE_FIELDS,

@@ -6,6 +6,7 @@ import importlib
 import inspect
 from typing import Any, Dict, Iterable, Mapping, Set, Tuple
 
+from taktik.core.contract.bounds import number_within
 from taktik.core.contract.schema import (
     Field,
     ListOf,
@@ -66,8 +67,26 @@ class Recording(dict):
         return super().items()
 
 
+def inside_bounds(item: Field, value: float, default: Any = None, variant: int = 0) -> float:
+    """`value`, or, past the bounds the reader refuses, a value inside them that still differs from
+    the default and from another variant's."""
+    bounds = item.bounds
+    if bounds is None or number_within(bounds, value):
+        return value
+    low = bounds.minimum if bounds.minimum is not None else bounds.maximum - 100
+    high = bounds.maximum if bounds.maximum is not None else low + 100
+    for step in range(1, 9):
+        candidate = low + (high - low) * ((step + variant) % 8 + 1) / 10
+        if item.type == "int":
+            candidate = int(round(candidate))
+        if candidate != default and candidate != bounds.unbounded_at and number_within(bounds, candidate):
+            return candidate
+    raise AssertionError(f"no probe inside the bounds of {item.key}")
+
+
 def probe(item: Field, variant: int = 0) -> Any:
-    """A value for `item` that differs from its default, and from the probe of another variant."""
+    """A value for `item` that differs from its default, and from the probe of another variant;
+    inside its bounds, where it has some."""
     default = item.default if has_default(item) else None
     spec = item.type
     if isinstance(spec, Shape):
@@ -75,9 +94,9 @@ def probe(item: Field, variant: int = 0) -> Any:
     if isinstance(spec, ListOf) and isinstance(spec.item, Shape):
         return [probe(Field("item", spec.item), variant)]
     if spec == "int":
-        return int(default or 0) + 7 + variant
+        return inside_bounds(item, int(default or 0) + 7 + variant, default, variant)
     if spec == "number":
-        return float(default or 0) + 2.5 + variant
+        return inside_bounds(item, float(default or 0) + 2.5 + variant, default, variant)
     if spec == "bool":
         base = default if isinstance(default, bool) else False
         return (not base) if variant == 0 else base

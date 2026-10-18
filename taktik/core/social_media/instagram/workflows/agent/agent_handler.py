@@ -60,7 +60,14 @@ def run_instagram_agent(
     on_workflow: Optional[Callable[[Any], None]] = None,
 ) -> dict:
     """Refuse a session without an OpenRouter key, restart Instagram, then run a Taktik Agent session."""
-    request = taktik_agent_request_from_payload(config)
+    try:
+        request = taktik_agent_request_from_payload(config)
+    except ValueError as refused:
+        # What the reader refuses (a setting out of its bounds) is said on stdout before the phone is
+        # touched, as a missing key is.
+        if ipc is not None:
+            ipc.error(str(refused))
+        raise
     if not request.openrouter_api_key:
         # The status line the workflow printed once Instagram was open, now before it is touched.
         announce = getattr(ipc, "agent_status", None)
