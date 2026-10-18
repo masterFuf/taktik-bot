@@ -54,9 +54,9 @@ _SETTINGS = (
     Field("sessionDurationMinutes", "number", "Stop after this many minutes.", default=60,
           aliases=("session_duration_minutes",), attr="session_duration_minutes",
           bounds=Bounds(minimum=5, maximum=600)),
-    # The page's ceiling, 10 000, is not one: its follower estimate writes past it. The floor only.
+    # The page's ceiling: its follower estimate and its cell stop there.
     Field("maxProfiles", "int", "Stop after this many profiles.", default=500, aliases=("max_profiles",),
-          attr="max_profiles", bounds=Bounds(minimum=1)),
+          attr="max_profiles", bounds=Bounds(minimum=1, maximum=10000)),
     Field("exportCsv", "bool", "Write the profiles to a CSV file at the end.", default=True,
           aliases=("export_csv",), attr="export_csv"),
     Field("saveToDb", "bool", "File a scraping session and its profiles.", default=True,

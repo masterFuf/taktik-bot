@@ -145,8 +145,8 @@ INSTAGRAM_PAGE_BOUNDS = {
     },
     "instagram.scraping.target": {
         "sessionDurationMinutes": Bounds(minimum=5, maximum=600),
-        # The page writes 10 000 as its ceiling, and its follower estimate writes past it: the floor only.
-        "maxProfiles": Bounds(minimum=1),
+        # The page's ceiling, which its follower estimate and its cell hold.
+        "maxProfiles": Bounds(minimum=1, maximum=10000),
         "minFollowers": _AT_LEAST_0,
         "minFollowing": _AT_LEAST_0,
         "minPosts": _AT_LEAST_0,
