@@ -2,7 +2,8 @@
 """Render the bot/app contract (`taktik/core/contract/`) for the desktop app.
 
 The app's types for the declared workflows are generated from the declaration, never written by
-hand: the settings each workflow reads, the file its bridge reads, the lines its bridge prints; the
+hand: the settings each workflow reads (their defaults, the bounds outside which its reader refuses
+the run), the file its bridge reads, the lines its bridge prints; the
 lines of the diagnostic tools; the catalogues of why a run ends (named unions).
 The output is deterministic (declaration order, no date), so the app's gate compares it byte for
 byte with the file it commits.
@@ -29,8 +30,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS  # noqa: E402
+from taktik.core.contract.bounds import describe  # noqa: E402
 from taktik.core.contract.schema import (  # noqa: E402
     HOST,
+    Bounds,
     Computed,
     Event,
     Field,
@@ -40,6 +43,7 @@ from taktik.core.contract.schema import (  # noqa: E402
     Shape,
     ToolContract,
     WorkflowContract,
+    nested_fields,
     scalar_default,
 )
 from taktik.core.contract.shared import (  # noqa: E402
@@ -83,7 +87,8 @@ HEADER = """/**
  *
  * The bot/app contract as the bot declares it (`core/taktik/core/contract/`): for each declared
  * workflow, the settings its launcher reads (`<Name>Settings`, `<NAME>_BOT_DEFAULTS` the defaults the
- * bot applies when a key is absent), the file its bridge reads (`<Name>BridgePayload`) and the stdout lines the app
+ * bot applies when a key is absent, `<NAME>_BOT_BOUNDS` the bounds outside which its reader refuses the
+ * run before the phone is touched), the file its bridge reads (`<Name>BridgePayload`) and the stdout lines the app
  * reads (`<Name>BridgeLine`); the lines of the diagnostic tools the app runs beside them; the catalogues
  * of why a run ends, one union each. Rendered by `core/scripts/audits/workflow_contract.py`;
  * `npm run workflow:contract` fails when this file and the bot disagree.
@@ -140,14 +145,21 @@ def _one_of(value: Any) -> str:
     return " or ".join(literal(v) for v in value) if isinstance(value, tuple) else literal(value)
 
 
+def _conditions(when) -> str:
+    return ", ".join(f"`{key}` is {_one_of(value)}" for key, value in when.items())
+
+
 def doc_line(item: Field) -> str:
     text = item.doc.strip()
     if scalar_default(item):
         text += f" Default {literal(item.default)}."
     elif isinstance(item.default, Computed):
         text += f" Default: {item.default.description}."
+    if item.bounds is not None:
+        scope = f" when {_conditions(item.bounds.when)}" if item.bounds.when else ""
+        text += f" Bounds: {describe(item.bounds)}{scope}."
     if item.when:
-        text += " Read when " + ", ".join(f"`{key}` is {_one_of(value)}" for key, value in item.when.items()) + "."
+        text += f" Read when {_conditions(item.when)}."
     return text.replace("*/", "* /")
 
 
@@ -247,6 +259,73 @@ def shape_defaults(shape: Shape) -> List[str]:
     return out
 
 
+#: The shape of one setting's bounds in the app, rendered once when a declaration has bounds.
+SETTING_BOUNDS = """/**
+ * The bounds of a setting, as the bot declares them (`Field.bounds`): outside them, its reader refuses
+ * the run before the phone is touched. A value absent or null is not held to them.
+ */
+export interface SettingBounds {
+  /** The least number, included. */
+  minimum?: number
+  /** The greatest number, included. */
+  maximum?: number
+  /** The number that says "no limit", accepted beside the minimum and the maximum. */
+  unboundedAt?: number
+  /** The fewest items of a list. */
+  minItems?: number
+  /** The most items of a list. */
+  maxItems?: number
+  /** The most characters of a text, or of each text of a list. */
+  maxLength?: number
+  /** The settings under which the bounds hold, by dotted path (a list: any of its values); absent: always. */
+  when?: Readonly<Record<string, string | number | boolean | ReadonlyArray<string | number | boolean>>>
+}"""
+
+_IDENTIFIER = re.compile(r"^[A-Za-z_$][\w$]*$")
+
+
+def bounds_data(bounds: Bounds) -> Dict[str, Any]:
+    """The bounds as the app reads them: camelCase, the ones declared only."""
+    data: Dict[str, Any] = {key: value for key, value in (
+        ("minimum", bounds.minimum),
+        ("maximum", bounds.maximum),
+        ("unboundedAt", bounds.unbounded_at),
+        ("minItems", bounds.min_items),
+        ("maxItems", bounds.max_items),
+        ("maxLength", bounds.max_length),
+    ) if value is not None}
+    if bounds.when:
+        data["when"] = _json_when(bounds.when)
+    return data
+
+
+def ts_bounds(bounds: Bounds) -> str:
+    parts = []
+    for key, value in bounds_data(bounds).items():
+        if key == "when":
+            inner = ", ".join(
+                f"{name if _IDENTIFIER.match(name) else literal(name)}: "
+                f"{'[' + ', '.join(literal(v) for v in wanted) + ']' if isinstance(wanted, list) else literal(wanted)}"
+                for name, wanted in value.items())
+            parts.append(f"when: {{ {inner} }}")
+        else:
+            parts.append(f"{key}: {literal(value)}")
+    return "{ " + ", ".join(parts) + " }"
+
+
+def bounds_constant(const: str, type_name: str, fields: Iterable[Field]) -> List[str]:
+    """`<NAME>_BOT_BOUNDS`: the bounds of the settings of `type_name` that have some."""
+    bounded = [item for item in fields if item.app and item.bounds is not None]
+    if not bounded:
+        return []
+    keys = " | ".join(f"'{item.key}'" for item in bounded)
+    out = ["", "/** Outside these bounds, the bot's reader refuses the run before the phone is touched. */",
+           f"export const {const}: Readonly<Record<keyof Pick<{type_name}, {keys}>, SettingBounds>> = {{"]
+    out += [f"  {item.key}: {ts_bounds(item.bounds)}," for item in bounded if item.bounds is not None]
+    out.append("}")
+    return out
+
+
 def render_line(name: str, event: Event) -> List[str]:
     out = [f"/** `{event.type}`: {event.doc} */"] if event.doc else []
     out.append(f"export interface {name} {{")
@@ -287,7 +366,13 @@ def render_contract(contract: WorkflowContract) -> Tuple[List[str], List[str]]:
         out.append("}")
         exported.append(const)
 
-    beside = [item for item in contract.bridge_fields if item.key in contract.beside_settings]
+    bounds_const = f"{constant_name(name)}_BOT_BOUNDS"
+    bounds = bounds_constant(bounds_const, f"{name}Settings", app_settings(contract))
+    if bounds:
+        out += bounds
+        exported.append(bounds_const)
+
+    beside =[item for item in contract.bridge_fields if item.key in contract.beside_settings]
     root = [item for item in contract.bridge_fields if item.key not in contract.beside_settings]
     hosts = host_settings(contract)
     out += ["", f"/** The file `{contract.bridge}` reads (its config file, sole argument). */"]
@@ -337,6 +422,9 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
         "export type BridgeLine<Lines> = { [K in keyof Lines]: { type: K } & Lines[K] }[keyof Lines]",
         "",
     ]
+    if any(item.bounds is not None for contract in contracts for _, item, _, _ in nested_fields(contract.settings)):
+        lines += [SETTING_BOUNDS, ""]
+        exported.append("SettingBounds")
     shapes: Dict[str, Shape] = {}
     catalogues: Dict[str, OneOf] = {catalogue.name: catalogue for catalogue in CATALOGUES}
     settings: set = set()
@@ -368,6 +456,11 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
             lines += defaults
             if defaults:
                 exported.append(f"{constant_name(shape.name)}_BOT_DEFAULTS")
+            bounds_const = f"{constant_name(shape.name)}_BOT_BOUNDS"
+            bounds = bounds_constant(bounds_const, shape.name, shape.fields)
+            lines += bounds
+            if bounds:
+                exported.append(bounds_const)
         lines.append("")
         exported.append(shape.name)
     used = {event.type for owner in (*contracts, *tools) for event in owner.events}
@@ -453,6 +546,12 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
                 for item in contract.bridge_fields
             ],
             "events": {event.type: [item.key for item in event.fields] for event in contract.events},
+            # What the reader refuses before the phone, by setting path (wire keys); `when` the
+            # bounds' own condition, beside the setting's.
+            "bounds": [
+                {"path": list(path), **bounds_data(item.bounds)}
+                for path, item, _, _ in nested_fields(contract.settings) if item.bounds is not None
+            ],
         }
     # An id that shares a declaration (`also`) reads the same file: the gates look it up by id.
     for contract in contracts:
