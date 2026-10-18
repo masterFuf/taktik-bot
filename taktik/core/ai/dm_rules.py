@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 from loguru import logger
 
@@ -76,9 +76,9 @@ class AiDmRefusal:
         """For a person or a model: `message 2: 612 characters, 500 at most`."""
         return f"message {self.index}: {self.detail}" if self.index is not None else self.detail
 
-    def as_line(self) -> dict:
+    def as_line(self) -> Dict[str, Any]:
         """The `textRefusal` of a bridge line (`AiDmTextRefusal`)."""
-        line = {"reason": self.reason, "detail": self.detail}
+        line: Dict[str, Any] = {"reason": self.reason, "detail": self.detail}
         if self.index is not None:
             line["index"] = self.index
         return line
