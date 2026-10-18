@@ -217,7 +217,7 @@ class InstagramNotificationsRig:
                                  recorder("welcome_dm_skip_reason",
                                           lambda account_id, username: "already_dmed" if username == "old_friend" else None))
         self.monkeypatch.setattr(commands, "send_welcome_dm",
-                                 lambda device, username, text: (rig.record("screen", "send_welcome_dm", username, text)
+                                 lambda device, username, text, rules: (rig.record("screen", "send_welcome_dm", username, text)
                                                                  or {"success": True}))
         self.monkeypatch.setattr(commands, "follow_actor",
                                  lambda device, username: (rig.record("screen", "follow_actor", username)

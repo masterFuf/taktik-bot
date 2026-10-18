@@ -7,7 +7,9 @@ private-writing guards, and the pacing — so the batch command keeps reading as
 
 The message text itself is written upstream (the app generates it with the account's
 persona); the bot receives it and types it. Nothing here composes a message: a canned
-sentence living in the bot would be sent in the app's name without the app knowing.
+sentence living in the bot would be sent in the app's name without the app knowing. Being
+written by an AI, it goes through the one rule of `taktik/core/ai/dm_rules.py` before anything
+moves on screen.
 
 SECURITY (AGENTS): never log a message body — usernames, lengths and counts only.
 """
@@ -18,6 +20,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from taktik.core.ai.dm_rules import AiDmRules, check_ai_dm_text
 from taktik.core.database.messaging import (
     NOBODY_HAS_WRITTEN,
     ONLY_THEY_HAVE_WRITTEN,
@@ -34,6 +37,8 @@ from taktik.core.social_media.instagram.workflows.notifications.persistence impo
 )
 
 WELCOME_DM_ACTION = "welcome_dm"
+#: A batch entry's `reason` when the welcome message breaks the rule of a DM written by an AI.
+TEXT_REFUSED = "text_refused"
 
 # Verbs that LEAVE the activity screen: they open a profile, and from there a conversation.
 # Every other verb acts on the feed the scan left on screen. Ordered among themselves too —
@@ -96,8 +101,11 @@ def welcome_dm_skip_reason(account_id: Optional[int], recipient: str) -> Optiona
     return _THREAD_SKIP[written]
 
 
-def send_welcome_dm(device, recipient: str, message: str) -> Dict[str, Any]:
+def send_welcome_dm(device, recipient: str, message: str, *, rules: AiDmRules = AiDmRules()) -> Dict[str, Any]:
     """Send one welcome DM through the PRODUCTION path (``send_dm``), then come home.
+
+    The message, written by an AI, is first held to ``rules`` (the account's frame; by default
+    the most prudent): a message the rule refuses is a skip (``text_refused``), nothing moves.
 
     ``send_dm`` navigates to the profile, opens Message, types with the shared composer
     and presses send — the same function the Cold DM workflow and the Lab's
@@ -108,6 +116,11 @@ def send_welcome_dm(device, recipient: str, message: str) -> Dict[str, Any]:
     text = (message or "").strip()
     if not text:
         return {"success": False, "error": "empty message"}
+    refusal = check_ai_dm_text(text, rules)
+    if refusal is not None:
+        logger.warning(f"[NOTIF] Welcome DM to @{recipient} refused ({refusal.reason}): not sent")
+        return {"success": True, "skipped": True, "reason": TEXT_REFUSED,
+                "message": f"text refused: {refusal.describe()}", "textRefusal": refusal.as_line()}
 
     from taktik.core.social_media.instagram.workflows.dm.messaging import (
         send_dm,
@@ -154,6 +167,7 @@ def wait_before_next_off_screen_action(*, is_last: bool) -> None:
 
 __all__ = [
     "OFF_SCREEN_ACTIONS",
+    "TEXT_REFUSED",
     "WELCOME_DM_ACTION",
     "order_batch_actions",
     "send_welcome_dm",

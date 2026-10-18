@@ -80,7 +80,8 @@ def run_instagram_notifications(
                                   source=request.source,
                                   follow_back_daily_cap=request.follow_back_daily_cap,
                                   welcome_dm_daily_cap=request.welcome_dm_daily_cap,
-                                  follow_actor_daily_cap=request.follow_actor_daily_cap)
+                                  follow_actor_daily_cap=request.follow_actor_daily_cap,
+                                  ai_dm_rules=request.ai_dm_rules)
     return commands.ROW_ACTIONS[request.command](host, request.username, account_username=account_username)
 
 

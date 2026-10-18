@@ -702,7 +702,7 @@
     "action": "follow_actor",
     "username": "already_followed",
     "success": true,
-    "message": "[10/12] follow_actor @already_followed ok"
+    "message": "[10/12] follow_actor @already_followed skipped"
    },
    {
     "type": "notification_step",

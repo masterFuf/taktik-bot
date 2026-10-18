@@ -11,6 +11,7 @@ carry the scan's rows, the suggestions visit and the batch report.
 
 from __future__ import annotations
 
+from .ai_dm import ai_dm_rules_field, ai_dm_text_refusal_field
 from .instagram_automation import INSTAGRAM_AUTOMATION
 from .schema import HOST, Bounds, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
@@ -128,6 +129,7 @@ BATCH_ENTRY = Shape(
         Field("error", "string", "What went wrong.", optional=True),
         Field("stop_reason", RUN_HALT_CODE, "`action_blocked`: Instagram refuses actions.", optional=True),
         Field("state", "string", "The relationship read before a follow (`follow_actor`).", optional=True),
+        ai_dm_text_refusal_field("Why the welcome message was not sent (`reason`: `text_refused`)."),
     ),
 )
 
@@ -230,6 +232,9 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
               when=_BATCH, bounds=_DAILY_CAP),
         Field("followActorDailyCap", "int", "Follows of the accounts that engaged with our comments, a day; "
               "absent: uncapped.", attr="follow_actor_daily_cap", when=_BATCH, bounds=_DAILY_CAP),
+        ai_dm_rules_field("The account's frame for the welcome messages, which an AI writes; absent: the most "
+                          "prudent. A message the rule refuses is skipped (`text_refused`), never sent.",
+                          when=_BATCH),
         instagram_package_field(),
     ),
     bridge_fields=(device_field("deviceId"),),

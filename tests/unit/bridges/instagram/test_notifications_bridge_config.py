@@ -14,6 +14,7 @@ import sys
 
 import pytest
 
+from taktik.core.ai.dm_rules import AiDmRules
 import bridges.instagram.notifications.notifications_bridge as entry
 import bridges.instagram.notifications.commands as bridge_commands
 import taktik.core.social_media.instagram.workflows.notifications.commands as commands
@@ -76,7 +77,17 @@ def test_a_batch_reads_its_caps_and_its_source(run):
                        "followBackDailyCap": 3, "welcomeDmDailyCap": "x", "followActorDailyCap": 2})
     assert calls == [("cmd_batch", (actions,), {
         "account_username": None, "source": "autopilot",
-        "follow_back_daily_cap": 3, "welcome_dm_daily_cap": None, "follow_actor_daily_cap": 2})]
+        "follow_back_daily_cap": 3, "welcome_dm_daily_cap": None, "follow_actor_daily_cap": 2,
+        "ai_dm_rules": AiDmRules()})]
+
+
+def test_a_batch_reads_the_frame_of_its_welcome_messages(run):
+    actions = [{"action": "welcome_dm", "username": "a", "text": "Bienvenue parmi nous, ravie de te lire"}]
+    _, _, calls = run({"command": "batch", "deviceId": "dev", "actions": actions,
+                       "aiDmRules": {"linksAllowed": True, "forbiddenTerms": ["promo"],
+                                     "accountProfile": {"language": "fr"}}})
+    assert calls[0][2]["ai_dm_rules"] == AiDmRules(base_language="fr", links_allowed=True,
+                                                   forbidden_terms=("promo",))
 
 
 @pytest.mark.parametrize("command,target", [

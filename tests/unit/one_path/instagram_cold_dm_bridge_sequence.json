@@ -63,6 +63,13 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_sent",
+    "current": 1,
+    "username": "open_one",
+    "message": "Hello there",
+    "aiWritten": false
+   },
+   {
     "type": "progress",
     "current": 2,
     "total": 2,
@@ -74,7 +81,8 @@
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -205,10 +213,24 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_sent",
+    "current": 1,
+    "username": "open_one",
+    "message": "Hello there",
+    "aiWritten": false
+   },
+   {
     "type": "progress",
     "current": 2,
     "total": 2,
     "username": "closed_one"
+   },
+   {
+    "type": "cold_dm_sent",
+    "current": 2,
+    "username": "closed_one",
+    "message": "Hello there",
+    "aiWritten": false
    },
    {
     "type": "cold_dm_result",
@@ -216,7 +238,8 @@
     "dmsSent": 2,
     "dmsSuccess": 2,
     "dmsFailed": 0,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -344,6 +367,13 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_sent",
+    "current": 1,
+    "username": "open_one",
+    "message": "Hello there",
+    "aiWritten": false
+   },
+   {
     "type": "progress",
     "current": 2,
     "total": 2,
@@ -355,7 +385,8 @@
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -476,7 +507,8 @@
     "dmsSent": 0,
     "dmsSuccess": 0,
     "dmsFailed": 0,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -536,7 +568,8 @@
     "dmsSent": 0,
     "dmsSuccess": 0,
     "dmsFailed": 0,
-    "error": "All recipients already received a DM"
+    "error": "All recipients already received a DM",
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -627,12 +660,20 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_sent",
+    "current": 1,
+    "username": "open_one",
+    "message": "AI note for open_one",
+    "aiWritten": true
+   },
+   {
     "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -730,7 +771,8 @@
     "dmsSent": 0,
     "dmsSuccess": 0,
     "dmsFailed": 1,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -814,7 +856,8 @@
     "dmsSent": 0,
     "dmsSuccess": 0,
     "dmsFailed": 1,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -901,7 +944,8 @@
     "dmsSent": 1,
     "dmsSuccess": 0,
     "dmsFailed": 0,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -1003,12 +1047,20 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_sent",
+    "current": 1,
+    "username": "open_one",
+    "message": "Hello there",
+    "aiWritten": false
+   },
+   {
     "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [
@@ -1111,12 +1163,20 @@
     "username": "open_one"
    },
    {
+    "type": "cold_dm_sent",
+    "current": 1,
+    "username": "open_one",
+    "message": "Hello there",
+    "aiWritten": false
+   },
+   {
     "type": "cold_dm_result",
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
-    "error": null
+    "error": null,
+    "textsRefused": 0
    }
   ],
   "events": [

@@ -19,6 +19,9 @@ import sqlite3
 
 import pytest
 
+from taktik.core.ai.dm_rules import ai_dm_rules_from_payload
+from unit.ai_dm_texts import BROKEN_TEXTS, EACH_REASON, FRENCH_ACCOUNT, WITHIN_RULES
+
 import taktik.core.social_media.instagram.workflows.notifications.commands as commands
 import taktik.core.social_media.instagram.workflows.notifications.welcome_dm as welcome_dm
 
@@ -72,7 +75,7 @@ def harness(monkeypatch):
         commands, "record_welcome_dm",
         lambda account_id, recipient, message: recorded.append((account_id, recipient, message)))
 
-    def _send(device, recipient, text):
+    def _send(device, recipient, text, rules):
         sent.append((recipient, text))
         return {"success": True}
 
@@ -306,7 +309,54 @@ def test_a_welcome_dm_walks_to_the_recipient_profile_then_writes(monkeypatch):
     monkeypatch.setattr(ProblematicPageDetector, "is_action_blocked",
                         lambda self: steps.append(("block?",)) or False)
 
-    result = welcome_dm.send_welcome_dm(object(), "newbie", "Bienvenue !")
+    result = welcome_dm.send_welcome_dm(object(), "newbie", WITHIN_RULES)
 
     assert result == {"success": True, "message": "welcome DM sent to @newbie"}
-    assert steps == [("profile", "newbie"), ("write", "Bienvenue !"), ("block?",), ("home",)]
+    assert steps == [("profile", "newbie"), ("write", WITHIN_RULES), ("block?",), ("home",)]
+
+
+# ---------------------------------------------------------------------------
+# The message is written by an AI: the one rule, before anything moves
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def phone_steps(monkeypatch):
+    """What the welcome send asks of the phone, recorded at the production `send_dm`."""
+    from taktik.core.social_media.instagram.workflows.dm import messaging
+
+    steps = []
+    monkeypatch.setattr(messaging, "send_dm", lambda device, recipient, text, **kwargs: steps.append(text) or True)
+    monkeypatch.setattr(welcome_dm, "_return_home", lambda device: steps.append("home"))
+    return steps
+
+
+@pytest.mark.parametrize("reason, text", EACH_REASON)
+def test_a_welcome_message_the_rule_refuses_is_skipped_before_any_gesture(phone_steps, reason, text):
+    result = welcome_dm.send_welcome_dm(object(), "newbie", text, rules=ai_dm_rules_from_payload(FRENCH_ACCOUNT))
+
+    assert phone_steps == []
+    assert result["skipped"] is True and result["reason"] == "text_refused"
+    assert result["textRefusal"]["reason"] == reason
+
+
+def test_without_a_frame_a_welcome_message_is_held_to_the_most_prudent_one(phone_steps):
+    result = welcome_dm.send_welcome_dm(object(), "newbie", "Bienvenue ! Tout est sur maboutique.fr, à bientôt")
+
+    assert phone_steps == [] and result["textRefusal"]["reason"] == "link"
+
+
+def test_a_batch_reports_a_refused_welcome_as_a_skip_and_records_nothing(harness, monkeypatch, phone_steps):
+    monkeypatch.setattr(commands, "send_welcome_dm", welcome_dm.send_welcome_dm)
+
+    result = commands.cmd_batch(harness["host"], [
+        {"action": "welcome_dm", "username": "newbie", "text": BROKEN_TEXTS["phone"]},
+        {"action": "welcome_dm", "username": "other", "text": WITHIN_RULES},
+    ], account_username="me", ai_dm_rules=ai_dm_rules_from_payload(FRENCH_ACCOUNT))
+
+    refused, sent = result["results"]
+    assert refused["skipped"] is True and refused["textRefusal"]["reason"] == "phone"
+    assert sent["success"] is True and "skipped" not in sent
+    assert phone_steps == [WITHIN_RULES, "home"]
+    # Only the message that left is in the audit and the duplicate markers.
+    assert harness["audit"] == [("welcome_dm", "other", True, WITHIN_RULES)]
+    assert harness["recorded"] == [(7, "other", WITHIN_RULES)]
