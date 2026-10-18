@@ -139,10 +139,10 @@ def test_the_registry_names_the_workflows_that_take_the_connected_device():
     build = build_registry(device_manager=recording_device_manager([], "dev-1")(), device_id="dev-1")
 
     assert {"instagram.account.login", "instagram.content.publish", "gmail.account.scan_accounts",
-            "youtube.publish.upload_post"} <= build.connected_device_ids
+            "youtube.publish.upload_post"} <= build.built_without_device
     take_connect = {workflow_id for workflow_id in build.workflow_ids
                     if workflow_id.startswith(("instagram.automation.", "instagram.scraping.", "instagram.engagement."))}
-    assert take_connect and not take_connect & build.connected_device_ids
+    assert take_connect and not take_connect & build.built_without_device
 
 
 def test_a_workflow_whose_launcher_takes_the_device_runs_on_the_phone_connected_first(monkeypatch):
@@ -162,3 +162,37 @@ def test_a_workflow_whose_launcher_takes_the_device_runs_on_the_phone_connected_
 
     assert result.exit_code == 0, result.output
     assert calls == ["cli_connect dev-1", ("run", True)]
+
+
+# --- one way to choose the phone ----------------------------------------------
+
+def _two_phones(monkeypatch):
+    class TwoPhones:
+        def __init__(self, *_args, **_kwargs):
+            self.device = None
+
+        @staticmethod
+        def list_devices():
+            return [{"id": "dev-1", "status": "device"}, {"id": "dev-2", "status": "device"}]
+
+    monkeypatch.setattr("taktik.core.shared.device.manager.DeviceManager", TwoPhones)
+
+
+@pytest.mark.parametrize("command, args", [("launch", ["--network", "tiktok"]), ("launch", ["--network", "instagram"]),
+                                           ("tiktok", ["launch"])])
+def test_the_launch_commands_choose_the_phone_as_workflows_run(monkeypatch, command, args):
+    """Several phones and none named: refused, the phones listed, nothing launched. The launch
+    commands took the first phone adb listed."""
+    from taktik.cli.commands import tiktok as tiktok_cmds
+
+    built = []
+    monkeypatch.setattr(tiktok_cmds, "TikTokManager", lambda serial: built.append(serial))
+    monkeypatch.setattr(tiktok_cmds, "InstagramManager", lambda serial: built.append(serial))
+    monkeypatch.setattr(tiktok_cmds, "open_database", lambda: None)
+    _two_phones(monkeypatch)
+
+    result = CliRunner().invoke(getattr(tiktok_cmds, command), args)
+
+    assert result.exit_code == 1, result.output
+    assert "Several devices connected" in result.output and "dev-2" in result.output
+    assert built == []

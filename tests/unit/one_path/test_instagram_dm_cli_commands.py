@@ -9,6 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from instagram_dm_rig import DEVICE_ID, INSTAGRAM
+from one_path_seams import record_cli_connections
 
 
 @pytest.fixture(autouse=True)
@@ -39,24 +40,9 @@ def management(igd_rig, monkeypatch):
 
     monkeypatch.setattr(management_cmds, "InstagramManager", _Instagram)
 
-    class _Manager:
-        device = igd_rig.phone
-
-        def __init__(self, *a, **k):
-            self.device_id = DEVICE_ID
-            igd_rig.device_manager.device = igd_rig.phone
-
-        @staticmethod
-        def list_devices():
-            return [{"id": DEVICE_ID, "status": "device"}]
-
-        def connect(self, device_id=None):
-            return True
-
-        def __getattr__(self, name):
-            return getattr(igd_rig.device_manager, name)
-
-    monkeypatch.setattr(management_cmds, "DeviceManager", _Manager)
+    # The phone the command chooses, and when it connects, recorded (`cli_connect`).
+    igd_rig.device_manager.device = igd_rig.phone
+    record_cli_connections(monkeypatch, igd_rig.calls, igd_rig.device_manager, DEVICE_ID)
     return management_cmds.management
 
 
@@ -67,6 +53,17 @@ def test_dm_inbox_reads_like_the_desktop_and_keeps_what_it_read(igd_rig, managem
     assert igd_rig.calls.index(f"stop {INSTAGRAM}") < igd_rig.calls.index("navigate_to_dm_inbox")
     assert [row["partner_username"] for row in igd_rig.db if row["write"] == "conversation"] == ["dave"]
     assert "dave" in result.output
+
+
+@pytest.mark.parametrize("command", ["inbox", "read-all"])
+def test_a_limit_out_of_its_bounds_is_refused_before_the_command_connects(igd_rig, management, command):
+    """The command chooses the phone, the DM launcher reads and validates, then connects it: a limit no
+    page could send touches nothing. The command used to connect before it ran the handler."""
+    result = CliRunner().invoke(management, ["dm", command, "-d", DEVICE_ID, "--limit", "51"])
+
+    assert result.exit_code == 1, result.output
+    assert igd_rig.calls == []
+    assert "limit = 51" in " ".join(result.output.split())
 
 
 def test_dm_send_replies_in_the_conversation_and_records_it(igd_rig, management):

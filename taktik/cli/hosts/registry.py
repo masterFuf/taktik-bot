@@ -14,8 +14,9 @@ signature rather than hardcoded, so adding a platform does not mean editing a ma
 
 Building the registry never connects the phone. A launcher that takes a `connect` reads and
 validates its payload, then calls it, and the phone connects there. A registrar that requires the
-connected device itself is named in `connected_device_ids`: the CLI connects before it runs one of
-its workflows, whose launcher then reads once the phone is connected.
+connected device itself, built on a phone not connected yet, is named in `built_without_device`:
+`handler_on_phone` connects the phone before it hands over one of its handlers, whose launcher then
+reads once the phone is connected. Every CLI door runs its workflow through `handler_on_phone`.
 
 A registrar that fails is reported, never silent: a platform missing from the menu because its
 import broke is exactly the kind of gap this module exists to end.
@@ -27,7 +28,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
-from taktik.core.kernel.registry import WorkflowRegistry
+from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 
 
 #: (label, module path, registrar name). Label is what the operator sees when one fails.
@@ -97,15 +98,14 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
 class RegistryBuild:
     """A registry plus what could not be registered, so the CLI can be honest about gaps.
 
-    `connected_device_ids`: the workflows whose registrar takes the connected device itself (`device`,
-    `device_manager`) rather than a callable that connects it. Built on a phone not connected yet, their
-    handlers hold no device: the CLI connects the phone, then builds the registry again, before it runs
-    one of them.
+    `built_without_device`: the workflows whose registrar takes the connected device itself (`device`,
+    `device_manager`) rather than a callable that connects it, built here on a phone not connected yet:
+    their handlers hold no device (`handler_on_phone` connects the phone and builds them again).
     """
 
     registry: WorkflowRegistry
     failures: list[tuple[str, str]]
-    connected_device_ids: frozenset[str] = frozenset()
+    built_without_device: frozenset[str] = frozenset()
 
     @property
     def workflow_ids(self) -> list[str]:
@@ -165,7 +165,7 @@ def build_registry(
 
     registry = WorkflowRegistry()
     failures: list[tuple[str, str]] = []
-    connected_device_ids: set[str] = set()
+    built_without_device: set[str] = set()
     manager = device_manager if device_manager is not None else device
     phone = CliPhone(manager, device_id) if manager is not None else None
     if device is None and phone is not None and phone.connected:
@@ -222,13 +222,27 @@ def build_registry(
             }
             before = set(registry.workflow_ids())
             register(registry, **kwargs)
-            if _takes_a_connected_device(params):
-                connected_device_ids |= set(registry.workflow_ids()) - before
+            if device is None and _takes_a_connected_device(params):
+                built_without_device |= set(registry.workflow_ids()) - before
         except Exception as exc:  # noqa: BLE001 - one broken platform must not hide the others
             failures.append((label, f"{type(exc).__name__}: {exc}"))
 
     return RegistryBuild(registry=registry, failures=failures,
-                         connected_device_ids=frozenset(connected_device_ids))
+                         built_without_device=frozenset(built_without_device))
 
 
-__all__ = ["REGISTRARS", "RegistryBuild", "build_registry"]
+def handler_on_phone(build: RegistryBuild, workflow_id: str, phone: Any) -> WorkflowHandler:
+    """The handler that runs `workflow_id` on the CLI's `phone` (`CliPhone`), from `build`.
+
+    A launcher that takes a `connect` connects the phone itself, after it has read and validated its
+    payload: its handler is the one `build` holds. A workflow of `build.built_without_device` takes the
+    connected device itself: the phone is connected now, and the registry built again on it. Raises
+    `KeyError` for an id nobody registered, `PhoneNotConnectedError` when the phone does not connect.
+    """
+    if workflow_id not in build.built_without_device:
+        return build.registry.resolve(workflow_id)
+    manager = phone.connect()
+    return build_registry(device_manager=manager, device_id=phone.device_id).registry.resolve(workflow_id)
+
+
+__all__ = ["REGISTRARS", "RegistryBuild", "build_registry", "handler_on_phone"]

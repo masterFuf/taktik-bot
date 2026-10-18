@@ -9,12 +9,18 @@ production workflow.
 These tests pin that the commands call the production workflow with the right post type and the
 media in the caller's order — the property a user notices immediately when it breaks.
 """
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
+from taktik.cli.commands import workflows as workflow_cmds
 from taktik.cli.commands.instagram import publish as publish_cmds
+from taktik.cli.hosts.phone import CliPhone
+from unit.cli_phone import recording_device_manager
+
+CHOOSE_PHONE = workflow_cmds._choose_phone
 
 
 class RecordingWorkflow:
@@ -43,7 +49,8 @@ class RecordingWorkflow:
 @pytest.fixture
 def wired(monkeypatch, tmp_path):
     """Stub the device and the workflow, and hand back a factory for real files."""
-    monkeypatch.setattr(publish_cmds, "_resolve_device", lambda d: (object(), d or "dev-1"))
+    monkeypatch.setattr(workflow_cmds, "_choose_phone",
+                        lambda d: CliPhone(SimpleNamespace(device=object()), d or "dev-1"))
 
     import taktik.core.social_media.instagram.workflows.publish.post_workflow as prod
     monkeypatch.setattr(prod, "InstagramPostWorkflow", RecordingWorkflow)
@@ -135,6 +142,24 @@ def test_the_cli_has_no_second_publishing_engine():
     assert "content" not in management.commands
     assert importlib.util.find_spec(
         "taktik.core.social_media.instagram.workflows.account.content") is None
+
+
+@pytest.mark.parametrize("post_type, media, why", [
+    ("gif", ("a.png",), "Unsupported postType 'gif'"),
+    ("post", (), "At least one media path is required"),
+])
+def test_a_publication_the_reader_refuses_never_connects(wired, monkeypatch, post_type, media, why, capsys):
+    """The command chooses the phone without connecting it: the launcher reads the publication, then
+    asks for the phone. One it refuses touches nothing; the command used to connect first."""
+    calls = []
+    monkeypatch.setattr("taktik.core.shared.device.manager.DeviceManager", recording_device_manager(calls, "dev-1"))
+    # The real choice of the phone, on a recording manager: what `wired` stubs out.
+    monkeypatch.setattr(workflow_cmds, "_choose_phone", CHOOSE_PHONE)
+
+    assert publish_cmds.run_publish(post_type, "dev-1", tuple(wired(name) for name in media)) is False
+    assert calls == []
+    assert RecordingWorkflow.last is None
+    assert why in " ".join(capsys.readouterr().out.split())
 
 
 def test_the_menu_publishes_through_the_production_workflow(wired, monkeypatch):

@@ -67,7 +67,11 @@ def _bridge(media, monkeypatch):
 def _cli(media, monkeypatch):
     from taktik.cli.commands.instagram import publish as publish_cmds
 
-    monkeypatch.setattr(publish_cmds, "_resolve_device", lambda device_id: (object(), DEVICE_ID))
+    from taktik.cli.commands import workflows as workflow_cmds
+    from taktik.cli.hosts.phone import CliPhone
+
+    monkeypatch.setattr(workflow_cmds, "_choose_phone",
+                        lambda device_id: CliPhone(SimpleNamespace(device=object()), DEVICE_ID))
     result = CliRunner().invoke(publish_cmds.publish, ["carousel", *media, "--caption", "hello",
                                                         "--hashtags", "#travel"])
     assert result.exit_code == 0, result.output

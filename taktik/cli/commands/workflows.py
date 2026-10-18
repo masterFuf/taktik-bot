@@ -42,7 +42,7 @@ from taktik.cli.hosts.ai_key import (
     run_uses_ai,
 )
 from taktik.cli.hosts.phone import CliPhone, PhoneNotConnectedError
-from taktik.cli.hosts.registry import build_registry
+from taktik.cli.hosts.registry import build_registry, handler_on_phone
 
 console = Console()
 
@@ -233,11 +233,8 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
 
     console.print(f"[blue]Running[/blue] [bold]{workflow_id}[/bold] on [cyan]{device_id}[/cyan]")
     try:
-        if workflow_id in build.connected_device_ids:
-            # Its launcher takes the connected device, not a `connect`: it reads once the phone is connected.
-            phone.connect()
-            connected = build_registry(device_manager=phone.device_manager, device_id=device_id)
-            handler = connected.registry.resolve(workflow_id)
+        # A launcher that takes the connected device, not a `connect`, gets it now and reads after.
+        handler = handler_on_phone(build, workflow_id, phone)
         result = handler(invocation, payload)
     except PhoneNotConnectedError as exc:
         console.print(f"[red]{exc}[/red]")

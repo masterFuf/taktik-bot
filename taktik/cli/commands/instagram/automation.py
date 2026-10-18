@@ -5,7 +5,6 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
-from taktik.core.shared.device.manager import DeviceManager
 from taktik.cli.menus.instagram import select_target_type, generate_dynamic_workflow
 
 console = Console()
@@ -22,19 +21,20 @@ def automation():
 @click.option('--config', '-c', type=click.Path(exists=True),
               help="Fichier JSON du run, au format d'une page du desktop (workflowType, target, limits...)")
 def workflow_instagram(device_id, config):
-    """Run an Instagram automation through the automation handler, the desktop's launcher."""
+    """Run an Instagram automation through the automation handler, the desktop's launcher.
+
+    The phone is chosen, not connected: the launcher reads and validates the run, then connects it."""
+    from taktik.cli.commands.workflows import _choose_phone
     from taktik.cli.hosts.instagram import is_internal_workflow_format, run_instagram_payload
+    from taktik.cli.hosts.phone import PhoneNotConnectedError
 
     console.print(Panel.fit("[bold green]Lancement du workflow Instagram[/bold green]"))
 
-    if not device_id:
-        devices = DeviceManager.list_devices()
-        if not devices:
-            console.print("[red]Aucun appareil connecté.[/red]")
-            return
-        device_id = devices[0]['id']
+    phone = _choose_phone(device_id)
+    if phone is None:
+        raise SystemExit(1)
 
-    console.print(f"[blue]Utilisation de l'appareil: {device_id}[/blue]")
+    console.print(f"[blue]Utilisation de l'appareil: {phone.device_id}[/blue]")
 
     if config:
         try:
@@ -64,13 +64,11 @@ def workflow_instagram(device_id, config):
             console.print("[red]Erreur lors de la génération du workflow dynamique.[/red]")
             return
 
-    device_manager = DeviceManager()
-    if not device_manager.connect(device_id) or not device_manager.device:
-        console.print(f"[red]Impossible de se connecter à l'appareil {device_id}[/red]")
-        return
-
     try:
-        run_instagram_payload(device_manager, device_id, payload)
+        run_instagram_payload(phone.device_manager, phone.device_id, payload)
+    except PhoneNotConnectedError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(1)
     except Exception as exc:  # noqa: BLE001 - a failed run reports, not tracebacks
         console.print(f"[red]Workflow failed:[/red] {type(exc).__name__}: {exc}")
         raise SystemExit(1)

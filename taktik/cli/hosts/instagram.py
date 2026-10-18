@@ -217,16 +217,18 @@ def _run_through_handler(device_manager: Any, device_id: str, workflow_id: str,
                          payload: Mapping[str, Any]) -> dict:
     """Run a page payload through the handler registered as `workflow_id`: the same path as
     `taktik workflows run <workflow_id>` and as the desktop bridge's launcher. A run that uses AI
-    gets its key first (asked for at a terminal, `MissingAIKeyError` otherwise)."""
+    gets its key first (asked for at a terminal, `MissingAIKeyError` otherwise).
+
+    `device_manager` is the phone of the command, connected (a menu) or not (`_choose_phone`): the
+    launcher connects it once it has read its payload (`handler_on_phone`)."""
     from taktik.cli.hosts.ai_key import ensure_ai_key, is_interactive
-    from taktik.cli.hosts.registry import build_registry
+    from taktik.cli.hosts.registry import build_registry, handler_on_phone
     from taktik.core.kernel.contracts import WorkflowInvocation
 
     ensure_ai_key(workflow_id, payload, interactive=is_interactive())
 
-    build = build_registry(device=getattr(device_manager, "device", None), device_id=device_id,
-                           device_manager=device_manager)
-    handler = build.registry.resolve(workflow_id)
+    build = build_registry(device_manager=device_manager, device_id=device_id)
+    handler = handler_on_phone(build, workflow_id, CliPhone(device_manager, device_id))
     invocation = WorkflowInvocation(platform="instagram", workflow_id=workflow_id, params={})
     return handler(invocation, {"deviceId": device_id, **dict(payload)})
 
