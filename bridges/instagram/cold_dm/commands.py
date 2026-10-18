@@ -2,9 +2,9 @@
 
 The run is `run_instagram_cold_dm`, the launcher the Agent handler `instagram.engagement.coldDm` (and
 so the CLI) calls too, called by name so the app's config contract test can follow the payload: it
-reads the package and asks the bridge's connection for the phone on it. The bridge keeps its IP
-rotation and the final JSON, its connection (the bridges' clone-aware, facade-wrapped device) and
-its stdout, `session_start` included.
+reads and validates the payload, then asks the bridge's connection for the phone on the package it
+read. The bridge keeps the final JSON, its connection (the IP rotation, then the bridges'
+clone-aware, facade-wrapped device) and its stdout, `session_start` included.
 """
 
 from __future__ import annotations
@@ -33,10 +33,19 @@ def report_cold_dm_entry_error(message: str, reason: str) -> None:
     print_cold_dm_result(False, error=message)
 
 
-def _connect(device_id: str, package_name: str = None):
-    """The phone, on the Instagram the launcher names (a clone, or the installed one)."""
+def _connect(config: dict, device_id: str, package_name: str = None):
+    """The phone, on the Instagram the launcher names (a clone, or the installed one), on a fresh IP
+    when the page asked for one.
+
+    The launcher asks for it once the payload is read and validated: a refused payload neither
+    rotates the IP nor connects. The rotation comes before the connection, so the app is never
+    opened on the IP the previous account just used.
+    """
     from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
 
+    if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Cold DM"):
+        print_cold_dm_result(False, error="IP rotation failed")
+        sys.exit(1)
     if package_name:
         logger.info(f"Cold DM on package: {package_name}")
     connection = InstagramDeviceBase(device_id, package_name=package_name)
@@ -69,17 +78,11 @@ def run_cold_dm(config: dict) -> None:
         device_id = config["deviceId"]
         logger.info(f"Starting Cold DM workflow for device: {device_id}")
 
-        # The page offers "reset IP before the run"; until now nothing here read it. Done before
-        # connecting, so the app is never opened on the IP the previous account just used.
-        if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Cold DM"):
-            print_cold_dm_result(False, error="IP rotation failed")
-            sys.exit(1)
-
         from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import run_instagram_cold_dm
 
         result = run_instagram_cold_dm(
             config,
-            connect=lambda package_name: _connect(device_id, package_name),
+            connect=lambda package_name: _connect(config, device_id, package_name),
             progress=emit_cold_dm_progress,
             ai_ipc=_ipc,
             on_session_start=_ipc.session_start,

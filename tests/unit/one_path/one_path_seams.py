@@ -96,3 +96,19 @@ def patch_seam(monkeypatch, source: str, name: str, value, roots: tuple = PRODUC
     for module in imported if copies else ():
         if hasattr(module, name):
             monkeypatch.setattr(module, name, value)
+
+
+def record_ip_rotations(monkeypatch, calls: list) -> None:
+    """Record each IP rotation a bridge asks for as `ip_rotation <method>`, and answer it as verified.
+
+    A rig is a recording phone: a rotation toggles the phone's radio, so it is recorded like a tap and
+    never run. Without it, a payload that asks for a fresh IP would reach adb from a rig.
+    """
+    from bridges.common import network
+
+    def rotate(device_id, method="data", ipc=None):
+        calls.append(f"ip_rotation {method}")
+        return network.NetworkResetOutcome(verdict="verified", method=method, old_ip="198.51.100.1",
+                                           new_ip="198.51.100.2", attempts=1, commands_ok=True)
+
+    patch_seam(monkeypatch, "bridges.common.network", "perform_network_reset", rotate)

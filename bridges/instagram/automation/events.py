@@ -60,11 +60,13 @@ def send_instagram_workflow_error(error: Exception) -> None:
             traceback=tb,
         )
     else:
-        send_error(
-            f"Workflow error: {error_msg}",
-            error_code="WORKFLOW_ERROR",
-            traceback=tb,
-        )
+        send_instagram_run_error(error_msg, traceback=tb)
+
+
+def send_instagram_run_error(message: str, **extra) -> None:
+    """`Workflow error: <message>` under WORKFLOW_ERROR: the line of a run that failed, and of a
+    payload the bridge's entry refused (`desktop_bridge`), the one the app reads for both."""
+    send_error(f"Workflow error: {message}", error_code="WORKFLOW_ERROR", **extra)
 
 
 class InstagramAutomationReporter:

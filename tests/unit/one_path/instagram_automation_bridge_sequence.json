@@ -1330,77 +1330,16 @@
   "ai_installs": []
  },
  "notifications_refused": {
-  "exit": 5,
+  "exit": 1,
   "calls": [
-   "stats_callback",
-   "configure_db",
-   "connect emulator-5554",
-   "network_baseline emulator-5554",
-   "stop com.instagram.android"
+   "stats_callback"
   ],
   "events": [
-   [
-    "log",
-    {
-     "level": "debug",
-     "message": "Loaded config from file: <config>"
-    }
-   ],
-   [
-    "status",
-    {
-     "status": "starting",
-     "message": "TAKTIK Desktop Bridge starting..."
-    }
-   ],
-   [
-    "log",
-    {
-     "level": "info",
-     "message": "Config: device=emulator-5554, workflow=notifications, targets=[feed] (1 target(s))"
-    }
-   ],
-   [
-    "status",
-    {
-     "status": "initializing",
-     "message": "Setting up database service..."
-    }
-   ],
-   [
-    "status",
-    {
-     "status": "license_valid",
-     "message": "Database service configured"
-    }
-   ],
-   [
-    "status",
-    {
-     "status": "connecting",
-     "message": "Connecting to device emulator-5554..."
-    }
-   ],
-   [
-    "status",
-    {
-     "status": "connected",
-     "message": "Connected to emulator-5554"
-    }
-   ],
-   [
-    "log",
-    {
-     "level": "info",
-     "message": "Media capture disabled in config"
-    }
-   ],
    [
     "error",
     {
      "error": "Workflow error: workflowType 'notifications' is served by notifications_bridge, not desktop_bridge",
-     "error_code": "WORKFLOW_ERROR",
-     "traceback": "<traceback>"
+     "error_code": "WORKFLOW_ERROR"
     }
    ]
   ],
