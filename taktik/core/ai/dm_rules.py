@@ -133,11 +133,14 @@ def check_ai_dm_text(text: Optional[str], rules: AiDmRules) -> Optional[AiDmRefu
 
 
 def refuse_ai_dm_texts(texts: Iterable[Any], rules: AiDmRules) -> None:
-    """Raise `AiDmTextRefused` on the first of `texts` (a list given up front) the rule refuses."""
+    """Raise `AiDmTextRefused` on the first of `texts` (given up front) the rule refuses; its rank
+    is said when the list holds more than one text."""
+    texts = list(texts)
     for rank, text in enumerate(texts, start=1):
         refusal = check_ai_dm_text(text if isinstance(text, str) else None, rules)
         if refusal is not None:
-            raise AiDmTextRefused(AiDmRefusal(refusal.reason, refusal.detail, index=rank))
+            index = rank if len(texts) > 1 else None
+            raise AiDmTextRefused(AiDmRefusal(refusal.reason, refusal.detail, index=index))
 
 
 def _contact_refusal(body: str) -> Optional[AiDmRefusal]:
