@@ -42,8 +42,8 @@ COMMENT_REFUSAL_SIGNALS = (
 COMMENT_MAX_LENGTH = 120
 
 #: What an account whose own language is unknown may write: a person speaks one or two languages,
-#: not every one the detector reads.
-_UNKNOWN_ACCOUNT_LANGUAGES = ("fr", "en")
+#: not every one the detector reads. The comments and the DMs written by an AI share it.
+UNKNOWN_ACCOUNT_LANGUAGES = ("fr", "en")
 
 
 def detect_language_code(detected_lower: str) -> str:
@@ -106,7 +106,7 @@ def resolve_comment_language(base_lang: Optional[str], post_language: Any) -> Op
     detected = detect_language_code(str(post_language).strip().lower()) if post_language else None
 
     if base is None:
-        return detected if detected in _UNKNOWN_ACCOUNT_LANGUAGES else None
+        return detected if detected in UNKNOWN_ACCOUNT_LANGUAGES else None
     if detected is None:
         return base  # undetected → the account's own language
     if detected == base:
@@ -135,6 +135,7 @@ __all__ = [
     "COMMENT_LANG_ALIASES",
     "COMMENT_MAX_LENGTH",
     "COMMENT_REFUSAL_SIGNALS",
+    "UNKNOWN_ACCOUNT_LANGUAGES",
     "detect_language_code",
     "is_comment_refusal",
     "resolve_base_language",
