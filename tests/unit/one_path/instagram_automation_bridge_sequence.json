@@ -1336,6 +1336,27 @@
   ],
   "events": [
    [
+    "log",
+    {
+     "level": "debug",
+     "message": "Loaded config from file: <config>"
+    }
+   ],
+   [
+    "status",
+    {
+     "status": "starting",
+     "message": "TAKTIK Desktop Bridge starting..."
+    }
+   ],
+   [
+    "log",
+    {
+     "level": "info",
+     "message": "Config: device=emulator-5554, workflow=notifications, targets=[feed] (1 target(s))"
+    }
+   ],
+   [
     "error",
     {
      "error": "Workflow error: workflowType 'notifications' is served by notifications_bridge, not desktop_bridge",

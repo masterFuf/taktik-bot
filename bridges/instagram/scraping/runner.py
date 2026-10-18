@@ -1,4 +1,8 @@
-"""Instagram scraping bridge runtime runner."""
+"""Instagram scraping bridge runtime runner.
+
+The bridge hands the launcher a `connect` that sets up the database and connects to the phone; the
+launcher calls it once it has read the payload, so a refused payload connects nothing.
+"""
 
 from __future__ import annotations
 
@@ -43,19 +47,23 @@ def run_scraping_bridge(config: dict) -> int:
         return 1
 
     device_id = config.get("deviceId")
-    configure_scraping_database()
-    connection = create_scraping_connection(device_id)
-    try:
+    connection = None
+
+    def connect(package_name):
+        """The phone the launcher asks for, once it has read the payload."""
+        from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
+
+        nonlocal connection
+        configure_scraping_database()
+        connection = create_scraping_connection(device_id)
         device_manager = connect_scraping_device(connection)
         if device_manager is None:
-            print_scraping_result(False, error="Failed to connect to device")
-            return 1
+            raise RuntimeError("Failed to connect to device")
+        return InstagramRunPhone(device_manager=device_manager,
+                                 installed_version=scraping_installed_version(connection, package_name))
 
-        result = run_scraping_workflow(
-            device_manager,
-            config,
-            installed_version=scraping_installed_version(connection, config.get("packageName")),
-        )
+    try:
+        result = run_scraping_workflow(config, connect)
         print_scraping_result(**result)
         return 0
 
@@ -64,7 +72,9 @@ def run_scraping_bridge(config: dict) -> int:
         print_scraping_result(False, error=str(e))
         return 1
     finally:
-        disconnect_scraping_connection(connection)
+        # Only a connection the launcher asked for: a refused payload opened none.
+        if connection is not None:
+            disconnect_scraping_connection(connection)
 
 
 __all__ = ["ScrapingRun", "print_scraping_result", "report_scraping_entry_error", "run_scraping_bridge"]

@@ -91,6 +91,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     """Start an autonomous Agent session on Instagram."""
     from taktik.cli.commands.workflows import _coerce
     from taktik.cli.hosts.instagram import CliInstagramHost
+    from taktik.cli.hosts.phone import CliPhone
     from taktik.core.shared.device.manager import DeviceManager
     from taktik.core.social_media.instagram.workflows.agent.agent_handler import run_instagram_agent
 
@@ -140,7 +141,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     try:
         result = run_instagram_agent(
             config,
-            connect=CliInstagramHost(manager, device_id).agent_runtime,
+            connect=CliInstagramHost(CliPhone(manager, device_id)).agent_runtime,
             ipc=_ConsoleNotifier(),
             ai_service_factory=ai_service_factory,
             on_workflow=workflows.append,

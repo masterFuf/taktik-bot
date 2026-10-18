@@ -4,9 +4,9 @@
 `run_bridge_main`. Nothing else reads the command line or a config (`audit_bridge_entrypoints.py`).
 Stdin stays for what a run exchanges while it runs (decision replies, stop orders, Lab commands).
 
-A bridge whose launcher is handed a phone the bridge already prepared (connected, on a fresh IP)
-names the launcher's payload reader here (`read_payload`): the payload is read and validated before
-the bridge is built, so what the reader refuses never reaches the phone.
+The entry reads the file, not the payload: each launcher reads and validates its payload before it
+calls the `connect` its bridge hands it, so the order (read, validate, then touch the phone) lives
+in the launcher, the same for the bridge and for the CLI.
 """
 
 from __future__ import annotations
@@ -29,8 +29,6 @@ CONFIG_ERROR = "CONFIG_ERROR"
 NOT_AN_OBJECT = "NOT_AN_OBJECT"
 INIT_ERROR = "INIT_ERROR"
 CRASH = "CRASH"
-#: The workflow's reader refused the payload (`read_payload`): the bridge was not built.
-REFUSED = "REFUSED"
 
 #: The words of each entry failure; a bridge may keep its own (`messages`), with `{usage}` and
 #: `{error}` filled in.
@@ -40,12 +38,9 @@ DEFAULT_MESSAGES = {
     NOT_AN_OBJECT: "Failed to load config: the config must be a JSON object",
     INIT_ERROR: "Failed to initialize bridge: {error}",
     CRASH: "Bridge crashed: {error}",
-    REFUSED: "{error}",
 }
 
 ErrorReporter = Callable[[str, str], None]
-#: The launcher's payload reader: returns what it read, raises `ValueError` to refuse.
-PayloadReader = Callable[[dict], Any]
 
 _config_path: Optional[str] = None
 
@@ -93,24 +88,6 @@ def report_entry_error(message: str, reason: str) -> None:
         _send_error(message)
 
 
-def _refuse_what_the_reader_refuses(
-    read_payload: Optional[PayloadReader], config: dict, report: Callable[[str, object], None]
-) -> None:
-    """Read the payload with the workflow's reader; on its refusal, report it and exit.
-
-    A reader refuses with a `ValueError` (its own subclass included: `DmCommandError`...). Any other
-    exception is a bug of the reader, not a refusal: it goes where the bridge's crashes go.
-    """
-    if read_payload is None:
-        return
-    try:
-        read_payload(config)
-    except ValueError as refused:
-        report(REFUSED, refused)
-        logger.warning(f"Payload refused before the bridge was built: {refused}")
-        sys.exit(1)
-
-
 def _reset_run_diagnostics() -> None:
     # Module-level diagnostic counters would otherwise carry the previous run's counts.
     for module in ('miss_capture', 'foreground_guard', 'screen_ring', 'run_halt'):
@@ -130,20 +107,14 @@ def run_bridge_main(
     report_error: Optional[ErrorReporter] = None,
     messages: Optional[dict] = None,
     catch_crashes: bool = True,
-    read_payload: Optional[PayloadReader] = None,
 ) -> None:
     """Universal `main()`: read the config file, build the bridge, exit with its `.run()` code.
 
     `report_error(message, reason)` emits an entry failure in the bridge's own event shape
-    (reasons: MISSING_CONFIG, CONFIG_ERROR, NOT_AN_OBJECT, INIT_ERROR, CRASH, REFUSED), worded by
+    (reasons: MISSING_CONFIG, CONFIG_ERROR, NOT_AN_OBJECT, INIT_ERROR, CRASH), worded by
     `messages` over `DEFAULT_MESSAGES`. `catch_crashes=False` leaves an
     exception of the factory or of `.run()` to the launcher's crash hooks (UNHANDLED_EXCEPTION
     with its traceback).
-
-    `read_payload(config)`: the launcher's payload reader. Called before the bridge is built: a
-    payload it refuses is reported (REFUSED, the reader's sentence) and the process exits 1 with
-    nothing built, so nothing connects to the phone, rotates its IP or stops its app. The order is
-    read, validate, then connect, for every bridge that names its reader.
     """
     global _config_path
     reporter = report_error or report_entry_error
@@ -178,7 +149,6 @@ def run_bridge_main(
 
     if not catch_crashes:
         try:
-            _refuse_what_the_reader_refuses(read_payload, config, report)
             code = bridge_factory(config).run()
         except KeyboardInterrupt:
             logger.info("Bridge interrupted by user")
@@ -186,7 +156,6 @@ def run_bridge_main(
         sys.exit(int(code or 0))
 
     try:
-        _refuse_what_the_reader_refuses(read_payload, config, report)
         bridge = bridge_factory(config)
     except Exception as exc:
         report(INIT_ERROR, exc)

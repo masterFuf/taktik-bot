@@ -136,8 +136,9 @@ def bench(monkeypatch, no_telemetry_left):
     observability.clear_active_watchdog()
 
 
-def _scripted_run(payload, *, device_manager, step_hook, **_kwargs):
+def _scripted_run(payload, *, connect, step_hook, **_kwargs):
     """The production launcher's place: one step, whose screen work answers from a script."""
+    device_manager = connect(None).device_manager
     from taktik.core.social_media.instagram.actions.base.ipc.emitter import IPCEmitter
     from taktik.core.social_media.instagram.actions.base.stats import BaseStatsManager
     from taktik.core.shared.telemetry import emit_step

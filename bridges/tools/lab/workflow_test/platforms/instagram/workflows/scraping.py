@@ -7,9 +7,9 @@ read profiles from it; it is not there to fill the database or to spend on quali
 
 `run_scraping_bridge` was named as the entry point, but it opens
 its own device connection, which would fight the one the bench already holds. The wiring therefore
-targets `run_scraping_workflow`, the layer just below — the same one the bridge itself calls once
-it has connected, which runs the core launcher `run_instagram_scraping` — and hands it the bench's
-own device manager.
+targets `run_scraping_workflow`, the layer just below — the same one the bridge itself calls, which
+runs the core launcher `run_instagram_scraping` — and hands it a `connect` that returns the bench's
+own device manager, once the launcher has read the payload.
 
 `scrape_profile_posts` probes the post catalogue source: with persistence off it opens a few posts
 of the target and reads their cards without writing a row.
@@ -87,6 +87,7 @@ def run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, del
         return False
 
     from bridges.instagram.scraping.workflow import run_scraping_workflow
+    from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 
     bridge_config = _bridge_config(scraping_type, target, limits, delays)
 
@@ -97,7 +98,8 @@ def run_instagram_scraping(conn, device, ipc, workflow_type, target, limits, del
         message=f"Scraping {scraping_type} (read-only, nothing saved)",
     )
 
-    result = run_scraping_workflow(conn.device_manager, bridge_config)
+    result = run_scraping_workflow(
+        bridge_config, connect=lambda _package_name: InstagramRunPhone(device_manager=conn.device_manager))
 
     success = bool(result.get("success"))
     ipc.send(

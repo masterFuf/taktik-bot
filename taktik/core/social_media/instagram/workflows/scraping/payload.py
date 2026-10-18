@@ -48,8 +48,9 @@ def _number(value: Any) -> Any:
 
 
 def scraping_config_from_payload(config: Mapping[str, Any]) -> dict:
-    """The workflow config a scraping payload describes; a setting out of its declared bounds is a
-    `ValueError` that names it."""
+    """The workflow config a scraping payload describes. A setting out of its declared bounds, or a
+    run with nothing to scrape (`scraping_source_error`), is a `ValueError` that says why: the
+    launcher reads before it asks the host for the phone, so neither reaches the phone."""
     refuse_out_of_bounds(INSTAGRAM_SCRAPING, config)
     scraping_config = {
         'type': config.get('type', 'target'),
@@ -166,11 +167,14 @@ def scraping_config_from_payload(config: Mapping[str, Any]) -> dict:
     else:
         scraping_config['ai_mode'] = False
 
+    error = scraping_source_error(scraping_config)
+    if error:
+        raise ValueError(error)
     return scraping_config
 
 
 def scraping_source_error(scraping_config: Mapping[str, Any]) -> Optional[str]:
-    """Why a run has nothing to scrape, or None. Checked before the phone is touched."""
+    """Why a run has nothing to scrape, or None: the reader's refusal, before the phone is touched."""
     scraping_type = scraping_config.get('type')
     if scraping_type in ('target', 'profile_posts') and not scraping_config.get('target_usernames'):
         return f"Instagram {scraping_type} scraping requires targetUsernames"

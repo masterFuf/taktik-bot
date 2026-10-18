@@ -20,6 +20,7 @@ from taktik.core.contract import WORKFLOW_CONTRACTS
 from taktik.core.contract.bounds import describe, out_of_bounds
 from taktik.core.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION
+from taktik.core.contract.instagram_scraping import INSTAGRAM_SCRAPING
 from taktik.core.contract.schema import (
     HOST,
     Bounds,
@@ -247,13 +248,25 @@ def test_a_list_sync_sends_no_profile_budget_and_is_not_held_to_one():
         "limits.maxProfiles = 0, outside its bounds (1 to 500)"]
 
 
-def test_an_automation_out_of_bounds_is_refused_before_instagram_restarts():
-    started = []
+def test_an_automation_out_of_bounds_is_refused_before_the_host_connects():
+    connected = []
     payload = {"workflowType": "target_followers", "target": "someone", "limits": {"maxProfiles": 501}}
 
     with pytest.raises(ValueError, match="limits.maxProfiles = 501"):
-        launch(INSTAGRAM_AUTOMATION, payload, instagram_start=lambda package: started.append(package) or True)
-    assert started == []
+        launch(INSTAGRAM_AUTOMATION, payload, connect=lambda package: connected.append(package))
+    assert connected == []
+
+
+def test_a_scraping_out_of_bounds_or_with_no_source_is_refused_before_the_host_connects():
+    connected = []
+    out_of_bounds_run = {"type": "usernames", "usernames": ["alpha"], "maxProfiles": 10001}
+    no_source = {"type": "hashtag", "hashtags": []}
+
+    with pytest.raises(ValueError, match="maxProfiles = 10001"):
+        launch(INSTAGRAM_SCRAPING, out_of_bounds_run, connect=lambda package: connected.append(package))
+    with pytest.raises(ValueError, match="requires hashtags"):
+        launch(INSTAGRAM_SCRAPING, no_source, connect=lambda package: connected.append(package))
+    assert connected == []
 
 
 def test_a_taktik_agent_out_of_bounds_says_why_on_stdout_before_connecting():

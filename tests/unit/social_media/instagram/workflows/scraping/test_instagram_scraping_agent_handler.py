@@ -9,6 +9,7 @@ from taktik.core.kernel.registry import WorkflowRegistry
 from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
 from taktik.core.social_media.instagram.ui.selectors import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.common import runtime_setup
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 from taktik.core.social_media.instagram.workflows.scraping import (
     INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID,
     INSTAGRAM_SCRAPING_POST_URL_WORKFLOW_ID,
@@ -26,6 +27,18 @@ def detections(monkeypatch):
     seen = []
     monkeypatch.setattr(runtime_setup, "detect_and_optimize", lambda device: seen.append(device) or "en")
     return seen
+
+
+def _connect(device_manager=None, connected=None, start=None, installed_version=None):
+    """The host's `connect`: the package it was asked for goes to `connected`."""
+
+    def connect(package_name):
+        if connected is not None:
+            connected.append(package_name)
+        return InstagramRunPhone(device_manager=device_manager if device_manager is not None else object(),
+                                 start=start, installed_version=installed_version)
+
+    return connect
 
 
 class FakeScrapingWorkflow:
@@ -51,7 +64,7 @@ def test_instagram_target_scraping_handler_builds_bridge_compatible_config():
 
     register_instagram_scraping_handlers(
         registry,
-        device_manager=device_manager,
+        instagram_connect=_connect(device_manager),
         ai_notifier=ai_notifier,
         instagram_scraping_ai_service=ai_service_factory,
         workflow_factory=FakeScrapingWorkflow,
@@ -127,7 +140,7 @@ def test_instagram_hashtag_scraping_handler_accepts_legacy_single_hashtag():
     registry = WorkflowRegistry()
     register_instagram_scraping_handlers(
         registry,
-        device_manager=object(),
+        instagram_connect=_connect(),
         workflow_factory=FakeScrapingWorkflow,
     )
 
@@ -157,7 +170,7 @@ def test_instagram_post_url_scraping_handler_extracts_post_id():
     registry = WorkflowRegistry()
     register_instagram_scraping_handlers(
         registry,
-        device_manager=object(),
+        instagram_connect=_connect(),
         workflow_factory=FakeScrapingWorkflow,
     )
 
@@ -185,10 +198,11 @@ def test_instagram_post_url_scraping_handler_extracts_post_id():
 
 def test_instagram_target_scraping_requires_target_usernames_before_workflow_creation():
     FakeScrapingWorkflow.instances = []
+    connected = []
     registry = WorkflowRegistry()
     register_instagram_scraping_handlers(
         registry,
-        device_manager=object(),
+        instagram_connect=_connect(connected=connected),
         workflow_factory=FakeScrapingWorkflow,
     )
 
@@ -210,6 +224,7 @@ def test_instagram_target_scraping_requires_target_usernames_before_workflow_cre
         )
 
     assert FakeScrapingWorkflow.instances == []
+    assert connected == []
 
 
 @pytest.mark.parametrize("workflow_id, params, expected", [
@@ -221,7 +236,7 @@ def test_instagram_target_scraping_requires_target_usernames_before_workflow_cre
 def test_the_usernames_and_profile_posts_sources_have_their_ids(workflow_id, params, expected):
     FakeScrapingWorkflow.instances = []
     registry = WorkflowRegistry()
-    register_instagram_scraping_handlers(registry, device_manager=object(), workflow_factory=FakeScrapingWorkflow)
+    register_instagram_scraping_handlers(registry, instagram_connect=_connect(), workflow_factory=FakeScrapingWorkflow)
 
     registry.resolve(workflow_id)(
         WorkflowInvocation(platform="instagram", workflow_id=workflow_id, params=params), {}
@@ -237,14 +252,13 @@ def test_the_usernames_and_profile_posts_sources_have_their_ids(workflow_id, par
     ("instagram.scraping.hashtag", "requires hashtags"),
     ("instagram.scraping.post_url", "requires postUrls"),
 ])
-def test_a_source_without_anything_to_scrape_is_refused_before_the_start(workflow_id, message):
+def test_a_source_without_anything_to_scrape_is_refused_before_the_host_connects(workflow_id, message):
     FakeScrapingWorkflow.instances = []
-    starts = []
+    connected = []
     registry = WorkflowRegistry()
     register_instagram_scraping_handlers(
         registry,
-        device_manager=object(),
-        instagram_start=lambda package_name: starts.append(package_name) or True,
+        instagram_connect=_connect(connected=connected, start=lambda: True),
         workflow_factory=FakeScrapingWorkflow,
     )
 
@@ -252,7 +266,19 @@ def test_a_source_without_anything_to_scrape_is_refused_before_the_start(workflo
         registry.resolve(workflow_id)(
             WorkflowInvocation(platform="instagram", workflow_id=workflow_id, params={}), {}
         )
-    assert starts == [] and FakeScrapingWorkflow.instances == []
+    assert connected == [] and FakeScrapingWorkflow.instances == []
+
+
+@pytest.mark.parametrize("payload, message", [
+    ({"type": "usernames"}, "requires usernames"),
+    ({"type": "hashtag", "hashtags": ["  "]}, "requires hashtags"),
+    ({}, "requires targetUsernames"),
+])
+def test_the_reader_refuses_a_run_with_nothing_to_scrape(payload, message):
+    from taktik.core.social_media.instagram.workflows.scraping.payload import scraping_config_from_payload
+
+    with pytest.raises(ValueError, match=message):
+        scraping_config_from_payload(payload)
 
 
 class _Phone:
@@ -282,8 +308,7 @@ def test_the_launcher_matches_the_selectors_to_the_phone_before_the_workflow(det
 
     run_instagram_scraping(
         {"type": "target", "targetUsernames": ["alpha"]},
-        device_manager=phone,
-        instagram_installed_version=lambda: "447.0.0.55.81",
+        connect=_connect(phone, installed_version=lambda: "447.0.0.55.81"),
         workflow_factory=Workflow,
     )
 
@@ -299,7 +324,7 @@ def test_without_a_version_reader_the_language_is_still_read(detections, monkeyp
                         lambda platform, version: applied.append(version) or 0)
     phone = _Phone()
 
-    run_instagram_scraping({"type": "usernames", "usernames": ["alpha"]}, device_manager=phone,
+    run_instagram_scraping({"type": "usernames", "usernames": ["alpha"]}, connect=_connect(phone),
                            workflow_factory=FakeScrapingWorkflow)
 
     assert applied == []
@@ -311,8 +336,8 @@ def test_the_cli_handler_passes_its_version_reader(detections, monkeypatch):
     monkeypatch.setattr("taktik.core.compat.selectors.setup.apply_version_overrides",
                         lambda platform, version: applied.append((platform, version)) or 0)
     registry = WorkflowRegistry()
-    register_instagram_scraping_handlers(registry, device_manager=_Phone(), workflow_factory=FakeScrapingWorkflow,
-                                         instagram_installed_version=lambda: "447.0.0.55.81")
+    register_instagram_scraping_handlers(registry, workflow_factory=FakeScrapingWorkflow,
+                                         instagram_connect=_connect(_Phone(), installed_version=lambda: "447.0.0.55.81"))
 
     registry.resolve(INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID)(
         WorkflowInvocation(platform="instagram", workflow_id=INSTAGRAM_SCRAPING_HASHTAG_WORKFLOW_ID,

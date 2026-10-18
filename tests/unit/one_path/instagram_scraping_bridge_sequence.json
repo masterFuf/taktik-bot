@@ -365,12 +365,7 @@
  },
  "bare": {
   "exit": 1,
-  "calls": [
-   "configure_db",
-   "connection emulator-5554",
-   "connect",
-   "disconnect"
-  ],
+  "calls": [],
   "stdout": [
    {
     "type": "scraping_result",

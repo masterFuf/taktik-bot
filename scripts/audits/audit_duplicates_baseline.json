@@ -91,7 +91,7 @@
   "taktik/core/social_media/instagram/ui/selectors/locales/__init__.py": 22,
   "taktik/core/social_media/instagram/workflows/account/agent_handler.py": 16,
   "taktik/core/social_media/instagram/workflows/account/switch_workflow.py": 9,
-  "taktik/core/social_media/instagram/workflows/automation/agent_handler.py": 25,
+  "taktik/core/social_media/instagram/workflows/automation/agent_handler.py": 9,
   "taktik/core/social_media/instagram/workflows/automation/automation.py": 20,
   "taktik/core/social_media/instagram/workflows/automation/feed/suggestions.py": 9,
   "taktik/core/social_media/instagram/workflows/automation/feed/suggestions_visit.py": 9,

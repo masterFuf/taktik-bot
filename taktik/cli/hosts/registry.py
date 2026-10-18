@@ -8,9 +8,14 @@ The handlers are the right entry point: AGENTS.md makes them the branchable unit
 their device by injection instead of opening a connection. This module is the missing piece — it
 hands each registrar what it asks for and returns one registry the CLI can list and resolve.
 
-Registrars do not share a signature: some want `device_manager`, some `device`, some both `device`
-and `device_id`, Threads wants a `startup_provider`. Their needs are read from the signature rather
-than hardcoded, so adding a platform does not mean editing a mapping here.
+Registrars do not share a signature: some want a `connect` (the Instagram runs), some `device`, some
+both `device` and `device_id`, Threads wants a `startup_provider`. Their needs are read from the
+signature rather than hardcoded, so adding a platform does not mean editing a mapping here.
+
+Building the registry never connects the phone. A launcher that takes a `connect` reads and
+validates its payload, then calls it, and the phone connects there. A registrar that requires the
+connected device itself is named in `connected_device_ids`: the CLI connects before it runs one of
+its workflows, whose launcher then reads once the phone is connected.
 
 A registrar that fails is reported, never silent: a platform missing from the menu because its
 import broke is exactly the kind of gap this module exists to end.
@@ -20,7 +25,7 @@ from __future__ import annotations
 import importlib
 import inspect
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from taktik.core.kernel.registry import WorkflowRegistry
 
@@ -90,10 +95,17 @@ REGISTRARS: tuple[tuple[str, str, str], ...] = (
 
 @dataclass
 class RegistryBuild:
-    """A registry plus what could not be registered, so the CLI can be honest about gaps."""
+    """A registry plus what could not be registered, so the CLI can be honest about gaps.
+
+    `connected_device_ids`: the workflows whose registrar takes the connected device itself (`device`,
+    `device_manager`) rather than a callable that connects it. Built on a phone not connected yet, their
+    handlers hold no device: the CLI connects the phone, then builds the registry again, before it runs
+    one of them.
+    """
 
     registry: WorkflowRegistry
     failures: list[tuple[str, str]]
+    connected_device_ids: frozenset[str] = frozenset()
 
     @property
     def workflow_ids(self) -> list[str]:
@@ -108,6 +120,18 @@ class RegistryBuild:
         return sorted({i.split(".", 1)[0] for i in self.workflow_ids})
 
 
+#: What a registrar takes that only a connected phone gives: the handlers it builds drive that device.
+_CONNECTED_DEVICE_PARAMS = ("device", "device_manager")
+
+
+def _takes_a_connected_device(params: Mapping[str, inspect.Parameter]) -> bool:
+    """The registrar requires the connected device itself, not a callable that connects it."""
+    return any(
+        name in params and params[name].default is inspect.Parameter.empty
+        for name in _CONNECTED_DEVICE_PARAMS
+    )
+
+
 def build_registry(
     *,
     device: Any = None,
@@ -116,7 +140,13 @@ def build_registry(
     notifier: Any = None,
     startup_provider: Callable[..., Any] | None = None,
 ) -> RegistryBuild:
-    """Register every available handler, returning the registry and any registrar failures."""
+    """Register every available handler, returning the registry and any registrar failures.
+
+    `device_manager` is the CLI's phone (a `DeviceManager`), connected or not: building the registry
+    never connects it. Each host callable below connects it when a launcher calls it, once the
+    launcher has read and validated its payload (`hosts/phone.py`). `device` is the connected device,
+    the manager's own when it holds one; without a manager, `device` stands for both.
+    """
     from taktik.cli.hosts.instagram import (
         CliInstagramHost,
         cli_instagram_agent_ai_service_factory,
@@ -124,6 +154,7 @@ def build_registry(
         cli_instagram_scraping_ai_service,
         cli_openrouter_key,
     )
+    from taktik.cli.hosts.phone import CliPhone
     from taktik.cli.hosts.tiktok import (
         cli_tiktok_account_app,
         cli_tiktok_ai_hooks,
@@ -134,8 +165,12 @@ def build_registry(
 
     registry = WorkflowRegistry()
     failures: list[tuple[str, str]] = []
+    connected_device_ids: set[str] = set()
     manager = device_manager if device_manager is not None else device
-    instagram_host = CliInstagramHost(manager, device_id) if manager is not None else None
+    phone = CliPhone(manager, device_id) if manager is not None else None
+    if device is None and phone is not None and phone.connected:
+        device = phone.device_manager.device
+    instagram_host = CliInstagramHost(phone) if phone is not None else None
 
     supplied: dict[str, Any] = {
         "device": device,
@@ -145,15 +180,14 @@ def build_registry(
         "ai_notifier": notifier,
         "startup_provider": startup_provider,
         # TikTok handlers that take these start and hook a run the way the bridges do.
-        "tiktok_startup": cli_tiktok_startup(device, device_id) if device is not None else None,
+        "tiktok_startup": cli_tiktok_startup(phone) if phone is not None else None,
         "tiktok_ai_hooks": cli_tiktok_ai_hooks,
         # The account flows restart TikTok the way the account bridge does.
-        "tiktok_account_app": cli_tiktok_account_app(manager, device_id) if manager is not None else None,
+        "tiktok_account_app": cli_tiktok_account_app(phone) if phone is not None else None,
         "tiktok_welcome_qualifier": cli_tiktok_welcome_qualifier,
         "tiktok_outreach_message_generator": cli_tiktok_outreach_message_generator,
-        # The Instagram automation handlers start and hook a run the way the desktop bridge does.
-        "instagram_start": instagram_host.start if instagram_host else None,
-        "instagram_installed_version": instagram_host.installed_version if instagram_host else None,
+        # The Instagram automation and scraping runs start on the phone the way their bridges do.
+        "instagram_connect": instagram_host.run_phone if instagram_host else None,
         # The account flows restart Instagram (or keep its screen) the way the account bridge does.
         "instagram_account_app": instagram_host.account_app if instagram_host else None,
         "instagram_ai_service": cli_instagram_ai_service,
@@ -186,11 +220,15 @@ def build_registry(
                 # provide; defaults it declares itself must stay in force.
                 and (param.default is inspect.Parameter.empty or supplied[name] is not None)
             }
+            before = set(registry.workflow_ids())
             register(registry, **kwargs)
+            if _takes_a_connected_device(params):
+                connected_device_ids |= set(registry.workflow_ids()) - before
         except Exception as exc:  # noqa: BLE001 - one broken platform must not hide the others
             failures.append((label, f"{type(exc).__name__}: {exc}"))
 
-    return RegistryBuild(registry=registry, failures=failures)
+    return RegistryBuild(registry=registry, failures=failures,
+                         connected_device_ids=frozenset(connected_device_ids))
 
 
 __all__ = ["REGISTRARS", "RegistryBuild", "build_registry"]

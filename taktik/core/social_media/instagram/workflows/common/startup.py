@@ -12,11 +12,13 @@ a device connection of its own.
 
 Every Instagram launcher shares two more names from here: `InstagramStartError`, what it raises when
 the start failed and the run must not begin, and `_log_to_logger`, the log of a host that brings no
-log callback of its own (the CLI).
+log callback of its own (the CLI). The automation and the scraping launchers share a third:
+`InstagramRunPhone`, what the host's `connect` hands them once they have read their payload.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
@@ -26,6 +28,30 @@ HealthCheck = Callable[[], Mapping[str, Any]]
 
 class InstagramStartError(RuntimeError):
     """Instagram could not be brought to a clean start; the run did not begin."""
+
+
+@dataclass
+class InstagramRunPhone:
+    """What a host hands an automation or a scraping run when its launcher asks for the phone.
+
+    The launcher reads and validates its payload first, then calls the host's
+    `connect(package_name)`: everything that touches the phone (the connection, the desktop's IP
+    rotation and media capture) happens in that call, so a refused payload never reaches it.
+
+    device_manager     the connected phone the workflow drives
+    start              the clean restart before the run, False when Instagram did not start; None:
+                       the host restarted it already (the desktop restarts it before a scraping run)
+    installed_version  the installed Instagram version, for the selector overrides; None: the host
+                       applied them already (the Lab session)
+    """
+
+    device_manager: Any
+    start: Optional[Callable[[], bool]] = None
+    installed_version: Optional[Callable[[], Optional[str]]] = None
+
+
+#: `connect(package_name) -> InstagramRunPhone`: the phone, connected by the host when the launcher asks.
+InstagramConnect = Callable[[Optional[str]], InstagramRunPhone]
 
 
 def _log_to_logger(level: str, message: str) -> None:
@@ -112,4 +138,11 @@ def start_instagram_session(
         return False
 
 
-__all__ = ["InstagramStartError", "LoggingSessionNotifier", "package_name_from_payload", "start_instagram_session"]
+__all__ = [
+    "InstagramConnect",
+    "InstagramRunPhone",
+    "InstagramStartError",
+    "LoggingSessionNotifier",
+    "package_name_from_payload",
+    "start_instagram_session",
+]

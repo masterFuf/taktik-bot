@@ -2,7 +2,8 @@
 
 Same startup sequence (clean restart, permission prompt, language, account) and same AI hooks as
 the bridges; the events go to the log instead of stdout. When the payload carries no AI key, the
-CLI's own (`ai_key.py`: the environment, the key typed at launch, the saved one).
+CLI's own (`ai_key.py`: the environment, the key typed at launch, the saved one). The startup and
+the account app connect the run's phone (`CliPhone`) when a launcher calls them, not before.
 """
 from __future__ import annotations
 
@@ -11,14 +12,16 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.cli.hosts.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
+from taktik.cli.hosts.phone import CliPhone
 
 
 def _log(level: str, message: str) -> None:
     getattr(logger, level if level in ("info", "warning", "error", "debug", "success") else "info")(message)
 
 
-def cli_tiktok_startup(device: Any, device_id: str) -> Callable[..., Any]:
-    """Startup provider on the CLI's connected device; the manager reuses that connection."""
+def cli_tiktok_startup(phone: CliPhone) -> Callable[..., Any]:
+    """Startup provider on the CLI's phone, connected when the launcher starts TikTok; the manager
+    reuses that connection."""
 
     def start():
         from taktik.core.social_media.tiktok import TikTokManager
@@ -28,7 +31,8 @@ def cli_tiktok_startup(device: Any, device_id: str) -> Callable[..., Any]:
             start_tiktok_session,
         )
 
-        manager = TikTokManager(device_id)
+        device = phone.connect().device
+        manager = TikTokManager(phone.device_id)
         # Same reuse as the Lab's app actions: no second connection to the phone.
         manager.device_manager.device = device
         bot_username = start_tiktok_session(manager, notifier=LoggingWorkflowNotifier(), fetch_profile=True)
@@ -37,15 +41,15 @@ def cli_tiktok_startup(device: Any, device_id: str) -> Callable[..., Any]:
     return start
 
 
-def cli_tiktok_account_app(device_manager: Any, device_id: str) -> Callable[[Optional[str]], Any]:
+def cli_tiktok_account_app(phone: CliPhone) -> Callable[[Optional[str]], Any]:
     """App provider of the account flows: the app service the account bridge restarts TikTok with,
-    on the CLI's connected device."""
+    on the CLI's phone, connected when the flow asks for it."""
 
     def app_for(package_name: Optional[str]):
         from taktik.core.shared.device.app_manager import AppService
         from taktik.core.shared.device.connected_device import ConnectedDevice
 
-        connection = ConnectedDevice(device_manager, device_id)
+        connection = ConnectedDevice(phone.connect(), phone.device_id)
         return AppService(connection, platform="tiktok", package_override=package_name)
 
     return app_for
