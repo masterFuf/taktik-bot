@@ -101,6 +101,7 @@ def _run_instagram_automation(
     options: dict | None = None,
 ):
     from taktik.core.social_media.instagram.workflows.automation.agent_handler import run_instagram_automation
+    from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 
     payload = build_workflow_payload(
         workflow_type, target, limits, probabilities, session_duration, delays,
@@ -125,10 +126,11 @@ def _run_instagram_automation(
     except Exception as exc:
         logger.warning(f"[WorkflowTest] Could not start watchdog (non-fatal): {exc}")
 
-    # The production launcher, as a page run calls it; the session already restarted the app.
+    # The production launcher, as a page run calls it. The bench holds its phone: the launcher still
+    # reads first, then gets the session's phone, which already restarted the app.
     run_instagram_automation(
         payload,
-        device_manager=conn.device_manager,
+        connect=lambda _package_name: InstagramRunPhone(device_manager=conn.device_manager),
         step_hook=trace_workflow_steps(tracer, ipc),
     )
     return watchdog

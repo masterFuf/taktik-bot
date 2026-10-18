@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 from click.testing import CliRunner
 
+from one_path_seams import patch_seam
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowRegistry
 
@@ -225,7 +226,7 @@ def test_cli_auth_login_runs_the_account_launcher(monkeypatch):
             calls.append(("warm_launch",))
             return True
 
-    monkeypatch.setattr(management_cmds, "DeviceManager", _Manager)
+    patch_seam(monkeypatch, "taktik.core.shared.device.manager", "DeviceManager", _Manager)
     monkeypatch.setattr(management_cmds, "InstagramManager", _Instagram)
     monkeypatch.setattr(CliInstagramHost, "account_app", lambda self, _package: FakeApp(calls))
     _bridge_uses(monkeypatch, agent_handler.register_instagram_account_handlers, _instagram_factories(calls))

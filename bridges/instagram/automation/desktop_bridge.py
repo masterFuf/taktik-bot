@@ -7,10 +7,10 @@ This script allows the TAKTIK Desktop app to launch bot sessions programmaticall
 the core launcher shared with the CLI). A config with `debugMode: true` (`mode`: analyze or
 detect, `deviceId`) runs the desktop's debug tooling instead.
 
-The bridge connects to the phone and rotates its IP before it hands the phone to the launcher, so
-the launcher's reader reads the session's payload first, at the entry (`read_payload`): a setting
-out of its bounds, or a workflow this bridge does not serve, ends on the run's error line with
-nothing connected, rotated or stopped.
+The launcher reads the session's payload before it asks the bridge for the phone (`connect`, where
+the bridge connects, rotates the IP and starts the media capture): a setting out of its bounds, or a
+workflow this bridge does not serve, ends on the run's error line with nothing connected, rotated or
+stopped (`DesktopBridge`).
 """
 
 import sys
@@ -22,10 +22,9 @@ bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pat
 if bot_dir not in sys.path:
     sys.path.insert(0, bot_dir)
 
-from bridges.common.entrypoint import REFUSED, loaded_config_path, report_entry_error, run_bridge_main
+from bridges.common.entrypoint import loaded_config_path, run_bridge_main
 from bridges.instagram.automation.bridge import DesktopBridge
 from bridges.instagram.automation.debug import DebugBridge
-from bridges.instagram.automation.events import send_instagram_run_error
 from bridges.instagram.common.ipc import (
     logger,
     send_error,
@@ -63,33 +62,12 @@ def _desktop_bridge(config: dict):
     return DesktopBridge(config)
 
 
-def _read_session_payload(config: dict) -> None:
-    """The launcher's reader on the session's payload, before the bridge is built. The debug
-    tooling carries no session payload."""
-    if config.get("debugMode"):
-        return
-    from taktik.core.social_media.instagram.workflows.automation.config_builder import (
-        build_instagram_automation_config,
-    )
-
-    build_instagram_automation_config(config)
-
-
-def _report_entry_error(message: str, reason: str) -> None:
-    """An entry failure; a refused payload ends on the error line of a failed run, as it always has."""
-    if reason == REFUSED:
-        send_instagram_run_error(message)
-        return
-    report_entry_error(message, reason)
-
-
 def main():
     """Main entry point."""
     # Setup stats IPC callback before any workflow runs
     setup_stats_callback()
 
-    run_bridge_main(_desktop_bridge, usage="desktop_bridge <config.json>", read_payload=_read_session_payload,
-                    report_error=_report_entry_error)
+    run_bridge_main(_desktop_bridge, usage="desktop_bridge <config.json>")
 
 
 if __name__ == "__main__":

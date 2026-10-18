@@ -17,6 +17,11 @@ takes a whole config at once, which is what a scripted run wants anyway.
 A run that uses AI needs an OpenRouter key before the phone is touched (`ai_key.py`): asked for at
 a terminal, refused with exit code 2 in a scripted run (`--json`, a pipe, CI). A manual run needs
 none and never reaches an AI client.
+
+`run` chooses the phone but does not connect to it (`hosts/phone.py`): the launcher reads and
+validates its payload, then calls the `connect` the CLI host gave it, and the phone connects there.
+A payload the reader refuses (a setting out of its bounds, a scraping with no source) ends with
+exit code 1 and nothing connected, as from the desktop bridges.
 """
 from __future__ import annotations
 
@@ -36,7 +41,8 @@ from taktik.cli.hosts.ai_key import (
     resolve_openrouter_key,
     run_uses_ai,
 )
-from taktik.cli.hosts.registry import build_registry
+from taktik.cli.hosts.phone import CliPhone, PhoneNotConnectedError
+from taktik.cli.hosts.registry import build_registry, handler_on_phone
 
 console = Console()
 
@@ -203,15 +209,13 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
         console.print(f"[red]{exc}[/red]")
         raise SystemExit(MISSING_KEY_EXIT)
 
-    device_manager, device_id = _connect(device_id)
-    if device_manager is None:
+    # The phone is chosen, not connected: the launcher connects it once it has read its payload.
+    phone = _choose_phone(device_id)
+    if phone is None:
         raise SystemExit(1)
+    device_id = phone.device_id
 
-    build = build_registry(
-        device=device_manager.device,
-        device_id=device_id,
-        device_manager=device_manager,
-    )
+    build = build_registry(device_manager=phone.device_manager, device_id=device_id)
 
     try:
         handler = build.registry.resolve(workflow_id)
@@ -229,7 +233,12 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
 
     console.print(f"[blue]Running[/blue] [bold]{workflow_id}[/bold] on [cyan]{device_id}[/cyan]")
     try:
+        # A launcher that takes the connected device, not a `connect`, gets it now and reads after.
+        handler = handler_on_phone(build, workflow_id, phone)
         result = handler(invocation, payload)
+    except PhoneNotConnectedError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(1)
     except Exception as exc:  # noqa: BLE001 - a failed run must report, not traceback at the user
         console.print(f"[red]Workflow failed:[/red] {type(exc).__name__}: {exc}")
         raise SystemExit(1)
@@ -250,29 +259,26 @@ def _unknown_workflow(build, workflow_id: str) -> None:
     _report_failures(build)
 
 
-def _connect(device_id: str | None):
-    """Connect to `device_id`, or to the only connected device. Returns (manager, id)."""
+def _choose_phone(device_id: str | None) -> CliPhone | None:
+    """The phone `device_id` names, or the only one adb lists, not connected yet; None (said) when
+    adb lists none, or several and none was named."""
     from taktik.core.shared.device.manager import DeviceManager
 
     manager = DeviceManager()
     devices = manager.list_devices()
     if not devices:
         console.print("[red]No device connected.[/red]")
-        return None, ""
+        return None
 
     if not device_id:
         if len(devices) > 1:
             console.print("[red]Several devices connected; pass --device <serial>.[/red]")
             for device in devices:
                 console.print(f"  {device['id']} ({device['status']})")
-            return None, ""
+            return None
         device_id = devices[0]["id"]
 
-    if not manager.connect(device_id) or not manager.device:
-        console.print(f"[red]Cannot connect to {device_id}.[/red]")
-        return None, ""
-
-    return manager, device_id
+    return CliPhone(manager, device_id)
 
 
 def _print_result(result: Any) -> None:

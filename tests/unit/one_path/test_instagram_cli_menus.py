@@ -11,13 +11,15 @@ import pytest
 from click.testing import CliRunner
 
 from instagram_rig import DEVICE_ID, INSTAGRAM, feed_payload
+from one_path_seams import record_cli_connections
 
 
 @pytest.fixture
 def cli_automation(ig_rig, monkeypatch):
     from taktik.cli.commands.instagram import automation
 
-    monkeypatch.setattr(automation, "DeviceManager", lambda *a, **k: ig_rig.device_manager)
+    # The phone the command chooses, and when it connects, recorded (`cli_connect`).
+    record_cli_connections(monkeypatch, ig_rig.calls, ig_rig.device_manager, DEVICE_ID)
     return automation
 
 
@@ -37,6 +39,30 @@ def test_a_page_file_runs_through_the_launcher(ig_rig, cli_automation, tmp_path)
     assert ig_rig.calls[ig_rig.calls.index(restart[0]):][:2] == restart
     assert ig_rig.calls.index(f"stop {INSTAGRAM}") < ig_rig.calls.index("run_workflow")
     assert ig_rig.built_config["session_settings"]["warmup_policy"]["max_actions_per_day"] == 40
+
+
+def test_a_setting_out_of_its_bounds_is_refused_before_the_command_connects(ig_rig, cli_automation, tmp_path):
+    """The command chooses the phone, the launcher reads and validates the run, then connects it: a
+    value out of its bounds touches nothing. The command used to connect before it ran the handler."""
+    payload = feed_payload(limits=dict(feed_payload()["limits"], maxProfiles=501))
+
+    result = CliRunner().invoke(
+        cli_automation.workflow_instagram, ["--device-id", DEVICE_ID, "--config", _write(tmp_path, payload)]
+    )
+
+    assert result.exit_code == 1, result.output
+    assert ig_rig.calls == []
+    assert "limits.maxProfiles = 501" in " ".join(result.output.split())
+
+
+def test_the_command_connects_once_the_launcher_asks(ig_rig, cli_automation, tmp_path):
+    result = CliRunner().invoke(
+        cli_automation.workflow_instagram, ["--device-id", DEVICE_ID, "--config", _write(tmp_path, feed_payload())]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ig_rig.calls[0] == f"cli_connect {DEVICE_ID}"
+    assert ig_rig.calls.count(f"cli_connect {DEVICE_ID}") == 1
 
 
 def test_a_file_in_the_internal_format_is_refused(ig_rig, cli_automation, tmp_path):

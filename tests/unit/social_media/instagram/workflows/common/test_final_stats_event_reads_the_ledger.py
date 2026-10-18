@@ -73,6 +73,7 @@ def test_the_bridge_sends_the_ledger_totals_not_the_run_tally(monkeypatch):
     from the core launcher, and prints it as the final `stats` event."""
     import bridges.instagram.automation.events as events
     from taktik.core.social_media.instagram.workflows.automation.agent_handler import run_instagram_automation
+    from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 
     sent = []
 
@@ -92,7 +93,7 @@ def test_the_bridge_sends_the_ledger_totals_not_the_run_tally(monkeypatch):
     monkeypatch.setattr(events, "send_log", lambda *a, **k: None)
     result = run_instagram_automation(
         {'workflowType': 'hashtags', 'target': 'videoproduction', 'language': 'fr'},
-        device_manager=None,
+        connect=lambda _package: InstagramRunPhone(device_manager=None),
         workflow_factory=_Automation,
         runtime_setup=lambda **_kwargs: None,
         reporter=events.InstagramAutomationReporter({'workflowType': 'hashtags', 'target': 'videoproduction'},

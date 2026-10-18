@@ -8,9 +8,9 @@ the workflow config says Instagram was restarted by the host, and in the termina
 
 from instagram_rig import AI_KEY, INSTAGRAM, feed_payload, target_payload
 
-# Steps that belong to the desktop process, not to the run: the stats wiring, the database setup,
-# the bridge's own connection and its uiautomator2 check, the IP baseline, the final app stop.
-_HOST_ONLY = ("stats_callback", "configure_db", "connect ", "network_baseline ", "atx_health ")
+# Steps that belong to a host, not to the run: the stats wiring, the database setup, the bridge's
+# own connection and its uiautomator2 check, the IP baseline, the final app stop; the CLI's connection.
+_HOST_ONLY = ("stats_callback", "configure_db", "connect ", "network_baseline ", "atx_health ", "cli_connect ")
 
 
 def _run_steps(calls: list[str]) -> list[str]:
@@ -104,6 +104,39 @@ def test_a_manual_run_needs_no_key(ig_rig):
     assert result.exit_code == 0, result.output
     assert ig_rig.workflows
     assert ig_rig.ai_installs == [] and ig_rig.ai_services == []
+
+
+def _phone_calls(calls: list[str]) -> list[str]:
+    """What touched the phone: a connection (the bridge's or the CLI's), an IP rotation, an app stop."""
+    return [call for call in calls if call.startswith(("connect ", "cli_connect ", "ip_rotation ", "stop "))]
+
+
+def test_a_setting_out_of_its_bounds_touches_no_phone_from_either_path(ig_rig):
+    """The launcher reads and validates, then asks its host for the phone: the bridge and the CLI
+    connect in that call, so a refused payload connects nothing, rotates nothing, stops nothing. The
+    CLI used to connect before it called the handler."""
+    limits = dict(feed_payload()["limits"], maxProfiles=501)
+    payload = feed_payload(limits=limits, networkReset={"enabled": True, "method": "airplane_cell"})
+
+    assert ig_rig.run_bridge(payload) == 1
+    assert _phone_calls(ig_rig.calls) == []
+    ig_rig.reset()
+
+    result = ig_rig.run_cli(payload)
+
+    assert result.exit_code == 1, result.output
+    assert _phone_calls(ig_rig.calls) == []
+    assert "limits.maxProfiles = 501" in " ".join(result.output.split())
+
+
+def test_the_cli_connects_once_when_the_launcher_asks(ig_rig):
+    result = ig_rig.run_cli(feed_payload())
+
+    assert result.exit_code == 0, result.output
+    assert ig_rig.calls.count("cli_connect emulator-5554") == 1
+    # The connection comes first among the phone's calls: then the clean restart, then the run.
+    assert ig_rig.calls[0] == "cli_connect emulator-5554"
+    assert ig_rig.calls.index(f"stop {INSTAGRAM}") < ig_rig.calls.index("run_workflow")
 
 
 def test_the_cli_does_not_run_when_instagram_is_missing(ig_rig):

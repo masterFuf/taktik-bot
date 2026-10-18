@@ -12,7 +12,7 @@ import sys
 
 import pytest
 
-from one_path_seams import patch_seam
+from one_path_seams import patch_seam, record_cli_connections
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 AI_KEY = "sk-or-v1-" + "c" * 48
@@ -297,7 +297,7 @@ class InstagramScrapingRig:
         from taktik.cli.commands import workflows as workflow_cmds
 
         workflow_id = workflow_id or f"instagram.scraping.{payload['type']}"
-        self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (self.device_manager, DEVICE_ID))
+        record_cli_connections(self.monkeypatch, self.calls, self.device_manager, DEVICE_ID)
         print_result = workflow_cmds._print_result
 
         def keep_result(result):

@@ -106,58 +106,12 @@ def test_without_catch_a_crash_goes_to_the_launcher_hooks(monkeypatch, tmp_path,
     assert events == []
 
 
-REFUSAL = "Refused before the phone is touched: limit = 9, outside its bounds (1 to 5)"
-
-
-def _refusing_reader(config):
-    raise ValueError(REFUSAL)
-
-
-def test_a_payload_its_reader_refuses_never_reaches_the_bridge(monkeypatch, tmp_path, events):
-    reported = []
-    report = lambda message, reason: reported.append((reason, message))  # noqa: E731
-
-    code = _run(monkeypatch, ["bridge", _config_file(tmp_path, '{"limit": 9}')],
-                read_payload=_refusing_reader, report_error=report)
-
-    assert code == 1
-    assert _Bridge.seen == []
-    assert reported == [(entrypoint.REFUSED, REFUSAL)]
-    assert events == []
-
-
-def test_a_refusal_is_worded_by_the_bridge_and_left_to_no_crash_handler(monkeypatch, tmp_path, events):
-    path = _config_file(tmp_path, '{"limit": 9}')
-
-    assert _run(monkeypatch, ["bridge", path], read_payload=_refusing_reader,
-                messages={entrypoint.REFUSED: "Workflow error: {error}"}, catch_crashes=False) == 1
-    assert events == [("error", {"error": f"Workflow error: {REFUSAL}"})]
-    assert _Bridge.seen == []
-
-
-def test_a_payload_its_reader_accepts_reaches_the_bridge_unchanged(monkeypatch, tmp_path, events):
-    read = []
-
-    assert _run(monkeypatch, ["bridge", _config_file(tmp_path, '{"limit": 3}')], read_payload=read.append) == 0
-    assert read == [{"limit": 3}]
-    assert _Bridge.seen == [{"limit": 3}]
-    assert events == []
-
-
-def test_a_reader_that_breaks_is_a_crash_not_a_refusal(monkeypatch, tmp_path, events):
-    def broken(config):
-        raise KeyError("limit")
-
-    path = _config_file(tmp_path, "{}")
-    reported = []
-    report = lambda message, reason: reported.append(reason)  # noqa: E731
-
-    assert _run(monkeypatch, ["bridge", path], read_payload=broken, report_error=report) == 1
-    assert reported == [entrypoint.INIT_ERROR]
-    monkeypatch.setattr(sys, "argv", ["bridge", path])
-    with pytest.raises(KeyError):
-        entrypoint.run_bridge_main(_Bridge, read_payload=broken, catch_crashes=False)
-    assert _Bridge.seen == []
+def test_the_entry_reads_no_payload_the_launcher_does():
+    """The order (read, validate, then touch the phone) lives in each launcher, for the bridge and the
+    CLI alike: the entry hands the config over unread, and offers no reader of its own."""
+    with pytest.raises(TypeError):
+        entrypoint.run_bridge_main(_Bridge, read_payload=lambda config: config)
+    assert not hasattr(entrypoint, "REFUSED")
 
 
 def test_there_is_no_other_config_source():

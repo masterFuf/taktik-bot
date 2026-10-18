@@ -7,7 +7,9 @@ reads the package with the rest of the payload (`package_name_from_payload`, the
 reading) and asks the injected `connect` for the phone on that package, after its refusals.
 
 The automation read `packageName` on its own (no `package_name`, no trimming), its CLI handler adding
-the alias for it; it reads through the same helper since decision D3 of 2026-09-27.
+the alias for it; it reads through the same helper since decision D3 of 2026-09-27, and asks its host
+for the phone through `connect` too since 2026-10-18 (it was handed a phone its host had connected).
+The scraping asks the same way; its `packageName` is a field of its bridge, read under that name only.
 """
 
 from __future__ import annotations
@@ -64,8 +66,13 @@ def _story_relay(payload, connect):
 def _automation(payload, connect):
     from taktik.core.social_media.instagram.workflows.automation.agent_handler import run_instagram_automation
 
-    return run_instagram_automation({"workflowType": "feed", **payload}, device_manager=object(),
-                                    instagram_start=connect)
+    return run_instagram_automation({"workflowType": "feed", **payload}, connect=connect)
+
+
+def _scraping(payload, connect):
+    from taktik.core.social_media.instagram.workflows.scraping.agent_handler import run_instagram_scraping
+
+    return run_instagram_scraping({"type": "usernames", "usernames": ["ana"], **payload}, connect=connect)
 
 
 LAUNCHERS = {
@@ -112,7 +119,20 @@ def test_without_a_clone_the_installed_instagram_is_connected(name):
     assert seen == [None]
 
 
+def test_the_scraping_asks_for_the_phone_on_the_clone_of_its_bridge_field():
+    seen = []
+
+    with pytest.raises(Connected):
+        _scraping({"packageName": CLONE}, _connect(seen))
+    with pytest.raises(Connected):
+        _scraping({}, _connect(seen))
+
+    assert seen == [CLONE, None]
+
+
 REFUSED = {
+    "automation": (_automation, {"limits": {"maxProfiles": 501}}),
+    "scraping": (_scraping, {"usernames": []}),
     "dm_send": (_dm, {"command": "send", "username": "ana"}),
     "notifications": (_notifications, {"command": "reply"}),
     "cold_dm": (_cold_dm, {"recipients": []}),

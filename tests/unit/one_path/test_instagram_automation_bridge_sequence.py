@@ -85,10 +85,11 @@ def test_a_workflow_that_raises_reports_it_and_stops_the_app(ig_rig):
 
 
 def test_an_unknown_workflow_type_is_refused_before_the_phone_is_touched(ig_rig):
-    # Re-recorded twice on 2026-10-18. The launcher first read its payload before the restart; the
-    # bridge's entry now reads it before the bridge is built: no connection, no rotation, no app
-    # stop, the same error sentence and code, exit 1 as every entry refusal (5 before, which the app
-    # does not tell apart), and no traceback: a refusal is not a crash.
+    # Re-recorded three times on 2026-10-18. The launcher first read its payload before the restart;
+    # then the bridge's entry read it before the bridge was built; the launcher now reads it before it
+    # asks the bridge for the phone (`connect`), so the bridge's start lines come first again. No
+    # connection, no rotation, no app stop, the same error sentence and code, exit 1 (5 before, which
+    # the app does not tell apart), and no traceback: a refusal is not a crash.
     _check("notifications_refused", ig_rig, ig_rig.run_bridge(feed_payload(workflowType="notifications")))
 
 

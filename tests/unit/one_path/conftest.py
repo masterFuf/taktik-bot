@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from one_path_seams import patch_seam
+from one_path_seams import give_the_cli_a_connected_phone, patch_seam
 DEVICE_ID = "emulator-5554"
 
 
@@ -1386,8 +1386,7 @@ class Rig:
 
         from taktik.cli.commands import workflows as workflow_cmds
 
-        manager = SimpleNamespace(device=self.device)
-        self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (manager, DEVICE_ID))
+        give_the_cli_a_connected_phone(self.monkeypatch, SimpleNamespace(device=self.device), DEVICE_ID)
         print_result = workflow_cmds._print_result
 
         def keep_result(result):

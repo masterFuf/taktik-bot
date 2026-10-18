@@ -153,11 +153,11 @@ def _connect_spy(monkeypatch):
 
     connected = []
 
-    def connect(device_id):
+    def choose_phone(device_id):
         connected.append(device_id)
-        return None, ""
+        return None  # no phone in the test: the run stops there
 
-    monkeypatch.setattr(workflow_cmds, "_connect", connect)
+    monkeypatch.setattr(workflow_cmds, "_choose_phone", choose_phone)
     return workflow_cmds, connected
 
 
@@ -179,7 +179,7 @@ def test_workflows_run_lets_a_manual_run_through_without_a_key(monkeypatch):
         "run", "instagram.automation.feed", "--json", json.dumps({"limits": {"maxProfiles": 1}})])
 
     assert connected == [None]
-    assert result.exit_code == 1  # no device in the test: the run stops at the connection
+    assert result.exit_code == 1  # no device in the test: the run stops at the phone
 
 
 def test_workflows_run_asks_at_a_terminal_and_saves(monkeypatch):

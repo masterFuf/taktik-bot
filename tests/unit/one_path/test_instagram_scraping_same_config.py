@@ -7,6 +7,8 @@ Instagram before every scraping run (Electron, before the bridge); the CLI resta
 Neither path read the app language at the start, as the automation does (`runtime_setup`).
 """
 
+import pytest
+
 from instagram_scraping_rig import (
     AI_KEY,
     INSTAGRAM,
@@ -145,5 +147,27 @@ def test_the_cli_refuses_a_target_run_without_targets_before_the_phone(igs_rig):
     result = igs_rig.run_cli(target_payload(targetUsernames=[]))
 
     assert result.exit_code == 1, result.output
-    assert "run_scraping" not in igs_rig.calls
-    assert not any(call.startswith("stop ") for call in igs_rig.calls)
+    # Not even the CLI's connection: the reader refuses a run with nothing to scrape.
+    assert igs_rig.calls == []
+
+
+@pytest.mark.parametrize("payload, why", [
+    (target_payload(sessionDurationMinutes=601), "sessionDurationMinutes = 601"),
+    (target_payload(targetUsernames=[]), "requires targetUsernames"),
+    (hashtag_payload(hashtags=[], hashtag=None), "requires hashtags"),
+])
+def test_a_refused_scraping_touches_no_phone_from_either_path(igs_rig, payload, why):
+    """The launcher reads (bounds, then a source to scrape), then asks its host for the phone: the
+    bridge connects in that call, the CLI too, so a refused run connects nothing. A run with nothing
+    to scrape used to be refused by the launcher after the bridge had connected; the CLI connected
+    before it called the handler."""
+    assert igs_rig.run_bridge(payload) == 1
+    assert igs_rig.calls == []
+    assert why in igs_rig.stdout_lines[-1]["error"]
+    igs_rig.reset()
+
+    result = igs_rig.run_cli(payload)
+
+    assert result.exit_code == 1, result.output
+    assert igs_rig.calls == []
+    assert why in " ".join(result.output.split())

@@ -20,11 +20,11 @@ LOGS_OUT = "instagram.account.list_saved_accounts"
 def connections(monkeypatch):
     calls = []
 
-    def _connect(device_id):
+    def _choose_phone(device_id):
         calls.append(device_id)
-        return None, ""  # no phone: the command stops right after
+        return None  # no phone: the command stops right after
 
-    monkeypatch.setattr(workflow_cmds, "_connect", _connect)
+    monkeypatch.setattr(workflow_cmds, "_choose_phone", _choose_phone)
     return calls
 
 

@@ -13,6 +13,7 @@ import pytest
 from taktik.core.social_media.instagram.workflows.automation import agent_handler
 from taktik.core.social_media.instagram.workflows.automation import automation as automation_module
 from taktik.core.social_media.instagram.workflows.common import runtime_setup as runtime_setup_module
+from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
 
 
 class FakeRunner:
@@ -76,7 +77,8 @@ def test_step_hook_wraps_every_workflow_step(engine):
         return run_step(step)
 
     agent_handler.run_instagram_automation(
-        {"workflowType": "feed", "target": "feed"}, device_manager=object(), step_hook=hook,
+        {"workflowType": "feed", "target": "feed"},
+        connect=lambda _package: InstagramRunPhone(device_manager=object()), step_hook=hook,
     )
 
     run = engine.built[0]

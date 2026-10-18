@@ -19,33 +19,10 @@ from rich.panel import Panel
 console = Console()
 
 
-def _resolve_device(device_id: str | None):
-    """Connect to `device_id`, or to the only connected device. Returns (device, device_id)."""
-    from taktik.core.shared.device.manager import DeviceManager
-
-    manager = DeviceManager()
-    devices = manager.list_devices()
-    if not devices:
-        console.print("[red]No device connected.[/red]")
-        return None, ""
-
-    if not device_id:
-        if len(devices) > 1:
-            console.print("[red]Several devices connected; pass --device <serial>.[/red]")
-            for device in devices:
-                console.print(f"  {device['id']} ({device['status']})")
-            return None, ""
-        device_id = devices[0]["id"]
-
-    if not manager.connect(device_id) or not manager.device:
-        console.print(f"[red]Cannot connect to {device_id}.[/red]")
-        return None, ""
-
-    return manager.device, device_id
-
-
 def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption: str,
          hashtags: str, story_via_feed: bool = False, rehearse: bool = False) -> None:
+    from taktik.cli.commands.workflows import _choose_phone
+    from taktik.cli.hosts.phone import PhoneNotConnectedError
     from taktik.core.social_media.instagram.workflows.publish.agent_handler import run_instagram_publish
     from taktik.core.social_media.instagram.workflows.publish.payload import PublishRequestError
 
@@ -55,8 +32,9 @@ def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption:
         console.print(f"[red]File not found:[/red] {', '.join(missing)}")
         raise SystemExit(1)
 
-    device, device_id = _resolve_device(device_id)
-    if device is None:
+    # Chosen, not connected: the launcher reads the publication, then asks for the phone.
+    phone = _choose_phone(device_id)
+    if phone is None:
         raise SystemExit(1)
 
     tags = [t.strip().lstrip("#") for t in hashtags.split()] if hashtags else []
@@ -77,9 +55,9 @@ def _run(post_type: str, device_id: str | None, media: tuple[str, ...], caption:
         "stopBeforeShare": rehearse,
     }
     try:
-        result = run_instagram_publish(payload, device_id=device_id, connect=lambda: device,
-                                       log=_log, status=_status)
-    except PublishRequestError as exc:
+        result = run_instagram_publish(payload, device_id=phone.device_id,
+                                       connect=lambda: phone.connect().device, log=_log, status=_status)
+    except (PublishRequestError, PhoneNotConnectedError) as exc:
         console.print(f"[red]{exc}[/red]")
         raise SystemExit(1)
 

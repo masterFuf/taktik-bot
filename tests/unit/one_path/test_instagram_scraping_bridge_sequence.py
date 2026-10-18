@@ -63,6 +63,8 @@ def _check(name, rig, code) -> None:
     ("profile_posts", profile_posts_payload()),
     ("single_hashtag", hashtag_payload(hashtags=None, hashtag="viral", ai=None)),
     ("single_post_url", post_url_payload(postUrls=None, postUrl="https://www.instagram.com/p/One1/")),
+    # Re-recorded on 2026-10-18: a run with nothing to scrape is the reader's refusal, before the bridge
+    # connects (it connected, then the launcher refused).
     ("bare", {"deviceId": "emulator-5554"}),
 ])
 def test_a_page_payload_runs_exactly_as_recorded(igs_rig, name, payload):

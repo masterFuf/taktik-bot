@@ -117,3 +117,82 @@ def test_an_unknown_workflow_lists_its_platform_siblings():
     assert result.exit_code == 1
     assert "Unknown workflow" in result.output
     assert "tiktok.automation.for_you" in result.output
+
+
+# --- the phone --------------------------------------------------------------
+
+def test_building_the_registry_never_connects_the_phone():
+    from unit.cli_phone import recording_device_manager
+
+    calls = []
+    build = build_registry(device_manager=recording_device_manager(calls, "dev-1")(), device_id="dev-1")
+
+    assert build.failures == []
+    assert calls == []
+
+
+def test_the_registry_names_the_workflows_that_take_the_connected_device():
+    """The account flows, the publications, Gmail and YouTube take the device itself; the Instagram
+    runs take a `connect`, which their launcher calls once it has read its payload."""
+    from unit.cli_phone import recording_device_manager
+
+    build = build_registry(device_manager=recording_device_manager([], "dev-1")(), device_id="dev-1")
+
+    assert {"instagram.account.login", "instagram.content.publish", "gmail.account.scan_accounts",
+            "youtube.publish.upload_post"} <= build.built_without_device
+    take_connect = {workflow_id for workflow_id in build.workflow_ids
+                    if workflow_id.startswith(("instagram.automation.", "instagram.scraping.", "instagram.engagement."))}
+    assert take_connect and not take_connect & build.built_without_device
+
+
+def test_a_workflow_whose_launcher_takes_the_device_runs_on_the_phone_connected_first(monkeypatch):
+    from taktik.cli.commands import workflows as workflow_cmds
+    from taktik.cli.hosts.phone import CliPhone
+    from taktik.core.social_media.gmail.workflows import agent_handler as gmail
+    from unit.cli_phone import recording_device_manager
+
+    calls = []
+    monkeypatch.setattr(workflow_cmds, "_choose_phone",
+                        lambda _device_id: CliPhone(recording_device_manager(calls, "dev-1")(), "dev-1"))
+    monkeypatch.setattr(gmail, "run_gmail_account",
+                        lambda workflow_id, params, *, device, **_kwargs:
+                        calls.append(("run", device is not None)) or {"success": True})
+
+    result = CliRunner().invoke(workflows, ["run", "gmail.account.scan_accounts", "--device", "dev-1"])
+
+    assert result.exit_code == 0, result.output
+    assert calls == ["cli_connect dev-1", ("run", True)]
+
+
+# --- one way to choose the phone ----------------------------------------------
+
+def _two_phones(monkeypatch):
+    class TwoPhones:
+        def __init__(self, *_args, **_kwargs):
+            self.device = None
+
+        @staticmethod
+        def list_devices():
+            return [{"id": "dev-1", "status": "device"}, {"id": "dev-2", "status": "device"}]
+
+    monkeypatch.setattr("taktik.core.shared.device.manager.DeviceManager", TwoPhones)
+
+
+@pytest.mark.parametrize("command, args", [("launch", ["--network", "tiktok"]), ("launch", ["--network", "instagram"]),
+                                           ("tiktok", ["launch"])])
+def test_the_launch_commands_choose_the_phone_as_workflows_run(monkeypatch, command, args):
+    """Several phones and none named: refused, the phones listed, nothing launched. The launch
+    commands took the first phone adb listed."""
+    from taktik.cli.commands import tiktok as tiktok_cmds
+
+    built = []
+    monkeypatch.setattr(tiktok_cmds, "TikTokManager", lambda serial: built.append(serial))
+    monkeypatch.setattr(tiktok_cmds, "InstagramManager", lambda serial: built.append(serial))
+    monkeypatch.setattr(tiktok_cmds, "open_database", lambda: None)
+    _two_phones(monkeypatch)
+
+    result = CliRunner().invoke(getattr(tiktok_cmds, command), args)
+
+    assert result.exit_code == 1, result.output
+    assert "Several devices connected" in result.output and "dev-2" in result.output
+    assert built == []

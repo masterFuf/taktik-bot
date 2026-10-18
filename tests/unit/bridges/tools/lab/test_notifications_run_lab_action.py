@@ -176,11 +176,12 @@ def test_the_runtime_is_the_bridge_class_on_the_session_device(monkeypatch, lab_
 def test_the_lab_and_the_cli_connect_a_bridge_by_one_helper(monkeypatch):
     from taktik.core.shared.device import connected_device
     from taktik.cli.hosts import instagram as instagram_host
+    from taktik.cli.hosts.phone import CliPhone
 
     connected = []
     monkeypatch.setattr(connected_device, "on_connected_device",
                         lambda base, device_manager, device_id: connected.append(type(base).__name__) or base)
-    host = instagram_host.CliInstagramHost(SimpleNamespace(device=object()), SERIAL)
+    host = instagram_host.CliInstagramHost(CliPhone(SimpleNamespace(device=object()), SERIAL))
     host.notifications_runtime(None, restart=False)
 
     assert connected == ["InstagramDeviceBase"]

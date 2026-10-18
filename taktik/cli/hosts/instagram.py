@@ -8,6 +8,10 @@ environment, the key typed at launch, the saved one), which the launch already m
 What stays with the desktop process: the uiautomator2 repair, the IP rotation, the media capture,
 the per-profile decision round trip. A scraping run is restarted the same way: the desktop restarts
 Instagram before it launches its scraping bridge.
+
+The host holds the run's phone (`CliPhone`) without connecting it: each method below is a
+`connect` a launcher calls once it has read and validated its payload, and the phone connects
+there, on the first call. A refused payload never connects.
 """
 from __future__ import annotations
 
@@ -16,6 +20,7 @@ from typing import Any, Mapping, Optional
 from loguru import logger
 
 from taktik.cli.hosts.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
+from taktik.cli.hosts.phone import CliPhone
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 
 
@@ -32,19 +37,19 @@ def _log_dm_event(payload: Mapping[str, Any]) -> None:
 
 
 class CliInstagramHost:
-    """The CLI's connected device, as the Instagram launcher's host."""
+    """The CLI's phone, as the Instagram launchers' host: it connects when a launcher asks."""
 
-    def __init__(self, device_manager: Any, device_id: str):
-        self.device_manager = device_manager
-        self.device_id = device_id
+    def __init__(self, phone: CliPhone):
+        self.phone = phone
+        self.device_id = phone.device_id
         self.app = None
 
     def _app_for(self, package_name: Optional[str]):
         from taktik.core.shared.device.app_manager import AppService
         from taktik.core.shared.device.connected_device import ConnectedDevice
 
-        # The CLI's manager is connected: the app service takes it as the connection it holds.
-        connection = ConnectedDevice(self.device_manager, self.device_id)
+        # The CLI's manager, connected: the app service takes it as the connection it holds.
+        connection = ConnectedDevice(self.phone.connect(), self.device_id)
         return AppService(connection, platform="instagram", package_override=package_name)
 
     def start(self, package_name: Optional[str]) -> bool:
@@ -53,6 +58,17 @@ class CliInstagramHost:
 
         self.app = self._app_for(package_name)
         return start_instagram_session(self.app)
+
+    def run_phone(self, package_name: Optional[str]):
+        """The phone an automation or a scraping run drives (`InstagramRunPhone`), connected now, with
+        the clean restart on the run's package and the installed version for the selector overrides."""
+        from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
+
+        return InstagramRunPhone(
+            device_manager=self.phone.connect(),
+            start=lambda: self.start(package_name),
+            installed_version=self.installed_version,
+        )
 
     def account_app(self, package_name: Optional[str]):
         """The app lifecycle an account flow restarts, or keeps on its current screen."""
@@ -63,7 +79,7 @@ class CliInstagramHost:
         the task bridge restarts it: a one-shot starts from the feed."""
         if not self.start(package_name):
             raise InstagramStartError("Instagram did not start cleanly; the task was not started")
-        return getattr(self.device_manager, "device", None)
+        return getattr(self.phone.connect(), "device", None)
 
     def installed_version(self) -> Optional[str]:
         """The installed Instagram version, for the selector overrides."""
@@ -80,7 +96,7 @@ class CliInstagramHost:
         from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
 
         base = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
-                                   self.device_manager, self.device_id)
+                                   self.phone.connect(), self.device_id)
         return ColdDmRuntime(
             device=base.device,
             device_manager=base.device_manager,
@@ -96,7 +112,7 @@ class CliInstagramHost:
         from taktik.core.social_media.instagram.workflows.agent.agent_handler import AgentRuntime
 
         base = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
-                                   self.device_manager, self.device_id)
+                                   self.phone.connect(), self.device_id)
         # The app service's restart, which says whether Instagram came back, as the bridge uses it.
         return AgentRuntime(device_manager=base.device_manager, restart=base._app.restart)
 
@@ -108,7 +124,7 @@ class CliInstagramHost:
         from taktik.core.social_media.instagram.workflows.dm.runtime import InstagramDMRuntime
 
         runtime = on_connected_device(InstagramDMRuntime(self.device_id, package_name=package_name),
-                                      self.device_manager, self.device_id)
+                                      self.phone.connect(), self.device_id)
         runtime.dm_events = _log_dm_event
         return runtime
 
@@ -120,7 +136,7 @@ class CliInstagramHost:
         from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 
         runtime = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
-                                      self.device_manager, self.device_id)
+                                      self.phone.connect(), self.device_id)
         if restart:
             runtime.restart_instagram()
         return runtime
@@ -201,16 +217,18 @@ def _run_through_handler(device_manager: Any, device_id: str, workflow_id: str,
                          payload: Mapping[str, Any]) -> dict:
     """Run a page payload through the handler registered as `workflow_id`: the same path as
     `taktik workflows run <workflow_id>` and as the desktop bridge's launcher. A run that uses AI
-    gets its key first (asked for at a terminal, `MissingAIKeyError` otherwise)."""
+    gets its key first (asked for at a terminal, `MissingAIKeyError` otherwise).
+
+    `device_manager` is the phone of the command, connected (a menu) or not (`_choose_phone`): the
+    launcher connects it once it has read its payload (`handler_on_phone`)."""
     from taktik.cli.hosts.ai_key import ensure_ai_key, is_interactive
-    from taktik.cli.hosts.registry import build_registry
+    from taktik.cli.hosts.registry import build_registry, handler_on_phone
     from taktik.core.kernel.contracts import WorkflowInvocation
 
     ensure_ai_key(workflow_id, payload, interactive=is_interactive())
 
-    build = build_registry(device=getattr(device_manager, "device", None), device_id=device_id,
-                           device_manager=device_manager)
-    handler = build.registry.resolve(workflow_id)
+    build = build_registry(device_manager=device_manager, device_id=device_id)
+    handler = handler_on_phone(build, workflow_id, CliPhone(device_manager, device_id))
     invocation = WorkflowInvocation(platform="instagram", workflow_id=workflow_id, params={})
     return handler(invocation, {"deviceId": device_id, **dict(payload)})
 

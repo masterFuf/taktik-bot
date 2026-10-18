@@ -8,18 +8,22 @@ page could have sent. These tests hold:
   declared settings;
 - the Instagram bounds against the record of what the pages wrote (TikTok declares none: 2.x);
 - every declared bound through its launcher: a value past either end refused before the phone, the
-  ends themselves accepted by the reader.
+  ends themselves accepted by the reader;
+- every declared bound through `taktik workflows run`: refused with nothing connected.
 """
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from contract_probe import conditions, launch, merge, nest, payload_for, read
+from contract_probe import DEVICE, conditions, launch, merge, nest, payload_for, read
 from taktik.core.contract import WORKFLOW_CONTRACTS
 from taktik.core.contract.bounds import describe, out_of_bounds
 from taktik.core.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 from taktik.core.contract.instagram_automation import INSTAGRAM_AUTOMATION
+from taktik.core.contract.instagram_scraping import INSTAGRAM_SCRAPING
 from taktik.core.contract.schema import (
     HOST,
     Bounds,
@@ -230,6 +234,39 @@ def test_the_launcher_refuses_a_value_past_either_end_before_the_phone(contract,
         assert f"{path} = " in message and describe(item.bounds) in message, message
 
 
+def _cli_run(contract: WorkflowContract, payload: dict) -> tuple[str, dict]:
+    """The id and the parameters of `taktik workflows run` for this payload: the id its selector names
+    (the CLI's handler sets the selector from the id), and a target for a run that requires one."""
+    workflow_id = contract.workflow_id
+    if contract.selector and payload.get(contract.selector) is not None:
+        named = f"{workflow_id.rsplit('.', 1)[0]}.{payload[contract.selector]}"
+        workflow_id = named if named in contract.serves else workflow_id
+    return workflow_id, {"target": "someone", **payload}
+
+
+@pytest.mark.parametrize("contract, path, item, when", NUMBER_BOUNDS)
+def test_the_cli_refuses_a_value_past_either_end_before_it_connects(contract, path, item, when, monkeypatch):
+    """`taktik workflows run` chooses its phone without connecting it; the launcher reads, validates,
+    then asks for it. A value no page could send ends with exit 1, and the CLI connected nothing."""
+    from click.testing import CliRunner
+
+    from taktik.cli.commands import workflows as workflow_cmds
+    from taktik.cli.hosts.phone import CliPhone
+    from unit.cli_phone import recording_device_manager
+
+    connections = []
+    monkeypatch.setattr(workflow_cmds, "_choose_phone",
+                        lambda _device_id: CliPhone(recording_device_manager(connections, DEVICE)(), DEVICE))
+    for end, direction in _ends(item):
+        workflow_id, params = _cli_run(contract, _payload(contract, item, path, when, _past(item, end, direction)))
+        result = CliRunner().invoke(workflow_cmds.workflows, ["run", workflow_id, "--json", json.dumps(params)],
+                                    env={"OPENROUTER_API_KEY": "sk-or-v1-" + "0" * 48})
+
+        assert result.exit_code == 1, result.output
+        assert "Refused before the phone is touched" in " ".join(result.output.split()), result.output
+    assert connections == []
+
+
 @pytest.mark.parametrize("contract, path, item, when", NUMBER_BOUNDS)
 def test_the_reader_accepts_the_ends_themselves(contract, path, item, when):
     bounds = item.bounds
@@ -247,13 +284,25 @@ def test_a_list_sync_sends_no_profile_budget_and_is_not_held_to_one():
         "limits.maxProfiles = 0, outside its bounds (1 to 500)"]
 
 
-def test_an_automation_out_of_bounds_is_refused_before_instagram_restarts():
-    started = []
+def test_an_automation_out_of_bounds_is_refused_before_the_host_connects():
+    connected = []
     payload = {"workflowType": "target_followers", "target": "someone", "limits": {"maxProfiles": 501}}
 
     with pytest.raises(ValueError, match="limits.maxProfiles = 501"):
-        launch(INSTAGRAM_AUTOMATION, payload, instagram_start=lambda package: started.append(package) or True)
-    assert started == []
+        launch(INSTAGRAM_AUTOMATION, payload, connect=lambda package: connected.append(package))
+    assert connected == []
+
+
+def test_a_scraping_out_of_bounds_or_with_no_source_is_refused_before_the_host_connects():
+    connected = []
+    out_of_bounds_run = {"type": "usernames", "usernames": ["alpha"], "maxProfiles": 10001}
+    no_source = {"type": "hashtag", "hashtags": []}
+
+    with pytest.raises(ValueError, match="maxProfiles = 10001"):
+        launch(INSTAGRAM_SCRAPING, out_of_bounds_run, connect=lambda package: connected.append(package))
+    with pytest.raises(ValueError, match="requires hashtags"):
+        launch(INSTAGRAM_SCRAPING, no_source, connect=lambda package: connected.append(package))
+    assert connected == []
 
 
 def test_a_taktik_agent_out_of_bounds_says_why_on_stdout_before_connecting():

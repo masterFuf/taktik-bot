@@ -2,7 +2,11 @@ import pytest
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowRegistry
-from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError, package_name_from_payload
+from taktik.core.social_media.instagram.workflows.common.startup import (
+    InstagramRunPhone,
+    InstagramStartError,
+    package_name_from_payload,
+)
 from taktik.core.social_media.instagram.workflows.automation.agent_handler import (
     INSTAGRAM_AUTOMATION_WORKFLOW_IDS,
     build_instagram_automation_handler,
@@ -29,11 +33,24 @@ class FakeDeviceManager:
     device = object()
 
 
+def _connect(connected=None, start=None, installed_version=None):
+    """The host's `connect`: the package it was asked for goes to `connected`."""
+
+    def connect(package_name):
+        if connected is not None:
+            connected.append(package_name)
+        return InstagramRunPhone(device_manager=FakeDeviceManager(), start=start,
+                                 installed_version=installed_version)
+
+    return connect
+
+
 def test_instagram_automation_handler_runs_workflow_with_bridge_config():
     runtime_calls = []
     ai_calls = []
     logs = []
     automations = []
+    connected = []
     starts = []
 
     def workflow_factory(device_manager):
@@ -49,10 +66,9 @@ def test_instagram_automation_handler_runs_workflow_with_bridge_config():
         return {"api": ai_config["openrouterApiKey"]}
 
     handler = build_instagram_automation_handler(
-        device_manager=FakeDeviceManager(),
-        instagram_start=lambda package_name: starts.append(package_name) or True,
+        instagram_connect=_connect(connected, start=lambda: starts.append("start") or True,
+                                   installed_version=lambda: "321"),
         instagram_ai_service=ai_service_factory,
-        instagram_installed_version=lambda: "321",
         workflow_factory=workflow_factory,
         runtime_setup=runtime_setup,
         ai_hook_installer=lambda **kwargs: ai_calls.append(kwargs),
@@ -76,7 +92,8 @@ def test_instagram_automation_handler_runs_workflow_with_bridge_config():
     # The run's totals come from the ledger (`final_stats`), as the desktop's final event does.
     assert result == {"success": True, "stats": {"likes": 3}}
     assert automations[0].ran is True
-    assert starts == ["com.instagram.android.c1"]
+    assert connected == ["com.instagram.android.c1"]
+    assert starts == ["start"]
     assert runtime_calls[0]["workflow_config"]["actions"][0]["target_username"] == "alpha"
     assert runtime_calls[0]["package_name"] == "com.instagram.android.c1"
     assert runtime_calls[0]["installed_version_provider"]() == "321"
@@ -88,7 +105,7 @@ def test_instagram_automation_handler_runs_workflow_with_bridge_config():
 def test_the_handler_hands_the_whole_payload_to_the_config_builder():
     runtime_calls = []
     handler = build_instagram_automation_handler(
-        device_manager=FakeDeviceManager(),
+        instagram_connect=_connect(),
         workflow_factory=FakeAutomation,
         runtime_setup=lambda **kwargs: runtime_calls.append(kwargs),
     )
@@ -137,8 +154,7 @@ def test_the_payload_keeps_every_key_and_adds_the_terminal_aliases():
 def test_a_start_that_fails_runs_nothing():
     automations = []
     handler = build_instagram_automation_handler(
-        device_manager=FakeDeviceManager(),
-        instagram_start=lambda _package_name: False,
+        instagram_connect=_connect(start=lambda: False),
         workflow_factory=lambda dm: automations.append(dm),
         runtime_setup=lambda **kwargs: None,
     )
@@ -155,7 +171,7 @@ def test_instagram_automation_handler_defaults_feed_target():
     runtime_calls = []
 
     handler = build_instagram_automation_handler(
-        device_manager=FakeDeviceManager(),
+        instagram_connect=_connect(),
         workflow_factory=FakeAutomation,
         runtime_setup=lambda **kwargs: runtime_calls.append(kwargs),
     )
@@ -173,8 +189,9 @@ def test_instagram_automation_handler_defaults_feed_target():
 
 
 def test_instagram_automation_handler_requires_target_for_target_workflows():
+    connected = []
     handler = build_instagram_automation_handler(
-        device_manager=FakeDeviceManager(),
+        instagram_connect=_connect(connected),
         workflow_factory=FakeAutomation,
         runtime_setup=lambda **kwargs: None,
     )
@@ -188,6 +205,32 @@ def test_instagram_automation_handler_requires_target_for_target_workflows():
             ),
             {},
         )
+    assert connected == []
+
+
+def test_a_payload_the_reader_refuses_never_asks_the_host_for_the_phone():
+    connected = []
+    automations = []
+    handler = build_instagram_automation_handler(
+        instagram_connect=_connect(connected),
+        workflow_factory=lambda dm: automations.append(dm),
+        runtime_setup=lambda **kwargs: None,
+    )
+
+    with pytest.raises(ValueError, match="limits.maxProfiles = 501"):
+        handler(
+            WorkflowInvocation(platform="instagram", workflow_id="instagram.automation.feed",
+                               params={"limits": {"maxProfiles": 501}}),
+            {},
+        )
+    assert connected == [] and automations == []
+
+
+def test_a_handler_without_a_host_that_connects_says_so():
+    handler = build_instagram_automation_handler(workflow_factory=FakeAutomation)
+
+    with pytest.raises(RuntimeError, match="connects the phone"):
+        handler(WorkflowInvocation(platform="instagram", workflow_id="instagram.automation.feed", params={}), {})
 
 
 def test_register_instagram_automation_handlers_registers_manifest_ids():
@@ -195,7 +238,7 @@ def test_register_instagram_automation_handlers_registers_manifest_ids():
 
     register_instagram_automation_handlers(
         registry,
-        device_manager=FakeDeviceManager(),
+        instagram_connect=_connect(),
         workflow_factory=FakeAutomation,
         runtime_setup=lambda **kwargs: None,
     )

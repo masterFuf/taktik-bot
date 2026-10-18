@@ -3,7 +3,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.prompt import Prompt
-from taktik.core.shared.device.manager import DeviceManager
+from taktik.cli.hosts.phone import CliPhone, PhoneNotConnectedError
 from taktik.core.social_media.instagram.manager import InstagramManager
 
 console = Console()
@@ -32,8 +32,8 @@ def login_instagram(device_id, username, password, save_session, save_instagram_
 
     console.print(Panel.fit("[bold green]🔐 Connexion à Instagram[/bold green]"))
 
-    manager, device_id = _dm_device(device_id)
-    if not InstagramManager(device_id).is_installed():
+    phone = _phone(device_id)
+    if not InstagramManager(phone.device_id).is_installed():
         console.print("[red]❌ Instagram n'est pas installé sur cet appareil.[/red]")
         return
 
@@ -59,7 +59,11 @@ def login_instagram(device_id, username, password, save_session, save_instagram_
     try:
         # Clean restart, then the login: the desktop's account launcher.
         with console.status("[bold yellow]🔄 Connexion en cours...[/bold yellow]", spinner="dots"):
-            result = run_instagram_account_payload(manager, device_id, "instagram.account.login", payload)
+            result = run_instagram_account_payload(phone.device_manager, phone.device_id,
+                                                   "instagram.account.login", payload)
+    except PhoneNotConnectedError as exc:
+        console.print(f"\n[bold red]❌ {exc}[/bold red]")
+        return
     except Exception as e:  # noqa: BLE001 - a failed run reports, not tracebacks
         console.print(f"\n[bold red]❌ Erreur inattendue: {type(e).__name__}: {e}[/bold red]")
         return
@@ -104,29 +108,25 @@ def dm():
     `dm_send`)."""
 
 
-def _dm_device(device_id):
-    """(device manager, serial) of the named device, or of the only one connected."""
-    manager = DeviceManager()
-    if not device_id:
-        devices = DeviceManager.list_devices()
-        if not devices:
-            console.print("[red]❌ Aucun appareil connecté.[/red]")
-            raise SystemExit(1)
-        device_id = devices[0]['id']
-        console.print(f"[blue]📱 Utilisation de l'appareil: {device_id}[/blue]")
-    if not manager.connect(device_id) or not getattr(manager, "device", None):
-        console.print(f"[red]❌ Connexion impossible à {device_id}.[/red]")
+def _phone(device_id) -> CliPhone:
+    """The phone of a command, chosen as `taktik workflows run` chooses it, not connected: the launcher
+    connects it once it has read the command (`_choose_phone`). Leaves when there is none."""
+    from taktik.cli.commands.workflows import _choose_phone
+
+    phone = _choose_phone(device_id)
+    if phone is None:
         raise SystemExit(1)
-    return manager, device_id
+    console.print(f"[blue]📱 Utilisation de l'appareil: {phone.device_id}[/blue]")
+    return phone
 
 
 def _run_dm(device_id, workflow_id, payload) -> dict:
     """One DM command through its handler, the path of the desktop's DM bridge."""
     from taktik.cli.hosts.instagram import run_instagram_dm_payload
 
-    manager, device_id = _dm_device(device_id)
+    phone = _phone(device_id)
     try:
-        result = run_instagram_dm_payload(manager, device_id, workflow_id, payload)
+        result = run_instagram_dm_payload(phone.device_manager, phone.device_id, workflow_id, payload)
     except Exception as exc:  # noqa: BLE001 - a failed run reports, not tracebacks
         console.print(f"[red]❌ {type(exc).__name__}: {exc}[/red]")
         raise SystemExit(1)

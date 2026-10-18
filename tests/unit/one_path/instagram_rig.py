@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from one_path_seams import patch_seam, record_ip_rotations
+from one_path_seams import patch_seam, record_cli_connections, record_ip_rotations
 
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
@@ -254,7 +254,7 @@ class InstagramRig:
         from taktik.cli.commands import workflows as workflow_cmds
 
         workflow_id = workflow_id or f"instagram.automation.{payload['workflowType']}"
-        self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (self.device_manager, DEVICE_ID))
+        record_cli_connections(self.monkeypatch, self.calls, self.device_manager, DEVICE_ID)
         print_result = workflow_cmds._print_result
 
         def keep_result(result):
