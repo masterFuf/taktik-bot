@@ -14,7 +14,7 @@ import json
 import re
 import sys
 
-from one_path_seams import patch_seam
+from one_path_seams import give_the_cli_a_connected_phone, patch_seam
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 CLONE = "com.instagram.android.clone"
@@ -450,7 +450,7 @@ class InstagramDmRig:
 
         from taktik.cli.commands import workflows as workflow_cmds
 
-        self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (self.device_manager, DEVICE_ID))
+        give_the_cli_a_connected_phone(self.monkeypatch, self.device_manager, DEVICE_ID)
         print_result = workflow_cmds._print_result
 
         def keep_result(result):

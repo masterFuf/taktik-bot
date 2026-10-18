@@ -75,9 +75,10 @@ def _cli(media, monkeypatch):
 
 def _workflows_run(media, monkeypatch):
     from taktik.cli.commands import workflows as workflow_cmds
+    from taktik.cli.hosts.phone import CliPhone
 
     manager = SimpleNamespace(device=object())
-    monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (manager, DEVICE_ID))
+    monkeypatch.setattr(workflow_cmds, "_choose_phone", lambda device_id: CliPhone(manager, DEVICE_ID))
     payload = json.dumps({"postType": "post", "mediaPaths": media, "caption": "hello", "hashtags": ["travel"]})
     result = CliRunner().invoke(workflow_cmds.workflows, ["run", "instagram.content.publish", "-d", DEVICE_ID,
                                                           "--json", payload, "--yes"])

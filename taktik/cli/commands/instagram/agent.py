@@ -89,10 +89,9 @@ def show_defaults() -> None:
 @click.option("--param", "params", multiple=True, help="Config entry, key=value. Repeatable.")
 def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     """Start an autonomous Agent session on Instagram."""
-    from taktik.cli.commands.workflows import _coerce
+    from taktik.cli.commands.workflows import _choose_phone, _coerce
     from taktik.cli.hosts.instagram import CliInstagramHost
-    from taktik.cli.hosts.phone import CliPhone
-    from taktik.core.shared.device.manager import DeviceManager
+    from taktik.cli.hosts.phone import PhoneNotConnectedError
     from taktik.core.social_media.instagram.workflows.agent.agent_handler import run_instagram_agent
 
     config: dict[str, Any] = {}
@@ -108,18 +107,9 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
         console.print(f"[red]{exc}[/red]")
         raise SystemExit(MISSING_KEY_EXIT)
 
-    manager = DeviceManager()
-    devices = manager.list_devices()
-    if not devices:
-        console.print("[red]No device connected.[/red]")
-        raise SystemExit(1)
-    if not device_id:
-        if len(devices) > 1:
-            console.print("[red]Several devices connected; pass --device <serial>.[/red]")
-            raise SystemExit(1)
-        device_id = devices[0]["id"]
-    if not manager.connect(device_id) or not manager.device:
-        console.print(f"[red]Cannot connect to {device_id}.[/red]")
+    # Chosen, not connected: the launcher reads and validates the session's config, then connects.
+    phone = _choose_phone(device_id)
+    if phone is None:
         raise SystemExit(1)
 
     from taktik.core.ai.factory import build_ai_service
@@ -141,7 +131,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     try:
         result = run_instagram_agent(
             config,
-            connect=CliInstagramHost(CliPhone(manager, device_id)).agent_runtime,
+            connect=CliInstagramHost(phone).agent_runtime,
             ipc=_ConsoleNotifier(),
             ai_service_factory=ai_service_factory,
             on_workflow=workflows.append,
@@ -153,6 +143,9 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
         if callable(stop):
             stop()
         raise SystemExit(130)
+    except PhoneNotConnectedError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise SystemExit(1)
     except Exception as exc:  # noqa: BLE001 - report at the operator, never a raw traceback
         console.print(f"[red]Agent failed:[/red] {type(exc).__name__}: {exc}")
         raise SystemExit(1)

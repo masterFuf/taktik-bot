@@ -16,7 +16,7 @@ import sys
 
 import pytest
 
-from one_path_seams import patch_seam, record_ip_rotations
+from one_path_seams import give_the_cli_a_connected_phone, patch_seam, record_ip_rotations
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 AI_KEY = "sk-or-v1-" + "d" * 48
@@ -487,7 +487,7 @@ class InstagramColdDmRig:
 
         from taktik.cli.commands import workflows as workflow_cmds
 
-        self.monkeypatch.setattr(workflow_cmds, "_connect", lambda device_id: (self.device_manager, DEVICE_ID))
+        give_the_cli_a_connected_phone(self.monkeypatch, self.device_manager, DEVICE_ID)
         print_result = workflow_cmds._print_result
 
         def keep_result(result):

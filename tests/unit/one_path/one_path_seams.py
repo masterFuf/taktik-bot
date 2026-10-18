@@ -112,3 +112,26 @@ def record_ip_rotations(monkeypatch, calls: list) -> None:
                                            new_ip="198.51.100.2", attempts=1, commands_ok=True)
 
     patch_seam(monkeypatch, "bridges.common.network", "perform_network_reset", rotate)
+
+
+def give_the_cli_a_connected_phone(monkeypatch, device_manager, device_id: str) -> None:
+    """`taktik workflows run` drives `device_manager` (which holds its `device`) as its phone, already
+    connected: the CLI connects nothing of its own."""
+    from taktik.cli.commands import workflows as workflow_cmds
+    from taktik.cli.hosts.phone import CliPhone
+
+    monkeypatch.setattr(workflow_cmds, "_choose_phone", lambda _device_id: CliPhone(device_manager, device_id))
+
+
+def record_cli_connections(monkeypatch, calls: list, connected_manager, device_id: str) -> None:
+    """The CLI's own phone, recorded (`unit.cli_phone`): adb lists `device_id`, and connecting it
+    appends `cli_connect <serial>`, then serves `connected_manager`'s device and app calls.
+
+    The CLI runs its real path (`_choose_phone`, then `CliPhone.connect` when a launcher asks), so a
+    test sees whether the CLI connected, and when. Only the source is patched: a module that copied
+    `DeviceManager` keeps the real one.
+    """
+    from unit.cli_phone import recording_device_manager
+
+    patch_seam(monkeypatch, "taktik.core.shared.device.manager", "DeviceManager",
+               recording_device_manager(calls, device_id, connected_manager), copies=False)
