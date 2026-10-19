@@ -47,7 +47,7 @@ class PersonaAnalysisBridge(
         try:
             _ipc.status("launching", "Red\u00e9marrage d'Instagram\u2026")
             if not self._app.restart():
-                _ipc.error("Impossible de lancer Instagram", error_code="LAUNCH_FAILED")
+                _ipc.error("Impossible de lancer Instagram", error_code="INSTAGRAM_LAUNCH_FAILED")
                 return {"success": False, "error": "Failed to launch Instagram"}
             time.sleep(2)
             self._detect_app_language()

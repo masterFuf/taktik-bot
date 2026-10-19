@@ -64,7 +64,7 @@ class InstagramPublishBridge:
             send_error(str(exc))
             return 1
         except DeviceConnectionFailed as exc:
-            send_error(str(exc), "device_connection_failed")
+            send_error(str(exc), "DEVICE_CONNECTION_FAILED")
             return 1
         finally:
             self._disconnect()

@@ -170,6 +170,16 @@ def test_each_code_names_the_key_of_its_sentence():
         assert key.startswith("error") and key[5:6].isupper() and key.isidentifier(), (code, key)
 
 
+def test_one_cause_has_one_code():
+    """Two codes for one cause make the app translate one and miss the other: a sentence shared by
+    two codes is a synonym to rename, not a second entry."""
+    codes_by_sentence: Dict[str, list] = {}
+    for code, key in BRIDGE_ERROR_PHRASES.items():
+        codes_by_sentence.setdefault(key, []).append(code)
+    synonyms = {key: codes for key, codes in codes_by_sentence.items() if len(codes) > 1}
+    assert not synonyms, f"one cause, several codes: {synonyms}"
+
+
 def test_the_error_line_refers_to_the_catalogue():
     field = next(item for item in ERROR_EVENT.fields if item.key == "error_code")
 

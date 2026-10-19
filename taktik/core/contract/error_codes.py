@@ -7,10 +7,13 @@ line (`shared.ERROR_EVENT`).
 
 Each code names the key of its sentence in the app's translations (namespace `sessionLive`, French
 and English): the app generates its table from here (`BRIDGE_ERROR_PHRASE_KEYS`), and its gate
-(`npm run i18n:keys`) refuses a key missing from a language. The values are the codes the bot emits
-today, none renamed; `tests/unit/contract/test_workflow_contract_error_codes.py` holds the catalogue
-to the codes the bridges and the core emit, read from the source: a code emitted and not listed, or
-listed and emitted nowhere, is red.
+(`npm run i18n:keys`) refuses a key missing from a language. One cause has one code: two codes that
+shared a sentence were synonyms and are renamed (`device_connection_failed` of the publication is
+`DEVICE_CONNECTION_FAILED`, `LAUNCH_FAILED` of the persona analysis is `INSTAGRAM_LAUNCH_FAILED`), and
+a code says its cause (`LICENSE_SETUP_FAILED`, sent when the run's base did not open, is
+`DATABASE_SETUP_FAILED`). `tests/unit/contract/test_workflow_contract_error_codes.py` holds the
+catalogue to the codes the bridges and the core emit, read from the source: a code emitted and not
+listed, or listed and emitted nowhere, is red, and so is a sentence shared by two codes.
 """
 
 from __future__ import annotations
@@ -19,22 +22,18 @@ from typing import Mapping
 
 from .schema import OneOf
 
-#: Code -> the key of its sentence in the app (`sessionLive`). Several codes may share a sentence.
+#: Code -> the key of its sentence in the app (`sessionLive`), one sentence per code.
 BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     # The start of a run: the phone, its network, the app.
     "NETWORK_UNREACHABLE": "errorNetworkUnreachable",
     "NETWORK_RESET_FAILED": "errorNetworkResetFailed",
     "DEVICE_CONNECTION_FAILED": "errorDeviceConnectionFailed",
     "DEVICE_CONNECTION_TIMEOUT": "errorDeviceConnectionTimeout",
-    # The Instagram publication says it in lower case (`bridges/instagram/publish/bridge.py`).
-    "device_connection_failed": "errorDeviceConnectionFailed",
-    # Sent by the Instagram automation when its database setup fails, under this historical name.
-    "LICENSE_SETUP_FAILED": "errorLicenseSetupFailed",
+    # The run's base did not open (`configure_db_service`).
+    "DATABASE_SETUP_FAILED": "errorDatabaseSetupFailed",
     "ATX_AGENT_FAILED": "errorAtxAgentFailed",
     "INSTAGRAM_NOT_INSTALLED": "errorInstagramNotInstalled",
     "INSTAGRAM_LAUNCH_FAILED": "errorInstagramLaunchFailed",
-    # The persona analysis says the same failure under a shorter name.
-    "LAUNCH_FAILED": "errorInstagramLaunchFailed",
     # During a run.
     "ATX_AGENT_CRASHED": "errorAtxAgentCrashed",
     "WORKFLOW_TIMEOUT": "errorWorkflowTimeout",

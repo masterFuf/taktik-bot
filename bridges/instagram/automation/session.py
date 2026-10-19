@@ -32,7 +32,7 @@ class InstagramDesktopRuntime:
             return True
 
         except Exception as e:
-            send_error(f"Database setup failed: {str(e)}", error_code="LICENSE_SETUP_FAILED")
+            send_error(f"Database setup failed: {str(e)}", error_code="DATABASE_SETUP_FAILED")
             logger.exception("Database setup failed")
             return False
 
