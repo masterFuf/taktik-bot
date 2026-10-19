@@ -6,7 +6,7 @@ the phone (the connection, the desktop's IP rotation) and before the app starts,
 when ping answers « Network is unreachable ».
 
 The door is opened by the core, not by a host: the Instagram launchers (automation, cold DM, scraping,
-a DM read, notifications, the Taktik Agent) open it once their host hands them the phone, the TikTok
+a DM read or reply, notifications, the Taktik Agent) open it once their host hands them the phone, the TikTok
 session start (`start_tiktok_session`) and the TikTok DM outreach launcher before TikTok is touched. The desktop bridges and the CLI cross the same call, so
 both refuse a phone without network, with the same motive. Each host only says it its way: the
 bridges as an `error` line (`NETWORK_UNREACHABLE`), the CLI on its console.

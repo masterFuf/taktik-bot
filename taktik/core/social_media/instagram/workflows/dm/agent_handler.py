@@ -53,13 +53,13 @@ def run_instagram_dm(config: Mapping[str, Any], *, connect: RuntimeProvider,
     """Run the DM command a payload describes: `read`, `read_requests` (`limit`, <= 0 for all) or
     `send` (`username`, `message`). Returns the result the desktop reads, or
     `{"success": False, "error": ...}`. An unknown command, or a reply without its recipient or its
-    text, is refused (`DmCommandError`) before the phone is touched. A read opens the network door
-    before it restarts Instagram: on a phone without network, the inbox is the one Instagram cached."""
+    text, is refused (`DmCommandError`) before the phone is touched. Every command opens the network
+    door once the phone is connected: without network, a read opens the inbox Instagram cached, and a
+    reply is typed into a thread that shows its bubble without sending it."""
     request = dm_command_from_payload(config)
     runtime = connect(package_name_from_payload(config))
-    if request.command in ("read", "read_requests"):
-        # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
-        open_network_door(config.get("deviceId"))
+    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
+    open_network_door(config.get("deviceId"))
     if request.command == "read":
         return _read(runtime, request.limit, emit)
     if request.command == "read_requests":
