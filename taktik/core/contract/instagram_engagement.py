@@ -8,7 +8,14 @@ from __future__ import annotations
 
 from .ai_dm import ai_dm_rules_field, ai_dm_text_refusal_field
 from .schema import HOST, Bounds, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import AI_SPEND_EVENT, SESSION_START_EVENT, device_field, instagram_package_field, network_reset_field
+from .shared import (
+    AI_SPEND_EVENT,
+    ERROR_CODE_FIELD,
+    SESSION_START_EVENT,
+    device_field,
+    instagram_package_field,
+    network_reset_field,
+)
 from .stop_reasons import RUN_HALT_CODE
 
 _WORKFLOWS = "taktik.core.social_media.instagram.workflows"
@@ -127,6 +134,7 @@ def _dm_result(*fields: Field) -> Event:
         Field("success", "bool", "The command did what it was asked."),
         *fields,
         Field("error", "string", "What went wrong, for a person.", optional=True),
+        ERROR_CODE_FIELD,
         Field("traceback", "string", "Diagnostic context of a crash.", optional=True),
     ))
 

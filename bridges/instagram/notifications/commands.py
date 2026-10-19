@@ -50,8 +50,8 @@ class NotificationsCommand:
         return 0
 
 
-def _fail(message: str) -> None:
-    emit_notif_error(message)
+def _fail(message: str, **extra) -> None:
+    emit_notif_error(message, **extra)
     sys.exit(1)
 
 
@@ -76,7 +76,7 @@ def run_notifications_command(config: dict) -> None:
     except NetworkUnreachableError as refused:
         # The launcher's network door, once the phone is connected: nothing was read or tapped.
         send_network_refusal(refused, "Notifications")
-        _fail(str(refused))
+        _fail(str(refused), error_code=refused.error_code)
     except SystemExit:
         raise
     except Exception as exc:  # noqa: BLE001

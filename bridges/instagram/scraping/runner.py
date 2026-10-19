@@ -72,7 +72,7 @@ def run_scraping_bridge(config: dict) -> int:
     except NetworkUnreachableError as refused:
         # The launcher's network door, once the phone is connected: nothing was scraped.
         send_network_refusal(refused, "Scraping")
-        print_scraping_result(False, error=str(refused))
+        print_scraping_result(False, error=str(refused), error_code=refused.error_code)
         return 1
     except Exception as e:
         logger.error(f"Scraping error: {e}")

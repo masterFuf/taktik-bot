@@ -18,6 +18,7 @@ from .shared import (
     AI_ERROR_EVENT,
     AI_PROFILE_DONE_EVENT,
     AI_PROFILE_START_EVENT,
+    ERROR_CODE_FIELD,
     STEP_METRIC_EVENT,
     device_field,
     instagram_package_field,
@@ -173,6 +174,7 @@ RESULT_EVENT = Event("result", doc="The command's result, or why it could not ru
     Field("message", "string", "The result, for a person.", optional=True),
     Field("stop_reason", RUN_HALT_CODE, "`action_blocked`: Instagram refuses actions.", optional=True),
     Field("error", "string", "What went wrong, for a person.", optional=True),
+    ERROR_CODE_FIELD,
     Field("traceback", "string", "Diagnostic context of a crash.", optional=True),
 ))
 

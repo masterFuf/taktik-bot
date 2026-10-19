@@ -62,7 +62,7 @@ def run_dm_command(config: dict) -> None:
     except NetworkUnreachableError as refused:
         # The launcher's network door, once the phone is connected: nothing was read nor typed.
         send_network_refusal(refused, "DM")
-        emit_dm_error(str(refused))
+        emit_dm_error(str(refused), error_code=refused.error_code)
         sys.exit(1)
     except AiDmTextRefused as refused:
         # A reply written by an AI breaks the rule: refused before the phone, the reason typed.

@@ -8,7 +8,7 @@ One payload, one reader, one launcher: `type` names the source, and so the workf
 from __future__ import annotations
 
 from .schema import HOST, Bounds, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import AI_ERROR_EVENT, AI_PROFILE_DONE_EVENT, AI_PROFILE_START_EVENT, device_field
+from .shared import AI_ERROR_EVENT, AI_PROFILE_DONE_EVENT, AI_PROFILE_START_EVENT, ERROR_CODE_FIELD, device_field
 from .stop_reasons import INSTAGRAM_SCRAPING_COMPLETION_REASON
 
 _SCRAPING = "taktik.core.social_media.instagram.workflows.scraping"
@@ -155,6 +155,7 @@ SCRAPING_RESULT_EVENT = Event("scraping_result", doc="The run's verdict: its las
     Field("completionReason", INSTAGRAM_SCRAPING_COMPLETION_REASON,
           "How the run ended: its surface reached or not, profiles or none.", optional=True, nullable=True),
     Field("error", "string", "What went wrong, for a person.", optional=True, nullable=True),
+    ERROR_CODE_FIELD,
 ))
 
 _EVENTS = (

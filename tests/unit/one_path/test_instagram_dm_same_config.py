@@ -99,6 +99,8 @@ def test_a_phone_without_network_reads_no_inbox_from_either_path(igd_rig):
         assert igd_rig.run_bridge(dm_command(command)) == 1
         assert [fields.get("error_code") for kind, fields in igd_rig.events if kind == "error"] == ["NETWORK_UNREACHABLE"]
         assert igd_rig.stdout_lines[-1]["success"] is False
+        # The last line the app reads carries the motive, for the page to say its sentence.
+        assert igd_rig.stdout_lines[-1]["error_code"] == "NETWORK_UNREACHABLE"
         assert not any(call.startswith(("stop ", "launch ")) for call in igd_rig.calls)
         assert igd_rig.db == []
         igd_rig.reset()
@@ -122,6 +124,7 @@ def test_a_phone_without_network_sends_no_reply_from_either_path(igd_rig):
     assert igd_rig.run_bridge(spec) == 1
     assert [fields.get("error_code") for kind, fields in igd_rig.events if kind == "error"] == ["NETWORK_UNREACHABLE"]
     assert igd_rig.stdout_lines[-1]["success"] is False
+    assert igd_rig.stdout_lines[-1]["error_code"] == "NETWORK_UNREACHABLE"
     assert not any(call.startswith(("open_conversation", "send_message")) for call in igd_rig.calls)
     assert igd_rig.db == []
     igd_rig.reset()
