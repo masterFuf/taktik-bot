@@ -15,22 +15,31 @@ def engine_version() -> str:
     raise RuntimeError(f"no __version__ in {init}")
 
 
+def runtime_requirements() -> list:
+    """What the engine needs to run, read from `requirements.txt`: the one list of them.
+
+    `pip install -r requirements.txt` and `pip install .` install the same thing. A line that is
+    not a requirement (an option such as `-r`) stops the build rather than being skipped.
+    """
+    path = Path(__file__).resolve().parent / "requirements.txt"
+    requirements = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("-"):
+            raise RuntimeError(f"{path.name}: '{line}' is not a requirement setup.py can read")
+        requirements.append(line)
+    return requirements
+
+
 setup(
     name="taktik-bot",
     version=engine_version(),
     packages=find_packages(),
     include_package_data=True,
     python_requires=">=3.10",
-    install_requires=[
-        "click>=8.0.0",
-        "rich>=10.0.0",
-        "pure-python-adb>=0.3.0.dev0",  # Version de développement
-        "uiautomator2>=3.3.3",
-        "cryptography>=35.0.0",
-        "pyyaml>=6.0",
-        "requests>=2.27.0",
-        "pillow>=9.0.0",
-    ],
+    install_requires=runtime_requirements(),
     entry_points={
         "console_scripts": [
             "taktik=taktik.cli.main:cli",

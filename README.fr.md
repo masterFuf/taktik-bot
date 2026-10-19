@@ -222,6 +222,7 @@ un sens comme dans l'autre.
 ### Tests de développement
 
 ```bash
+pip install -r requirements-dev.txt   # les dépendances du moteur, plus les outils de test et de format
 python -m pytest
 ```
 
