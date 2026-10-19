@@ -124,6 +124,9 @@ _PING_BURST = "ping -c 3 -W 2 1.1.1.1"
 _RTT_AVG_RE = re.compile(r"(?:rtt|round-trip)[^=]*=\s*[\d.]+/([\d.]+)/", re.IGNORECASE)
 _RTT_SAMPLE_RE = re.compile(r"time[=<]\s*([\d.]+)\s*ms", re.IGNORECASE)
 _LOSS_RE = re.compile(r"([\d.]+)%\s*packet loss", re.IGNORECASE)
+#: What ping says when the phone has no route at all (no mobile data, no Wi-Fi): an answer, not an
+#: unreadable output.
+_NO_ROUTE = "network is unreachable"
 
 
 def measure_network_baseline(device_id: str) -> dict | None:
@@ -139,11 +142,15 @@ def measure_network_baseline(device_id: str) -> dict | None:
     inside a retry loop would cost a ping per failure and still not answer that question.
 
     Reads only — it never changes a radio state, and never raises: a run does not fail because a
-    diagnostic could not ping.
+    diagnostic could not ping. `unreachable` says the phone has no route to the Internet at all (ping
+    answers « Network is unreachable »): a measure, told apart from an output that cannot be read
+    (None), which the caller may decide on.
     """
     output = _shell(device_id, _PING_BURST, timeout=20)
     if not output:
         return None
+    if _NO_ROUTE in output.lower():
+        return {"rtt_ms": None, "packet_loss_pct": None, "received": 0, "unreachable": True}
 
     rtt: float | None = None
     match = _RTT_AVG_RE.search(output)
@@ -165,6 +172,7 @@ def measure_network_baseline(device_id: str) -> dict | None:
         "rtt_ms": round(rtt, 1) if rtt is not None else None,
         "packet_loss_pct": loss,
         "received": len(_RTT_SAMPLE_RE.findall(output)),
+        "unreachable": False,
     }
 
 

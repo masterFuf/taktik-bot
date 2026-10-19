@@ -41,6 +41,11 @@ PING_TOUT_PERDU = """PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
 --- 1.1.1.1 ping statistics ---
 3 packets transmitted, 0 received, 100% packet loss, time 2015ms"""
 
+#: Ce que ping repond sur un telephone sans aucune route (Pixel 3, 28/09 : ni donnees mobiles ni
+#: Wi-Fi), tel que le rapport du lot planifrun le cite. La sortie exacte reste a relever sur un
+#: telephone sans reseau (preuve a faire avec Kevin).
+PING_INJOIGNABLE = "connect: Network is unreachable"
+
 
 @pytest.fixture
 def ping(monkeypatch):
@@ -97,7 +102,7 @@ def test_la_moyenne_vient_de_la_ligne_de_resume(ping):
 
     mesure = network_probe.measure_network_baseline('SERIE')
 
-    assert mesure == {'rtt_ms': 24.9, 'packet_loss_pct': 0.0, 'received': 3}
+    assert mesure == {'rtt_ms': 24.9, 'packet_loss_pct': 0.0, 'received': 3, 'unreachable': False}
 
 
 def test_sans_ligne_de_resume_les_paquets_suffisent(ping):
@@ -117,7 +122,20 @@ def test_une_perte_totale_reste_une_mesure(ping):
 
     mesure = network_probe.measure_network_baseline('SERIE')
 
-    assert mesure == {'rtt_ms': None, 'packet_loss_pct': 100.0, 'received': 0}
+    assert mesure == {'rtt_ms': None, 'packet_loss_pct': 100.0, 'received': 0, 'unreachable': False}
+
+
+def test_un_reseau_injoignable_est_une_mesure_pas_une_sortie_illisible(ping):
+    """Sans route, ping ne mesure rien, mais il dit pourquoi : ce n'est pas « illisible ».
+
+    Pixel 3, 28/09 : la mesure rendait None, journalise « Network baseline unreadable » en DEBUG,
+    et les runs tournaient sur le contenu en cache, sans rien dire.
+    """
+    ping(PING_INJOIGNABLE)
+
+    mesure = network_probe.measure_network_baseline('SERIE')
+
+    assert mesure == {'rtt_ms': None, 'packet_loss_pct': None, 'received': 0, 'unreachable': True}
 
 
 def test_une_sortie_muette_ne_donne_rien(ping):
