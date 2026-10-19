@@ -502,6 +502,8 @@ def run_notifications(a, p):
 
     config = dict(p)
     config.setdefault("command", "scan")
+    # The session's phone, as the bridge and the CLI give it: the launcher's network door measures it.
+    config.setdefault("deviceId", device_id)
     events: list = []
 
     def emit(payload: dict) -> None:
@@ -511,7 +513,7 @@ def run_notifications(a, p):
     try:
         result = agent_handler.run_instagram_notifications(
             config,
-            connect=lambda package_name, restart: _connected_runtime(a, device_id, package_name, restart),
+            connect=lambda package_name: _connected_runtime(a, device_id, package_name),
             emit=emit,
             # The app never sends an `ai` block, and the bridge's AI service prints on stdout.
             instagram_ai_service=None,
@@ -527,7 +529,7 @@ def run_notifications(a, p):
     return {"success": success, "message": msg, "details": {"result": result, "events": events}}
 
 
-def _connected_runtime(a, device_id: str, package_name, restart: bool):
+def _connected_runtime(a, device_id: str, package_name):
     """The device the notifications bridge connects (`InstagramDeviceBase`) on the phone the Lab
     session holds: the same clone-aware device and the same clean restart (`AppService`) as the
     bridge and the CLI, through the helper the CLI uses, without a second connection."""
@@ -539,10 +541,7 @@ def _connected_runtime(a, device_id: str, package_name, restart: bool):
     # raw device under the session's facade: the bridge puts its own proxy and facade on it.
     manager = _session_app_manager(a)
     manager.device = getattr(a.device, "_device", None) or a.device
-    runtime = on_connected_device(InstagramDeviceBase(device_id, package_name=package_name), manager, device_id)
-    if restart:
-        runtime.restart_instagram()
-    return runtime
+    return on_connected_device(InstagramDeviceBase(device_id, package_name=package_name), manager, device_id)
 
 
 @action("notifications.visit_suggestions")

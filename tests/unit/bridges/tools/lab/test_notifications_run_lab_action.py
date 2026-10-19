@@ -80,8 +80,9 @@ def test_the_lab_run_goes_through_the_launcher_with_the_lab_params(monkeypatch, 
     monkeypatch.setattr(agent_handler, "run_instagram_notifications", launcher)
     result = ACTION_REGISTRY["notifications.run"](_bundle(), {"scroll": 2, "followSuggestions": 1})
 
-    # The launcher's own keys; the command defaults to a scan, as the CLI handler does.
-    assert seen["config"] == {"command": "scan", "scroll": 2, "followSuggestions": 1}
+    # The launcher's own keys; the command defaults to a scan, as the CLI handler does, and the
+    # session's phone is the run's, as the bridge and the CLI give it (the network door measures it).
+    assert seen["config"] == {"command": "scan", "scroll": 2, "followSuggestions": 1, "deviceId": SERIAL}
     # The app never sends an `ai` block, and the bridge's AI service prints on stdout.
     assert seen["ai"] is None
     assert result["success"] is True
@@ -148,8 +149,11 @@ def test_the_runtime_is_the_bridge_class_on_the_session_device(monkeypatch, lab_
     runtimes = []
 
     def launcher(config, *, connect, emit=None, instagram_ai_service=None):
-        runtimes.append(connect(None, True))
-        runtimes.append(connect("com.instagram.clone", False))
+        # A scan: the launcher connects, then restarts Instagram on what the host handed; a row verb
+        # connects only.
+        runtimes.append(connect(None))
+        runtimes[0].restart_instagram()
+        runtimes.append(connect("com.instagram.clone"))
         runtimes[0].stop()
         return {"type": "result", "command": "scan", "success": True, "message": ""}
 
@@ -182,7 +186,7 @@ def test_the_lab_and_the_cli_connect_a_bridge_by_one_helper(monkeypatch):
     monkeypatch.setattr(connected_device, "on_connected_device",
                         lambda base, device_manager, device_id: connected.append(type(base).__name__) or base)
     host = instagram_host.CliInstagramHost(CliPhone(SimpleNamespace(device=object()), SERIAL))
-    host.notifications_runtime(None, restart=False)
+    host.notifications_runtime(None)
 
     assert connected == ["InstagramDeviceBase"]
     assert not hasattr(instagram_host, "_on_connected_device")

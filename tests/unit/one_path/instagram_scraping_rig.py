@@ -12,7 +12,7 @@ import sys
 
 import pytest
 
-from one_path_seams import patch_seam, record_cli_connections
+from one_path_seams import RigNetwork, patch_seam, record_cli_connections
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 AI_KEY = "sk-or-v1-" + "c" * 48
@@ -157,6 +157,8 @@ class InstagramScrapingRig:
                 rig.events.append((msg_type, kwargs))
 
         mp.setattr(ipc_module.IPC, "send", _send)
+        # The phone's network as the core's door measures it: unreadable (it never blocks) until cut.
+        self.network = RigNetwork(mp)
 
         patch_seam(mp, "taktik.core.database", "configure_db_service",
                    lambda *a, **k: rig.calls.append("configure_db"))

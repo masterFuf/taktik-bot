@@ -137,7 +137,7 @@ def _bridge_phone(monkeypatch, tmp_path) -> _Phone:
 def bridge_runtime(monkeypatch, tmp_path):
     """The notifications bridge connected the way the desktop connects it, on the phone above."""
     phone = _bridge_phone(monkeypatch, tmp_path)
-    runtime = bridge_commands._connect("phone-1", None, restart=False)
+    runtime = bridge_commands._connect("phone-1", None)
     return runtime, phone
 
 

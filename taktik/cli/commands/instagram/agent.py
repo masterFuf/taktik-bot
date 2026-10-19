@@ -120,6 +120,8 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
                                 report_spend=False)
 
     config.setdefault("openrouter_api_key", api_key)
+    # The phone's serial, as every other CLI run and the bridge give it: the network door measures it.
+    config.setdefault("deviceId", phone.device_id)
 
     effective = {**QUOTA_DEFAULTS, **{k: v for k, v in config.items() if k in QUOTA_DEFAULTS}}
     console.print(Panel.fit(

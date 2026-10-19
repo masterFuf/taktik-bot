@@ -88,3 +88,38 @@ def test_a_read_reads_the_app_language_after_the_restart_on_both_paths(igd_rig):
     spec = dm_command("send", username="dave", message="Yes, from ten")
     bridge, cli = _run_both(igd_rig, spec, "instagram.engagement.dm_send", screen="inbox")
     assert "detect_language" not in bridge["steps"] and "detect_language" not in cli["steps"]
+
+
+def test_a_phone_without_network_reads_no_inbox_from_either_path(igd_rig):
+    """No route at all: a read opened the inbox Instagram had cached and recorded it as read. Neither
+    path measured the network; both now refuse a read at the launcher's network door, once the phone
+    is connected, before Instagram restarts."""
+    igd_rig.network.cut()
+    for command in ("read", "read_requests"):
+        assert igd_rig.run_bridge(dm_command(command)) == 1
+        assert [fields.get("error_code") for kind, fields in igd_rig.events if kind == "error"] == ["NETWORK_UNREACHABLE"]
+        assert igd_rig.stdout_lines[-1]["success"] is False
+        assert not any(call.startswith(("stop ", "launch ")) for call in igd_rig.calls)
+        assert igd_rig.db == []
+        igd_rig.reset()
+
+        result = igd_rig.run_cli("instagram.engagement.dm_read", {"command": command, "limit": 5})
+
+        assert result.exit_code == 1, result.output
+        assert "NETWORK_UNREACHABLE" in result.output
+        assert not any(call.startswith(("stop ", "launch ")) for call in igd_rig.calls)
+        assert igd_rig.db == []
+        igd_rig.reset()
+
+
+def test_both_paths_measure_the_network_once_before_a_read(igd_rig):
+    """One measure per read, from either host, before the clean restart."""
+    igd_rig.network.calls = igd_rig.calls
+    for run in (lambda: igd_rig.run_bridge(dm_command("read")),
+                lambda: igd_rig.run_cli("instagram.engagement.dm_read", {"command": "read", "limit": 5})):
+        run()
+        measures = [call for call in igd_rig.calls if call.startswith("network_baseline ")]
+        assert measures == ["network_baseline emulator-5554"]
+        restart = next(i for i, call in enumerate(igd_rig.calls) if call.startswith(("stop ", "launch ")))
+        assert igd_rig.calls.index(measures[0]) < restart
+        igd_rig.reset()

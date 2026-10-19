@@ -171,3 +171,42 @@ def test_a_refused_scraping_touches_no_phone_from_either_path(igs_rig, payload, 
     assert result.exit_code == 1, result.output
     assert igs_rig.calls == []
     assert why in " ".join(result.output.split())
+
+
+def _error_codes(events):
+    return [fields.get("error_code") for kind, fields in events if kind == "error"]
+
+
+def test_a_phone_without_network_scrapes_nothing_from_either_path(igs_rig):
+    """No route at all: a scraping read the phone's cache and recorded empty profiles as measures.
+    Neither path measured the network; both now refuse the run at the launcher's network door, once
+    the phone is connected, before Instagram restarts and before a screen is read."""
+    igs_rig.network.cut()
+
+    assert igs_rig.run_bridge(target_payload()) == 1
+    assert _error_codes(igs_rig.events)[-1] == "NETWORK_UNREACHABLE"
+    assert igs_rig.stdout_lines[-1]["success"] is False
+    assert "run_scraping" not in igs_rig.calls and "detect_language" not in igs_rig.calls
+    igs_rig.reset()
+
+    result = igs_rig.run_cli(target_payload())
+
+    assert result.exit_code == 1, result.output
+    assert "NETWORK_UNREACHABLE" in result.output
+    assert "run_scraping" not in igs_rig.calls and f"stop {INSTAGRAM}" not in igs_rig.calls
+
+
+def test_both_paths_measure_the_network_once_before_scraping(igs_rig):
+    """The door is the launcher's, crossed by both hosts: one measure, once the phone is connected,
+    before the CLI's clean restart and before the selectors are matched to the phone."""
+    igs_rig.network.calls = igs_rig.calls
+    for run in (lambda: igs_rig.run_bridge(target_payload()), lambda: igs_rig.run_cli(target_payload())):
+        run()
+        measures = [call for call in igs_rig.calls if call.startswith("network_baseline ")]
+        assert measures == ["network_baseline emulator-5554"]
+        measured = igs_rig.calls.index(measures[0])
+        connected = next(i for i, call in enumerate(igs_rig.calls) if call in ("connect", "cli_connect emulator-5554"))
+        assert connected < measured < igs_rig.calls.index("detect_language")
+        if f"stop {INSTAGRAM}" in igs_rig.calls:
+            assert measured < igs_rig.calls.index(f"stop {INSTAGRAM}")
+        igs_rig.reset()

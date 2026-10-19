@@ -27,6 +27,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import WarmupBudget
@@ -59,7 +60,8 @@ def run_instagram_agent(
     ai_service_factory: Optional[AIServiceFactory] = None,
     on_workflow: Optional[Callable[[Any], None]] = None,
 ) -> dict:
-    """Refuse a session without an OpenRouter key, restart Instagram, then run a Taktik Agent session."""
+    """Refuse a session without an OpenRouter key, open the network door, restart Instagram, then run a
+    Taktik Agent session."""
     try:
         request = taktik_agent_request_from_payload(config)
     except ValueError as refused:
@@ -75,6 +77,8 @@ def run_instagram_agent(
             announce("error", NO_AI_KEY, message_key="agentStatusErrNoAi")
         raise ValueError(NO_AI_KEY)
     runtime = connect(package_name_from_payload(config))
+    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
+    open_network_door(config.get("deviceId"))
     if ipc is not None:
         ipc.status("launching", "Restarting Instagram…")
     # Clean restart (force-stop + launch) for a consistent initial state, like every other bridge.

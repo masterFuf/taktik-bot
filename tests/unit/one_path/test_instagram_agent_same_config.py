@@ -72,3 +72,43 @@ def test_the_agent_is_reachable_by_its_manifest_id(iga_rig):
 
     assert result.exit_code == 0, result.output
     assert f"stop {INSTAGRAM}" in iga_rig.calls and "agent_run" in iga_rig.calls
+
+
+def _error_codes(events):
+    return [fields.get("error_code") for kind, fields in events if kind == "error"]
+
+
+def test_a_phone_without_network_starts_no_agent_session_from_any_path(iga_rig):
+    """No route at all: the Agent decided on screens Instagram served from its cache. Neither path
+    measured the network; the bridge, `taktik agent run` and the manifest id now refuse the session at
+    the launcher's network door, once the phone is connected, before Instagram restarts."""
+    iga_rig.network.cut()
+
+    assert iga_rig.run_agent_bridge(agent_config()) == 1
+    assert _error_codes(iga_rig.events) == ["NETWORK_UNREACHABLE"]
+    assert iga_rig.workflows == [] and f"stop {INSTAGRAM}" not in iga_rig.calls
+    iga_rig.reset()
+
+    result = iga_rig.run_agent_cli(_params(agent_config()))
+
+    assert result.exit_code == 1, result.output
+    assert "NETWORK_UNREACHABLE" in result.output
+    assert iga_rig.workflows == [] and f"stop {INSTAGRAM}" not in iga_rig.calls
+    iga_rig.reset()
+
+    result = iga_rig.run_cli(agent_config(), workflow_id="instagram.engagement.taktik_agent")
+
+    assert result.exit_code == 1, result.output
+    assert "NETWORK_UNREACHABLE" in result.output
+    assert iga_rig.workflows == []
+
+
+def test_every_path_measures_the_network_once_before_the_agent_restarts_instagram(iga_rig):
+    iga_rig.network.calls = iga_rig.calls
+    for run in (lambda: iga_rig.run_agent_bridge(agent_config()),
+                lambda: iga_rig.run_agent_cli(_params(agent_config()))):
+        run()
+        measures = [call for call in iga_rig.calls if call.startswith("network_baseline ")]
+        assert measures == ["network_baseline emulator-5554"]
+        assert iga_rig.calls.index(measures[0]) < iga_rig.calls.index(f"stop {INSTAGRAM}")
+        iga_rig.reset()

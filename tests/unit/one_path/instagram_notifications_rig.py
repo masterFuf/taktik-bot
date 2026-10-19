@@ -16,6 +16,8 @@ import io
 import json
 import sys
 
+from one_path_seams import RigNetwork
+
 DEVICE_ID = "emulator-5554"
 CLONE = "com.instagram.android.clone"
 BOT = "alpha_bot"
@@ -143,6 +145,8 @@ class InstagramNotificationsRig:
         self.tmp_path = tmp_path
         self.calls: list = []
         self.stdout_lines: list = []
+        #: What the bridges' shared IPC sends (`error` lines...), as (type, fields).
+        self.events: list[tuple[str, dict]] = []
         self.connect_ok = True
         self.raise_on = None
         self.items = [{"type": "like", "actor": "fan_one", "text": "liked your post"},
@@ -167,6 +171,12 @@ class InstagramNotificationsRig:
         bridge_commands = importlib.import_module(_COMMANDS)
         commands = importlib.import_module(_CORE_COMMANDS)
         rig = self
+        # The phone's network as the core's door measures it: unreadable (it never blocks) until cut.
+        self.network = RigNetwork(self.monkeypatch)
+        # The lines the bridges' shared IPC writes (on the process's fd 1, which no test captures).
+        from bridges.common import ipc as ipc_module
+
+        self.monkeypatch.setattr(ipc_module.IPC, "send", lambda _self, msg_type, **kwargs: rig.events.append((msg_type, kwargs)))
         run_halt.reinitialiser()
         self.monkeypatch.setattr(run_halt, "_temoin", None)
         self.monkeypatch.setattr(run_halt, "_arret", None)

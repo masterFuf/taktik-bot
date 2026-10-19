@@ -28,6 +28,7 @@ from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramConnect
 from taktik.core.social_media.instagram.workflows.scraping.payload import (
     INSTAGRAM_SCRAPING_TYPES,
@@ -63,8 +64,8 @@ def run_instagram_scraping(
     instagram_ai_key: Optional[AIKeyProvider] = None,
     workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> dict[str, Any]:
-    """Read the payload, ask the host for the phone, start Instagram when the host restarts it, match
-    the selectors to the phone, then scrape the source the payload names."""
+    """Read the payload, ask the host for the phone, open the network door, start Instagram when the
+    host restarts it, match the selectors to the phone, then scrape the source the payload names."""
     # Resolved at call time, so a run gets the modules' current objects.
     from taktik.core.social_media.instagram.workflows.common import runtime_setup
     from taktik.core.social_media.instagram.workflows.common.startup import (
@@ -75,6 +76,8 @@ def run_instagram_scraping(
     # Read and validated before the host touches the phone: what the reader refuses never reaches it.
     scraping_config = scraping_config_from_payload(payload)
     phone = connect(payload.get("packageName"))
+    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
+    open_network_door(payload.get("deviceId"))
 
     if phone.start is not None and not phone.start():
         raise InstagramStartError("Instagram did not start cleanly; the scraping was not started")

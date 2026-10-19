@@ -128,18 +128,15 @@ class CliInstagramHost:
         runtime.dm_events = _log_dm_event
         return runtime
 
-    def notifications_runtime(self, package_name: Optional[str], restart: bool):
+    def notifications_runtime(self, package_name: Optional[str]):
         """The device the notifications bridge connects too (`InstagramDeviceBase`: clone-aware,
-        and its clean restart), on the device the CLI already connected; Instagram restarted first
-        when the command asks for it (a scan)."""
+        and its clean restart), on the device the CLI already connected; the launcher restarts
+        Instagram when the command asks for it (a scan)."""
         from taktik.core.shared.device.connected_device import on_connected_device
         from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 
-        runtime = on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
-                                      self.phone.connect(), self.device_id)
-        if restart:
-            runtime.restart_instagram()
-        return runtime
+        return on_connected_device(InstagramDeviceBase(self.device_id, package_name=package_name),
+                                   self.phone.connect(), self.device_id)
 
 
 def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:

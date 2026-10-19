@@ -21,6 +21,7 @@ from typing import Any, Callable, Mapping, Optional
 from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
+from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
@@ -52,9 +53,13 @@ def run_instagram_dm(config: Mapping[str, Any], *, connect: RuntimeProvider,
     """Run the DM command a payload describes: `read`, `read_requests` (`limit`, <= 0 for all) or
     `send` (`username`, `message`). Returns the result the desktop reads, or
     `{"success": False, "error": ...}`. An unknown command, or a reply without its recipient or its
-    text, is refused (`DmCommandError`) before the phone is touched."""
+    text, is refused (`DmCommandError`) before the phone is touched. A read opens the network door
+    before it restarts Instagram: on a phone without network, the inbox is the one Instagram cached."""
     request = dm_command_from_payload(config)
     runtime = connect(package_name_from_payload(config))
+    if request.command in ("read", "read_requests"):
+        # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
+        open_network_door(config.get("deviceId"))
     if request.command == "read":
         return _read(runtime, request.limit, emit)
     if request.command == "read_requests":

@@ -4,9 +4,10 @@
 `accept_all`, a row verb (`accept`, `ignore`, `like`, `follow_back`, `reply`) or a `batch`. The
 desktop bridge (`notifications_bridge <config.json>`) calls it, and so does the handler registered
 as `instagram.engagement.notifications` (the CLI). What differs between the hosts is injected:
-- `connect(package_name, restart) -> runtime`: the connected device (`device`, `device_id`,
+- `connect(package_name) -> runtime`: the connected device (`device`, `device_id`,
   `restart_instagram()`, `stop()`), on the Instagram the payload names (`packageName`, a clone;
-  None: the installed one), Instagram restarted first when `restart` is true;
+  None: the installed one). The launcher opens the network door on it, then restarts Instagram when
+  the command asks for it (a scan): the order is the launcher's, for every host;
 - `emit(payload)`: the run's events (the bridge's stdout, the CLI's log);
 - `instagram_ai_service(ai_config) -> service | None`: qualifies the profiles a scan visits.
 No injected callable receives the whole payload, so the app's config contract test can still see
@@ -21,6 +22,7 @@ from loguru import logger
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.notifications import commands
 from taktik.core.social_media.instagram.workflows.notifications.payload import (
@@ -32,7 +34,7 @@ from taktik.core.social_media.instagram.workflows.notifications.payload import (
 
 INSTAGRAM_NOTIFICATIONS_WORKFLOW_ID = "instagram.engagement.notifications"
 
-Connect = Callable[[Optional[str], bool], Any]
+Connect = Callable[[Optional[str]], Any]
 Emit = Callable[[dict], None]
 AIServiceFactory = Callable[[Mapping[str, Any]], Any]
 
@@ -53,12 +55,21 @@ def run_instagram_notifications(
 
     The payload is read by `notifications_request_from_payload` (`payload.py`), which refuses
     an unknown command, a row verb or a reply without `username` and a batch without actions,
-    before the phone is touched. `deviceId` is the host's, read when it connects; `packageName`
-    is read here and handed to it.
+    before the phone is touched. `deviceId` is the host's, read when it connects and by the network
+    door; `packageName` is read here and handed to it.
     """
     request = notifications_request_from_payload(config)
     package_name = package_name_from_payload(config)
-    host = commands.NotificationsHost(connect=lambda restart: connect(package_name, restart),
+
+    def connect_through_the_door(restart: bool):
+        runtime = connect(package_name)
+        # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
+        open_network_door(config.get("deviceId"))
+        if restart:
+            runtime.restart_instagram()
+        return runtime
+
+    host = commands.NotificationsHost(connect=connect_through_the_door,
                                       emit=emit or _log_event, ai_service=instagram_ai_service)
     account_username = request.account_username
 

@@ -14,7 +14,7 @@ import json
 import re
 import sys
 
-from one_path_seams import give_the_cli_a_connected_phone, patch_seam
+from one_path_seams import RigNetwork, give_the_cli_a_connected_phone, patch_seam
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
 CLONE = "com.instagram.android.clone"
@@ -182,6 +182,8 @@ class InstagramDmRig:
         self.tmp_path = tmp_path
         self.calls: list[str] = []
         self.stdout_lines: list = []
+        #: What the bridges' shared IPC sends (`error` lines...), as (type, fields).
+        self.events: list[tuple[str, dict]] = []
         self.db: list[dict] = []
         self.cli_results: list = []
         # (username, content-desc of its inbox row): answered, up to date, to open.
@@ -218,6 +220,12 @@ class InstagramDmRig:
         mp.setattr(signal, "signal", lambda signum, handler: None)
 
         self.phone = FakePhone(self)
+        # The phone's network as the core's door measures it: unreadable (it never blocks) until cut.
+        self.network = RigNetwork(mp)
+        # The lines the bridges' shared IPC writes (on the process's fd 1, which no test captures).
+        from bridges.common import ipc as ipc_module
+
+        mp.setattr(ipc_module.IPC, "send", lambda _self, msg_type, **kwargs: rig.events.append((msg_type, kwargs)))
 
         class FakeDeviceManager:
             def __init__(self):
@@ -465,7 +473,7 @@ class InstagramDmRig:
         )
 
     def reset(self) -> None:
-        for bucket in (self.calls, self.stdout_lines, self.db, self.cli_results):
+        for bucket in (self.calls, self.stdout_lines, self.events, self.db, self.cli_results):
             bucket.clear()
         self.phone.screen = "home"
         self.phone.open_title = None

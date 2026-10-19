@@ -17,6 +17,7 @@ import pytest
 
 import bridges.instagram.notifications.commands as bridge_commands
 import taktik.core.social_media.instagram.workflows.notifications.commands as commands
+from taktik.core.social_media.instagram.workflows.notifications.agent_handler import run_instagram_notifications
 
 
 class _Bridge:
@@ -61,16 +62,18 @@ def bridge(monkeypatch):
     return created
 
 
-def _host():
-    """The bridge's own connection: the restart is its `_connect`, as in production."""
-    return commands.NotificationsHost(
-        connect=lambda restart: bridge_commands._connect("device-1", restart=restart),
+def _run(command, **fields):
+    """The command as the bridge runs it: its launcher, on the bridge's own connection (the launcher
+    restarts Instagram when the command asks for it, as in production)."""
+    return run_instagram_notifications(
+        {"command": command, "deviceId": "device-1", **fields},
+        connect=lambda package_name: bridge_commands._connect("device-1", package_name),
         emit=lambda payload: None,
     )
 
 
 def test_scan_restarts_then_closes_instagram(bridge):
-    commands.cmd_scan(_host(), 3)
+    _run("scan", scroll=3)
 
     assert bridge.restarted == 1  # opened to a known state
     assert bridge.stopped == 1    # and closed once the feed was read
@@ -79,13 +82,13 @@ def test_scan_restarts_then_closes_instagram(bridge):
 def test_per_row_action_leaves_instagram_open(bridge):
     # The operator is working through the scanned rows; closing the app between two taps
     # would force a full restart for every single accept.
-    commands.cmd_accept(_host(), "someone")
+    _run("accept", username="someone")
 
     assert bridge.restarted == 0
     assert bridge.stopped == 0
 
 
 def test_list_requests_leaves_instagram_open(bridge):
-    commands.cmd_list_requests(_host(), 50)
+    _run("list_requests", limit=50)
 
     assert bridge.stopped == 0
