@@ -87,35 +87,16 @@ class ColdDMSearchMixin:
                 time.sleep(1.5)
                 break
 
-        user_containers = self.device(resourceId=NAVIGATION_SELECTORS.search_result_container_resource_id)
-        if user_containers.exists:
-            logger.info(f"Found {user_containers.count} user containers")
-            for i in range(min(user_containers.count, 10)):
-                try:
-                    container = user_containers[i]
-                    username_elem = container.child(resourceId=NAVIGATION_SELECTORS.search_result_username_resource_id)
-                    if username_elem.exists:
-                        found_username = username_elem.get_text()
-                        if found_username:
-                            found_lower = found_username.lower().strip()
-                            logger.info(f"Checking user {i}: '{found_username}'")
-                            if found_lower == username_lower or username_lower in found_lower or found_lower in username_lower:
-                                logger.info(f"Found matching user: {found_username}, clicking container")
-                                container.click()
-                                time.sleep(2)
-                                return True
-                except Exception as e:
-                    logger.warning(f"Error checking container {i}: {e}")
-                    continue
-
-        first_username = self.device(resourceId=NAVIGATION_SELECTORS.search_result_username_resource_id)
-        if first_username.exists:
-            first_text = first_username.get_text()
-            if first_text and username_lower in first_text.lower():
-                logger.info(f"Clicking first matching result: {first_text}")
-                first_username.click()
+        # The row of THIS handle, with the production profile search's own selectors. A row whose
+        # handle merely contains the query was taken before: on Instagram 447 an account the
+        # results list only in a keyword row left the first account row around it, someone else.
+        for selector in NAVIGATION_SELECTORS.search_result_selectors_for_username(username_lower):
+            row = self.device.xpath(selector)
+            if row.exists:
+                logger.info(f"Found @{username_lower} in the search results, opening it")
+                row.click()
                 time.sleep(2)
                 return True
 
-        logger.error(f"User {username} not found in search results")
+        logger.error(f"@{username_lower} is not among the accounts the search lists: nobody opened")
         return False

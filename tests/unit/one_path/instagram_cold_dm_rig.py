@@ -141,12 +141,16 @@ class FakePhone:
             "send": suffix(DM_SELECTORS.send_button_resource_ids[0]),
         }
         self.accounts_tab = NAVIGATION_SELECTORS.search_accounts_tab_texts[0]
+        #: The search result row of one handle, as the production profile search asks for it.
+        self.row_of = NAVIGATION_SELECTORS.search_result_selectors_for_username
         self.invite_text = DM_SELECTORS.invite_sent_text_contains[0]
 
     def __call__(self, **selector):
         return _Element(self, _key(selector))
 
     def xpath(self, selector):
+        if self.user and selector in self.row_of(self.user):
+            return _Element(self, ("row_of", self.user))
         return _Element(self, _xpath_key(selector))
 
     # --- what the screen shows ------------------------------------------------------------------
@@ -163,7 +167,7 @@ class FakePhone:
             return self.state in ("search", "typed")
         if key == ("text", self.accounts_tab):
             return self.state == "typed"
-        if key in (("id", ids["row"]), ("id", ids["row_username"])):
+        if key in (("id", ids["row"]), ("id", ids["row_username"])) or kind == "row_of":
             return self.state == "typed" and self._profile().get("found", True)
         if key == ("id", ids["private_state"]):
             return self.state == "profile" and self._profile().get("private", False)
@@ -199,7 +203,7 @@ class FakePhone:
         if key == ("id", ids["search_tab"]):
             self.state = "search"
             self.search_text = ""
-        elif key in (("id", ids["row"]), ("id", ids["row_username"])):
+        elif key in (("id", ids["row"]), ("id", ids["row_username"])) or key[0] == "row_of":
             self.state = "profile"
         elif key == ("id", ids["message_button"]):
             self.state = "conversation"

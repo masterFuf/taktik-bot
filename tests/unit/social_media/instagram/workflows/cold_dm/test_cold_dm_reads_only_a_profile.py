@@ -110,6 +110,14 @@ class _Selection:
                 "contentDescription": node.get("content-desc"), "text": node.get("text"),
                 "bounds": {"left": left, "top": top, "right": right, "bottom": bottom}}
 
+    def child(self, **selector):
+        """The descendants of the first node that match, as uiautomator2's `child` finds them."""
+        return _Selection(self._phone, [n for n in self._nodes[0].iter("node") if n is not self._nodes[0]
+                                        and all(_UI_SELECTOR[k](n, v) for k, v in selector.items())])
+
+    def get_text(self):
+        return self._nodes[0].get("text")
+
     def click(self):
         left, top, right, bottom = _bounds(self._nodes[0])
         self._phone.taps.append(((left + right) // 2, (top + bottom) // 2))
