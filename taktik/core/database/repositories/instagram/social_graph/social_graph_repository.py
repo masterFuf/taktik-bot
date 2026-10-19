@@ -55,6 +55,10 @@ class SocialGraphRepository(BaseRepository):
         return row["profile_id"] if row else None
 
     def has_bot_follow_record(self, username: str, account_id: int) -> bool:
+        return self.has_successful_interaction(username, account_id, "FOLLOW")
+
+    def has_successful_interaction(self, username: str, account_id: int, interaction_type: str) -> bool:
+        """Did this account ever succeed in `interaction_type` (FOLLOW, UNFOLLOW...) on this handle?"""
         if not account_id:
             return False
 
@@ -65,13 +69,13 @@ class SocialGraphRepository(BaseRepository):
 
             interaction = self.query_one_orm_first(
                 """SELECT 1 FROM interactions
-                   WHERE platform = ? AND account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
+                   WHERE platform = ? AND account_id = ? AND profile_id = ? AND interaction_type = ? AND success = 1
                    LIMIT 1""",
-                (self.platform, account_id, profile_id),
+                (self.platform, account_id, profile_id, interaction_type),
             )
             return interaction is not None
         except Exception as exc:
-            logger.debug(f"Error checking bot follow record for @{username}: {exc}")
+            logger.debug(f"Error checking a {interaction_type} record for @{username}: {exc}")
             return False
 
     def bot_followed_usernames(self, account_id: int) -> Set[str]:

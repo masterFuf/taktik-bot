@@ -159,17 +159,16 @@ def unfollow_account(a, p):
     """Unfollow ONE account from our following list, with every check of the engine (production
     `UnfollowBusiness.unfollow_listed_accounts`): its row is found in the list, its profile
     checked when the mode asks, the row button tapped, a private account confirmed, the row read
-    again (counted only if it now offers to follow), a block detected. DESTRUCTIVE. Params:
-    username (required), account, and the page fields (unfollow_mode, skip_verified...)."""
-    from bridges.tools.lab.actions.instagram.unfollow import unfollow_config_from_params
+    again (counted only if it now offers to follow), a block detected, then written in the base.
+    DESTRUCTIVE. Params: username (required), account (required: an unfollow the base does not
+    hold leaves the account "followed" for the next decision), and the page fields
+    (unfollow_mode, skip_verified...)."""
+    from bridges.tools.lab.actions.instagram.unfollow import unfollow_and_report
 
     username = (p.get("username") or "").strip().lstrip("@")
     if not username:
         return {"success": False, "message": "username param is required"}
-    cfg = {"unfollow_mode": "all", **unfollow_config_from_params(p)}
-    stats = a.unfollow.unfollow_listed_accounts([username], cfg)
-    ok = stats.get("unfollows_made", 0) == 1
-    return {"success": ok, "message": f"@{username} unfollowed={ok}", "details": _plain(stats)}
+    return unfollow_and_report(a, username, p)
 
 
 @action("engagement.unfollow_from_list")
@@ -178,22 +177,13 @@ def unfollow_from_list(a, p):
     `UnfollowBusiness.run_unfollow_workflow`): syncs, decision on data, checks and unfollows on
     screen. DESTRUCTIVE: run on a test account. Params: account (required for the decision),
     max_unfollows (1 by default here), and the page fields."""
-    from bridges.tools.lab.actions.instagram.unfollow import unfollow_config_from_params
+    from bridges.tools.lab.actions.instagram.unfollow import plain_stats, unfollow_config_from_params
 
     cfg = {"max_unfollows": 1, **unfollow_config_from_params(p)}
     stats = a.unfollow.run_unfollow_workflow(cfg)
     return {"success": bool(stats.get("success")),
             "message": f"{stats.get('unfollows_made', 0)} unfollowed of {stats.get('candidates', 0)} candidate(s)",
-            "details": _plain(stats)}
-
-
-def _plain(stats):
-    """Stats as plain JSON (the stop reason as its code)."""
-    out = dict(stats or {})
-    reason = out.get("stop_reason")
-    if reason is not None:
-        out["stop_reason"] = getattr(reason, "code", str(reason))
-    return out
+            "details": plain_stats(stats)}
 
 
 def _ui_helpers(a):

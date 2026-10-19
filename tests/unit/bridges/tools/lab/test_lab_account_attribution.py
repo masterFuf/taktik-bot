@@ -42,6 +42,17 @@ def test_no_account_binds_nothing_rather_than_guessing_one():
     assert bundle.like.active_account_id is None
 
 
+def test_an_action_without_an_account_drops_the_one_of_the_action_before():
+    """The Lab session keeps its bundle from one action to the next: the account of the last action
+    must not be the one a later action without an account writes under."""
+    bundle = _bundle()
+    bundle.bind_account(42)
+
+    assert bundle.bind_account(None) == 0
+    assert bundle.like.active_account_id is None
+    assert bundle.feed.active_account_id is None
+
+
 def test_a_component_the_bundle_never_built_is_skipped():
     """The TikTok bundle carries a different set; binding must not require them all."""
     bundle = ActionBundle()

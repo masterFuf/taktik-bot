@@ -3,8 +3,9 @@
 Each action calls exactly what the unfollow engine (`UnfollowBusiness`) runs in production, so
 every step can be tested on its own: the syncs, the sort, the fans category, the rows the list
 shows, the decision on data (no screen), and the block detector. The destructive ones (the whole
-step, one account) live in `engagement.py`. Params `account` (the Lab binds the component to it),
-and for the decision the same fields as the page.
+step, one account) live in `engagement.py`; `unfollow_and_report` is the one unfollow of an account
+that `engagement.unfollow_account` and `profile.click_unfollow` both run. Params `account` (the Lab
+binds the component to it), and for the decision the same fields as the page.
 """
 
 from datetime import datetime, timezone
@@ -36,6 +37,44 @@ def unfollow_config_from_params(p):
     if p.get("min_delay") not in (None, "") or p.get("max_delay") not in (None, ""):
         cfg["unfollow_delay_range"] = (float(p.get("min_delay") or 2), float(p.get("max_delay") or 5))
     return cfg
+
+
+def plain_stats(stats):
+    """The engine's stats as plain JSON (the stop reason as its code)."""
+    out = dict(stats or {})
+    reason = out.get("stop_reason")
+    if reason is not None:
+        out["stop_reason"] = getattr(reason, "code", str(reason))
+    return out
+
+
+def unfollow_and_report(a, username, p):
+    """The engine's unfollow of @username under the account bound to the Lab, and what the base
+    holds after it: the UNFOLLOW interaction, and the account no longer among our active
+    followings. Refused before any gesture without an account. Shared by the two Lab unfollows."""
+    from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
+
+    account_id = a.unfollow._get_account_id()
+    if not account_id:
+        return {"success": False, "message": "account param required: the unfollow is written under it"}
+    cfg = {"unfollow_mode": "all", **unfollow_config_from_params(p)}
+    stats = a.unfollow.unfollow_listed_accounts([username], cfg)
+    unfollowed = stats.get("unfollows_made", 0) == 1
+    recorded = {
+        "unfollow_interaction": InstagramFollowGraphService.has_successful_interaction(
+            username, account_id, "UNFOLLOW"),
+        "following_row_closed": username.lower() not in InstagramFollowGraphService.get_active_following_usernames(
+            account_id),
+    }
+    if not unfollowed:
+        message = f"@{username}: not unfollowed"
+    elif all(recorded.values()):
+        message = f"@{username}: unfollowed"
+    else:
+        message = f"@{username}: unfollowed, NOT fully written in the base"
+    return {"success": unfollowed and all(recorded.values()),
+            "message": message,
+            "details": {"username": username, "recorded": recorded, **plain_stats(stats)}}
 
 
 def _sync_summary(stats):
