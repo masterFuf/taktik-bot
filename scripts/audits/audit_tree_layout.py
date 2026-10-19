@@ -265,12 +265,17 @@ LAYOUT: dict[str, Folder] = {
         folders=frozenset(), files=frozenset({ANY_PYTHON}), owner="the inbox flows of the TikTok automation bridge",
     ),
     "bridges/tools": Folder(
-        folders=frozenset({"lab", "schema"}),
+        folders=frozenset({"ai_dm", "lab", "schema"}),
         files=frozenset({"__init__.py"}),
-        owner="what the app launches outside a platform: the Cartography Lab, the schema gate of the base",
+        owner="what the app launches outside a platform: the Cartography Lab, the schema gate of the base, the "
+              "check of the DMs written by an AI",
     ),
     "bridges/tools/schema": Folder(
         folders=frozenset(), files=frozenset({"__init__.py", ENTRY}), owner="the schema gate of the base: its entry",
+    ),
+    "bridges/tools/ai_dm": Folder(
+        folders=frozenset(), files=frozenset({"__init__.py", ENTRY}),
+        owner="the check of the DMs written by an AI: its entry",
     ),
     "bridges/tools/lab": Folder(
         folders=frozenset({"actions", "action_test", "registry", "selector_test", "workflow_test",

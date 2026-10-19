@@ -1,7 +1,7 @@
 """Every declared contract, in one place: what the generator and the gates read.
 
-`WORKFLOW_CONTRACTS` the workflows of the manifest, `TOOL_CONTRACTS` the diagnostic tools the app
-runs beside them (their lines only).
+`WORKFLOW_CONTRACTS` the workflows of the manifest, `TOOL_CONTRACTS` the tools the app runs beside
+them (their lines only): the diagnostic tools, the check of the DMs written by an AI.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from typing import Dict, Tuple
 
 from . import (
     accounts,
+    ai_dm,
     diagnostics,
     instagram_agent,
     instagram_automation,
@@ -42,7 +43,7 @@ WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (
     *publish.CONTRACTS,
 )
 
-TOOL_CONTRACTS: Tuple[ToolContract, ...] = diagnostics.TOOLS
+TOOL_CONTRACTS: Tuple[ToolContract, ...] = (*diagnostics.TOOLS, *ai_dm.TOOLS)
 
 
 def contracts_by_id() -> Dict[str, WorkflowContract]:

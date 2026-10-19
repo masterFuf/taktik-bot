@@ -4,7 +4,8 @@ A DM written by an AI holds 20 to 500 characters, is in the account's language, 
 e-mail address nor phone number unless the account's frame allows them, and none of the account's
 forbidden terms. The cold DM, the DM reply and the welcome DM call `check_ai_dm_text` (or
 `refuse_ai_dm_texts` for a list given up front) instead of each growing its own checks; the app sends
-the frame in the `aiDmRules` block (`taktik/core/contract/ai_dm.py`).
+the frame in the `aiDmRules` block (`taktik/core/contract/ai_dm.py`), and checks a text before it
+keeps it in a proposal through `check_ai_dm_texts`, by the tool bridge `ai_dm_check_bridge`.
 
 Nothing here is new knowledge: the language of a text is `detect_text_language`, the account's
 language is `resolve_base_language`, the comments' rules. A text too short or too mixed for the
@@ -16,7 +17,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from loguru import logger
 
@@ -132,15 +133,26 @@ def check_ai_dm_text(text: Optional[str], rules: AiDmRules) -> Optional[AiDmRefu
     return _language_refusal(body, rules.base_language)
 
 
+def check_ai_dm_texts(texts: Iterable[Any], rules: AiDmRules) -> List[AiDmRefusal]:
+    """Every text of `texts` the rule refuses, in order, each with its rank (`index`, from 1); an
+    empty list when all may be sent. A value that is not a text is refused as an empty one."""
+    refusals: List[AiDmRefusal] = []
+    for rank, text in enumerate(texts, start=1):
+        refusal = check_ai_dm_text(text if isinstance(text, str) else None, rules)
+        if refusal is not None:
+            refusals.append(AiDmRefusal(refusal.reason, refusal.detail, index=rank))
+    return refusals
+
+
 def refuse_ai_dm_texts(texts: Iterable[Any], rules: AiDmRules) -> None:
     """Raise `AiDmTextRefused` on the first of `texts` (given up front) the rule refuses; its rank
     is said when the list holds more than one text."""
     texts = list(texts)
-    for rank, text in enumerate(texts, start=1):
-        refusal = check_ai_dm_text(text if isinstance(text, str) else None, rules)
-        if refusal is not None:
-            index = rank if len(texts) > 1 else None
-            raise AiDmTextRefused(AiDmRefusal(refusal.reason, refusal.detail, index=index))
+    refusals = check_ai_dm_texts(texts, rules)
+    if refusals:
+        first = refusals[0]
+        index = first.index if len(texts) > 1 else None
+        raise AiDmTextRefused(AiDmRefusal(first.reason, first.detail, index=index))
 
 
 def _contact_refusal(body: str) -> Optional[AiDmRefusal]:
@@ -183,5 +195,6 @@ __all__ = [
     "AiDmTextRefused",
     "ai_dm_rules_from_payload",
     "check_ai_dm_text",
+    "check_ai_dm_texts",
     "refuse_ai_dm_texts",
 ]
