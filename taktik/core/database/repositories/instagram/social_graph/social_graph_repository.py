@@ -55,6 +55,10 @@ class SocialGraphRepository(BaseRepository):
         return row["profile_id"] if row else None
 
     def has_bot_follow_record(self, username: str, account_id: int) -> bool:
+        return self.has_successful_interaction(username, account_id, "FOLLOW")
+
+    def has_successful_interaction(self, username: str, account_id: int, interaction_type: str) -> bool:
+        """Did this account ever succeed in `interaction_type` (FOLLOW, UNFOLLOW...) on this handle?"""
         if not account_id:
             return False
 
@@ -65,13 +69,13 @@ class SocialGraphRepository(BaseRepository):
 
             interaction = self.query_one_orm_first(
                 """SELECT 1 FROM interactions
-                   WHERE platform = ? AND account_id = ? AND profile_id = ? AND interaction_type = 'FOLLOW' AND success = 1
+                   WHERE platform = ? AND account_id = ? AND profile_id = ? AND interaction_type = ? AND success = 1
                    LIMIT 1""",
-                (self.platform, account_id, profile_id),
+                (self.platform, account_id, profile_id, interaction_type),
             )
             return interaction is not None
         except Exception as exc:
-            logger.debug(f"Error checking bot follow record for @{username}: {exc}")
+            logger.debug(f"Error checking a {interaction_type} record for @{username}: {exc}")
             return False
 
     def bot_followed_usernames(self, account_id: int) -> Set[str]:
@@ -157,13 +161,15 @@ class SocialGraphRepository(BaseRepository):
         dropped. Exceptions are not caught here:
         the caller handles the error and
         renvoie un statut "error".
+
+        `unfollowed_at` is stamped by SQLite (`datetime('now')`, UTC), the clock of `first_seen_at`,
+        `last_seen_at` and the interactions. It was Python's local time, two hours ahead in France.
         """
-        unfollowed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if unfollowed else None
         self.execute(
             """INSERT INTO social_graph_sync
                    (platform, account_id, username, direction, display_name,
                     is_reciprocal, followed_by_bot, unfollowed_at, source)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+               VALUES (?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') END, ?)
                ON CONFLICT(platform, account_id, username, direction) DO UPDATE SET
                    display_name = COALESCE(NULLIF(excluded.display_name, ''), social_graph_sync.display_name),
                    is_reciprocal = COALESCE(excluded.is_reciprocal, social_graph_sync.is_reciprocal),
@@ -179,7 +185,7 @@ class SocialGraphRepository(BaseRepository):
                 display_name,
                 None if is_reciprocal is None else int(is_reciprocal),
                 None if followed_by_bot is None else int(followed_by_bot),
-                unfollowed_at,
+                int(bool(unfollowed)),
                 source,
             ),
         )

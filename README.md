@@ -218,6 +218,7 @@ in English, macOS and Linux. Not tested promises nothing, either way.
 ### Development tests
 
 ```bash
+pip install -r requirements-dev.txt   # the engine's requirements, plus the test and format tools
 python -m pytest
 ```
 

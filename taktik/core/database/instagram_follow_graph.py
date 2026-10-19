@@ -30,13 +30,18 @@ class InstagramFollowGraphService:
     @classmethod
     def has_bot_follow_record(cls, username: str, account_id: int) -> bool:
         """Return whether the bot account successfully followed this username before."""
+        return cls.has_successful_interaction(username, account_id, "FOLLOW")
+
+    @classmethod
+    def has_successful_interaction(cls, username: str, account_id: int, interaction_type: str) -> bool:
+        """Whether the account ever succeeded in `interaction_type` (FOLLOW, UNFOLLOW...) on this handle."""
         if not account_id:
             return False
 
         try:
-            return cls._repository().has_bot_follow_record(username=username, account_id=account_id)
+            return cls._repository().has_successful_interaction(username, account_id, interaction_type)
         except Exception as exc:
-            log.debug(f"Error checking bot follow record for @{username}: {exc}")
+            log.debug(f"Error checking a {interaction_type} record for @{username}: {exc}")
             return False
 
     @classmethod

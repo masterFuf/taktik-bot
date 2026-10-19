@@ -24,20 +24,20 @@ class ActionBundle:
         one action, leaving every other action wrong. Binding happens here now, once per
         action run, for the whole bundle.
 
-        No account means no binding: the components keep a null identity and their own
-        guard refuses to record, which is visible in the log rather than silently wrong.
+        No account means no identity: the components are reset to a null one and their own guard
+        refuses to record, which is visible in the log rather than silently wrong. The Lab session
+        keeps its bundle from one action to the next: without the reset, an action run without an
+        account wrote under the account of the action before it.
         """
-        if not account_id:
-            return 0
-
+        identity = account_id or None
         bound = 0
         for name in self._IDENTITY_BEARING:
             component = getattr(self, name, None)
-            if component is None:
-                continue
-            if hasattr(component, "active_account_id"):
-                component.active_account_id = account_id
+            if component is not None and hasattr(component, "active_account_id"):
+                component.active_account_id = identity
                 bound += 1
+        if identity is None:
+            return 0
         logger.debug(f"Lab bundle bound to account {account_id} ({bound} components)")
         return bound
 

@@ -1,3 +1,4 @@
+# What the engine needs to run: the one list, read by setup.py for `pip install .` too.
 typer>=0.9.0
 rich>=13.3.5,<14.0
 click>=8.1.3
@@ -30,9 +31,4 @@ sqlalchemy>=1.4,<2.0
 reportlab>=4.4.3
 packaging>=23.0
 
-pytest>=7.3.1
-pytest-cov>=4.1.0
-
-black>=23.3.0
-flake8>=6.0.0
-isort>=5.12.0
+# The tools of a developer (tests, formatters) are in requirements-dev.txt, which includes this list.

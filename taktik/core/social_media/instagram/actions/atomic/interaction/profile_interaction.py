@@ -56,9 +56,6 @@ def classify_follow_state(text: str, selectors) -> Optional[str]:
 class ProfileInteractionMixin(BaseAction):
     """Mixin: follow/unfollow, message button, follow state detection, review popup."""
 
-    def click_unfollow_button(self) -> bool:
-        return self._click_button(self.profile_selectors.following_button, "Unfollow button", "👤")
-
     def click_message_button(self) -> bool:
         return self._click_button(self.profile_selectors.message_button, "Message button", "💌")
 

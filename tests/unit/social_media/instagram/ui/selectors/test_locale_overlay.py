@@ -84,7 +84,7 @@ def test_following_button_is_always_scoped_to_the_button():
     Device truth: the profile header also carries `profile_header_follow_context_text`
     ("Suivi(e) par X, Y" / "Followed by X, Y" = mutual friends), a NON-clickable TextView sitting
     just above the button. A bare //*[contains(@text, "Suivi(e)")] matches that decoy, so
-    click_unfollow_button could tap the label instead of the button. Every entry must therefore be
+    a tap on the selector could land on the label instead of the button. Every entry must therefore be
     anchored either by resource-id or by the Button class (the decoy is a TextView).
     """
     for loc in (None, "fr", "en"):

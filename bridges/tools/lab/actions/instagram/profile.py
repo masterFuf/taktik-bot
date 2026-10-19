@@ -3,6 +3,7 @@
 from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action, detection_action
+from bridges.tools.lab.actions.instagram.unfollow import unfollow_and_report
 from bridges.tools.lab.action_test.not_applicable import absent_on_screen
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.shared.behavior.interaction_plan import build_interaction_plan
@@ -60,7 +61,22 @@ def click_follow(a, p):
 
 @action("profile.click_unfollow")
 def click_unfollow(a, p):
-    return a.click.click_unfollow_button()
+    """Unfollow the open profile the way the unfollow engine does, and write it down.
+
+    Production never unfollows from a profile's header: the engine finds the account's row in our
+    following list, checks it, taps the row, reads it again, then writes the UNFOLLOW and closes our
+    following row. So the handle is read here with the production reader, and the rest is
+    `engagement.unfollow_account` with that handle (`unfollow_and_report`). Nothing is tapped on
+    the header (its "Following" button opens the sheet whose first line unfollows).
+
+    Params: account (required: an unfollow the base does not hold leaves the account "followed"
+    for the next decision), and the page fields (unfollow_mode, skip_verified...). Be on the
+    profile, its header visible. DESTRUCTIVE.
+    """
+    username = a.unfollow.detection_actions.get_username_from_profile()
+    if not username:
+        return {"success": False, "message": "profile handle unreadable: no unfollow, it could not be written"}
+    return unfollow_and_report(a, username, p)
 
 
 @detection_action("profile.is_follow_available")

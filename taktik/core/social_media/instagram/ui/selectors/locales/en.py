@@ -930,7 +930,7 @@ STRINGS: Dict[str, List[str]] = {
     ],
     # SCOPE: a bare text match also caught profile_header_follow_context_text
     # ("Followed by X, Y" = mutual friends), a NON-clickable TextView above the button -> a
-    # click_unfollow_button could tap that label. Scope by resource-id first, then fall back to
+    # tap on this selector could land on that label. Scope by resource-id first, then fall back to
     # the Button class (the decoy is a TextView).
     "profile.following_button": [
         "//*[@resource-id=\"com.instagram.android:id/profile_header_follow_button\" and contains(@text, \"Following\")]",
