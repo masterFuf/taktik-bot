@@ -3,6 +3,7 @@ AI lines, the step telemetry."""
 
 from __future__ import annotations
 
+from .error_codes import BRIDGE_ERROR_CODE
 from .schema import HOST, Event, Field, OneOf, Shape
 from .stop_reasons import TIKTOK_COMPLETION_REASON
 
@@ -60,7 +61,7 @@ ERROR_EVENT = Event(
     doc="The run failed or was refused.",
     fields=(
         Field("error", "string", "What went wrong, for a person."),
-        Field("error_code", "string", "A code the app translates.", optional=True),
+        Field("error_code", BRIDGE_ERROR_CODE, "A code the app translates: one of `error_codes.py`.", optional=True),
         Field("traceback", "string", "Diagnostic context for a crash report.", optional=True),
     ),
 )

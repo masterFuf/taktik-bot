@@ -5,7 +5,7 @@ The app's types for the declared workflows are generated from the declaration, n
 hand: the settings each workflow reads (their defaults, the bounds outside which its reader refuses
 the run, and the same settings as data the app reads while it runs), the file its bridge reads, the
 lines its bridge prints; the lines of the diagnostic tools; the catalogues of why a run ends (named
-unions).
+unions); the codes of a bridge's `error` line, with the key of each one's sentence in the app.
 The output is deterministic (declaration order, no date), so the app's gate compares it byte for
 byte with the file it commits.
 
@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
 
 from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS  # noqa: E402
 from taktik.core.contract.bounds import describe  # noqa: E402
+from taktik.core.contract.error_codes import BRIDGE_ERROR_CODE, BRIDGE_ERROR_PHRASES  # noqa: E402
 from taktik.core.contract.schema import (  # noqa: E402
     HOST,
     Bounds,
@@ -92,9 +93,10 @@ HEADER = """/**
  * run before the phone is touched, `<NAME>_BOT_SETTINGS` the same settings as data, for code that reads
  * them while the app runs, `WORKFLOW_BOT_SETTINGS` by workflow of the manifest), the file its bridge reads
  * (`<Name>BridgePayload`) and the stdout lines the app reads (`<Name>BridgeLine`); the lines of the
- * diagnostic tools the app runs beside them; the catalogues of why a run ends, one union each. Rendered
- * by `core/scripts/audits/workflow_contract.py`; `npm run workflow:contract` fails when this file and the
- * bot disagree.
+ * diagnostic tools the app runs beside them; the catalogues of why a run ends, one union each; the codes
+ * of a bridge's `error` line (`BridgeErrorCode`) and the key of each one's sentence in the app
+ * (`BRIDGE_ERROR_PHRASE_KEYS`). Rendered by `core/scripts/audits/workflow_contract.py`;
+ * `npm run workflow:contract` fails when this file and the bot disagree.
  */
 """
 
@@ -193,6 +195,15 @@ def render_catalogue(catalogue: OneOf) -> List[str]:
     out = [f"/** {catalogue.doc} */"] if catalogue.doc else []
     out.append(f"export type {catalogue.name} =")
     out += [f"  | '{value}'" for value in catalogue.values]
+    return out
+
+
+def render_error_phrases() -> List[str]:
+    """`BRIDGE_ERROR_PHRASE_KEYS`: for each code of a bridge's `error` line, the key of its sentence."""
+    out = ["/** The key of each code's sentence in the app's translations (`sessionLive`): `contract/error_codes.py`. */",
+           f"export const BRIDGE_ERROR_PHRASE_KEYS: Readonly<Record<{BRIDGE_ERROR_CODE.name}, string>> = {{"]
+    out += [f"  {ts_key(code)}: {literal(key)}," for code, key in BRIDGE_ERROR_PHRASES.items()]
+    out.append("}")
     return out
 
 
@@ -570,7 +581,7 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
         exported += ["SettingCondition", "SettingBounds", "SettingType", "SettingDeclaration", "SettingsDeclaration",
                      "BotSettings", "WorkflowBotSettings"]
     shapes: Dict[str, Shape] = {}
-    catalogues: Dict[str, OneOf] = {catalogue.name: catalogue for catalogue in CATALOGUES}
+    catalogues: Dict[str, OneOf] = {catalogue.name: catalogue for catalogue in (*CATALOGUES, BRIDGE_ERROR_CODE)}
     settings: set = set()
     filled: set = set()
     every_field = [
@@ -593,6 +604,8 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
     for catalogue in catalogues.values():
         lines += render_catalogue(catalogue) + [""]
         exported.append(catalogue.name)
+    lines += render_error_phrases() + [""]
+    exported.append("BRIDGE_ERROR_PHRASE_KEYS")
     for shape in shapes.values():
         lines += render_shape(shape, shape.name in filled)
         if shape.name in settings:
@@ -717,8 +730,9 @@ def as_data(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
         }
         for tool in tools
     }
-    catalogues = {catalogue.name: list(catalogue.values) for catalogue in CATALOGUES}
-    return {"workflows": workflows, "tools": tool_data, "catalogues": catalogues, "exports": exported}
+    catalogues = {catalogue.name: list(catalogue.values) for catalogue in (*CATALOGUES, BRIDGE_ERROR_CODE)}
+    return {"workflows": workflows, "tools": tool_data, "catalogues": catalogues,
+            "errorPhrases": dict(BRIDGE_ERROR_PHRASES), "exports": exported}
 
 
 def main(argv: Optional[List[str]] = None) -> int:

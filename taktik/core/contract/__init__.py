@@ -1,7 +1,8 @@
 """The bot/app contract, declared once: settings each workflow reads, lines each bridge prints.
 
 `schema` is the vocabulary, `shared` what every bridge shares, `stop_reasons` the catalogues of why
-a run ends, one module per platform declares its workflows, `diagnostics` the lines of the
+a run ends, `error_codes` the codes of a bridge's `error` line and their sentences in the app, one
+module per platform declares its workflows, `diagnostics` the lines of the
 diagnostic tools, `registry` lists them. Plain data that imports no workflow: the generator of the app's
 types (`scripts/audits/workflow_contract.py`) never builds a run nor touches a phone.
 """
