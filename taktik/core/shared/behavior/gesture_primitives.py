@@ -20,7 +20,7 @@ is documented in `internal docs`.
 import time
 import random
 import math
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 from loguru import logger as _gesture_logger
 
@@ -358,6 +358,12 @@ class GestureMixin:
     """Mixin of humanized scroll/drag/flick primitives. Host must expose `self.device`,
     `self.screen_width`, `self.screen_height`, `self.logger`."""
 
+    # What the host gives this mixin, like the fields of a TypeScript interface.
+    device: Any  # a device facade: the raw uiautomator2 device in `_device`, and `swipe_coordinates`
+    screen_width: int
+    screen_height: int
+    logger: Any  # a loguru logger, or any object with `debug` and `error`
+
     @staticmethod
     def _fling_total(path) -> float:
         """Total fling duration giving a CONSISTENT release velocity (~2800-3800 px/s) so the coast
@@ -366,7 +372,7 @@ class GestureMixin:
         dy = abs(path[-1][1] - path[0][1]) or 1
         return _fling_total_duration(dy)
 
-    def _report_gesture(self, action: str, direction: str, start: Sequence[int], end: Sequence[int],
+    def _report_gesture(self, action: str, direction: str, start: Sequence[float], end: Sequence[float],
                         duration: float, **detail) -> None:
         """One journal line and one step metric per gesture: where the finger went down, where it
         lifted, how long it took. A tap writes its point (`human_tap_at`); a scroll wrote only the
