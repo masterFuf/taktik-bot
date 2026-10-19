@@ -441,10 +441,20 @@ class WorkflowRunner:
             return "Fans not read: the category could not be read"
         return "Fans not read"
 
+    @staticmethod
+    def _sync_end(following: Dict[str, Any], other_list_read: bool):
+        """The motive a sync run ends on: `completed` when its lists were read, otherwise the list
+        that was not (the following list first, the one the unfollow decides on)."""
+        if not following.get('success'):
+            return stop_reasons.following_list_unproven(following.get('total_seen', 0), following.get('expected'))
+        if not other_list_read:
+            return stop_reasons.list_unavailable()
+        return stop_reasons.completed(0)
+
     def _run_sync_following_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the sync_following workflow — incremental following list sync + non-follower detection.
         
-        Standalone: syncs following list then scrapes non-followers, emits IPC and finalizes.
+        Standalone: syncs following list then scrapes non-followers, emits IPC and ends the session.
         """
         import json
         
@@ -473,8 +483,10 @@ class WorkflowRunner:
         }
         print(json.dumps(sync_complete_msg), flush=True)
         
-        # Finalize session immediately (sync is a one-shot workflow)
-        self.automation.session_finalized = True
+        # A one-shot run: it ends its session here, `session_stop` and the row's end included. It
+        # used to set `session_finalized` alone, which stops the loop and nothing else: the row
+        # stayed ACTIVE (Pixel 3, 2026-09-28).
+        self._finalize_on(self._sync_end(sync_stats, nf_stats['success']))
         
         return sync_stats['success']
     
@@ -491,8 +503,6 @@ class WorkflowRunner:
         
         mode = action.get('mode', 'fast')
         unfollow_business = self._get_unfollow_business()
-        
-        import time
         
         # Step 1/2: Sync following list
         self.logger.info("📊 Step 1/2: Syncing following list...")
@@ -551,8 +561,8 @@ class WorkflowRunner:
         }
         print(json.dumps(sync_complete_msg), flush=True)
         
-        # Finalize session immediately (sync is a one-shot workflow)
-        self.automation.session_finalized = True
+        # A one-shot run: it ends its session here (see `_run_sync_following_workflow`).
+        self._finalize_on(self._sync_end(sync_stats, followers_stats['success']))
         
         return sync_stats['success'] and followers_stats['success']
     

@@ -194,7 +194,11 @@ def _runner_on(business):
     from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
 
     runner = WorkflowRunner.__new__(WorkflowRunner)
-    runner.automation = SimpleNamespace()
+    # The run the step ends: its session's end, here a no-op (`test_sync_closes_its_session.py`).
+    runner.automation = SimpleNamespace(
+        session_finalized=False,
+        helpers=SimpleNamespace(finalize_session=lambda status="COMPLETED", reason=None: None),
+    )
     runner.logger = logger
     runner._get_unfollow_business = lambda: business
     return runner
