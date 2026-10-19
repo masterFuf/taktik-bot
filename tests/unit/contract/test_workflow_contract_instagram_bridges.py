@@ -196,7 +196,28 @@ def test_the_scraping_bridge_follows_its_contract(scraping_bridge, printed, kind
     assert_reads(INSTAGRAM_SCRAPING, data, log)
     lines = printed()
     check_lines(INSTAGRAM_SCRAPING, lines)
-    assert {line["type"] for line in lines} == {event.type for event in INSTAGRAM_SCRAPING.events}
+    # `error` is a refusal's: `test_a_scraping_run_refused_at_the_network_door_says_its_code`.
+    assert {line["type"] for line in lines} == {event.type for event in INSTAGRAM_SCRAPING.events} - {"error"}
+
+
+def _no_route(monkeypatch) -> None:
+    """The phone's network as the launchers' door measures it: no route at all."""
+    from taktik.core.shared.device import network_door
+
+    monkeypatch.setattr(network_door, "measure_network_baseline", lambda device_id: {"unreachable": True})
+
+
+def test_a_scraping_run_refused_at_the_network_door_says_its_code(scraping_bridge, printed, monkeypatch):
+    """The `error` line, which the app's crash capture reads, and the verdict, which the panel reads:
+    both carry the code."""
+    _no_route(monkeypatch)
+
+    assert scraping_bridge.ScrapingRun(app_file(INSTAGRAM_SCRAPING, type="target")).run() == 1
+
+    lines = printed()
+    check_lines(INSTAGRAM_SCRAPING, lines)
+    assert [line["type"] for line in lines] == ["error", "scraping_result"]
+    assert [line["error_code"] for line in lines] == ["NETWORK_UNREACHABLE", "NETWORK_UNREACHABLE"]
 
 
 def test_a_scraping_run_with_nothing_to_scrape_is_refused_in_its_last_line(scraping_bridge, printed):
@@ -403,11 +424,31 @@ def test_the_dm_bridge_follows_its_contracts(dm_bridge, printed, contract, chose
     assert_reads(contract, data, log)
     lines = printed()
     check_lines(contract, lines)
-    expected = {event.type for event in contract.events}
+    # `error` is a refusal's: `test_a_dm_command_refused_at_the_network_door_says_its_code`.
+    expected = {event.type for event in contract.events} - {"error"}
     if chosen["command"] == "read_requests":
         expected -= {"account_detected"}
     assert {line["type"] for line in lines} == expected
     assert lines[-1]["type"] == "result" and lines[-1]["success"] is True
+
+
+@pytest.mark.parametrize("contract, chosen", [
+    pytest.param(INSTAGRAM_DM_READ, {"command": "read"}, id="read"),
+    pytest.param(INSTAGRAM_DM_SEND, {"command": "send"}, id="send"),
+])
+def test_a_dm_command_refused_at_the_network_door_says_its_code(dm_bridge, printed, monkeypatch, contract, chosen):
+    """The `error` line, which the app's crash capture reads, and the last line, which the page reads:
+    both carry the code."""
+    _no_route(monkeypatch)
+
+    with pytest.raises(SystemExit):
+        dm_bridge.DMCommand(app_file(contract, **chosen)).run()
+
+    lines = printed()
+    check_lines(contract, lines)
+    assert [line["type"] for line in lines] == ["error", "result"]
+    assert [line["error_code"] for line in lines] == ["NETWORK_UNREACHABLE", "NETWORK_UNREACHABLE"]
+    assert lines[-1]["success"] is False
 
 
 def test_a_reply_without_its_text_is_refused_in_its_last_line(dm_bridge, printed):

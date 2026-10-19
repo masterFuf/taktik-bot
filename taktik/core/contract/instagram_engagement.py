@@ -11,6 +11,7 @@ from .schema import HOST, Bounds, Computed, Event, Field, ListOf, OneOf, Refusal
 from .shared import (
     AI_SPEND_EVENT,
     ERROR_CODE_FIELD,
+    ERROR_EVENT,
     SESSION_START_EVENT,
     device_field,
     instagram_package_field,
@@ -155,7 +156,10 @@ INSTAGRAM_DM_READ = WorkflowContract(
     ),
     bridge_fields=_DM_BRIDGE_FIELDS,
     refusals=(Refusal("command", doc="No command."),),
+    # `error`: a refusal at the network door (`send_network_refusal`), read by the app's crash capture;
+    # the page reads the last line, which carries the same code.
     events=(
+        ERROR_EVENT,
         Event("account_detected", doc="The account the inbox belongs to, read from its header.", fields=(
             Field("account_username", "string", "Its handle."),
         )),
@@ -206,6 +210,7 @@ INSTAGRAM_DM_SEND = WorkflowContract(
         Refusal("message", doc="Nothing to reply."),
     ),
     events=(
+        ERROR_EVENT,
         _dm_result(
             Field("username", "string", "The conversation replied in.", optional=True),
             Field("message", "string", "The reply sent.", optional=True),

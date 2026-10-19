@@ -444,7 +444,7 @@ def test_every_declared_line_and_field_comes_out_of_a_real_run(notifications_bri
     monkeypatch.setattr(network_door, "measure_network_baseline", lambda device_id: {"unreachable": True})
     with pytest.raises(SystemExit):
         _run(notifications_bridge, app_file(INSTAGRAM_NOTIFICATIONS, command="scan", **_RUNS["scan"]), set())
-    seen.append(printed()[-1])
+    seen += printed()
 
     check_lines(INSTAGRAM_NOTIFICATIONS, seen)
     assert {line["type"] for line in seen} == {event.type for event in INSTAGRAM_NOTIFICATIONS.events}
