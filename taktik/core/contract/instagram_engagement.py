@@ -183,6 +183,9 @@ INSTAGRAM_DM_SEND = WorkflowContract(
         Field("command", OneOf(("send",)), "A reply.", required=True, attr="command"),
         Field("username", "string", "The conversation to reply in.", required=True, attr="username"),
         Field("message", "string", "The reply.", required=True, attr="message"),
+        Field("receivedMessage", "string", "The message this reply answers. With the frame, the reply may be in its "
+              "language as well as the account's; absent or too short to be recognised: the account's language "
+              "only.", optional=True, attr="received_message"),
         ai_dm_rules_field("The account's frame for a reply written by an AI (the AI mode's drafts). Present: the "
                           "reply is checked before the phone and refused if the rule refuses it. Absent: the "
                           "reply is the operator's."),

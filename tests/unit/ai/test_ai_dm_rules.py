@@ -112,3 +112,44 @@ def test_a_list_given_up_front_is_refused_on_its_first_broken_text_with_its_rank
     assert refusal.as_line() == {"reason": "too_long", "detail": "612 characters, 500 at most", "index": 2}
     assert refusal.describe() == "message 2: 612 characters, 500 at most"
     assert str(refused.value) == "Text refused: message 2: 612 characters, 500 at most"
+
+
+ENGLISH_REPLY = "Thanks a lot Lea, your bakery looks amazing, could we talk about it soon?"
+ENGLISH_RECEIVED = "Hello, thank you for your message, I would love to hear more about what you do."
+FRENCH_RECEIVED = "Bonjour, merci pour ton message, je serais ravie d'en savoir plus sur ce que tu fais."
+
+
+def test_a_reply_may_be_in_the_language_of_the_message_it_answers():
+    assert check_ai_dm_text(ENGLISH_REPLY, FRENCH, received_text=ENGLISH_RECEIVED) is None
+
+
+def test_a_reply_may_still_be_in_the_account_language():
+    assert check_ai_dm_text(GOOD, FRENCH, received_text=ENGLISH_RECEIVED) is None
+
+
+def test_the_same_reply_to_a_french_message_is_refused():
+    refusal = check_ai_dm_text(ENGLISH_REPLY, FRENCH, received_text=FRENCH_RECEIVED)
+
+    assert refusal is not None and refusal.reason == "language"
+
+
+def test_a_cold_dm_stays_in_the_account_language():
+    # No received text: a cold DM and a welcome DM answer nobody.
+    refusal = check_ai_dm_text(ENGLISH_REPLY, FRENCH)
+
+    assert refusal is not None and refusal.reason == "language"
+
+
+def test_a_received_message_too_short_to_be_recognised_allows_the_account_language_only():
+    assert check_ai_dm_text(GOOD, FRENCH, received_text="ok") is None
+    refusal = check_ai_dm_text(ENGLISH_REPLY, FRENCH, received_text="ok")
+
+    assert refusal is not None and refusal.reason == "language"
+
+
+def test_a_received_message_in_another_language_than_the_reply_lets_that_language_through_only():
+    german = "Hallo, vielen Dank für deine Nachricht, ich würde gerne mehr darüber erfahren."
+
+    refusal = check_ai_dm_text(ENGLISH_REPLY, FRENCH, received_text=german)
+
+    assert refusal is not None and refusal.reason == "language"

@@ -51,3 +51,25 @@ def test_a_reply_the_rule_lets_through_reaches_the_phone(message, extra):
 def test_an_unreadable_frame_is_a_refused_command():
     with pytest.raises(DmCommandError, match="aiDmRules"):
         run_instagram_dm(_reply(WITHIN_RULES, aiDmRules=["promo"]), connect=_never_connect)
+
+
+ENGLISH_REPLY = "Thanks a lot Lea, your bakery looks amazing, could we talk about it soon?"
+ENGLISH_RECEIVED = "Hello, thank you for your message, I would love to hear more about what you do."
+FRENCH_RECEIVED = "Bonjour, merci pour ton message, je serais ravie d'en savoir plus sur ce que tu fais."
+
+
+def test_a_reply_in_the_language_of_the_message_received_reaches_the_phone():
+    def connect(package_name):
+        raise RuntimeError("stop at the phone")
+
+    with pytest.raises(RuntimeError, match="stop at the phone"):
+        run_instagram_dm(_reply(ENGLISH_REPLY, aiDmRules=FRENCH_ACCOUNT, receivedMessage=ENGLISH_RECEIVED),
+                         connect=connect)
+
+
+def test_the_same_reply_to_a_french_message_is_refused_before_the_phone():
+    with pytest.raises(AiDmTextRefused) as refused:
+        run_instagram_dm(_reply(ENGLISH_REPLY, aiDmRules=FRENCH_ACCOUNT, receivedMessage=FRENCH_RECEIVED),
+                         connect=_never_connect)
+
+    assert refused.value.refusal.reason == "language"

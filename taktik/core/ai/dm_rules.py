@@ -1,6 +1,7 @@
 """The one rule every DM written by an AI goes through before it is typed (decision of 18/10, q. 33).
 
-A DM written by an AI holds 20 to 500 characters, is in the account's language, carries no link,
+A DM written by an AI holds 20 to 500 characters, is in the account's language (a reply may also be in
+the language of the message it answers), carries no link,
 e-mail address nor phone number unless the account's frame allows them, and none of the account's
 forbidden terms. The cold DM, the DM reply and the welcome DM call `check_ai_dm_text` (or
 `refuse_ai_dm_texts` for a list given up front) instead of each growing its own checks; the app sends
@@ -11,6 +12,10 @@ Nothing here is new knowledge: the language of a text is `detect_text_language`,
 language is `resolve_base_language`, the comments' rules. A text too short or too mixed for the
 detector passes the language rule (and the log says so): refusing every short greeting would refuse
 the DMs the rule exists for.
+
+The language of a reply (decision of 19/10): the account's or that of the message received, the same
+`detect_text_language` on that message. A message too short to be recognised allows the account's
+language only. A cold DM and a welcome DM answer nobody: they stay in the account's language.
 """
 
 from __future__ import annotations
@@ -112,8 +117,13 @@ def ai_dm_rules_from_payload(block: Any) -> AiDmRules:
     )
 
 
-def check_ai_dm_text(text: Optional[str], rules: AiDmRules) -> Optional[AiDmRefusal]:
+def check_ai_dm_text(
+    text: Optional[str], rules: AiDmRules, received_text: Optional[str] = None
+) -> Optional[AiDmRefusal]:
     """The first rule `text` breaks, or None when it may be sent.
+
+    `received_text` is the message a reply answers; given, its language is allowed besides the
+    account's.
 
     In this order: its length, an e-mail address, a link, a phone number, a forbidden term, its
     language. The length counts the characters of the text without its surrounding spaces.
@@ -130,25 +140,27 @@ def check_ai_dm_text(text: Optional[str], rules: AiDmRules) -> Optional[AiDmRefu
     term = _forbidden_term_in(body, rules.forbidden_terms)
     if term is not None:
         return AiDmRefusal(FORBIDDEN_TERM, f"contains the forbidden term \"{term}\"")
-    return _language_refusal(body, rules.base_language)
+    return _language_refusal(body, rules.base_language, received_text)
 
 
-def check_ai_dm_texts(texts: Iterable[Any], rules: AiDmRules) -> List[AiDmRefusal]:
+def check_ai_dm_texts(
+    texts: Iterable[Any], rules: AiDmRules, received_text: Optional[str] = None
+) -> List[AiDmRefusal]:
     """Every text of `texts` the rule refuses, in order, each with its rank (`index`, from 1); an
     empty list when all may be sent. A value that is not a text is refused as an empty one."""
     refusals: List[AiDmRefusal] = []
     for rank, text in enumerate(texts, start=1):
-        refusal = check_ai_dm_text(text if isinstance(text, str) else None, rules)
+        refusal = check_ai_dm_text(text if isinstance(text, str) else None, rules, received_text)
         if refusal is not None:
             refusals.append(AiDmRefusal(refusal.reason, refusal.detail, index=rank))
     return refusals
 
 
-def refuse_ai_dm_texts(texts: Iterable[Any], rules: AiDmRules) -> None:
+def refuse_ai_dm_texts(texts: Iterable[Any], rules: AiDmRules, received_text: Optional[str] = None) -> None:
     """Raise `AiDmTextRefused` on the first of `texts` (given up front) the rule refuses; its rank
     is said when the list holds more than one text."""
     texts = list(texts)
-    refusals = check_ai_dm_texts(texts, rules)
+    refusals = check_ai_dm_texts(texts, rules, received_text)
     if refusals:
         first = refusals[0]
         index = first.index if len(texts) > 1 else None
@@ -177,15 +189,20 @@ def _forbidden_term_in(body: str, terms: Tuple[str, ...]) -> Optional[str]:
     return None
 
 
-def _language_refusal(body: str, base_language: Optional[str]) -> Optional[AiDmRefusal]:
+def _language_refusal(
+    body: str, base_language: Optional[str], received_text: Optional[str] = None
+) -> Optional[AiDmRefusal]:
     detected = detect_text_language(body)
     if detected is None:
         logger.info("DM written by an AI: language not recognised (too short or mixed), accepted")
         return None
     accepted = (base_language,) if base_language else UNKNOWN_ACCOUNT_LANGUAGES
+    answered = detect_text_language(received_text)
+    if answered is not None:
+        accepted = (*accepted, answered)
     if detected in accepted:
         return None
-    wanted = base_language or " or ".join(UNKNOWN_ACCOUNT_LANGUAGES)
+    wanted = " or ".join(dict.fromkeys(accepted))
     return AiDmRefusal(LANGUAGE, f"written in {detected}, the account writes in {wanted}")
 
 

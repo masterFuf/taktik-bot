@@ -31,6 +31,8 @@ class DmCommand:
     limit: int = 10
     username: Optional[str] = None
     message: Optional[str] = None
+    #: The message a reply written by an AI answers: its language is allowed besides the account's.
+    received_message: Optional[str] = None
 
 
 def dm_command_from_payload(config: Mapping[str, Any]) -> DmCommand:
@@ -47,14 +49,15 @@ def dm_command_from_payload(config: Mapping[str, Any]) -> DmCommand:
         message = config.get("message")
         if not username or not message:
             raise DmCommandError("send needs a username and a message")
+        received_message = config.get("receivedMessage")
         rules_block = config.get("aiDmRules")
         if rules_block is not None:
             try:
                 rules = ai_dm_rules_from_payload(rules_block)
             except ValueError as unreadable:
                 raise DmCommandError(str(unreadable)) from unreadable
-            refuse_ai_dm_texts([message], rules)
-        return DmCommand(command=command, username=username, message=message)
+            refuse_ai_dm_texts([message], rules, received_text=received_message)
+        return DmCommand(command=command, username=username, message=message, received_message=received_message)
     raise DmCommandError(f"Unknown command: {command}")
 
 
