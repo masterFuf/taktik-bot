@@ -108,3 +108,22 @@ def test_without_a_key_a_scripted_ai_run_is_refused_before_the_phone(igc_rig):
     assert "OPENROUTER_API_KEY" in result.output
     assert igc_rig.sent == []
     assert igc_rig.ai_calls == []
+
+
+def test_a_phone_without_network_messages_nobody_from_either_path(igc_rig):
+    """No route at all: the CLI used to write into a phone without network. Both paths now refuse the
+    run at the launcher's network door, once the phone is connected, before Instagram restarts."""
+    igc_rig.network.cut()
+
+    assert igc_rig.run_bridge(cold_dm_payload()) == 1
+    assert [fields.get("error_code") for kind, fields in igc_rig.events if kind == "error"][-1] == \
+        "NETWORK_UNREACHABLE"
+    assert igc_rig.stdout_lines[-1]["success"] is False
+    assert igc_rig.sent == [] and igc_rig.sessions == []
+    igc_rig.reset()
+
+    result = igc_rig.run_cli(cold_dm_payload())
+
+    assert result.exit_code == 1, result.output
+    assert "NETWORK_UNREACHABLE" in result.output
+    assert igc_rig.sent == [] and igc_rig.sessions == []

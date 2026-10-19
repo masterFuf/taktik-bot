@@ -226,6 +226,16 @@ def _no_keyboard_given_back_at_exit(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _network_door_never_reaches_adb(monkeypatch):
+    """The network door the launchers open (`network_door.open_network_door`) pings the phone with
+    the real adb: in a test, its measure is unreadable, which never blocks a run. A test of the door
+    or a rig puts its own measure in place of this one."""
+    from taktik.core.shared.device import network_door
+
+    monkeypatch.setattr(network_door, "measure_network_baseline", lambda device_id: None)
+
+
+@pytest.fixture(autouse=True)
 def _no_operator_settings_file(monkeypatch, tmp_path_factory):
     """No test reads or writes the operator's `~/.taktik/api_config.json` (a saved OpenRouter key
     there would turn every "no key" test green or red depending on the machine), and no key typed

@@ -73,3 +73,25 @@ def test_without_a_key_a_scripted_ai_run_is_refused_before_the_phone(rig, page_p
     assert "OPENROUTER_API_KEY" in result.output
     assert rig.ai_installs == [] and rig.ai_services == []
     assert rig.workflows == [] and rig.calls == []
+
+
+def _error_codes(events) -> list:
+    return [fields.get("error_code") for kind, fields in events if kind == "error"]
+
+
+def test_a_phone_without_network_does_not_start_its_run_from_either_path(rig, page_payload):
+    """No route at all: the desktop refused the run at its bridge's door and the CLI ran it. Both now
+    refuse it at the TikTok session start, with the same motive, before TikTok restarts."""
+    rig.network.cut()
+
+    assert rig.run_bridge(page_payload()) == 1
+    assert _error_codes(rig.events)[-1] == "NETWORK_UNREACHABLE"
+    assert "restart" not in rig.calls and rig.workflows == []
+    rig.calls.clear()
+    rig.events.clear()
+
+    result = rig.run_cli(page_payload())
+
+    assert result.exit_code == 1, result.output
+    assert "NETWORK_UNREACHABLE" in result.output
+    assert "restart" not in rig.calls and rig.workflows == []

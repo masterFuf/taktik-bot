@@ -134,3 +134,19 @@ def test_without_a_key_the_bridge_stops_and_the_scripted_cli_refuses_before_the_
     assert cli["exit"] == 2
     assert cli["calls"] == []
     assert cli["rows"] == bridge["rows"] == []
+
+
+def test_a_phone_without_network_messages_nobody_from_either_path(rig, outreach_payload):
+    """No route at all: the CLI used to send its DMs into a phone without network. Both paths now
+    refuse the run at the launcher's network door, once the phone is connected, before a profile opens."""
+    rig.network.cut()
+
+    bridge, cli = _run_both(rig, outreach_payload())
+
+    assert bridge["exit"] == 1
+    assert [fields.get("error_code") for kind, fields in bridge["events"] if kind == "error"][-1] == \
+        "NETWORK_UNREACHABLE"
+    assert cli["exit"] == 1, cli["output"]
+    assert "NETWORK_UNREACHABLE" in cli["output"]
+    assert _sends(bridge["calls"]) == _sends(cli["calls"]) == []
+    assert bridge["rows"] == cli["rows"] == []

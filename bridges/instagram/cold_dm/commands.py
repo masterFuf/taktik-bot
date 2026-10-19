@@ -12,7 +12,8 @@ from __future__ import annotations
 import json
 import sys
 
-from bridges.common.network import enforce_pre_session_ip_rotation
+from bridges.common.network import enforce_pre_session_ip_rotation, send_network_refusal
+from taktik.core.shared.device.network_door import NetworkUnreachableError
 from bridges.common.entrypoint import MISSING_CONFIG
 from taktik.core.shared.input.keyboard import KeyboardService
 from bridges.instagram.cold_dm.progress import emit_cold_dm_progress, emit_cold_dm_sent
@@ -100,6 +101,11 @@ def run_cold_dm(config: dict) -> None:
             **({"stopReason": result["stop_reason"]} if result.get("stop_reason") else {}),
         )
 
+    except NetworkUnreachableError as refused:
+        # The launcher's network door, once the phone is connected: nobody was written to.
+        send_network_refusal(refused, "Cold DM")
+        print_cold_dm_result(False, error=str(refused))
+        sys.exit(1)
     except AiDmTextRefused as refused:
         # A text written by an AI breaks the rule: refused before the phone, the reason typed.
         logger.warning(f"Cold DM refused: {refused}")

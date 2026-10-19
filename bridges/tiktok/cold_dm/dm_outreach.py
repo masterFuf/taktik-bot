@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from bridges.common.network import enforce_pre_session_ip_rotation
+from bridges.common.network import enforce_pre_session_ip_rotation, send_network_refusal
+from taktik.core.shared.device.network_door import NetworkUnreachableError
 from bridges.tiktok.common.ipc import _ipc, logger, send_error, send_message, send_status, set_workflow
 
 
@@ -97,6 +98,9 @@ class TikTokDMOutreachBridge:
             ):
                 return 1
             return 0 if run_dm_outreach_workflow(self.config) else 1
+        except NetworkUnreachableError as refused:
+            send_network_refusal(refused, "DM outreach")
+            return 1
         except Exception as exc:
             logger.error(f"DM Outreach error: {exc}", exc_info=True)
             send_error(str(exc))

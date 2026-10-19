@@ -2,13 +2,17 @@
 
 import time
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 from loguru import logger
 
+from taktik.core.shared.device.network_door import (
+    BEFORE_IP_ROTATION,
+    NetworkUnreachableError,
+    open_network_door,
+)
 from taktik.core.shared.device.network_probe import (
     get_device_external_ip,
-    measure_network_baseline,
     read_public_ip,
 )
 from taktik.core.shared.device.network_reset import (
@@ -176,6 +180,11 @@ def perform_network_reset(device_id: str, method: str = "data", ipc=None) -> Net
     return outcome
 
 
+def send_network_refusal(refused: NetworkUnreachableError, label: str) -> None:
+    """The `error` line of a run the network door refused: its motive, for the desktop to translate."""
+    send_error(f"{label} aborted: {refused}.", error_code=refused.error_code)
+
+
 def enforce_pre_session_ip_rotation(
     config: dict,
     device_id: str,
@@ -194,23 +203,20 @@ def enforce_pre_session_ip_rotation(
     Returns False when the caller must abort. Emits the machine-readable error itself, so a bridge
     only has to propagate the exit.
 
-    Being that single entry point is also why the network BASELINE is measured here: it is the one
-    door every platform crosses at session start, with the device connected and before the first
-    gesture. Measuring it anywhere else would mean five call sites drifting apart.
+    The rotation goes through the core's network door first: a phone with no route has no IP to
+    rotate, and toggling its radio would only end in a failed rotation (`NETWORK_RESET_FAILED`) after
+    a long wait, where the motive is `NETWORK_UNREACHABLE`. The run's own measure is not taken here:
+    the core takes it when the run starts (`network_door`), for the desktop and the CLI alike.
     """
-    baseline = _emit_network_baseline(device_id)
-    if baseline and baseline.get("unreachable"):
-        # No route at all: the run would read the phone's cache and record empty profiles as
-        # measures (Pixel 3, 2026-09-28). Stopped here, told apart from an unreadable measure.
-        send_error(
-            f"{label} aborted: the phone has no network (ping: network is unreachable).",
-            error_code="NETWORK_UNREACHABLE",
-        )
-        return False
-
     network_reset = config.get("networkReset") or {}
     if not network_reset.get("enabled", False):
         return True
+
+    try:
+        open_network_door(device_id, moment=BEFORE_IP_ROTATION)
+    except NetworkUnreachableError as refused:
+        send_network_refusal(refused, label)
+        return False
 
     outcome = perform_network_reset(
         device_id,
@@ -226,50 +232,6 @@ def enforce_pre_session_ip_rotation(
     return True
 
 
-def _emit_network_baseline(device_id: str) -> Optional[dict]:
-    """Record what the phone's connection looks like before the run touches anything, and return it
-    (None when it could not be read).
-
-    A measurement, not a decision: nothing reads this value to lengthen a wait. It exists because
-    the question "was the network slow?" has so far only been answerable by inference — and
-    inference is how the weekend's 65 unperformed likes were nearly blamed on the wrong cause.
-
-    Both destinations on purpose. The step travels to the desktop and to an incident report; the
-    log line is what the run's own journal keeps, and the journal is what the black box collects
-    when nothing else was wired.
-    """
-    if not device_id:
-        return None
-    try:
-        baseline = measure_network_baseline(device_id)
-        if not baseline:
-            logger.debug(f"Network baseline unreadable on {device_id}")
-            return None
-        if baseline.get("unreachable"):
-            logger.warning(f"Network unreachable on {device_id}: the phone has no route to the Internet")
-            return baseline
-
-        logger.info(
-            f"Network baseline: {baseline['rtt_ms']} ms avg, "
-            f"{baseline['packet_loss_pct']}% packet loss ({baseline['received']}/3 replies)"
-        )
-
-        from taktik.core.shared.telemetry import emit_step
-
-        emit_step(
-            "network_probe",
-            action="session_baseline",
-            target=device_id,
-            rtt_ms=baseline["rtt_ms"],
-            packet_loss_pct=baseline["packet_loss_pct"],
-            replies=baseline["received"],
-        )
-        return baseline
-    except Exception as exc:  # noqa: BLE001 — a diagnostic never ends a run
-        logger.debug(f"Network baseline failed on {device_id}: {exc}")
-        return None
-
-
 __all__ = [
     "MAX_ROTATION_ATTEMPTS",
     "NetworkResetOutcome",
@@ -277,6 +239,7 @@ __all__ = [
     "enforce_pre_session_ip_rotation",
     "get_device_external_ip",
     "perform_network_reset",
+    "send_network_refusal",
     "reset_airplane_cell",
     "reset_airplane_mode",
     "reset_mobile_data",

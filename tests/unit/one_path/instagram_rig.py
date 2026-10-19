@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from one_path_seams import patch_seam, record_cli_connections, record_ip_rotations
+from one_path_seams import RigNetwork, patch_seam, record_cli_connections, record_ip_rotations
 
 DEVICE_ID = "emulator-5554"
 INSTAGRAM = "com.instagram.android"
@@ -112,10 +112,7 @@ class InstagramRig:
 
         mp.setattr(signal_handler, "_workflow", None)
 
-        from bridges.common import network
-
-        mp.setattr(network, "measure_network_baseline",
-                   lambda device_id: rig.calls.append(f"network_baseline {device_id}"))
+        self.network = RigNetwork(mp, rig.calls)
         record_ip_rotations(mp, rig.calls)
 
         patch_seam(mp, "taktik.core.database", "configure_db_service",

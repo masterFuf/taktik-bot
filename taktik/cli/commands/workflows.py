@@ -21,7 +21,8 @@ none and never reaches an AI client.
 `run` chooses the phone but does not connect to it (`hosts/phone.py`): the launcher reads and
 validates its payload, then calls the `connect` the CLI host gave it, and the phone connects there.
 A payload the reader refuses (a setting out of its bounds, a scraping with no source) ends with
-exit code 1 and nothing connected, as from the desktop bridges.
+exit code 1 and nothing connected, as from the desktop bridges. So does a phone without network:
+the launcher's network door refuses it (`NETWORK_UNREACHABLE` in the message) before the app starts.
 """
 from __future__ import annotations
 

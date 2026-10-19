@@ -56,6 +56,7 @@ class _Device:
 def _device_manager():
     return SimpleNamespace(
         device=_Device(),
+        device_id="emulator-5554",
         stop_app=lambda package: True,
         launch_app=lambda package, stop_first=False: True,
     )
@@ -104,6 +105,7 @@ def automation_run(monkeypatch, tmp_path):
 
     import bridges.common.network as network
     import taktik.core.database as database
+    import taktik.core.shared.device.network_door as network_door
     import bridges.instagram.automation.bridge as bridge
     import taktik.core.social_media.instagram.workflows.common.runtime_setup as runtime_setup
     import taktik.core.social_media.instagram.workflows.common.workflow_helpers as helpers
@@ -113,7 +115,7 @@ def automation_run(monkeypatch, tmp_path):
     ips = iter(["198.51.100.1", "198.51.100.2"] * 20)
     monkeypatch.setattr(network, "read_public_ip", lambda device_id: next(ips))
     monkeypatch.setitem(network._STRATEGIES, "data", lambda device_id: True)
-    monkeypatch.setattr(network, "measure_network_baseline",
+    monkeypatch.setattr(network_door, "measure_network_baseline",
                         lambda device_id: {"rtt_ms": 41, "packet_loss_pct": 0, "received": 3})
 
     def connect(runtime):
