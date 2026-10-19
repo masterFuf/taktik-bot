@@ -47,8 +47,8 @@ SCHEDULER_TIKTOK_TYPES_PATH = APP / "src" / "app" / "hooks" / "scheduler" / "tik
 BRIDGE_RUNNER = "electron/services/shared/bridge/process/BridgeProcessRunner.ts"
 BRIDGE_PATHS = "electron/utils/paths.ts"
 
-#: Families a bridge serves that are not workflows (diagnostics, schema).
-NON_WORKFLOW_BRIDGE_GROUPS = {"compat", "database"}
+#: Families a bridge serves that are not workflows (diagnostics, schema, the check of the DMs an AI writes).
+NON_WORKFLOW_BRIDGE_GROUPS = {"ai", "compat", "database"}
 #: Parameter / helper names through which a launcher receives its engine.
 ENGINE_SLOTS = ("workflow_factory",)
 ENGINE_SLOT_SUFFIX = "_runner"
