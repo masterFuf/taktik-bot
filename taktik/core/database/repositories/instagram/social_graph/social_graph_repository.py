@@ -157,13 +157,15 @@ class SocialGraphRepository(BaseRepository):
         dropped. Exceptions are not caught here:
         the caller handles the error and
         renvoie un statut "error".
+
+        `unfollowed_at` is stamped by SQLite (`datetime('now')`, UTC), the clock of `first_seen_at`,
+        `last_seen_at` and the interactions. It was Python's local time, two hours ahead in France.
         """
-        unfollowed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if unfollowed else None
         self.execute(
             """INSERT INTO social_graph_sync
                    (platform, account_id, username, direction, display_name,
                     is_reciprocal, followed_by_bot, unfollowed_at, source)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+               VALUES (?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') END, ?)
                ON CONFLICT(platform, account_id, username, direction) DO UPDATE SET
                    display_name = COALESCE(NULLIF(excluded.display_name, ''), social_graph_sync.display_name),
                    is_reciprocal = COALESCE(excluded.is_reciprocal, social_graph_sync.is_reciprocal),
@@ -179,7 +181,7 @@ class SocialGraphRepository(BaseRepository):
                 display_name,
                 None if is_reciprocal is None else int(is_reciprocal),
                 None if followed_by_bot is None else int(followed_by_bot),
-                unfollowed_at,
+                int(bool(unfollowed)),
                 source,
             ),
         )
