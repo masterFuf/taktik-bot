@@ -70,6 +70,32 @@ def test_une_sonde_qui_explose_ne_bloque_pas_le_run(monkeypatch, metriques):
     assert metriques == []
 
 
+def test_un_telephone_sans_reseau_ne_lance_pas_son_run(monkeypatch, metriques):
+    """Une mesure « injoignable » arrete le run a la porte, avec son code, avant toute rotation :
+    un run sans reseau lit le cache et ecrit des profils vides (Pixel 3, 28/09)."""
+    monkeypatch.setattr(
+        network_module, 'measure_network_baseline',
+        lambda device_id: {'rtt_ms': None, 'packet_loss_pct': None, 'received': 0, 'unreachable': True},
+    )
+    erreurs = []
+    monkeypatch.setattr(network_module, 'send_error', lambda message, error_code=None, **k: erreurs.append(error_code))
+    monkeypatch.setattr(
+        network_module, 'perform_network_reset',
+        lambda *a, **k: pytest.fail('aucune rotation ne devait etre tentee sans reseau'),
+    )
+
+    assert network_module.enforce_pre_session_ip_rotation(
+        {'networkReset': {'enabled': True}}, 'SERIE') is False
+    assert erreurs == ['NETWORK_UNREACHABLE']
+
+
+def test_une_mesure_illisible_ne_bloque_pas(monkeypatch, metriques):
+    """Illisible n'est pas injoignable : un telephone sans ping garde son run."""
+    monkeypatch.setattr(network_module, 'measure_network_baseline', lambda device_id: None)
+
+    assert network_module.enforce_pre_session_ip_rotation({}, 'SERIE') is True
+
+
 def test_la_rotation_non_demandee_repond_toujours_oui(monkeypatch):
     monkeypatch.setattr(
         network_module, 'measure_network_baseline',

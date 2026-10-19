@@ -105,7 +105,7 @@ def test_builds_sync_followers_following_config_with_mode():
         }
     )
 
-    assert config["session_settings"]["workflow_type"] == "sync_following"
+    assert config["session_settings"]["workflow_type"] == "sync_followers_following"
     assert config["actions"] == [
         {
             "type": "sync_followers_following",
@@ -425,3 +425,15 @@ def test_decision_mode_capabilities_replace_legacy_probability_ceilings():
     assert runner_config["max_likes_per_profile"] == 3
     assert runner_config["ai_decision_mode"] == "decide"
     assert runner_config["ai_decision_capabilities"] == action["ai_decision_capabilities"]
+
+
+@pytest.mark.parametrize("workflow_type", ["target_following", "target_profiles", "post_url", "sync_followers_following"])
+def test_a_target_run_is_filed_under_its_own_workflow(workflow_type):
+    """The session row of a run is filed under the workflow that ran (`session_settings.workflow_type`,
+    lifted into `sessions_unified.workflow_type`). Following lists and hand-picked profiles were
+    filed `target_followers` (Pixel 3, 2026-09-28): the sessions page, the stats and the AI read a
+    followers run that never happened. Post likers were filed the same way, and the full sync as the
+    following sync. (`hashtags` keeps its historical `hashtag`: the same workflow, spelled once.)"""
+    config = build_instagram_automation_config({"workflowType": workflow_type, "target": "alpha"})
+
+    assert config["session_settings"]["workflow_type"] == workflow_type

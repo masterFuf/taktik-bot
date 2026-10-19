@@ -163,10 +163,9 @@ def test_an_automation_run_prints_declared_lines(automation_run, capsys, workflo
     if workflow_type in ("target_followers", "target_following", "hashtags", "post_url"):
         assert "source_progress" in types
     if workflow_type.startswith("sync_"):
-        # A sync ends the run itself (`session_finalized`), without the stop line.
-        assert "sync_complete" in types and "session_stop" not in types
-    else:
-        assert "session_stop" in types
+        # A sync prints its result, then ends its session like every run (`finalize_session`).
+        assert "sync_complete" in types
+    assert "session_stop" in types
 
 
 # ------------------------------------------------------------------------------------ AI, decision

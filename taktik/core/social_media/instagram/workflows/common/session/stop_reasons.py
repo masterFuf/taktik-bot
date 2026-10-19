@@ -220,7 +220,8 @@ def session_action_cap(count: Any, limit: Any) -> StopReason:
 
 
 def posts_cap(count: Any, limit: Any) -> StopReason:
-    """Hashtag posts budget spent. Legacy text is the bare code ``budget_reached``."""
+    """A posts budget spent: the hashtag's posts engaged, the Feed's posts browsed or liked. Legacy
+    text is the bare code ``budget_reached``."""
     return _reason(
         "posts_cap", FAMILY_OK,
         "budget_reached",
