@@ -362,14 +362,16 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
     elif workflow_type == "target_following":
         interaction_type = "following"
         action_type = "interact_with_followers"
-        session_workflow_type = "target_followers"
+        session_workflow_type = "target_following"
     elif workflow_type == "target_profiles":
         # The targets are the PROFILES to interact with, not sources whose lists we open.
-        # Same session_workflow_type as the other two: for the session registry, the live
-        # panel and the stats this IS a target run — only the source of usernames differs.
+        # Every run is filed under the workflow that ran (`sessions_unified.workflow_type`): filed
+        # `target_followers`, a run on following lists, on hand-picked profiles or on a post's
+        # likers read as a followers run on the sessions page, in the stats and for the AI (Pixel 3,
+        # 2026-09-28). The readers group them by their own map; `hashtags` keeps `hashtag`.
         interaction_type = "profiles"
         action_type = "interact_with_profiles"
-        session_workflow_type = "target_followers"
+        session_workflow_type = "target_profiles"
     elif workflow_type == "hashtags":
         interaction_type = "hashtag"
         action_type = "hashtag"
@@ -377,7 +379,7 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
     elif workflow_type == "post_url":
         interaction_type = "post-likers"
         action_type = "post_url"
-        session_workflow_type = "target_followers"
+        session_workflow_type = "post_url"
     elif workflow_type == "unfollow":
         interaction_type = "unfollow"
         action_type = "unfollow"
@@ -389,7 +391,7 @@ def build_instagram_automation_config(raw_config: Dict[str, Any]) -> Dict[str, A
     elif workflow_type == "sync_followers_following":
         interaction_type = "sync_followers_following"
         action_type = "sync_followers_following"
-        session_workflow_type = "sync_following"
+        session_workflow_type = "sync_followers_following"
     elif workflow_type == "feed":
         interaction_type = "feed"
         action_type = "feed"

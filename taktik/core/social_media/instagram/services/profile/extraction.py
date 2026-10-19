@@ -100,6 +100,16 @@ class ProfileExtraction(BaseBusinessAction):
             # another sub-tab. None when the header cannot be read: unknown, not "no posts".
             posts_count = self._get_posts_count_robust()
 
+            # The proof that the profile has loaded: a counter of its header read. Without one the
+            # page is blank (no network, still loading) and nothing on it is a measure: recording
+            # it wrote a profile of 0 followers, 0 following and 0 posts (Pixel 3, 2026-09-28).
+            if followers_count is None and following_count is None and posts_count is None:
+                self.logger.warning(
+                    f"Profile @{username or '?'} not loaded: no counter of its header could be read; "
+                    "nothing recorded"
+                )
+                return None
+
             # Without the action bar, the handle the caller stands on beats the broad on-screen
             # fallback, which can land on a handle mentioned in the bio.
             extracted_username = profile_text.get('username')
@@ -110,8 +120,10 @@ class ProfileExtraction(BaseBusinessAction):
                 'username': extracted_username,
                 'full_name': profile_text.get('full_name'),
                 'biography': profile_text.get('biography'),
-                'followers_count': followers_count,
-                'following_count': following_count,
+                # A loaded profile whose one counter could not be read keeps 0 for it, as always
+                # (its readers count on a number); the reader said so in the log.
+                'followers_count': followers_count if followers_count is not None else 0,
+                'following_count': following_count if following_count is not None else 0,
                 # 0 for a header that could not be read, as always (its readers count on a
                 # number); the reader said so in the log. The visible posts below keep the doubt.
                 'posts_count': posts_count if posts_count is not None else 0,
@@ -351,7 +363,9 @@ class ProfileExtraction(BaseBusinessAction):
         self.logger.info(f"✅ Extraction terminée: {len(profiles)} profils extraits")
         return profiles
     
-    def _get_followers_count_robust(self, swipe_up_if_needed: bool = False) -> int:
+    def _get_followers_count_robust(self, swipe_up_if_needed: bool = False) -> Optional[int]:
+        """The followers count of the profile's header; None when the header cannot be read
+        (never a 0 that would say the profile has no followers)."""
         self.logger.debug("Attempting to get followers count (robust method)...")
         
         try:
@@ -402,14 +416,15 @@ class ProfileExtraction(BaseBusinessAction):
                 time.sleep(1)
                 return self._get_followers_count_robust(swipe_up_if_needed=False)
             
-            self.logger.warning("Unable to find followers count")
-            return 0
+            self.logger.warning("Unable to find followers count: unknown")
+            return None
             
         except Exception as e:
-            self.logger.error(f"Error retrieving followers count: {e}")
-            return 0
+            self.logger.error(f"Error retrieving followers count, unknown: {e}")
+            return None
     
-    def _get_following_count_robust(self, swipe_up_if_needed: bool = False) -> int:
+    def _get_following_count_robust(self, swipe_up_if_needed: bool = False) -> Optional[int]:
+        """The following count of the profile's header; None when the header cannot be read."""
         self.logger.debug("Attempting to get following count (robust method)...")
         
         try:
@@ -443,12 +458,12 @@ class ProfileExtraction(BaseBusinessAction):
                 self.logger.debug(f"Following count found via text: {following}")
                 return following
             
-            self.logger.warning("Unable to find following count")
-            return 0
+            self.logger.warning("Unable to find following count: unknown")
+            return None
             
         except Exception as e:
-            self.logger.error(f"Error retrieving following count: {e}")
-            return 0
+            self.logger.error(f"Error retrieving following count, unknown: {e}")
+            return None
     
     def _get_posts_count_robust(self, swipe_up_if_needed: bool = False) -> Optional[int]:
         """The posts count of the profile's header; None when the header cannot be read (never a
