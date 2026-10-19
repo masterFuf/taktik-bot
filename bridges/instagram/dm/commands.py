@@ -13,6 +13,7 @@ from __future__ import annotations
 import sys
 
 from bridges.instagram.dm.events import emit_dm_error, emit_dm_json, emit_dm_result
+from taktik.core.ai.dm_rules import AiDmTextRefused
 from taktik.core.social_media.instagram.workflows.dm.agent_handler import run_instagram_dm
 from taktik.core.social_media.instagram.workflows.dm.payload import DmCommandError
 from taktik.core.social_media.instagram.workflows.dm.runtime import InstagramDMRuntime
@@ -56,6 +57,10 @@ def run_dm_command(config: dict) -> None:
         result = run_instagram_dm(config, connect=lambda package_name: _connect(device_id, package_name),
                                   emit=lambda payload: emit_dm_json(payload, flush=True))
 
+    except AiDmTextRefused as refused:
+        # A reply written by an AI breaks the rule: refused before the phone, the reason typed.
+        emit_dm_result({"success": False, "error": str(refused), "textRefusal": refused.refusal.as_line()})
+        sys.exit(1)
     except DmCommandError as e:
         # A command refused before the phone is touched.
         emit_dm_error(str(e))

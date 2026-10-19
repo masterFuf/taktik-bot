@@ -4,7 +4,11 @@ It was the cold DM bridge's own class, built on the bridge's device base; the CL
 engine with other reads and no record of what it sent. The host now hands the workflow what used
 to come from the bridge base: the device (the bridges' clone-aware, facade-wrapped device), its
 manager, the Taktik Keyboard service and the clean restart of Instagram, plus where the progress
-lines and the AI spend go.
+lines, the texts sent and the AI spend go.
+
+A text written by an AI (the AI mode's, or a list `aiDmRules` says an AI wrote) goes through the one
+rule of `taktik/core/ai/dm_rules.py`: a list is checked when the payload is read, a text the AI mode
+writes here once written, before it is typed.
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ from typing import Any, Callable, Optional
 
 from loguru import logger
 
+from taktik.core.ai.dm_rules import AiDmRules, check_ai_dm_text
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
@@ -44,11 +49,15 @@ NO_SEARCH = "no_search"
 NOT_FOUND = "not_found"
 NO_CONVERSATION = "no_conversation"
 NO_MESSAGE = "no_message"
+#: The text the AI mode wrote breaks the rule of a DM written by an AI: nothing typed.
+TEXT_REFUSED = "text_refused"
 #: Instagram refused the send ("Try again later"): the run stops, the dialog stays on screen.
 ACTION_BLOCKED = "action_blocked"
 
 
 ProgressCallback = Callable[..., None]
+#: `sent(current=, username=, message=, ai_written=)`: a text the conversation took.
+SentCallback = Callable[..., None]
 
 
 class ColdDMWorkflow(
@@ -67,12 +76,14 @@ class ColdDMWorkflow(
         keyboard,
         restart: Optional[Callable[[], Any]] = None,
         progress: Optional[ProgressCallback] = None,
+        sent: Optional[SentCallback] = None,
         ai_ipc=None,
     ):
         self.device = device
         self.device_manager = device_manager
         self._restart = restart
         self._progress = progress
+        self._sent = sent
         self._ai_ipc = ai_ipc
         self._init_cold_dm_sender(keyboard)
         self.dms_sent = 0
@@ -80,6 +91,7 @@ class ColdDMWorkflow(
         self.dms_failed = 0
         self.private_profiles = 0
         self.verified_profiles = 0
+        self.texts_refused = 0
 
     def run(
         self,
@@ -93,8 +105,12 @@ class ColdDMWorkflow(
         ai_prompt: str = "",
         openrouter_api_key: str = "",
         recipient_policy: ColdDmRecipientPolicy | None = None,
+        ai_dm_rules: AiDmRules | None = None,
     ) -> dict:
-        """Run the cold DM workflow."""
+        """Run the cold DM workflow.
+
+        `ai_dm_rules` is the frame of texts written by an AI; None: the texts are the operator's.
+        """
         recipient_policy = recipient_policy or ColdDmRecipientPolicy()
         use_ai = bool(ai_prompt and openrouter_api_key)
         logger.info(
@@ -144,9 +160,13 @@ class ColdDMWorkflow(
                         ipc=self._ai_ipc,
                     ),
                     recipient_policy,
+                    rules=ai_dm_rules if use_ai else None,
                 )
                 outcome = reached["outcome"]
-                if outcome in PRIVATE_SKIP_REASONS:
+                if outcome == TEXT_REFUSED:
+                    self.texts_refused += 1
+                    logger.warning(f"Text for {recipient} refused ({reached['refusal'].reason}): not sent")
+                elif outcome in PRIVATE_SKIP_REASONS:
                     self.private_profiles += 1
                 elif outcome == SKIP_VERIFIED:
                     self.verified_profiles += 1
@@ -159,6 +179,9 @@ class ColdDMWorkflow(
                         account_id=account_id,
                         session_id=session_id,
                     )
+                    if reached["send_result"] is True and self._sent is not None:
+                        self._sent(current=i + 1, username=recipient, message=reached["message"],
+                                   ai_written=ai_dm_rules is not None)
                 else:
                     self.dms_failed += 1
                 if outcome == ACTION_BLOCKED:
@@ -184,15 +207,17 @@ class ColdDMWorkflow(
 
         return build_cold_dm_summary(self)
 
-    def reach_and_send(self, recipient: str, compose, policy: ColdDmRecipientPolicy | None = None) -> dict:
+    def reach_and_send(self, recipient: str, compose, policy: ColdDmRecipientPolicy | None = None,
+                       *, rules: AiDmRules | None = None) -> dict:
         """One recipient, the production steps: search, open the profile, decide, open the
         conversation, compose, send. Shared by `run` and the Lab (`dm.send_cold_dm`).
 
         `compose` is called only once the conversation is open (an AI message costs a call).
+        `rules`: the composed text was written by an AI and is held to them before it is typed.
         Returns `outcome` (`SENT`, a `recipient_policy.SKIP_*` reason, or one of the
         `NO_SEARCH`, `NOT_FOUND`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
-        failures), with `message` and `send_result` once sent. Counting and recording are
-        the caller's.
+        failures, or `TEXT_REFUSED` with its `refusal`), with `message` and `send_result` once
+        sent. Counting and recording are the caller's.
         """
         if not self.navigate_to_search():
             logger.warning(f"Could not navigate to search for {recipient}")
@@ -213,6 +238,10 @@ class ColdDMWorkflow(
         message = compose()
         if not message:
             return {"outcome": NO_MESSAGE}
+        if rules is not None:
+            refusal = check_ai_dm_text(message, rules)
+            if refusal is not None:
+                return {"outcome": TEXT_REFUSED, "refusal": refusal}
         send_result = self.send_message(message)
         if look_for_action_block(ProblematicPageDetector(self.device), after='dm', target=recipient):
             return {"outcome": ACTION_BLOCKED, "message": message, "send_result": False}

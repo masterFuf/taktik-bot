@@ -20,6 +20,7 @@ from typing import Any, Dict, List
 import pytest
 
 from contract_probe import Recording
+from taktik.core.ai.dm_rules import AiDmRules
 from ig_automation_probe import protect_hooks
 from taktik.core.contract.instagram_notifications import (
     BATCH_VERBS,
@@ -58,7 +59,7 @@ def test_the_declared_families_are_the_classifier_s():
 def test_the_declared_batch_verbs_are_the_batch_s():
     from taktik.core.social_media.instagram.workflows.notifications import commands
 
-    assert set(BATCH_VERBS) == set(commands._batch_verbs(SimpleNamespace(), SimpleNamespace(device=None)))
+    assert set(BATCH_VERBS) == set(commands._batch_verbs(SimpleNamespace(), SimpleNamespace(device=None), AiDmRules()))
 
 
 # ------------------------------------------------------------------------------------ the bridge

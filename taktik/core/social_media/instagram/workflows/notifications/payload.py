@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from loguru import logger
 
+from taktik.core.ai.dm_rules import AiDmRules, ai_dm_rules_from_payload
 from taktik.core.contract.bounds import refuse_out_of_bounds
 from taktik.core.contract.instagram_notifications import INSTAGRAM_NOTIFICATIONS
 
@@ -45,6 +46,8 @@ class NotificationsRequest:
     follow_back_daily_cap: Optional[int] = None
     welcome_dm_daily_cap: Optional[int] = None
     follow_actor_daily_cap: Optional[int] = None
+    #: The frame of the welcome messages, which an AI writes (`aiDmRules`); absent: the most prudent.
+    ai_dm_rules: AiDmRules = field(default_factory=AiDmRules)
 
 
 def _count(value, default):
@@ -102,6 +105,10 @@ def notifications_request_from_payload(payload: Mapping[str, Any]) -> Notificati
         actions = payload.get("actions")
         if not isinstance(actions, list) or not actions:
             raise NotificationsCommandError("Batch actions must be a non-empty list")
+        try:
+            values["ai_dm_rules"] = ai_dm_rules_from_payload(payload.get("aiDmRules"))
+        except ValueError as unreadable:
+            raise NotificationsCommandError(str(unreadable)) from unreadable
         # 'autopilot' marks a batch a policy triggered, recorded in notification_actions.
         # Absent caps = uncapped, which is what an operator's own selection is.
         values.update(actions=list(actions),

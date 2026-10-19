@@ -53,7 +53,7 @@ def test_a_cold_dm_run_stopped_by_a_block_says_so():
     from taktik.core.social_media.instagram.workflows.cold_dm.results import build_cold_dm_summary
 
     run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page (words)")
-    counters = SimpleNamespace(dms_sent=1, dms_success=1, dms_failed=1, private_profiles=0)
+    counters = SimpleNamespace(dms_sent=1, dms_success=1, dms_failed=1, private_profiles=0, texts_refused=0)
 
     assert build_cold_dm_summary(counters)["stop_reason"] == "action_blocked"
 

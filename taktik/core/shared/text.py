@@ -312,9 +312,17 @@ def fold_for_match(text: Optional[str]) -> str:
     NOT for handles that must stay distinct from one another: this folds `demo.2` and `demo2`
     together. Use it to recognise, never to key.
     """
+    return _NON_ALNUM.sub("", fold_case_and_accents(text))
+
+
+def fold_case_and_accents(text: Optional[str]) -> str:
+    """The text case-folded and without its accents, spaces and punctuation kept.
+
+    "Gratuité, À VIE" reads "gratuite, a vie": two spellings of a word compare equal while the
+    words stay apart, which `fold_for_match` does not keep.
+    """
     folded = unicodedata.normalize("NFKD", (text or "").casefold())
-    folded = "".join(char for char in folded if not unicodedata.combining(char))
-    return _NON_ALNUM.sub("", folded)
+    return "".join(char for char in folded if not unicodedata.combining(char))
 
 
 _HANDLE = re.compile(r"[A-Za-z0-9._]+")

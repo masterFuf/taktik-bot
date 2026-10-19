@@ -14,6 +14,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
+from taktik.core.ai.dm_rules import AiDmRules
 from taktik.core.database.account_health import witness_for
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.common.suggestion_session import suggestion_session
@@ -411,22 +412,25 @@ def cmd_follow_back(host: NotificationsHost, username: str, account_username: st
     return {"type": "result", "command": "follow_back", **result}
 
 
-def _batch_verbs(workflow, runtime) -> dict[str, Callable[[str, str], dict]]:
-    """What each batch verb does with `(username, text)`: a tap on the feed, or a walk to a profile."""
+def _batch_verbs(workflow, runtime, ai_dm_rules: AiDmRules) -> dict[str, Callable[[str, str], dict]]:
+    """What each batch verb does with `(username, text)`: a tap on the feed, or a walk to a profile.
+    A welcome message is written by an AI: it is held to `ai_dm_rules` before anything moves."""
     return {
         "like": lambda username, _text: workflow.like_comment(username),
         "reply": lambda username, text: workflow.reply_to_comment(username, text),
         "accept": lambda username, _text: workflow.accept_request(username),
         "ignore": lambda username, _text: workflow.ignore_request(username),
         "follow_back": lambda username, _text: workflow.follow_back(username),
-        WELCOME_DM_ACTION: lambda username, text: send_welcome_dm(runtime.device, username, text),
+        WELCOME_DM_ACTION: lambda username, text: send_welcome_dm(runtime.device, username, text,
+                                                                  rules=ai_dm_rules),
         FOLLOW_ACTOR_ACTION: lambda username, _text: follow_actor(runtime.device, username),
     }
 
 
 def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: str = None,
               source: str = "batch", follow_back_daily_cap: int = None,
-              welcome_dm_daily_cap: int = None, follow_actor_daily_cap: int = None) -> dict:
+              welcome_dm_daily_cap: int = None, follow_actor_daily_cap: int = None,
+              ai_dm_rules: Optional[AiDmRules] = None) -> dict:
     """Run a LIST of notification actions inside ONE session.
 
     Every action used to be its own bridge invocation: a Python process, a fresh uiautomator2
@@ -462,7 +466,7 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
     _watch_account_health(account_username)
     runtime = host.connect(False)
     workflow = _build_workflow(host, runtime)
-    verbs = _batch_verbs(workflow, runtime)
+    verbs = _batch_verbs(workflow, runtime, ai_dm_rules or AiDmRules())
 
     # Welcome DMs walk away from the activity feed, so they run after everything else.
     actions = order_batch_actions(actions)
@@ -610,7 +614,8 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
             "action": action,
             "username": username,
             "success": ok,
-            "message": f"[{index + 1}/{total}] {action} @{username} {'ok' if ok else 'failed'}",
+            "message": f"[{index + 1}/{total}] {action} @{username} "
+                       f"{'skipped' if self_skipped else 'ok' if ok else 'failed'}",
         })
 
         if action in OFF_SCREEN_ACTIONS and not self_skipped:

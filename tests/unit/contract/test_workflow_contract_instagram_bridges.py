@@ -248,7 +248,7 @@ def _cold_dm_class():
         def go_home(self):
             return None
 
-        def reach_and_send(self, recipient, compose, policy=None):
+        def reach_and_send(self, recipient, compose, policy=None, *, rules=None):
             return {"outcome": workflow.SENT, "message": compose(), "send_result": True}
 
     return ColdDm
@@ -299,6 +299,20 @@ def test_a_cold_dm_without_a_message_is_refused_in_its_last_line(cold_dm_bridge,
     check_lines(INSTAGRAM_COLD_DM, lines)
     assert [line["type"] for line in lines] == ["cold_dm_result"]
     assert lines[0]["success"] is False
+
+
+def test_a_cold_dm_whose_ai_text_breaks_the_rule_says_why_in_its_last_line(cold_dm_bridge, printed):
+    data = app_file(INSTAGRAM_COLD_DM, messageMode="manual", messages=["Bonjour " + "a" * 604],
+                    aiDmRules={"accountProfile": {"language": "fr"}})
+
+    with pytest.raises(SystemExit):
+        cold_dm_bridge.ColdDmRun(data).run()
+
+    lines = printed()
+    check_lines(INSTAGRAM_COLD_DM, lines)
+    assert [line["type"] for line in lines] == ["cold_dm_result"]
+    assert lines[0]["success"] is False
+    assert lines[0]["textRefusal"] == {"reason": "too_long", "detail": "612 characters, 500 at most"}
 
 
 # ------------------------------------------------------------------------------------ DM inbox
@@ -407,3 +421,18 @@ def test_a_reply_without_its_text_is_refused_in_its_last_line(dm_bridge, printed
     check_lines(INSTAGRAM_DM_SEND, lines)
     assert [line["type"] for line in lines] == ["result"]
     assert lines[0]["success"] is False and "traceback" not in lines[0]
+
+
+def test_a_reply_written_by_an_ai_that_breaks_the_rule_says_why_in_its_last_line(dm_bridge, printed):
+    data = app_file(INSTAGRAM_DM_SEND, command="send")
+    data["message"] = "Hello, thanks for your message, let us talk about it soon!"
+    data["aiDmRules"] = {"accountProfile": {"language": "fr"}}
+
+    with pytest.raises(SystemExit):
+        dm_bridge.DMCommand(data).run()
+
+    lines = printed()
+    check_lines(INSTAGRAM_DM_SEND, lines)
+    assert [line["type"] for line in lines] == ["result"]
+    assert lines[0]["success"] is False
+    assert lines[0]["textRefusal"] == {"reason": "language", "detail": "written in en, the account writes in fr"}
