@@ -39,5 +39,8 @@
   },
   "database": {
     "schema_bridge": "bridges.tools.schema.schema_bridge"
+  },
+  "ai": {
+    "ai_dm_check_bridge": "bridges.tools.ai_dm.ai_dm_check_bridge"
   }
 }
