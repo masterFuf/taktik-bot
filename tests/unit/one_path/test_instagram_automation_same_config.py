@@ -146,3 +146,36 @@ def test_the_cli_does_not_run_when_instagram_is_missing(ig_rig):
 
     assert result.exit_code == 1, result.output
     assert "run_workflow" not in ig_rig.calls
+
+
+def _error_codes(events) -> list:
+    return [fields.get("error_code") for kind, fields in events if kind == "error"]
+
+
+def test_a_phone_without_network_does_not_start_its_run_from_either_path(ig_rig):
+    """No route at all (Pixel 3, 28/09): the run would read the phone's cache. The desktop refused it
+    at its bridge's door and the CLI ran it: both now refuse it at the launcher's network door, with
+    the same motive, before Instagram starts."""
+    ig_rig.network.cut()
+
+    assert ig_rig.run_bridge(feed_payload()) == 6
+    assert _error_codes(ig_rig.events)[-1] == "NETWORK_UNREACHABLE"
+    assert "run_workflow" not in ig_rig.calls and f"launch {INSTAGRAM}" not in " ".join(ig_rig.calls)
+    ig_rig.reset()
+
+    result = ig_rig.run_cli(feed_payload())
+
+    assert result.exit_code == 1, result.output
+    assert "NETWORK_UNREACHABLE" in result.output
+    assert "run_workflow" not in ig_rig.calls and f"launch {INSTAGRAM}" not in " ".join(ig_rig.calls)
+
+
+def test_both_paths_measure_the_network_once_before_instagram_starts(ig_rig):
+    """The door is the launcher's, crossed by both hosts: one measure, once the phone is connected and
+    before the clean restart."""
+    for run in (lambda: ig_rig.run_bridge(feed_payload()), lambda: ig_rig.run_cli(feed_payload())):
+        run()
+        measures = [call for call in ig_rig.calls if call.startswith("network_baseline ")]
+        assert measures == ["network_baseline emulator-5554"]
+        assert ig_rig.calls.index(measures[0]) < ig_rig.calls.index(f"is_installed {INSTAGRAM}")
+        ig_rig.reset()

@@ -63,14 +63,13 @@ def desktop_bridge(monkeypatch):
 
     printed: List[Dict[str, Any]] = []
     monkeypatch.setattr(IPC, "send", lambda self, msg_type, **kwargs: printed.append({"type": msg_type, **kwargs}))
-    monkeypatch.setattr(network, "_emit_network_baseline", lambda device_id: None)
     monkeypatch.setattr(
         network, "perform_network_reset",
         lambda *a, **k: SimpleNamespace(should_block_run=False, describe=lambda: "rotated"),
     )
 
     def connect(runtime):
-        runtime.device_manager = SimpleNamespace(device=object())
+        runtime.device_manager = SimpleNamespace(device=object(), device_id="emulator-5554")
         return True
 
     monkeypatch.setattr(InstagramDesktopRuntime, "setup_database", lambda runtime: True)

@@ -9,7 +9,8 @@ trip, its stdout, and the app stop when the process ends.
 The launcher reads and validates the payload, then calls the bridge's `connect`: the database
 setup, the connection, the IP rotation and the media capture happen there, after the reading. A
 payload the reader refuses ends on the run's error line (`Workflow error: ...`, `WORKFLOW_ERROR`,
-exit 1) with nothing connected, rotated or stopped.
+exit 1) with nothing connected, rotated or stopped. A phone the launcher's network door refuses ends
+on `NETWORK_UNREACHABLE`, exit 6.
 """
 
 from __future__ import annotations
@@ -143,6 +144,8 @@ class DesktopBridge:
             self.close()
 
     def _run(self) -> int:
+        from bridges.common.network import send_network_refusal
+        from taktik.core.shared.device.network_door import NetworkUnreachableError
         from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 
         send_status("starting", "TAKTIK Desktop Bridge starting...")
@@ -168,6 +171,10 @@ class DesktopBridge:
             self.run_workflow()
         except _PhoneNotReady as not_ready:
             return not_ready.exit_code
+        except NetworkUnreachableError as refused:
+            # The launcher's network door: the same exit as a refusal at the IP rotation.
+            send_network_refusal(refused, "Session")
+            return 6
         except InstagramStartError:
             stop_at_end = False
             self.media_capture.stop()

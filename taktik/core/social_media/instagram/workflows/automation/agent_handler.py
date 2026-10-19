@@ -24,6 +24,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
+from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.instagram.workflows.common.startup import (
     InstagramConnect,
     InstagramStartError,
@@ -85,8 +86,8 @@ def run_instagram_automation(
     runtime_setup: Optional[RuntimeSetup] = None,
     ai_hook_installer: Optional[AIHookInstaller] = None,
 ) -> dict[str, Any]:
-    """Read the page payload, ask the host for the phone, start Instagram, then configure, hook and run
-    one automation session."""
+    """Read the page payload, ask the host for the phone, open the network door, start Instagram, then
+    configure, hook and run one automation session."""
     # Resolved at call time, so a run gets the modules' current objects.
     from taktik.core.social_media.instagram.workflows.common import ai_hooks, runtime_setup as setup
     from taktik.core.social_media.instagram.workflows.automation import automation
@@ -101,6 +102,8 @@ def run_instagram_automation(
     # Read and validated before the host touches the phone: what the reader refuses never reaches it.
     workflow_config = build_instagram_automation_config(payload)
     phone = connect(package_name)
+    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
+    open_network_door(payload.get("deviceId"))
 
     if phone.start is not None and not phone.start():
         raise InstagramStartError("Instagram did not start cleanly; the run was not started")

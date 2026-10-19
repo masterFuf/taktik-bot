@@ -1,6 +1,7 @@
 """TikTok session start, shared by the desktop bridges and the CLI.
 
-Clean restart, Android permission prompt denied, app language detected, own profile read. It
+The network door first (a phone without network does not start its run: `network_door`), then the
+clean restart, Android permission prompt denied, app language detected, own profile read. It
 used to live in the bridges only, so a run started from the CLI skipped all of it.
 
 Events go through an injected notifier shaped like the bridge IPC (`status`, `log`, `send`);
@@ -16,6 +17,7 @@ from typing import Any, Optional
 
 from loguru import logger
 
+from taktik.core.shared.device.network_door import open_network_door
 from taktik.core.social_media.tiktok.workflows.common.notifier import LoggingWorkflowNotifier
 
 
@@ -75,6 +77,9 @@ def start_tiktok_session(manager, *, notifier: Any = None, fetch_profile: bool =
 
     logger.info("📱 Connecting to device...")
     _emit(notifier, "status", "connecting", "Connecting to device")
+
+    # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
+    open_network_door(manager.device_id)
 
     logger.info("📱 Restarting TikTok (clean state)...")
     _emit(notifier, "status", "launching", "Restarting TikTok app")

@@ -7,9 +7,9 @@ mauvais coupable.
 
 Ici, la sonde du coeur (`taktik/core/shared/device/network_probe.py`) : ce que son shell envoie au
 telephone, et un parsing qui doit survivre aux deux formats de `ping` (celui qui imprime la ligne de
-resume, et toybox qui parfois ne l'imprime pas). La porte que tous les ponts traversent, et qui pose
-cette mesure sans jamais changer sa reponse, est tenue par
-`tests/unit/bridges/common/test_network_baseline_at_the_gate.py`.
+resume, et toybox qui parfois ne l'imprime pas). La porte du reseau que le coeur ouvre au depart
+d'un run, pour les ponts comme pour la CLI, et qui decide sur cette mesure, est tenue par
+`tests/unit/shared/device/test_network_door.py`.
 """
 
 import subprocess

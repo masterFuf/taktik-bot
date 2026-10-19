@@ -98,6 +98,34 @@ def patch_seam(monkeypatch, source: str, name: str, value, roots: tuple = PRODUC
             monkeypatch.setattr(module, name, value)
 
 
+#: What the core probe reads on a phone with no route at all (ping: « Network is unreachable »).
+NO_ROUTE = {"rtt_ms": None, "packet_loss_pct": None, "received": 0, "unreachable": True}
+
+
+class RigNetwork:
+    """The phone's network as the core probe reads it, from whichever host measures it.
+
+    Each measure is recorded as `network_baseline <serial>` when `calls` is given; it answers
+    unreadable (None) until `cut()`, then no route at all. The source is patched with every copy, so
+    the probe answers the same to the bridges and to the core.
+    """
+
+    def __init__(self, monkeypatch, calls: list | None = None):
+        self.calls = calls
+        self.reachable = True
+        patch_seam(monkeypatch, "taktik.core.shared.device.network_probe", "measure_network_baseline",
+                   self._measure)
+
+    def cut(self) -> None:
+        """No mobile data, no Wi-Fi: ping answers « Network is unreachable »."""
+        self.reachable = False
+
+    def _measure(self, device_id):
+        if self.calls is not None:
+            self.calls.append(f"network_baseline {device_id}")
+        return None if self.reachable else dict(NO_ROUTE)
+
+
 def record_ip_rotations(monkeypatch, calls: list) -> None:
     """Record each IP rotation a bridge asks for as `ip_rotation <method>`, and answer it as verified.
 

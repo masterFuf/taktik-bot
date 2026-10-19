@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from one_path_seams import give_the_cli_a_connected_phone, patch_seam
+from one_path_seams import RigNetwork, give_the_cli_a_connected_phone, patch_seam
 DEVICE_ID = "emulator-5554"
 
 
@@ -138,9 +138,7 @@ class Rig:
 
         mp.setattr(signal_handler, "_workflow", None)
 
-        from bridges.common import network
-
-        mp.setattr(network, "measure_network_baseline", lambda _device_id: None)
+        self.network = RigNetwork(mp)
 
         from taktik.core.shared.device import app_manager
 
@@ -163,6 +161,7 @@ class Rig:
         class FakeTikTokManager:
             def __init__(self, device_id=None):
                 rig.calls.append(f"manager {device_id}")
+                self.device_id = device_id
                 self.device_manager = SimpleNamespace(
                     device=rig.device, device_id=device_id, connect=self._connect)
 

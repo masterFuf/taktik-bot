@@ -4,7 +4,11 @@ The sequence itself lives in the core (`taktik.core.social_media.tiktok.workflow
 so the CLI runs the same one; the bridge builds the manager and prints the events on stdout.
 """
 
+import sys
+
+from bridges.common.network import send_network_refusal
 from bridges.tiktok.common.ipc import _ipc
+from taktik.core.shared.device.network_door import NetworkUnreachableError
 
 
 def tiktok_startup(device_id: str, fetch_profile: bool = True):
@@ -13,12 +17,20 @@ def tiktok_startup(device_id: str, fetch_profile: bool = True):
 
     Returns `(manager, bot_username)`, where `bot_username` is None when profile
     fetching is disabled or unavailable.
+
+    A phone the session start's network door refuses ends the process here, exit 1, on its
+    `NETWORK_UNREACHABLE` line: the workflow bridges report any other failure of their run as an
+    uncoded `Workflow error`, which would come after it and hide the motive from the desktop.
     """
     from taktik.core.social_media.tiktok import TikTokManager
     from taktik.core.social_media.tiktok.workflows.common.startup import start_tiktok_session
 
     manager = TikTokManager(device_id=device_id)
-    bot_username = start_tiktok_session(manager, notifier=_ipc, fetch_profile=fetch_profile)
+    try:
+        bot_username = start_tiktok_session(manager, notifier=_ipc, fetch_profile=fetch_profile)
+    except NetworkUnreachableError as refused:
+        send_network_refusal(refused, "Workflow")
+        sys.exit(1)
     return manager, bot_username
 
 

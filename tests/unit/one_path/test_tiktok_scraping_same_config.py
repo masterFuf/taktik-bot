@@ -103,3 +103,16 @@ def test_a_target_run_without_an_account_is_refused_before_the_phone_on_both_pat
     assert bridge["calls"] == cli["calls"] == []
     assert bridge["db_writes"] == cli["db_writes"] == []
     assert "requires targetUsernames" in cli["output"]
+
+
+def test_a_phone_without_network_scrapes_nothing_from_either_path(rig, scraping_payload):
+    """A scraping on a phone without network read the phone's cache: the TikTok session start refuses
+    it, from the desktop and from the CLI, before TikTok restarts and before any row is filed."""
+    rig.network.cut()
+
+    bridge, cli = _run_both(rig, scraping_payload())
+
+    assert bridge["exit"] == cli["exit"] == 1, cli["output"]
+    assert "NETWORK_UNREACHABLE" in cli["output"]
+    assert "restart" not in bridge["calls"] and "restart" not in cli["calls"]
+    assert bridge["db_writes"] == cli["db_writes"] == []

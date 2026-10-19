@@ -151,7 +151,6 @@ def lines(monkeypatch):
 def no_ip_rotation(monkeypatch):
     import bridges.common.network as network
 
-    monkeypatch.setattr(network, "_emit_network_baseline", lambda device_id: None)
     monkeypatch.setattr(
         network, "perform_network_reset",
         lambda *a, **k: SimpleNamespace(should_block_run=False, describe=lambda: "rotated"),
