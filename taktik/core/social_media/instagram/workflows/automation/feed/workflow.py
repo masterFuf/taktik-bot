@@ -15,6 +15,7 @@ from loguru import logger
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.common.likers_base import LikersWorkflowBase
 from taktik.core.social_media.instagram.workflows.common.interaction_config import merge_operator_config
+from taktik.core.social_media.instagram.workflows.common.session import stop_reasons
 from taktik.core.social_media.instagram.actions.base.stats import create_workflow_stats
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.social_media.instagram.workflows.automation.feed.post_actions import FeedPostActionsMixin
@@ -490,6 +491,13 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 # used to be written over the second at the end of the loop, and a run that
                 # visited authors reported its likes as its profiles.
                 stats['posts_liked'] = posts_liked
+                # The Feed's budget is counted in posts, which the session's limits do not know:
+                # spent, it ends the run (`posts_cap`), or the run's loop relaunched the step until
+                # its duration cap (Pixel 3, 2026-09-28: 2 posts browsed, then 5 more passes).
+                if posts_checked >= effective_config['max_posts_to_check']:
+                    stats['stop_reason'] = stop_reasons.posts_cap(posts_checked, effective_config['max_posts_to_check'])
+                elif posts_liked >= effective_config['max_interactions']:
+                    stats['stop_reason'] = stop_reasons.posts_cap(posts_liked, effective_config['max_interactions'])
                 stats['success'] = True
                 self.logger.info(
                     f"✅ Feed workflow completed: {posts_liked} posts liked, "

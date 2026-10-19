@@ -398,6 +398,11 @@ class WorkflowRunner:
         self.automation.stats['follows'] += result.get('follows_made', 0)
         self.automation.stats['comments'] += result.get('comments_made', 0)
         self.automation.stats['interactions'] += result.get('users_interacted', 0)
+
+        # Its posts budget spent, the Feed ends the run here, as the hashtag step does.
+        stop_reason = result.get('stop_reason')
+        if stop_reason and stop_reasons.ends_the_session(stop_reason):
+            self._finalize_on(stop_reason)
         
         return result.get('success', False)
     
