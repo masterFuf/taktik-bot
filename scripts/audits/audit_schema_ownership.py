@@ -16,7 +16,9 @@ base to that version at startup before it opens it. This audit refuses:
      - the app's Turso sync (`electron/sync/`), which writes the REMOTE schema, not the local base.
    Any other file holding DDL is listed in `LISTED` with its count and what removes it. A new
    file, or one more statement in a listed file, fails until it is listed; a listed file holding
-   fewer fails too, so the list only shrinks.
+   fewer fails too, so the list only shrinks. SQL files are read too: a `.sql` file in the app's
+   code is a schema nobody runs (the app builds its base from `schema.ts`, and its bundle never
+   ships such a file), yet a gate could read it and test a base the app never builds.
 
 DDL is recognised by its upper-case keywords, the way this code base writes SQL. The lazy
 `ensure_table` helpers that call the 1.9.8 steps are not seen: they go with those steps.
@@ -115,9 +117,9 @@ def load_sources(core: Path = CORE, app: Path = APP) -> Sources:
     from taktik.core.database.local.versions.catalog import MIGRATIONS, VERSIONS_DIR, validate_catalog
     from taktik.core.database.local.versions.manifest import MANIFEST_PATH, build_manifest, render_manifest
 
-    files = _runtime_files(core, BOT_ROOTS, (".py",), "core")
+    files = _runtime_files(core, BOT_ROOTS, (".py", ".sql"), "core")
     if (app / "electron").is_dir():
-        files.update(_runtime_files(app, APP_ROOTS, (".ts", ".tsx"), "app"))
+        files.update(_runtime_files(app, APP_ROOTS, (".ts", ".tsx", ".sql"), "app"))
 
     catalog_error = None
     try:
@@ -224,6 +226,7 @@ def self_test() -> List[str]:
         "clean tree": (clean, False),
         "DDL in a bot repository": (variant(files={"core/taktik/core/database/repositories/r.py": "ALTER TABLE accounts ADD COLUMN y"}), True),
         "DDL in an app service": (variant(files={"app/electron/services/s.ts": "db.exec('CREATE INDEX i ON interactions(x)')"}), True),
+        "a SQL file beside the app's schema": (variant(files={"app/electron/database/schema.sql": "CREATE TABLE IF NOT EXISTS a (id);"}), True),
         "one more statement in a listed file": (variant(files={"app/electron/l.ts": "CREATE INDEX a ON t(c); DROP INDEX b"}), True),
         "a listed file that holds fewer": (variant(files={"app/electron/l.ts": "no statement"}), True),
         "a migration file outside the catalog": (variant(versions_files=["m0001_baseline.sql", "m0002_extra.sql"]), True),

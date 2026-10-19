@@ -46,6 +46,14 @@ def test_ddl_in_an_app_service_is_refused():
     assert audit.check_ddl(sources, listed={})
 
 
+def test_a_schema_file_the_app_does_not_run_is_refused():
+    """`schema.sql` sat beside `schema.ts`: the app never read it (its bundle does not ship it), the
+    gates did, and it had drifted from the schema the app builds (no scheduler tables)."""
+    sources = _sources({"app/electron/database/schema.sql": "CREATE TABLE IF NOT EXISTS accounts (id);"})
+    findings = audit.check_ddl(sources, listed={})
+    assert len(findings) == 1 and "app/electron/database/schema.sql" in findings[0]
+
+
 def test_lower_case_prose_is_not_ddl():
     sources = _sources({"core/taktik/core/database/local/service.py": '"""Create tables if needed."""'})
     assert audit.check_ddl(sources, listed={}) == []
