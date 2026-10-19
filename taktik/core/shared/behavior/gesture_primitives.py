@@ -366,6 +366,16 @@ class GestureMixin:
         dy = abs(path[-1][1] - path[0][1]) or 1
         return _fling_total_duration(dy)
 
+    def _report_gesture(self, action: str, direction: str, start: Sequence[int], end: Sequence[int],
+                        duration: float, **detail) -> None:
+        """One journal line and one step metric per gesture: where the finger went down, where it
+        lifted, how long it took. A tap writes its point (`human_tap_at`); a scroll wrote only the
+        metric, which reaches stdout only when a bridge has wired a telemetry sink."""
+        (sx, sy), (ex, ey) = start, end
+        self.logger.debug(f"Gesture {action} {direction}: ({int(sx)}, {int(sy)}) -> ({int(ex)}, {int(ey)}) "
+                          f"in {round(duration * 1000)} ms")
+        emit_step("scroll", action=action, target=direction, **detail)
+
     def _human_swipe(self, direction: str = "up", distance_px: Optional[float] = None,
                      start_band: Optional[tuple] = None, controlled: bool = False,
                      guard_start: bool = False,
@@ -419,8 +429,9 @@ class GestureMixin:
                 else:
                     self.device.swipe_coordinates(path[0][0], path[0][1], path[-1][0], path[-1][1],
                                                   duration if controlled else self._fling_total(path))
-            emit_step(
-                "scroll", action="curve", target=direction,
+            self._report_gesture(
+                "curve", direction, path[0], path[-1],
+                duration if controlled else self._fling_total(path),
                 requested_px=_requested(distance_px),
                 distance_px=int(abs(path[-1][1] - path[0][1])), points=len(path),
                 controlled=controlled, velocity_scale=round(speed, 3),
@@ -463,8 +474,8 @@ class GestureMixin:
                 raw.swipe(sx, sy, ex, ey, duration=duration)
             else:
                 self.device.swipe_coordinates(sx, sy, ex, ey, duration)
-            emit_step(
-                "scroll", action="flick", target=direction,
+            self._report_gesture(
+                "flick", direction, (sx, sy), (ex, ey), duration,
                 requested_px=_requested(distance_px), distance_px=int(dy), duration_ms=round(duration * 1000),
                 velocity_scale=round(speed, 3),
             )
@@ -509,8 +520,8 @@ class GestureMixin:
                     raw.swipe_points(path, duration / max(1, len(path) - 1))
                 else:
                     self.device.swipe_coordinates(sx, sy, ex, ey, duration)
-            emit_step(
-                "scroll", action="drag", target=direction,
+            self._report_gesture(
+                "drag", direction, (sx, sy), (ex, ey), duration,
                 requested_px=_requested(target), distance_px=int(dy), duration_ms=round(duration * 1000),
                 velocity_scale=round(speed, 3),
                 paced=(getattr(self, "_last_gesture_injection", None) or {}).get("mode"),
@@ -735,8 +746,8 @@ class GestureMixin:
                 raw.swipe(int(sx), int(sy), int(ex), int(ey), duration=duration)
             else:
                 self.device.swipe_coordinates(int(sx), int(sy), int(ex), int(ey), duration)
-            emit_step(
-                "scroll", action="hswipe", target=direction,
+            self._report_gesture(
+                "hswipe", direction, (sx, sy), (ex, ey), duration,
                 distance_px=int(abs(ex - sx)), duration_ms=round(duration * 1000),
                 distance_scale=round(reach, 3), velocity_scale=round(speed, 3),
             )
@@ -866,8 +877,8 @@ def human_drag_between_raw(raw_device, start: Tuple[int, int], end: Tuple[int, i
             else:
                 host.device.swipe_coordinates(sx, sy, ex, ey, duration)
         injection = getattr(host, "_last_gesture_injection", None) or {}
-        emit_step(
-            "scroll", action="drag", target="down" if ey > sy else "up",
+        host._report_gesture(
+            "drag", "down" if ey > sy else "up", (sx, sy), (ex, ey), duration,
             distance_px=int(abs(ey - sy)), duration_ms=round(duration * 1000),
             points=injection.get("events"), paced=injection.get("mode"),
         )
