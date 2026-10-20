@@ -162,8 +162,18 @@ class AIService(CommentGenerationMixin):
         # `ai_spend` is emitted only for runs whose session reads it; the others keep their IPC
         # for the Agent cards and pass False.
         self.report_spend = report_spend
-        # Two fixed models by task. The desktop app no longer injects models; the text_model/
-        # vision_model params remain for signature compatibility but are ignored.
+        # The models are fixed by task (`openrouter_policy.py`). `text_model` and `vision_model` are
+        # still accepted because the hosts pass them through the factory, but they are never used:
+        # a value that is none of the policy's models is reported rather than dropped (the desktop
+        # sends the generation model as `text_model` and the analysis model as `vision_model`).
+        policy_models = {MODEL_ANALYSIS, MODEL_CLASSIFICATION, MODEL_GENERATION}
+        for parameter, requested in (("text_model", text_model), ("vision_model", vision_model)):
+            if requested and requested not in policy_models:
+                logger.warning(
+                    f"[AIService] {parameter}={requested!r} ignored: the models are set by the policy "
+                    f"(analysis {MODEL_ANALYSIS}, classification {MODEL_CLASSIFICATION}, "
+                    f"generation {MODEL_GENERATION})"
+                )
         self.model_analysis = MODEL_ANALYSIS
         self.model_generation = MODEL_GENERATION
         # The profile classifier — see MODEL_CLASSIFICATION for why it is not model_analysis.
