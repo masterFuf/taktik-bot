@@ -84,6 +84,11 @@ class ValidationRun:
     core_commit: str
     exception: Optional[RunException] = None
 
+    @property
+    def left_out(self) -> int:
+        """How many actions the run left out (its phone's exception), 0 when it played them all."""
+        return len(self.exception.skipped_actions) if self.exception else 0
+
 
 @dataclass(frozen=True)
 class Validation:
@@ -495,8 +500,7 @@ def _evidence_line(version: str, validation: Validation) -> str:
     """One line per validated build: its runs grouped by phone and bytes, and its known limits."""
     groups: Dict[Tuple[str, str, int, str, int], int] = {}
     for run in validation.runs:
-        left_out = len(run.exception.skipped_actions) if run.exception else 0
-        key = (run.device, run.abi, run.version_code, run.language, left_out)
+        key = (run.device, run.abi, run.version_code, run.language, run.left_out)
         groups[key] = groups.get(key, 0) + 1
     parts = []
     for (device, abi, version_code, language, left_out), count in groups.items():
@@ -593,7 +597,7 @@ def _validation_json(validation: Optional[Validation]) -> Optional[Dict[str, Any
                 "abi": run.abi,
                 "language": run.language,
                 "version_code": run.version_code,
-                "left_out": len(run.exception.skipped_actions) if run.exception else 0,
+                "left_out": run.left_out,
             }
             for run in validation.runs
         ],
