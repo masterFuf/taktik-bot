@@ -194,8 +194,7 @@ def _lab_send(monkeypatch, device, params):
 
     monkeypatch.setattr("time.sleep", lambda *_: None)
     sent = []
-    monkeypatch.setattr(ColdDMWorkflow, "navigate_to_search", lambda self: True)
-    monkeypatch.setattr(ColdDMWorkflow, "search_user", lambda self, username: True)
+    monkeypatch.setattr(ColdDMWorkflow, "open_recipient_profile", lambda self, username: True)
     monkeypatch.setattr(ColdDMWorkflow, "send_message", lambda self, message: sent.append(message) or True)
     bundle = SimpleNamespace(device=SimpleNamespace(device=device),
                              detection=SimpleNamespace(is_verified_account=lambda: False,

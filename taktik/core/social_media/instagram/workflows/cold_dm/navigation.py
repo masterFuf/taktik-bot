@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
@@ -21,6 +22,10 @@ PROFILE_LOAD_TIMEOUT_S = 8.0
 
 class ColdDMNavigationMixin:
     """Profile and home navigation used by the Cold DM outreach flow."""
+
+    # What the host gives this mixin, like the fields of a TypeScript interface.
+    device: Any  # the (clone-aware) uiautomator2 device, behind the facade
+    device_manager: Any  # its manager, which the production actions are built on
 
     def is_private_profile(self) -> bool:
         """Check if the current profile is private."""
@@ -42,6 +47,18 @@ class ColdDMNavigationMixin:
         from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
 
         return DetectionActions(self.device_manager)
+
+    def _cold_dm_navigation(self):
+        """The production navigation, on this workflow's device (the Lab supplies its own): its
+        profile search is the one every workflow opens a profile with."""
+        from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+
+        return NavigationActions(self.device_manager)
+
+    def open_recipient_profile(self, recipient: str) -> bool:
+        """Open the recipient's profile through the production profile search, never a deep link
+        (as the cold DM always reached its recipients): the row of that exact handle, or nobody."""
+        return self._cold_dm_navigation().navigate_to_profile(recipient, force_search=True)
 
     def find_message_button(self):
         """The profile's Message button, looked for inside the profile header only, or None.

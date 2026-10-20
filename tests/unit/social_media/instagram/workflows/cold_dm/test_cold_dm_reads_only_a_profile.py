@@ -198,8 +198,7 @@ def test_a_search_that_opened_no_profile_taps_nothing_and_composes_nothing(monke
     set_active_locale("fr")
     phone = _Phone(HOME_FR)
     composed, sent = [], []
-    monkeypatch.setattr(ColdDMWorkflow, "navigate_to_search", lambda self: True)
-    monkeypatch.setattr(ColdDMWorkflow, "search_user", lambda self, username: True)
+    monkeypatch.setattr(ColdDMWorkflow, "open_recipient_profile", lambda self, username: True)
     monkeypatch.setattr(ColdDMWorkflow, "send_message", lambda self, message: sent.append(message) or True)
 
     reached = _workflow(phone).reach_and_send("demo_recipient", lambda: composed.append(1) or "Bonjour",

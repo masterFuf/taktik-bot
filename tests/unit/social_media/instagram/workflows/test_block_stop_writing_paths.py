@@ -32,8 +32,7 @@ def _cold_dm_workflow(monkeypatch):
     monkeypatch.setattr(module, "ProblematicPageDetector", _Refusing)
     workflow = module.ColdDMWorkflow.__new__(module.ColdDMWorkflow)
     workflow.device = object()
-    workflow.navigate_to_search = lambda: True
-    workflow.search_user = lambda recipient: True
+    workflow.open_recipient_profile = lambda recipient: True
     workflow.open_dm_from_profile = lambda policy=None: True
     workflow.sent = []
     workflow.send_message = lambda message: workflow.sent.append(message) or True

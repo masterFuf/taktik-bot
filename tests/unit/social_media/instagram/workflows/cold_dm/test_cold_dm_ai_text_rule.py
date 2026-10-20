@@ -60,8 +60,7 @@ def _workflow(monkeypatch, *, sent=None):
     monkeypatch.setattr(module, "ProblematicPageDetector", lambda device: None)
     phone = _Phone()
     workflow = module.ColdDMWorkflow(object(), object(), keyboard=object(), sent=sent)
-    workflow.navigate_to_search = lambda: True
-    workflow.search_user = lambda recipient: True
+    workflow.open_recipient_profile = lambda recipient: True
     workflow.open_dm_from_profile = lambda policy=None: True
     workflow.send_message = lambda message: phone.typed.append(message) or True
     workflow.go_home = lambda: None

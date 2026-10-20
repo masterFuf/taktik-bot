@@ -134,7 +134,8 @@ def _flag(p, name, default):
 def _cold_dm_runtime(a):
     """The production cold DM workflow (`ColdDMWorkflow`, the core's one engine) bound to the warm
     Lab device: the class itself, so a step changed in the workflow reaches the Lab on its own. No
-    second connection, no app restart; the profile reads use the Lab's detection."""
+    second connection, no app restart; the profile reads use the Lab's detection, the profile
+    search the Lab's navigation (the production one, `navigation.open_profile`'s)."""
     from taktik.core.shared.input.keyboard import KeyboardService
     from taktik.core.social_media.instagram.workflows.cold_dm.workflow import ColdDMWorkflow
 
@@ -146,9 +147,13 @@ def _cold_dm_runtime(a):
             self.device_id = getattr(facade, "device_id", None) or "lab"
             self._keyboard = KeyboardService(self.device_id)
             self._detection = bundle.detection
+            self._bundle = bundle
 
         def _cold_dm_detection(self):
             return self._detection
+
+        def _cold_dm_navigation(self):
+            return self._bundle.nav
 
     return _LabColdDMWorkflow(a)
 
@@ -156,9 +161,10 @@ def _cold_dm_runtime(a):
 @action("dm.send_cold_dm")
 def send_cold_dm(a, p):
     """Cold DM to ONE recipient through the production steps of the cold DM workflow
-    (`ColdDMWorkflow.reach_and_send`): search, profile, the recipient policy (skipPrivate default
-    true, skipVerified default false, as the page sends them), conversation, send. Params: username
-    and text (required). Not written to the base: the Lab has no session."""
+    (`ColdDMWorkflow.reach_and_send`): the production profile search (never a deep link), the
+    profile, the recipient policy (skipPrivate default true, skipVerified default false, as the
+    page sends them), conversation, send. Params: username and text (required). Not written to the
+    base: the Lab has no session."""
     from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
         ColdDmRecipientPolicy,
     )
