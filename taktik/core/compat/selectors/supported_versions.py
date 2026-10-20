@@ -580,12 +580,34 @@ def compatibility_file_drift(path: Path = COMPATIBILITY_PATH) -> Optional[str]:
     return None
 
 
+def _validation_json(validation: Optional[Validation]) -> Optional[Dict[str, Any]]:
+    """What the desktop app shows of a validated build's evidence: the date, each run's phone, ABI,
+    language, versionCode and the number of actions it left out, the notes in both languages."""
+    if validation is None:
+        return None
+    return {
+        "date": validation.date,
+        "runs": [
+            {
+                "device": run.device,
+                "abi": run.abi,
+                "language": run.language,
+                "version_code": run.version_code,
+                "left_out": len(run.exception.skipped_actions) if run.exception else 0,
+            }
+            for run in validation.runs
+        ],
+        "notes": dict(validation.notes),
+    }
+
+
 def as_json(supported: SupportedVersions) -> Dict[str, Any]:
     """The payload the desktop app generates its version lists from. `rows` are the rows of
     COMPATIBILITY.md, status included: the Lab's exit gate asks for a green run on each of them.
     `override_status` tells, for each adjusted version, whether a validated build of it runs on one of
     our phones (`validated`), it is under validation (`testing`) or adjusted only (`adjusted`): the app
-    says the same of a phone on it. `abis` is every ABI a build can be declared for."""
+    says the same of a phone on it. `abis` is every ABI a build can be declared for. Each build carries
+    its evidence (`validation`, null for a build not validated), which the app's download center shows."""
     return {
         "architectures": list(supported.architectures),
         "abis": list(ANDROID_ABIS),
@@ -597,7 +619,13 @@ def as_json(supported: SupportedVersions) -> Dict[str, Any]:
                 "override_versions": list(s.override_versions),
                 "override_status": dict(s.override_status),
                 "builds": [
-                    {"version": b.version, "status": b.status, "recommended": b.recommended} for b in s.builds
+                    {
+                        "version": b.version,
+                        "status": b.status,
+                        "recommended": b.recommended,
+                        "validation": _validation_json(b.validation),
+                    }
+                    for b in s.builds
                 ],
                 "rows": [
                     {"version": r.version, "display": r.display, "status": r.status} for r in compatibility_rows(s)

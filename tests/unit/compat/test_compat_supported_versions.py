@@ -324,6 +324,28 @@ def test_the_json_carries_the_status_of_each_adjusted_version(tmp_path):
     assert app["override_status"] == {"417.0.0.0": "adjusted", "442.0.0.0": "adjusted", "447.0.0.0": "validated"}
 
 
+def test_the_json_carries_the_evidence_of_each_validated_build(tmp_path):
+    """The desktop app shows each validated build's evidence (`npm run appversions:shipped`): the date,
+    each run's phone, ABI, language and the actions it left out, the notes. Read here, never a second
+    time from app_builds.json; a build without a validation carries none."""
+    from taktik.core.compat.selectors.supported_versions import as_json
+
+    skipped = {"reason": "a client's account", "skipped_actions": ["dm.open_thread", "story.open_from_tray"]}
+    validated = _build("447.0.0.55.81")
+    validated["validation"]["runs"][0]["exception"] = skipped
+    builds = [validated, _build("430.0.0.1.1", status="testing"), _build("410.0.0.53.71", recommended=True, abi="armeabi-v7a")]
+    path = _builds_file(tmp_path, builds, architectures=("arm64-v8a", "armeabi-v7a"))
+    app = as_json(load_supported_versions(path, OVERRIDES_DIR))["apps"]["instagram"]
+    by_version = {build["version"]: build for build in app["builds"]}
+    assert by_version["447.0.0.55.81"]["validation"] == {
+        "date": "2026-09-30",
+        "runs": [{"device": "Pixel 6a", "abi": "arm64-v8a", "language": "fr", "version_code": 385311922, "left_out": 2}],
+        "notes": {"fr": "Aucune limite connue.", "en": "No known limit."},
+    }
+    assert by_version["410.0.0.53.71"]["validation"]["runs"][0]["abi"] == "armeabi-v7a"
+    assert by_version["430.0.0.1.1"]["validation"] is None
+
+
 def test_the_public_file_shows_the_evidence_and_the_limits_of_each_validated_build(tmp_path):
     text = render_compatibility_markdown(load_supported_versions(_builds_file(tmp_path, BUILDS), OVERRIDES_DIR))
     assert "- `447.0.0.55.81`, validated on 2026-09-30: 1 Lab run on Pixel 6a (arm64-v8a, versionCode 385311922, fr)." in text
