@@ -11,8 +11,8 @@ Refused:
 - `sys.argv` read anywhere under `bridges/` except the launcher and the entrypoint;
 - `argparse` imported under `bridges/`;
 - a second way to hand over the config (a `config_source` parameter or argument);
-- a build file (`scripts/build/build_exe.py`, `taktik_launcher.spec`, the app's `build-all.ps1`) that
-  does not read the manifest, or that names a bridge of it by hand;
+- the build definition (`taktik_launcher.spec`, the only one) not reading the manifest, or a build file
+  (the spec, the app's `build-all.ps1` that runs it) naming a bridge of it by hand;
 - the app's `PLATFORM_BRIDGES` (`electron/utils/paths.ts`) differing from the manifest, platform
   by platform.
 
@@ -40,10 +40,11 @@ ENTRY_HELPER = "run_bridge_main"
 ARGV_READERS = {"bridges/launcher.py", "bridges/common/entrypoint.py"}
 
 BUILD_FILES = (
-    CORE / "scripts" / "build" / "build_exe.py",
     CORE / "taktik_launcher.spec",
     APP / "scripts" / "build" / "build-all.ps1",
 )
+#: The one build definition: it reads the manifest. build-all.ps1 runs it and lists no bridge.
+BUILD_DEFINITION = "core/taktik_launcher.spec"
 APP_PATHS = APP / "electron" / "utils" / "paths.ts"
 
 
@@ -146,7 +147,7 @@ def check_build_lists(sources: Sources) -> list[str]:
     names = {name for bridges in sources.manifest.values() for name in bridges}
     modules = {module for bridges in sources.manifest.values() for module in bridges.values()}
     for label, text in sources.build_files.items():
-        if MANIFEST_NAME not in text:
+        if label == BUILD_DEFINITION and MANIFEST_NAME not in text:
             findings.append(f"{label} does not read {MANIFEST_NAME}")
         written = sorted(
             item for item in names | modules
