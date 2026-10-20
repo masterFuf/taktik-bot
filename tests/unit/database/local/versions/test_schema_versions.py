@@ -17,6 +17,7 @@ from taktik.core.database.local.versions.backup import AUTO_BACKUP_PATTERN, prun
 from taktik.core.database.local.versions.catalog import (
     ADDITIVE,
     BASELINE,
+    DATA,
     MIGRATIONS,
     REBUILD,
     VERSIONS_DIR,
@@ -46,6 +47,7 @@ sys.path.insert(0, str(CORE / "scripts/generate"))
 import build_schema_baseline  # noqa: E402
 
 TARGET = schema_version()
+NEXT = TARGET + 1  # the version of the step the runner tests add after the catalog
 BASELINE_TEXT = (VERSIONS_DIR / "m0001_baseline.sql").read_text(encoding="utf-8")
 
 
@@ -140,6 +142,16 @@ def test_catalog_runs_from_one_without_gaps():
         validate_catalog([Migration(1, "baseline", BASELINE, "m0001_baseline.sql"), Migration(3, "x", ADDITIVE)])
     with pytest.raises(ValueError):
         validate_catalog([Migration(1, "x", ADDITIVE, apply_fn=lambda c: None)])
+
+
+def test_a_data_step_leaves_the_schema_as_it_was():
+    """A `data` step corrects values already written: the schema after it is the schema before it."""
+    data_steps = [m for m in MIGRATIONS if m.kind == DATA]
+    assert data_steps
+    for step in data_steps:
+        # Equality, not `compare`: `compare` ignores what the definition does not name, a new table included.
+        before = target_fingerprint(MIGRATIONS[:step.version - 1])
+        assert target_fingerprint(MIGRATIONS[:step.version]) == before, step.name
 
 
 def test_manifest_matches_the_catalog():
@@ -331,7 +343,7 @@ def test_new_base_is_created_at_the_target_version(tmp_path):
     assert status.state == CURRENT and status.warnings == []
     conn = sqlite3.connect(str(path))
     try:
-        assert [(r["version"], r["mode"]) for r in read_journal(conn)] == [(1, "applied")]
+        assert [(r["version"], r["mode"]) for r in read_journal(conn)] == [(m.version, "applied") for m in MIGRATIONS]
         assert compare(target_fingerprint(), fingerprint(conn)) == []
     finally:
         conn.close()
@@ -353,7 +365,8 @@ def test_recognized_legacy_base_is_stamped_without_rewriting(tmp_path):
     app_before = app_part(path)
     rows_before = scalar(path, "SELECT COUNT(*) FROM accounts")
     result = migrate_database(path, backup_dir=tmp_path / "backups", applied_by="test", clock=FIXED_CLOCK)
-    assert result.success and result.action == "stamped" and result.applied == []
+    assert result.success and result.action == "stamped"
+    assert result.applied == [m.version for m in MIGRATIONS[1:]]
     after = objects(path)
     assert {k: v for k, v in after.items() if k[1] != JOURNAL_TABLE and not k[1].startswith("sqlite_autoindex_schema")} == before
     assert set(after) - set(before) == {("table", JOURNAL_TABLE)}
@@ -364,12 +377,12 @@ def test_recognized_legacy_base_is_stamped_without_rewriting(tmp_path):
     backup_path = Path(result.backup["path"])
     assert AUTO_BACKUP_PATTERN.match(backup_path.name)
     assert result.backup["row_counts"]["accounts"] == rows_before
-    assert backup_path.name == "taktik-data.v0-v1.20260925-1.db"
+    assert backup_path.name == f"taktik-data.v0-v{TARGET}.20260925-1.db"
     assert scalar(backup_path, "PRAGMA user_version") == 0
     assert objects(backup_path) == before
-    second = migrate_database(path, backup_dir=tmp_path / "backups", catalog=_two_step_catalog(
+    second = migrate_database(path, backup_dir=tmp_path / "backups", catalog=_one_more_step(
         lambda conn: conn.execute("CREATE TABLE later_step (id INTEGER)")), clock=FIXED_CLOCK)
-    assert Path(second.backup["path"]).name == "taktik-data.v1-v2.20260925-2.db"
+    assert Path(second.backup["path"]).name == f"taktik-data.v{TARGET}-v{NEXT}.20260925-2.db"
 
 
 def test_an_unrecognized_base_goes_to_the_1_9_8_app_before_the_bot_steps(tmp_path):
@@ -436,8 +449,9 @@ def test_a_base_newer_than_the_build_is_never_written(tmp_path):
     assert not (tmp_path / "backups").exists()
 
 
-def _two_step_catalog(apply_fn, kind=ADDITIVE, rows_unchanged=True):
-    return (MIGRATIONS[0], Migration(2, "step_two", kind, apply_fn=apply_fn, rows_unchanged=rows_unchanged))
+def _one_more_step(apply_fn, kind=ADDITIVE, rows_unchanged=True):
+    """The catalog, plus one step at version NEXT: what the runner meets on a base at TARGET."""
+    return (*MIGRATIONS, Migration(NEXT, "one_more_step", kind, apply_fn=apply_fn, rows_unchanged=rows_unchanged))
 
 
 def test_a_failing_migration_rolls_everything_back(tmp_path):
@@ -450,9 +464,9 @@ def test_a_failing_migration_rolls_everything_back(tmp_path):
         conn.execute("ALTER TABLE accounts ADD COLUMN half_done TEXT")
         raise RuntimeError("injected failure")
 
-    result = migrate_database(path, backup_dir=tmp_path / "backups", catalog=_two_step_catalog(boom))
+    result = migrate_database(path, backup_dir=tmp_path / "backups", catalog=_one_more_step(boom))
     assert not result.success and result.action == "failed" and "injected failure" in result.message
-    assert scalar(path, "PRAGMA user_version") == 1
+    assert scalar(path, "PRAGMA user_version") == TARGET
     assert objects(path) == before
     assert result.backup is not None and Path(result.backup["path"]).exists()
 
@@ -460,7 +474,7 @@ def test_a_failing_migration_rolls_everything_back(tmp_path):
 def test_a_step_that_names_an_app_object_cannot_even_be_built():
     """The target schema is built in memory from the bot's migrations alone: a step that needs an
     app object fails there, before any base is opened."""
-    catalog = _two_step_catalog(lambda conn: conn.execute("ALTER TABLE app_config ADD COLUMN sneaky TEXT"))
+    catalog = _one_more_step(lambda conn: conn.execute("ALTER TABLE app_config ADD COLUMN sneaky TEXT"))
     with pytest.raises(sqlite3.OperationalError, match="app_config"):
         target_fingerprint(catalog)
 
@@ -481,9 +495,9 @@ def test_a_migration_that_touches_an_app_object_is_rolled_back(tmp_path, stateme
     migrate_database(path, backup_dir=tmp_path / "backups", clock=FIXED_CLOCK)
     before, app_before = objects(path), app_part(path)
     result = migrate_database(path, backup_dir=tmp_path / "backups", clock=FIXED_CLOCK,
-                              catalog=_two_step_catalog(lambda conn: conn.execute(statement)))
+                              catalog=_one_more_step(lambda conn: conn.execute(statement)))
     assert not result.success and "does not own" in result.message, result.message
-    assert scalar(path, "PRAGMA user_version") == 1
+    assert scalar(path, "PRAGMA user_version") == TARGET
     assert objects(path) == before and app_part(path) == app_before
 
 
@@ -500,10 +514,10 @@ def test_a_rebuild_must_keep_the_app_triggers_of_its_table(tmp_path):
         conn.execute("ALTER TABLE filtered_profiles_copy RENAME TO filtered_profiles")
 
     result = migrate_database(path, backup_dir=tmp_path / "backups", clock=FIXED_CLOCK,
-                              catalog=_two_step_catalog(rebuild_losing_triggers, kind=REBUILD))
+                              catalog=_one_more_step(rebuild_losing_triggers, kind=REBUILD))
     assert not result.success
     assert "not the bot's: trigger trg_filtered_touch removed" in result.differences
-    assert scalar(path, "PRAGMA user_version") == 1
+    assert scalar(path, "PRAGMA user_version") == TARGET
     assert objects(path) == before
 
 
@@ -520,7 +534,7 @@ def test_a_process_killed_mid_migration_leaves_the_base_untouched(tmp_path):
         "    conn.execute('CREATE TABLE half_done (id INTEGER)')\n"
         "    conn.execute('INSERT INTO accounts (platform, username) VALUES (\\'instagram\\', \\'x\\')')\n"
         "    os._exit(9)\n"
-        "catalog = (MIGRATIONS[0], Migration(2, 'dies', ADDITIVE, apply_fn=die))\n"
+        "catalog = (*MIGRATIONS, Migration(len(MIGRATIONS) + 1, 'dies', ADDITIVE, apply_fn=die))\n"
         "migrate_database(sys.argv[1], backup_dir=sys.argv[2], catalog=catalog)\n",
         encoding="utf-8",
         newline="",
@@ -529,7 +543,7 @@ def test_a_process_killed_mid_migration_leaves_the_base_untouched(tmp_path):
     proc = subprocess.run([sys.executable, str(script), str(path), str(tmp_path / "backups")],
                           cwd=str(CORE), env=env, capture_output=True, timeout=120)
     assert proc.returncode == 9, proc.stderr.decode("utf-8", "replace")[-2000:]
-    assert scalar(path, "PRAGMA user_version") == 1
+    assert scalar(path, "PRAGMA user_version") == TARGET
     assert objects(path) == before
     assert scalar(path, "SELECT COUNT(*) FROM accounts") == 0
     assert scalar(path, "PRAGMA quick_check") == "ok"
@@ -548,12 +562,12 @@ def test_a_rebuild_is_rehearsed_on_a_copy_first(tmp_path):
     migrate_database(path, backup_dir=tmp_path / "backups", clock=FIXED_CLOCK)
     steps = []
     result = migrate_database(path, backup_dir=tmp_path / "backups",
-                              catalog=_two_step_catalog(_rebuild_device_identity, kind=REBUILD),
+                              catalog=_one_more_step(_rebuild_device_identity, kind=REBUILD),
                               on_progress=lambda step, message="": steps.append(step), clock=FIXED_CLOCK)
-    assert result.success and result.action == "migrated" and result.applied == [2]
+    assert result.success and result.action == "migrated" and result.applied == [NEXT]
     assert steps.index("backup") < steps.index("rehearsal") < steps.index("apply")
     assert scalar(path, "SELECT device_id FROM device_identity") == "abc"
-    assert scalar(path, "PRAGMA user_version") == 2
+    assert scalar(path, "PRAGMA user_version") == NEXT
     assert not list((tmp_path / "backups").glob("*.rehearsal.db*"))
 
 
@@ -567,10 +581,10 @@ def test_a_rebuild_that_loses_rows_is_stopped_before_touching_the_base(tmp_path)
         conn.execute("DELETE FROM accounts WHERE platform = 'tiktok'")
 
     result = migrate_database(path, backup_dir=tmp_path / "backups",
-                              catalog=_two_step_catalog(lossy, kind=REBUILD), clock=FIXED_CLOCK)
+                              catalog=_one_more_step(lossy, kind=REBUILD), clock=FIXED_CLOCK)
     assert not result.success and result.action == "failed"
     assert "rows of accounts: 2 -> 1" in result.differences
-    assert scalar(path, "PRAGMA user_version") == 1
+    assert scalar(path, "PRAGMA user_version") == TARGET
     assert scalar(path, "SELECT COUNT(*) FROM accounts") == 2
     assert objects(path) == before
     assert not list((tmp_path / "backups").glob("*.rehearsal.db*"))

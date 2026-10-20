@@ -139,7 +139,7 @@ def test_a_recognized_base_is_stamped_at_its_first_opening_on_its_own(tmp_path, 
     assert scalar(path, "PRAGMA user_version") == TARGET
     after = schema_rows(path)
     assert [r for r in after if r[1] != "schema_migrations"] == before
-    assert list((tmp_path / "backups").glob("taktik-data.v0-v1.*.db"))
+    assert list((tmp_path / "backups").glob(f"taktik-data.v0-v{TARGET}.*.db"))
 
 
 def test_a_numbered_base_gets_no_schema_step_only_the_data_upkeep(tmp_path, monkeypatch):

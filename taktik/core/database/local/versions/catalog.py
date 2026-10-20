@@ -4,6 +4,9 @@ Version N of a base is `PRAGMA user_version`, and it describes the bot's objects
 desktop app keeps creating and changing its own tables. Migration 1 is the baseline: the bot's
 part of the 1.9.8 schema, applied to a new base and only stamped on an existing one. Every later
 change is a new entry here, never an edit of a released one.
+
+Kinds: `additive` adds to the bot's schema, `rebuild` rewrites a table (rehearsed on a copy first),
+`data` corrects values already written in the bot's tables and leaves the schema as it is.
 """
 
 from __future__ import annotations
@@ -20,7 +23,8 @@ from .sql_text import split_statements
 BASELINE = "baseline"
 ADDITIVE = "additive"
 REBUILD = "rebuild"
-KINDS = (BASELINE, ADDITIVE, REBUILD)
+DATA = "data"
+KINDS = (BASELINE, ADDITIVE, REBUILD, DATA)
 
 VERSIONS_DIR = Path(__file__).resolve().parent
 
@@ -71,6 +75,7 @@ class Migration:
 MIGRATIONS: Sequence[Migration] = (
     Migration(1, "baseline", BASELINE, sql_file="m0001_baseline.sql",
               retired_tables_file="m0001_retired_tables.json"),
+    Migration(2, "unfollowed_at_utc", DATA, sql_file="m0002_unfollowed_at_utc.sql"),
 )
 
 
@@ -94,6 +99,7 @@ def schema_version(catalog: Sequence[Migration] = MIGRATIONS) -> int:
 __all__ = [
     "ADDITIVE",
     "BASELINE",
+    "DATA",
     "MIGRATIONS",
     "Migration",
     "REBUILD",
