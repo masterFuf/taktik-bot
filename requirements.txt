@@ -22,9 +22,9 @@ pillow>=10.0.0
 loguru>=0.7.0
 
 # ORM pilot (Vague D) - SQLAlchemy maps existing tables only (never owns the
-# schema on the shared dual-runtime base). Capped < 2.0 to avoid the 1.4 -> 2.0
-# API break until the pilot is extended/validated against 2.x.
-sqlalchemy>=1.4,<2.0
+# schema on the shared dual-runtime base). 2.0: the 1.4 line has no wheel for Python 3.13
+# and 3.14; capped < 2.1 until the pilot is validated against the next minor.
+sqlalchemy>=2.0,<2.1
 
 # Media capture dependencies are optional — install separately when needed:
 #   pip install -r requirements-media.txt
