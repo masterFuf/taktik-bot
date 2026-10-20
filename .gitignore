@@ -6,6 +6,8 @@ env/
 env.bak/
 venv.bak/
 .venv-lint/
+# The installer's build environment (app/scripts/build/build-all.ps1)
+.venv-build/
 
 # Profile images and debug captures
 profile_images/

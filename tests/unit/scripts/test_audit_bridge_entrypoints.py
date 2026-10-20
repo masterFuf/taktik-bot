@@ -23,7 +23,7 @@ def _sources(**files):
     return audit.Sources(
         manifest=MANIFEST,
         bridge_files=bridge_files,
-        build_files={"core/scripts/build/build_exe.py": "json.loads(Path('bridges.manifest.json').read_text())"},
+        build_files={"core/taktik_launcher.spec": "json.loads(Path('bridges.manifest.json').read_text())"},
         app_paths=APP_PATHS,
     )
 

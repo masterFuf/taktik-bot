@@ -4,7 +4,8 @@ PyInstaller only warns about a `--hidden-import` it cannot find, and the build g
 `taktik.core.license`, `taktik.core.database.api_client` and
 `taktik.core.license.unified_license_manager` long after they were deleted, and nothing said so. The
 names are resolved as `audit_import_layers.py` resolves an import (`importable_names`: a folder left
-with its caches only is no package). Three build definitions exist; each one is checked.
+with its caches only is no package). The spec is the only build definition; the app's build-all.ps1
+runs it and names no module.
 """
 
 import ast
@@ -52,17 +53,13 @@ def importable():
     return audit.importable_names(audit.read_tree())
 
 
-@pytest.mark.parametrize("definition", ["taktik_launcher.spec", "scripts/build/build_exe.py"])
-def test_the_core_build_definitions_name_modules_that_exist(definition, importable):
-    named = _named_by_python(CORE / definition)
+def test_the_spec_names_modules_that_exist(importable):
+    named = _named_by_python(CORE / "taktik_launcher.spec")
 
-    assert named, f"{definition}: no module of ours read, the reader no longer sees its lists"
+    assert named, "taktik_launcher.spec: no module of ours read, the reader no longer sees its lists"
     assert [name for name in named if name not in importable] == []
 
 
 @pytest.mark.skipif(not BUILD_ALL.is_file(), reason="the app repository is not beside core")
-def test_the_app_build_names_modules_that_exist(importable):
-    named = _ours(_PS1_NAMED.findall(BUILD_ALL.read_text(encoding="utf-8-sig")))
-
-    assert named, "build-all.ps1: no module of ours read, the reader no longer sees its arguments"
-    assert [name for name in named if name not in importable] == []
+def test_the_app_build_names_no_module():
+    assert _PS1_NAMED.findall(BUILD_ALL.read_text(encoding="utf-8-sig")) == []

@@ -38,6 +38,8 @@ setup(
     version=engine_version(),
     packages=find_packages(),
     include_package_data=True,
+    # 3.10 for the command line of the public repository, 3.14 for the launcher the installer
+    # freezes: requirements.lock resolves for both, and the test suite runs on both.
     python_requires=">=3.10",
     install_requires=runtime_requirements(),
     entry_points={
@@ -58,6 +60,8 @@ setup(
     url="https://github.com/masterFuf/taktik-bot",
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
         "Development Status :: 5 - Production/Stable",

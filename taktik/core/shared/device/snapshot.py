@@ -22,7 +22,7 @@ What a photo does NOT do, deliberately:
   the production loops do behind `facade.xpath()` (which logs and returns None); `elements()`, the
   raw call, lets uiautomator2's error through.
 
-Works with uiautomator2 3.x (`requirements.lock` pins 3.5.0): `XPathSelector(xpath).all(source)`
+Works with uiautomator2 3.x (`requirements.lock` pins 3.3.3): `XPathSelector(xpath).all(source)`
 is the form common to 3.3 and 3.5+, whose constructor no longer takes a source.
 
 Every selector asked of a photo is told to the observers of its source (`SnapshotSource.observe`,

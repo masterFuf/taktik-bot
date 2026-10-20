@@ -1,34 +1,32 @@
 # What the engine needs to run: the one list, read by setup.py for `pip install .` too.
-typer>=0.9.0
-rich>=13.3.5,<14.0
+# Each line is a package the engine imports (taktik/, bridges/, lazy imports included), and each
+# package the engine imports is here: tests/unit/test_package_requirements.py holds both ways.
+# Exact versions, for Python 3.10 and 3.14 alike: requirements.lock (regenerated, never edited).
+rich>=13.3.5,<14.0  # rich 14 split its unicode tables into modules PyInstaller did not freeze
 click>=8.1.3
-pydantic>=2.0.0
-
-cryptography>=41.0.0
 
 adbutils>=1.2.0
-pure-python-adb==0.3.0.dev0
-uiautomator2>=3.3.3  # XPath engine with PageSource (the screen photo); requirements.lock pins 3.5.0
+uiautomator2>=3.3.3,<3.5  # XPath engine with PageSource (the screen photo). 3.5 strips U+200B-U+200F and U+FEFF from every dump, which the TikTok screen tests read; the lock pins 3.3.3, what the installer ships
+lxml>=5.0  # the screen dumps, read like uiautomator2 reads them
 
-python-dotenv>=1.0.0
 pyyaml>=6.0
-schedule>=1.2.0
 requests>=2.30.0
 pillow>=10.0.0
+numpy>=1.26  # the fingerprint of a captured ad (taktik/core/shared/vision/fingerprint.py)
 # Local OCR (free) — locate on-screen UI text that has no accessibility node
 # (e.g. the "more"/"suite"/"plus" inline expanders on IG/TikTok). Requires the
 # tesseract binary installed on the host (UB-Mannheim build on Windows); the OCR
 # service calls it directly and degrades gracefully (logs + no-op) when it is absent.
 loguru>=0.7.0
+packaging>=23.0  # compares the engine's version with the GitHub release (taktik/cli/support/version_checker.py)
 
 # ORM pilot (Vague D) - SQLAlchemy maps existing tables only (never owns the
-# schema on the shared dual-runtime base). Capped < 2.0 to avoid the 1.4 -> 2.0
-# API break until the pilot is extended/validated against 2.x.
-sqlalchemy>=1.4,<2.0
+# schema on the shared dual-runtime base). 2.0: the 1.4 line has no wheel for Python 3.13
+# and 3.14; capped < 2.1 until the pilot is validated against the next minor.
+sqlalchemy>=2.0,<2.1
 
 # Media capture dependencies are optional — install separately when needed:
 #   pip install -r requirements-media.txt
-reportlab>=4.4.3
-packaging>=23.0
 
-# The tools of a developer (tests, formatters) are in requirements-dev.txt, which includes this list.
+# The tools of a developer (tests, formatters) are in requirements-dev.txt, which includes this list;
+# PyInstaller, which freezes the launcher, in requirements-build.txt.

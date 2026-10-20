@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# What freezes the bridge launcher (taktik_launcher.spec): PyInstaller, from 6.16 the first to support
+# Python 3.14. The installer builds it in a virtual environment of its own, installed from
+# requirements.lock (app/scripts/build/build-all.ps1), never in the Python of the machine.
+pyinstaller>=6.16
