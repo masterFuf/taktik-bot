@@ -3,6 +3,8 @@
 # The tools of a developer: tests and formatters. Not installed with the package.
 pytest>=7.3.1
 pytest-cov>=4.1.0
+# setup.py imports it; a virtual environment of Python 3.12 and later no longer has it.
+setuptools>=65.0
 
 black>=23.3.0
 flake8>=6.0.0
