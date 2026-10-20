@@ -14,8 +14,9 @@ import ast
 from pathlib import Path
 from typing import Dict, Iterator, Optional, Set, Tuple
 
-from taktik.core.contract.error_codes import BRIDGE_ERROR_CODE, BRIDGE_ERROR_PHRASES
+from taktik.core.contract.error_codes import BRIDGE_ERROR_CODE, BRIDGE_ERROR_PHRASES, BRIDGE_REFUSAL_CODES
 from taktik.core.contract.shared import ERROR_EVENT
+from taktik.core.shared.device.network_door import NetworkUnreachableError
 from unit.paths import CORE
 
 ROOTS = ("bridges", "taktik")
@@ -185,6 +186,23 @@ def test_the_error_line_refers_to_the_catalogue():
 
     assert field.type is BRIDGE_ERROR_CODE
     assert BRIDGE_ERROR_CODE.values == tuple(BRIDGE_ERROR_PHRASES)
+
+
+def test_an_expected_refusal_is_a_code_of_the_catalogue():
+    """The refusals the app files no crash report for are codes the bridges emit, each listed once:
+    a name outside the catalogue would spare nothing, and the app types the list by the catalogue."""
+    assert BRIDGE_REFUSAL_CODES
+    assert len(set(BRIDGE_REFUSAL_CODES)) == len(BRIDGE_REFUSAL_CODES)
+    assert set(BRIDGE_REFUSAL_CODES) <= set(BRIDGE_ERROR_PHRASES)
+
+
+def test_a_phone_without_network_is_a_refusal_and_a_crash_is_not():
+    """The network door refuses a phone without network: the run did its job. A bridge that broke
+    (an exception, the device agent, a timeout) did not, and its crash report is the only account
+    of it that leaves a client's machine."""
+    assert NetworkUnreachableError.error_code in BRIDGE_REFUSAL_CODES
+    broken = ("UNHANDLED_EXCEPTION", "WORKFLOW_ERROR", "WORKFLOW_TIMEOUT", "ATX_AGENT_CRASHED")
+    assert not set(broken) & set(BRIDGE_REFUSAL_CODES)
 
 
 def _census_of(source: str) -> Tuple[Set[str], list]:

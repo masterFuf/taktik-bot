@@ -14,11 +14,16 @@ a code says its cause (`LICENSE_SETUP_FAILED`, sent when the run's base did not 
 `DATABASE_SETUP_FAILED`). `tests/unit/contract/test_workflow_contract_error_codes.py` holds the
 catalogue to the codes the bridges and the core emit, read from the source: a code emitted and not
 listed, or listed and emitted nowhere, is red, and so is a sentence shared by two codes.
+
+Some codes are not failures: a bridge refused to run, on purpose, on a state of the phone it checked
+before touching anything (`BRIDGE_REFUSAL_CODES`). The run did its job; the app says the sentence and
+files no crash report for it. Every other code is a failure worth a report, a payload refused
+included (the app wrote that payload).
 """
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Mapping, Tuple
 
 from .schema import OneOf
 
@@ -77,6 +82,17 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     "SCHEMA_MIGRATION_FAILED": "errorSchemaMigrationFailed",
 }
 
+#: The expected refusals: the phone has no network (the network door), the app the run needs is not
+#: on the phone. The remedy is the operator's, not a fix of the bot; the app's reading of a dead bridge
+#: (`crashErrorCode.ts`) files no crash report for an exit on one of them. Not here: what may be the
+#: bot's own fault (a device that does not connect, an IP rotation that failed, Instagram that does
+#: not start), and what is decided mid-run (a publication Instagram refuses).
+BRIDGE_REFUSAL_CODES: Tuple[str, ...] = (
+    "NETWORK_UNREACHABLE",
+    "INSTAGRAM_NOT_INSTALLED",
+    "APP_NOT_INSTALLED",
+)
+
 #: The codes, as the named closed set the `error` line refers to.
 BRIDGE_ERROR_CODE = OneOf(
     tuple(BRIDGE_ERROR_PHRASES),
@@ -84,4 +100,4 @@ BRIDGE_ERROR_CODE = OneOf(
     doc="Why a bridge failed or refused to run (`error_code` of its `error` line).",
 )
 
-__all__ = ["BRIDGE_ERROR_CODE", "BRIDGE_ERROR_PHRASES"]
+__all__ = ["BRIDGE_ERROR_CODE", "BRIDGE_ERROR_PHRASES", "BRIDGE_REFUSAL_CODES"]

@@ -5,7 +5,8 @@ The app's types for the declared workflows are generated from the declaration, n
 hand: the settings each workflow reads (their defaults, the bounds outside which its reader refuses
 the run, and the same settings as data the app reads while it runs), the file its bridge reads, the
 lines its bridge prints; the lines of the diagnostic tools; the catalogues of why a run ends (named
-unions); the codes of a bridge's `error` line, with the key of each one's sentence in the app.
+unions); the codes of a bridge's `error` line, with the key of each one's sentence in the app, and
+those of them that are a refusal the run meant.
 The output is deterministic (declaration order, no date), so the app's gate compares it byte for
 byte with the file it commits.
 
@@ -32,7 +33,7 @@ if str(ROOT) not in sys.path:
 
 from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS  # noqa: E402
 from taktik.core.contract.bounds import describe  # noqa: E402
-from taktik.core.contract.error_codes import BRIDGE_ERROR_CODE, BRIDGE_ERROR_PHRASES  # noqa: E402
+from taktik.core.contract.error_codes import BRIDGE_ERROR_CODE, BRIDGE_ERROR_PHRASES, BRIDGE_REFUSAL_CODES  # noqa: E402
 from taktik.core.contract.schema import (  # noqa: E402
     HOST,
     Bounds,
@@ -95,8 +96,9 @@ HEADER = """/**
  * (`<Name>BridgePayload`) and the stdout lines the app reads (`<Name>BridgeLine`); the lines of the
  * diagnostic tools the app runs beside them; the catalogues of why a run ends, one union each; the codes
  * of a bridge's `error` line (`BridgeErrorCode`) and the key of each one's sentence in the app
- * (`BRIDGE_ERROR_PHRASE_KEYS`). Rendered by `core/scripts/audits/workflow_contract.py`;
- * `npm run workflow:contract` fails when this file and the bot disagree.
+ * (`BRIDGE_ERROR_PHRASE_KEYS`), and the codes of a refusal the run meant (`BRIDGE_REFUSAL_CODES`).
+ * Rendered by `core/scripts/audits/workflow_contract.py`; `npm run workflow:contract` fails when this
+ * file and the bot disagree.
  */
 """
 
@@ -204,6 +206,15 @@ def render_error_phrases() -> List[str]:
            f"export const BRIDGE_ERROR_PHRASE_KEYS: Readonly<Record<{BRIDGE_ERROR_CODE.name}, string>> = {{"]
     out += [f"  {ts_key(code)}: {literal(key)}," for code, key in BRIDGE_ERROR_PHRASES.items()]
     out.append("}")
+    return out
+
+
+def render_refusal_codes() -> List[str]:
+    """`BRIDGE_REFUSAL_CODES`: the codes of a refusal the run meant, which the app files no crash report for."""
+    out = ["/** The codes of a refusal the run meant (no network, the app not on the phone): no crash report. */",
+           f"export const BRIDGE_REFUSAL_CODES: readonly {BRIDGE_ERROR_CODE.name}[] = ["]
+    out += [f"  {literal(code)}," for code in BRIDGE_REFUSAL_CODES]
+    out.append("]")
     return out
 
 
@@ -606,6 +617,8 @@ def render(contracts: Tuple[WorkflowContract, ...] = WORKFLOW_CONTRACTS,
         exported.append(catalogue.name)
     lines += render_error_phrases() + [""]
     exported.append("BRIDGE_ERROR_PHRASE_KEYS")
+    lines += render_refusal_codes() + [""]
+    exported.append("BRIDGE_REFUSAL_CODES")
     for shape in shapes.values():
         lines += render_shape(shape, shape.name in filled)
         if shape.name in settings:
