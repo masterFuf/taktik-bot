@@ -435,9 +435,6 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.EditText[contains(@hint, \"Rechercher\")]",
         "//*[contains(@content-desc, \"Rechercher\")]",
     ],
-    "navigation.explore_search_bar_texts": [
-        "Rechercher",  # the text of the explore search bar (410)
-    ],
     "navigation.home_tab": [
         # Instagram in French still names its home tab "Home" (410 and 447, after a cold start
         # too); "Accueil" is Android's: its navigation bar, the Pixel launcher, the dialer.
@@ -467,12 +464,6 @@ STRINGS: Dict[str, List[str]] = {
         # search fields (search_bar_glyph, search_edit_text).
         # The proxy makes the tab_bar id match any package's, hence @package too.
         "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Rechercher\") and @package=\"com.instagram.android\"]",
-    ],
-    "navigation.search_tab_description_contains": [
-        "Rechercher",
-    ],
-    "navigation.search_tab_descriptions": [
-        "Rechercher et explorer",  # the search tab of the tab bar (410)
     ],
     "navigation.top_tab_selectors": [
         "//*[contains(@text, \"Populaires\")]",

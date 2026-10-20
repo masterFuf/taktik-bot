@@ -13,10 +13,7 @@ every text written another way is listed.
 
 import pytest
 
-from taktik.core.shared.input.keyboard import KeyboardService
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
-from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from taktik.core.social_media.instagram.workflows.cold_dm.search import ColdDMSearchMixin
 
 from test_keyboard_switched_before_the_field_is_tapped import (  # noqa: F401 (fixture)
     TEXT,
@@ -28,6 +25,7 @@ from test_keyboard_switched_before_the_field_is_tapped import (  # noqa: F401 (f
     _notifications,
     _on_the_phone,
     _post_caption,
+    _profile_search,
     _signup_field,
     _story_reply,
     _text_actions_field,
@@ -120,28 +118,12 @@ def test_a_field_the_keyboard_cannot_type_is_not_pasted(no_keyboard, fill):
     assert _pasted(no_keyboard) == []
 
 
-# -- The cold DM search -----------------------------------------------------------------------------
+# -- The profile search (the cold DM's too: its own, which wrote the handle with `set_text`, is gone)
 
-def _cold_dm_search(phone):
-    class _Search(ColdDMSearchMixin):
-        device = phone
-        _keyboard = KeyboardService(phone.device_id)
+def test_a_profile_search_the_keyboard_cannot_type_is_not_pasted(no_keyboard):
+    reached, _query = _profile_search(no_keyboard)
 
-    phone._fields.append({"resourceId": NAVIGATION_SELECTORS.explore_search_bar_resource_id})
-    return _Search()
-
-
-def test_the_cold_dm_search_is_typed_by_the_keyboard(phone):
-    """It wrote the handle with `set_text`, the keyboard never used."""
-    _cold_dm_search(phone).search_user("ana")
-
-    assert phone.steps == ["switch", "tap"]
-    assert phone.field == "ana" and _pasted(phone) == []
-
-
-def test_a_cold_dm_search_the_keyboard_cannot_type_is_not_pasted(no_keyboard):
-    assert _cold_dm_search(no_keyboard).search_user("ana") is False
-
+    assert reached is False
     assert _pasted(no_keyboard) == [] and no_keyboard.field == ""
 
 

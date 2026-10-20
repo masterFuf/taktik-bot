@@ -16,6 +16,14 @@ _IG_USERNAME_RE = re.compile(r'[A-Za-z0-9._]{1,30}')  # charset Instagram strict
 _SHELL_UNSAFE_RE = re.compile(r'[\s"\'`$;&|<>(){}\\]')  # interdits dans l'URL passee a am start
 
 
+def instagram_handle(text: Optional[str]) -> Optional[str]:
+    """The handle Instagram shows for `text` (spaces and a leading @ dropped, lower case), or None
+    when what remains is no Instagram handle. Nothing is stripped from inside it: a text that is
+    no handle stays none, rather than turning into someone else's."""
+    handle = (text or "").strip().lstrip("@").lower()
+    return handle if _IG_USERNAME_RE.fullmatch(handle) else None
+
+
 class DeepLinkNavigationMixin(BaseAction):
     """Mixin: navigate to profiles and posts via ADB deep links."""
 

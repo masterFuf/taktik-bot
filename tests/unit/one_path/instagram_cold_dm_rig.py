@@ -2,10 +2,12 @@
 
 The same cold DM payload goes through the desktop bridge (`cold_dm_bridge <config.json>`) and
 through the CLI (`taktik workflows run instagram.engagement.coldDm`). The phone below answers the
-selectors of the flow (search tab, search bar, result rows, profile, conversation, send button)
-from a small screen state, and records every selector query that finds something and every gesture,
-the `sent_dms` rows and the session the run opens and closes. Nothing here reaches adb, the network,
-the AI or the database.
+selectors of the flow (profile, conversation, send button, home tab) from a small screen state, and
+records every selector query that finds something and every gesture, the `sent_dms` rows and the
+session the run opens and closes. The profile of a recipient is opened by the production profile
+search, recorded as asked (`navigate_to_profile <handle> force_search=<flag>`): its own screens are
+played in its own tests (`actions/atomic/navigation/test_profile_search_opens_only_the_asked_account.py`).
+Nothing here reaches adb, the network, the AI or the database.
 """
 from __future__ import annotations
 
@@ -125,32 +127,21 @@ class FakePhone:
         self.user = None
         #: What the conversation composer holds: the typing reads it back before the send.
         self.composer = ""
-        #: What the search bar holds: the Taktik Keyboard types the handle there, read back too.
-        self.search_text = ""
         self.edit_text_class = DM_SELECTORS.edit_text_class_name
         suffix = lambda rid: rid.split(":id/")[-1]
         self.ids = {
-            "search_tab": suffix(NAVIGATION_SELECTORS.search_tab_resource_id),
-            "search_bar": suffix(NAVIGATION_SELECTORS.explore_search_bar_resource_id),
-            "row": suffix(NAVIGATION_SELECTORS.search_result_container_resource_id),
-            "row_username": suffix(NAVIGATION_SELECTORS.search_result_username_resource_id),
             "home_tab": suffix(NAVIGATION_SELECTORS.home_tab_resource_id),
             "private_state": suffix(PROFILE_SELECTORS.private_empty_state_resource_id),
             "message_button": suffix(PROFILE_SELECTORS.message_button_resource_id),
             "composer": suffix(DM_SELECTORS.composer_edittext_resource_id),
             "send": suffix(DM_SELECTORS.send_button_resource_ids[0]),
         }
-        self.accounts_tab = NAVIGATION_SELECTORS.search_accounts_tab_texts[0]
-        #: The search result row of one handle, as the production profile search asks for it.
-        self.row_of = NAVIGATION_SELECTORS.search_result_selectors_for_username
         self.invite_text = DM_SELECTORS.invite_sent_text_contains[0]
 
     def __call__(self, **selector):
         return _Element(self, _key(selector))
 
     def xpath(self, selector):
-        if self.user and selector in self.row_of(self.user):
-            return _Element(self, ("row_of", self.user))
         return _Element(self, _xpath_key(selector))
 
     # --- what the screen shows ------------------------------------------------------------------
@@ -159,16 +150,9 @@ class FakePhone:
         return self.rig.profile(self.user) if self.user else {}
 
     def exists(self, key) -> bool:
-        kind, value = key
         ids = self.ids
-        if key == ("id", ids["search_tab"]) or key == ("id", ids["home_tab"]):
+        if key == ("id", ids["home_tab"]):
             return self.state != "conversation"
-        if key == ("id", ids["search_bar"]):
-            return self.state in ("search", "typed")
-        if key == ("text", self.accounts_tab):
-            return self.state == "typed"
-        if key in (("id", ids["row"]), ("id", ids["row_username"])) or kind == "row_of":
-            return self.state == "typed" and self._profile().get("found", True)
         if key == ("id", ids["private_state"]):
             return self.state == "profile" and self._profile().get("private", False)
         if key == ("id", ids["message_button"]):
@@ -192,20 +176,13 @@ class FakePhone:
         focused = key in (("class", self.edit_text_class), ("other", json.dumps({"focused": True})))
         if focused and self.exists(("id", self.ids["composer"])):
             return {"text": self.composer, "focused": True, "className": self.edit_text_class}
-        if focused and self.exists(("id", self.ids["search_bar"])):
-            return {"text": self.search_text, "focused": True, "className": self.edit_text_class}
         raise LookupError(f"no element {key}")
 
     # --- what a gesture does --------------------------------------------------------------------
 
     def clicked(self, key) -> None:
         ids = self.ids
-        if key == ("id", ids["search_tab"]):
-            self.state = "search"
-            self.search_text = ""
-        elif key in (("id", ids["row"]), ("id", ids["row_username"])) or key[0] == "row_of":
-            self.state = "profile"
-        elif key == ("id", ids["message_button"]):
+        if key == ("id", ids["message_button"]):
             self.state = "conversation"
             self.composer = ""
         elif key == ("id", ids["send"]):
@@ -215,30 +192,28 @@ class FakePhone:
             self.state = "home"
 
     def typed(self, key, text) -> None:
-        if key == ("id", self.ids["search_bar"]):
-            self.state = "typed"
-            self.user = text
-        elif key == ("id", self.ids["composer"]):
+        if key == ("id", self.ids["composer"]):
             self.composer = text
 
     def keyboard_typed(self, text) -> None:
-        """The Taktik Keyboard types into the focused field: the composer when it is open, else
-        the search bar, whose results then show."""
+        """The Taktik Keyboard types into the focused field: the composer when it is open."""
         if self.exists(("id", self.ids["composer"])):
             self.composer += text
-        elif self.exists(("id", self.ids["search_bar"])):
-            self.search_text += text
-            self.state = "typed"
-            self.user = self.search_text
 
     def keyboard_cleared(self) -> None:
         self.composer = ""
-        if self.exists(("id", self.ids["search_bar"])):
-            self.search_text = ""
+
+    def opened_by_the_profile_search(self, username: str) -> bool:
+        """The production profile search reached `username`'s profile, or nobody's."""
+        if not self.rig.profile(username).get("found", True):
+            return False
+        self.state = "profile"
+        self.user = username
+        return True
 
     def press(self, button):
         self.rig.calls.append(f"press {button}")
-        back = {"conversation": "profile", "profile": "typed", "typed": "search", "search": "home"}
+        back = {"conversation": "profile", "profile": "home"}
         if button == "back":
             self.state = back.get(self.state, "home")
 
@@ -352,6 +327,13 @@ class InstagramColdDmRig:
                    lambda device, *a, **k: rig.calls.append("detect_language") or "en")
 
         from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
+        from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+
+        def fake_navigate_to_profile(_self, username, deep_link_usage_percentage=0, force_search=False):
+            rig.calls.append(f"navigate_to_profile {username} force_search={force_search}")
+            return rig.phone.opened_by_the_profile_search(username)
+
+        mp.setattr(NavigationActions, "navigate_to_profile", fake_navigate_to_profile)
 
         def fake_is_verified(_self, *a, **k):
             rig.calls.append("read_verified")

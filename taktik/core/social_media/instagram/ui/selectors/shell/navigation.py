@@ -38,15 +38,6 @@ class NavigationSelectors:
     @property
     def search_tab(self) -> List[str]:
         return self._search_tab_base + L("navigation.search_tab")
-    search_tab_resource_id: str = "com.instagram.android:id/search_tab"
-
-    @property
-    def search_tab_descriptions(self) -> List[str]:
-        return L("navigation.search_tab_descriptions")
-
-    @property
-    def search_tab_description_contains(self) -> List[str]:
-        return L("navigation.search_tab_description_contains")
 
     # The bottom bar's tab, by its exact id: `contains(@resource-id, "profile_tab")` also names
     # the grid tabs of a profile page (profile_tabs_container, profile_tab_layout,
@@ -125,13 +116,6 @@ class NavigationSelectors:
     @property
     def explore_search_bar(self) -> List[str]:
         return self._explore_search_bar_base + L("navigation.explore_search_bar")
-    explore_search_bar_resource_id: str = "com.instagram.android:id/action_bar_search_edit_text"
-
-    @property
-    def explore_search_bar_texts(self) -> List[str]:
-        return L("navigation.explore_search_bar_texts")
-    edit_text_class_name: str = "android.widget.EditText"
-    search_accounts_tab_texts: List[str] = field(default_factory=lambda: ["Accounts"])
 
     # === Search result selectors (use .format(username=...) for dynamic parts) ===
     search_result_container_resource_id: str = 'com.instagram.android:id/row_search_user_container'

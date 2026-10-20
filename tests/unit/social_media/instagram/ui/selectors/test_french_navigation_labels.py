@@ -5,8 +5,11 @@ phone. These entries were empty while English had them; each is now read on a sc
 410 in French (Pixel 3a, switched by the production language change, then back), anonymized: the
 home feed with its tab bar, the explore tab with its search bar, a message thread.
 
-The callers ask uiautomator2 by `description=` (exact), `descriptionContains=` and `text=` (exact),
-behind the resource-id they try first; the XPath here asks the same of the dump.
+The home tab and the thread's back button are asked of uiautomator2 by `description=` (exact) and
+`descriptionContains=`, behind the resource-id tried first; the XPath here asks the same of the
+dump. The search tab and the search bar are asked by the production XPath lists themselves, in
+their order (the profile search's own `_find_and_click`): the cold DM's search, which asked them by
+`description=` and `text=`, is gone with the labels only it read.
 
 The last test is a ratchet: the properties still empty in French and full in English are only the
 ones measured as unreachable, each with its reason.
@@ -74,19 +77,25 @@ def test_the_home_tab_is_found_by_its_french_description(french):
     assert NAVIGATION_SELECTORS.home_tab_description_contains
 
 
-def test_the_search_tab_is_found_by_its_french_description(french):
-    assert NAVIGATION_SELECTORS.search_tab_descriptions
-    for label in NAVIGATION_SELECTORS.search_tab_descriptions:
-        assert _instagram_ids(HOME, f'//*[@content-desc="{label}"]') == [f"{PKG}:id/search_tab"]
-    assert NAVIGATION_SELECTORS.search_tab_description_contains
-    for label in NAVIGATION_SELECTORS.search_tab_description_contains:
-        assert _instagram_ids(HOME, f'//*[contains(@content-desc, "{label}")]') == [f"{PKG}:id/search_tab"]
+def _first_found(root, selectors):
+    """The Instagram ids the first selector of the list that finds something finds, as
+    `_find_and_click` takes them."""
+    for selector in selectors:
+        found = _instagram_ids(root, selector)
+        if found:
+            return found
+    return []
 
 
-def test_the_explore_search_bar_is_found_by_its_french_text(french):
-    assert NAVIGATION_SELECTORS.explore_search_bar_texts
-    for label in NAVIGATION_SELECTORS.explore_search_bar_texts:
-        assert _instagram_ids(EXPLORE, f'//*[@text="{label}"]') == [f"{PKG}:id/action_bar_search_edit_text"]
+def test_the_search_tab_is_found_in_french(french):
+    assert _first_found(HOME, NAVIGATION_SELECTORS.search_tab) == [f"{PKG}:id/search_tab"]
+    # The French entry alone, the tab bar's "Rechercher", finds the tab too.
+    assert _first_found(HOME, NAVIGATION_SELECTORS.search_tab[1:]) == [f"{PKG}:id/search_tab"]
+
+
+def test_the_explore_search_bar_is_found_in_french(french):
+    assert _first_found(EXPLORE, NAVIGATION_SELECTORS.explore_search_bar) == [
+        f"{PKG}:id/action_bar_search_edit_text"]
 
 
 def test_the_back_button_of_a_thread_is_found_by_its_french_description(french):

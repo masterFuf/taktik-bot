@@ -1,63 +1,121 @@
-"""The cold DM opens the account it searched for, or nobody.
+"""The cold DM opens its recipient through the production profile search: that exact account, or nobody.
 
 Instagram 447 (Pixel 6a, in French, 2026-09-28) no longer lists some accounts among the accounts its
 search shows: typed "nasa", the screen held a "keyword" row whose subtitle names the account ("nasa •
-104 M followers"), and account rows for others, the first of them @nasahubble. The production profile
-search asks for the exact handle and opened nobody (it then falls back to the deep link). The cold DM
-search, its own, took the first account row whose handle CONTAINED the query, or was contained in
-it: on that screen it opened @nasahubble, and the DM would have gone to someone else. It now asks
-for the row of the exact handle, with the production profile search's own selectors
-(`search_result_selectors_for_username`), and opens nobody when it is not there.
+104 M followers"), and account rows for others, the first of them @nasahubble. The cold DM had a
+search of its own, which took the first account row whose handle held the query: it opened
+@nasahubble, and the DM would have gone to someone else. Fixed there first, it was still a second
+way of opening a profile by its handle. The cold DM now asks the production one
+(`NavigationActions.navigate_to_profile`, every workflow's), with `force_search`: never a deep link,
+as the cold DM always reached its recipients. The rules its own search held (the exact handle,
+read as Instagram writes it) are that search's, tested on its own screens in
+`actions/atomic/navigation/test_profile_search_opens_only_the_asked_account.py`.
 
-The screen is that capture, anonymized (`anonymize_dump.py`), the anonymizer's names for the two
-handles chosen so that the row shown keeps the query in its handle as on the phone: the searched
-account is `user_3`, the row's `user_3x`. The phone answers `xpath` through uiautomator2's own engine
-and `d(...)` from the same dump (the rig of `test_cold_dm_reads_only_a_profile.py`), behind the
-clone proxy and the facade the bridge mounts. The keyboard is not what is tested: it types.
+The screens are those real captures (`search_screens_phone.py`: the home feed, Explore, the results),
+behind the clone proxy and the facade the bridge mounts. The keyboard is not what is tested: it
+types what it is given. Neither is the profile opened: once the row is tapped, the check of the
+opened profile and the cold DM's decision on it are recorded, not played.
 """
+
+import time as real_time
+from types import SimpleNamespace
 
 import pytest
 
-import taktik.core.social_media.instagram.workflows.cold_dm.search as cold_dm_search
+import taktik.core.shared.actions.base_action as base_action_module
+import taktik.core.shared.device.facade as shared_facade_module
+import taktik.core.social_media.instagram.actions.atomic.navigation.search_navigation as search_navigation
+import taktik.core.social_media.instagram.actions.base.base_action.delays as delays_module
+import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
+from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+from taktik.core.shared.diagnostics import miss_capture
+from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import (
+    DeepLinkNavigationMixin,
+)
+from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
-from test_cold_dm_reads_only_a_profile import FIXTURES, _Phone, _workflow
+from taktik.core.social_media.instagram.workflows.cold_dm.navigation import NOT_ON_PROFILE
+from taktik.core.social_media.instagram.workflows.cold_dm.workflow import NOT_FOUND, ColdDMWorkflow
+from unit.social_media.instagram.actions.atomic.navigation.search_screens_phone import (
+    PKG,
+    SEARCH_410,
+    SEARCH_447,
+    SearchPhone,
+)
 
-SEARCH_447 = (FIXTURES / "ig447_fr_search_account_only_in_keyword_row.xml").read_text(encoding="utf-8")
-#: The account rows of the capture, by handle: their bounds.
-ROWS = {"user_3x": (0, 1191, 1080, 1343), "user_2": (0, 1343, 1080, 1495)}
+
+class _Clock:
+    """The waits loop on `time.time()`: a clock that runs, and sleeps that do not."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def time(self):
+        self.now += 0.7
+        return self.now
+
+    def sleep(self, _seconds):
+        pass
+
+    def __getattr__(self, name):
+        return getattr(real_time, name)
 
 
-@pytest.fixture(autouse=True)
-def _typed_and_no_waits(monkeypatch):
-    monkeypatch.setattr(cold_dm_search, "ensure_taktik_keyboard", lambda *_a, **_k: True)
-    monkeypatch.setattr(cold_dm_search, "type_text_checked", lambda *_a, **_k: True)
-    monkeypatch.setattr(cold_dm_search, "resolve_device_id", lambda *_a, **_k: "demo-phone")
-    monkeypatch.setattr(cold_dm_search.time, "sleep", lambda *_: None)
+@pytest.fixture
+def run_on(monkeypatch):
+    """`run_on(screens, recipient)`: one recipient through `reach_and_send` on that phone, and
+    what happened: the phone, the outcome, the profile checks and decisions, the deep links."""
+    for module in (facade_module, shared_facade_module, search_navigation, delays_module):
+        monkeypatch.setattr(module.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(base_action_module, "time", _Clock())
+    monkeypatch.setattr(miss_capture, "signaler_ecran_inconnu", lambda *a, **k: None)
+    monkeypatch.setattr(miss_capture, "blocage_a_signaler", lambda: False)
+    monkeypatch.setattr(search_navigation, "get_active_package", lambda: PKG)
+    monkeypatch.setattr(base_action_module, "ensure_taktik_keyboard", lambda *_a, **_k: True)
+    monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard", lambda *_a, **_k: True)
+    seen = SimpleNamespace(checked=[], decided=[], deep_links=[], composed=[])
+    monkeypatch.setattr(DeepLinkNavigationMixin, "_navigate_via_deep_link",
+                        lambda _self, username, *a, **k: seen.deep_links.append(username) or False)
+    monkeypatch.setattr(NavigationActions, "_verify_profile_navigation",
+                        lambda _self, handle: seen.checked.append(handle) or True)
+    monkeypatch.setattr(ColdDMWorkflow, "open_dm_from_profile",
+                        lambda _self, policy=None: seen.decided.append(policy) or NOT_ON_PROFILE)
     set_active_locale("fr")
-    yield
+
+    def run(screens, recipient):
+        phone = SearchPhone(screens)
+        monkeypatch.setattr(base_action_module, "type_text_checked",
+                            lambda _device, _serial, text, **_k: phone.keyboard_types(text) or True)
+        proxy = CloneAwareDeviceProxy(phone, PKG)
+        workflow = ColdDMWorkflow(DeviceFacade(proxy), SimpleNamespace(device=proxy),
+                                  keyboard=SimpleNamespace(device_id="demo-phone"))
+        seen.phone = phone
+        seen.reached = workflow.reach_and_send(recipient, lambda: seen.composed.append(1) or "Bonjour")
+        return seen
+
+    yield run
     set_active_locale(None)
 
 
-def _taps_in(phone, box):
-    left, top, right, bottom = box
-    return [tap for tap in phone.taps if left <= tap[0] <= right and top <= tap[1] <= bottom]
+def test_an_account_the_results_do_not_list_opens_nobody(run_on):
+    seen = run_on(SEARCH_447, "user_3")
+
+    assert seen.reached == {"outcome": NOT_FOUND}
+    assert seen.phone.typed == ["user_3"]
+    # The search bar is tapped to type; no row is, and no deep link reaches the profile instead.
+    assert seen.phone.rows_tapped() == []
+    assert seen.deep_links == [] and seen.checked == [] and seen.decided == [] and seen.composed == []
 
 
-def test_an_account_the_results_do_not_list_opens_nobody():
-    phone = _Phone(SEARCH_447)
+@pytest.mark.parametrize("screens", [SEARCH_410, SEARCH_447], ids=["ig410", "ig447"])
+def test_the_recipient_is_opened_by_the_row_of_its_handle(run_on, screens):
+    """Given as an operator may type it: the production search reads it as Instagram writes it."""
+    seen = run_on(screens, "@User_2")
 
-    found = _workflow(phone).search_user("user_3")
-
-    assert found is False
-    # The search bar is tapped to type; no row is.
-    assert not any(_taps_in(phone, box) for box in ROWS.values())
-
-
-def test_an_account_the_results_list_is_opened():
-    phone = _Phone(SEARCH_447)
-
-    found = _workflow(phone).search_user("user_2")
-
-    assert found is True
-    assert len(_taps_in(phone, ROWS["user_2"])) == 1
-    assert _taps_in(phone, ROWS["user_3x"]) == []
+    assert seen.phone.typed == ["user_2"]
+    assert seen.phone.rows_tapped() == ["user_2"]
+    assert seen.checked == ["user_2"]
+    # Then the cold DM decides on the profile, as before.
+    assert len(seen.decided) == 1 and seen.reached == {"outcome": NOT_ON_PROFILE}
+    assert seen.deep_links == [] and seen.composed == []

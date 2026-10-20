@@ -5,6 +5,7 @@ import random
 from typing import Optional
 from loguru import logger
 
+from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import instagram_handle
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
@@ -94,6 +95,10 @@ class SearchNavigationMixin(BaseAction):
         this inverts the preference, it does not remove a capability. Cost: a search costs
         roughly 5-8s against ~2s, paid once per profile entry.
 
+        The handle is read as Instagram writes it (`instagram_handle`: spaces and a leading @
+        dropped, lower case) before either route: the search types it and opens only the row of
+        that exact handle. A text that is no handle is refused before any gesture.
+
         Args:
             username: The username to navigate to
             deep_link_usage_percentage: Percentage chance to try the deep link FIRST (0-100).
@@ -103,8 +108,13 @@ class SearchNavigationMixin(BaseAction):
         Returns:
             True if navigation successful, False otherwise
         """
+        handle = instagram_handle(username)
+        if handle is None:
+            self.logger.error(f"Not an Instagram handle ({len(username or '')} chars): no profile opened")
+            return False
+        username = handle
         self.logger.info(f"🎯 Navigating to profile @{username}")
-        
+
         # Determine navigation method
         active_pkg = get_active_package()
         is_clone = active_pkg != "com.instagram.android"

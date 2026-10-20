@@ -446,9 +446,6 @@ STRINGS: Dict[str, List[str]] = {
         "//android.widget.EditText[contains(@hint, \"Search\")]",
         "//*[contains(@content-desc, \"Search\")]",
     ],
-    "navigation.explore_search_bar_texts": [
-        "Search",
-    ],
     "navigation.home_tab": [
         # Inside Instagram's tab bar only. Outside it, "Home" is the Android navigation bar's
         # home button, a launcher's home screen, and Instagram's own "Back to Home" camera
@@ -477,12 +474,6 @@ STRINGS: Dict[str, List[str]] = {
         # Instagram's own search fields (search_bar_glyph, search_edit_text).
         # The proxy makes the tab_bar id match any package's, hence @package too.
         "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Search\") and @package=\"com.instagram.android\"]",
-    ],
-    "navigation.search_tab_description_contains": [
-        "Search",
-    ],
-    "navigation.search_tab_descriptions": [
-        "Search and explore",
     ],
     "navigation.top_tab_selectors": [
         "//*[contains(@text, \"Top\")]",

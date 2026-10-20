@@ -33,7 +33,6 @@ from taktik.core.social_media.instagram.workflows.cold_dm.results import (
     build_cold_dm_summary,
     validate_cold_dm_inputs,
 )
-from taktik.core.social_media.instagram.workflows.cold_dm.search import ColdDMSearchMixin
 from taktik.core.social_media.instagram.workflows.cold_dm.sender import ColdDMSenderMixin
 from taktik.core.social_media.instagram.workflows.cold_dm.timing import wait_before_next_cold_dm
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
@@ -45,7 +44,8 @@ from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy impor
 
 #: `reach_and_send` outcomes other than the recipient policy's skip reasons.
 SENT = "sent"
-NO_SEARCH = "no_search"
+#: The production profile search opened no profile of this handle: no row of it among the results,
+#: the search not reached, or the profile opened another one.
 NOT_FOUND = "not_found"
 NO_CONVERSATION = "no_conversation"
 NO_MESSAGE = "no_message"
@@ -62,7 +62,6 @@ SentCallback = Callable[..., None]
 
 class ColdDMWorkflow(
     ColdDMRecipientMixin,
-    ColdDMSearchMixin,
     ColdDMSenderMixin,
     ColdDMNavigationMixin,
 ):
@@ -209,21 +208,19 @@ class ColdDMWorkflow(
 
     def reach_and_send(self, recipient: str, compose, policy: ColdDmRecipientPolicy | None = None,
                        *, rules: AiDmRules | None = None) -> dict:
-        """One recipient, the production steps: search, open the profile, decide, open the
-        conversation, compose, send. Shared by `run` and the Lab (`dm.send_cold_dm`).
+        """One recipient, the production steps: open the profile through the production profile
+        search, decide, open the conversation, compose, send. Shared by `run` and the Lab
+        (`dm.send_cold_dm`).
 
         `compose` is called only once the conversation is open (an AI message costs a call).
         `rules`: the composed text was written by an AI and is held to them before it is typed.
         Returns `outcome` (`SENT`, a `recipient_policy.SKIP_*` reason, or one of the
-        `NO_SEARCH`, `NOT_FOUND`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
+        `NOT_FOUND`, `NOT_ON_PROFILE`, `NO_CONVERSATION`, `NO_MESSAGE`
         failures, or `TEXT_REFUSED` with its `refusal`), with `message` and `send_result` once
         sent. Counting and recording are the caller's.
         """
-        if not self.navigate_to_search():
-            logger.warning(f"Could not navigate to search for {recipient}")
-            return {"outcome": NO_SEARCH}
-        if not self.search_user(recipient):
-            logger.warning(f"Could not find user: {recipient}")
+        if not self.open_recipient_profile(recipient):
+            logger.warning(f"The profile search opened no profile of {recipient}")
             return {"outcome": NOT_FOUND}
         open_result = self.open_dm_from_profile(policy)
         if open_result == NOT_ON_PROFILE:

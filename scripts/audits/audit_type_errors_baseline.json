@@ -222,7 +222,6 @@
   "taktik/core/social_media/instagram/workflows/automation/unfollow/mixins/sync_followers.py": 4,
   "taktik/core/social_media/instagram/workflows/automation/unfollow/mixins/sync_following.py": 8,
   "taktik/core/social_media/instagram/workflows/automation/unfollow/workflow.py": 2,
-  "taktik/core/social_media/instagram/workflows/cold_dm/navigation.py": 13,
   "taktik/core/social_media/instagram/workflows/cold_dm/persistence.py": 2,
   "taktik/core/social_media/instagram/workflows/cold_dm/results.py": 3,
   "taktik/core/social_media/instagram/workflows/cold_dm/sender.py": 9,
