@@ -7,15 +7,8 @@
       "name": "baseline",
       "sha256": "5494eaf61f3919dcfa8d0cad299599003558f967cdc416d2b76e4199f4424a5f",
       "version": 1
-    },
-    {
-      "file": "m0002_unfollowed_at_utc.sql",
-      "kind": "data",
-      "name": "unfollowed_at_utc",
-      "sha256": "be3027a94a1b1d20fe8d9175199ec7347b9adf1147a7dee4a369cc583eea39c2",
-      "version": 2
     }
   ],
-  "schema_version": 2,
+  "schema_version": 1,
   "target_fingerprint_sha256": "e724f007c09a564fbcb037e1d549f2dd03dc8113f4b2d3747ca3cac8b5347c63"
 }
