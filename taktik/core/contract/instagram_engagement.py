@@ -8,7 +8,15 @@ from __future__ import annotations
 
 from .ai_dm import ai_dm_rules_field, ai_dm_text_refusal_field
 from .schema import HOST, Bounds, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import AI_SPEND_EVENT, SESSION_START_EVENT, device_field, instagram_package_field, network_reset_field
+from .shared import (
+    AI_SPEND_EVENT,
+    ERROR_CODE_FIELD,
+    ERROR_EVENT,
+    SESSION_START_EVENT,
+    device_field,
+    instagram_package_field,
+    network_reset_field,
+)
 from .stop_reasons import RUN_HALT_CODE
 
 _WORKFLOWS = "taktik.core.social_media.instagram.workflows"
@@ -127,6 +135,7 @@ def _dm_result(*fields: Field) -> Event:
         Field("success", "bool", "The command did what it was asked."),
         *fields,
         Field("error", "string", "What went wrong, for a person.", optional=True),
+        ERROR_CODE_FIELD,
         Field("traceback", "string", "Diagnostic context of a crash.", optional=True),
     ))
 
@@ -147,7 +156,10 @@ INSTAGRAM_DM_READ = WorkflowContract(
     ),
     bridge_fields=_DM_BRIDGE_FIELDS,
     refusals=(Refusal("command", doc="No command."),),
+    # `error`: a refusal at the network door (`send_network_refusal`), read by the app's crash capture;
+    # the page reads the last line, which carries the same code.
     events=(
+        ERROR_EVENT,
         Event("account_detected", doc="The account the inbox belongs to, read from its header.", fields=(
             Field("account_username", "string", "Its handle."),
         )),
@@ -198,6 +210,7 @@ INSTAGRAM_DM_SEND = WorkflowContract(
         Refusal("message", doc="Nothing to reply."),
     ),
     events=(
+        ERROR_EVENT,
         _dm_result(
             Field("username", "string", "The conversation replied in.", optional=True),
             Field("message", "string", "The reply sent.", optional=True),

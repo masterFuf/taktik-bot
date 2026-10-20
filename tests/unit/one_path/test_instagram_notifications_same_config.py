@@ -80,6 +80,8 @@ def test_a_phone_without_network_reads_no_notification_from_either_path(ign_rig)
         assert ign_rig.run_bridge(spec) == 1
         assert [fields.get("error_code") for kind, fields in ign_rig.events if kind == "error"] == ["NETWORK_UNREACHABLE"]
         assert ign_rig.stdout_lines[-1]["success"] is False
+        # The last line the app reads carries the motive, for the page to say its sentence.
+        assert ign_rig.stdout_lines[-1]["error_code"] == "NETWORK_UNREACHABLE"
         assert "bridge restart_instagram" not in ign_rig.calls and "bridge build_workflow" not in ign_rig.calls
         ign_rig.calls.clear()
         ign_rig.stdout_lines.clear()

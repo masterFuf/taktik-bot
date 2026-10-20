@@ -186,6 +186,8 @@ def test_a_phone_without_network_scrapes_nothing_from_either_path(igs_rig):
     assert igs_rig.run_bridge(target_payload()) == 1
     assert _error_codes(igs_rig.events)[-1] == "NETWORK_UNREACHABLE"
     assert igs_rig.stdout_lines[-1]["success"] is False
+    # The last line the app reads carries the motive, for the page to say its sentence.
+    assert igs_rig.stdout_lines[-1]["error_code"] == "NETWORK_UNREACHABLE"
     assert "run_scraping" not in igs_rig.calls and "detect_language" not in igs_rig.calls
     igs_rig.reset()
 

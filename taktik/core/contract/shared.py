@@ -55,13 +55,18 @@ STATUS_EVENT = Event(
     ),
 )
 
+#: Why a run failed or was refused, as a code the app translates: on the `error` line, and on the last line
+#: of a bridge the app follows by that line (the DM inbox, the scraping, the notifications).
+ERROR_CODE_FIELD = Field("error_code", BRIDGE_ERROR_CODE, "A code the app translates: one of `error_codes.py`.",
+                         optional=True)
+
 #: `IPC.error` / `send_error`.
 ERROR_EVENT = Event(
     "error",
     doc="The run failed or was refused.",
     fields=(
         Field("error", "string", "What went wrong, for a person."),
-        Field("error_code", BRIDGE_ERROR_CODE, "A code the app translates: one of `error_codes.py`.", optional=True),
+        ERROR_CODE_FIELD,
         Field("traceback", "string", "Diagnostic context for a crash report.", optional=True),
     ),
 )

@@ -18,6 +18,8 @@ from .shared import (
     AI_ERROR_EVENT,
     AI_PROFILE_DONE_EVENT,
     AI_PROFILE_START_EVENT,
+    ERROR_CODE_FIELD,
+    ERROR_EVENT,
     STEP_METRIC_EVENT,
     device_field,
     instagram_package_field,
@@ -173,6 +175,7 @@ RESULT_EVENT = Event("result", doc="The command's result, or why it could not ru
     Field("message", "string", "The result, for a person.", optional=True),
     Field("stop_reason", RUN_HALT_CODE, "`action_blocked`: Instagram refuses actions.", optional=True),
     Field("error", "string", "What went wrong, for a person.", optional=True),
+    ERROR_CODE_FIELD,
     Field("traceback", "string", "Diagnostic context of a crash.", optional=True),
 ))
 
@@ -245,8 +248,10 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
         Refusal("actions", when=_BATCH, doc="A batch without a step."),
     ),
     # `step_metric`: the step telemetry the bridge's IPC module registers (a refused write, a
-    # keystroke); the app does not read it from this bridge.
-    events=(NOTIFICATION_STEP_EVENT, RESULT_EVENT, STEP_METRIC_EVENT, *SCAN_RUN_EVENTS),
+    # keystroke); the app does not read it from this bridge. `error`: a refusal at the network door
+    # (`send_network_refusal`), read by the app's crash capture; the page reads the last line, which
+    # carries the same code.
+    events=(ERROR_EVENT, NOTIFICATION_STEP_EVENT, RESULT_EVENT, STEP_METRIC_EVENT, *SCAN_RUN_EVENTS),
 )
 
 CONTRACTS = (INSTAGRAM_NOTIFICATIONS,)

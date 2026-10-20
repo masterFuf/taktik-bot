@@ -99,6 +99,8 @@ def test_a_phone_without_network_reads_no_inbox_from_either_path(igd_rig):
         assert igd_rig.run_bridge(dm_command(command)) == 1
         assert [fields.get("error_code") for kind, fields in igd_rig.events if kind == "error"] == ["NETWORK_UNREACHABLE"]
         assert igd_rig.stdout_lines[-1]["success"] is False
+        # The last line the app reads carries the motive, for the page to say its sentence.
+        assert igd_rig.stdout_lines[-1]["error_code"] == "NETWORK_UNREACHABLE"
         assert not any(call.startswith(("stop ", "launch ")) for call in igd_rig.calls)
         assert igd_rig.db == []
         igd_rig.reset()
@@ -109,6 +111,44 @@ def test_a_phone_without_network_reads_no_inbox_from_either_path(igd_rig):
         assert "NETWORK_UNREACHABLE" in result.output
         assert not any(call.startswith(("stop ", "launch ")) for call in igd_rig.calls)
         assert igd_rig.db == []
+        igd_rig.reset()
+
+
+def test_a_phone_without_network_sends_no_reply_from_either_path(igd_rig):
+    """No route at all: a reply was typed, its bubble shown, and the reply recorded as sent, from
+    either path. Both now refuse it at the launcher's network door, once the phone is connected,
+    before the inbox is looked for: nothing typed, nothing recorded."""
+    spec = dm_command("send", username="dave", message="Yes, from ten")
+    igd_rig.network.cut()
+    igd_rig.phone.screen = "inbox"
+    assert igd_rig.run_bridge(spec) == 1
+    assert [fields.get("error_code") for kind, fields in igd_rig.events if kind == "error"] == ["NETWORK_UNREACHABLE"]
+    assert igd_rig.stdout_lines[-1]["success"] is False
+    assert igd_rig.stdout_lines[-1]["error_code"] == "NETWORK_UNREACHABLE"
+    assert not any(call.startswith(("open_conversation", "send_message")) for call in igd_rig.calls)
+    assert igd_rig.db == []
+    igd_rig.reset()
+
+    igd_rig.phone.screen = "inbox"
+    result = igd_rig.run_cli("instagram.engagement.dm_send", {"username": "dave", "message": "Yes, from ten"})
+
+    assert result.exit_code == 1, result.output
+    assert "NETWORK_UNREACHABLE" in result.output
+    assert not any(call.startswith(("open_conversation", "send_message")) for call in igd_rig.calls)
+    assert igd_rig.db == []
+
+
+def test_both_paths_measure_the_network_once_before_a_reply(igd_rig):
+    """One measure per reply, from either host, before the conversation is opened."""
+    igd_rig.network.calls = igd_rig.calls
+    for run in (lambda: igd_rig.run_bridge(dm_command("send", username="dave", message="Yes, from ten")),
+                lambda: igd_rig.run_cli("instagram.engagement.dm_send", {"username": "dave", "message": "Yes"})):
+        igd_rig.phone.screen = "inbox"
+        run()
+        measures = [call for call in igd_rig.calls if call.startswith("network_baseline ")]
+        assert measures == ["network_baseline emulator-5554"]
+        opened = next(i for i, call in enumerate(igd_rig.calls) if call.startswith("open_conversation"))
+        assert igd_rig.calls.index(measures[0]) < opened
         igd_rig.reset()
 
 
