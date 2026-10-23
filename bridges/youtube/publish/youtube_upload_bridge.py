@@ -67,7 +67,7 @@ class YouTubeUploadBridge:
             send_error(str(exc))
             return 1
 
-        session = prepare_youtube_session(device_id, send_status, send_error)
+        session = prepare_youtube_session(device_id)
         if not session:
             return 1
         self._connection = session.connection
@@ -80,7 +80,6 @@ class YouTubeUploadBridge:
                 upload_type=request.upload_type,
                 send_status=send_status,
                 send_message=send_message,
-                send_error=send_error,
                 send_log=send_log,
             )
         finally:

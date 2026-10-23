@@ -5,7 +5,8 @@ from __future__ import annotations
 from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
 from bridges.common.entrypoint import send_run_error
-from bridges.instagram.common.ipc import _ipc, logger, send_error, send_status
+from bridges.common.run_setup import configure_run_database
+from bridges.instagram.common.ipc import _ipc, send_error, send_status
 
 
 class InstagramDesktopRuntime:
@@ -23,18 +24,11 @@ class InstagramDesktopRuntime:
 
     def setup_database(self) -> bool:
         """Configure the local SQLite service for this bot process."""
-        try:
-            send_status("initializing", "Setting up database service...")
-
-            from taktik.core.database import configure_db_service
-
-            configure_db_service()
-            send_status("license_valid", "Database service configured")
-            return True
-
-        except Exception as e:
-            send_run_error(f"Database setup failed: {e}", e, error_code="DATABASE_SETUP_FAILED")
+        send_status("initializing", "Setting up database service...")
+        if not configure_run_database(error_code="DATABASE_SETUP_FAILED"):
             return False
+        send_status("license_valid", "Database service configured")
+        return True
 
     def connect_device(self) -> bool:
         """Connect to the specified device using ConnectionService."""
@@ -64,16 +58,9 @@ class InstagramDesktopRuntime:
         except Exception as e:
             error_msg = str(e)
             if "timeout" in error_msg.lower():
-                send_error(
-                    f"Device connection timed out: {error_msg}",
-                    error_code="DEVICE_CONNECTION_TIMEOUT",
-                )
+                send_run_error(f"Device connection timed out: {error_msg}", e, error_code="DEVICE_CONNECTION_TIMEOUT")
             else:
-                send_error(
-                    f"Failed to connect to device: {error_msg}",
-                    error_code="DEVICE_CONNECTION_FAILED",
-                )
-            logger.exception("Device connection failed")
+                send_run_error(f"Failed to connect to device: {error_msg}", e, error_code="DEVICE_CONNECTION_FAILED")
             return False
 
     def reset_network_if_enabled(self, ipc) -> bool:

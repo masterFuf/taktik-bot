@@ -111,10 +111,9 @@ def phone(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda *_: None)
     connection = SimpleNamespace(connect=lambda: True, device=object())
     session = SimpleNamespace(connection=connection, device=connection.device)
+    monkeypatch.setattr("bridges.common.run_setup.ConnectionService", lambda device_id: connection)
     for name in ("bridges.instagram.account.session", "bridges.tiktok.account.account_session"):
-        module = importlib.import_module(name)
-        monkeypatch.setattr(module, "ConnectionService", lambda device_id: connection)
-        monkeypatch.setattr(module, "AppService", lambda *a, **k: _App())
+        monkeypatch.setattr(importlib.import_module(name), "AppService", lambda *a, **k: _App())
     monkeypatch.setattr(f"{_TT}.patch_clone_selectors", lambda *a: None)
     for name, prefix in (("bridges.gmail.account.gmail_account_bridge", "gmail"), ("bridges.youtube.account.youtube_account_bridge", "youtube")):
         module = importlib.import_module(name)

@@ -168,7 +168,8 @@ def test_the_task_bridge_follows_its_contract(monkeypatch, lines, fail):
 
     assert_reads(INSTAGRAM_STORY_RELAY, data, log)
     check_lines(INSTAGRAM_STORY_RELAY, lines)
-    assert printed(lines) == ({"status", "error", "log"} if fail else {"status", "task_result"})
+    # A failure is its `error` line, the traceback in it (`send_run_error`), no `log` line beside it.
+    assert printed(lines) == ({"status", "error"} if fail else {"status", "task_result"})
 
 
 # ------------------------------------------------------------------------------ YouTube
@@ -193,7 +194,7 @@ def test_the_youtube_upload_bridge_follows_its_contract(monkeypatch, lines, tmp_
     from taktik.core.social_media.youtube.workflows.publish import agent_handler
 
     monkeypatch.setattr(bridge, "prepare_youtube_session",
-                        lambda device_id, status, error: SimpleNamespace(device=object(), connection=None))
+                        lambda device_id: SimpleNamespace(device=object(), connection=None))
     monkeypatch.setattr(bridge, "cleanup_youtube_app", lambda device_id: None)
     monkeypatch.setitem(agent_handler.run_youtube_upload.__kwdefaults__, "workflow_factory",
                         _youtube_workflow(fail))

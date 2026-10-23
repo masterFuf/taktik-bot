@@ -2,6 +2,8 @@
 
 from typing import Any, Callable, Mapping
 
+from bridges.common.entrypoint import send_run_error
+
 
 def run_youtube_upload_workflow(
     *,
@@ -11,7 +13,6 @@ def run_youtube_upload_workflow(
     upload_type: str,
     send_status: Callable[[str, str], None],
     send_message: Callable[..., None],
-    send_error: Callable[[str], None],
     send_log: Callable[[str, str], None],
 ) -> int:
     """Run the YouTube upload workflow and emit the historical upload_result payload."""
@@ -41,8 +42,5 @@ def run_youtube_upload_workflow(
         return 0 if success else 1
 
     except Exception as exc:
-        import traceback
-
-        send_error(f"Upload workflow error: {exc}")
-        send_log("error", traceback.format_exc())
+        send_run_error(f"Upload workflow error: {exc}", exc)
         return 1

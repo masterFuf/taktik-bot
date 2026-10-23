@@ -1,8 +1,9 @@
 """Session lifecycle helpers for the Gmail account bridge."""
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
+from bridges.common.run_setup import connect_run_device
 from taktik.core.shared.device.connection import ConnectionService
 
 
@@ -14,30 +15,11 @@ class GmailBridgeSession:
     device: Any
 
 
-def prepare_gmail_session(
-    device_id: str,
-    send_status: Callable[[str, str], None],
-    send_error: Callable[[str], None],
-) -> GmailBridgeSession | None:
+def prepare_gmail_session(device_id: str) -> GmailBridgeSession | None:
     """Configure DB and connect the device for Gmail workflows."""
-    try:
-        from taktik.core.database import configure_db_service
-
-        configure_db_service()
-    except Exception as exc:  # noqa: BLE001 - bridge must emit JSON errors
-        send_error(f"Database setup failed: {exc}")
+    connection = connect_run_device(device_id)
+    if connection is None:
         return None
-
-    send_status("connecting", f"Connecting to device {device_id}...")
-    connection = ConnectionService(device_id)
-    if not connection.connect():
-        send_error(f"Failed to connect to device {device_id}")
-        return None
-
-    if not connection.device:
-        send_error("Device object unavailable after connection")
-        return None
-
     return GmailBridgeSession(connection=connection, device=connection.device)
 
 

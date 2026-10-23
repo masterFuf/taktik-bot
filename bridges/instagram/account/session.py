@@ -3,32 +3,15 @@
 from __future__ import annotations
 
 from taktik.core.shared.device.app_manager import AppService
-from taktik.core.shared.device.connection import ConnectionService
-from bridges.common.entrypoint import send_run_error
-from bridges.instagram.common.ipc import send_error, send_status
+from bridges.common.run_setup import connect_run_device
 
 
 class AccountSessionLifecycleMixin:
     """Prepare DB and device connection; the launcher decides how Instagram starts."""
 
     def _prepare_runtime_session(self):
-        try:
-            from taktik.core.database import configure_db_service
-
-            configure_db_service()
-        except Exception as e:
-            send_run_error(f"Database setup failed: {e}", e)
-            return None
-
-        send_status("connecting", f"Connecting to device {self.device_id}...")
-        self._connection = ConnectionService(self.device_id)
-        if not self._connection.connect():
-            send_error(f"Failed to connect to device {self.device_id}")
-            return None
-
-        device = self._connection.device
-        if not device:
-            send_error("Device object unavailable after connection")
+        self._connection = connect_run_device(self.device_id)
+        if self._connection is None:
             return None
 
         # Restart or keep the current screen: `run_instagram_account` chooses per flow.
@@ -37,4 +20,4 @@ class AccountSessionLifecycleMixin:
             platform="instagram",
             package_override=self.package_name,
         )
-        return device
+        return self._connection.device

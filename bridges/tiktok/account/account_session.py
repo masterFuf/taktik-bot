@@ -1,20 +1,15 @@
 """Device/app preparation for the TikTok account bridge."""
 
 from taktik.core.shared.device.app_manager import AppService
-from taktik.core.shared.device.connection import ConnectionService
-from bridges.common.entrypoint import send_run_error
-from bridges.tiktok.common.ipc import send_error, send_status
+from bridges.common.run_setup import connect_run_device
 
 
 class TikTokAccountSessionMixin:
     """Prepare shared runtime dependencies before dispatching an account workflow."""
 
     def _prepare_device(self):
-        if not self._setup_database():
-            return None
-
-        device = self._connect_device()
-        if device is None:
+        self._connection = connect_run_device(self.device_id)
+        if self._connection is None:
             return None
 
         # The clean restart itself is `run_tiktok_account`'s, on this app service.
@@ -23,27 +18,4 @@ class TikTokAccountSessionMixin:
             platform="tiktok",
             package_override=self.package_name,
         )
-        return device
-
-    def _setup_database(self) -> bool:
-        try:
-            from taktik.core.database import configure_db_service
-
-            configure_db_service()
-            return True
-        except Exception as e:
-            send_run_error(f"Database setup failed: {e}", e)
-            return False
-
-    def _connect_device(self):
-        send_status("connecting", f"Connecting to device {self.device_id}...")
-        self._connection = ConnectionService(self.device_id)
-        if not self._connection.connect():
-            send_error(f"Failed to connect to device {self.device_id}")
-            return None
-
-        device = self._connection.device
-        if not device:
-            send_error("Device object unavailable after connection")
-            return None
-        return device
+        return self._connection.device
