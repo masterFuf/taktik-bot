@@ -89,6 +89,9 @@ class ProfileFollowingRepository(BaseRepository):
 
         Only rows with `classified_at IS NULL` are touched: a classification is written
         once, so re-running the batch never overwrites an earlier verdict.
+
+        A refused write raises, after a rollback: returning 0 would read as "already
+        classified", and the verdicts were paid for. The workflow says the loss.
         """
         if not classifications:
             return 0
@@ -112,9 +115,10 @@ class ProfileFollowingRepository(BaseRepository):
                     ),
                 )
                 updated += cursor.rowcount if cursor.rowcount > 0 else 0
-            self.conn.commit()
-        except Exception as exc:
-            logger.debug(f"save_classifications failed: {exc}")
+        except Exception:
+            self.conn.rollback()
+            raise
+        self.conn.commit()
         return updated
 
     def unclassified_usernames(self, limit: int = 200) -> List[str]:

@@ -224,6 +224,7 @@ class DeepQualifyMixin:
         ai_service = getattr(self, '_ai_service', None)
         if ai_service is None:
             return  # AI mode not enabled — skip silently
+        log = self.logger
         try:
             db = self._local_db()
             # Only classify usernames that don't have a classification yet
@@ -232,17 +233,24 @@ class DeepQualifyMixin:
             to_classify = [u for u in following_usernames if u in set(pending)]
             if not to_classify:
                 return
-            self.logger.debug(
+            log.debug(
                 f"[deep_qualify] classifying {len(to_classify)} new following username(s) via LLM"
             )
             classifications = ai_service.classify_following_usernames_batch(to_classify)
-            if classifications:
-                saved = db.save_following_classifications(classifications)
-                self.logger.debug(
-                    f"[deep_qualify] {saved} following username classification(s) saved to DB"
-                )
         except Exception as e:
-            self.logger.debug(f"[deep_qualify] _classify_new_followings failed: {e}")
+            log.debug(f"[deep_qualify] _classify_new_followings failed: {e}")
+            return
+        if not classifications:
+            return
+        try:
+            saved = db.save_following_classifications(classifications)
+        except Exception as e:
+            log.warning(
+                f"[deep_qualify] {len(classifications)} following classification(s) from the AI "
+                f"could not be saved: {e}"
+            )
+            return
+        log.debug(f"[deep_qualify] {saved} following username classification(s) saved to DB")
 
     def _detect_bot_ratio(
         self,
