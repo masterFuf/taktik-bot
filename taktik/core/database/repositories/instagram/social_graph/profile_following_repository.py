@@ -13,7 +13,7 @@ in `profile_qualification` on a desktop base and in `profile_ai_enrichments` on 
 one. Asking SQLite what exists beats assuming.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -94,7 +94,7 @@ class ProfileFollowingRepository(BaseRepository):
             return 0
         updated = 0
         try:
-            now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             cursor = self.conn.cursor()
             for username, data in classifications.items():
                 cursor.execute(

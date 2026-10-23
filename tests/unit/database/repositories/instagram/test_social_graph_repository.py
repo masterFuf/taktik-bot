@@ -1,6 +1,6 @@
 """Unit tests for the Instagram social graph repository."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from taktik.core.database.repositories.instagram.social_graph import SocialGraphRepository
 from taktik.core.database.local.migration_steps.social_graph import (
@@ -213,7 +213,7 @@ def test_a_row_reopened_by_a_sync_is_a_new_episode_the_bot_did_not_start(conn):
     row = repo.list_active_followings(12)[0]
     assert row["last_bot_follow_at"] is None
     first_seen = datetime.fromisoformat(str(row["first_seen_at"]))
-    assert datetime.utcnow() - first_seen < timedelta(minutes=5)
+    assert datetime.now(timezone.utc) - first_seen.replace(tzinfo=timezone.utc) < timedelta(minutes=5)
 
 
 def test_a_bot_refollow_starts_an_episode_that_is_the_bot_s(conn):
@@ -299,5 +299,6 @@ def test_a_gone_follower_seen_again_follows_us_again_from_now(conn):
     row = conn.execute(
         "SELECT first_seen_at, source FROM social_graph_sync WHERE account_id = 18 AND direction = 'follower'"
     ).fetchone()
-    assert datetime.utcnow() - datetime.fromisoformat(str(row["first_seen_at"])) < timedelta(minutes=5)
+    first_seen = datetime.fromisoformat(str(row["first_seen_at"])).replace(tzinfo=timezone.utc)
+    assert datetime.now(timezone.utc) - first_seen < timedelta(minutes=5)
     assert row["source"] == "full_sync"
