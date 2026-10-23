@@ -14,7 +14,6 @@
   "bridges/instagram/account/switch.py::AccountSwitchRunnerMixin._run_switch": 1,
   "bridges/instagram/automation/debug.py::DebugBridge.run": 1,
   "bridges/instagram/automation/debug_actions.py::analyze_current_screen": 1,
-  "bridges/instagram/automation/desktop_bridge.py::_DebugRun.run": 1,
   "bridges/instagram/automation/session.py::InstagramDesktopRuntime.connect_device": 1,
   "bridges/instagram/automation/session.py::InstagramDesktopRuntime.setup_database": 1,
   "bridges/instagram/tasks/bridge.py::TaskBridge._prepare_runtime_session": 1,
