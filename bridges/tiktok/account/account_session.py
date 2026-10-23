@@ -2,6 +2,7 @@
 
 from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
+from bridges.common.entrypoint import send_run_error
 from bridges.tiktok.common.ipc import send_error, send_status
 
 
@@ -31,7 +32,7 @@ class TikTokAccountSessionMixin:
             configure_db_service()
             return True
         except Exception as e:
-            send_error(f"Database setup failed: {e}")
+            send_run_error(f"Database setup failed: {e}", e)
             return False
 
     def _connect_device(self):

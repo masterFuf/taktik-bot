@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
+from bridges.common.entrypoint import send_run_error
 from bridges.instagram.common.ipc import _ipc, logger, send_error, send_status
 
 
@@ -32,8 +33,7 @@ class InstagramDesktopRuntime:
             return True
 
         except Exception as e:
-            send_error(f"Database setup failed: {str(e)}", error_code="DATABASE_SETUP_FAILED")
-            logger.exception("Database setup failed")
+            send_run_error(f"Database setup failed: {e}", e, error_code="DATABASE_SETUP_FAILED")
             return False
 
     def connect_device(self) -> bool:

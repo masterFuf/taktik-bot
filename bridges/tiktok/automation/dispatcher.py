@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from bridges.common.entrypoint import send_run_error
 from bridges.tiktok.common.ipc import _ipc, logger, send_error
 
 
@@ -12,11 +13,7 @@ class UnknownWorkflowError(RuntimeError):
 
 
 class TikTokDispatcherBridge:
-    """One `tiktok_bridge` process: network reset, the configured workflow, then force-stop.
-
-    An exception the run does not catch, an import included, rises to `run_bridge_main`, which
-    says it once ("Bridge crashed: ...", or `send_import_error`) and exits 1; TikTok is stopped
-    on the way out all the same."""
+    """One `tiktok_bridge` process: network reset, the configured workflow, then force-stop."""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
@@ -39,6 +36,11 @@ class TikTokDispatcherBridge:
             logger.error(f"❌ TikTok {workflow_type} workflow failed")
             return 1
         except UnknownWorkflowError:
+            return 1
+        except Exception as e:
+            # A runner that does not catch its own failure (notifications) ends here: its words,
+            # with the traceback, and an import with the bot's code (`send_run_error`).
+            send_run_error(f"Workflow error: {e}", e)
             return 1
         finally:
             force_stop_tiktok(device_id)

@@ -1298,7 +1298,8 @@
       [
         "error",
         {
-          "error": "Unfollow workflow error: Failed to restart TikTok app"
+          "error": "Unfollow workflow error: Failed to restart TikTok app",
+          "traceback": "<traceback>"
         }
       ]
     ],
@@ -1397,7 +1398,8 @@
       [
         "error",
         {
-          "error": "Unfollow workflow error: Failed to navigate to profile"
+          "error": "Unfollow workflow error: Failed to navigate to profile",
+          "traceback": "<traceback>"
         }
       ]
     ],

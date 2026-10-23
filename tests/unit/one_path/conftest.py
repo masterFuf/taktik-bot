@@ -130,6 +130,10 @@ class Rig:
 
         def _send(_self, msg_type, **kwargs):
             if msg_type != "step_metric":
+                # A traceback names the frames it went through, which moving code changes by design:
+                # recorded as proof it is sent.
+                if "traceback" in kwargs:
+                    kwargs = {**kwargs, "traceback": "<traceback>"}
                 rig.events.append((msg_type, kwargs))
 
         mp.setattr(ipc_module.IPC, "send", _send)
