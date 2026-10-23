@@ -21,7 +21,7 @@ The AI receives the following extra context in its user_prompt:
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
@@ -31,8 +31,15 @@ except ImportError:
     _IPCEmitter = None  # type: ignore
 
 
+if TYPE_CHECKING:
+    from loguru import Logger
+
+
 class DeepQualifyMixin:
     """Mixin: collect following sample + DB cross-reference for deep qualification."""
+
+    # What the host (ScrapingWorkflow) provides, declared as an interface would be: no value, nothing shadowed.
+    logger: "Logger"
 
     # ------------------------------------------------------------------
     # Public helpers (called from _scrape_list)
@@ -158,8 +165,8 @@ class DeepQualifyMixin:
             if new_on_page > 0 and username and _IPCEmitter is not None:
                 try:
                     _IPCEmitter.emit_scraping_dq_progress(username, len(usernames), max_count)
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.logger.warning(f"[deep_qualify] the progress of @{username} did not reach the app: {e}")
 
             # Stop scrolling if we have enough or nothing new appeared
             if len(usernames) >= max_count or new_on_page == 0:
@@ -170,7 +177,10 @@ class DeepQualifyMixin:
                 try:
                     scr.scroll_followers_list_down(duration=0.4, distance_ratio=0.45)
                     time.sleep(0.8)
-                except Exception:
+                except Exception as e:
+                    self.logger.warning(
+                        f"[deep_qualify] scrolling the following list failed: stopped at {len(usernames)} of {max_count}: {e}"
+                    )
                     break
 
         # 3. Back to profile page -----------------------------------------------

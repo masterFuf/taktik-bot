@@ -233,8 +233,8 @@ class ScrapingWorkflow(
                 "effective_max": effective_max,
                 "scrape_type": scrape_type
             }), flush=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[scraping] the target_info of @{target} did not reach the app: {e}")
 
     def _scrape_target(self) -> Dict[str, Any]:
         """Scrape followers, following, or post likers/commenters from target accounts."""

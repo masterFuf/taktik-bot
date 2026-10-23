@@ -45,6 +45,11 @@ def _reset():
     # Les clones Taktik portent un paquet suffixé : aucun ne figure dans les variantes.
     ("com.instagram.android.clone3", "instagram", True),
     ("com.zhiliaoapp.musically.clone2", "tiktok", True),
+    # Les clones du Cloner de TAKTIK ont un paquet à eux : com.taktik.ig<n>, com.taktik.tt<n>.
+    ("com.taktik.ig1", "instagram", True),
+    ("com.taktik.tt2", "tiktok", True),
+    ("com.taktik.ig1", "tiktok", False),
+    ("com.taktik.tt2", "instagram", False),
     # Une vraie sortie d'application.
     ("com.android.chrome", "instagram", False),
     ("com.google.android.apps.nexuslauncher", "tiktok", False),

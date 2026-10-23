@@ -17,9 +17,11 @@ PACKAGE_VARIANTS = {
     ],
 }
 
+# A clone made by changing the last letters of the official package (`com.instagram.androie`), or by
+# the Cloner of TAKTIK, which gives each clone a package of its own (`com.taktik.ig1`, `com.taktik.tt2`).
 CLONE_PREFIXES = {
-    "instagram": "com.instagram.andro",
-    "tiktok": "com.zhiliaoapp.musical",
+    "instagram": ("com.instagram.andro", "com.taktik.ig"),
+    "tiktok": ("com.zhiliaoapp.musical", "com.taktik.tt"),
 }
 
 OFFICIAL_PACKAGE = ORIGINAL_PACKAGES["instagram"]
@@ -35,8 +37,8 @@ def get_package_variants(platform: str) -> tuple[str, ...]:
     return tuple(PACKAGE_VARIANTS[platform])
 
 
-def get_clone_prefix(platform: str) -> str:
-    """Return the clone detection prefix for a supported platform."""
+def get_clone_prefixes(platform: str) -> tuple[str, ...]:
+    """Return the package prefixes that detect a clone of a supported platform."""
     return CLONE_PREFIXES[platform]
 
 
