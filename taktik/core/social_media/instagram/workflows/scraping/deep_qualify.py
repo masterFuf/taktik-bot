@@ -21,7 +21,7 @@ The AI receives the following extra context in its user_prompt:
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
@@ -31,8 +31,15 @@ except ImportError:
     _IPCEmitter = None  # type: ignore
 
 
+if TYPE_CHECKING:
+    from loguru import Logger
+
+
 class DeepQualifyMixin:
     """Mixin: collect following sample + DB cross-reference for deep qualification."""
+
+    # What the host (ScrapingWorkflow) provides, declared as an interface would be: no value, nothing shadowed.
+    logger: "Logger"
 
     # ------------------------------------------------------------------
     # Public helpers (called from _scrape_list)
