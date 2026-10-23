@@ -35,15 +35,15 @@ from rich.prompt import Confirm
 from rich.table import Table
 
 from taktik.cli.hosts.ai_key import (
-    MISSING_KEY_EXIT,
     MissingAIKeyError,
     ensure_ai_key,
+    exit_without_key,
     is_interactive,
     resolve_cli_credential,
-    run_uses_ai,
 )
 from taktik.cli.hosts.phone import CliPhone, PhoneNotConnectedError
 from taktik.cli.hosts.registry import build_registry, handler_on_phone
+from taktik.core.contract.ai_request import asks_for_ai
 
 console = Console()
 
@@ -193,7 +193,7 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
             raise SystemExit(1)
         console.print(f"[green]{workflow_id}[/green] resolves.")
         console.print(f"[cyan]params:[/cyan] {json.dumps(resolved_params, indent=2, default=str)}")
-        if run_uses_ai(workflow_id, resolved_params):
+        if asks_for_ai(workflow_id, resolved_params):
             credential = resolve_cli_credential()
             found = f"{credential.provider} key found" if credential else "no AI key found"
             console.print(f"[cyan]AI:[/cyan] this run uses AI, {found}")
@@ -208,8 +208,7 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
         ensure_ai_key(workflow_id, resolved_params,
                       interactive=is_interactive(scripted=json_blob is not None), echo=console.print)
     except MissingAIKeyError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise SystemExit(MISSING_KEY_EXIT)
+        exit_without_key(exc, console)
 
     # The phone is chosen, not connected: the launcher connects it once it has read its payload.
     phone = _choose_phone(device_id)

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from .schema import HOST, NO_DEFAULT, Bounds, Computed, Event, Field, ListOf, MapOf, OneOf, Shape, WorkflowContract
 from .shared import (
+    AI_REQUEST_BLOCK,
     ai_credential_fields,
     AI_EVENTS,
     ERROR_EVENT,
@@ -703,6 +704,7 @@ INSTAGRAM_AUTOMATION = WorkflowContract(
     bridge="desktop_bridge",
     doc="An Instagram automation run: targets, hashtags, post URLs, feed, unfollow, list sync.",
     launcher=_LAUNCHER,
+    ai_request=AI_REQUEST_BLOCK,
     reader=_BUILDER,
     settings=(
         Field("workflowType", OneOf(WORKFLOW_TYPES), "The workflow of the run.", required=True, via=_BUILDER),

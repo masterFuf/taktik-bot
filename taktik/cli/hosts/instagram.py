@@ -19,8 +19,7 @@ from typing import Any, Mapping, Optional
 
 from loguru import logger
 
-from taktik.cli.hosts.ai_key import missing_key_message, resolve_cli_credential
-from taktik.core.ai.credential import AICredential, read_credential
+from taktik.cli.hosts.ai_key import ai_block_with_key
 from taktik.core.ai.openrouter_policy import PROVIDER_OPENROUTER
 from taktik.cli.hosts.phone import CliPhone
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
@@ -139,33 +138,6 @@ class CliInstagramHost:
                                    self.phone.connect(), self.device_id)
 
 
-def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
-    """The run's `ai` block with a key, the CLI's if the run brings none; None when AI is off or no
-    key is available."""
-    ai_config = dict(ai_config or {})
-    if not ai_config.get("enabled"):
-        return None
-
-    brought = read_credential(ai_config, provider_names=("provider",), key_names=("apiKey",),
-                              openrouter_key_names=("openrouterApiKey",))
-    if not brought.api_key:
-        credential = cli_ai_credential()
-        if credential is None:
-            return None
-        ai_config["provider"] = credential.provider
-        ai_config["apiKey"] = credential.api_key
-    return ai_config
-
-
-def cli_ai_credential() -> Optional[AICredential]:
-    """The CLI's AI key and its provider, for a run that asks for AI without bringing one."""
-    credential = resolve_cli_credential()
-    if credential is None:
-        logger.warning(f"AI requested but no AI key: this run goes on without AI ({missing_key_message('this run')})")
-        return None
-    return credential
-
-
 def cli_instagram_scraping_ai_service(*, api_key: str, provider: str = PROVIDER_OPENROUTER, ipc=None,
                                       vision_model: str = None, text_model: str = None,
                                       niche_taxonomy: dict = None):
@@ -189,9 +161,9 @@ def cli_instagram_agent_ai_service_factory(*, api_key: str, provider: str = PROV
 
 
 def cli_instagram_ai_service(ai_config: Mapping[str, Any]):
-    """The AI service a run asks for, with the CLI's key if the run brings none. None when no
-    service can be built: the run goes on without AI."""
-    ai_config = _with_key(ai_config)
+    """The AI service a run asks for, with the CLI's key if the run brings none. None when the run does not
+    ask for the AI; a run that asks and has no key is refused (`missing_ai_key`)."""
+    ai_config = ai_block_with_key(ai_config)
     if ai_config is None:
         return None
 
@@ -267,7 +239,6 @@ __all__ = [
     "cli_instagram_agent_ai_service_factory",
     "cli_instagram_ai_service",
     "cli_instagram_scraping_ai_service",
-    "cli_ai_credential",
     "is_internal_workflow_format",
     "run_instagram_account_payload",
     "run_instagram_cold_dm_payload",

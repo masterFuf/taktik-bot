@@ -96,14 +96,22 @@ def _setting_value(fields: Tuple[Field, ...], node: Mapping[str, Any], parts: Tu
         if present:
             return value
         return item.default if has_default(item) else None
+    if item.type == "json":
+        # An opaque object (the AI block the notifications scan reads): what is inside it is its reader's
+        # business, the path is read as it was sent, with no declared default.
+        inside: Any = value if present else None
+        for part in parts[1:]:
+            inside = inside.get(part) if isinstance(inside, Mapping) else None
+        return inside
     if not isinstance(item.type, Shape):
         raise KeyError(f"`{item.key}` holds no setting `{'.'.join(parts[1:])}`")
     inner = value if present and isinstance(value, Mapping) else {}
     return _setting_value(item.type.fields, inner, parts[1:])
 
 
-def _holds(settings: Tuple[Field, ...], payload: Mapping[str, Any], when: Mapping[str, Any]) -> bool:
-    """`payload` is under the settings `when` names (a tuple: any of its values)."""
+def holds(settings: Tuple[Field, ...], payload: Mapping[str, Any], when: Mapping[str, Any]) -> bool:
+    """`payload` is under the settings `when` names (a tuple: any of its values), the value sent or else
+    the declared default; a setting the declaration does not have is a `KeyError`, never a silent false."""
     for dotted, wanted in when.items():
         value = _setting_value(settings, payload, tuple(dotted.split(".")))
         if not (value in wanted if isinstance(wanted, tuple) else value == wanted):
@@ -165,13 +173,13 @@ def _walk(fields: Tuple[Field, ...], node: Mapping[str, Any], prefix: str, inher
             continue
         when = {**inherited, **item.when}
         # The reader reads the key only under its condition: neither does this.
-        if not _holds(settings, payload, when):
+        if not holds(settings, payload, when):
             continue
         present, value = _read(node, item)
         if not present or value is None:
             continue
         path = f"{prefix}{item.key}"
-        if item.bounds is not None and _holds(settings, payload, item.bounds.when):
+        if item.bounds is not None and holds(settings, payload, item.bounds.when):
             problems.extend(_violations(path, item, value))
         if isinstance(item.type, Shape) and isinstance(value, Mapping):
             _walk(item.type.fields, value, f"{path}.", when, settings, payload, problems)
@@ -196,4 +204,4 @@ def refuse_out_of_bounds(contract: WorkflowContract, payload: Mapping[str, Any],
         raise error("Refused before the phone is touched: " + "; ".join(problems))
 
 
-__all__ = ["describe", "number_within", "out_of_bounds", "refuse_out_of_bounds"]
+__all__ = ["describe", "holds", "number_within", "out_of_bounds", "refuse_out_of_bounds"]

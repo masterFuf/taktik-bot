@@ -152,8 +152,8 @@ def build_registry(
         cli_instagram_agent_ai_service_factory,
         cli_instagram_ai_service,
         cli_instagram_scraping_ai_service,
-        cli_ai_credential,
     )
+    from taktik.cli.hosts.ai_key import require_cli_credential
     from taktik.cli.hosts.phone import CliPhone
     from taktik.cli.hosts.tiktok import (
         cli_tiktok_account_app,
@@ -193,7 +193,7 @@ def build_registry(
         "instagram_ai_service": cli_instagram_ai_service,
         # The scraping handlers build their AI service from a key, the payload's or the environment's.
         "instagram_scraping_ai_service": cli_instagram_scraping_ai_service,
-        "instagram_ai_key": cli_ai_credential,
+        "instagram_ai_key": require_cli_credential,
         # The cold DM run drives the device the way the cold DM bridge prepares it.
         "instagram_cold_dm_runtime": instagram_host.cold_dm_runtime if instagram_host else None,
         # The DM inbox runs on the DM bridge's own runtime.

@@ -205,6 +205,17 @@ def test_a_phone_without_network_is_a_refusal_and_a_crash_is_not():
     assert not set(broken) & set(BRIDGE_REFUSAL_CODES)
 
 
+def test_a_run_without_its_ai_key_is_an_expected_refusal_the_core_declares():
+    """The run asks for the AI (`WorkflowContract.ai_request`) and has no key: the code the app's launch gate
+    gives, said by the coded exception of the core, a refusal and not a crash."""
+    from taktik.core.ai.credential import MissingAIKeyError
+
+    assert MissingAIKeyError.error_code == "missing_ai_key"
+    assert "missing_ai_key" in BRIDGE_REFUSAL_CODES
+    assert BRIDGE_ERROR_PHRASES["missing_ai_key"] == "errorMissingAiKey"
+    assert any(where.startswith("taktik/core/ai/credential.py") for where in census().codes["missing_ai_key"])
+
+
 def _census_of(source: str) -> Tuple[Set[str], list]:
     """The census of one module's source, for the self-tests below."""
     found = Census()

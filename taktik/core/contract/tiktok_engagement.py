@@ -9,7 +9,7 @@ holds their dict literals to the shapes below.
 from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, STATUS_EVENT, network_reset_field
+from .shared import AI_REQUEST_BLOCK, ERROR_EVENT, STATUS_EVENT, network_reset_field
 from .stop_reasons import RUN_HALT_CODE, TIKTOK_COMPLETION_REASON_OR_NONE
 from .tiktok import TIKTOK_DM_OUTREACH
 from .tiktok_automation import AI_SETTINGS
@@ -308,6 +308,7 @@ TIKTOK_NEW_FOLLOWERS = WorkflowContract(
     bridge="tiktok_bridge",
     doc="List the new followers, or follow back a selection; an optional AI welcome pass.",
     launcher=_INBOX_LAUNCHER,
+    ai_request=AI_REQUEST_BLOCK,
     launcher_kwargs={"flow": "new_followers"},
     reader=f"{_INBOX}:inbox_config_from_payload",
     reader_kwargs={"flow": "new_followers"},

@@ -6,7 +6,7 @@ from __future__ import annotations
 from .error_codes import BRIDGE_ERROR_CODE
 from typing import Any, Optional
 
-from .schema import HOST, Event, Field, OneOf, Shape
+from .schema import HOST, AiRequest, Event, Field, OneOf, Shape
 from .stop_reasons import TIKTOK_COMPLETION_REASON
 
 #: `enforce_pre_session_ip_rotation` (`bridges/common/network.py`), before the session.
@@ -54,6 +54,13 @@ def ai_credential_fields(provider_key: str, api_key_key: str, *, provider_aliase
               default=key_default, aliases=(*key_aliases, *openrouter_key_names),
               attr=key_attr or (f"{attr}.api_key" if attr else None), by=HOST, **kwargs),
     )
+
+
+#: How the workflows that can use the AI ask for it (`WorkflowContract.ai_request`, read by
+#: `contract/ai_request.py`): the run's `ai` block switched on, its messages written by an AI, or always.
+AI_REQUEST_BLOCK = AiRequest(when={"ai.enabled": True})
+AI_REQUEST_MESSAGES = AiRequest(when={"messageMode": "ai"})
+AI_REQUEST_ALWAYS = AiRequest(always=True)
 
 
 def instagram_package_field(doc: str = "An Instagram clone's package, run instead of Instagram; absent: the "
@@ -277,6 +284,9 @@ __all__ = [
     "SESSION_START_EVENT",
     "STATUS_EVENT",
     "STEP_METRIC_EVENT",
+    "AI_REQUEST_ALWAYS",
+    "AI_REQUEST_BLOCK",
+    "AI_REQUEST_MESSAGES",
     "ai_credential_fields",
     "device_field",
     "network_reset_field",

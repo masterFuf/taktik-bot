@@ -7,7 +7,15 @@ The upload (`tiktok.standalone.upload_post`) is declared with the other publicat
 from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT, ai_credential_fields, device_field, network_reset_field
+from .shared import (
+    AI_REQUEST_MESSAGES,
+    AI_SPEND_EVENT,
+    ERROR_EVENT,
+    STATUS_EVENT,
+    ai_credential_fields,
+    device_field,
+    network_reset_field,
+)
 from .stop_reasons import TIKTOK_COMPLETION_REASON_OR_NONE
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
@@ -98,6 +106,7 @@ TIKTOK_DM_OUTREACH = WorkflowContract(
     bridge="dm_outreach_bridge",
     doc="Write to a list of accounts the acting account never wrote to.",
     launcher=f"{_WORKFLOWS}.dm.agent_handler:run_tiktok_dm_outreach",
+    ai_request=AI_REQUEST_MESSAGES,
     reader=f"{_WORKFLOWS}.dm.payload:dm_outreach_request_from_payload",
     reader_kwargs={"default_session_id": "<device>"},
     settings=(

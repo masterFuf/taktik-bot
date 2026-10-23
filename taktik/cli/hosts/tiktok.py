@@ -11,8 +11,8 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
-from taktik.cli.hosts.ai_key import missing_key_message, resolve_cli_credential
-from taktik.core.ai.credential import AICredential, read_credential
+from taktik.cli.hosts.ai_key import ai_block_with_key, require_cli_credential
+from taktik.core.ai.credential import AICredential
 from taktik.cli.hosts.phone import CliPhone
 
 
@@ -56,28 +56,9 @@ def cli_tiktok_account_app(phone: CliPhone) -> Callable[[Optional[str]], Any]:
     return app_for
 
 
-def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
-    """The run's `ai` block with a key, the CLI's if the run brings none; None when AI is off or no
-    key is available."""
-    ai_config = dict(ai_config or {})
-    if not ai_config.get("enabled"):
-        return None
-
-    brought = read_credential(ai_config, provider_names=("provider",), key_names=("apiKey",),
-                              openrouter_key_names=("openrouterApiKey",))
-    if not brought.api_key:
-        credential = resolve_cli_credential()
-        if credential is None:
-            logger.warning(f"AI requested but no AI key: this run goes on without AI ({missing_key_message('this run')})")
-            return None
-        ai_config["provider"] = credential.provider
-        ai_config["apiKey"] = credential.api_key
-    return ai_config
-
-
 def cli_tiktok_ai_hooks(ai_config: Mapping[str, Any], language: str) -> None:
     """Install the run's AI hooks, with the CLI's key if the run brings none."""
-    ai_config = _with_key(ai_config)
+    ai_config = ai_block_with_key(ai_config)
     if ai_config is None:
         return
 
@@ -88,8 +69,8 @@ def cli_tiktok_ai_hooks(ai_config: Mapping[str, Any], language: str) -> None:
 
 def cli_tiktok_welcome_qualifier(ai_config: Mapping[str, Any], language: str):
     """The new-followers welcome pass's AI verdict, with the CLI's key if the run brings none.
-    None when no AI service can be built."""
-    ai_config = _with_key(ai_config)
+    None when the AI is off."""
+    ai_config = ai_block_with_key(ai_config)
     if ai_config is None:
         return None
 
@@ -105,13 +86,11 @@ def cli_tiktok_welcome_qualifier(ai_config: Mapping[str, Any], language: str):
 
 
 def cli_tiktok_outreach_message_generator(ai_prompt: str, credential: AICredential):
-    """The cold DM's AI message per recipient, with the CLI's key if the run brings none. None
-    without a key: the run falls back on its static messages."""
-    if not credential.api_key:
-        credential = resolve_cli_credential() or credential
-    if not credential.api_key:
-        logger.warning(f"AI requested but no AI key: this run goes on without AI ({missing_key_message('this run')})")
-        return None
+    """The cold DM's AI message per recipient, with the CLI's key if the run brings none (or one too short
+    to be a key). Without any, the run is refused (`missing_ai_key`): its static messages are not the run
+    that asked for the AI."""
+    if not credential.usable:
+        credential = require_cli_credential()
 
     from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import (
         outreach_message_generator,

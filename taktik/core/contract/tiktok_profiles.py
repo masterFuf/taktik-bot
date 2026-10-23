@@ -15,7 +15,7 @@ criterion are both sent, the last one of the payload wins.
 from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, STATUS_EVENT, network_reset_field
+from .shared import AI_REQUEST_BLOCK, ERROR_EVENT, STATUS_EVENT, network_reset_field
 from .stop_reasons import TIKTOK_COMPLETION_REASON_OR_NONE
 from .tiktok_automation import AI_SETTINGS
 from .tiktok_lines import AI_PROFILE_DONE_EVENT, AI_RELEVANCE_EVENT, BOT_PROFILE_EVENT
@@ -180,6 +180,7 @@ TIKTOK_FOLLOWERS = WorkflowContract(
     bridge="tiktok_bridge",
     doc="Visit the followers of one or more accounts; the profile budget is shared between them.",
     launcher=f"{_WORKFLOWS}.automation.followers.agent_handler:run_tiktok_followers",
+    ai_request=AI_REQUEST_BLOCK,
     reader=_SETTINGS_READER,
     settings=(
         *PROFILE_SETTINGS,
@@ -214,6 +215,7 @@ TIKTOK_TARGET_PROFILES = WorkflowContract(
     bridge="tiktok_bridge",
     doc="Visit a list of profiles in one pass.",
     launcher=f"{_WORKFLOWS}.automation.target_profiles.agent_handler:run_tiktok_target_profiles",
+    ai_request=AI_REQUEST_BLOCK,
     reader=_SETTINGS_READER,
     settings=(
         *PROFILE_SETTINGS,
@@ -237,6 +239,7 @@ TIKTOK_POST_URL = WorkflowContract(
     bridge="tiktok_bridge",
     doc="Visit the people who commented on one video.",
     launcher=f"{_WORKFLOWS}.automation.post_url.agent_handler:run_tiktok_post_url",
+    ai_request=AI_REQUEST_BLOCK,
     reader=f"{_WORKFLOWS}.automation.post_url.payload:post_url_config_from_payload",
     settings=(
         *(item for item in PROFILE_SETTINGS if item.key not in ("maxLikesPerSession", "maxFollowsPerSession")),

@@ -20,6 +20,7 @@ from __future__ import annotations
 from .instagram_automation import INSTAGRAM_AUTOMATION
 from .schema import HOST, Bounds, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
+    AI_REQUEST_ALWAYS,
     ai_credential_fields,
     AI_PROFILE_DONE_EVENT,
     AI_PROFILE_START_EVENT,
@@ -137,6 +138,7 @@ INSTAGRAM_TAKTIK_AGENT = WorkflowContract(
     bridge="taktik_agent_bridge",
     doc="An autonomous feed session: the model decides each like, comment, profile visit and follow.",
     launcher=f"{_AGENT}.agent_handler:run_instagram_agent",
+    ai_request=AI_REQUEST_ALWAYS,
     reader=f"{_AGENT}.payload:taktik_agent_request_from_payload",
     settings=(
         Field("max_likes", "int", "Likes the session may give.", default=80, attr="max_likes", bounds=_AT_LEAST_0),
