@@ -82,7 +82,7 @@
   "taktik/core/social_media/gmail/workflows/account.py": 16,
   "taktik/core/social_media/instagram/actions/account/login/credentials.py": 44,
   "taktik/core/social_media/instagram/actions/account/switch/__init__.py": 9,
-  "taktik/core/social_media/instagram/actions/atomic/detection/profile_extraction.py": 36,
+  "taktik/core/social_media/instagram/actions/atomic/detection/profile_extraction.py": 18,
   "taktik/core/social_media/instagram/actions/atomic/interaction/story_interaction.py": 16,
   "taktik/core/social_media/instagram/services/like/orchestration.py": 18,
   "taktik/core/social_media/instagram/ui/language.py": 17,

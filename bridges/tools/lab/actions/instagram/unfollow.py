@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 
 from loguru import logger
 
+from bridges.tools.lab.action_test.params import lab_flag
 from bridges.tools.lab.actions.instagram import action, detection_action
 from bridges.tools.lab.action_test.not_applicable import not_applicable
 
@@ -25,7 +26,7 @@ def unfollow_config_from_params(p):
         cfg["unfollow_mode"] = str(p["unfollow_mode"])
     for key in ("bot_follows_only", "skip_verified", "skip_business"):
         if p.get(key) not in (None, ""):
-            cfg[key] = str(p[key]).strip().lower() in ("1", "true", "yes", "oui")
+            cfg[key] = lab_flag(p, key, False)
     if p.get("min_days_since_follow") not in (None, ""):
         cfg["min_days_since_follow"] = float(p["min_days_since_follow"])
     for key in ("whitelist", "blacklist"):

@@ -14,6 +14,7 @@ Open our following list first (`tt.followers.open_own_following`).
 
 from loguru import logger
 
+from bridges.tools.lab.action_test.params import lab_flag
 from bridges.tools.lab.actions.tiktok import action
 from taktik.core.social_media.tiktok.workflows.automation.unfollow.models import UnfollowConfig
 from taktik.core.social_media.tiktok.workflows.automation.unfollow.workflow import UnfollowWorkflow
@@ -26,17 +27,11 @@ def _raw(a):
     return getattr(device, "_device", None) or device
 
 
-def _flag(value, default=False):
-    if value in (None, ""):
-        return default
-    return str(value).strip().lower() in ("1", "true", "yes", "oui")
-
-
 def _workflow(a, p, *, max_unfollows=1):
     """The production workflow on the session's phone, configured from the Lab params."""
     config = UnfollowConfig(
         max_unfollows=max_unfollows,
-        include_friends=_flag(p.get("include_friends")),
+        include_friends=lab_flag(p, "include_friends", False),
         min_delay=0,
         max_delay=0,
         min_follow_age_days=int(float(p.get("min_follow_age_days") or 0)),

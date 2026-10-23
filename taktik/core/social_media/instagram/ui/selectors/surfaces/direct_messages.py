@@ -264,6 +264,11 @@ class DirectMessageSelectors:
         "Invite sent",
         "invite is accepted",
     ])
+
+    @property
+    def invite_sent_indicators(self) -> List[str]:
+        """The conversation of a message request already sent: one of its texts on screen."""
+        return [f'//*[contains(@text, "{text}")]' for text in self.invite_sent_text_contains]
     
     # === Notes (circular stories at the top of the DM screen) ===
     notes_recycler: str = '//*[@resource-id="com.instagram.android:id/cf_hub_recycler_view"]'

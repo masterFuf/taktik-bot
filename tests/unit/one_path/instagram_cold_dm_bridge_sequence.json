@@ -12,26 +12,13 @@
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
    "found id:profile_header_message_button",
-   "click id:profile_header_message_button",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "type Hello there",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "click id:row_thread_composer_send_button_container",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab",
+   "open_conversation_from_profile",
+   "send_in_open_conversation Hello there typos=False",
+   "navigate_to_home",
    "navigate_to_profile closed_one force_search=True",
    "read_profile_screen",
    "found id:private_profile_empty_state",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -128,38 +115,16 @@
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
    "found id:profile_header_message_button",
-   "click id:profile_header_message_button",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "type Hello there",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "click id:row_thread_composer_send_button_container",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab",
+   "open_conversation_from_profile",
+   "send_in_open_conversation Hello there typos=False",
+   "navigate_to_home",
    "navigate_to_profile closed_one force_search=True",
    "read_profile_screen",
    "found id:private_profile_empty_state",
    "found id:profile_header_message_button",
-   "click id:profile_header_message_button",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "type Hello there",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "click id:row_thread_composer_send_button_container",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "open_conversation_from_profile",
+   "send_in_open_conversation Hello there typos=False",
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -272,26 +237,13 @@
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
    "found id:profile_header_message_button",
-   "click id:profile_header_message_button",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "type Hello there",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "click id:row_thread_composer_send_button_container",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab",
+   "open_conversation_from_profile",
+   "send_in_open_conversation Hello there typos=False",
+   "navigate_to_home",
    "navigate_to_profile closed_one force_search=True",
    "read_profile_screen",
    "found id:private_profile_empty_state",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -389,16 +341,12 @@
    "read_profile_screen",
    "read_verified",
    "found id:profile_header_message_button",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab",
+   "navigate_to_home",
    "navigate_to_profile closed_one force_search=True",
    "read_profile_screen",
    "found id:private_profile_empty_state",
    "read_verified",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -538,20 +486,9 @@
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
    "found id:profile_header_message_button",
-   "click id:profile_header_message_button",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "type AI note for open_one",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "click id:row_thread_composer_send_button_container",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "open_conversation_from_profile",
+   "send_in_open_conversation AI note for open_one typos=False",
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -647,9 +584,7 @@
    "launch com.instagram.android",
    "detect_language",
    "navigate_to_profile open_one force_search=True",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -721,9 +656,7 @@
    "detect_language",
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -796,11 +729,9 @@
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
    "found id:profile_header_message_button",
-   "click id:profile_header_message_button",
-   "found textContains:Invite sent",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "open_conversation_from_profile",
+   "send_in_open_conversation Hello there typos=False",
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -884,20 +815,9 @@
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
    "found id:profile_header_message_button",
-   "click id:profile_header_message_button",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "type Hello there",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "click id:row_thread_composer_send_button_container",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "open_conversation_from_profile",
+   "send_in_open_conversation Hello there typos=False",
+   "navigate_to_home"
   ],
   "stdout": [
    {
@@ -989,20 +909,9 @@
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
    "found id:profile_header_message_button",
-   "click id:profile_header_message_button",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "found id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "click id:row_thread_composer_edittext",
-   "type Hello there",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "found id:row_thread_composer_send_button_container",
-   "click id:row_thread_composer_send_button_container",
-   "press back",
-   "found id:feed_tab",
-   "click id:feed_tab"
+   "open_conversation_from_profile",
+   "send_in_open_conversation Hello there typos=False",
+   "navigate_to_home"
   ],
   "stdout": [
    {

@@ -15,7 +15,6 @@ import taktik.core.shared.behavior.typing as typing_plan
 import taktik.core.shared.device.adb as adb
 import taktik.core.shared.input.taktik_keyboard as kb
 from unit.android_shell import is_keyboard_check, run_keyboard_check
-from taktik.core.shared.input.keyboard import KeyboardService
 from taktik.core.social_media.instagram.workflows.dm.sender import DMSenderMixin
 from taktik.core.social_media.instagram.actions.atomic.interaction.story_interaction import (
     StoryInteractionMixin,
@@ -41,6 +40,7 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.content_creation i
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.post import POST_COMMENTS_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
+from taktik.core.social_media.instagram.workflows.cold_dm.navigation import ColdDMNavigationMixin
 from taktik.core.social_media.instagram.workflows.cold_dm.sender import ColdDMSenderMixin
 from taktik.core.social_media.instagram.workflows.notifications import (
     notifications_workflow as nw,
@@ -328,9 +328,10 @@ def _dm_bridge(phone):
 
 
 def _cold_dm_bridge(phone):
-    class _ColdDm(ColdDMSenderMixin):
+    class _ColdDm(ColdDMSenderMixin, ColdDMNavigationMixin):
+        """The cold DM's send: its pace, then the production sending (`MessagingBusiness`)."""
         device = phone
-        _keyboard = KeyboardService(phone.device_id)
+        device_manager = phone
 
     phone._fields.append({"resourceId": DM_SELECTORS.composer_edittext_resource_id})
     phone.add_button({"resourceId": DM_SELECTORS.send_button_resource_ids[0]})

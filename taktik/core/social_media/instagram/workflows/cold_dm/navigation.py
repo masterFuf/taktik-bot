@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from loguru import logger
-from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
     ColdDmRecipientPolicy,
@@ -54,6 +52,13 @@ class ColdDMNavigationMixin:
         from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 
         return NavigationActions(self.device_manager)
+
+    def _cold_dm_messaging(self):
+        """The production DM sending from a profile (the welcome DM's too), on this workflow's
+        device (the Lab supplies its own)."""
+        from taktik.core.social_media.instagram.workflows.dm.messaging import MessagingBusiness
+
+        return MessagingBusiness(self.device_manager)
 
     def open_recipient_profile(self, recipient: str) -> bool:
         """Open the recipient's profile through the production profile search, never a deep link
@@ -130,64 +135,14 @@ class ColdDMNavigationMixin:
             logger.warning(f"Skipping DM - {verdict['skip_reason']}")
             return verdict["skip_reason"]
 
-        msg_btn = verdict["message_button"]
-        if msg_btn is not None:
-            if verdict["is_private"]:
-                logger.info("Private profile with a Message button - trying the DM (setting allows it)")
-            msg_btn.click()
-            time.sleep(2)
-            return True
+        if verdict["message_button"] is None:
+            logger.error("Message button not found on profile")
+            return False
+        if verdict["is_private"]:
+            logger.info("Private profile with a Message button - trying the DM (setting allows it)")
+        return self._cold_dm_messaging().open_conversation_from_profile()
 
-        logger.error("Message button not found on profile")
-        return False
-
-    def go_back(self):
-        """Go back to previous screen."""
-        back_btn = self.device(resourceId=NAVIGATION_SELECTORS.action_bar_back_button_resource_id)
-        if back_btn.exists:
-            back_btn.click()
-        else:
-            self.device.press("back")
-        time.sleep(1)
-
-    def go_home(self):
-        """Navigate to Instagram home screen."""
+    def go_home(self) -> bool:
+        """Back to the home feed by the production navigation, between two recipients."""
         logger.info("Navigating to home...")
-
-        self.device.press("back")
-        time.sleep(1)
-
-        home_btn = self.device(resourceId=NAVIGATION_SELECTORS.home_tab_resource_id)
-        if home_btn.exists:
-            home_btn.click()
-            time.sleep(2)
-            return True
-
-        for description in NAVIGATION_SELECTORS.home_tab_descriptions:
-            home_btn = self.device(description=description)
-            if home_btn.exists:
-                home_btn.click()
-                time.sleep(2)
-                return True
-
-        for description in NAVIGATION_SELECTORS.home_tab_description_contains:
-            home_btn = self.device(descriptionContains=description)
-            if home_btn.exists:
-                home_btn.click()
-                time.sleep(2)
-                return True
-
-        self.device.press("back")
-        time.sleep(1)
-
-        home_btn = self.device(resourceId=NAVIGATION_SELECTORS.home_tab_resource_id)
-        if home_btn.exists:
-            home_btn.click()
-            time.sleep(2)
-            return True
-
-        for _ in range(2):
-            self.device.press("back")
-            time.sleep(0.5)
-        time.sleep(1)
-        return True
+        return self._cold_dm_navigation().navigate_to_home()

@@ -2,11 +2,14 @@
 
 The same cold DM payload goes through the desktop bridge (`cold_dm_bridge <config.json>`) and
 through the CLI (`taktik workflows run instagram.engagement.coldDm`). The phone below answers the
-selectors of the flow (profile, conversation, send button, home tab) from a small screen state, and
+selectors of the flow (profile, conversation, send button) from a small screen state, and
 records every selector query that finds something and every gesture, the `sent_dms` rows and the
 session the run opens and closes. The profile of a recipient is opened by the production profile
 search, recorded as asked (`navigate_to_profile <handle> force_search=<flag>`): its own screens are
 played in its own tests (`actions/atomic/navigation/test_profile_search_opens_only_the_asked_account.py`).
+The way home between two recipients (`navigate_to_home`) and the production sending from a profile
+(`MessagingBusiness.open_conversation_from_profile`, then `send_in_open_conversation`), the welcome
+DM's too, are recorded the same way: their screens are played in their own tests.
 Nothing here reaches adb, the network, the AI or the database.
 """
 from __future__ import annotations
@@ -118,7 +121,6 @@ class FakePhone:
     """Instagram as far as the cold DM flow looks at it."""
 
     def __init__(self, rig):
-        from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
         from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
         from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
@@ -130,7 +132,6 @@ class FakePhone:
         self.edit_text_class = DM_SELECTORS.edit_text_class_name
         suffix = lambda rid: rid.split(":id/")[-1]
         self.ids = {
-            "home_tab": suffix(NAVIGATION_SELECTORS.home_tab_resource_id),
             "private_state": suffix(PROFILE_SELECTORS.private_empty_state_resource_id),
             "message_button": suffix(PROFILE_SELECTORS.message_button_resource_id),
             "composer": suffix(DM_SELECTORS.composer_edittext_resource_id),
@@ -151,8 +152,6 @@ class FakePhone:
 
     def exists(self, key) -> bool:
         ids = self.ids
-        if key == ("id", ids["home_tab"]):
-            return self.state != "conversation"
         if key == ("id", ids["private_state"]):
             return self.state == "profile" and self._profile().get("private", False)
         if key == ("id", ids["message_button"]):
@@ -188,8 +187,6 @@ class FakePhone:
         elif key == ("id", ids["send"]):
             self.rig.sent.append(self.user)
             self.composer = ""
-        elif key == ("id", ids["home_tab"]):
-            self.state = "home"
 
     def typed(self, key, text) -> None:
         if key == ("id", self.ids["composer"]):
@@ -334,6 +331,36 @@ class InstagramColdDmRig:
             return rig.phone.opened_by_the_profile_search(username)
 
         mp.setattr(NavigationActions, "navigate_to_profile", fake_navigate_to_profile)
+
+        def fake_navigate_to_home(_self):
+            rig.calls.append("navigate_to_home")
+            rig.phone.state = "home"
+            return True
+
+        mp.setattr(NavigationActions, "navigate_to_home", fake_navigate_to_home)
+
+        from taktik.core.social_media.instagram.workflows.dm.messaging import (
+            INVITE_ALREADY_SENT,
+            MessagingBusiness,
+        )
+
+        def fake_open_conversation(_self):
+            rig.calls.append("open_conversation_from_profile")
+            if rig.phone.state != "profile" or not rig.profile(rig.phone.user).get("message_button", True):
+                return False
+            rig.phone.state = "conversation"
+            return True
+
+        def fake_send_in_open_conversation(_self, message, typos=True):
+            rig.calls.append(f"send_in_open_conversation {message} typos={typos}")
+            if rig.profile(rig.phone.user).get("invite_sent", False):
+                return INVITE_ALREADY_SENT
+            rig.typed.append(message)
+            rig.sent.append(rig.phone.user)
+            return True
+
+        mp.setattr(MessagingBusiness, "open_conversation_from_profile", fake_open_conversation)
+        mp.setattr(MessagingBusiness, "send_in_open_conversation", fake_send_in_open_conversation)
 
         def fake_is_verified(_self, *a, **k):
             rig.calls.append("read_verified")

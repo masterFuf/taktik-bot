@@ -3,7 +3,6 @@ Business logic for Instagram Direct Messaging.
 """
 
 import time
-import random
 from typing import Optional, Dict, Any
 from loguru import logger
 
@@ -20,6 +19,10 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages im
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
 
+#: `send_dm_from_profile` outcome when the conversation shows a message request already sent.
+INVITE_ALREADY_SENT = "invite_sent"
+
+
 class MessagingBusiness(BaseAction):
     """Business logic for sending DMs on Instagram."""
     
@@ -30,84 +33,71 @@ class MessagingBusiness(BaseAction):
         self.button_selectors = BUTTON_SELECTORS
         self.navigation_selectors = NAVIGATION_SELECTORS
     
-    def send_dm_from_profile(self, message: str) -> bool:
+    def send_dm_from_profile(self, message: str, *, typos: bool = True):
+        """Send a DM from the profile on screen: open its conversation, then send in it.
+
+        The one way a DM is sent from a profile, for the welcome DM (`send_dm`) and the cold DM.
+        Returns True once sent, False when a step failed, or `INVITE_ALREADY_SENT` when the
+        conversation shows a message request already sent (no composer to type in).
         """
-        Send a DM from the current profile page.
-        Assumes we are already on the target user's profile.
-        
-        Args:
-            message: Message text to send
-            
-        Returns:
-            True if DM sent successfully, False otherwise
-        """
-        try:
-            self.logger.info("📨 Attempting to send DM from profile...")
-            
-            # Click on Message button on profile
-            if not self._click_message_button():
-                self.logger.warning("Could not find Message button on profile")
-                return False
-            
-            time.sleep(2)
-            
-            # Type the message
-            if not self._type_message(message):
-                self.logger.warning("Could not type message")
-                return False
-            
-            time.sleep(0.5)
-            
-            # Send the message
-            if not self._click_send_button():
-                self.logger.warning("Could not click Send button")
-                return False
-            
-            time.sleep(1)
-            self.logger.info("✅ DM sent successfully")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error sending DM: {e}")
+        self.logger.info("📨 Attempting to send DM from profile...")
+        if not self.open_conversation_from_profile():
             return False
-    
-    def _click_message_button(self) -> bool:
-        """Click the Message button on a profile."""
-        message_selectors = PROFILE_SELECTORS.message_button
-        
-        for selector in message_selectors:
-            try:
-                element = self.device.xpath(selector)
-                if element.exists:
-                    if not self._human_tap_element(element):
-                        element.click()
-                    self.logger.debug("✅ Clicked Message button")
-                    return True
-            except Exception:
-                continue
-        
+        return self.send_in_open_conversation(message, typos=typos)
+
+    def open_conversation_from_profile(self) -> bool:
+        """Tap the Message button of the profile on screen, looked for inside its header only:
+        the tab bar's Direct tab carries the same label on every screen with the bar."""
+        for selector in PROFILE_SELECTORS.header_message_button:
+            element = self.device.xpath(selector)
+            if element is not None and element.exists:
+                if not self._human_tap_element(element):
+                    element.click()
+                self.logger.debug("✅ Clicked Message button")
+                time.sleep(2)
+                return True
+        self.logger.warning("Could not find Message button on profile")
         return False
-    
-    def _type_message(self, message: str) -> bool:
-        """Type a message in the DM input field — shared composer atomic."""
-        if dm_composer.type_message(self.device, None, message, logger=self.logger):
-            self.logger.debug(f"✅ Typed message ({len(message)} chars)")
-            return True
-        return False
-    
-    def _click_send_button(self) -> bool:
-        """Click the Send button to send the DM — shared composer atomic."""
-        if dm_composer.click_send_button(self.device, logger=self.logger):
-            self.logger.debug("✅ Clicked Send button")
-            return True
-        return False
+
+    def send_in_open_conversation(self, message: str, *, typos: bool = True):
+        """Type `message` in the open conversation and send it, through the shared composer.
+
+        True once the send button is pressed on a composer that holds exactly the message; False
+        when the composer or the send button is missing, or the typing did not leave the message;
+        `INVITE_ALREADY_SENT` when the conversation has no composer because a message request to
+        this account is already waiting.
+        """
+        composer = dm_composer.find_message_input(self.device, logger=self.logger)
+        if composer is None:
+            if self.invite_already_sent():
+                self.logger.info("Invite already sent to this user")
+                return INVITE_ALREADY_SENT
+            return False
+        if not dm_composer.type_message(self.device, None, message, element=composer,
+                                        typos=typos, logger=self.logger):
+            self.logger.warning("Could not type message")
+            return False
+        self.logger.debug(f"✅ Typed message ({len(message)} chars)")
+        time.sleep(0.5)
+        if not dm_composer.click_send_button(self.device, logger=self.logger):
+            self.logger.warning("Could not click Send button")
+            return False
+        time.sleep(1)
+        self.logger.info("✅ DM sent successfully")
+        return True
+
+    def invite_already_sent(self) -> bool:
+        """The open conversation says a message request to this account is already waiting."""
+        return any(self.device.xpath(selector).exists for selector in DM_SELECTORS.invite_sent_indicators)
 
 
 def send_dm(device_manager, username: str, message: str, navigate_to_profile: bool = True) -> bool:
     """
     Send a direct message to a user.
     
-    This is the main entry point for sending DMs, used by the Cold DM workflow.
+    The welcome DM's way: it opens the profile itself (the production profile search, the deep
+    link as its fallback), then sends from it by `MessagingBusiness.send_dm_from_profile`, the
+    cold DM's sending too. A request already waiting is not a DM sent: False.
     
     Args:
         device_manager: Device manager instance
@@ -130,7 +120,7 @@ def send_dm(device_manager, username: str, message: str, navigate_to_profile: bo
                 return False
             time.sleep(1.5)
         
-        success = messaging.send_dm_from_profile(message)
+        success = messaging.send_dm_from_profile(message) is True
         # The one look after a write: a refused send is not a sent DM, and the run stops.
         if look_for_action_block(ProblematicPageDetector(device_manager), after='dm', target=username):
             return False
