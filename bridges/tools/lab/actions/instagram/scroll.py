@@ -2,6 +2,7 @@
 
 import time
 
+from bridges.tools.lab.action_test.params import lab_flag
 from bridges.tools.lab.actions.instagram import action
 from bridges.tools.lab.action_test.not_applicable import not_applicable
 from taktik.core.shared.behavior.gesture import FULL_REACH_H, sample_swipe
@@ -540,13 +541,11 @@ def scroll_browse(a, p):
     + reading pause (carousel/caption). Skips Sponsored ads + Suggested units, occasionally skims
     past 1-2 posts. Toggles (Lab scenario controls): skip_ads, skip_suggested, read_captions,
     browse_carousels; `steps` (1-30) sets how many posts to read."""
-    def _flag(key, default="1"):
-        return str(p.get(key, default)).lower() not in ("0", "false", "no")
     steps = max(1, min(30, int(p.get("steps", 6))))
-    skip_ads = _flag("skip_ads")
-    skip_sugg = _flag("skip_suggested")
-    read_captions = _flag("read_captions")
-    browse_carousels = _flag("browse_carousels")
+    skip_ads = lab_flag(p, "skip_ads", True)
+    skip_sugg = lab_flag(p, "skip_suggested", True)
+    read_captions = lab_flag(p, "read_captions", True)
+    browse_carousels = lab_flag(p, "browse_carousels", True)
     res = a.scroll.browse_feed(steps=steps, skip_ads=skip_ads, skip_suggested=skip_sugg,
                                read_captions=read_captions, browse_carousels=browse_carousels)
     pauses = res.get("pauses_s") or []

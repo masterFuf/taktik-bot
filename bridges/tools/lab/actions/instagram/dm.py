@@ -14,6 +14,7 @@ the read worked — same data path the prod reader/persistence already use.
 from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action
+from bridges.tools.lab.action_test.params import lab_flag
 
 
 def _dm_runtime(a):
@@ -124,13 +125,6 @@ def back_to_inbox(a, p):
     return {"success": True, "message": "back to inbox"}
 
 
-def _flag(p, name, default):
-    value = p.get(name, default)
-    if isinstance(value, str):
-        return value.strip().lower() in ("1", "true", "yes", "oui")
-    return bool(value)
-
-
 def _cold_dm_runtime(a):
     """The production cold DM workflow (`ColdDMWorkflow`, the core's one engine) bound to the warm
     Lab device: the class itself, so a step changed in the workflow reaches the Lab on its own. No
@@ -179,8 +173,8 @@ def send_cold_dm(a, p):
     text = (p.get("text") or "").strip()
     if not username or not text:
         return {"success": False, "message": "username and text params are required"}
-    policy = ColdDmRecipientPolicy(skip_private=_flag(p, "skipPrivate", True),
-                                   skip_verified=_flag(p, "skipVerified", False))
+    policy = ColdDmRecipientPolicy(skip_private=lab_flag(p, "skipPrivate", True),
+                                   skip_verified=lab_flag(p, "skipVerified", False))
     reached = _cold_dm_runtime(a).reach_and_send(username, lambda: text, policy)
     outcome = reached["outcome"]
     sent = outcome == "sent" and bool(reached.get("send_result"))
@@ -200,8 +194,8 @@ def cold_dm_check_profile(a, p):
         ColdDmRecipientPolicy,
     )
 
-    policy = ColdDmRecipientPolicy(skip_private=_flag(p, "skipPrivate", True),
-                                   skip_verified=_flag(p, "skipVerified", False))
+    policy = ColdDmRecipientPolicy(skip_private=lab_flag(p, "skipPrivate", True),
+                                   skip_verified=lab_flag(p, "skipVerified", False))
     verdict = _cold_dm_runtime(a).evaluate_cold_dm_profile(policy)
     verdict.pop("message_button", None)
     if not verdict["on_profile"]:

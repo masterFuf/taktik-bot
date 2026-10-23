@@ -20,6 +20,7 @@ from bridges.tools.lab.action_test.action_bundle import (
     resolve_lab_account_id,
 )
 
+from bridges.tools.lab.action_test.params import lab_flag
 from bridges.tools.lab.actions.instagram import action, detection_action
 from bridges.tools.lab.action_test.not_applicable import absent_on_screen
 from taktik.core.social_media.instagram.ui.selectors import NOTIFICATION_SELECTORS as N
@@ -561,7 +562,7 @@ def visit_suggestions(a, p):
             max_descent_scrolls=int(p.get("max_descent_scrolls", 60)),
             # A probe tests the zone on the screen the operator navigated to, so the
             # list is not collapsed here — production does the opposite.
-            refresh_first=str(p.get("refresh_first", "")).lower() in ("1", "true", "oui"),
+            refresh_first=lab_flag(p, "refresh_first", False),
             delay_range=(float(p.get("delay_min", 2)), float(p.get("delay_max", 5))),
         )
     res["session_id"] = session_id

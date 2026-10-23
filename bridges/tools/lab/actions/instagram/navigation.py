@@ -5,6 +5,7 @@ import time
 from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action
+from bridges.tools.lab.action_test.params import lab_flag
 
 
 @action("navigation.go_home")
@@ -24,11 +25,14 @@ def go_profile_tab(a, p):
 
 @action("navigation.open_profile")
 def open_profile(a, p):
+    """The production profile search (`navigate_to_profile`). `forceSearch` (default no): the
+    search alone, never the deep link, as the cold DM opens its recipients; without it a search
+    that finds nothing is hidden by the deep link that follows it."""
     username = p.get("username", "")
     if not username:
         logger.error("Missing 'username' param")
         return False
-    return a.nav.navigate_to_profile(username)
+    return a.nav.navigate_to_profile(username, force_search=lab_flag(p, "forceSearch", False))
 
 
 @action("navigation.press_back")
