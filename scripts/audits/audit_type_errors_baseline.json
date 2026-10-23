@@ -153,7 +153,7 @@
   "taktik/core/social_media/instagram/actions/atomic/interaction/profile_interaction.py": 21,
   "taktik/core/social_media/instagram/actions/atomic/interaction/story_interaction.py": 6,
   "taktik/core/social_media/instagram/actions/atomic/navigation/deep_link_navigation.py": 4,
-  "taktik/core/social_media/instagram/actions/atomic/navigation/search_navigation.py": 23,
+  "taktik/core/social_media/instagram/actions/atomic/navigation/search_navigation.py": 20,
   "taktik/core/social_media/instagram/actions/atomic/navigation/tab_navigation.py": 14,
   "taktik/core/social_media/instagram/actions/atomic/scroll/base_scroll.py": 1,
   "taktik/core/social_media/instagram/actions/atomic/scroll/context_scroll.py": 13,

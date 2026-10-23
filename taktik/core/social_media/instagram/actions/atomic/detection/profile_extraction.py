@@ -116,6 +116,17 @@ class ProfileExtractionMixin(BaseAction):
             self.logger.error(f"Error retrieving username: {e}")
             return None
     
+    def handle_on_photo(self, photo) -> Optional[str]:
+        """The handle the profile on `photo` shows in its action bar, or None while it shows none
+        (a profile still loading shows an empty action bar)."""
+        for selector in self.selectors.username:
+            elements = photo.elements(selector)
+            if elements:
+                handle = _handle_from_node(elements[0].attrib.get('text', ''))
+                if handle:
+                    return handle
+        return None
+
     def get_biography_from_profile(self) -> Optional[str]:
         return self._get_text_from_element(self.selectors.bio)
 
@@ -140,18 +151,8 @@ class ProfileExtractionMixin(BaseAction):
             return results
 
         try:
-            # Extract username
-            for selector in self.selectors.username:
-                try:
-                    elements = photo.elements(selector)
-                    if elements:
-                        handle = _handle_from_node(elements[0].attrib.get('text', ''))
-                        if handle:
-                            results['username'] = handle
-                            break
-                except Exception:
-                    continue
-            
+            results['username'] = self.handle_on_photo(photo)
+
             # Extract full name
             for selector in self.selectors.full_name:
                 try:

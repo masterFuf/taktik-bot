@@ -8,7 +8,6 @@ from loguru import logger
 from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import instagram_handle
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
-from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.story_viewer import STORY_SELECTORS
 from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_hswipe_raw
@@ -17,6 +16,10 @@ from taktik.core.social_media.instagram.actions.atomic.story_state import parse_
 
 
 _STORY_TRANSITION_POLL_DELAYS = (0.12, 0.18, 0.28, 0.40)
+
+# How long a profile opened by its handle may take to show that handle, and how often it is read.
+PROFILE_LOAD_TIMEOUT_S = 5.0
+PROFILE_LOAD_POLL_MS = 500
 
 
 def _signature_shows_a_story(signature) -> bool:
@@ -287,47 +290,34 @@ class SearchNavigationMixin(BaseAction):
     # === Profile verification ===
 
     def _verify_profile_navigation(self, expected_username: str) -> bool:
-        # NOTE: _check_and_close_problematic_pages() removed here - already called by navigate_to_profile()
-        
-        # === FAST PATH: try the top username selectors directly (up to 3 attempts) ===
-        # If one exists, we're on a profile screen AND we have the username (2-3 calls max instead of 18)
-        _fast_selectors = PROFILE_SELECTORS.username[:3]
-        for _attempt in range(3):
-            for selector in _fast_selectors:
-                try:
-                    el = self.device.xpath(selector)
-                    if el.exists:
-                        current_username = (el.get_text() or '').strip().replace('@', '')
-                        if current_username:
-                            expected_clean = self._clean_username(expected_username)
-                            current_clean = self._clean_username(current_username)
-                            self.logger.debug(f"✅ On profile screen, username: '{current_clean}' vs '{expected_clean}'")
-                            return current_clean == expected_clean
-                except Exception:
-                    continue
-            if _attempt < 2:
-                self.logger.debug(f"Profile not yet loaded (attempt {_attempt + 1}/3), waiting...")
-                time.sleep(1.5)
-        
-        # === FALLBACK: full check (slower but covers edge cases) ===
-        if not self._is_profile_screen():
-            self.logger.debug(f"❌ Not on profile screen")
-            return False
-        
-        self.logger.debug(f"✅ On profile screen, verifying username...")
-        
+        """True only when the profile on screen shows the handle asked for.
+
+        The handle is read on screen photos by the production profile reader, for as long as a
+        profile takes to load. A profile that shows no handle in that time (a blank page, the
+        header container and nothing in it, as a phone without network shows it) is not verified,
+        and the log says so: it used to count as the profile asked for.
+        """
         from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
-        detection = DetectionActions(self.device)
-        current_username = detection.get_username_from_profile()
-        
-        if current_username:
-            current_username = self._clean_username(current_username)
-            expected_clean = self._clean_username(expected_username)
-            self.logger.debug(f"Username comparison: '{current_username}' vs '{expected_clean}'")
-            return current_username == expected_clean
-        
-        self.logger.warning(f"⚠️ Could not extract username from profile")
-        return True
+
+        reader = DetectionActions(self.device)
+        expected = instagram_handle(expected_username)
+        last_read = []
+
+        def shows_expected(photo) -> bool:
+            last_read.append(instagram_handle(reader.handle_on_photo(photo)))
+            return last_read[-1] == expected
+
+        if self.device.wait_for_snapshot(shows_expected, timeout=PROFILE_LOAD_TIMEOUT_S,
+                                         poll_ms=PROFILE_LOAD_POLL_MS) is not None:
+            self.logger.debug(f"✅ Profile @{expected} open")
+            return True
+        shown = next((handle for handle in reversed(last_read) if handle), None)
+        if shown is None:
+            self.logger.warning(f"⚠️ No handle shown on the profile opened for @{expected} after "
+                                f"{PROFILE_LOAD_TIMEOUT_S:.0f}s (still loading, or not a profile): not verified")
+        else:
+            self.logger.warning(f"⚠️ The profile opened shows @{shown}, not @{expected}: not verified")
+        return False
 
     # === Content navigation (lists, posts, stories) ===
 
