@@ -234,14 +234,48 @@ def test_the_read_model_adapts_to_the_base():
     assert with_it["niche"] == "pae.ai_niche"
 
 
-def test_a_broken_table_does_not_raise_into_the_workflow(repo):
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda repo: repo.save_edges("alice", ["b1"]),
+        lambda repo: repo.unclassified_usernames(),
+        lambda repo: repo.profiles_following("source"),
+        lambda repo: repo.following_of("alice"),
+    ],
+    ids=["save_edges", "unclassified_usernames", "profiles_following", "following_of"],
+)
+def test_a_broken_table_raises_instead_of_reading_as_empty(repo, call):
+    """0 would read as "every edge already known", [] as "nothing pending" or "nobody
+    follows them". The caller decides what a refusal costs its run, and says it."""
     repo.conn.execute("DROP TABLE profile_following")
     repo.conn.commit()
 
-    assert repo.save_edges("alice", ["b1"]) == 0
-    assert repo.unclassified_usernames() == []
-    assert repo.profiles_following("source") == []
-    assert repo.following_of("alice") == []
+    with pytest.raises(sqlite3.DatabaseError):
+        call(repo)
+
+
+def _refuse_following(conn: sqlite3.Connection, username: str) -> None:
+    """An insert SQLite itself refuses (a trigger), as a locked or damaged base would."""
+    conn.execute(f"""
+        CREATE TRIGGER refuse_edge_{username} BEFORE INSERT ON profile_following
+        WHEN NEW.following_username = '{username}'
+        BEGIN SELECT RAISE(ABORT, 'refused'); END
+    """)
+    conn.commit()
+
+
+def test_a_refused_list_leaves_no_half_written_edges(repo):
+    """The first edges of a refused list must not wait in the open transaction for the
+    next commit of another repository on the same connection."""
+    _refuse_following(repo.conn, "b3")
+
+    with pytest.raises(sqlite3.DatabaseError):
+        repo.save_edges("alice", ["b1", "b2", "b3"])
+    repo.conn.commit()
+
+    count = repo.conn.execute("SELECT COUNT(*) FROM profile_following").fetchone()[0]
+    assert count == 0
+
 
 def _refuse_classifying(conn: sqlite3.Connection, username: str) -> None:
     """A write SQLite itself refuses (a trigger), as a locked or damaged base would."""
