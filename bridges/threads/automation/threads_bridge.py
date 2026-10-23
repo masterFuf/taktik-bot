@@ -15,7 +15,7 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.common.entrypoint import MISSING_CONFIG, run_bridge_main, send_import_error
+from bridges.common.entrypoint import MISSING_CONFIG, run_bridge_main, send_run_error
 from bridges.threads.automation.base import logger, send_error, signal_handler
 from bridges.threads.automation.feed import run_feed
 from bridges.threads.automation.search import run_follow
@@ -67,12 +67,9 @@ def dispatch(config: dict) -> None:
         logger.error(f"Threads {workflow_type} workflow failed")
         sys.exit(1)
 
-    except ImportError as exc:
-        send_import_error(exc)
-        sys.exit(1)
     except Exception as exc:
-        send_error(f"Workflow error: {exc}")
-        logger.exception(f"Unexpected error in {workflow_type} workflow: {exc}")
+        # An import that failed is said with its code by `send_run_error`, whatever the words.
+        send_run_error(f"Workflow error: {exc}", exc)
         sys.exit(1)
     finally:
         from taktik.core.shared.device.app_manager import force_stop_app

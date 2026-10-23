@@ -30,7 +30,7 @@ if bot_dir not in sys.path:
 from bridges.common.bootstrap import setup_environment
 setup_environment()
 
-from bridges.common.entrypoint import CONFIG_ERROR, MISSING_CONFIG, run_bridge_main
+from bridges.common.entrypoint import CONFIG_ERROR, MISSING_CONFIG, run_bridge_main, send_run_error
 from bridges.common.ipc import IPC
 from taktik.core.shared.device.connection import ConnectionService
 from bridges.tools.lab.selector_test.request import (
@@ -89,7 +89,7 @@ def _run(ipc, conn, request, app_name, device_id, domain_filter):
 
         plan = prepare_selector_test(app_name, request.version, device_id, conn.device)
     except Exception as e:
-        ipc.send("error", error=f"Failed to load selectors: {e}", error_code="REGISTRY_INIT_ERROR")
+        send_run_error(f"Failed to load selectors: {e}", e, error_code="REGISTRY_INIT_ERROR")
         sys.exit(1)
 
     selectors = plan.selectors

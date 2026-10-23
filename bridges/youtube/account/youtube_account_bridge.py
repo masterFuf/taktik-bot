@@ -52,7 +52,7 @@ class YouTubeAccountBridge:
             send_error("workflowType is required ('login' or 'logout')")
             return 1
 
-        session = prepare_youtube_session(self.device_id, send_status, send_error)
+        session = prepare_youtube_session(self.device_id)
         if not session:
             return 1
         self._connection = session.connection

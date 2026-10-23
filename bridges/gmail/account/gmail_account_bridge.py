@@ -52,7 +52,7 @@ class GmailAccountBridge:
             send_error("workflowType is required ('login', 'logout', 'read_otp', or 'scan_accounts')")
             return 1
 
-        session = prepare_gmail_session(self.device_id, send_status, send_error)
+        session = prepare_gmail_session(self.device_id)
         if not session:
             return 1
         self._connection = session.connection

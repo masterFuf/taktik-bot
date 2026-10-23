@@ -2,6 +2,7 @@
 
 from typing import Any, Callable
 
+from bridges.common.entrypoint import send_run_error
 from bridges.gmail.account.persistence import persist_gmail_account
 from taktik.core.social_media.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_SCAN_ACCOUNTS_WORKFLOW_ID,
@@ -44,10 +45,7 @@ def run_gmail_scan_accounts(
         )
         return 0 if success else 1
     except Exception as exc:  # noqa: BLE001
-        import traceback
-
-        send_error(f"Gmail scan_accounts error: {exc}")
-        send_log("error", traceback.format_exc())
+        send_run_error(f"Gmail scan_accounts error: {exc}", exc)
         return 1
 
 

@@ -49,7 +49,8 @@
       [
         "error",
         {
-          "error": "Failed to connect to device"
+          "error": "Failed to connect to device",
+          "traceback": "<traceback>"
         }
       ]
     ],
@@ -127,7 +128,8 @@
       [
         "error",
         {
-          "error": "TikTok DM outreach requires at least one message"
+          "error": "TikTok DM outreach requires at least one message",
+          "traceback": "<traceback>"
         }
       ]
     ],
@@ -384,7 +386,8 @@
       [
         "error",
         {
-          "error": "TikTok DM outreach requires at least one recipient"
+          "error": "TikTok DM outreach requires at least one recipient",
+          "traceback": "<traceback>"
         }
       ]
     ],

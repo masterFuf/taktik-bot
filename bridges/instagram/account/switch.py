@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from bridges.instagram.common.ipc import send_error, send_log, send_message, send_status
+from bridges.common.entrypoint import send_run_error
+from bridges.instagram.common.ipc import send_log, send_message, send_status
 from taktik.core.social_media.instagram.workflows.account.agent_handler import (
     INSTAGRAM_ACCOUNT_LIST_SAVED_WORKFLOW_ID,
     INSTAGRAM_ACCOUNT_LIST_WORKFLOW_ID,
@@ -62,10 +63,7 @@ class AccountSwitchRunnerMixin:
             )
             return 0 if result["success"] else 1
         except Exception as exc:  # noqa: BLE001
-            import traceback
-
-            send_error(f"Switch error: {exc}")
-            send_log("error", traceback.format_exc())
+            send_run_error(f"Switch error: {exc}", exc)
             return 1
 
     def _run_list_accounts(self, device) -> int:
@@ -100,10 +98,7 @@ class AccountSwitchRunnerMixin:
             )
             return 0
         except Exception as exc:  # noqa: BLE001
-            import traceback
-
-            send_error(f"List-accounts error: {exc}")
-            send_log("error", traceback.format_exc())
+            send_run_error(f"List-accounts error: {exc}", exc)
             return 1
 
     def _run_list_saved_accounts(self, device) -> int:
@@ -139,10 +134,7 @@ class AccountSwitchRunnerMixin:
             )
             return 0
         except Exception as exc:  # noqa: BLE001
-            import traceback
-
-            send_error(f"List-saved-accounts error: {exc}")
-            send_log("error", traceback.format_exc())
+            send_run_error(f"List-saved-accounts error: {exc}", exc)
             return 1
 
 

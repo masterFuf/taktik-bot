@@ -2,6 +2,7 @@
 
 from typing import Any, Callable
 
+from bridges.common.entrypoint import send_run_error
 from bridges.gmail.account.persistence import persist_gmail_account
 from bridges.gmail.account.workflow_result import finish_account_result
 from taktik.core.social_media.gmail.workflows.agent_handler import (
@@ -50,10 +51,7 @@ def run_gmail_login(
             send_message=send_message,
         )
     except Exception as exc:  # noqa: BLE001
-        import traceback
-
-        send_error(f"Gmail login error: {exc}")
-        send_log("error", traceback.format_exc())
+        send_run_error(f"Gmail login error: {exc}", exc)
         return 1
 
 

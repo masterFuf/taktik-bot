@@ -129,7 +129,7 @@ def test_youtube_upload_is_the_same_call_from_the_bridge_and_the_cli(monkeypatch
     exit_code = run_youtube_upload_workflow(device=DEVICE, device_id=DEVICE_ID, config=page,
                                             upload_type="short",
                                             send_status=_silent, send_message=_silent,
-                                            send_error=_silent, send_log=_silent)
+                                            send_log=_silent)
 
     registry = WorkflowRegistry()
     agent_handler.register_youtube_publish_handlers(registry, device=DEVICE, device_id=DEVICE_ID,

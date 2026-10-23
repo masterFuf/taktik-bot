@@ -17,8 +17,8 @@ from __future__ import annotations
 import signal
 
 from taktik.core.shared.device.app_manager import AppService
-from taktik.core.shared.device.connection import ConnectionService
 from bridges.common.entrypoint import send_run_error
+from bridges.common.run_setup import connect_run_device
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.common.ipc import _ipc, send_error, send_message, send_status
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
@@ -67,26 +67,8 @@ class TaskBridge:
     def _prepare_runtime_session(self):
         """DB, then device connection — same order as every bridge; the task's launcher asks for
         the clean restart of its Instagram (`_restart_instagram`)."""
-        try:
-            from taktik.core.database import configure_db_service
-
-            configure_db_service()
-        except Exception as e:  # noqa: BLE001
-            send_run_error(f"Database setup failed: {e}", e)
-            return None
-
-        send_status("connecting", f"Connecting to device {self.device_id}...")
-        self._connection = ConnectionService(self.device_id)
-        if not self._connection.connect():
-            send_error(f"Failed to connect to device {self.device_id}")
-            return None
-
-        device = self._connection.device
-        if not device:
-            send_error("Device object unavailable after connection")
-            return None
-
-        return device
+        self._connection = connect_run_device(self.device_id)
+        return self._connection.device if self._connection is not None else None
 
     def _restart_instagram(self, device, package_name: str | None):
         """Clean restart, always: a task starts from a known screen (the feed), never from wherever
@@ -129,10 +111,7 @@ class TaskBridge:
             invocation = WorkflowInvocation(platform="instagram", workflow_id=self.task_id)
             report = handler(invocation, self.params)
         except Exception as exc:  # noqa: BLE001
-            import traceback
-
-            send_error(f"Task error: {exc}")
-            send_message("log", level="error", message=traceback.format_exc())
+            send_run_error(f"Task error: {exc}", exc)
             return 1
 
         success = bool(report.get("success")) if isinstance(report, dict) else bool(report)
