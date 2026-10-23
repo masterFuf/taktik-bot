@@ -427,7 +427,10 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                             # posts), and its author an account interacted with, once.
                             stats['posts_engaged'] = stats.get('posts_engaged', 0) + 1
                             self.stats_manager.increment('posts_engaged')
-                            self._count_interacted_account(post_author, stats)
+                            # A post is engaged only once its author was read (no author, no ledger
+                            # row, no like): the check says it to the type checker as well.
+                            if post_author:
+                                self._count_interacted_account(post_author, stats)
 
                         if liked:
                             feed_action = 'like_comment' if commented else 'like'
