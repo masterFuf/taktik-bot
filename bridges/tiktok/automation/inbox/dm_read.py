@@ -9,6 +9,7 @@ startup that prints on stdout, its IPC for the live events, the stop signal.
 
 from typing import Any, Dict
 
+from bridges.common.entrypoint import send_import_error
 from bridges.tiktok.common.ipc import _ipc, logger, send_error, send_status, set_workflow
 from bridges.tiktok.common.startup import tiktok_startup_provider
 
@@ -37,9 +38,7 @@ def run_dm_read_workflow(config: Dict[str, Any]):
         return True
 
     except ImportError as e:
-        error_msg = f"Import error: {e}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_import_error(e)
         return False
     except Exception as e:
         error_msg = f"DM workflow error: {e}"

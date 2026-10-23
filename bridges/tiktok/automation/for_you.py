@@ -11,6 +11,7 @@ stats.
 
 from typing import Dict, Any
 
+from bridges.common.entrypoint import send_import_error
 from bridges.tiktok.common.ipc import logger, send_error, send_status, set_workflow
 from bridges.tiktok.common.startup import tiktok_startup
 from bridges.tiktok.automation.ai import install_run_ai_hooks
@@ -74,9 +75,7 @@ def run_for_you_workflow(config: Dict[str, Any]):
         return True
 
     except ImportError as e:
-        error_msg = f"Import error: {e}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_import_error(e)
         return False
     except Exception as e:
         error_msg = f"Workflow error: {e}"

@@ -7,7 +7,8 @@ top-level `try` (the generic entrypoint, the TikTok and Threads dispatchers) sen
 no traceback; the ones that don't (`taktik_agent`, anything raising during import) send nothing.
 
 These hooks are the floor under all of them. They emit ONE machine-readable event on stdout and
-keep the human traceback on stderr, where the desktop's per-run log already captures it.
+keep the human traceback on stderr, where the desktop's per-run log already captures it. The event
+(`exception_event`) is also the line of an import a bridge catches (`entrypoint.send_import_error`).
 
 Written with `os.write` on a duplicated stdout descriptor and no project imports on purpose: this
 has to work when the failure IS an import error, and when loguru or a stdout wrapper is the thing
@@ -56,14 +57,24 @@ def _format_traceback(exc_type, exc_value, exc_traceback) -> str:
     return text[-MAX_TRACEBACK_CHARS:]
 
 
-def report_unhandled(exc_type, exc_value, exc_traceback, *, thread: str | None = None) -> None:
-    """Emit the crash event for one uncaught exception."""
-    payload: dict[str, Any] = {
-        "type": "error",
-        "error_code": "UNHANDLED_EXCEPTION",
+def exception_event(exc_type, exc_value, exc_traceback) -> dict[str, Any]:
+    """The bot's account of the exception that ended a bridge: its code, its words, its traceback.
+
+    A module that does not import is `PYTHON_IMPORT_ERROR` (a broken install, a renamed name), the
+    same cause wherever the import ran: the bridge's own module, or a run's lazy import
+    (`entrypoint.send_import_error`). Any other exception is `UNHANDLED_EXCEPTION`.
+    """
+    is_import = isinstance(exc_type, type) and issubclass(exc_type, ImportError)
+    return {
+        "error_code": "PYTHON_IMPORT_ERROR" if is_import else "UNHANDLED_EXCEPTION",
         "error": f"{getattr(exc_type, '__name__', 'Exception')}: {exc_value}",
         "traceback": _format_traceback(exc_type, exc_value, exc_traceback),
     }
+
+
+def report_unhandled(exc_type, exc_value, exc_traceback, *, thread: str | None = None) -> None:
+    """Emit the crash event for one uncaught exception."""
+    payload: dict[str, Any] = {"type": "error", **exception_event(exc_type, exc_value, exc_traceback)}
     if _bridge_name:
         payload["bridge"] = _bridge_name
     if thread:

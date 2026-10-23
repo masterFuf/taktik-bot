@@ -15,7 +15,7 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.common.entrypoint import MISSING_CONFIG, run_bridge_main
+from bridges.common.entrypoint import MISSING_CONFIG, run_bridge_main, send_import_error
 from bridges.threads.automation.base import logger, send_error, signal_handler
 from bridges.threads.automation.feed import run_feed
 from bridges.threads.automation.search import run_follow
@@ -68,8 +68,7 @@ def dispatch(config: dict) -> None:
         sys.exit(1)
 
     except ImportError as exc:
-        send_error(f"Failed to import workflow module: {exc}")
-        logger.error(f"Import error: {exc}")
+        send_import_error(exc)
         sys.exit(1)
     except Exception as exc:
         send_error(f"Workflow error: {exc}")

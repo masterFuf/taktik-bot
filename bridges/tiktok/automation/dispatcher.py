@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from bridges.common.entrypoint import send_import_error
 from bridges.tiktok.common.ipc import _ipc, logger, send_error
 
 
@@ -35,8 +36,7 @@ class TikTokDispatcherBridge:
             logger.error(f"❌ TikTok {workflow_type} workflow failed")
             return 1
         except ImportError as e:
-            send_error(f"Failed to import workflow module: {e}")
-            logger.error(f"Import error: {e}")
+            send_import_error(e)
             return 1
         except UnknownWorkflowError:
             return 1

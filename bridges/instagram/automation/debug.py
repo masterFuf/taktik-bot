@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bridges.common.entrypoint import send_import_error
 from bridges.instagram.common.ipc import logger, send_error, send_log
 from bridges.instagram.automation.debug_actions import (
     analyze_current_screen,
@@ -40,8 +41,7 @@ class DebugBridge:
             return 3
 
         except ImportError as e:
-            send_error(f"Import error: {str(e)}")
-            logger.exception("Import error in DebugBridge")
+            send_import_error(e)
             return 1
         except Exception as e:
             import traceback

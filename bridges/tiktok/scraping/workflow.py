@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from bridges.common.entrypoint import send_import_error
 from bridges.tiktok.common.ipc import _ipc, logger, send_error, send_status, set_workflow
 from bridges.tiktok.common.startup import tiktok_startup_provider
 
@@ -39,9 +40,7 @@ def run_scraping_workflow(config: Dict[str, Any]) -> bool:
         return True
 
     except ImportError as e:
-        error_msg = f"Import error: {e}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_import_error(e)
         return False
     except Exception as e:
         error_msg = f"Scraping workflow error: {e}"

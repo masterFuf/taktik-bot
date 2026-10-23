@@ -17,6 +17,7 @@ event here would mean a second reader on the app side for numbers that are the s
 
 from typing import Any, Dict, List
 
+from bridges.common.entrypoint import send_import_error
 from bridges.tiktok.common.ipc import (
     logger,
     send_error,
@@ -105,9 +106,7 @@ def run_target_profiles_workflow(config: Dict[str, Any]) -> bool:
         return True
 
     except ImportError as exc:
-        error_msg = f"Import error: {exc}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_import_error(exc)
         return False
     except Exception as exc:
         error_msg = f"Target Profiles workflow error: {exc}"
