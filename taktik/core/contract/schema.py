@@ -170,16 +170,15 @@ class Refusal:
 
 @dataclass(frozen=True)
 class AiRequest:
-    """How a run asks for the AI, and so needs a key (`missing_ai_key`): always, or under some settings.
+    """How a run asks for the AI, and so needs a key (`missing_ai_key`): under some settings, or always.
 
-    always  a model decides each gesture of the run (the Taktik Agent): it asks whatever its settings say
-    when    the settings under which it asks, as `Field.when`: a dotted setting path to the value that turns
-            the AI on (`{"ai.enabled": True}`, `{"messageMode": "ai"}`); a tuple: any of its values
+    when  the settings under which it asks, as `Field.when`: a dotted setting path to the value that turns
+          the AI on (`{"ai.enabled": True}`, `{"messageMode": "ai"}`); a tuple: any of its values. None at
+          all: every run of the workflow asks (the Taktik Agent: a model decides each gesture).
 
     A workflow that declares no request never asks for the AI. `contract/ai_request.py` reads it.
     """
 
-    always: bool = False
     when: Mapping[str, Any] = field(default_factory=dict)
 
 

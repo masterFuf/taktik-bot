@@ -57,10 +57,10 @@ def ai_credential_fields(provider_key: str, api_key_key: str, *, provider_aliase
 
 
 #: How the workflows that can use the AI ask for it (`WorkflowContract.ai_request`, read by
-#: `contract/ai_request.py`): the run's `ai` block switched on, its messages written by an AI, or always.
+#: `contract/ai_request.py`): the run's `ai` block switched on, its messages written by an AI, or every run.
 AI_REQUEST_BLOCK = AiRequest(when={"ai.enabled": True})
 AI_REQUEST_MESSAGES = AiRequest(when={"messageMode": "ai"})
-AI_REQUEST_ALWAYS = AiRequest(always=True)
+AI_REQUEST_ALWAYS = AiRequest()
 
 
 def instagram_package_field(doc: str = "An Instagram clone's package, run instead of Instagram; absent: the "

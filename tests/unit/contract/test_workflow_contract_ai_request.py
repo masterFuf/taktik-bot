@@ -90,9 +90,9 @@ def test_what_turns_the_ai_on_is_a_setting_of_the_workflow_and_turns_it_on():
         if request is None:
             continue
         for workflow_id in contract.serves:
-            assert request.always or request.when, f"{workflow_id}: a request that never asks"
-            if request.always:
-                assert asks_for_ai(workflow_id, {})
+            if not request.when:
+                # No condition: every run of the workflow asks.
+                assert asks_for_ai(workflow_id, {}), workflow_id
                 continue
             # Every named setting resolves in the declaration (a typo is a KeyError here, not a run that never asks).
             assert holds(contract.settings, _turned_on(request), request.when), workflow_id
@@ -101,7 +101,8 @@ def test_what_turns_the_ai_on_is_a_setting_of_the_workflow_and_turns_it_on():
 
 
 def test_the_agent_alone_asks_for_the_ai_by_nature():
-    always = [contract.workflow_id for contract in WORKFLOW_CONTRACTS if contract.ai_request and contract.ai_request.always]
+    always = [contract.workflow_id for contract in WORKFLOW_CONTRACTS
+              if contract.ai_request is not None and not contract.ai_request.when]
 
     assert always == [AGENT]
 

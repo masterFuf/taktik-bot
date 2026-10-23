@@ -67,7 +67,8 @@ def test_every_registered_workflow_runs_manually_without_a_key():
     from taktik.cli.hosts.registry import build_registry
     from taktik.core.contract.registry import WORKFLOW_CONTRACTS
 
-    by_nature = {workflow_id for contract in WORKFLOW_CONTRACTS if contract.ai_request and contract.ai_request.always
+    by_nature = {workflow_id for contract in WORKFLOW_CONTRACTS
+                 if contract.ai_request is not None and not contract.ai_request.when
                  for workflow_id in contract.serves}
     build = build_registry(device=None, device_id="")
     assert build.workflow_ids and by_nature

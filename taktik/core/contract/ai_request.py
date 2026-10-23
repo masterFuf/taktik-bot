@@ -1,8 +1,8 @@
 """The one rule that tells whether a run asks for the AI, and so needs a key.
 
-The declaration is on the workflow (`WorkflowContract.ai_request`, `schema.py`): always (the Taktik
-Agent), or under the settings that turn the AI on (the run's `ai` block switched on, its messages written
-by an AI). This is the only reader of it. The CLI refuses a run that asks without a usable key by it
+The declaration is on the workflow (`WorkflowContract.ai_request`, `schema.py`): the settings that turn
+the AI on (the run's `ai` block switched on, its messages written by an AI), or none, for a workflow whose
+every run asks (the Taktik Agent). This is the only reader of it. The CLI refuses a run that asks without a usable key by it
 (`missing_ai_key`, `contract/error_codes.py`), and a host that launches runs elsewhere can read the same
 declaration instead of keeping a table of its own.
 
@@ -29,7 +29,7 @@ def asks_for_ai(workflow_id: str, payload: Mapping[str, Any]) -> bool:
     contract = contracts_by_id().get(workflow_id)
     if contract is None or contract.ai_request is None:
         return False
-    return contract.ai_request.always or holds(contract.settings, payload, contract.ai_request.when)
+    return holds(contract.settings, payload, contract.ai_request.when)
 
 
 __all__ = ["asks_for_ai"]
