@@ -48,7 +48,7 @@ def test_reasoning_is_disabled_on_every_call(monkeypatch):
     """We ask for JSON, never for a train of thought — and nothing downstream reads one."""
     sent = _capture_request(monkeypatch)
 
-    AIService(api_key="test-key")._call_openrouter(
+    AIService(api_key="test-key")._call_model(
         "test/model", [{"role": "user", "content": "hello"}]
     )
 
@@ -93,7 +93,7 @@ def test_an_endpoint_that_requires_reasoning_is_retried_with_minimal_effort(monk
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
-    result = AIService(api_key="test-key")._call_openrouter(
+    result = AIService(api_key="test-key")._call_model(
         "test/model", [{"role": "user", "content": "hello"}]
     )
 
@@ -120,7 +120,7 @@ def test_a_quota_error_is_not_retried(monkeypatch):
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
-    result = AIService(api_key="test-key")._call_openrouter(
+    result = AIService(api_key="test-key")._call_model(
         "test/model", [{"role": "user", "content": "hello"}]
     )
 
@@ -152,7 +152,7 @@ def test_null_content_is_a_failure_not_an_empty_success(monkeypatch):
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
 
-    result = AIService(api_key="test-key")._call_openrouter(
+    result = AIService(api_key="test-key")._call_model(
         "test/model", [{"role": "user", "content": "hello"}]
     )
 
@@ -186,7 +186,7 @@ def test_a_billed_call_that_answered_nothing_still_reaches_the_ledger(monkeypatc
 
     service = AIService(api_key="test-key")
     service.ipc = _Ipc()
-    result = service._call_openrouter("test/model", [{"role": "user", "content": "hello"}])
+    result = service._call_model("test/model", [{"role": "user", "content": "hello"}])
 
     assert result["success"] is False
     assert spent and spent[0][0] == 0.00012673
@@ -224,7 +224,7 @@ def test_the_reasoning_requirement_is_remembered_per_model(monkeypatch):
     service = AIService(api_key="test-key")
 
     for _ in range(3):
-        service._call_openrouter("test/model", [{"role": "user", "content": "hello"}])
+        service._call_model("test/model", [{"role": "user", "content": "hello"}])
 
     # First call pays the refusal; the two after it go straight to the accepted form.
     assert sent == [

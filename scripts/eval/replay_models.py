@@ -31,9 +31,15 @@ Usage
         --profiles 50 --comments 50 --models ... --taxonomy niche_taxonomy.json \
         --run --budget 1.0
 
-The budget is enforced on the cost OpenRouter itself reports for each call (captured through the
-same `ai_spend` event production uses), not on an estimate: the run stops the moment the ceiling
-is reached, mid-model if need be, and everything already obtained is written out.
+    # The same on Anthropic's own API (the Claude models only, named as Anthropic names them):
+    ANTHROPIC_API_KEY=sk-ant-... python scripts/eval/replay_models.py --provider anthropic \
+        --profiles 60 --comments 30 --models claude-haiku-5-5 --taxonomy niche_taxonomy.json \
+        --run --budget 1.0
+
+The budget is enforced on the cost each call reports through the same `ai_spend` event production
+uses (OpenRouter's billed cost; for Anthropic, the cost of its tokens at the public prices of the
+policy), not on an estimate: the run stops the moment the ceiling is reached, mid-model if need be,
+and everything already obtained is written out.
 """
 
 from __future__ import annotations
@@ -54,7 +60,14 @@ from typing import Any, Dict, List, Optional
 # the prompt would benchmark the reimplementation.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from taktik.core.ai.credential import KEY_ENV, AICredential  # noqa: E402
 from taktik.core.ai.factory import build_ai_service  # noqa: E402
+from taktik.core.ai.openrouter_policy import (  # noqa: E402
+    AI_PROVIDERS,
+    ANTHROPIC_PRICES_USD_PER_MTOK,
+    PROVIDER_ANTHROPIC,
+    PROVIDER_OPENROUTER,
+)
 from taktik.core.database.ai_benchmark import AIBenchmark  # noqa: E402
 
 # Cost of one replayed call on the reference model, measured on the production ledger over
@@ -83,7 +96,8 @@ class SpendCapture:
         self.calls = 0
         self.by_kind: Dict[str, float] = defaultdict(float)
 
-    def ai_spend(self, cost: float, model: str = "", label: str = "", kind: str = "other") -> None:
+    def ai_spend(self, cost: float, model: str = "", label: str = "", kind: str = "other",
+                 provider: Optional[str] = None, cost_basis: Optional[str] = None) -> None:
         try:
             value = float(cost)
         except (TypeError, ValueError):
@@ -290,8 +304,8 @@ def profile_context_of(row: sqlite3.Row) -> Dict[str, Any]:
     return context
 
 
-def service_on(model: str, api_key: str, spend: SpendCapture, taxonomy: Optional[Dict[str, list]]):
-    """An AIService that actually calls `model`.
+def service_on(model: str, credential: AICredential, spend: SpendCapture, taxonomy: Optional[Dict[str, list]]):
+    """An AIService that actually calls `model`, at the provider of `credential`.
 
     `build_ai_service(vision_model=..., text_model=...)` does NOT honour those arguments: since
     the two-fixed-models migration the constructor overwrites them with `MODEL_ANALYSIS` /
@@ -301,10 +315,14 @@ def service_on(model: str, api_key: str, spend: SpendCapture, taxonomy: Optional
 
     The models are attributes on the instance, so the honest injection is to set them after
     construction. Nothing in production reads them from anywhere else; the constants stay the
-    single source for every real run.
+    single source for every real run. The profile classifier has its own model since it was split
+    from the describer: left unset, a profile replay ran on the policy's classifier, the model
+    already in production, whatever `--models` said.
     """
-    service = build_ai_service(api_key=api_key, ipc=spend, niche_taxonomy=taxonomy)
+    service = build_ai_service(api_key=credential.api_key, provider=credential.provider, ipc=spend,
+                               niche_taxonomy=taxonomy)
     service.model_analysis = model
+    service.model_classification = model
     service.model_generation = model
     # Display aliases some call sites read for their labels — kept in step so a log line never
     # names a model that was not called.
@@ -354,14 +372,14 @@ def replay_profiles(
     rows: List[sqlite3.Row],
     shots: Dict[str, Path],
     taxonomy: Optional[Dict[str, list]],
-    api_key: str,
+    credential: AICredential,
     spend: SpendCapture,
     budget: float,
     sink: Path,
     run_id: Optional[int],
 ) -> List[Dict[str, Any]]:
     """Classify each sampled profile again, on `model`, through the production entry point."""
-    service = service_on(model, api_key, spend, taxonomy)
+    service = service_on(model, credential, spend, taxonomy)
     results: List[Dict[str, Any]] = []
     for index, row in enumerate(rows, start=1):
         username = row["username"]
@@ -413,14 +431,14 @@ def replay_comments(
     model: str,
     rows: List[sqlite3.Row],
     persona: Optional[Dict[str, Any]],
-    api_key: str,
+    credential: AICredential,
     spend: SpendCapture,
     budget: float,
     sink: Path,
     run_id: Optional[int],
 ) -> List[Dict[str, Any]]:
     """Write each sampled comment again, on `model`, from the same post context."""
-    service = service_on(model, api_key, spend, None)
+    service = service_on(model, credential, spend, None)
     results: List[Dict[str, Any]] = []
     for index, row in enumerate(rows, start=1):
         if spend.total_usd >= budget:
@@ -520,12 +538,25 @@ def fetch_prices(models: List[str]) -> Dict[str, Dict[str, float]]:
     return prices
 
 
+def prices_for(provider: str, models: List[str]) -> Dict[str, Dict[str, float]]:
+    """Per-million prices of the models, at the provider that will serve them: Anthropic's public
+    prices of the policy, or OpenRouter's live catalogue."""
+    if provider == PROVIDER_ANTHROPIC:
+        return {
+            model: {"in": ANTHROPIC_PRICES_USD_PER_MTOK[model]["input"], "out": ANTHROPIC_PRICES_USD_PER_MTOK[model]["output"]}
+            for model in models if model in ANTHROPIC_PRICES_USD_PER_MTOK
+        }
+    return fetch_prices(models)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--db", type=Path, default=DEFAULT_DB, help="taktik-data.db (read-only)")
     parser.add_argument("--profiles", type=int, default=50, help="profiles to replay per model")
     parser.add_argument("--comments", type=int, default=50, help="comments to replay per model")
-    parser.add_argument("--models", required=True, help="comma-separated OpenRouter model ids")
+    parser.add_argument("--provider", choices=AI_PROVIDERS, default=PROVIDER_OPENROUTER,
+                        help="who serves the models: OpenRouter (its ids) or Anthropic (Claude, Anthropic's ids)")
+    parser.add_argument("--models", required=True, help="comma-separated model ids, as the provider names them")
     parser.add_argument("--comment-models", default="", help="different model list for comments")
     parser.add_argument("--taxonomy", type=Path, help="premium niche taxonomy JSON (front-owned)")
     parser.add_argument("--out", type=Path, default=Path("eval-out"), help="where results are written")
@@ -546,12 +577,13 @@ def main() -> int:
 
     if not args.run:
         every = list(dict.fromkeys(models + comment_models))
-        estimate(models, comment_models, args.profiles, args.comments, fetch_prices(every))
+        estimate(models, comment_models, args.profiles, args.comments, prices_for(args.provider, every))
         return 0
 
-    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if len(api_key) < 10:
-        print("OPENROUTER_API_KEY is not set — refusing to run.")
+    key_env = KEY_ENV[args.provider]
+    credential = AICredential(provider=args.provider, api_key=os.environ.get(key_env, "").strip())
+    if len(credential.api_key) < 10:
+        print(f"{key_env} is not set — refusing to run.")
         return 1
 
     taxonomy = None
@@ -598,6 +630,7 @@ def main() -> int:
         budget_usd=args.budget,
         config={
             "tasks": [t for t, rows_ in (("profile", profile_rows), ("comment", comment_rows)) if rows_],
+            "provider": args.provider,
             "models": {"profile": models if profile_rows else [], "comment": comment_models if comment_rows else []},
             "profiles": len(profile_rows),
             "comments": len(comment_rows),
@@ -618,12 +651,12 @@ def main() -> int:
         for model in models:
             print(f"\n== profiles · {model} ==")
             profile_results.extend(
-                replay_profiles(model, profile_rows, shots, taxonomy, api_key, spend, args.budget, profiles_sink, run_id)
+                replay_profiles(model, profile_rows, shots, taxonomy, credential, spend, args.budget, profiles_sink, run_id)
             )
         for model in comment_models:
             print(f"\n== comments · {model} ==")
             comment_results.extend(
-                replay_comments(model, comment_rows, persona, api_key, spend, args.budget, comments_sink, run_id)
+                replay_comments(model, comment_rows, persona, credential, spend, args.budget, comments_sink, run_id)
             )
     except BudgetExceeded as exc:
         stopped = str(exc)

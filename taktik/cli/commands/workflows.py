@@ -14,7 +14,7 @@ Parameters are passed as `--param key=value` rather than guessed. Each workflow 
 config keys, and inventing a prompt per workflow would recreate the drift this replaces. `--json`
 takes a whole config at once, which is what a scripted run wants anyway.
 
-A run that uses AI needs an OpenRouter key before the phone is touched (`ai_key.py`): asked for at
+A run that uses AI needs an AI key (OpenRouter or Anthropic) before the phone is touched (`ai_key.py`): asked for at
 a terminal, refused with exit code 2 in a scripted run (`--json`, a pipe, CI). A manual run needs
 none and never reaches an AI client.
 
@@ -39,7 +39,7 @@ from taktik.cli.hosts.ai_key import (
     MissingAIKeyError,
     ensure_ai_key,
     is_interactive,
-    resolve_openrouter_key,
+    resolve_cli_credential,
     run_uses_ai,
 )
 from taktik.cli.hosts.phone import CliPhone, PhoneNotConnectedError
@@ -194,8 +194,9 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
         console.print(f"[green]{workflow_id}[/green] resolves.")
         console.print(f"[cyan]params:[/cyan] {json.dumps(resolved_params, indent=2, default=str)}")
         if run_uses_ai(workflow_id, resolved_params):
-            found = "found" if resolve_openrouter_key() else "missing"
-            console.print(f"[cyan]AI:[/cyan] this run uses AI, OpenRouter key {found}")
+            credential = resolve_cli_credential()
+            found = f"{credential.provider} key found" if credential else "no AI key found"
+            console.print(f"[cyan]AI:[/cyan] this run uses AI, {found}")
         if _warn_if_it_logs_out(workflow_id):
             console.print("A run asks first, or takes --yes.")
         return

@@ -20,7 +20,7 @@ def create_tiktok_ai_service(
     log: LogCallback = lambda level, msg: None,
     report_spend: bool = True,
 ) -> tuple[bool, Any | None]:
-    """Create the optional OpenRouter AI service used by TikTok automation.
+    """Create the optional AI service used by TikTok automation (OpenRouter or Anthropic, as the block says).
 
     Without an IPC the provider reports no `ai_spend`: every TikTok qualification and comment
     was paid and never reached the cost ledger, both callers passing `ipc=None`. The bridge's

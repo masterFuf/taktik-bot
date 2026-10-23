@@ -4,7 +4,7 @@ The session AI cost (and the Analytics tile that sums it) used to be built by ad
 `cost_usd` carried on the per-CARD events: `ai_profile_done`, `ai_screenshot_done`,
 `ai_comment_done`. Those only fire on paths that produce a card, so anything paid for
 without one was invisible: a declined smart comment, a declined in-thread reply, a batch
-username classification, an agent decision. `_call_openrouter` is the single point every
+username classification, an agent decision. `_call_model` is the single point every
 paid call passes through, so that is where the ledger belongs.
 """
 
@@ -47,7 +47,7 @@ def _call(service, fake_urlopen, **kwargs):
     original = _urllib.urlopen
     _urllib.urlopen = fake_urlopen
     try:
-        return service._call_openrouter("google/gemini-3.1-flash-lite", [], **kwargs)
+        return service._call_model("google/gemini-3.1-flash-lite", [], **kwargs)
     finally:
         _urllib.urlopen = original
 

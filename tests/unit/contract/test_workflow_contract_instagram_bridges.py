@@ -296,7 +296,7 @@ def cold_dm_bridge(monkeypatch, no_ip_rotation):
 
 
 def test_the_cold_dm_bridge_follows_its_contract(cold_dm_bridge, printed):
-    data = app_file(INSTAGRAM_COLD_DM, messageMode="ai", aiPrompt="Say hello", openrouterApiKey="sk-test",
+    data = app_file(INSTAGRAM_COLD_DM, messageMode="ai", aiPrompt="Say hello", aiProvider="openrouter", aiApiKey="sk-test",
                     sessionAccountId=3)
     log: set = set()
 

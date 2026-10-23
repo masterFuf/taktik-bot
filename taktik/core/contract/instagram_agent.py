@@ -2,7 +2,7 @@
 reads, and the lines it prints.
 
 One launcher (`run_instagram_agent`), one reader (`taktik_agent_request_from_payload`), one bridge.
-The app launches it from the scheduler's Agent node; the main process adds the OpenRouter key, the
+The app launches it from the scheduler's Agent node; the main process adds the AI key and its provider, the
 vision model, the orchestration context it prepared from the account's recent sessions, and the
 warmup caps of the account's day that its launch gate computed (`warmupPolicy`, the automation's
 declaration and reader: the Agent counts each gesture against them, `WarmupBudget`).
@@ -20,6 +20,7 @@ from __future__ import annotations
 from .instagram_automation import INSTAGRAM_AUTOMATION
 from .schema import HOST, Bounds, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
+    ai_credential_fields,
     AI_PROFILE_DONE_EVENT,
     AI_PROFILE_START_EVENT,
     AI_SCREENSHOT_DONE_EVENT,
@@ -161,9 +162,12 @@ INSTAGRAM_TAKTIK_AGENT = WorkflowContract(
               aliases=("agentPlan",), attr="agent_plan", app=False),
         Field("vision_model", "string", "The model that reads the screenshots; injected by the host.",
               attr="vision_model", by=HOST),
-        Field("openrouter_api_key", "string", "The key the model is called with; injected by the host.",
-              default=Computed("the OPENROUTER_API_KEY environment variable"), attr="openrouter_api_key",
-              by=HOST),
+        *ai_credential_fields("ai_provider", "ai_api_key", openrouter_key_names=("openrouter_api_key",),
+                              attr="ai_credential",
+                              provider_default=Computed("the provider of the environment's key, without one "
+                                                        "in the file: OPENROUTER_API_KEY, else ANTHROPIC_API_KEY"),
+                              key_default=Computed("the environment's key, without one in the file: "
+                                                   "OPENROUTER_API_KEY, else ANTHROPIC_API_KEY")),
         Field("desktop_orchestration_context", ORCHESTRATION, "What the desktop prepared; injected by the host.",
               by=HOST),
         # The automation's declaration, read by its reader: the same caps, the same names.
@@ -176,7 +180,7 @@ INSTAGRAM_TAKTIK_AGENT = WorkflowContract(
     ),
     bridge_fields=(device_field("deviceId"),),
     refusals=(
-        Refusal("openrouter_api_key", doc="No key, in the file or in the environment: the model cannot decide."),
+        Refusal("ai_api_key", doc="No key, in the file or in the environment: the model cannot decide."),
     ),
     events=EVENTS,
 )

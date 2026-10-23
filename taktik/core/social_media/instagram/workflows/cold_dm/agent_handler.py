@@ -11,8 +11,8 @@ registered as `instagram.engagement.coldDm` (the CLI) calls: read the Cold DM pa
 - `sent(current, username, message, ai_written)`: where each text the conversation took goes (the
   bridge's `cold_dm_sent`, which the app journals).
 - `ai_ipc`: where the AI spend is reported (the bridge's stdout IPC).
-- `instagram_ai_key() -> str | None`: the OpenRouter key when the payload brings none (the CLI's
-  environment).
+- `instagram_ai_key() -> AICredential | None`: the AI key and its provider when the payload brings
+  none (the CLI's environment).
 - `on_session_start(session_id)`: where the id of the run's session goes (the bridge's
   `session_start`, which the desktop needs to write the run's AI spend into the session).
 No injected callable receives the whole payload, so the app's config contract test can still see
@@ -27,6 +27,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
+from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.ai.dm_rules import AiDmRules
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
@@ -55,7 +56,6 @@ class ColdDmRuntime:
 RuntimeProvider = Callable[[Optional[str]], ColdDmRuntime]
 ProgressCallback = Callable[..., None]
 SentCallback = Callable[..., None]
-AIKeyProvider = Callable[[], Optional[str]]
 WorkflowFactory = Callable[..., Any]
 SessionStartCallback = Callable[[int], None]
 
@@ -74,22 +74,22 @@ def run_instagram_cold_dm(
     progress: Optional[ProgressCallback] = None,
     sent: Optional[SentCallback] = None,
     ai_ipc=None,
-    instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_ai_key: Optional[AICredentialProvider] = None,
     workflow_factory: Optional[WorkflowFactory] = None,
     on_session_start: Optional[SessionStartCallback] = None,
 ) -> dict[str, Any]:
     """Send the cold DMs a Cold DM page payload describes, as one session."""
     request = cold_dm_request_from_payload(config, default_session_id=config.get("deviceId"))
     recipients, messages = request.recipients, request.messages
-    openrouter_api_key = request.openrouter_api_key
+    ai_credential = request.ai_credential
 
     message_mode = request.message_mode
-    if message_mode == "ai" and not openrouter_api_key and instagram_ai_key is not None:
-        openrouter_api_key = instagram_ai_key() or ""
-    if message_mode == "ai" and not openrouter_api_key:
-        logger.warning("AI mode requested but no OpenRouter API key provided, falling back to manual messages")
+    if message_mode == "ai" and not ai_credential.usable and instagram_ai_key is not None:
+        ai_credential = instagram_ai_key() or ai_credential
+    if message_mode == "ai" and not ai_credential.usable:
+        logger.warning("AI mode requested but no AI key provided, falling back to manual messages")
 
-    use_ai = bool(request.ai_prompt and openrouter_api_key)
+    use_ai = bool(request.ai_prompt and ai_credential.usable)
     # Nobody to write to, or nothing to write: refused before the phone, from every host.
     invalid = validate_cold_dm_inputs(recipients=recipients, messages=messages, use_ai=use_ai)
     if invalid:
@@ -127,7 +127,7 @@ def run_instagram_cold_dm(
             request.account_id,
             request.session_id,
             request.ai_prompt,
-            openrouter_api_key,
+            ai_credential,
             recipient_policy=request.recipient_policy,
             ai_dm_rules=ai_dm_rules,
         )
@@ -141,7 +141,7 @@ def run_instagram_cold_dm(
 def build_instagram_cold_dm_handler(
     *,
     instagram_cold_dm_runtime: Optional[RuntimeProvider] = None,
-    instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_ai_key: Optional[AICredentialProvider] = None,
     workflow_factory: Optional[WorkflowFactory] = None,
 ) -> WorkflowHandler:
     """Build an injectable cold DM handler: the launcher, on the runtime the host prepares."""
@@ -165,7 +165,7 @@ def register_instagram_cold_dm_handlers(
     registry: WorkflowRegistry,
     *,
     instagram_cold_dm_runtime: Optional[RuntimeProvider] = None,
-    instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_ai_key: Optional[AICredentialProvider] = None,
     workflow_factory: Optional[WorkflowFactory] = None,
 ) -> WorkflowRegistry:
     """Register the Instagram cold DM handler into an injected Agent registry."""

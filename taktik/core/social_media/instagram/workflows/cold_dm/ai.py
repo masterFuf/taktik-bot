@@ -1,7 +1,7 @@
-"""OpenRouter AI message generation for the Instagram Cold DM workflow.
+"""AI message generation for the Instagram Cold DM workflow.
 
 The call goes through the shared provider (`build_ai_service(...).text_completion`, then
-`_call_openrouter`), the single point every paid call passes through: it reports the cost as
+`_call_model`), the single point every paid call passes through: it reports the cost as
 `ai_spend` on the IPC the host hands over and retries an upstream rate limit. This module used
 to build its own request and did neither.
 """
@@ -9,13 +9,13 @@ to build its own request and did neither.
 from __future__ import annotations
 
 from loguru import logger
+from taktik.core.ai.credential import AICredential
 from taktik.core.ai.factory import build_ai_service
-from taktik.core.ai.providers.openrouter import MODEL_GENERATION
 from taktik.core.ai.spend import AI_SPEND_DM
 
 
-def generate_ai_message(username: str, ai_prompt: str, openrouter_api_key: str, ipc=None) -> str:
-    """Generate a personalized DM message for a user via OpenRouter.
+def generate_ai_message(username: str, ai_prompt: str, credential: AICredential, ipc=None) -> str:
+    """Generate a personalized DM message for a user, on the provider of `credential`.
 
     Returns an empty string on any failure, so the caller skips the recipient. `ipc` is where
     `ai_spend` is reported (the desktop bridge's stdout); without one the spend is not reported.
@@ -38,12 +38,14 @@ Instructions spécifiques:
 
 Le message doit être unique et personnalisé. Réponds uniquement avec le texte du message."""
 
-        # The model is read from the shared constant, never hardcoded here: a slug frozen in
-        # a bridge survives the migrations and then dies silently, which already happened
-        # once when a retired model stayed here while every other call site had moved.
-        result = build_ai_service(api_key=openrouter_api_key, ipc=ipc).text_completion(
+        # The model is the service's generation model (the policy's, for this provider), never
+        # hardcoded here: a slug frozen in a bridge survives the migrations and then dies
+        # silently, which already happened once when a retired model stayed here while every
+        # other call site had moved.
+        service = build_ai_service(api_key=credential.api_key, provider=credential.provider, ipc=ipc)
+        result = service.text_completion(
             system_prompt, user_prompt, temperature=0.8, max_tokens=200,
-            model=MODEL_GENERATION, label=f"cold_dm @{username}", kind=AI_SPEND_DM,
+            model=service.model_generation, label=f"cold_dm @{username}", kind=AI_SPEND_DM,
         )
     except Exception as e:
         logger.error(f"AI message generation failed for @{username}: {e}")

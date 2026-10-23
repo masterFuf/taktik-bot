@@ -227,7 +227,7 @@ class DeepQualifyMixin:
         signal). Errors never interrupt the scraping flow.
 
         Only fires when ``_ai_service`` is available on the workflow instance
-        (i.e. AI mode is enabled and an OpenRouter key is configured).
+        (i.e. AI mode is enabled and an AI key is configured).
 
         When the pending list cannot be read, nothing is sent to the AI (a paid call
         for accounts that may be classified already) and the skip is said at warning

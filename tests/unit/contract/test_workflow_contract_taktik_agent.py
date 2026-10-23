@@ -318,7 +318,7 @@ def test_a_failure_of_the_bridge_is_an_error_line(agent_bridge, printed, failure
 
 def test_a_session_without_a_key_is_refused_before_instagram_is_touched(agent_bridge, printed):
     data = _session()
-    del data["openrouter_api_key"]
+    del data["ai_api_key"]
     agent_bridge.state.restarts = None  # a restart would fail the session another way
 
     assert agent_bridge.TaktikAgentRun(data).run() == 1

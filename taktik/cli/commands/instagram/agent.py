@@ -11,8 +11,8 @@ installed version) and Instagram gets the same clean restart. It used to be laun
 device, on the official package whatever `packageName` said. The AI factory builds the same
 provider as the bridge's, from `taktik/core/ai/`.
 
-The Agent is AI by nature: its decisions are the model's. The OpenRouter key is therefore made sure
-of before the phone is touched (`ai_key.py`): the environment, the key typed earlier, the saved
+The Agent is AI by nature: its decisions are the model's. Its AI key (OpenRouter or Anthropic) is
+therefore made sure of before the phone is touched (`ai_key.py`): the environment, the key typed earlier, the saved
 one, or asked for at a terminal; in a scripted run (a pipe, CI) a missing key stops the command
 with exit code 2. Never from a flag: a key on the command line lands in the shell history and in
 the process list.
@@ -102,7 +102,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
         config[key.strip()] = _coerce(raw.strip())
 
     try:
-        api_key = ensure_ai_key(AGENT_WORKFLOW_ID, config, interactive=is_interactive(), echo=console.print)
+        credential = ensure_ai_key(AGENT_WORKFLOW_ID, config, interactive=is_interactive(), echo=console.print)
     except MissingAIKeyError as exc:
         console.print(f"[red]{exc}[/red]")
         raise SystemExit(MISSING_KEY_EXIT)
@@ -114,12 +114,14 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
 
     from taktik.core.ai.factory import build_ai_service
 
-    def ai_service_factory(*, api_key: str, ipc=None, vision_model=None, text_model=None):
+    def ai_service_factory(*, api_key: str, provider: str, ipc=None, vision_model=None, text_model=None):
         # Standalone CLI: no premium taxonomy to inject, the classifier stays free-form.
-        return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model,
-                                report_spend=False)
+        return build_ai_service(api_key=api_key, provider=provider, ipc=ipc, vision_model=vision_model,
+                                text_model=text_model, report_spend=False)
 
-    config.setdefault("openrouter_api_key", api_key)
+    if credential is not None:
+        config.setdefault("ai_provider", credential.provider)
+        config.setdefault("ai_api_key", credential.api_key)
     # The phone's serial, as every other CLI run and the bridge give it: the network door measures it.
     config.setdefault("deviceId", phone.device_id)
 

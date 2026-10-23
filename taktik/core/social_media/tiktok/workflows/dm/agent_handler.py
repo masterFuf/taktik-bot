@@ -25,6 +25,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
+from taktik.core.ai.credential import AICredential
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.kernel.handler_params import merge_invocation_payload
@@ -49,7 +50,7 @@ DMOutreachWorkflowFactory = Callable[..., Any]
 StartupProvider = Callable[[], Any]
 WorkflowHook = Callable[[Any], None]
 #: (ai_prompt, api_key) -> one message per recipient, or None when no message can be written.
-OutreachMessageGenerator = Callable[[str, str], Optional[Callable[[str], str]]]
+OutreachMessageGenerator = Callable[[str, AICredential], Optional[Callable[[str], str]]]
 
 
 def _default_workflow_factory() -> DMWorkflowFactory:
@@ -226,7 +227,7 @@ def run_tiktok_dm_outreach(
 
     Refused before the phone is touched without a recipient, or without a message in manual mode.
     The duplicate guard and the markers default to `sent_dms`. In AI mode each message is written
-    by `message_generator(prompt, key)`; without one (no key), the static list is the fallback,
+    by `message_generator(prompt, credential)`; without one (no key), the static list is the fallback,
     and with no list either the workflow refuses the run once connected, as the app has always
     seen it do.
     """
@@ -256,7 +257,7 @@ def run_tiktok_dm_outreach(
     message_provider = None
     if request.wants_ai:
         if message_generator is not None and request.ai_prompt:
-            message_provider = message_generator(request.ai_prompt, request.openrouter_api_key)
+            message_provider = message_generator(request.ai_prompt, request.ai_credential)
         if message_provider is None:
             logger.warning("AI mode requested but no message can be generated: the static messages are the fallback")
     logger.info(

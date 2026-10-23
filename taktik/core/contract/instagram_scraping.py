@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .schema import HOST, Bounds, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
+    ai_credential_fields,
     AI_ERROR_EVENT,
     AI_PROFILE_DONE_EVENT,
     AI_PROFILE_START_EVENT,
@@ -45,8 +46,8 @@ AI = Shape(
               attr="ai_niche", when=_AI),
         Field("qualificationPrompt", "string", "What a qualified profile is, for the text qualification.",
               default="", attr="ai_qualification_prompt", when=_AI),
-        Field("openrouterApiKey", "string", "The key the AI writes with; injected by the host.", default="",
-              attr="openrouter_api_key", when=_AI, by=HOST),
+        *ai_credential_fields("provider", "apiKey", openrouter_key_names=("openrouterApiKey",),
+                              provider_attr="ai_provider", key_attr="ai_api_key", when=_AI),
         Field("visionModel", "string", "The model that reads the profile's screenshot; injected by the host.",
               default="", attr="vision_model", when=_AI, by=HOST),
         Field("nicheTaxonomy", MapOf(ListOf("string")), "Premium taxonomy, niche slug -> sub-niches; injected "

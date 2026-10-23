@@ -410,7 +410,7 @@ class Rig:
         def fake_build_ai_service(*, api_key, ipc=None, **kwargs):
             rig.ai_services.append({"api_key": api_key, "has_ipc": ipc is not None})
             return SimpleNamespace(name="fake-ai", classify_profile_niche=classify_profile_niche,
-                                   text_completion=text_completion)
+                                   text_completion=text_completion, model_generation="fake-generation")
 
         patch_seam(mp, "taktik.core.ai.factory", "build_ai_service", fake_build_ai_service)
 

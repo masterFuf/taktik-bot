@@ -27,7 +27,7 @@ def create_instagram_ai_service(
     log: LogCallback,
     report_spend: bool = True,
 ) -> tuple[bool, Any | None]:
-    """Create the optional OpenRouter AI service used by Instagram flows.
+    """Create the optional AI service used by Instagram flows (OpenRouter or Anthropic, as the block says).
 
     `report_spend=False` for a flow whose session does not read `ai_spend` (notifications)."""
     return create_ai_service(

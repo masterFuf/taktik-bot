@@ -1,7 +1,7 @@
 """The one reading of a Taktik Agent payload, for the desktop bridge and the CLI.
 
 The payload is the file the app's main process writes for the Agent node (the session's caps, the
-app's language) with what the host adds (the OpenRouter key, the vision model, the orchestration
+app's language) with what the host adds (the AI key and its provider, the vision model, the orchestration
 context the desktop prepared, the warmup caps of the account's day); `taktik agent run --param k=v` and `taktik workflows run
 instagram.engagement.taktik_agent` send the same keys. Each key is read by a plain `.get`, here
 and nowhere else: `TaktikAgentWorkflow` and its launcher take the request this module builds.
@@ -9,10 +9,10 @@ and nowhere else: `TaktikAgentWorkflow` and its launcher take the request this m
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional
 
+from taktik.core.ai.credential import AICredential, credential_from_env, read_credential
 from taktik.core.contract.bounds import refuse_out_of_bounds
 from taktik.core.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import (
@@ -49,7 +49,7 @@ class TaktikAgentRequest:
     language: Any = "en"
     vision_model: Optional[str] = None
     text_model: Optional[str] = None
-    openrouter_api_key: str = ""
+    ai_credential: AICredential = field(default_factory=AICredential)
     agent_plan: Any = None
     orchestration: AgentOrchestration = field(default_factory=AgentOrchestration)
     #: The warmup caps of the account's day, read by the automation's reader (`warmup_budget.py`);
@@ -84,11 +84,27 @@ def _orchestration(context: Any) -> AgentOrchestration:
     )
 
 
+def file_credential(config: Mapping[str, Any]) -> AICredential:
+    """The provider and the key the file brings (`ai_provider`, `ai_api_key`; `openrouter_api_key`,
+    the old name, is an OpenRouter key)."""
+    return read_credential(config, provider_names=("ai_provider",), key_names=("ai_api_key",),
+                           openrouter_key_names=("openrouter_api_key",))
+
+
+def _credential(config: Mapping[str, Any]) -> AICredential:
+    """The file's provider and key; without a key, the environment's."""
+    credential = file_credential(config)
+    if credential.api_key:
+        return credential
+    return credential_from_env() or credential
+
+
 def taktik_agent_request_from_payload(config: Mapping[str, Any]) -> TaktikAgentRequest:
     """The session a Taktik Agent payload describes.
 
-    Without a key in the payload, the OpenRouter key is the `OPENROUTER_API_KEY` environment
-    variable's, when it is set. A setting out of its declared bounds is a `ValueError` that names it."""
+    Without a key in the payload, the key is the environment's (`OPENROUTER_API_KEY`, else
+    `ANTHROPIC_API_KEY`), when one is set. A setting out of its declared bounds is a `ValueError` that
+    names it."""
     refuse_out_of_bounds(INSTAGRAM_TAKTIK_AGENT, config)
     return TaktikAgentRequest(
         max_likes=config.get("max_likes", 80),
@@ -104,11 +120,11 @@ def taktik_agent_request_from_payload(config: Mapping[str, Any]) -> TaktikAgentR
         language=config.get("language", "en"),
         vision_model=config.get("vision_model") or None,
         text_model=config.get("text_model") or None,
-        openrouter_api_key=config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", ""),
+        ai_credential=_credential(config),
         agent_plan=config.get("agent_plan") or config.get("agentPlan"),
         orchestration=_orchestration(config.get("desktop_orchestration_context")),
         warmup_policy=warmup_policy_from_payload(config.get("warmupPolicy")) or {},
     )
 
 
-__all__ = ["AgentOrchestration", "TaktikAgentRequest", "taktik_agent_request_from_payload"]
+__all__ = ["AgentOrchestration", "TaktikAgentRequest", "file_credential", "taktik_agent_request_from_payload"]

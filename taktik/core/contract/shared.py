@@ -4,6 +4,8 @@ AI lines, the step telemetry."""
 from __future__ import annotations
 
 from .error_codes import BRIDGE_ERROR_CODE
+from typing import Any, Optional
+
 from .schema import HOST, Event, Field, OneOf, Shape
 from .stop_reasons import TIKTOK_COMPLETION_REASON
 
@@ -30,6 +32,28 @@ def network_reset_field() -> Field:
 
 def device_field(key: str, *aliases: str) -> Field:
     return Field(key, "string", "The adb serial of the phone.", required=True, aliases=aliases, by=HOST)
+
+
+def ai_credential_fields(provider_key: str, api_key_key: str, *, provider_aliases: tuple = (),
+                         key_aliases: tuple = (), openrouter_key_names: tuple = (), attr: Optional[str] = None,
+                         provider_attr: Optional[str] = None, key_attr: Optional[str] = None,
+                         key_default: Any = "", provider_default: Any = "openrouter", **kwargs) -> tuple:
+    """The provider and the key a run calls the AI with, injected by the host (`ai/credential.py`).
+
+    The old names of the key (`openrouterApiKey`...) are aliases of the key, read only when the
+    provider is OpenRouter: they never held anything else. `attr`: where the reader keeps the
+    credential (its `.provider` and `.api_key`); `provider_attr` and `key_attr`: where it keeps the
+    two apart instead (a config dict that is serialised keeps no object)."""
+    old_names = ", ".join(f"`{name}`" for name in openrouter_key_names)
+    return (
+        Field(provider_key, OneOf(AI_PROVIDERS), "Who the key belongs to: OpenRouter (every model, the measured "
+              "ones) or Anthropic (the Claude models only); injected by the host.", default=provider_default,
+              aliases=provider_aliases, attr=provider_attr or (f"{attr}.provider" if attr else None), by=HOST, **kwargs),
+        Field(api_key_key, "string", "The key the AI calls with, the provider's; injected by the host."
+              + (f" {old_names}: an OpenRouter key, read when the provider is OpenRouter." if old_names else ""),
+              default=key_default, aliases=(*key_aliases, *openrouter_key_names),
+              attr=key_attr or (f"{attr}.api_key" if attr else None), by=HOST, **kwargs),
+    )
 
 
 def instagram_package_field(doc: str = "An Instagram clone's package, run instead of Instagram; absent: the "
@@ -104,6 +128,11 @@ STEP_METRIC_EVENT = Event(
 )
 
 
+#: The AI providers and the two ways a cost is known, as `openrouter_policy.AI_PROVIDERS` and
+#: `providers/transport.py` spell them (the contract imports nothing; a test holds them equal).
+AI_PROVIDERS = ("openrouter", "anthropic")
+AI_SPEND_COST_BASES = ("billed", "public_price")
+
 #: `IPC.ai_spend` (`bridges/common/ipc_ai.py`), one line per paid model call.
 AI_SPEND_EVENT = Event(
     "ai_spend",
@@ -114,6 +143,10 @@ AI_SPEND_EVENT = Event(
         Field("workflow_type", "string", "The family of the run."),
         Field("model", "string", "The model that served the call.", optional=True),
         Field("label", "string", "Free text for a person (a username).", optional=True),
+        Field("provider", OneOf(AI_PROVIDERS), "Who answered; absent: OpenRouter.", optional=True),
+        Field("cost_basis", OneOf(AI_SPEND_COST_BASES),
+              "How `cost_usd` is known: billed by the provider, or computed from the tokens at the "
+              "public prices of the policy (Anthropic gives no cost); absent: billed.", optional=True),
     ),
 )
 
@@ -244,6 +277,7 @@ __all__ = [
     "SESSION_START_EVENT",
     "STATUS_EVENT",
     "STEP_METRIC_EVENT",
+    "ai_credential_fields",
     "device_field",
     "network_reset_field",
 ]

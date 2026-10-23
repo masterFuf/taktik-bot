@@ -208,8 +208,12 @@ class InstagramRig:
 
         # The AI service the run asks for, and the hooks it installs.
         def fake_create_ai_service(*, ai_config, ipc=None, log=None, ready_message=None, **_kwargs):
-            key = (ai_config or {}).get("openrouterApiKey")
-            if not (ai_config or {}).get("enabled") or not key:
+            from taktik.core.ai.credential import read_credential
+
+            block = ai_config or {}
+            key = read_credential(block, provider_names=("provider",), key_names=("apiKey",),
+                                  openrouter_key_names=("openrouterApiKey",)).api_key
+            if not block.get("enabled") or not key:
                 return False, None
             service = {"service": len(rig.ai_services) + 1, "key": key}
             rig.ai_services.append({"key": key, "ipc": ipc is not None})

@@ -1,14 +1,16 @@
 """
-AI Service for bridge scripts — calls OpenRouter API directly from the Python process.
+AI Service for bridge scripts — calls a model provider directly from the Python process.
 
-This avoids round-tripping through Electron IPC for AI operations during automation.
-The bridge receives the OpenRouter API key via the session config (ai.openrouterApiKey)
-and calls the API directly.
+This avoids round-tripping through Electron IPC for AI operations during automation. The bridge
+receives the run's key and its provider in the session config (the `ai` block) and the service
+calls that provider: OpenRouter (`OpenRouterTransport`, below) or Anthropic
+(`providers/anthropic.py`), both behind `ModelTransport` (`providers/transport.py`).
 
 Usage:
     from taktik.core.ai.providers.openrouter import AIService
 
-    ai = AIService(api_key="sk-or-...", ipc=_ipc)
+    ai = AIService(api_key="sk-or-...", ipc=_ipc)                          # OpenRouter
+    ai = AIService(api_key="sk-ant-...", ipc=_ipc, provider="anthropic")   # Anthropic
     result = ai.classify_profile(username="travel_lover", screenshot_path="/tmp/screenshot.png")
     result = ai.analyze_post(screenshot_path="/tmp/post.png")
     # Comment/persona generation is mixed in from `ai/comments/generation.py`:
@@ -38,12 +40,21 @@ from ..openrouter_policy import (
     MODEL_ANALYSIS,
     MODEL_CLASSIFICATION,
     MODEL_GENERATION,
+    MODELS_BY_TASK,
+    PROVIDER_ANTHROPIC,
+    PROVIDER_OPENROUTER,
     PROVIDER_PREFERENCE,
     RATE_LIMIT_BACKOFF_SECONDS,
     REASONING_MINIMAL,
     REASONING_OFF,
     RETRYABLE_HTTP_STATUSES,
+    TASK_ANALYSIS,
+    TASK_CLASSIFICATION,
+    TASK_GENERATION,
 )
+from ..credential import check_key_for
+from .anthropic import AnthropicTransport
+from .transport import COST_BILLED, ModelCall, ModelTransport, post_json, refusal_answer
 
 # MODEL_ANALYSIS: analyse / describe / text (post analysis).
 #
@@ -77,10 +88,10 @@ DEFAULT_TEXT_MODEL = MODEL_ANALYSIS
 DEFAULT_VISION_MODEL = MODEL_ANALYSIS
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-# urllib's timeout is a socket-inactivity timeout, not a total request deadline. A
-# provider can therefore drip bytes and keep a profile run blocked indefinitely.
-OPENROUTER_SOCKET_TIMEOUT_SECONDS = 30.0
-OPENROUTER_TOTAL_TIMEOUT_SECONDS = 45.0
+# The total deadline of one call, whoever answers: the socket timeout of the transports
+# (`MODEL_SOCKET_TIMEOUT_SECONDS`) is an inactivity timeout, and a provider dripping bytes would
+# otherwise hold a profile run indefinitely.
+MODEL_TOTAL_TIMEOUT_SECONDS = 45.0
 
 # Vision models (Gemini) bill images by 768px tiles — a QUANTIZED step, not a continuous
 # cost/quality dial: any long edge in (768, 1536] costs the SAME 2 tiles as 1536 itself
@@ -97,7 +108,7 @@ VISION_IMAGE_MAX_EDGE = 768
 # The prompt cache only pays off when consecutive calls land on the same warm instance, which is
 # why this preference exists. It WORKS — do not tighten it further.
 #
-# Re-measured 2026-09-09 on 1 501 logged production calls, now that `_call_openrouter` records the
+# Re-measured 2026-09-09 on 1 501 logged production calls, now that `OpenRouterTransport` records the
 # served backend: routing is honoured 100 % of the time (Google AI Studio for the Gemini models,
 # Alibaba for qwen), and the cache is hit **98 % on `classify_profile_niche` via flash-lite (919
 # calls) and 99 % via qwen (366 calls)**. The 48,7 % measured over 3 879 August calls, and the note
@@ -152,81 +163,37 @@ def parse_json_response(text: str) -> Any:
 
 
 
-class AIService(CommentGenerationMixin):
-    """Lightweight OpenRouter client for Bot AI operations."""
+class OpenRouterTransport:
+    """The OpenRouter implementation of `ModelTransport`: the chat completions API.
 
-    def __init__(self, api_key: str, ipc=None, text_model: str = None, vision_model: str = None,
-                 niche_taxonomy: Dict[str, list] = None, report_spend: bool = True):
+    The request carries the engine's messages as they are (OpenRouter speaks OpenAI's format), the
+    cost and cache breakdown, reasoning off and the routing preference of the policy."""
+
+    provider = PROVIDER_OPENROUTER
+    label = "OpenRouter"
+
+    def __init__(self, api_key: str):
         self.api_key = api_key
-        self.ipc = ipc
-        # `ai_spend` is emitted only for runs whose session reads it; the others keep their IPC
-        # for the Agent cards and pass False.
-        self.report_spend = report_spend
-        # The models are fixed by task (`openrouter_policy.py`). `text_model` and `vision_model` are
-        # still accepted because the hosts pass them through the factory, but they are never used:
-        # a value that is none of the policy's models is reported rather than dropped (the desktop
-        # sends the generation model as `text_model` and the analysis model as `vision_model`).
-        policy_models = {MODEL_ANALYSIS, MODEL_CLASSIFICATION, MODEL_GENERATION}
-        for parameter, requested in (("text_model", text_model), ("vision_model", vision_model)):
-            if requested and requested not in policy_models:
-                logger.warning(
-                    f"[AIService] {parameter}={requested!r} ignored: the models are set by the policy "
-                    f"(analysis {MODEL_ANALYSIS}, classification {MODEL_CLASSIFICATION}, "
-                    f"generation {MODEL_GENERATION})"
-                )
-        self.model_analysis = MODEL_ANALYSIS
-        self.model_generation = MODEL_GENERATION
-        # The profile classifier — see MODEL_CLASSIFICATION for why it is not model_analysis.
-        self.model_classification = MODEL_CLASSIFICATION
-        # Back-compat aliases: some callers read .vision_model / .text_model for display labels;
-        # both point at the analysis model (classification/vision is the common case).
-        self.vision_model = MODEL_ANALYSIS
-        self.text_model = MODEL_ANALYSIS
-        # Endpoints that refuse to have reasoning switched off (see `_call_openrouter`).
-        # Learned from their first 400 and remembered, so the refusal is provoked once per
-        # model rather than once per call.
+        # Endpoints that refuse to have reasoning switched off, learned from their first 400 and
+        # remembered, so the refusal is provoked once per model rather than once per call: 60
+        # wasted round trips over one benchmark run, on the classification that sits on a run's
+        # critical path.
         self._models_requiring_reasoning: set = set()
-        # Hashes of the stable prompt halves this PROCESS has already handed out in a capture.
-        # The body travels once; every later call carries only its 64-character pointer, which
-        # is what keeps 9 KB of identical text from being written on all 15 000 profiles a month.
-        self._captured_prompt_hashes: set = set()
-        # Premium niche taxonomy injected by the desktop app via the bridge config
-        # (slug -> [sub-niche labels]). The open-source bot does NOT own this list;
-        # when nothing is injected, profile classification stays free-form so the
-        # standalone bot keeps working without the premium taxonomy.
-        self.niche_taxonomy: Dict[str, list] = niche_taxonomy or {}
 
-    # ------------------------------------------------------------------
-    # Low-level API call
-    # ------------------------------------------------------------------
-
-    def _call_openrouter(self, model: str, messages: list, temperature: float = 0.7,
-                         max_tokens: int = 2000, label: str = "",
-                         kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
-        """Call OpenRouter chat completions API. Returns dict with success, text, usage, cost.
-
-        `label` names the calling operation (classify / comment / post…) for the one-line
-        cost log emitted on success — without it a finished run gave no way to tell which
-        model actually served a call, nor what each call cost.
-
-        `kind` is the STABLE spend category reported to the desktop (see AI_SPEND_KINDS).
-        The label carries a username and is free text, so it can only ever be read by a
-        human; the kind is what a cost breakdown can be grouped by."""
-        import urllib.request
-        import urllib.error
-
+    def complete(self, call: ModelCall) -> Dict[str, Any]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://taktik-bot.com",
             "X-Title": "TAKTIK Bot",
         }
-        def build_body(reasoning: dict) -> bytes:
+
+        def body(reasoning: dict) -> bytes:
             return json.dumps({
-                "model": model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
+                "model": call.model,
+                "messages": call.messages,
+                "temperature": call.temperature,
+                "max_tokens": call.max_tokens,
                 # Asks for the cost + cache breakdown alongside the token counts, so a run log
                 # can prove whether the cached prefix is actually being HIT. Without it a
                 # regression that silently kills caching reads exactly like a working setup.
@@ -250,186 +217,198 @@ class AIService(CommentGenerationMixin):
         # gemini-3-flash-preview answer the same tokens at the same cost with or without),
         # so this changes nothing today and makes a model swap safe by construction.
         # Both forms are declared in `openrouter_policy.py`.
-
-        # Remembered per model for the life of the service: the endpoint's answer does not
-        # change between two calls, and without this the 400 is re-provoked on EVERY call --
-        # 60 wasted round trips over one benchmark run. The refusal is free in money, not in
-        # time, and the classification sits on the critical path of a run.
-        first_choice = (
-            REASONING_MINIMAL
-            if model in self._models_requiring_reasoning
-            else REASONING_OFF
+        #
+        # 429 is the one other HTTP failure that says what to do: OpenRouter's upstream rate limit
+        # answers "Please retry shortly". Measured on 2026-09-10: 0 rate limits in 396 production
+        # calls on qwen, but repeated ones the moment calls were fired back to back, which is what
+        # 200 accounts in parallel will look like. 502 and 503 (bad upstream answer, no provider
+        # available) are not billed and clear the same way (RETRYABLE_HTTP_STATUSES).
+        outcome = post_json(
+            OPENROUTER_API_URL,
+            headers,
+            (body(REASONING_OFF), body(REASONING_MINIMAL)),
+            first_form=1 if call.model in self._models_requiring_reasoning else 0,
+            form_refused=lambda status, text: status == 400 and "reasoning" in text.lower(),
+            retryable_statuses=RETRYABLE_HTTP_STATUSES,
+            backoff_seconds=RATE_LIMIT_BACKOFF_SECONDS,
+            model=call.model,
+            label=self.label,
         )
+        if outcome.form == 1:
+            self._models_requiring_reasoning.add(call.model)
+        if outcome.data is None:
+            return refusal_answer(outcome)
+        return self._answer(call, outcome.data)
 
-        req = urllib.request.Request(
-            OPENROUTER_API_URL, data=build_body(first_choice), headers=headers, method="POST"
-        )
+    @staticmethod
+    def _answer(call: ModelCall, data: dict) -> Dict[str, Any]:
+        model = call.model
+        choice = (data.get("choices") or [{}])[0]
+        message = choice.get("message", {}) or {}
+        # `content` can be present AND null — a reasoning model that spent its whole budget
+        # thinking returns exactly that. `.get(key, "")` hands back the None, not the default, and
+        # the caller died on `.strip()` with "'NoneType' object has no attribute 'strip'" — an
+        # error that names a Python type instead of the empty answer that caused it.
+        text = message.get("content") or ""
+        usage = data.get("usage", {}) or {}
+        # OpenRouter returns cost in usage.cost (not usage.total_cost)
+        cost = usage.get("cost") or usage.get("total_cost")
+        finish_reason = choice.get("finish_reason")
+        tokens = {
+            "prompt": usage.get("prompt_tokens"),
+            "completion": usage.get("completion_tokens"),
+            "cached": (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0,
+        }
+        # Keep the finish reason so an upstream cut-off is distinguishable from a malformed answer.
+        if finish_reason == "length":
+            logger.warning(
+                f"[AIService] {model} hit the {call.max_tokens}-token ceiling "
+                f"(completion={usage.get('completion_tokens')}); response is truncated"
+            )
+        # An answer that came back empty is a FAILED call, not a successful one carrying an empty
+        # string: reported as success it travels down the pipeline as an unparsable payload and
+        # surfaces three layers later as a JSON error, naming the parser instead of the model.
+        # `cost_usd` is kept on the failure so the caller still bills it.
+        if not text.strip():
+            reasoning_tokens = (
+                (usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0
+            )
+            detail = (
+                f" — the model spent {reasoning_tokens} tokens reasoning and returned no answer"
+                if reasoning_tokens else ""
+            )
+            logger.error(
+                f"[AIService] {model} returned an empty answer "
+                f"(finish_reason={finish_reason}){detail}"
+            )
+            return {
+                "success": False,
+                "error": f"empty answer from {model} (finish_reason={finish_reason})",
+                "model": data.get("model", model),
+                "provider": PROVIDER_OPENROUTER,
+                "usage": usage,
+                "tokens": tokens,
+                "cost_usd": cost,
+                "cost_basis": COST_BILLED,
+            }
+        return {
+            "success": True,
+            "text": text.strip(),
+            "model": data.get("model", model),
+            "provider": PROVIDER_OPENROUTER,
+            # The BACKEND OpenRouter routed to, which is what the prompt cache is warm on.
+            # `provider` above is the gateway and is always "openrouter", so the run log could
+            # never answer "did we land on the same instance as the previous call?" — the
+            # question the cache hit rate turns on.
+            "upstream": data.get("provider"),
+            "usage": usage,
+            "tokens": tokens,
+            "cost_usd": cost,
+            "cost_basis": COST_BILLED,
+            "finish_reason": finish_reason,
+        }
 
-        # One-element list rather than a flag: the retry happens inside a closure, and a
-        # rebound local would not survive back out of it.
-        attempted_minimal_reasoning: list = []
-        rate_limit_waits: list = []
 
-        def request_once(request) -> Dict[str, Any]:
-            try:
-                with urllib.request.urlopen(
-                    request, timeout=OPENROUTER_SOCKET_TIMEOUT_SECONDS
-                ) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    choice = data.get("choices", [{}])[0]
-                    message = choice.get("message", {}) or {}
-                    # `content` can be present AND null — a reasoning model that spent its
-                    # whole budget thinking returns exactly that. `.get(key, "")` hands back
-                    # the None, not the default, and the caller died on `.strip()` with
-                    # "'NoneType' object has no attribute 'strip'" — an error that names a
-                    # Python type instead of the empty answer that caused it.
-                    text = message.get("content") or ""
-                    usage = data.get("usage", {})
-                    # OpenRouter returns cost in usage.cost (not usage.total_cost)
-                    cost = usage.get("cost") or usage.get("total_cost")
-                    finish_reason = choice.get("finish_reason")
-                    # Keep the finish reason so an upstream cut-off is distinguishable
-                    # from a malformed model answer.
-                    if finish_reason == "length":
-                        logger.warning(
-                            f"[AIService] {model} hit the {max_tokens}-token ceiling "
-                            f"(completion={usage.get('completion_tokens')}); response is truncated"
-                        )
-                    # An answer that came back empty is a FAILED call, not a successful one
-                    # carrying an empty string: reported as success it travels down the
-                    # pipeline as an unparsable payload and surfaces three layers later as a
-                    # JSON error, naming the parser instead of the model. `cost_usd` is kept
-                    # on the failure so the caller still bills it — see the ledger gate below,
-                    # which reports on "were we charged", not on "did it work".
-                    if not text.strip():
-                        reasoning_tokens = (
-                            (usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0
-                        )
-                        detail = (
-                            f" — the model spent {reasoning_tokens} tokens reasoning and returned no answer"
-                            if reasoning_tokens else ""
-                        )
-                        logger.error(
-                            f"[AIService] {model} returned an empty answer "
-                            f"(finish_reason={finish_reason}){detail}"
-                        )
-                        return {
-                            "success": False,
-                            "error": f"empty answer from {model} (finish_reason={finish_reason})",
-                            "model": data.get("model", model),
-                            "usage": usage,
-                            "cost_usd": cost,
-                        }
-                    return {
-                        "success": True,
-                        "text": text.strip(),
-                        "model": data.get("model", model),
-                        "provider": "openrouter",
-                        # The BACKEND OpenRouter routed to, which is what the prompt cache is
-                        # warm on. `provider` above is the gateway and is always "openrouter",
-                        # so the run log could never answer "did we land on the same instance
-                        # as the previous call?" — the question the cache hit rate turns on.
-                        "upstream": data.get("provider"),
-                        "usage": usage,
-                        "cost_usd": cost,
-                        "finish_reason": finish_reason,
-                    }
-            except urllib.error.HTTPError as exc:
-                error_body = ""
-                try:
-                    error_body = exc.read().decode("utf-8")
-                except Exception:
-                    pass
-                # Some endpoints refuse to have reasoning switched off at all and answer
-                # 400 "Reasoning is mandatory for this endpoint" — gpt-5-nano and glm-5.3
-                # both do. Asking them for the MINIMAL effort instead gets the same result
-                # we wanted (0 reasoning tokens, measured) and is the only form they accept.
-                # Retried once, on this message only: a blanket retry would re-send every
-                # 400, and a quota or malformed-request error must stay one call.
-                if (
-                    exc.code == 400
-                    and "reasoning" in error_body.lower()
-                    and not attempted_minimal_reasoning
-                ):
-                    attempted_minimal_reasoning.append(True)
-                    self._models_requiring_reasoning.add(model)
-                    logger.info(
-                        f"[AIService] {model} requires reasoning — retrying with minimal "
-                        f"effort, and remembering it for this model"
-                    )
-                    return request_once(
-                        urllib.request.Request(
-                            OPENROUTER_API_URL,
-                            data=build_body(REASONING_MINIMAL),
-                            headers=headers,
-                            method="POST",
-                        )
-                    )
-                # 429 is the one HTTP failure that says what to do: OpenRouter's upstream
-                # rate limit answers "Please retry shortly". Returning it as a plain failure
-                # threw the generation away — a comment silently not written. Measured on
-                # 2026-09-10: 0 rate limits in 396 production calls on qwen, but repeated ones
-                # the moment calls were fired back to back, which is what 200 accounts in
-                # parallel will look like. Two waits, growing, then give up: a third would only
-                # hold a run hostage to an upstream that is not coming back.
-                # 502 and 503 (bad upstream answer, no provider available) are not billed and
-                # clear the same way, so they get the same waits (RETRYABLE_HTTP_STATUSES).
-                if (
-                    exc.code in RETRYABLE_HTTP_STATUSES
-                    and len(rate_limit_waits) < len(RATE_LIMIT_BACKOFF_SECONDS)
-                ):
-                    wait = RATE_LIMIT_BACKOFF_SECONDS[len(rate_limit_waits)]
-                    rate_limit_waits.append(wait)
-                    reason = "rate-limited upstream" if exc.code == 429 else f"HTTP {exc.code} upstream"
-                    logger.warning(
-                        f"[AIService] {model} {reason} — waiting {wait:.0f}s "
-                        f"before retry {len(rate_limit_waits)}/{len(RATE_LIMIT_BACKOFF_SECONDS)}"
-                    )
-                    time.sleep(wait)
-                    return request_once(
-                        urllib.request.Request(
-                            OPENROUTER_API_URL, data=request.data, headers=headers,
-                            method="POST",
-                        )
-                    )
-                logger.error(
-                    f"[AIService] OpenRouter HTTP {exc.code}: {error_body[:300]}"
+def transport_for(provider: str, api_key: str) -> ModelTransport:
+    """The transport of `provider`, after checking the key is not another provider's."""
+    check_key_for(provider, api_key)
+    if provider == PROVIDER_ANTHROPIC:
+        return AnthropicTransport(api_key)
+    return OpenRouterTransport(api_key)
+
+
+class AIService(CommentGenerationMixin):
+    """The Bot's AI operations, on the provider of its key (OpenRouter or Anthropic)."""
+
+    def __init__(self, api_key: str, ipc=None, text_model: str = None, vision_model: str = None,
+                 niche_taxonomy: Dict[str, list] = None, report_spend: bool = True,
+                 provider: str = PROVIDER_OPENROUTER):
+        self.api_key = api_key
+        self.ipc = ipc
+        # Who the calls go to; the transport refuses a key that is visibly another provider's.
+        self.provider = provider
+        self.transport: ModelTransport = transport_for(provider, api_key)
+        # `ai_spend` is emitted only for runs whose session reads it; the others keep their IPC
+        # for the Agent cards and pass False.
+        self.report_spend = report_spend
+        # The models are fixed by task and by provider (`openrouter_policy.py`). `text_model` and
+        # `vision_model` are still accepted because the hosts pass them through the factory, but
+        # they are never used: a value that is none of the provider's policy models is reported
+        # rather than dropped (the desktop sends the generation model as `text_model` and the
+        # analysis model as `vision_model`).
+        self.model_analysis = MODELS_BY_TASK[TASK_ANALYSIS][provider]
+        self.model_generation = MODELS_BY_TASK[TASK_GENERATION][provider]
+        # The profile classifier — see MODEL_CLASSIFICATION for why it is not model_analysis.
+        self.model_classification = MODELS_BY_TASK[TASK_CLASSIFICATION][provider]
+        policy_models = {self.model_analysis, self.model_classification, self.model_generation}
+        for parameter, requested in (("text_model", text_model), ("vision_model", vision_model)):
+            if requested and requested not in policy_models:
+                logger.warning(
+                    f"[AIService] {parameter}={requested!r} ignored: the models are set by the policy "
+                    f"({self.transport.label}: analysis {self.model_analysis}, classification "
+                    f"{self.model_classification}, generation {self.model_generation})"
                 )
-                return {
-                    "success": False,
-                    "error": f"HTTP {exc.code}: {error_body[:200]}",
-                    # Distinguishable from a real failure, so a caller can decide to fall back
-                    # to another model rather than drop the work.
-                    "rate_limited": exc.code == 429,
-                }
-            except Exception as exc:
-                logger.error(f"[AIService] OpenRouter error: {exc}")
-                return {"success": False, "error": str(exc)}
+        # Back-compat aliases: some callers read .vision_model / .text_model for display labels;
+        # both point at the analysis model (classification/vision is the common case).
+        self.vision_model = self.model_analysis
+        self.text_model = self.model_analysis
+        # Hashes of the stable prompt halves this PROCESS has already handed out in a capture.
+        # The body travels once; every later call carries only its 64-character pointer, which
+        # is what keeps 9 KB of identical text from being written on all 15 000 profiles a month.
+        self._captured_prompt_hashes: set = set()
+        # Premium niche taxonomy injected by the desktop app via the bridge config
+        # (slug -> [sub-niche labels]). The open-source bot does NOT own this list;
+        # when nothing is injected, profile classification stays free-form so the
+        # standalone bot keeps working without the premium taxonomy.
+        self.niche_taxonomy: Dict[str, list] = niche_taxonomy or {}
+
+    # ------------------------------------------------------------------
+    # Low-level API call
+    # ------------------------------------------------------------------
+
+    def _call_model(self, model: str, messages: list, temperature: float = 0.7,
+                    max_tokens: int = 2000, label: str = "",
+                    kind: str = AI_SPEND_OTHER) -> Dict[str, Any]:
+        """Call the model through the service's transport. Returns the transport's answer
+        (`providers/transport.py`): success, text, model, usage, cost...
+
+        This is the single point every paid call passes through, whoever answers: the total
+        deadline, the one run-log line and the cost ledger live here.
+
+        `label` names the calling operation (classify / comment / post…) for the one-line
+        cost log emitted on success — without it a finished run gave no way to tell which
+        model actually served a call, nor what each call cost.
+
+        `kind` is the STABLE spend category reported to the desktop (see AI_SPEND_KINDS).
+        The label carries a username and is free text, so it can only ever be read by a
+        human; the kind is what a cost breakdown can be grouped by."""
+        transport = self.transport
+        call = ModelCall(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens)
 
         # The worker only performs the HTTP read and has no IPC/UI side effects.
         # If it outlives the deadline, the profile pipeline resumes and emits one
         # normal ai_error from the caller thread; a late response cannot revive a
         # stale Agent card.
         bounded = run_bounded_optional(
-            lambda: request_once(req),
-            timeout_seconds=OPENROUTER_TOTAL_TIMEOUT_SECONDS,
-            label=f"OpenRouter {model} request",
+            lambda: transport.complete(call),
+            timeout_seconds=MODEL_TOTAL_TIMEOUT_SECONDS,
+            label=f"{transport.label} {model} request",
         )
         if bounded.timed_out:
             message = (
-                f"OpenRouter request exceeded its "
-                f"{OPENROUTER_TOTAL_TIMEOUT_SECONDS:.0f}s total deadline"
+                f"{transport.label} request exceeded its "
+                f"{MODEL_TOTAL_TIMEOUT_SECONDS:.0f}s total deadline"
             )
             logger.error(f"[AIService] {message}")
             return {"success": False, "error": message}
         if bounded.error is not None:
-            logger.error(f"[AIService] OpenRouter worker error: {bounded.error}")
+            logger.error(f"[AIService] {transport.label} worker error: {bounded.error}")
             return {"success": False, "error": str(bounded.error)}
         result = bounded.value
         if not result:
             return {
                 "success": False,
-                "error": "OpenRouter request ended without a response",
+                "error": f"{transport.label} request ended without a response",
             }
         # Gated on "were we BILLED", not on "did it work". A call the provider charged for
         # and that came back empty is still money out of the account, and reporting it only
@@ -441,14 +420,19 @@ class AIService(CommentGenerationMixin):
             # route elsewhere than the requested slug), how many tokens, and what it cost.
             # Previously both were captured and silently dropped, so a post-hoc audit of a
             # finished run could not answer "which model ran?" or "where did the cost go?".
-            usage = result.get("usage") or {}
+            tokens = result.get("tokens") or {}
             cost = result.get("cost_usd")
-            cost_txt = f"${cost:.6f}" if isinstance(cost, (int, float)) else "n/a"
+            # A cost computed from the tokens at the public prices says so: it is not a bill.
+            public_price = result.get("cost_basis") not in (None, COST_BILLED)
+            cost_txt = (
+                f"${cost:.6f}{' (public price)' if public_price else ''}"
+                if isinstance(cost, (int, float)) else "n/a"
+            )
             served = result.get("model") or model
             routed = "" if served == model else f" (requested {model})"
             # Cached prompt tokens bill at a tenth of the normal input price. Log them so a
             # cache that stops being hit is visible in the run log instead of only in the bill.
-            cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
+            cached = tokens.get("cached") or 0
             cached_txt = f" (cached {cached})" if cached else ""
             # The BACKEND, not the gateway: the prompt cache is warm per instance, so a run whose
             # hit rate collapses is answered by whether this value keeps changing between calls.
@@ -457,9 +441,12 @@ class AIService(CommentGenerationMixin):
             # A billed call that answered nothing must not read like a normal one in the run
             # log: same shape, one word of difference, so a grep over the costs still finds it.
             outcome_txt = "" if result.get("success") else " · EMPTY ANSWER"
+            prompt_tokens = tokens.get("prompt")
+            completion_tokens = tokens.get("completion")
             logger.info(
                 f"[AIService] {label or 'call'} · model={served}{routed} · "
-                f"tokens={usage.get('prompt_tokens', '?')}{cached_txt}+{usage.get('completion_tokens', '?')} · "
+                f"tokens={'?' if prompt_tokens is None else prompt_tokens}{cached_txt}+"
+                f"{'?' if completion_tokens is None else completion_tokens} · "
                 f"cost={cost_txt}{upstream_txt}{outcome_txt}"
             )
             # The session's ONLY cost ledger. Reported here, at the single point every paid
@@ -469,11 +456,18 @@ class AIService(CommentGenerationMixin):
             # costing real money. Best effort — accounting must never break a run.
             reports = getattr(self, "report_spend", True)
             if self.ipc is not None and reports and isinstance(cost, (int, float)):
+                # What differs from a cost billed by OpenRouter (every `ai_spend` before Anthropic)
+                # travels beside it; absent, the line means exactly that.
+                beside = {}
+                if result.get("provider") not in (None, PROVIDER_OPENROUTER):
+                    beside["provider"] = result["provider"]
+                if public_price:
+                    beside["cost_basis"] = result["cost_basis"]
                 try:
                     self.ipc.ai_spend(cost, model=served, label=label,
-                                      kind=normalize_spend_kind(kind))
+                                      kind=normalize_spend_kind(kind), **beside)
                 except Exception as exc:
-                    logger.debug(f"[AIService] ai_spend emit failed: {exc}")
+                    logger.warning(f"[AIService] ai_spend emit failed: {exc}")
         return result
 
 
@@ -615,7 +609,7 @@ class AIService(CommentGenerationMixin):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        return self._call_openrouter(model or self.model_analysis, messages, temperature,
+        return self._call_model(model or self.model_analysis, messages, temperature,
                                      max_tokens, label=label, kind=kind)
 
     def classify_following_usernames_batch(
@@ -736,7 +730,7 @@ class AIService(CommentGenerationMixin):
                 {"type": "text", "text": user_prompt},
             ]},
         ]
-        return self._call_openrouter(model or self.vision_model, messages, temperature, max_tokens,
+        return self._call_model(model or self.vision_model, messages, temperature, max_tokens,
                                      kind=kind, label=label)
 
     def vision_json_completion(self, system_prompt: Union[str, list], user_prompt: str, image_path: str,
@@ -1565,7 +1559,7 @@ class AIService(CommentGenerationMixin):
                 result=result_text,
                 duration_ms=duration_ms,
                 model=result.get("model"),
-                provider="openrouter",
+                provider=result.get("provider"),
                 cost_usd=result.get("cost_usd"),
                 classification=classification,
                 screenshot=screenshot_b64,
@@ -1576,7 +1570,7 @@ class AIService(CommentGenerationMixin):
             "classification": classification,
             "prompt_capture": prompt_capture,
             "model": result.get("model"),
-            "provider": "openrouter",
+            "provider": result.get("provider"),
             "cost_usd": result.get("cost_usd"),
             "duration_ms": duration_ms,
         }
@@ -1654,7 +1648,7 @@ class AIService(CommentGenerationMixin):
             screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=800)
             self.ipc.ai_profile_analyzed(
                 username=username, result=result_text, duration_ms=duration_ms,
-                model=result.get("model"), provider="openrouter",
+                model=result.get("model"), provider=result.get("provider"),
                 cost_usd=result.get("cost_usd"),
                 classification=classification,
                 screenshot=screenshot_b64,
@@ -1664,7 +1658,7 @@ class AIService(CommentGenerationMixin):
             "success": True,
             "classification": classification,
             "model": result.get("model"),
-            "provider": "openrouter",
+            "provider": result.get("provider"),
             "cost_usd": result.get("cost_usd"),
             "duration_ms": duration_ms,
         }
@@ -1731,7 +1725,7 @@ No markdown formatting."""
             screenshot_b64 = self._image_to_thumbnail_url(screenshot_path, max_size=600)
             self.ipc.ai_screenshot_analyzed(
                 result=description[:200], username=username, duration_ms=duration_ms,
-                model=result.get("model"), provider="openrouter",
+                model=result.get("model"), provider=result.get("provider"),
                 cost_usd=result.get("cost_usd"),
                 screenshot=screenshot_b64,
             )
@@ -1741,7 +1735,7 @@ No markdown formatting."""
             "description": description,
             "post_language": post_language,
             "model": result.get("model"),
-            "provider": "openrouter",
+            "provider": result.get("provider"),
             "cost_usd": result.get("cost_usd"),
             "duration_ms": duration_ms,
         }

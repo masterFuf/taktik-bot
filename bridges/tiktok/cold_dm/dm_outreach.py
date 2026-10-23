@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from bridges.common.network import enforce_pre_session_ip_rotation, send_network_refusal
+from taktik.core.ai.credential import AICredential
 from taktik.core.shared.device.network_door import NetworkUnreachableError
 from bridges.tiktok.common.ipc import _ipc, logger, send_error, send_message, send_status, set_workflow
 
@@ -49,13 +50,13 @@ class BridgeNotifier:
             send_message("stats", stats=payload.get("stats", {}))
 
 
-def _message_generator(ai_prompt: str, api_key: str):
+def _message_generator(ai_prompt: str, credential: AICredential):
     """The core's AI message per recipient, its cost reported on stdout (`ai_spend`)."""
     from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import (
         outreach_message_generator,
     )
 
-    return outreach_message_generator(ai_prompt, api_key, ipc=_ipc)
+    return outreach_message_generator(ai_prompt, credential, ipc=_ipc)
 
 
 def run_dm_outreach_workflow(config: Dict[str, Any]) -> bool:

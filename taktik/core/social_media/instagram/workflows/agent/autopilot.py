@@ -344,13 +344,14 @@ class TaktikAgentWorkflow:
                     logger.error("[TaktikAgent] No AI service or factory injected")
                     return False
 
-                api_key = self.request.openrouter_api_key
-                if not api_key:
-                    logger.error("[TaktikAgent] No OpenRouter API key configured")
+                credential = self.request.ai_credential
+                if not credential.api_key:
+                    logger.error("[TaktikAgent] No AI key configured")
                     return False
 
                 ai_service = self._ai_service_factory(
-                    api_key=api_key,
+                    api_key=credential.api_key,
+                    provider=credential.provider,
                     ipc=self.ipc,
                     vision_model=vision_model,
                     text_model=text_model,

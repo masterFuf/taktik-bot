@@ -27,7 +27,7 @@ def system_prompt(language, reply=False):
                 "text": '{"anchor": "a", "comment": "c", "safe_comment": "s", '
                         '"reasoning": "r", "should_reply": true}'}
 
-    service._call_openrouter = capture
+    service._call_model = capture
     if reply:
         service.generate_comment_reply(comment_text="joli", username="x", language=language)
     else:

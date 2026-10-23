@@ -46,6 +46,7 @@ class AgentAIServiceFactory(Protocol):
         self,
         *,
         api_key: str,
+        provider: str,
         ipc: Any = None,
         vision_model: Optional[str] = None,
         text_model: Optional[str] = None,

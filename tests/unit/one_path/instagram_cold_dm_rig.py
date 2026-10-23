@@ -441,6 +441,8 @@ class InstagramColdDmRig:
         patch_seam(mp, "taktik.core.database.local.service", "get_local_database", lambda: FakeSessionDatabase())
 
         class FakeAI:
+            model_generation = "fake-generation"
+
             def __init__(self, api_key, ipc):
                 self.api_key = api_key
                 self.ipc = ipc

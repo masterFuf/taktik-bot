@@ -1,7 +1,7 @@
 """The bot's own settings file, `~/.taktik/api_config.json`.
 
 One file for what a standalone user keeps between runs: the API url (`api_url`) and, when the CLI
-user chose to save it, the OpenRouter key (`openrouter_api_key`). The desktop app does not use
+user chose to save it, its AI key (`openrouter_api_key` or `anthropic_api_key`). The desktop app does not use
 it: it sends its settings in each run's config.
 """
 from __future__ import annotations
