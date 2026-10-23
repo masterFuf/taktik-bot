@@ -135,7 +135,8 @@ def _cold_dm_runtime(a):
     """The production cold DM workflow (`ColdDMWorkflow`, the core's one engine) bound to the warm
     Lab device: the class itself, so a step changed in the workflow reaches the Lab on its own. No
     second connection, no app restart; the profile reads use the Lab's detection, the profile
-    search the Lab's navigation (the production one, `navigation.open_profile`'s)."""
+    search the Lab's navigation (the production one, `navigation.open_profile`'s), the sending the
+    production one from a profile (`MessagingBusiness`, the welcome DM's too)."""
     from taktik.core.shared.input.keyboard import KeyboardService
     from taktik.core.social_media.instagram.workflows.cold_dm.workflow import ColdDMWorkflow
 
@@ -154,6 +155,11 @@ def _cold_dm_runtime(a):
 
         def _cold_dm_navigation(self):
             return self._bundle.nav
+
+        def _cold_dm_messaging(self):
+            from taktik.core.social_media.instagram.workflows.dm.messaging import MessagingBusiness
+
+            return MessagingBusiness(self._bundle.device)
 
     return _LabColdDMWorkflow(a)
 

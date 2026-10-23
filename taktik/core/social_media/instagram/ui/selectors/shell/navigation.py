@@ -18,15 +18,6 @@ class NavigationSelectors:
     @property
     def home_tab(self) -> List[str]:
         return self._home_tab_base + L("navigation.home_tab")
-    home_tab_resource_id: str = "com.instagram.android:id/feed_tab"
-
-    @property
-    def home_tab_descriptions(self) -> List[str]:
-        return L("navigation.home_tab_descriptions")
-
-    @property
-    def home_tab_description_contains(self) -> List[str]:
-        return L("navigation.home_tab_description_contains")
 
     # The bottom bar's tab, by its exact id: `contains(@resource-id, ".../search_tab")` also names
     # `search_tab_bar_layout`, the tab bar of a hashtag page (For you, Accounts, Not personalized,
@@ -67,7 +58,6 @@ class NavigationSelectors:
     @property
     def back_buttons(self) -> List[str]:
         return self._back_buttons_base + L("navigation.back_buttons")
-    action_bar_back_button_resource_id: str = "com.instagram.android:id/action_bar_button_back"
 
     # === Instagram root screens ===
     # A main tab's own screen (home feed, Explore, Reels, DM inbox, own profile): the tab bar is

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.instagram.workflows.cold_dm.persistence import record_sent_dm
+from taktik.core.social_media.instagram.workflows.dm.messaging import INVITE_ALREADY_SENT
 from loguru import logger
 
 
@@ -59,7 +60,7 @@ def apply_cold_dm_send_result(
     account_id: int,
     session_id: str | None,
 ) -> None:
-    if send_result == "invite_sent":
+    if send_result == INVITE_ALREADY_SENT:
         logger.info(f"Invite already sent to {recipient} - marking as done")
         record_sent_dm(account_id, recipient, "", True, "Invite already sent", session_id)
         workflow.dms_sent += 1

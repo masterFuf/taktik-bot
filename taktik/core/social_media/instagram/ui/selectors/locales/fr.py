@@ -442,12 +442,6 @@ STRINGS: Dict[str, List[str]] = {
         # The proxy makes the tab_bar id match any package's, hence @package too.
         "//*[@resource-id=\"com.instagram.android:id/tab_bar\"]//*[contains(@content-desc, \"Home\") and @package=\"com.instagram.android\"]",
     ],
-    "navigation.home_tab_description_contains": [
-        "Home",  # untranslated in French, as `navigation.home_tab` says
-    ],
-    "navigation.home_tab_descriptions": [
-        "Home",
-    ],
     "navigation.profile_tab": [
         # Inside Instagram's tab bar only: outside it, "Profil" also starts the "Profile picture
         # of ..." of every avatar of an English screen, read while the language is unknown.

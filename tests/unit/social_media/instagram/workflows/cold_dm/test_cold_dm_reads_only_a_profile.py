@@ -30,7 +30,7 @@ from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 import taktik.core.social_media.instagram.actions.atomic.detection.screen_detection as screen_detection
-import taktik.core.social_media.instagram.workflows.cold_dm.navigation as cold_dm_navigation
+import taktik.core.social_media.instagram.workflows.dm.messaging as messaging
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.shared.diagnostics import miss_capture
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
@@ -159,7 +159,7 @@ class _Phone:
 def _no_waits(monkeypatch):
     clock = _Clock()
     monkeypatch.setattr(screen_detection, "time", clock)
-    monkeypatch.setattr(cold_dm_navigation.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(messaging.time, "sleep", lambda *_: None)
     monkeypatch.setattr(miss_capture, "signaler_ecran_inconnu", lambda *a, **k: None)
     yield
     set_active_locale(None)

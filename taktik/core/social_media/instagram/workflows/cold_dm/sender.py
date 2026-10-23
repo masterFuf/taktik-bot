@@ -1,88 +1,32 @@
-"""Message composer helpers for the Instagram Cold DM workflow."""
+"""Sending in the conversation the Instagram Cold DM opened."""
 
 from __future__ import annotations
 
 import time
+from typing import Any, Callable
 
 from loguru import logger
 
 from taktik.core.shared.behavior.typing import calculate_dm_typing_delay
-from taktik.core.shared.input.taktik_keyboard import ensure_taktik_keyboard
-from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
-    resolve_device_id,
-    type_message,
-)
-from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
 class ColdDMSenderMixin:
-    """DM composer and invite-state detection for Cold DM outreach."""
+    """The cold DM's send: its pace, then the production sending in an open conversation."""
+
+    # What the host gives this mixin (`ColdDMNavigationMixin`), like a field of a TypeScript interface.
+    _cold_dm_messaging: Callable[[], Any]
 
     def _init_cold_dm_sender(self, keyboard) -> None:
         # The host's Taktik Keyboard service (`type_text`, `device_id`): the bridges' facade.
         self._keyboard = keyboard
 
-    def send_message(self, message: str) -> bool:
-        """Send a message in the current conversation."""
+    def send_message(self, message: str):
+        """Send `message` in the open conversation: True once sent, False when it was not,
+        `INVITE_ALREADY_SENT` when a message request to this account is already waiting.
+
+        The time a human takes to type the message is waited first, then the message is typed
+        without typos (`MessagingBusiness.send_in_open_conversation`, the welcome DM's too).
+        """
         logger.info("Sending message...")
-
-        msg_input = self.device(resourceId=DM_SELECTORS.composer_edittext_resource_id)
-        if not msg_input.exists:
-            msg_input = self.device(className=DM_SELECTORS.edit_text_class_name)
-        for text in DM_SELECTORS.message_input_text_contains:
-            if msg_input.exists:
-                break
-            msg_input = self.device(textContains=text)
-
-        if not msg_input.exists:
-            if self.check_invite_already_sent():
-                return "invite_sent"
-            logger.error("Message input not found")
-            return False
-
-        device_id = resolve_device_id(self.device, self._keyboard.device_id)
-        # Before the tap: a keyboard switched after it can cost the field its focus.
-        ensure_taktik_keyboard(device_id)
-        msg_input.click()
-        time.sleep(0.5)
-
-        typing_time = calculate_dm_typing_delay(message)
-        time.sleep(typing_time)
-
-        # The shared composer: typed without typos as before, sent only once it reads the message.
-        if not type_message(self.device, device_id, message,
-                            element=msg_input, typos=False, logger=logger):
-            logger.error("The composer does not hold the message: not sent")
-            return False
-        logger.info("Text set via Taktik Keyboard")
-
-        time.sleep(0.5)
-
-        send_btn = None
-        for resource_id in DM_SELECTORS.send_button_resource_ids[:2]:
-            send_btn = self.device(resourceId=resource_id)
-            if send_btn.exists:
-                break
-        for description in DM_SELECTORS.send_button_content_descriptions:
-            if send_btn and send_btn.exists:
-                break
-            send_btn = self.device(description=description)
-
-        if send_btn and send_btn.exists:
-            send_btn.click()
-            time.sleep(1)
-            logger.info("Message sent!")
-            return True
-
-        logger.error("Send button not found")
-        return False
-
-    def check_invite_already_sent(self) -> bool:
-        """Check if we're on the 'Invite sent' screen."""
-        for text in DM_SELECTORS.invite_sent_text_contains:
-            invite_sent = self.device(textContains=text)
-            if invite_sent.exists:
-                logger.info("Invite already sent to this user")
-                return True
-
-        return False
+        time.sleep(calculate_dm_typing_delay(message))
+        return self._cold_dm_messaging().send_in_open_conversation(message, typos=False)

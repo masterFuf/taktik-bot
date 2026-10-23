@@ -104,6 +104,7 @@ def _runtime(*, private=False, message=True, verified=False):
     class _Runtime(ColdDMNavigationMixin):
         def __init__(self):
             self.device = _Device(private=private, message=message)
+            self.device_manager = self.device  # what the production DM sending is built on
 
         def _cold_dm_detection(self):
             return SimpleNamespace(is_verified_account=lambda: reads.append("badge") or verified,

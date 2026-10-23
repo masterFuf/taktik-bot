@@ -68,15 +68,6 @@ def _instagram_ids(root, xpath):
     return [node.get("resource-id") for node in root.xpath(xpath) if node.get("package") == PKG]
 
 
-def test_the_home_tab_is_found_by_its_french_description(french):
-    assert NAVIGATION_SELECTORS.home_tab_descriptions
-    for label in NAVIGATION_SELECTORS.home_tab_descriptions:
-        assert _instagram_ids(HOME, f'//*[@content-desc="{label}"]') == [f"{PKG}:id/feed_tab"]
-    for label in NAVIGATION_SELECTORS.home_tab_description_contains:
-        assert _instagram_ids(HOME, f'//*[contains(@content-desc, "{label}")]') == [f"{PKG}:id/feed_tab"]
-    assert NAVIGATION_SELECTORS.home_tab_description_contains
-
-
 def _first_found(root, selectors):
     """The Instagram ids the first selector of the list that finds something finds, as
     `_find_and_click` takes them."""
@@ -85,6 +76,13 @@ def _first_found(root, selectors):
         if found:
             return found
     return []
+
+
+def test_the_home_tab_is_found_in_french(french):
+    """The production home tab (`navigate_to_home`), the cold DM's way home too."""
+    assert _first_found(HOME, NAVIGATION_SELECTORS.home_tab) == [f"{PKG}:id/feed_tab"]
+    # The French entry alone, the tab bar's "Home", finds the tab too.
+    assert _first_found(HOME, NAVIGATION_SELECTORS.home_tab[1:]) == [f"{PKG}:id/feed_tab"]
 
 
 def test_the_search_tab_is_found_in_french(french):
