@@ -52,6 +52,17 @@ def test_every_refused_text_is_said_not_only_the_first():
     assert [(r["index"], r["reason"]) for r in line["refusals"]] == [(1, "too_short"), (3, "link")]
 
 
+def test_a_refusal_comes_back_with_what_was_measured_for_the_app_to_say_it():
+    """The planner phrases a refused text from these numbers and this term, never from the English detail."""
+    texts = [BROKEN_TEXTS["too_short"], WITHIN_RULES, BROKEN_TEXTS["too_long"], BROKEN_TEXTS["forbidden_term"]]
+    _, [line] = _check({"texts": texts, "aiDmRules": FRENCH_ACCOUNT})
+    by_rank = {r["index"]: r for r in line["refusals"]}
+    assert (by_rank[1]["measure"], by_rank[1]["limit"]) == (len(texts[0]), 20)
+    assert (by_rank[3]["measure"], by_rank[3]["limit"]) == (len(texts[2]), 500)
+    assert by_rank[4]["term"] == "gratuit"
+    assert "term" not in by_rank[1] and "measure" not in by_rank[4]
+
+
 def test_a_single_text_keeps_its_rank():
     _, [line] = _check({"texts": [BROKEN_TEXTS["too_long"]], "aiDmRules": FRENCH_ACCOUNT})
     assert line["refusals"][0]["index"] == 1

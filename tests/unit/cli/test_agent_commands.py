@@ -56,7 +56,7 @@ def test_no_device_is_reported_not_crashed(monkeypatch):
             return []
 
     with patch("taktik.core.shared.device.manager.DeviceManager", NoDevices):
-        result = CliRunner().invoke(agent_cmds.agent, ["run"], env={"OPENROUTER_API_KEY": "k"})
+        result = CliRunner().invoke(agent_cmds.agent, ["run"], env={"OPENROUTER_API_KEY": "sk-or-test-key"})
     assert result.exit_code == 1
     assert "No device connected" in result.output
 

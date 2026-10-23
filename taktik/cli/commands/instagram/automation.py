@@ -25,6 +25,7 @@ def workflow_instagram(device_id, config):
 
     The phone is chosen, not connected: the launcher reads and validates the run, then connects it."""
     from taktik.cli.commands.workflows import _choose_phone
+    from taktik.cli.hosts.ai_key import MissingAIKeyError, exit_without_key
     from taktik.cli.hosts.instagram import is_internal_workflow_format, run_instagram_payload
     from taktik.cli.hosts.phone import PhoneNotConnectedError
 
@@ -66,6 +67,9 @@ def workflow_instagram(device_id, config):
 
     try:
         run_instagram_payload(phone.device_manager, phone.device_id, payload)
+    except MissingAIKeyError as exc:
+        # The same cause ends the same way as in `taktik workflows run`, not as a failed run.
+        exit_without_key(exc, console)
     except PhoneNotConnectedError as exc:
         console.print(f"[red]{exc}[/red]")
         raise SystemExit(1)

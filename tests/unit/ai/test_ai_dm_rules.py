@@ -9,10 +9,11 @@ from taktik.core.ai.dm_rules import (
     AiDmTextRefused,
     ai_dm_rules_from_payload,
     check_ai_dm_text,
+    check_ai_dm_texts,
     refuse_ai_dm_texts,
 )
 from taktik.core.contract.ai_dm import AI_DM_REFUSAL_REASON
-from unit.ai_dm_texts import EACH_REASON, FRENCH_ACCOUNT, WITHIN_RULES
+from unit.ai_dm_texts import BROKEN_TEXTS, EACH_REASON, FRENCH_ACCOUNT, WITHIN_RULES
 
 FRENCH = AiDmRules(base_language="fr")
 GOOD = WITHIN_RULES
@@ -109,9 +110,66 @@ def test_a_list_given_up_front_is_refused_on_its_first_broken_text_with_its_rank
         refuse_ai_dm_texts([GOOD, "Bonjour " + "a" * 604], FRENCH)
 
     refusal = refused.value.refusal
-    assert refusal.as_line() == {"reason": "too_long", "detail": "612 characters, 500 at most", "index": 2}
+    assert refusal.as_line() == {"reason": "too_long", "detail": "612 characters, 500 at most", "index": 2,
+                                 "measure": 612, "limit": 500}
     assert refusal.describe() == "message 2: 612 characters, 500 at most"
     assert str(refused.value) == "Text refused: message 2: 612 characters, 500 at most"
+
+
+# --- the measure, typed (the English `detail` is for a model; a screen says the rule from these) ---------
+
+
+def test_a_text_too_short_or_too_long_says_what_was_measured_and_the_bound_it_broke_as_numbers():
+    short = check_ai_dm_text("   Merci beaucoup !   ", FRENCH)
+    long = check_ai_dm_text("Bonjour " + "a" * 604, FRENCH)
+
+    assert (short.reason, short.measure, short.limit, short.term) == ("too_short", 16, 20, None)
+    assert (long.reason, long.measure, long.limit, long.term) == ("too_long", 612, 500, None)
+
+
+def test_a_forbidden_term_is_said_as_the_account_declared_it():
+    rules = AiDmRules(base_language="fr", forbidden_terms=("gratuit",))
+
+    refusal = check_ai_dm_text("Bonjour, la gratuité dure un mois entier pour toi", rules)
+
+    assert (refusal.reason, refusal.term, refusal.measure, refusal.limit) == ("forbidden_term", "gratuit", None, None)
+
+
+@pytest.mark.parametrize("reason", ["language", "link", "email", "phone"])
+def test_a_rule_with_nothing_to_count_carries_no_measure(reason):
+    refusal = check_ai_dm_text(BROKEN_TEXTS[reason], ai_dm_rules_from_payload(FRENCH_ACCOUNT))
+
+    assert refusal.reason == reason
+    assert (refusal.measure, refusal.limit, refusal.term) == (None, None, None)
+    assert set(refusal.as_line()) == {"reason", "detail"}
+
+
+def test_a_list_keeps_the_measure_of_each_refused_text_beside_its_rank():
+    refusals = check_ai_dm_texts([GOOD, "Bonjour " + "a" * 604, "Salut !"], FRENCH)
+
+    assert [(r.index, r.reason, r.measure, r.limit) for r in refusals] == [
+        (2, "too_long", 612, 500),
+        (3, "too_short", 7, 20),
+    ]
+    assert refusals[0].as_line() == {"reason": "too_long", "detail": "612 characters, 500 at most", "index": 2,
+                                     "measure": 612, "limit": 500}
+
+
+def test_a_term_found_in_a_list_is_kept_with_its_rank():
+    rules = AiDmRules(base_language="fr", forbidden_terms=("promo",))
+
+    with pytest.raises(AiDmTextRefused) as refused:
+        refuse_ai_dm_texts([GOOD, "Bonjour Léa, une promo pour toi pendant un mois entier"], rules)
+
+    assert refused.value.refusal.as_line() == {"reason": "forbidden_term", "detail": 'contains the forbidden term "promo"',
+                                               "index": 2, "term": "promo"}
+
+
+def test_the_measure_in_the_english_detail_is_the_typed_one():
+    for text in ("Merci !", "Bonjour " + "a" * 604):
+        refusal = check_ai_dm_text(text, FRENCH)
+
+        assert refusal.detail.startswith(f"{refusal.measure} characters, {refusal.limit} ")
 
 
 ENGLISH_REPLY = "Thanks a lot Lea, your bakery looks amazing, could we talk about it soon?"

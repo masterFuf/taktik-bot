@@ -60,6 +60,20 @@ class ForeignKeyError(ValueError):
     """A key handed to a provider is another provider's key; nothing was sent."""
 
 
+class MissingAIKeyError(RuntimeError):
+    """A run that asks for the AI (`contract/ai_request.py`) has no usable key, and nobody can be asked for one.
+
+    `error_code` is the code the app's launch gate gives the same refusal (`contract/error_codes.py`,
+    an expected refusal: the remedy is the operator's); the message names it first, so a host that prints
+    the exception (the CLI) says the same code.
+    """
+
+    error_code = "missing_ai_key"
+
+    def __init__(self, message: str):
+        super().__init__(f"{self.error_code}: {message}")
+
+
 def provider_of_prefix(api_key: str) -> Optional[str]:
     """The provider whose prefix the key carries, None when it carries none of them."""
     for provider, prefix in KEY_PREFIXES.items():
@@ -125,6 +139,7 @@ __all__ = [
     "KEY_ENV",
     "KEY_PREFIXES",
     "MIN_KEY_LENGTH",
+    "MissingAIKeyError",
     "check_key_for",
     "credential_from_env",
     "provider_of_prefix",

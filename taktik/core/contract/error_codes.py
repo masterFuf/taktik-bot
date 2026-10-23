@@ -16,7 +16,7 @@ catalogue to the codes the bridges and the core emit, read from the source: a co
 listed, or listed and emitted nowhere, is red, and so is a sentence shared by two codes.
 
 Some codes are not failures: a bridge refused to run, on purpose, on a state of the phone it checked
-before touching anything (`BRIDGE_REFUSAL_CODES`). The run did its job; the app says the sentence and
+before touching anything, or on a key it lacks (`BRIDGE_REFUSAL_CODES`). The run did its job; the app says the sentence and
 files no crash report for it. Every other code is a failure worth a report, a payload refused
 included (the app wrote that payload).
 """
@@ -66,6 +66,8 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     "information_window_unanswered": "errorPublishInformationWindowUnanswered",
     # The check of a DM written by an AI (`ai_dm_check_bridge`).
     "AI_DM_CHECK_INPUT": "errorAiDmCheckInput",
+    # A run that asks for the AI (`WorkflowContract.ai_request`) and has no usable key (`MissingAIKeyError`).
+    "missing_ai_key": "errorMissingAiKey",
     # The tools of the Cartography Lab (selector bench, workflow bench).
     "MISSING_CONFIG": "errorBridgeConfigMissing",
     "CONFIG_ERROR": "errorBridgeConfigUnreadable",
@@ -85,7 +87,8 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
 }
 
 #: The expected refusals: the phone has no network (the network door), the app the run needs is not
-#: on the phone. The remedy is the operator's, not a fix of the bot; the app's reading of a dead bridge
+#: on the phone, the run asks for the AI and no key is saved (the same code the app's launch gate gives).
+#: The remedy is the operator's, not a fix of the bot; the app's reading of a dead bridge
 #: (`crashErrorCode.ts`) files no crash report for an exit on one of them. Not here: what may be the
 #: bot's own fault (a device that does not connect, an IP rotation that failed, Instagram that does
 #: not start), and what is decided mid-run (a publication Instagram refuses).
@@ -93,6 +96,7 @@ BRIDGE_REFUSAL_CODES: Tuple[str, ...] = (
     "NETWORK_UNREACHABLE",
     "INSTAGRAM_NOT_INSTALLED",
     "APP_NOT_INSTALLED",
+    "missing_ai_key",
 )
 
 #: The codes, as the named closed set the `error` line refers to.

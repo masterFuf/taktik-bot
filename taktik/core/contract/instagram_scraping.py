@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .schema import HOST, Bounds, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
+    AI_REQUEST_BLOCK,
     ai_credential_fields,
     AI_ERROR_EVENT,
     AI_PROFILE_DONE_EVENT,
@@ -237,6 +238,7 @@ INSTAGRAM_SCRAPING = WorkflowContract(
     bridge="scraping_bridge",
     doc="Collect profiles from accounts' lists, hashtags, posts or a list of names, or the posts of accounts.",
     launcher=f"{_SCRAPING}.agent_handler:run_instagram_scraping",
+    ai_request=AI_REQUEST_BLOCK,
     reader=f"{_SCRAPING}.payload:scraping_config_from_payload",
     settings=_SETTINGS,
     bridge_fields=_BRIDGE_FIELDS,

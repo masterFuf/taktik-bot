@@ -9,7 +9,7 @@ target profiles, post URL), the follow-graph sync and the inbox are not declared
 from __future__ import annotations
 
 from .schema import HOST, NO_DEFAULT, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, STATUS_EVENT, ai_credential_fields, network_reset_field
+from .shared import AI_REQUEST_BLOCK, ERROR_EVENT, STATUS_EVENT, ai_credential_fields, network_reset_field
 from .tiktok_lines import AI_PROFILE_DONE_EVENT, BOT_PROFILE_EVENT
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
@@ -185,6 +185,7 @@ TIKTOK_FOR_YOU = WorkflowContract(
     bridge="tiktok_bridge",
     doc="Watch and act on the For You feed.",
     launcher=f"{_WORKFLOWS}.automation.for_you.agent_handler:run_tiktok_for_you",
+    ai_request=AI_REQUEST_BLOCK,
     reader=f"{_WORKFLOWS}.automation.for_you.payload:for_you_config_from_payload",
     settings=(
         *VIDEO_SETTINGS,
@@ -214,6 +215,7 @@ TIKTOK_SEARCH = WorkflowContract(
     doc="Search one or more queries (accounts or hashtags) and act on the videos found; the budgets "
         "are shared between the queries.",
     launcher=f"{_WORKFLOWS}.automation.search.agent_handler:run_tiktok_search",
+    ai_request=AI_REQUEST_BLOCK,
     reader=_VIDEO_READER,
     settings=(
         *VIDEO_SETTINGS,

@@ -55,8 +55,14 @@ AI_DM_TEXT_REFUSAL = Shape(
     doc="A DM written by an AI the bot refused to send, and why, for the model to write it again.",
     fields=(
         Field("reason", AI_DM_REFUSAL_REASON, "The rule it breaks."),
-        Field("detail", "string", "The same, measured (`612 characters, 500 at most`)."),
+        Field("detail", "string", "The same, measured, in English for a model (`612 characters, 500 at most`)."),
         Field("index", "int", "Its rank in the list it came in, from 1.", optional=True),
+        Field("measure", "int", "What was measured, for a screen to say it in its own language: the length of a "
+              "text `too_short` or `too_long`, in characters. Absent for the other reasons.", optional=True),
+        Field("limit", "int", "The bound the measure broke: `AI_DM_MIN_CHARS` (`too_short`) or `AI_DM_MAX_CHARS` "
+              "(`too_long`). Absent for the other reasons.", optional=True),
+        Field("term", "string", "The forbidden term the text holds, as the account's frame declares it "
+              "(`forbidden_term`). Absent for the other reasons.", optional=True),
     ),
 )
 

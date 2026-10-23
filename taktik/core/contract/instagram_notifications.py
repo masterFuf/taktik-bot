@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from .ai_dm import ai_dm_rules_field, ai_dm_text_refusal_field
 from .instagram_automation import INSTAGRAM_AUTOMATION
-from .schema import HOST, Bounds, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
+from .schema import HOST, AiRequest, Bounds, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
     AI_ERROR_EVENT,
     AI_PROFILE_DONE_EVENT,
@@ -43,6 +43,8 @@ NOTIFICATION_TYPES = OneOf((
 BATCH_VERBS = (*ROW_COMMANDS, "reply", "welcome_dm", "follow_actor")
 
 _SCAN = {"command": "scan"}
+#: Only the scan qualifies the suggestions it visits, by the run's `ai` block: the other commands never ask.
+_AI_ON_SCAN = AiRequest(when={**_SCAN, "ai.enabled": True})
 _BATCH = {"command": "batch"}
 
 #: A daily cap as the Notifications page writes it, declared once (`Field.bounds`).
@@ -202,6 +204,7 @@ INSTAGRAM_NOTIFICATIONS = WorkflowContract(
     bridge="notifications_bridge",
     doc="Read the activity feed and act on it, one command per run.",
     launcher=f"{_NOTIFICATIONS}.agent_handler:run_instagram_notifications",
+    ai_request=_AI_ON_SCAN,
     reader=f"{_NOTIFICATIONS}.payload:notifications_request_from_payload",
     selector="command",
     settings=(

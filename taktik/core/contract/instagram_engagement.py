@@ -9,6 +9,7 @@ from __future__ import annotations
 from .ai_dm import ai_dm_rules_field, ai_dm_text_refusal_field
 from .schema import HOST, Bounds, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
+    AI_REQUEST_MESSAGES,
     ai_credential_fields,
     AI_SPEND_EVENT,
     ERROR_CODE_FIELD,
@@ -30,6 +31,7 @@ INSTAGRAM_COLD_DM = WorkflowContract(
     bridge="cold_dm_bridge",
     doc="Write to a list of accounts the acting account never wrote to.",
     launcher=f"{_WORKFLOWS}.cold_dm.agent_handler:run_instagram_cold_dm",
+    ai_request=AI_REQUEST_MESSAGES,
     reader=f"{_WORKFLOWS}.cold_dm.payload:cold_dm_request_from_payload",
     reader_kwargs={"default_session_id": "<device>"},
     settings=(

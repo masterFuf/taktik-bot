@@ -169,6 +169,20 @@ class Refusal:
 
 
 @dataclass(frozen=True)
+class AiRequest:
+    """How a run asks for the AI, and so needs a key (`missing_ai_key`): under some settings, or always.
+
+    when  the settings under which it asks, as `Field.when`: a dotted setting path to the value that turns
+          the AI on (`{"ai.enabled": True}`, `{"messageMode": "ai"}`); a tuple: any of its values. None at
+          all: every run of the workflow asks (the Taktik Agent: a model decides each gesture).
+
+    A workflow that declares no request never asks for the AI. `contract/ai_request.py` reads it.
+    """
+
+    when: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class Event:
     """One JSON line a bridge prints on stdout, named by its `type`."""
 
@@ -198,6 +212,7 @@ class WorkflowContract:
     refusals        what the launcher refuses before the phone is touched
     selector        the setting that picks the workflow among `workflow_id` and `also`, when
                     they read the same file for different runs
+    ai_request      how a run of the workflow asks for the AI, and so for a key; None: it never does
     """
 
     workflow_id: str
@@ -216,6 +231,7 @@ class WorkflowContract:
     events: Tuple[Event, ...] = ()
     refusals: Tuple[Refusal, ...] = ()
     selector: Optional[str] = None
+    ai_request: Optional[AiRequest] = None
 
     @property
     def serves(self) -> Tuple[str, ...]:
@@ -285,6 +301,7 @@ def scalar_default(item: Field) -> bool:
 
 
 __all__ = [
+    "AiRequest",
     "Bounds",
     "Computed",
     "Event",

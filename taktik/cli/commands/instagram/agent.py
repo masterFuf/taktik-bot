@@ -26,7 +26,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from taktik.cli.hosts.ai_key import MISSING_KEY_EXIT, MissingAIKeyError, ensure_ai_key, is_interactive
+from taktik.cli.hosts.ai_key import MissingAIKeyError, ensure_ai_key, exit_without_key, is_interactive
 from taktik.core.contract.instagram_agent import INSTAGRAM_TAKTIK_AGENT
 
 console = Console()
@@ -104,8 +104,7 @@ def run_agent(device_id: str | None, params: tuple[str, ...]) -> None:
     try:
         credential = ensure_ai_key(AGENT_WORKFLOW_ID, config, interactive=is_interactive(), echo=console.print)
     except MissingAIKeyError as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise SystemExit(MISSING_KEY_EXIT)
+        exit_without_key(exc, console)
 
     # Chosen, not connected: the launcher reads and validates the session's config, then connects.
     phone = _choose_phone(device_id)
