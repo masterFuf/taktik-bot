@@ -12,7 +12,7 @@ stdout, the per-target events and live callbacks, the final stats.
 
 from typing import Any, Dict
 
-from bridges.common.entrypoint import send_import_error
+from bridges.common.entrypoint import send_run_error
 from bridges.tiktok.common.ipc import logger, send_error, send_status, set_workflow
 from bridges.tiktok.common.startup import tiktok_startup
 from bridges.tiktok.automation.ai import install_run_ai_hooks
@@ -86,11 +86,6 @@ def run_followers_workflow(config: Dict[str, Any]):
         )
         return True
 
-    except ImportError as exc:
-        send_import_error(exc)
-        return False
     except Exception as exc:
-        error_msg = f"Followers workflow error: {exc}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_run_error(f"Followers workflow error: {exc}", exc)
         return False

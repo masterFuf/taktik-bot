@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from bridges.common.entrypoint import send_import_error
+from bridges.common.entrypoint import send_run_error
 from bridges.common.network import enforce_pre_session_ip_rotation
 from bridges.tiktok.common.ipc import _ipc, logger, send_error, send_status, set_workflow
 from bridges.tiktok.common.startup import tiktok_startup_provider
@@ -20,8 +20,8 @@ from bridges.tiktok.common.startup import tiktok_startup_provider
 def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok Unfollow workflow.
 
-    Every import of the run sits in the `try`: one that fails is `send_import_error`, not the
-    bridge's "Startup error: ..." with no code.
+    Every import of the run sits in the `try`: one that fails is said with the bot's code
+    (`send_run_error` hands it to `send_import_error`), like the other TikTok runners.
     """
     try:
         from taktik.core.social_media.tiktok.workflows.automation.unfollow.agent_handler import (
@@ -53,13 +53,8 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
         )
         return True
 
-    except ImportError as e:
-        send_import_error(e)
-        return False
     except Exception as e:
-        error_msg = f"Unfollow workflow error: {e}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_run_error(f"Unfollow workflow error: {e}", e)
         return False
 
 

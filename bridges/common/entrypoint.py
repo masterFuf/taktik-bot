@@ -93,6 +93,21 @@ def send_import_error(exc: ImportError) -> None:
     _ipc.send("error", **exception_event(type(exc), exc, exc.__traceback__))
 
 
+def send_run_error(message: str, exc: BaseException, **extra: Any) -> None:
+    """A run that an exception ended, in its bridge's words: the `error` line with the traceback.
+
+    For a run that catches its own failure and returns (the TikTok workflow runners): the bridge
+    keeps its words (`message`) and the code it passes in `extra`, the line carries the traceback
+    the crash report needs (`crash_hooks.exception_event`), and the traceback goes to stderr too.
+    An import that failed is `send_import_error`, whatever the words.
+    """
+    if isinstance(exc, ImportError):
+        send_import_error(exc)
+        return
+    logger.opt(exception=exc).error(message)
+    _ipc.error(message, traceback=exception_event(type(exc), exc, exc.__traceback__)["traceback"], **extra)
+
+
 def report_entry_error(message: str, reason: str) -> None:
     """The default shape: the usage line for a missing file, an `error` event for the rest."""
     if reason == MISSING_CONFIG:

@@ -43,15 +43,16 @@ def test_the_tiktok_dispatcher_leaves_a_crash_to_the_entry_and_still_stops_tikto
     which a test does not reach."""
     import sys
 
-    from bridges.common import bridge_base, entrypoint
+    from bridges.common import entrypoint
+    from bridges.common.ipc import IPC
     from bridges.tiktok.automation import dispatcher
 
     config_path = tmp_path / "config.json"
     config_path.write_text('{"workflowType": "followers", "deviceId": "gate-phone"}', encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["tiktok_bridge", str(config_path)])
     lines = []
-    for ipc in (entrypoint._ipc, bridge_base._ipc):
-        monkeypatch.setattr(ipc, "send", lambda msg_type, **data: lines.append({"type": msg_type, **data}))
+    # On the class: every IPC of the process (the entry's, the bridge's) prints through it.
+    monkeypatch.setattr(IPC, "send", lambda self, msg_type, **data: lines.append({"type": msg_type, **data}))
     stopped = []
     monkeypatch.setattr(dispatcher, "reset_network_if_enabled", lambda config, device_id: True)
     monkeypatch.setattr(dispatcher, "force_stop_tiktok", stopped.append)

@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from bridges.common import crash_hooks, entrypoint
+from bridges.common.ipc import IPC
 from unit.paths import CORE
 
 sys.path.insert(0, str(CORE / "scripts/audits"))
@@ -91,7 +92,9 @@ def test_the_entry_says_an_import_that_reaches_it_with_the_bots_code(tmp_path, m
     config_path.write_text("{}", encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["bridge", str(config_path)])
     sent = []
-    monkeypatch.setattr(entrypoint._ipc, "send", lambda msg_type, **data: sent.append({"type": msg_type, **data}))
+    # On the class: patched on the instance, the undo would leave the bound method in its `__dict__`,
+    # and a later test patching `IPC.send` would no longer see this IPC's lines.
+    monkeypatch.setattr(IPC, "send", lambda self, msg_type, **data: sent.append({"type": msg_type, **data}))
     reported = []
 
     with pytest.raises(SystemExit) as exit_:

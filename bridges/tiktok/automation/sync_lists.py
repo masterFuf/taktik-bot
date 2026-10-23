@@ -13,7 +13,7 @@ the startup that prints on stdout, the live row events and the final stats.
 
 from typing import Any, Dict
 
-from bridges.common.entrypoint import send_import_error
+from bridges.common.entrypoint import send_run_error
 from bridges.tiktok.common.ipc import (
     logger,
     send_error,
@@ -100,13 +100,8 @@ def run_sync_lists_workflow(config: Dict[str, Any]) -> bool:
             return False
         return result["success"]
 
-    except ImportError as exc:
-        send_import_error(exc)
-        return False
     except Exception as exc:
-        error_msg = f"TikTok sync workflow error: {exc}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_run_error(f"TikTok sync workflow error: {exc}", exc)
         return False
 
 
