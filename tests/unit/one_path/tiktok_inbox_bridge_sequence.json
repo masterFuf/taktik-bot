@@ -165,7 +165,8 @@
       [
         "error",
         {
-          "error": "Activity read error: Failed to restart TikTok app"
+          "error": "Activity read error: Failed to restart TikTok app",
+          "traceback": "<traceback>"
         }
       ]
     ],
@@ -771,7 +772,8 @@
       [
         "error",
         {
-          "error": "New followers error: Failed to restart TikTok app"
+          "error": "New followers error: Failed to restart TikTok app",
+          "traceback": "<traceback>"
         }
       ]
     ],
@@ -4169,7 +4171,8 @@
       [
         "error",
         {
-          "error": "Message requests error: Failed to restart TikTok app"
+          "error": "Message requests error: Failed to restart TikTok app",
+          "traceback": "<traceback>"
         }
       ]
     ],
@@ -4446,7 +4449,8 @@
       [
         "error",
         {
-          "error": "Unreplied scrape error: Failed to restart TikTok app"
+          "error": "Unreplied scrape error: Failed to restart TikTok app",
+          "traceback": "<traceback>"
         }
       ]
     ],

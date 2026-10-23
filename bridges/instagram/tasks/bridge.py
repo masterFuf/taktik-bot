@@ -18,6 +18,7 @@ import signal
 
 from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
+from bridges.common.entrypoint import send_run_error
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.instagram.common.ipc import _ipc, send_error, send_message, send_status
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
@@ -71,7 +72,7 @@ class TaskBridge:
 
             configure_db_service()
         except Exception as e:  # noqa: BLE001
-            send_error(f"Database setup failed: {e}")
+            send_run_error(f"Database setup failed: {e}", e)
             return None
 
         send_status("connecting", f"Connecting to device {self.device_id}...")

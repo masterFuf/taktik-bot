@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from bridges.common.entrypoint import send_import_error
+from bridges.common.entrypoint import send_run_error
 from bridges.tiktok.common.ipc import _ipc, logger, send_error
 
 
@@ -35,14 +35,12 @@ class TikTokDispatcherBridge:
                 return 0
             logger.error(f"❌ TikTok {workflow_type} workflow failed")
             return 1
-        except ImportError as e:
-            send_import_error(e)
-            return 1
         except UnknownWorkflowError:
             return 1
         except Exception as e:
-            send_error(f"Workflow error: {e}")
-            logger.exception(f"Unexpected error in {workflow_type} workflow: {e}")
+            # A runner that does not catch its own failure (notifications) ends here: its words,
+            # with the traceback, and an import with the bot's code (`send_run_error`).
+            send_run_error(f"Workflow error: {e}", e)
             return 1
         finally:
             force_stop_tiktok(device_id)

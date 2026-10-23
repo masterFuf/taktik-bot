@@ -25,7 +25,7 @@ follower its lock left out (`wrote_to_us`, `already_dmed`, `conversation_exists`
 
 from typing import Any, Dict
 
-from bridges.common.entrypoint import send_import_error
+from bridges.common.entrypoint import send_run_error
 from bridges.tiktok.common.ipc import _ipc, logger, send_error, set_workflow
 from bridges.tiktok.common.startup import tiktok_startup_provider
 
@@ -73,13 +73,8 @@ def run_new_followers_workflow(config: Dict[str, Any]):
         )
         return True
 
-    except ImportError as e:
-        send_import_error(e)
-        return False
     except Exception as e:
-        error_msg = f"New followers error: {e}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_run_error(f"New followers error: {e}", e)
         return False
 
 

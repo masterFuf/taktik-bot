@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from bridges.common.entrypoint import send_import_error
+from bridges.common.entrypoint import send_run_error
 from bridges.common.network import enforce_pre_session_ip_rotation
 from bridges.tiktok.common.ipc import _ipc, logger, send_error, send_status, set_workflow
 from bridges.tiktok.common.startup import tiktok_startup_provider
@@ -20,8 +20,8 @@ from bridges.tiktok.common.startup import tiktok_startup_provider
 def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
     """Run the TikTok Unfollow workflow.
 
-    Every import of the run sits in the `try`: one that fails is `send_import_error`, not the
-    bridge's "Startup error: ..." with no code.
+    Every import of the run sits in the `try`: one that fails is said with the bot's code
+    (`send_run_error` hands it to `send_import_error`), like the other TikTok runners.
     """
     try:
         from taktik.core.social_media.tiktok.workflows.automation.unfollow.agent_handler import (
@@ -53,46 +53,39 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
         )
         return True
 
-    except ImportError as e:
-        send_import_error(e)
-        return False
     except Exception as e:
-        error_msg = f"Unfollow workflow error: {e}"
-        logger.error(error_msg)
-        send_error(error_msg)
+        send_run_error(f"Unfollow workflow error: {e}", e)
         return False
 
 
 class TikTokUnfollowBridge:
     """One `tiktok_unfollow_bridge` process: the app's `{device_id, config}`, the IP rotation the
-    page asks for, then the run."""
+    page asks for, then the run.
+
+    An exception it has nothing to add to rises to `run_bridge_main`, which says it once
+    ("Bridge crashed: ...", traceback on stderr) and exits 1."""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
 
     def run(self) -> int:
         logger.info("🎵 TikTok Unfollow Bridge starting...")
-        try:
-            device_id = self.config.get("device_id")
-            config = self.config.get("config", {})
-            config["deviceId"] = device_id
+        device_id = self.config.get("device_id")
+        config = self.config.get("config", {})
+        config["deviceId"] = device_id
 
-            logger.info(f"📋 Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
+        logger.info(f"📋 Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
 
-            # The page offers "reset IP before the run".
-            if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Unfollow"):
-                return 1
-
-            if run_unfollow_workflow(config):
-                logger.success("✅ TikTok Unfollow workflow completed successfully")
-                return 0
-
-            logger.error("❌ TikTok Unfollow workflow failed")
+        # The page offers "reset IP before the run".
+        if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Unfollow"):
             return 1
-        except Exception as e:
-            send_error(f"Startup error: {e}")
-            logger.exception(f"Unexpected error: {e}")
-            return 1
+
+        if run_unfollow_workflow(config):
+            logger.success("✅ TikTok Unfollow workflow completed successfully")
+            return 0
+
+        logger.error("❌ TikTok Unfollow workflow failed")
+        return 1
 
 
 __all__ = ["TikTokUnfollowBridge", "run_unfollow_workflow"]

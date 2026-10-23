@@ -825,7 +825,8 @@
       [
         "error",
         {
-          "error": "DM workflow error: Failed to restart TikTok app"
+          "error": "DM workflow error: Failed to restart TikTok app",
+          "traceback": "<traceback>"
         }
       ]
     ],
@@ -1600,7 +1601,8 @@
       [
         "error",
         {
-          "error": "DM send error: Failed to restart TikTok app"
+          "error": "DM send error: Failed to restart TikTok app",
+          "traceback": "<traceback>"
         }
       ]
     ],

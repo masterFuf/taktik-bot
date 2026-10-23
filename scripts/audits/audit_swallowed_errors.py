@@ -64,11 +64,12 @@ class Finding:
     line: int
 
 
-def _is_broad_type(node: Optional[ast.expr]) -> bool:
+def is_broad_type(node: Optional[ast.expr]) -> bool:
+    """A bare `except:`, or `Exception` / `BaseException` alone or in a tuple (shared with the bridge gate)."""
     if node is None:
         return True
     if isinstance(node, ast.Tuple):
-        return any(_is_broad_type(elt) for elt in node.elts)
+        return any(is_broad_type(elt) for elt in node.elts)
     if isinstance(node, ast.Name):
         return node.id in BROAD_NAMES
     if isinstance(node, ast.Attribute):
@@ -77,7 +78,8 @@ def _is_broad_type(node: Optional[ast.expr]) -> bool:
     return False
 
 
-def _dotted_parts(node: ast.expr) -> List[str]:
+def dotted_parts(node: ast.expr) -> List[str]:
+    """`self._ipc.error` -> ["error", "_ipc", "self"]: the names of a dotted expression, last first."""
     parts: List[str] = []
     while True:
         if isinstance(node, ast.Attribute):
@@ -101,13 +103,13 @@ def _is_report_call(call: ast.Call) -> bool:
     func = call.func
     if isinstance(func, ast.Name):
         if func.id == "print":
-            return any(kw.arg == "file" and "stderr" in _dotted_parts(kw.value)
+            return any(kw.arg == "file" and "stderr" in dotted_parts(kw.value)
                        for kw in call.keywords)
         name = func.id.lower().lstrip("_")
         return name == "log" or name.startswith("log_")
     if not isinstance(func, ast.Attribute):
         return False
-    owner = _dotted_parts(func.value)
+    owner = dotted_parts(func.value)
     if func.attr == "warn" and owner == ["warnings"]:
         return True
     if func.attr in ("print_exc", "print_exception") and owner == ["traceback"]:
@@ -115,7 +117,8 @@ def _is_report_call(call: ast.Call) -> bool:
     return func.attr in LOG_METHODS and any(_names_a_logger(part) for part in owner)
 
 
-def _walk_body(statements: Iterable[ast.stmt]) -> Iterator[ast.AST]:
+def walk_body(statements: Iterable[ast.stmt]) -> Iterator[ast.AST]:
+    """Every node of a handler's body, nested `def`/`lambda`/`class` left out."""
     stack: List[ast.AST] = [node for node in statements if not isinstance(node, NESTED_SCOPES)]
     while stack:
         node = stack.pop()
@@ -125,9 +128,9 @@ def _walk_body(statements: Iterable[ast.stmt]) -> Iterator[ast.AST]:
 
 
 def handler_swallows(handler: ast.ExceptHandler) -> bool:
-    if not _is_broad_type(handler.type):
+    if not is_broad_type(handler.type):
         return False
-    for node in _walk_body(handler.body):
+    for node in walk_body(handler.body):
         if isinstance(node, ast.Raise):
             return False
         if isinstance(node, ast.Call) and _is_report_call(node):

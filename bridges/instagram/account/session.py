@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from taktik.core.shared.device.app_manager import AppService
 from taktik.core.shared.device.connection import ConnectionService
+from bridges.common.entrypoint import send_run_error
 from bridges.instagram.common.ipc import send_error, send_status
 
 
@@ -16,7 +17,7 @@ class AccountSessionLifecycleMixin:
 
             configure_db_service()
         except Exception as e:
-            send_error(f"Database setup failed: {e}")
+            send_run_error(f"Database setup failed: {e}", e)
             return None
 
         send_status("connecting", f"Connecting to device {self.device_id}...")

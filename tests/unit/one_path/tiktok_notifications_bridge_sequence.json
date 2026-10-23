@@ -1519,7 +1519,8 @@
       [
         "error",
         {
-          "error": "Workflow error: Failed to restart TikTok app"
+          "error": "Workflow error: Failed to restart TikTok app",
+          "traceback": "<traceback>"
         }
       ]
     ],
