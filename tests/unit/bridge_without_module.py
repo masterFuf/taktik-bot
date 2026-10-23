@@ -5,6 +5,7 @@
 A broken install, played: importing `<module>` raises `ModuleNotFoundError`, whoever imports it and
 whenever. Used by `tests/unit/bridges/test_import_error_has_the_bots_code.py` and by the app's gate
 `npm run crash:bridges`, which reads what the real bridge says through the app's own capture.
+`tests/unit/bridge_with_fault.py` runs the launcher the same way, through `run_launcher`.
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-LAUNCHER = HERE.parents[1] / "bridges" / "launcher.py"
+CORE = HERE.parents[1]
+LAUNCHER = CORE / "bridges" / "launcher.py"
 
 
 class _Missing:
@@ -29,13 +31,25 @@ class _Missing:
         return None
 
 
+def import_path_of_a_bridge() -> None:
+    """The import path the app gives a bridge: the engine, never the test packages of this folder
+    (`shared`, `ai`...), which a bridge must not see."""
+    sys.path[:] = [entry for entry in sys.path if entry and Path(entry).resolve() != HERE]
+    if str(CORE) not in sys.path:
+        sys.path.insert(0, str(CORE))
+
+
+def run_launcher(bridge_args: list[str]) -> None:
+    """`bridges/launcher.py <bridge> <config_path>`, in this process, as the app starts it."""
+    sys.argv = [str(LAUNCHER)] + bridge_args
+    runpy.run_path(str(LAUNCHER), run_name="__main__")
+
+
 def main() -> None:
     blocked = sys.argv[1]
-    # The folder of this script holds test packages (`shared`, `ai`...) a bridge must not see.
-    sys.path[:] = [entry for entry in sys.path if entry and Path(entry).resolve() != HERE]
+    import_path_of_a_bridge()
     sys.meta_path.insert(0, _Missing(blocked))
-    sys.argv = [str(LAUNCHER)] + sys.argv[2:]
-    runpy.run_path(str(LAUNCHER), run_name="__main__")
+    run_launcher(sys.argv[2:])
 
 
 if __name__ == "__main__":
