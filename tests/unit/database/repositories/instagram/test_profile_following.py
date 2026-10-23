@@ -12,6 +12,8 @@ about the size of every following list ever saved.
 """
 
 import sqlite3
+import warnings
+from datetime import datetime, timezone
 
 import pytest
 
@@ -124,6 +126,21 @@ def test_a_classification_is_written_once(repo):
         "SELECT niche_category, gender FROM profile_following WHERE following_username = 'b1'"
     ).fetchone()
     assert tuple(stored) == ("sport", "f")
+
+
+def test_the_classification_time_is_utc_and_asks_no_deprecated_clock(repo):
+    """`datetime.utcnow()` is deprecated since Python 3.12 and warns. The time written is the
+    same UTC wall clock, in the same `YYYY-MM-DD HH:MM:SS` text, taken from an aware clock."""
+    repo.save_edges("alice", ["b1"])
+    before = datetime.now(timezone.utc).replace(microsecond=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        assert repo.save_classifications({"b1": {"niche_category": "sport"}}) == 1
+    after = datetime.now(timezone.utc)
+
+    stored = repo.conn.execute("SELECT classified_at FROM profile_following").fetchone()[0]
+    written = datetime.strptime(stored, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    assert before <= written <= after
 
 
 def test_the_enriched_read_does_not_surface_the_edge_classification(repo):
