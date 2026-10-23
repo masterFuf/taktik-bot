@@ -27,7 +27,6 @@
   "bridges/tiktok/account/account_logout.py::TikTokAccountLogoutMixin._run_logout": 1,
   "bridges/tiktok/account/account_register.py::TikTokAccountRegisterMixin._run_register": 1,
   "bridges/tiktok/account/account_session.py::TikTokAccountSessionMixin._setup_database": 1,
-  "bridges/tiktok/automation/dispatcher.py::TikTokDispatcherBridge.run": 1,
   "bridges/tiktok/automation/followers.py::run_followers_workflow": 1,
   "bridges/tiktok/automation/for_you.py::run_for_you_workflow": 1,
   "bridges/tiktok/automation/inbox/activity.py::run_activity_workflow": 1,
