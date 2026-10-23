@@ -1110,7 +1110,8 @@ class LocalDatabaseService:
         Uses INSERT OR IGNORE so re-running the same profile never raises
         a UNIQUE constraint error.
 
-        Returns the number of newly inserted rows.
+        Returns the number of newly inserted rows. A refused write raises after
+        a rollback (never 0, which would read as "every edge already known").
         """
         return self._profile_following.save_edges(
             profile_username=profile_username,
@@ -1130,7 +1131,8 @@ class LocalDatabaseService:
             {username: {"niche_category": ..., "niche": ..., "gender": ...}}
 
         Only updates rows where classified_at IS NULL (never classify twice).
-        Returns the total number of rows updated.
+        Returns the total number of rows updated. A refused write raises after
+        a rollback.
         """
         return self._profile_following.save_classifications(classifications)
 
@@ -1141,6 +1143,7 @@ class LocalDatabaseService:
         """
         Return distinct following_username values that have no classification yet
         (classified_at IS NULL). Used by the batch classifier to find pending work.
+        A refused read raises (never [], which would read as "nothing pending").
         """
         return self._profile_following.unclassified_usernames(limit)
 
@@ -1157,6 +1160,7 @@ class LocalDatabaseService:
 
         Each row contains: profile_username, discovered_at, and (when
         available via JOIN) niche_category, niche, cities, profession.
+        A refused read raises.
         """
         return self._profile_following.profiles_following(following_username, limit)
 
@@ -1170,6 +1174,7 @@ class LocalDatabaseService:
 
         Each row: following_username, discovered_at, niche_category,
         niche, cities, profession (all nullable when unknown).
+        A refused read raises.
         """
         return self._profile_following.following_of(profile_username)
 

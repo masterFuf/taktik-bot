@@ -185,19 +185,23 @@ class DeepQualifyMixin:
 
         Ensures the scraped profile exists in ``instagram_profiles`` first so the
         ``profile_id`` FK can be populated immediately (no NULL / orphan rows).
-        Fire-and-forget: errors are swallowed so the scraping flow is never interrupted.
+
+        The scraping goes on when the base refuses the list, but the loss is said at
+        warning level with its size and cause: the edges feed the seed lists, and a
+        list that was never stored must not read as one that held nothing new.
         """
+        log = self.logger
+        session_id = str(getattr(self, '_scraping_id', None) or '')
+        profile_id: Optional[int] = None
         try:
             db = self._local_db()
-            session_id = str(getattr(self, '_scraping_id', None) or '')
-
-            # Ensure the profile has a row in instagram_profiles so profile_id FK is valid
-            profile_id: Optional[int] = None
+            # Ensure the profile has a row in instagram_profiles so profile_id FK is valid.
+            # Without it the repository looks the id up itself: the edges are still saved.
             try:
                 pid, _ = db.get_or_create_profile({'username': profile_username})
                 profile_id = pid
             except Exception as e:
-                self.logger.debug(f"[deep_qualify] Could not ensure profile in DB for @{profile_username}: {e}")
+                log.debug(f"[deep_qualify] Could not ensure profile in DB for @{profile_username}: {e}")
 
             inserted = db.save_profile_followings(
                 profile_username=profile_username,
@@ -205,21 +209,29 @@ class DeepQualifyMixin:
                 session_id=session_id or None,
                 profile_id=profile_id,
             )
-            self.logger.debug(
-                f"[deep_qualify] @{profile_username} (id={profile_id}): {inserted} new following edge(s) saved to DB"
-            )
         except Exception as e:
-            self.logger.debug(f"[deep_qualify] _save_followings_to_db failed for @{profile_username}: {e}")
+            log.warning(
+                f"[deep_qualify] the following list of @{profile_username} "
+                f"({len(following_usernames)} account(s)) could not be saved: {e}"
+            )
+            return
+        log.debug(
+            f"[deep_qualify] @{profile_username} (id={profile_id}): {inserted} new following edge(s) saved to DB"
+        )
 
     def _classify_new_followings(self, following_usernames: List[str]) -> None:
         """
         Batch-classify following usernames that don't have a niche/gender yet.
 
         Uses the text-only AI service (no screenshot needed — username is the sole
-        signal). Fire-and-forget: errors never interrupt the scraping flow.
+        signal). Errors never interrupt the scraping flow.
 
         Only fires when ``_ai_service`` is available on the workflow instance
         (i.e. AI mode is enabled and an OpenRouter key is configured).
+
+        When the pending list cannot be read, nothing is sent to the AI (a paid call
+        for accounts that may be classified already) and the skip is said at warning
+        level: an unread list is not an empty one.
         """
         ai_service = getattr(self, '_ai_service', None)
         if ai_service is None:
@@ -229,16 +241,24 @@ class DeepQualifyMixin:
             db = self._local_db()
             # Only classify usernames that don't have a classification yet
             pending = db.get_unclassified_following_usernames(limit=500)
-            # Intersect with the current batch so we only process relevant ones
-            to_classify = [u for u in following_usernames if u in set(pending)]
-            if not to_classify:
-                return
-            log.debug(
-                f"[deep_qualify] classifying {len(to_classify)} new following username(s) via LLM"
+        except Exception as e:
+            log.warning(
+                f"[deep_qualify] the following accounts awaiting a classification could not be read, "
+                f"{len(following_usernames)} account(s) of this list left unclassified: {e}"
             )
+            return
+        # Intersect with the current batch so we only process relevant ones
+        pending_set = set(pending)
+        to_classify = [u for u in following_usernames if u in pending_set]
+        if not to_classify:
+            return
+        log.debug(
+            f"[deep_qualify] classifying {len(to_classify)} new following username(s) via LLM"
+        )
+        try:
             classifications = ai_service.classify_following_usernames_batch(to_classify)
         except Exception as e:
-            log.debug(f"[deep_qualify] _classify_new_followings failed: {e}")
+            log.debug(f"[deep_qualify] the AI could not classify {len(to_classify)} following account(s): {e}")
             return
         if not classifications:
             return

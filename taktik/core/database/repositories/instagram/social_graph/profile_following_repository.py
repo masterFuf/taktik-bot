@@ -11,12 +11,14 @@ The enriched reads go through the shared `profile_ai_read_model` (one module for
 Instagram domain), which inspects the schema before building its SELECT: the AI columns live
 in `profile_qualification` on a desktop base and in `profile_ai_enrichments` on a standalone
 one. Asking SQLite what exists beats assuming.
+
+No method here swallows a refusal of the base: a write rolls back and raises, a read raises.
+A 0 or an empty list would read as a measure ("nothing new", "nothing pending"), and only the
+caller knows whether its run goes on and what to say.
 """
 
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-
-from loguru import logger
 
 from ..._base.base_repository import BaseRepository
 from ..profile_ai_read_model import profile_ai_read_model
@@ -41,8 +43,15 @@ class ProfileFollowingRepository(BaseRepository):
         `executemany`, `changes()` reports the last statement only: inserting 200 edges
         returned 1. The caller logs this number, so the trace claimed one new edge for a
         list of two hundred.
+
+        A refused write raises, after a rollback: returning 0 would read as "every edge
+        already known", and the first edges of a refused list would wait in the open
+        transaction for the next commit of another repository on the same connection.
         """
         if not profile_username or not following_usernames:
+            return 0
+        clean = [u for u in following_usernames if u]
+        if not clean:
             return 0
         try:
             if profile_id is None:
@@ -52,10 +61,6 @@ class ProfileFollowingRepository(BaseRepository):
                 )
                 if row:
                     profile_id = row[0]
-
-            clean = [u for u in following_usernames if u]
-            if not clean:
-                return 0
 
             # One query to resolve every known following account, rather than one per name.
             placeholders = ",".join("?" * len(clean))
@@ -78,11 +83,11 @@ class ProfileFollowingRepository(BaseRepository):
                 ],
             )
             inserted = cursor.rowcount if cursor.rowcount and cursor.rowcount > 0 else 0
-            self.conn.commit()
-            return inserted
-        except Exception as exc:
-            logger.debug(f"save_edges failed for @{profile_username}: {exc}")
-            return 0
+        except Exception:
+            self.conn.rollback()
+            raise
+        self.conn.commit()
+        return inserted
 
     def save_classifications(self, classifications: Dict[str, Dict[str, str]]) -> int:
         """Persist AI-inferred niche/gender for following accounts. Returns rows updated.
@@ -122,83 +127,78 @@ class ProfileFollowingRepository(BaseRepository):
         return updated
 
     def unclassified_usernames(self, limit: int = 200) -> List[str]:
-        """Following accounts still awaiting a classification, newest discovery first."""
-        try:
-            rows = self.query(
-                """
-                SELECT DISTINCT following_username
-                FROM profile_following
-                WHERE classified_at IS NULL
-                ORDER BY discovered_at DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
-            return [r[0] for r in rows]
-        except Exception as exc:
-            logger.debug(f"unclassified_usernames failed: {exc}")
-            return []
+        """Following accounts still awaiting a classification, newest discovery first.
+
+        A refused read raises: an empty list would read as "nothing left to classify".
+        """
+        rows = self.query(
+            """
+            SELECT DISTINCT following_username
+            FROM profile_following
+            WHERE classified_at IS NULL
+            ORDER BY discovered_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return [r[0] for r in rows]
 
     def profiles_following(self, following_username: str,
                            limit: int = 500) -> List[Dict[str, Any]]:
-        """Everyone we know of who follows `following_username` — the seed-list read."""
-        try:
-            ai = profile_ai_read_model(self.conn, "p")
-            rows = self.query(
-                f"""
-                SELECT
-                    pf.profile_username,
-                    pf.profile_id,
-                    pf.discovered_at,
-                    {ai["niche"]} AS niche_category,
-                    {ai["sub_niche"]} AS niche,
-                    {ai["city"]} AS cities,
-                    {ai["profession"]} AS profession
-                FROM profile_following pf
-                LEFT JOIN instagram_profiles p
-                    ON p.profile_id = pf.profile_id
-                {ai["join"]}
-                WHERE pf.following_username = ?
-                ORDER BY pf.discovered_at DESC
-                LIMIT ?
-                """,
-                (following_username, limit),
-            )
-            return [dict(r) for r in rows]
-        except Exception as exc:
-            logger.debug(f"profiles_following failed for @{following_username}: {exc}")
-            return []
+        """Everyone we know of who follows `following_username` — the seed-list read.
+
+        A refused read raises: an empty list would read as "nobody we know follows them".
+        """
+        ai = profile_ai_read_model(self.conn, "p")
+        rows = self.query(
+            f"""
+            SELECT
+                pf.profile_username,
+                pf.profile_id,
+                pf.discovered_at,
+                {ai["niche"]} AS niche_category,
+                {ai["sub_niche"]} AS niche,
+                {ai["city"]} AS cities,
+                {ai["profession"]} AS profession
+            FROM profile_following pf
+            LEFT JOIN instagram_profiles p
+                ON p.profile_id = pf.profile_id
+            {ai["join"]}
+            WHERE pf.following_username = ?
+            ORDER BY pf.discovered_at DESC
+            LIMIT ?
+            """,
+            (following_username, limit),
+        )
+        return [dict(r) for r in rows]
 
     def following_of(self, profile_username: str) -> List[Dict[str, Any]]:
         """The stored following list of `profile_username`, enriched where known.
 
-        Mirror of `profiles_following`, read from the other end of the edge.
+        Mirror of `profiles_following`, read from the other end of the edge. A refused read
+        raises: an empty list would read as "no following list stored".
         """
-        try:
-            ai = profile_ai_read_model(self.conn, "p")
-            rows = self.query(
-                f"""
-                SELECT
-                    pf.following_username,
-                    pf.following_id,
-                    pf.discovered_at,
-                    {ai["niche"]} AS niche_category,
-                    {ai["sub_niche"]} AS niche,
-                    {ai["city"]} AS cities,
-                    {ai["profession"]} AS profession
-                FROM profile_following pf
-                LEFT JOIN instagram_profiles p
-                    ON p.profile_id = pf.following_id
-                {ai["join"]}
-                WHERE pf.profile_username = ?
-                ORDER BY pf.discovered_at ASC
-                """,
-                (profile_username,),
-            )
-            return [dict(r) for r in rows]
-        except Exception as exc:
-            logger.debug(f"following_of failed for @{profile_username}: {exc}")
-            return []
+        ai = profile_ai_read_model(self.conn, "p")
+        rows = self.query(
+            f"""
+            SELECT
+                pf.following_username,
+                pf.following_id,
+                pf.discovered_at,
+                {ai["niche"]} AS niche_category,
+                {ai["sub_niche"]} AS niche,
+                {ai["city"]} AS cities,
+                {ai["profession"]} AS profession
+            FROM profile_following pf
+            LEFT JOIN instagram_profiles p
+                ON p.profile_id = pf.following_id
+            {ai["join"]}
+            WHERE pf.profile_username = ?
+            ORDER BY pf.discovered_at ASC
+            """,
+            (profile_username,),
+        )
+        return [dict(r) for r in rows]
 
 
 __all__ = ["ProfileFollowingRepository", "profile_ai_read_model"]
