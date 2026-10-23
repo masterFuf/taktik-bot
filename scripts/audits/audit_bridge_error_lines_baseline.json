@@ -1,7 +1,3 @@
 {
-  "bridges/instagram/automation/debug.py::DebugBridge.run": 1,
-  "bridges/instagram/automation/debug_actions.py::analyze_current_screen": 1,
-  "bridges/tools/lab/action_test/session.py::run_action_session_bridge": 3,
-  "bridges/tools/lab/selector_test_bridge.py::_run": 1,
-  "bridges/tools/lab/workflow_test/execution/lifecycle.py::init_automation": 1
+  "bridges/tools/lab/action_test/session.py::run_action_session_bridge": 3
 }

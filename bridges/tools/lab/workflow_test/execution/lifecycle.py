@@ -4,6 +4,7 @@ import sys
 
 from loguru import logger
 
+from bridges.common.entrypoint import send_run_error
 from bridges.tools.lab.workflow_test.observability import clear_active_watchdog, set_active_tracer
 
 
@@ -49,8 +50,7 @@ def init_automation(app_name: str, conn, ipc):
         ipc.send("step", step="init_automation", status="done", message="Automation ready, tracer attached")
         return tracer, device
     except Exception as exc:
-        ipc.send("error", error=f"Automation init failed: {exc}", error_code="AUTOMATION_INIT_ERROR")
-        logger.exception("Automation init failed")
+        send_run_error(f"Automation init failed: {exc}", exc, error_code="AUTOMATION_INIT_ERROR")
         sys.exit(1)
 
 

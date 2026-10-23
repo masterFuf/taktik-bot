@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bridges.common.entrypoint import send_run_error
 from bridges.instagram.common.ipc import send_error, send_log, send_message
 
 
@@ -57,10 +58,7 @@ def analyze_current_screen(device) -> int:
         return 0
 
     except Exception as exc:  # noqa: BLE001
-        import traceback
-
-        send_error(f"Analyze error: {exc}")
-        send_log("error", f"Traceback: {traceback.format_exc()}")
+        send_run_error(f"Analyze error: {exc}", exc)
         return 1
 
 

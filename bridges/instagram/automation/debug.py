@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from bridges.common.entrypoint import send_import_error
-from bridges.instagram.common.ipc import logger, send_error, send_log
+from bridges.common.entrypoint import send_run_error
+from bridges.instagram.common.ipc import send_error, send_log
 from bridges.instagram.automation.debug_actions import (
     analyze_current_screen,
     connect_debug_device,
@@ -40,13 +40,7 @@ class DebugBridge:
             send_error(f"Unknown debug mode: {self.mode}")
             return 3
 
-        except ImportError as e:
-            send_import_error(e)
-            return 1
         except Exception as e:
-            import traceback
-
-            send_error(f"Debug error: {str(e)}")
-            send_log("error", f"Traceback: {traceback.format_exc()}")
-            logger.exception("Debug error")
+            # An import that failed is said with its code by `send_run_error`, whatever the words.
+            send_run_error(f"Debug error: {e}", e)
             return 1

@@ -64,6 +64,12 @@ def _assert_said_with_its_traceback(proc, errors, said: str, cause: str, code, e
     pytest.param("task_bridge", {"deviceId": DEVICE, "taskId": "story_relay"},
                  "taktik.core.kernel.registry:WorkflowRegistry.resolve", True,
                  f"Task error: {INJECTED}", f"RuntimeError: {INJECTED}", None, 1, id="instagram-task"),
+    pytest.param("desktop_bridge", {"deviceId": DEVICE, "debugMode": True, "mode": "analyze"},
+                 "bridges.instagram.automation.debug:connect_debug_device", False,
+                 f"Debug error: {INJECTED}", f"RuntimeError: {INJECTED}", None, 1, id="instagram-debug"),
+    pytest.param("desktop_bridge", {"deviceId": DEVICE, "debugMode": True, "mode": "analyze"},
+                 "taktik.core.shared.diagnostics.ui_dump_files:capture_screenshot", True,
+                 f"Analyze error: {INJECTED}", f"RuntimeError: {INJECTED}", None, 1, id="instagram-debug-analyze"),
     _account("account_bridge", "login", _IG_ACCOUNT, "Login error"),
     _account("account_bridge", "register", _IG_ACCOUNT, "Register error"),
     _account("account_bridge", "logout", _IG_ACCOUNT, "Logout error"),
@@ -111,3 +117,23 @@ def test_a_base_that_does_not_open_is_said_with_its_traceback(tmp_path, run_brid
     assert error.get("error_code") == code
     assert "FileExistsError" in error.get("traceback", ""), error
     assert "Traceback (most recent call last)" in stderr
+
+
+_APP = "taktik.core.shared.device.app_manager:AppService"
+
+
+@pytest.mark.parametrize("bridge, config, fault, passes, said, code", [
+    pytest.param("selector_test_bridge", {"device_id": DEVICE, "app": "instagram"},
+                 "bridges.tools.lab.selector_test.production:prepare_selector_test", (),
+                 f"Failed to load selectors: {INJECTED}", "REGISTRY_INIT_ERROR", id="lab-selector-test"),
+    pytest.param("workflow_test_bridge", {"device_id": DEVICE, "app": "instagram", "workflow": "feed"},
+                 "taktik.core.database:configure_db_service", (f"{_APP}.is_installed", f"{_APP}.restart"),
+                 f"Automation init failed: {INJECTED}", "AUTOMATION_INIT_ERROR", id="lab-workflow-test"),
+])
+def test_a_lab_bench_says_a_caught_failure_with_its_code_and_the_traceback(
+        run_bridge_process, bridge, config, fault, passes, said, code):
+    """The Lab benches the app reads by `error` and `error_code` (`handlers/compat/compat.ts`). The
+    workflow bench also relays its log on stdout, the traceback of `send_run_error` with it."""
+    proc, errors = run_bridge_process(bridge, config, fault=fault, phone=True, passes=passes)
+
+    _assert_said_with_its_traceback(proc, errors, said, f"RuntimeError: {INJECTED}", code, 1)
