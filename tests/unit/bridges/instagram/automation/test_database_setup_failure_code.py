@@ -7,12 +7,15 @@ for a base that would not open.
 from __future__ import annotations
 
 import bridges.instagram.automation.session as session
+from bridges.common.ipc import IPC
 
 
 def test_a_base_that_does_not_open_is_reported_as_a_database_failure(monkeypatch):
     sent = []
     monkeypatch.setattr(session, "send_status", lambda *a, **k: None)
-    monkeypatch.setattr(session, "send_error", lambda message, error_code=None, **_: sent.append(error_code))
+    # The line goes out through `send_run_error`, by the IPC class (patched there, not on an instance).
+    monkeypatch.setattr(IPC, "send", lambda self, msg_type, **data: sent.append(data.get("error_code"))
+                        if msg_type == "error" else None)
 
     def refuse():
         raise OSError("unable to open database file")
