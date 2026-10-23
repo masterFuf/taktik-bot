@@ -2,6 +2,7 @@
 
 from typing import Any, Callable
 
+from bridges.common.entrypoint import send_run_error
 from bridges.gmail.account.workflow_result import finish_account_result
 from taktik.core.social_media.gmail.workflows.agent_handler import (
     GMAIL_ACCOUNT_READ_OTP_WORKFLOW_ID,
@@ -49,10 +50,7 @@ def run_gmail_read_otp(
             extra={"code": result.get("code")},
         )
     except Exception as exc:  # noqa: BLE001
-        import traceback
-
-        send_error(f"Gmail OTP error: {exc}")
-        send_log("error", traceback.format_exc())
+        send_run_error(f"Gmail OTP error: {exc}", exc)
         return 1
 
 

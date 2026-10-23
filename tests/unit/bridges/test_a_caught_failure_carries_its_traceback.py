@@ -64,6 +64,21 @@ def _assert_said_with_its_traceback(proc, errors, said: str, cause: str, code, e
     pytest.param("task_bridge", {"deviceId": DEVICE, "taskId": "story_relay"},
                  "taktik.core.kernel.registry:WorkflowRegistry.resolve", True,
                  f"Task error: {INJECTED}", f"RuntimeError: {INJECTED}", None, 1, id="instagram-task"),
+    _account("account_bridge", "login", _IG_ACCOUNT, "Login error"),
+    _account("account_bridge", "register", _IG_ACCOUNT, "Register error"),
+    _account("account_bridge", "logout", _IG_ACCOUNT, "Logout error"),
+    _account("account_bridge", "change_language", _IG_ACCOUNT, "Change language error"),
+    _account("account_bridge", "switch_account", _IG_ACCOUNT, "Switch error"),
+    _account("account_bridge", "list_accounts", _IG_ACCOUNT, "List-accounts error"),
+    _account("account_bridge", "list_saved_accounts", _IG_ACCOUNT, "List-saved-accounts error"),
+    _account("tiktok_account_bridge", "login", _TIKTOK_ACCOUNT, "Login error"),
+    _account("tiktok_account_bridge", "register", _TIKTOK_ACCOUNT, "Register error"),
+    _account("tiktok_account_bridge", "logout", _TIKTOK_ACCOUNT, "Logout error"),
+    _account("tiktok_account_bridge", "change_language", _TIKTOK_ACCOUNT, "Change language error"),
+    _account("gmail_account_bridge", "login", _GMAIL_ACCOUNT, "Gmail login error"),
+    _account("gmail_account_bridge", "logout", _GMAIL_ACCOUNT, "Gmail logout error"),
+    _account("gmail_account_bridge", "read_otp", _GMAIL_ACCOUNT, "Gmail OTP error"),
+    _account("gmail_account_bridge", "scan_accounts", _GMAIL_ACCOUNT, "Gmail scan_accounts error"),
 ])
 def test_a_bridge_says_a_caught_failure_in_its_words_with_the_traceback(
         run_bridge_process, bridge, config, fault, phone, said, cause, code, exit_code):

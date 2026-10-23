@@ -1,6 +1,7 @@
 """TikTok account registration adapter (the run is the core's `run_tiktok_account`)."""
 
-from bridges.tiktok.common.ipc import send_error, send_log, send_message, send_status
+from bridges.common.entrypoint import send_run_error
+from bridges.tiktok.common.ipc import send_log, send_message, send_status
 from taktik.core.social_media.tiktok.workflows.account.agent_handler import (
     TIKTOK_ACCOUNT_REGISTER_WORKFLOW_ID,
 )
@@ -32,10 +33,7 @@ class TikTokAccountRegisterMixin:
             )
             return 0 if result["success"] else 1
         except Exception as exc:  # noqa: BLE001
-            import traceback
-
-            send_error(f"Register error: {exc}")
-            send_log("error", traceback.format_exc())
+            send_run_error(f"Register error: {exc}", exc)
             return 1
 
 
