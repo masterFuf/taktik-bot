@@ -201,7 +201,7 @@ def test_a_phone_without_network_is_a_refusal_and_a_crash_is_not():
     (an exception, the device agent, a timeout) did not, and its crash report is the only account
     of it that leaves a client's machine."""
     assert NetworkUnreachableError.error_code in BRIDGE_REFUSAL_CODES
-    broken = ("UNHANDLED_EXCEPTION", "WORKFLOW_ERROR", "WORKFLOW_TIMEOUT", "ATX_AGENT_CRASHED")
+    broken = ("UNHANDLED_EXCEPTION", "PYTHON_IMPORT_ERROR", "WORKFLOW_ERROR", "WORKFLOW_TIMEOUT", "ATX_AGENT_CRASHED")
     assert not set(broken) & set(BRIDGE_REFUSAL_CODES)
 
 

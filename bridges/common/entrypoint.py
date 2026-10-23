@@ -17,6 +17,7 @@ import sys
 from typing import Any, Callable, Optional
 
 import bridges.common.signal_handler as _sig_mod
+from bridges.common.crash_hooks import exception_event
 from bridges.common.ipc import IPC
 from loguru import logger
 
@@ -80,6 +81,18 @@ def report_error_event(message: str, _reason: str = CONFIG_ERROR) -> None:
     _send_error(message)
 
 
+def send_import_error(exc: ImportError) -> None:
+    """A module the run needs did not import: the `error` line with the bot's code and the traceback.
+
+    The one way a bridge says it, whether the import failed under the entry (`run_bridge_main`) or in
+    a run that catches it (the TikTok and Threads runners): `PYTHON_IMPORT_ERROR`, the exception's
+    words and its traceback, as the crash hook says an import of the bridge's own module
+    (`crash_hooks.exception_event`). The traceback goes to stderr too, the run's log.
+    """
+    logger.opt(exception=exc).error(f"A module the run needs did not import: {exc}")
+    _ipc.send("error", **exception_event(type(exc), exc, exc.__traceback__))
+
+
 def report_entry_error(message: str, reason: str) -> None:
     """The default shape: the usage line for a missing file, an `error` event for the rest."""
     if reason == MISSING_CONFIG:
@@ -112,9 +125,10 @@ def run_bridge_main(
 
     `report_error(message, reason)` emits an entry failure in the bridge's own event shape
     (reasons: MISSING_CONFIG, CONFIG_ERROR, NOT_AN_OBJECT, INIT_ERROR, CRASH), worded by
-    `messages` over `DEFAULT_MESSAGES`. `catch_crashes=False` leaves an
-    exception of the factory or of `.run()` to the launcher's crash hooks (UNHANDLED_EXCEPTION
-    with its traceback).
+    `messages` over `DEFAULT_MESSAGES`. An import that fails under it is no entry failure:
+    `send_import_error` says it with its code, whatever the bridge's reporter. `catch_crashes=False`
+    leaves an exception of the factory or of `.run()` to the launcher's crash hooks
+    (UNHANDLED_EXCEPTION, or PYTHON_IMPORT_ERROR, with its traceback).
     """
     global _config_path
     reporter = report_error or report_entry_error
@@ -157,6 +171,9 @@ def run_bridge_main(
 
     try:
         bridge = bridge_factory(config)
+    except ImportError as exc:
+        send_import_error(exc)
+        sys.exit(1)
     except Exception as exc:
         report(INIT_ERROR, exc)
         logger.exception("Bridge initialization failed")
@@ -169,6 +186,9 @@ def run_bridge_main(
     except KeyboardInterrupt:
         logger.info("Bridge interrupted by user")
         sys.exit(0)
+    except ImportError as exc:
+        send_import_error(exc)
+        sys.exit(1)
     except Exception as exc:
         report(CRASH, exc)
         logger.exception("Bridge crashed")

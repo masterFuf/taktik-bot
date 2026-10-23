@@ -44,6 +44,8 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     "WORKFLOW_TIMEOUT": "errorWorkflowTimeout",
     "WORKFLOW_ERROR": "errorWorkflowError",
     "UNHANDLED_EXCEPTION": "errorUnhandledException",
+    # A module the run needs did not import (`crash_hooks.exception_event`), wherever the import ran.
+    "PYTHON_IMPORT_ERROR": "errorPythonImport",
     # Threads.
     "threads.no_query": "errorThreadsNoQuery",
     "threads.unknown_workflow": "errorThreadsUnknownWorkflow",

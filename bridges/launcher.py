@@ -78,9 +78,9 @@ def main():
         sys.exit(1)
 
     # Every bridge goes through here, so this is the one place a floor can be put under all of
-    # them: an uncaught exception (including one raised while importing the bridge below) now
-    # reports a machine-readable UNHANDLED_EXCEPTION event with its traceback instead of dying
-    # with nothing but an exit code.
+    # them: an uncaught exception now reports a machine-readable UNHANDLED_EXCEPTION event with its
+    # traceback instead of dying with nothing but an exit code, and a module that does not import
+    # (the bridge below included) a PYTHON_IMPORT_ERROR one.
     from bridges.common.crash_hooks import install_crash_hooks
     install_crash_hooks(bridge_name)
 
