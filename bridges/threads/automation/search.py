@@ -1,6 +1,7 @@
 """Threads search runner used by the bridge dispatcher: `run_threads_search` with IPC events."""
 
-from bridges.threads.automation.base import logger, send_error, send_status
+from bridges.common.entrypoint import send_run_error
+from bridges.threads.automation.base import send_error, send_status
 from bridges.threads.automation.events import build_threads_callbacks, emit_threads_completion
 
 
@@ -22,8 +23,7 @@ def run_follow(config: dict) -> bool:
         send_error("No search query provided", error_code="threads.no_query")
         return False
     except Exception as exc:  # noqa: BLE001
-        send_error(f"Threads search workflow crashed: {exc}", error_code="threads.workflow_crash")
-        logger.exception("Threads search workflow crashed")
+        send_run_error(f"Threads search workflow crashed: {exc}", exc, error_code="threads.workflow_crash")
         return False
 
     return bool(result["success"])

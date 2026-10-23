@@ -19,8 +19,6 @@
   "bridges/instagram/automation/session.py::InstagramDesktopRuntime.setup_database": 1,
   "bridges/instagram/tasks/bridge.py::TaskBridge._prepare_runtime_session": 1,
   "bridges/instagram/tasks/bridge.py::TaskBridge._run_task": 1,
-  "bridges/threads/automation/feed.py::run_feed": 1,
-  "bridges/threads/automation/search.py::run_follow": 1,
   "bridges/threads/automation/threads_bridge.py::dispatch": 1,
   "bridges/tiktok/account/account_language.py::TikTokAccountLanguageMixin._run_change_language": 1,
   "bridges/tiktok/account/account_login.py::TikTokAccountLoginMixin._run_login": 1,
