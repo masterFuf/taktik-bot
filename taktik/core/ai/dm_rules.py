@@ -21,7 +21,7 @@ language only. A cold DM and a welcome DM answer nobody: they stay in the accoun
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from loguru import logger
@@ -71,12 +71,21 @@ class AiDmRules:
 
 @dataclass(frozen=True)
 class AiDmRefusal:
-    """Why one text is not sent: the rule (`reason`, one of `AiDmRefusalReason`) and the measure."""
+    """Why one text is not sent: the rule (`reason`, one of `AiDmRefusalReason`) and the measure.
+
+    `detail` is the measure written in English, for a model. The same measure is also given typed, for
+    a screen to say it in its own language, by the rules that have one to give: `measure` and `limit`
+    (the length of a text too short or too long, and the bound it broke), `term` (the forbidden term
+    found). A rule with nothing to count (language, link, e-mail address, phone number) gives none.
+    """
 
     reason: str
     detail: str
     #: Its rank in the list it came in, from 1; None for a single text.
     index: Optional[int] = None
+    measure: Optional[int] = None
+    limit: Optional[int] = None
+    term: Optional[str] = None
 
     def describe(self) -> str:
         """For a person or a model: `message 2: 612 characters, 500 at most`."""
@@ -85,8 +94,10 @@ class AiDmRefusal:
     def as_line(self) -> Dict[str, Any]:
         """The `textRefusal` of a bridge line (`AiDmTextRefusal`)."""
         line: Dict[str, Any] = {"reason": self.reason, "detail": self.detail}
-        if self.index is not None:
-            line["index"] = self.index
+        for key in ("index", "measure", "limit", "term"):
+            value = getattr(self, key)
+            if value is not None:
+                line[key] = value
         return line
 
 
@@ -130,16 +141,18 @@ def check_ai_dm_text(
     """
     body = (text or "").strip()
     if len(body) < AI_DM_MIN_CHARS:
-        return AiDmRefusal(TOO_SHORT, f"{len(body)} characters, {AI_DM_MIN_CHARS} at least")
+        return AiDmRefusal(TOO_SHORT, f"{len(body)} characters, {AI_DM_MIN_CHARS} at least",
+                           measure=len(body), limit=AI_DM_MIN_CHARS)
     if len(body) > AI_DM_MAX_CHARS:
-        return AiDmRefusal(TOO_LONG, f"{len(body)} characters, {AI_DM_MAX_CHARS} at most")
+        return AiDmRefusal(TOO_LONG, f"{len(body)} characters, {AI_DM_MAX_CHARS} at most",
+                           measure=len(body), limit=AI_DM_MAX_CHARS)
     if not rules.links_allowed:
         refusal = _contact_refusal(body)
         if refusal is not None:
             return refusal
     term = _forbidden_term_in(body, rules.forbidden_terms)
     if term is not None:
-        return AiDmRefusal(FORBIDDEN_TERM, f"contains the forbidden term \"{term}\"")
+        return AiDmRefusal(FORBIDDEN_TERM, f"contains the forbidden term \"{term}\"", term=term)
     return _language_refusal(body, rules.base_language, received_text)
 
 
@@ -152,7 +165,7 @@ def check_ai_dm_texts(
     for rank, text in enumerate(texts, start=1):
         refusal = check_ai_dm_text(text if isinstance(text, str) else None, rules, received_text)
         if refusal is not None:
-            refusals.append(AiDmRefusal(refusal.reason, refusal.detail, index=rank))
+            refusals.append(replace(refusal, index=rank))
     return refusals
 
 
@@ -164,7 +177,7 @@ def refuse_ai_dm_texts(texts: Iterable[Any], rules: AiDmRules, received_text: Op
     if refusals:
         first = refusals[0]
         index = first.index if len(texts) > 1 else None
-        raise AiDmTextRefused(AiDmRefusal(first.reason, first.detail, index=index))
+        raise AiDmTextRefused(replace(first, index=index))
 
 
 def _contact_refusal(body: str) -> Optional[AiDmRefusal]:
