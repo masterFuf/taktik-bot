@@ -158,8 +158,8 @@ class DeepQualifyMixin:
             if new_on_page > 0 and username and _IPCEmitter is not None:
                 try:
                     _IPCEmitter.emit_scraping_dq_progress(username, len(usernames), max_count)
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.logger.warning(f"[deep_qualify] the progress of @{username} did not reach the app: {e}")
 
             # Stop scrolling if we have enough or nothing new appeared
             if len(usernames) >= max_count or new_on_page == 0:
@@ -170,7 +170,10 @@ class DeepQualifyMixin:
                 try:
                     scr.scroll_followers_list_down(duration=0.4, distance_ratio=0.45)
                     time.sleep(0.8)
-                except Exception:
+                except Exception as e:
+                    self.logger.warning(
+                        f"[deep_qualify] scrolling the following list failed: stopped at {len(usernames)} of {max_count}: {e}"
+                    )
                     break
 
         # 3. Back to profile page -----------------------------------------------

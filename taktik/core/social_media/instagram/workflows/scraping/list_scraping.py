@@ -584,8 +584,8 @@ class ScrapingListMixin(DeepQualifyMixin):
                             try:
                                 self.device.press("back")
                                 time.sleep(0.5)
-                            except Exception:
-                                pass
+                            except Exception as back_error:
+                                self.logger.warning(f"Going back to the list after @{username} failed too: {back_error}")
                     
                     scraped.append(profile_data)
                     self.scraped_profiles.append(profile_data)
@@ -742,8 +742,8 @@ class ScrapingListMixin(DeepQualifyMixin):
             finally:
                 try:
                     _os.remove(screenshot_path)
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.logger.warning(f"The AI screenshot of @{username} was not deleted ({screenshot_path}): {e}")
 
             if result.get('success'):
                 c = result.get('classification', {})
