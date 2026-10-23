@@ -90,7 +90,6 @@ class CliInstagramHost:
         """The device a cold DM run drives, prepared by the Instagram device base the cold DM bridge
         uses too: the clone-aware proxy, the device facade, the selector overrides of the installed
         version and the clean restart through `AppService`, on the device the CLI already connected."""
-        from taktik.core.shared.input.keyboard import KeyboardService
         from taktik.core.shared.device.connected_device import on_connected_device
         from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
         from taktik.core.social_media.instagram.workflows.cold_dm.agent_handler import ColdDmRuntime
@@ -100,7 +99,6 @@ class CliInstagramHost:
         return ColdDmRuntime(
             device=base.device,
             device_manager=base.device_manager,
-            keyboard=KeyboardService(self.device_id),
             restart=base.restart,
         )
 

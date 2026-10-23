@@ -59,7 +59,7 @@ def _workflow(monkeypatch, *, sent=None):
     monkeypatch.setattr(module, "look_for_action_block", lambda *args, **kwargs: False)
     monkeypatch.setattr(module, "ProblematicPageDetector", lambda device: None)
     phone = _Phone()
-    workflow = module.ColdDMWorkflow(object(), object(), keyboard=object(), sent=sent)
+    workflow = module.ColdDMWorkflow(object(), object(), sent=sent)
     workflow.open_recipient_profile = lambda recipient: True
     workflow.open_dm_from_profile = lambda policy=None: True
     workflow.send_message = lambda message: phone.typed.append(message) or True
@@ -126,7 +126,7 @@ def test_the_launcher_holds_the_ai_mode_to_the_most_prudent_frame_without_a_bloc
     monkeypatch.setattr(agent_handler, "open_cold_dm_session", lambda *args, **kwargs: None)
     agent_handler.run_instagram_cold_dm(
         _payload(messages=[], messageMode="ai", aiPrompt="Parle de sa boutique", openrouterApiKey="sk-test"),
-        connect=lambda package_name: agent_handler.ColdDmRuntime(object(), object(), object()),
+        connect=lambda package_name: agent_handler.ColdDmRuntime(object(), object()),
         workflow_factory=_Recording,
     )
 

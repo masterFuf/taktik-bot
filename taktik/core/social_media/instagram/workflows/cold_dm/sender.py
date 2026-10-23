@@ -16,10 +16,6 @@ class ColdDMSenderMixin:
     # What the host gives this mixin (`ColdDMNavigationMixin`), like a field of a TypeScript interface.
     _cold_dm_messaging: Callable[[], Any]
 
-    def _init_cold_dm_sender(self, keyboard) -> None:
-        # The host's Taktik Keyboard service (`type_text`, `device_id`): the bridges' facade.
-        self._keyboard = keyboard
-
     def send_message(self, message: str):
         """Send `message` in the open conversation: True once sent, False when it was not,
         `INVITE_ALREADY_SENT` when a message request to this account is already waiting.

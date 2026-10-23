@@ -6,7 +6,7 @@ registered as `instagram.engagement.coldDm` (the CLI) calls: read the Cold DM pa
 `ColdDMWorkflow`, the only cold DM engine. What differs between the hosts is injected:
 - `connect(package_name) -> ColdDmRuntime`: the device ready for the flow, on the Instagram the
   payload names (`packageName`, a clone; None: the installed one): the bridges' clone-aware,
-  facade-wrapped device, its manager, the Taktik Keyboard service and the clean restart.
+  facade-wrapped device, its manager and the clean restart.
 - `progress(current, total, username)`: where the per-recipient progress goes (the bridge's stdout).
 - `sent(current, username, message, ai_written)`: where each text the conversation took goes (the
   bridge's `cold_dm_sent`, which the app journals).
@@ -49,7 +49,6 @@ class ColdDmRuntime:
 
     device: Any
     device_manager: Any
-    keyboard: Any
     restart: Optional[Callable[[], Any]] = None
 
 
@@ -108,7 +107,6 @@ def run_instagram_cold_dm(
     workflow = (workflow_factory or _default_workflow_factory())(
         runtime.device,
         runtime.device_manager,
-        keyboard=runtime.keyboard,
         restart=runtime.restart,
         progress=progress,
         sent=sent,

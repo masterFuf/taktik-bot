@@ -3,8 +3,8 @@
 It was the cold DM bridge's own class, built on the bridge's device base; the CLI had a second
 engine with other reads and no record of what it sent. The host now hands the workflow what used
 to come from the bridge base: the device (the bridges' clone-aware, facade-wrapped device), its
-manager, the Taktik Keyboard service and the clean restart of Instagram, plus where the progress
-lines, the texts sent and the AI spend go.
+manager and the clean restart of Instagram, plus where the progress lines, the texts sent and the
+AI spend go. The keyboard is not the host's to give: the send reads the one of the device itself.
 
 A text written by an AI (the AI mode's, or a list `aiDmRules` says an AI wrote) goes through the one
 rule of `taktik/core/ai/dm_rules.py`: a list is checked when the payload is read, a text the AI mode
@@ -72,7 +72,6 @@ class ColdDMWorkflow(
         device,
         device_manager,
         *,
-        keyboard,
         restart: Optional[Callable[[], Any]] = None,
         progress: Optional[ProgressCallback] = None,
         sent: Optional[SentCallback] = None,
@@ -84,7 +83,6 @@ class ColdDMWorkflow(
         self._progress = progress
         self._sent = sent
         self._ai_ipc = ai_ipc
-        self._init_cold_dm_sender(keyboard)
         self.dms_sent = 0
         self.dms_success = 0
         self.dms_failed = 0
