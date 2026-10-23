@@ -18,29 +18,32 @@ from bridges.tiktok.common.startup import tiktok_startup_provider
 
 
 def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
-    """Run the TikTok Unfollow workflow."""
-    from taktik.core.social_media.tiktok.workflows.automation.unfollow.payload import (
-        unfollow_config_from_payload,
-    )
+    """Run the TikTok Unfollow workflow.
 
-    device_id = config.get("deviceId")
-    bot_username = config.get("botUsername")
-    max_unfollows = unfollow_config_from_payload(config).max_unfollows
-
-    if not device_id:
-        send_error("No device ID provided")
-        return False
-
-    logger.info(f"👋 Starting TikTok Unfollow workflow on device: {device_id}")
-    if bot_username:
-        logger.info(f"📊 Bot account: @{bot_username}")
-    logger.info(f"🎯 Max unfollows: {max_unfollows}")
-    send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
-
+    Every import of the run sits in the `try`: one that fails is `send_import_error`, not the
+    bridge's "Startup error: ..." with no code.
+    """
     try:
         from taktik.core.social_media.tiktok.workflows.automation.unfollow.agent_handler import (
             run_tiktok_unfollow,
         )
+        from taktik.core.social_media.tiktok.workflows.automation.unfollow.payload import (
+            unfollow_config_from_payload,
+        )
+
+        device_id = config.get("deviceId")
+        bot_username = config.get("botUsername")
+        max_unfollows = unfollow_config_from_payload(config).max_unfollows
+
+        if not device_id:
+            send_error("No device ID provided")
+            return False
+
+        logger.info(f"👋 Starting TikTok Unfollow workflow on device: {device_id}")
+        if bot_username:
+            logger.info(f"📊 Bot account: @{bot_username}")
+        logger.info(f"🎯 Max unfollows: {max_unfollows}")
+        send_status("starting", f"Initializing TikTok Unfollow workflow on {device_id}")
 
         run_tiktok_unfollow(
             config,

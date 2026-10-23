@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import traceback
 
+from bridges.common.entrypoint import send_import_error
 from bridges.instagram.common.ipc import send_error, send_log, send_message, send_stats, send_status
 
 #: Tail of the traceback attached to a workflow error. The cause is at the end.
@@ -38,10 +39,14 @@ def send_instagram_workflow_final_stats(stats: dict) -> None:
 def send_instagram_workflow_error(error: Exception) -> None:
     """Report a workflow failure, with the traceback that explains it.
 
-    The classification stays a substring match on the message — the exceptions raised down there
-    are plain `Exception`s and carry no code — but the traceback now travels with the event, so a
-    crash report no longer arrives as one sentence with no frame to look at.
+    A module that did not import is `send_import_error` (`PYTHON_IMPORT_ERROR`), as on every bridge:
+    the run's `except Exception` catches it too, and it is no workflow failure. The rest stays a
+    substring match on the message — the exceptions raised down there are plain `Exception`s and
+    carry no code — with the traceback in the event.
     """
+    if isinstance(error, ImportError):
+        send_import_error(error)
+        return
     error_msg = str(error)
     tb = "".join(
         traceback.format_exception(type(error), error, error.__traceback__)

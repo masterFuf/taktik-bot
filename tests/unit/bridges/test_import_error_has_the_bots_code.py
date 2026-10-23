@@ -1,8 +1,9 @@
 """A bridge that cannot import a module says so with the bot's code, `PYTHON_IMPORT_ERROR`.
 
 The cause is the same wherever the import ran: the bridge's own module (the launcher's crash hook),
-a run's lazy import that the bridge catches (the TikTok and Threads runners, the debug bridge), or
-one that reaches the entry (`run_bridge_main`). The bridges used to write "Import error: ..." with
+a run's lazy import that the bridge catches (the TikTok and Threads runners, the debug bridge), one
+that reaches the entry (`run_bridge_main`), or one that lands in a run's catch-all `except Exception`
+(the Instagram automation, the TikTok unfollow). The bridges used to write "Import error: ..." with
 no code and no traceback, which nothing classified: the operator read a generic crash. Now one
 reading of the exception (`crash_hooks.exception_event`) gives the code, the words and the traceback,
 and one function sends it (`entrypoint.send_import_error`).
@@ -41,9 +42,9 @@ def _run_bridge_without(tmp_path: Path, bridge: str, config: dict, blocked: str)
     return proc, [line for line in lines if line.get("type") == "error"]
 
 
-def _assert_said_with_the_code(proc, errors, blocked: str) -> None:
+def _assert_said_with_the_code(proc, errors, blocked: str, exit_code: int = 1) -> None:
     stderr = proc.stderr.decode("utf-8", "replace")[-3000:]
-    assert proc.returncode == 1, stderr
+    assert proc.returncode == exit_code, stderr
     assert errors, f"no error line; stderr: {stderr}"
     last = errors[-1]
     assert last.get("error_code") == "PYTHON_IMPORT_ERROR", (errors, stderr)
@@ -67,6 +68,24 @@ def test_a_bridge_whose_own_module_does_not_import_says_it_with_the_bots_code(tm
 
     _assert_said_with_the_code(proc, errors, blocked)
     assert errors[-1]["bridge"] == "tiktok_scraping_bridge"
+
+
+@pytest.mark.parametrize("bridge, config, blocked, exit_code", [
+    pytest.param("desktop_bridge", {"deviceId": "gate-phone", "workflowType": "target", "target": "gate-target"},
+                 "taktik.core.social_media.instagram.workflows.automation.agent_handler", 5,
+                 id="instagram-automation"),
+    pytest.param("tiktok_unfollow_bridge", {"device_id": "gate-phone", "config": {}},
+                 "taktik.core.social_media.tiktok.workflows.automation.unfollow.payload", 1,
+                 id="tiktok-unfollow"),
+])
+def test_a_run_that_catches_every_exception_still_says_an_import_with_the_bots_code(
+        tmp_path, bridge, config, blocked, exit_code):
+    """The Instagram automation said "Workflow error: ..." under `WORKFLOW_ERROR`, the TikTok unfollow
+    "Startup error: ..." with no code: their `except Exception` took the import for a workflow failure."""
+    proc, errors = _run_bridge_without(tmp_path, bridge, config, blocked)
+
+    _assert_said_with_the_code(proc, errors, blocked, exit_code)
+    assert not (tmp_path / "taktik-data.db").exists()
 
 
 class _Bridge:
