@@ -25,10 +25,11 @@ def test_scraping_workflow_builds_ai_service_from_injected_factory():
     notifier = object()
 
     # Mirror the real factory signature (bridges/instagram/scraping/ai.py):
-    # the workflow forwards api_key/ipc/vision_model/niche_taxonomy (premium taxonomy
+    # the workflow forwards api_key/provider/ipc/vision_model/niche_taxonomy (premium taxonomy
     # injected by the front), not text_model.
-    def factory(*, api_key, ipc=None, vision_model=None, text_model=None, niche_taxonomy=None):
+    def factory(*, api_key, provider, ipc=None, vision_model=None, text_model=None, niche_taxonomy=None):
         captured["api_key"] = api_key
+        captured["provider"] = provider
         captured["ipc"] = ipc
         captured["vision_model"] = vision_model
         captured["niche_taxonomy"] = niche_taxonomy
@@ -38,7 +39,8 @@ def test_scraping_workflow_builds_ai_service_from_injected_factory():
         _DummyDeviceManager(),
         {
             "ai_mode": True,
-            "openrouter_api_key": "test-key",
+            "ai_provider": "anthropic",
+            "ai_api_key": "test-key",
             "vision_model": "vision-model",
             "niche_taxonomy": {"fitness": ["gym", "yoga"]},
         },
@@ -50,6 +52,7 @@ def test_scraping_workflow_builds_ai_service_from_injected_factory():
     assert isinstance(workflow._ai_service, _FakeAIService)
     assert captured == {
         "api_key": "test-key",
+        "provider": "anthropic",
         "ipc": notifier,
         "vision_model": "vision-model",
         "niche_taxonomy": {"fitness": ["gym", "yoga"]},
@@ -61,7 +64,7 @@ def test_scraping_workflow_disables_ai_without_injected_factory():
         _DummyDeviceManager(),
         {
             "ai_mode": True,
-            "openrouter_api_key": "test-key",
+            "ai_api_key": "test-key",
         },
     )
 

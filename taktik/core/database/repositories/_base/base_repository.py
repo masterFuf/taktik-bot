@@ -113,6 +113,7 @@ class BaseRepository(ABC):
     # Keys that must never be stored in plaintext in the database
     _SENSITIVE_KEYS = frozenset({
         'openrouterApiKey', 'openrouter_api_key', 'apiKey', 'api_key',
+        'aiApiKey', 'ai_api_key', 'anthropicApiKey', 'anthropic_api_key',
         'password', 'token', 'secret', 'accessToken', 'access_token',
         'refreshToken', 'refresh_token', 'privateKey', 'private_key',
     })

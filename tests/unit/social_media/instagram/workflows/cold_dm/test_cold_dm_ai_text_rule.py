@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from taktik.core.ai.credential import AICredential
 from taktik.core.ai.dm_rules import AiDmRules, AiDmTextRefused
 from taktik.core.social_media.instagram.workflows.cold_dm import agent_handler
 from taktik.core.social_media.instagram.workflows.cold_dm import workflow as module
@@ -96,7 +97,8 @@ def _ai_run(monkeypatch, written, rules):
     monkeypatch.setattr(module, "apply_cold_dm_send_result",
                         lambda *, workflow, **kwargs: setattr(workflow, "dms_sent", workflow.dms_sent + 1))
     monkeypatch.setattr(module, "wait_before_next_cold_dm", lambda **kwargs: None)
-    result = workflow.run(list(written), [], ai_prompt="Parle de sa boutique", openrouter_api_key="sk-test",
+    result = workflow.run(list(written), [], ai_prompt="Parle de sa boutique",
+                          ai_credential=AICredential(provider="openrouter", api_key="sk-test-key"),
                           ai_dm_rules=rules)
     return result, phone, announced
 

@@ -7,9 +7,10 @@ is read by a plain `.get`, which the app's config contract test can follow.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, List, Mapping, Optional
 
+from taktik.core.ai.credential import AICredential, read_credential
 from taktik.core.ai.dm_rules import AiDmRules, ai_dm_rules_from_payload, refuse_ai_dm_texts
 from taktik.core.contract.bounds import refuse_out_of_bounds
 from taktik.core.contract.instagram_engagement import INSTAGRAM_COLD_DM
@@ -30,7 +31,7 @@ class ColdDmRequest:
     session_id: Optional[str] = None
     message_mode: str = "manual"
     ai_prompt: str = ""
-    openrouter_api_key: str = ""
+    ai_credential: AICredential = field(default_factory=AICredential)
     skip_private: bool = True
     skip_verified: bool = False
     session_account_id: Optional[int] = None
@@ -65,7 +66,8 @@ def cold_dm_request_from_payload(config: Mapping[str, Any], *,
         session_id=config.get("sessionId", default_session_id),
         message_mode=config.get("messageMode", "manual"),
         ai_prompt=config.get("aiPrompt", ""),
-        openrouter_api_key=config.get("openrouterApiKey", ""),
+        ai_credential=read_credential(config, provider_names=("aiProvider",), key_names=("aiApiKey",),
+                                      openrouter_key_names=("openrouterApiKey",)),
         # The page's and the scheduler node's « Ignorer les comptes privés / certifiés ». Absent
         # -> the behaviour the engine always had: private profiles skipped, certified ones not.
         skip_private=config.get("skipPrivateAccounts", True) is not False,

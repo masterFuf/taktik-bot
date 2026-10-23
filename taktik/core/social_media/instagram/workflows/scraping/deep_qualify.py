@@ -219,7 +219,7 @@ class DeepQualifyMixin:
         signal). Fire-and-forget: errors never interrupt the scraping flow.
 
         Only fires when ``_ai_service`` is available on the workflow instance
-        (i.e. AI mode is enabled and an OpenRouter key is configured).
+        (i.e. AI mode is enabled and an AI key is configured).
         """
         ai_service = getattr(self, '_ai_service', None)
         if ai_service is None:

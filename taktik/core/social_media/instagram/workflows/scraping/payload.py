@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping, Optional
 
+from taktik.core.ai.credential import read_credential
 from taktik.core.contract.bounds import refuse_out_of_bounds
 from taktik.core.contract.instagram_scraping import INSTAGRAM_SCRAPING
 from taktik.core.social_media.instagram.workflows.scraping.profile_posts_scraping import (
@@ -159,7 +160,12 @@ def scraping_config_from_payload(config: Mapping[str, Any]) -> dict:
         scraping_config['ai_profile_analysis'] = ai_config.get('profileAnalysis', True)
         scraping_config['ai_niche'] = ai_config.get('niche', '')
         scraping_config['ai_qualification_prompt'] = ai_config.get('qualificationPrompt', '')
-        scraping_config['openrouter_api_key'] = ai_config.get('openrouterApiKey', '')
+        # Kept as two strings: the scraping config is serialised (its key redacted) with the session.
+        credential = read_credential(
+            ai_config, provider_names=('provider',), key_names=('apiKey',), openrouter_key_names=('openrouterApiKey',)
+        )
+        scraping_config['ai_provider'] = credential.provider
+        scraping_config['ai_api_key'] = credential.api_key
         scraping_config['vision_model'] = ai_config.get('visionModel', '')
         # Premium niche taxonomy injected by the desktop app (slug -> [sub-niche labels]).
         scraping_config['niche_taxonomy'] = ai_config.get('nicheTaxonomy') or {}

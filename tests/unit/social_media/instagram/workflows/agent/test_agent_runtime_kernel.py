@@ -52,8 +52,9 @@ class _LegacyPreviewAIService(_FakeAIService):
 def test_taktik_agent_workflow_initializes_ai_from_injected_factory():
     captured = {}
 
-    def factory(*, api_key, ipc=None, vision_model=None, text_model=None):
+    def factory(*, api_key, provider, ipc=None, vision_model=None, text_model=None):
         captured["api_key"] = api_key
+        captured["provider"] = provider
         captured["ipc"] = ipc
         captured["vision_model"] = vision_model
         captured["text_model"] = text_model
@@ -72,6 +73,7 @@ def test_taktik_agent_workflow_initializes_ai_from_injected_factory():
     assert workflow._initialize_ai() is True
     assert captured == {
         "api_key": "test-key",
+        "provider": "openrouter",
         "ipc": None,
         "vision_model": "vision-model",
         "text_model": "text-model",

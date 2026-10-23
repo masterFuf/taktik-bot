@@ -76,7 +76,7 @@ def bridge_file(workflow_type: str) -> Dict[str, Any]:
     data["networkReset"] = {"enabled": True, "method": "data"}
     data["mediaCaptureEnabled"] = False
     # Decision mode on, so the plans' capabilities are read; the key long enough to build the service.
-    data["ai"].update(enabled=True, openrouterApiKey="sk-probe-key-long-enough")
+    data["ai"].update(enabled=True, provider="openrouter", apiKey="sk-probe-key-long-enough")
     data["ai"]["decision"]["mode"] = "decide"
     return data
 

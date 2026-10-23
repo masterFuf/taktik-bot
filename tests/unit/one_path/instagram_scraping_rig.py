@@ -231,7 +231,8 @@ class InstagramScrapingRig:
         mp.setattr(compat_setup, "apply_version_overrides",
                    lambda platform, version: rig.calls.append(f"version_overrides {version}") or 0)
 
-        def fake_build_ai_service(*, api_key, ipc=None, vision_model=None, text_model=None, niche_taxonomy=None,
+        def fake_build_ai_service(*, api_key, provider="openrouter", ipc=None, vision_model=None, text_model=None,
+                                  niche_taxonomy=None,
                                   report_spend=True):
             rig.ai_builds.append({"api_key": api_key, "ipc": ipc is not None, "vision_model": vision_model,
                                   "niche_taxonomy": niche_taxonomy, "report_spend": report_spend})
@@ -247,9 +248,10 @@ class InstagramScrapingRig:
             rig.configs.append(json.loads(json.dumps(config)))
             rig.calls.append(f"workflow notifier={ai_notifier is not None} ai_factory={ai_service_factory is not None}")
             # What the real constructor does with the factory, so the AI build is observed.
-            if config.get("ai_mode") and ai_service is None and config.get("openrouter_api_key") and ai_service_factory:
+            if config.get("ai_mode") and ai_service is None and config.get("ai_api_key") and ai_service_factory:
                 ai_service_factory(
-                    api_key=config["openrouter_api_key"],
+                    api_key=config["ai_api_key"],
+                    provider=config["ai_provider"],
                     ipc=ai_notifier,
                     vision_model=config.get("vision_model") or None,
                     niche_taxonomy=config.get("niche_taxonomy") or None,

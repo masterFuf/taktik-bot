@@ -9,6 +9,7 @@ from __future__ import annotations
 from .ai_dm import ai_dm_rules_field, ai_dm_text_refusal_field
 from .schema import HOST, Bounds, Computed, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
 from .shared import (
+    ai_credential_fields,
     AI_SPEND_EVENT,
     ERROR_CODE_FIELD,
     ERROR_EVENT,
@@ -48,8 +49,8 @@ INSTAGRAM_COLD_DM = WorkflowContract(
         Field("skipPrivateAccounts", "bool", "Leave private profiles alone.", default=True, attr="skip_private"),
         Field("skipVerifiedAccounts", "bool", "Leave certified profiles alone.", default=False,
               attr="skip_verified"),
-        Field("openrouterApiKey", "string", "The key the AI mode writes with; injected by the host.", default="",
-              attr="openrouter_api_key", by=HOST),
+        *ai_credential_fields("aiProvider", "aiApiKey", openrouter_key_names=("openrouterApiKey",),
+                              attr="ai_credential"),
         Field("sessionAccountId", "int", "The account seen on the phone: the run's session is filed under it, "
               "none without it; injected by the host.", attr="session_account_id", by=HOST),
         Field("accountId", "int", "The acting account's row, for the sent-DM markers (and the session when "

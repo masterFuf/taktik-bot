@@ -17,8 +17,9 @@ bridge's (`instagram.engagement.notifications`, `instagram_notifications.py`).
 
 from __future__ import annotations
 
-from .schema import HOST, Bounds, Computed, Event, Field, ListOf, MapOf, OneOf, Shape, WorkflowContract
+from .schema import HOST, NO_DEFAULT, Bounds, Computed, Event, Field, ListOf, MapOf, OneOf, Shape, WorkflowContract
 from .shared import (
+    ai_credential_fields,
     AI_EVENTS,
     ERROR_EVENT,
     LOG_EVENT,
@@ -342,7 +343,8 @@ AI = Shape(
               via=_AI_HOOKS, app=False),
         Field("accountProfile", ACCOUNT_PERSONA, "The operated account's persona; injected by the host.",
               via=_AI_HOOKS, by=HOST),
-        Field("openrouterApiKey", "string", "The key the AI calls with; injected by the host.", via=_AI_SERVICE, by=HOST),
+        *ai_credential_fields("provider", "apiKey", openrouter_key_names=("openrouterApiKey",),
+                              key_default=NO_DEFAULT, via=_AI_SERVICE),
         Field("visionModel", "string", "The model that reads screenshots; injected by the host.", via=_AI_SERVICE,
               by=HOST),
         Field("textModel", "string", "The model that writes.", via=_AI_SERVICE, app=False),

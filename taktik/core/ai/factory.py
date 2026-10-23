@@ -24,11 +24,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from taktik.core.ai.credential import read_credential
 from taktik.core.ai.openrouter_policy import PROVIDER_OPENROUTER
 
 LogCallback = Callable[[str, str], None]
-
-_MIN_API_KEY_LENGTH = 5
 
 
 def _noop_log(_level: str, _message: str) -> None:
@@ -83,6 +82,9 @@ def create_ai_service(
     Returns `(enabled, service)`; `(False, None)` when AI is off or no usable key was
     injected, so a caller can keep running without AI exactly as before.
 
+    The key and its provider are the block's `provider` and `apiKey` (`openrouterApiKey`, the old
+    name, read as an OpenRouter key); an unknown provider is refused (`ValueError`).
+
     The taxonomy is read here, from the config, for EVERY caller — that is the whole point of
     this function. A bridge that wants an AI service asks for one; it does not get to decide
     which parts of the config the classifier is allowed to see.
@@ -90,14 +92,16 @@ def create_ai_service(
     if not ai_config.get("enabled", False):
         return False, None
 
-    api_key = ai_config.get("openrouterApiKey", "")
-    if not (api_key and len(api_key) > _MIN_API_KEY_LENGTH):
-        log("warning", "AI mode requested but no OpenRouter API key provided")
+    credential = read_credential(ai_config, provider_names=("provider",), key_names=("apiKey",),
+                                 openrouter_key_names=("openrouterApiKey",))
+    if not credential.usable:
+        log("warning", f"AI mode requested but no {credential.provider} API key provided")
         return False, None
 
     taxonomy = ai_config.get("nicheTaxonomy") or ai_config.get("niche_taxonomy") or None
     service = build_ai_service(
-        api_key=api_key,
+        api_key=credential.api_key,
+        provider=credential.provider,
         ipc=ipc,
         vision_model=ai_config.get("visionModel") or None,
         text_model=ai_config.get("textModel") or None,

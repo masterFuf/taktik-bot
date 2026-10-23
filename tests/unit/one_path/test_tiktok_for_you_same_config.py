@@ -63,7 +63,8 @@ def test_the_cli_takes_the_openrouter_key_from_the_environment(rig, page_payload
     result = rig.run_cli(payload, env={"OPENROUTER_API_KEY": AI_KEY})
 
     assert result.exit_code == 0, result.output
-    assert [install["ai_config"]["openrouterApiKey"] for install in rig.ai_installs] == [AI_KEY]
+    assert [(install["ai_config"]["provider"], install["ai_config"]["apiKey"])
+            for install in rig.ai_installs] == [("openrouter", AI_KEY)]
 
 
 def test_without_a_key_a_scripted_ai_run_is_refused_before_the_phone(rig, page_payload):

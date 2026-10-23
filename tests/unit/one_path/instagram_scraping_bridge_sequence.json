@@ -101,7 +101,8 @@
     "ai_profile_analysis": true,
     "ai_niche": "food",
     "ai_qualification_prompt": "Cooks only",
-    "openrouter_api_key": "sk-or-v1-cccccccccccccccccccccccccccccccccccccccccccccccc",
+    "ai_provider": "openrouter",
+    "ai_api_key": "sk-or-v1-cccccccccccccccccccccccccccccccccccccccccccccccc",
     "vision_model": "vision-x",
     "niche_taxonomy": {
      "food": [

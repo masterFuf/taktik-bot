@@ -1,10 +1,14 @@
-"""The CLI asks for the OpenRouter key at launch when the chosen run uses AI, and only then.
+"""The CLI asks for an AI key at launch when the chosen run uses AI, and only then.
 
 Before, a run that asked for AI without a key went on without AI and said so in the log: the
 operator got a different run from the one asked for. Now a manual run needs no key; a run that
 uses AI finds its key (config, environment, typed, saved) or asks for it at a terminal, with the
 option to save it in the bot's settings file (`~/.taktik/api_config.json`, where the API url
 already lives); a scripted run without a key stops before the phone with exit code 2.
+
+The key comes with its provider (`AICredential`): OpenRouter, or Anthropic (an `ANTHROPIC_API_KEY`,
+an `sk-ant-` key typed at the terminal, a run's `provider: "anthropic"`). OpenRouter comes first when
+both are known: the measured models are there.
 """
 import json
 
@@ -17,20 +21,28 @@ from taktik.cli.hosts.ai_key import (
     MissingAIKeyError,
     ensure_ai_key,
     is_interactive,
-    resolve_openrouter_key,
+    resolve_cli_credential,
     run_uses_ai,
 )
+from taktik.core.ai.credential import AICredential
 from taktik.core.shared.config import user_config
+
+ANTHROPIC_KEY = "sk-ant-api03-" + "a" * 40
 
 
 @pytest.fixture(autouse=True)
 def _no_key_in_env(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CI", raising=False)
 
 
 def _refuse(*_args, **_kwargs):
     raise AssertionError("nobody must be asked")
+
+
+def _openrouter(key):
+    return AICredential(provider="openrouter", api_key=key)
 
 
 # --- which runs use AI ----------------------------------------------------------------------
@@ -72,19 +84,32 @@ def test_every_registered_workflow_runs_manually_without_a_key():
 def test_the_run_s_own_key_comes_first(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "from-env")
     assert ensure_ai_key("x", {"ai": {"enabled": True, "openrouterApiKey": "from-config"}},
-                         interactive=False) == "from-config"
-    assert ensure_ai_key("x", {"messageMode": "ai", "openrouterApiKey": "flat"}, interactive=False) == "flat"
+                         interactive=False) == _openrouter("from-config")
+    assert ensure_ai_key("x", {"messageMode": "ai", "openrouterApiKey": "flat"},
+                         interactive=False) == _openrouter("flat")
+    assert ensure_ai_key("x", {"ai": {"enabled": True, "provider": "anthropic", "apiKey": ANTHROPIC_KEY}},
+                         interactive=False) == AICredential(provider="anthropic", api_key=ANTHROPIC_KEY)
 
 
 def test_the_environment_serves_when_the_run_brings_none(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", " from-env ")
-    assert ensure_ai_key("x", {"ai": {"enabled": True}}, interactive=False, prompt=_refuse) == "from-env"
+    assert ensure_ai_key("x", {"ai": {"enabled": True}}, interactive=False,
+                         prompt=_refuse) == _openrouter("from-env")
+
+
+def test_an_anthropic_key_of_the_environment_serves_and_openrouter_comes_first(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", ANTHROPIC_KEY)
+    assert ensure_ai_key("x", {"ai": {"enabled": True}}, interactive=False,
+                         prompt=_refuse) == AICredential(provider="anthropic", api_key=ANTHROPIC_KEY)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "from-env")
+    assert resolve_cli_credential() == _openrouter("from-env")
 
 
 def test_a_saved_key_serves_without_asking():
-    user_config.write_user_setting(ai_key.SAVED_KEY_SETTING, "saved-key")
-    assert ensure_ai_key("x", {"ai": {"enabled": True}}, interactive=False, prompt=_refuse) == "saved-key"
-    assert resolve_openrouter_key() == "saved-key"
+    user_config.write_user_setting(ai_key.SAVED_KEY_SETTINGS["openrouter"], "saved-key")
+    assert ensure_ai_key("x", {"ai": {"enabled": True}}, interactive=False,
+                         prompt=_refuse) == _openrouter("saved-key")
+    assert resolve_cli_credential() == _openrouter("saved-key")
 
 
 # --- no key ---------------------------------------------------------------------------------
@@ -93,7 +118,7 @@ def test_a_scripted_run_without_a_key_is_refused_with_how_to_give_it():
     with pytest.raises(MissingAIKeyError) as refused:
         ensure_ai_key("instagram.automation.feed", {"ai": {"enabled": True}}, interactive=False, prompt=_refuse)
     message = str(refused.value)
-    assert "OPENROUTER_API_KEY" in message
+    assert "OPENROUTER_API_KEY" in message and "ANTHROPIC_API_KEY" in message
     assert "instagram.automation.feed" in message
     assert user_config.user_config_path() in message
 
@@ -109,19 +134,28 @@ def test_at_a_terminal_the_key_is_asked_hidden_and_saved_on_request():
     key = ensure_ai_key("x", {"ai": {"enabled": True}}, interactive=True, prompt=prompt,
                         confirm=lambda *a, **k: True, echo=lambda _m: None)
 
-    assert key == "typed-key"
+    assert key == _openrouter("typed-key")
     assert asked[0]["hide_input"] is True
     saved = json.loads(open(user_config.user_config_path(), encoding="utf-8").read())
     assert saved == {"api_url": "https://api.example.test", "openrouter_api_key": "typed-key"}
+
+
+def test_a_typed_anthropic_key_is_kept_and_saved_as_one():
+    key = ensure_ai_key("x", {"ai": {"enabled": True}}, interactive=True, prompt=lambda *a, **k: ANTHROPIC_KEY,
+                        confirm=lambda *a, **k: True, echo=lambda _m: None)
+
+    assert key == AICredential(provider="anthropic", api_key=ANTHROPIC_KEY)
+    assert user_config.read_user_setting(ai_key.SAVED_KEY_SETTINGS["anthropic"]) == ANTHROPIC_KEY
+    assert user_config.read_user_setting(ai_key.SAVED_KEY_SETTINGS["openrouter"]) is None
 
 
 def test_a_key_typed_but_not_saved_serves_this_process_only():
     key = ensure_ai_key("x", {"ai": {"enabled": True}}, interactive=True, prompt=lambda *a, **k: "once",
                         confirm=lambda *a, **k: False, echo=lambda _m: None)
 
-    assert key == "once"
-    assert resolve_openrouter_key() == "once"
-    assert user_config.read_user_setting(ai_key.SAVED_KEY_SETTING) is None
+    assert key == _openrouter("once")
+    assert resolve_cli_credential() == _openrouter("once")
+    assert user_config.read_user_setting(ai_key.SAVED_KEY_SETTINGS["openrouter"]) is None
 
 
 def test_an_empty_answer_is_a_refusal():
@@ -142,7 +176,7 @@ def test_the_api_url_still_lives_in_the_same_file():
     manager = APIEndpointManager()
     assert manager.save_api_url("https://api.example.test/") is True
     assert manager._load_from_config() == "https://api.example.test"
-    user_config.write_user_setting(ai_key.SAVED_KEY_SETTING, "k")
+    user_config.write_user_setting(ai_key.SAVED_KEY_SETTINGS["openrouter"], "k")
     assert manager._load_from_config() == "https://api.example.test"
 
 
@@ -189,10 +223,10 @@ def test_workflows_run_asks_at_a_terminal_and_saves(monkeypatch):
     result = CliRunner().invoke(workflow_cmds.workflows, [
         "run", "tiktok.automation.for_you", "--param", "ai={\"enabled\": true}"], input="term-key\ny\n")
 
-    assert "OpenRouter API key" in result.output
+    assert "OpenRouter or Anthropic API key" in result.output
     assert "term-key" not in result.output
     assert connected == [None]
-    assert user_config.read_user_setting(ai_key.SAVED_KEY_SETTING) == "term-key"
+    assert user_config.read_user_setting(ai_key.SAVED_KEY_SETTINGS["openrouter"]) == "term-key"
 
 
 def test_a_dry_run_says_whether_the_key_is_there_without_asking(monkeypatch):
@@ -202,12 +236,12 @@ def test_a_dry_run_says_whether_the_key_is_there_without_asking(monkeypatch):
         "run", "instagram.automation.feed", "--dry-run", "--json", json.dumps({"ai": {"enabled": True}})])
 
     assert result.exit_code == 0
-    assert "OpenRouter key missing" in result.output
+    assert "no AI key found" in result.output
 
 
 def test_the_agent_handler_takes_the_cli_key_when_the_payload_has_none(monkeypatch):
-    """`workflows run instagram.engagement.taktik_agent`: a typed or saved key reaches the Agent,
-    which otherwise only looks at its config and the environment."""
+    """`workflows run instagram.engagement.taktik_agent`: a typed or saved key reaches the Agent with
+    its provider, which otherwise only looks at its config and the environment."""
     from taktik.core.kernel.contracts import WorkflowInvocation
     from taktik.core.social_media.instagram.workflows.agent import agent_handler
 
@@ -216,7 +250,7 @@ def test_the_agent_handler_takes_the_cli_key_when_the_payload_has_none(monkeypat
                         lambda config, **_kwargs: seen.append(dict(config)) or {"success": True})
     handler = agent_handler.build_instagram_agent_handler(
         instagram_agent_runtime=lambda _package: agent_handler.AgentRuntime(device_manager=None, restart=lambda: True),
-        instagram_ai_key=lambda: "cli-key",
+        instagram_ai_key=lambda: AICredential(provider="anthropic", api_key="cli-key"),
     )
     invocation = WorkflowInvocation(platform="instagram", workflow_id=agent_handler.INSTAGRAM_AGENT_WORKFLOW_ID,
                                     params={})
@@ -224,4 +258,5 @@ def test_the_agent_handler_takes_the_cli_key_when_the_payload_has_none(monkeypat
     handler(invocation, {})
     handler(invocation, {"openrouter_api_key": "desktop-key"})
 
-    assert [config["openrouter_api_key"] for config in seen] == ["cli-key", "desktop-key"]
+    assert (seen[0]["ai_provider"], seen[0]["ai_api_key"]) == ("anthropic", "cli-key")
+    assert "ai_api_key" not in seen[1] and seen[1]["openrouter_api_key"] == "desktop-key"

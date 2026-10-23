@@ -174,8 +174,9 @@ def test_the_settings_as_data_carry_type_doc_condition_and_who_fills_them():
            "`workflowType` is \\'feed\\'.', when: { workflowType: 'feed' } }," in text
     assert "    distribution: { type: { oneOf: ['balanced', 'sequential', 'interleaved'] }," in text
     ai = text.split("export const INSTAGRAM_AUTOMATION_AI_BOT_SETTINGS: BotSettings<InstagramAutomationAi> = {", 1)[1]
-    assert "openrouterApiKey: { type: 'string'," in ai.split("\n}", 1)[0]
-    assert "host: true" in ai.split("openrouterApiKey: ", 1)[1].split("\n", 1)[0]
+    assert "apiKey: { type: 'string'," in ai.split("\n}", 1)[0]
+    assert "host: true" in ai.split("apiKey: ", 1)[1].split("\n", 1)[0]
+    assert "provider: { type: { oneOf: ['openrouter', 'anthropic'] }," in ai.split("\n}", 1)[0]
     cold_dm = text.split("export const INSTAGRAM_COLD_DM_BOT_SETTINGS: ", 1)[1].split("\n}", 1)[0]
     assert "  defaults: INSTAGRAM_COLD_DM_BOT_DEFAULTS,\n  bounds: INSTAGRAM_COLD_DM_BOT_BOUNDS," in cold_dm
     logout = text.split("export const INSTAGRAM_ACCOUNT_LOGOUT_BOT_SETTINGS: ", 1)[1].split("\n}", 1)[0]

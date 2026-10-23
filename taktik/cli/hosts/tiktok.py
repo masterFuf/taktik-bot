@@ -11,7 +11,8 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
-from taktik.cli.hosts.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
+from taktik.cli.hosts.ai_key import missing_key_message, resolve_cli_credential
+from taktik.core.ai.credential import AICredential, read_credential
 from taktik.cli.hosts.phone import CliPhone
 
 
@@ -62,14 +63,15 @@ def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
     if not ai_config.get("enabled"):
         return None
 
-    if not ai_config.get("openrouterApiKey"):
-        key = resolve_openrouter_key()
-        if not key:
-            logger.warning(
-                f"AI requested but no OpenRouter key ({OPENROUTER_KEY_ENV}): this run goes on without AI"
-            )
+    brought = read_credential(ai_config, provider_names=("provider",), key_names=("apiKey",),
+                              openrouter_key_names=("openrouterApiKey",))
+    if not brought.api_key:
+        credential = resolve_cli_credential()
+        if credential is None:
+            logger.warning(f"AI requested but no AI key: this run goes on without AI ({missing_key_message('this run')})")
             return None
-        ai_config["openrouterApiKey"] = key
+        ai_config["provider"] = credential.provider
+        ai_config["apiKey"] = credential.api_key
     return ai_config
 
 
@@ -102,23 +104,23 @@ def cli_tiktok_welcome_qualifier(ai_config: Mapping[str, Any], language: str):
     return build_tiktok_profile_qualifier(service, ai_config, log=_log, language=language)
 
 
-def cli_tiktok_outreach_message_generator(ai_prompt: str, api_key: str):
+def cli_tiktok_outreach_message_generator(ai_prompt: str, credential: AICredential):
     """The cold DM's AI message per recipient, with the CLI's key if the run brings none. None
     without a key: the run falls back on its static messages."""
-    key = (api_key or "").strip() or resolve_openrouter_key()
-    if not key:
-        logger.warning(f"AI requested but no OpenRouter key ({OPENROUTER_KEY_ENV}): this run goes on without AI")
+    if not credential.api_key:
+        credential = resolve_cli_credential() or credential
+    if not credential.api_key:
+        logger.warning(f"AI requested but no AI key: this run goes on without AI ({missing_key_message('this run')})")
         return None
 
     from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import (
         outreach_message_generator,
     )
 
-    return outreach_message_generator(ai_prompt, key)
+    return outreach_message_generator(ai_prompt, credential)
 
 
 __all__ = [
-    "OPENROUTER_KEY_ENV",
     "cli_tiktok_account_app",
     "cli_tiktok_ai_hooks",
     "cli_tiktok_outreach_message_generator",

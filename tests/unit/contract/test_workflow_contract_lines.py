@@ -239,7 +239,8 @@ def test_the_ai_block_readers_read_the_declared_keys_and_no_other(monkeypatch):
                         VideoInteractionMixin._interact_with_profile_posts)
     monkeypatch.setattr(VideoCommentMixin, "_try_comment_video", VideoCommentMixin._try_comment_video)
     block = _wire_block(AI_BLOCK)
-    block["openrouterApiKey"] = "sk-or-" + "x" * 48
+    block["provider"] = "openrouter"
+    block["apiKey"] = "sk-or-" + "x" * 48
     log: set = set()
     ai_config = Recording(block, log)
 

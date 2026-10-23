@@ -19,7 +19,9 @@ from typing import Any, Mapping, Optional
 
 from loguru import logger
 
-from taktik.cli.hosts.ai_key import OPENROUTER_KEY_ENV, resolve_openrouter_key
+from taktik.cli.hosts.ai_key import missing_key_message, resolve_cli_credential
+from taktik.core.ai.credential import AICredential, read_credential
+from taktik.core.ai.openrouter_policy import PROVIDER_OPENROUTER
 from taktik.cli.hosts.phone import CliPhone
 from taktik.core.social_media.instagram.workflows.common.startup import InstagramStartError
 
@@ -146,42 +148,46 @@ def _with_key(ai_config: Mapping[str, Any]) -> Optional[dict]:
     if not ai_config.get("enabled"):
         return None
 
-    if not ai_config.get("openrouterApiKey"):
-        key = cli_openrouter_key()
-        if not key:
+    brought = read_credential(ai_config, provider_names=("provider",), key_names=("apiKey",),
+                              openrouter_key_names=("openrouterApiKey",))
+    if not brought.api_key:
+        credential = cli_ai_credential()
+        if credential is None:
             return None
-        ai_config["openrouterApiKey"] = key
+        ai_config["provider"] = credential.provider
+        ai_config["apiKey"] = credential.api_key
     return ai_config
 
 
-def cli_openrouter_key() -> Optional[str]:
-    """The CLI's OpenRouter key, for a run that asks for AI without bringing one."""
-    key = resolve_openrouter_key()
-    if not key:
-        logger.warning(f"AI requested but no OpenRouter key ({OPENROUTER_KEY_ENV}): this run goes on without AI")
+def cli_ai_credential() -> Optional[AICredential]:
+    """The CLI's AI key and its provider, for a run that asks for AI without bringing one."""
+    credential = resolve_cli_credential()
+    if credential is None:
+        logger.warning(f"AI requested but no AI key: this run goes on without AI ({missing_key_message('this run')})")
         return None
-    return key
+    return credential
 
 
-def cli_instagram_scraping_ai_service(*, api_key: str, ipc=None, vision_model: str = None,
-                                      text_model: str = None, niche_taxonomy: dict = None):
+def cli_instagram_scraping_ai_service(*, api_key: str, provider: str = PROVIDER_OPENROUTER, ipc=None,
+                                      vision_model: str = None, text_model: str = None,
+                                      niche_taxonomy: dict = None):
     """The AI service a scraping run builds: the core's, as the bridge's factory builds it
     (no `ai_spend`: nothing reads it for this run)."""
     from taktik.core.ai.factory import build_ai_service
 
-    return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model,
+    return build_ai_service(api_key=api_key, provider=provider, ipc=ipc, vision_model=vision_model,
                             text_model=text_model, niche_taxonomy=niche_taxonomy,
                             report_spend=False)
 
 
-def cli_instagram_agent_ai_service_factory(*, api_key: str, ipc=None, vision_model: str = None,
-                                            text_model: str = None):
+def cli_instagram_agent_ai_service_factory(*, api_key: str, provider: str = PROVIDER_OPENROUTER, ipc=None,
+                                            vision_model: str = None, text_model: str = None):
     """The AI service a Taktik Agent session builds (its key: the config's or the environment's):
     the core's, as the bridge's factory builds it; no premium taxonomy in standalone, no `ai_spend`."""
     from taktik.core.ai.factory import build_ai_service
 
-    return build_ai_service(api_key=api_key, ipc=ipc, vision_model=vision_model, text_model=text_model,
-                            report_spend=False)
+    return build_ai_service(api_key=api_key, provider=provider, ipc=ipc, vision_model=vision_model,
+                            text_model=text_model, report_spend=False)
 
 
 def cli_instagram_ai_service(ai_config: Mapping[str, Any]):
@@ -260,11 +266,10 @@ def run_instagram_cold_dm_payload(device_manager: Any, device_id: str, payload: 
 
 __all__ = [
     "CliInstagramHost",
-    "OPENROUTER_KEY_ENV",
     "cli_instagram_agent_ai_service_factory",
     "cli_instagram_ai_service",
     "cli_instagram_scraping_ai_service",
-    "cli_openrouter_key",
+    "cli_ai_credential",
     "is_internal_workflow_format",
     "run_instagram_account_payload",
     "run_instagram_cold_dm_payload",

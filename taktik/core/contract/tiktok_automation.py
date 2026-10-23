@@ -8,8 +8,8 @@ target profiles, post URL), the follow-graph sync and the inbox are not declared
 
 from __future__ import annotations
 
-from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, STATUS_EVENT, network_reset_field
+from .schema import HOST, NO_DEFAULT, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
+from .shared import ERROR_EVENT, STATUS_EVENT, ai_credential_fields, network_reset_field
 from .tiktok_lines import AI_PROFILE_DONE_EVENT, BOT_PROFILE_EVENT
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
@@ -99,7 +99,8 @@ AI_BLOCK = Shape(
     doc="The run's AI settings; the key and the models are injected by the app's main process.",
     fields=(
         Field("enabled", "bool", "AI on for this run.", default=False),
-        Field("openrouterApiKey", "string", "The OpenRouter key (injected by the host, never typed).", by=HOST),
+        *ai_credential_fields("provider", "apiKey", openrouter_key_names=("openrouterApiKey",),
+                              key_default=NO_DEFAULT),
         Field("visionModel", "string", "The vision model, instead of the default."),
         Field("textModel", "string", "The text model, instead of the default."),
         Field("nicheTaxonomy", "json", "The niches the classifier chooses from.", aliases=("niche_taxonomy",)),

@@ -275,7 +275,7 @@ def test_a_key_is_never_sent_to_the_other_provider(provider):
 def test_the_spend_line_spells_the_providers_and_the_cost_bases_as_the_engine_does():
     from taktik.core.ai.openrouter_policy import AI_PROVIDERS
     from taktik.core.ai.providers.transport import COST_BILLED, COST_PUBLIC_PRICE
-    from taktik.core.contract.shared import AI_SPEND_COST_BASES, AI_SPEND_PROVIDERS
+    from taktik.core.contract.shared import AI_PROVIDERS as CONTRACT_PROVIDERS, AI_SPEND_COST_BASES
 
-    assert AI_SPEND_PROVIDERS == AI_PROVIDERS
+    assert CONTRACT_PROVIDERS == AI_PROVIDERS
     assert AI_SPEND_COST_BASES == (COST_BILLED, COST_PUBLIC_PRICE)

@@ -17,6 +17,7 @@ from typing import Any, Callable, Optional
 
 from loguru import logger
 
+from taktik.core.ai.credential import AICredential
 from taktik.core.ai.dm_rules import AiDmRules, check_ai_dm_text
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
@@ -102,7 +103,7 @@ class ColdDMWorkflow(
         account_id: int = 1,
         session_id: str = None,
         ai_prompt: str = "",
-        openrouter_api_key: str = "",
+        ai_credential: Optional[AICredential] = None,
         recipient_policy: ColdDmRecipientPolicy | None = None,
         ai_dm_rules: AiDmRules | None = None,
     ) -> dict:
@@ -111,7 +112,7 @@ class ColdDMWorkflow(
         `ai_dm_rules` is the frame of texts written by an AI; None: the texts are the operator's.
         """
         recipient_policy = recipient_policy or ColdDmRecipientPolicy()
-        use_ai = bool(ai_prompt and openrouter_api_key)
+        use_ai = bool(ai_prompt and ai_credential is not None and ai_credential.usable)
         logger.info(
             f"Starting Cold DM workflow: {len(recipients)} recipients, "
             f"{len(messages)} messages, AI mode: {use_ai}"
@@ -155,7 +156,7 @@ class ColdDMWorkflow(
                         messages=messages,
                         use_ai=use_ai,
                         ai_prompt=ai_prompt,
-                        openrouter_api_key=openrouter_api_key,
+                        ai_credential=ai_credential,
                         ipc=self._ai_ipc,
                     ),
                     recipient_policy,

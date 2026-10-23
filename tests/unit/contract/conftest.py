@@ -4,5 +4,6 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def _no_openrouter_key_in_the_environment(monkeypatch):
+def _no_ai_key_in_the_environment(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)

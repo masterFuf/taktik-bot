@@ -42,7 +42,7 @@ def generate_cold_dm_workflow():
     
     console.print("\n[yellow]💬 Message Configuration[/yellow]")
     console.print("[bold]1.[/bold] 📝 Manual (predefined messages)")
-    console.print("[bold]2.[/bold] 🤖 AI-generated (asks for the OpenRouter key if none is set)")
+    console.print("[bold]2.[/bold] 🤖 AI-generated (asks for an AI key if none is set)")
     
     mode_choice = click.prompt("\n[bold]Message mode[/bold]", type=click.IntRange(1, 2), default=1, show_choices=False)
     message_mode = "manual" if mode_choice == 1 else "ai"

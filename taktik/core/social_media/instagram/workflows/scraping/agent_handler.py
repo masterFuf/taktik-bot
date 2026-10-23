@@ -14,8 +14,8 @@ never reaches the phone. What differs between the hosts is injected:
   `installed_version` is the version the selector overrides are chosen for.
 - `ai_notifier`: where the AI qualification reports (the bridge's stdout IPC).
 - `instagram_scraping_ai_service(**kwargs)`: builds the AI service the run asks for.
-- `instagram_ai_key() -> str | None`: the OpenRouter key when the payload brings none (the CLI's
-  environment).
+- `instagram_ai_key() -> AICredential | None`: the AI key and its provider when the payload brings
+  none (the CLI's environment).
 No injected callable receives the whole payload, so the app's config contract test can still see
 every key the bot reads.
 """
@@ -26,6 +26,7 @@ from typing import Any, Callable, Mapping, Optional
 
 from loguru import logger
 
+from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
@@ -45,7 +46,6 @@ INSTAGRAM_SCRAPING_WORKFLOW_IDS = tuple(f"instagram.scraping.{kind}" for kind in
 
 ScrapingWorkflowFactory = Callable[..., Any]
 AIServiceFactory = Callable[..., Any]
-AIKeyProvider = Callable[[], Optional[str]]
 
 
 def _default_workflow_factory() -> ScrapingWorkflowFactory:
@@ -61,7 +61,7 @@ def run_instagram_scraping(
     connect: InstagramConnect,
     ai_notifier=None,
     instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
-    instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_ai_key: Optional[AICredentialProvider] = None,
     workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> dict[str, Any]:
     """Read the payload, ask the host for the phone, open the network door, start Instagram when the
@@ -82,10 +82,11 @@ def run_instagram_scraping(
     if phone.start is not None and not phone.start():
         raise InstagramStartError("Instagram did not start cleanly; the scraping was not started")
 
-    if scraping_config.get('ai_mode') and not scraping_config.get('openrouter_api_key') and instagram_ai_key:
-        key = instagram_ai_key()
-        if key:
-            scraping_config['openrouter_api_key'] = key
+    if scraping_config.get('ai_mode') and not scraping_config.get('ai_api_key') and instagram_ai_key:
+        credential = instagram_ai_key()
+        if credential:
+            scraping_config['ai_provider'] = credential.provider
+            scraping_config['ai_api_key'] = credential.api_key
 
     logger.info(f"Starting scraping workflow: {scraping_config['type']}")
     if scraping_config.get('enrich_profiles', False):
@@ -132,7 +133,7 @@ def build_instagram_scraping_handler(
     instagram_connect: Optional[InstagramConnect] = None,
     ai_notifier=None,
     instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
-    instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_ai_key: Optional[AICredentialProvider] = None,
     workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> WorkflowHandler:
     """Build an injectable scraping handler: the launcher, on the phone the host connects."""
@@ -158,7 +159,7 @@ def register_instagram_scraping_handlers(
     instagram_connect: Optional[InstagramConnect] = None,
     ai_notifier=None,
     instagram_scraping_ai_service: Optional[AIServiceFactory] = None,
-    instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_ai_key: Optional[AICredentialProvider] = None,
     workflow_factory: Optional[ScrapingWorkflowFactory] = None,
 ) -> WorkflowRegistry:
     """Register Instagram scraping handlers into an injected Agent registry."""

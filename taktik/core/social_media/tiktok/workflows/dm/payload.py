@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from taktik.core.ai.credential import AICredential, read_credential
 from taktik.core.social_media.tiktok.workflows.common.video_payload import (
     as_bool,
     as_float,
@@ -101,7 +102,7 @@ class DMOutreachRequest:
     #: "manual" (the static list) or "ai" (one message written per recipient).
     message_mode: str
     ai_prompt: str
-    openrouter_api_key: str
+    ai_credential: AICredential
 
     @property
     def wants_ai(self) -> bool:
@@ -139,8 +140,9 @@ def dm_outreach_request_from_payload(payload: Mapping[str, Any], *, default_sess
         session_id=str(session_id) if session_id is not None else default_session_id,
         message_mode=str(first_given(payload.get("messageMode"), payload.get("message_mode")) or "manual"),
         ai_prompt=str(first_given(payload.get("aiPrompt"), payload.get("ai_prompt")) or ""),
-        openrouter_api_key=str(
-            first_given(payload.get("openrouterApiKey"), payload.get("openrouter_api_key")) or ""
+        ai_credential=read_credential(
+            payload, provider_names=("aiProvider", "ai_provider"), key_names=("aiApiKey", "ai_api_key"),
+            openrouter_key_names=("openrouterApiKey", "openrouter_api_key"),
         ),
     )
 

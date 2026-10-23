@@ -7,7 +7,7 @@ The upload (`tiktok.standalone.upload_post`) is declared with the other publicat
 from __future__ import annotations
 
 from .schema import HOST, Computed, Event, Field, ListOf, MapOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT, device_field, network_reset_field
+from .shared import AI_SPEND_EVENT, ERROR_EVENT, STATUS_EVENT, ai_credential_fields, device_field, network_reset_field
 from .stop_reasons import TIKTOK_COMPLETION_REASON_OR_NONE
 
 _WORKFLOWS = "taktik.core.social_media.tiktok.workflows"
@@ -118,8 +118,10 @@ TIKTOK_DM_OUTREACH = WorkflowContract(
               aliases=("ai_prompt",), attr="ai_prompt"),
         Field("sessionId", "string", "Tags the sent-DM markers of this run.", default=Computed("the device id"),
               aliases=("session_id",), attr="session_id", by=HOST),
-        Field("openrouterApiKey", "string", "The key the AI mode writes with; injected by the host.", default="",
-              aliases=("openrouter_api_key",), attr="openrouter_api_key", by=HOST),
+        *ai_credential_fields("aiProvider", "aiApiKey", provider_aliases=("ai_provider",),
+                              key_aliases=("ai_api_key",),
+                              openrouter_key_names=("openrouterApiKey", "openrouter_api_key"),
+                              attr="ai_credential"),
     ),
     bridge_fields=(device_field("device_id", "deviceId"), network_reset_field()),
     refusals=(

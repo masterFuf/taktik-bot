@@ -11,11 +11,11 @@ hosts is injected:
   device, with the selector overrides of the installed version, and its clean restart through
   `AppService`.
 - `ipc`: where the status lines and the Agent's events go (the bridge's stdout, the CLI's console).
-- `ai_service_factory(*, api_key, ipc, vision_model, text_model)`: how the AI service is built.
+- `ai_service_factory(*, api_key, provider, ipc, vision_model, text_model)`: how the AI service is built.
 - `on_workflow(workflow)`: told the workflow once built (the bridge registers it for its stop
   signal).
-- `instagram_ai_key() -> str | None` (handler only): the OpenRouter key when the payload brings
-  none (the CLI's; the desktop puts it in the payload).
+- `instagram_ai_key() -> AICredential | None` (handler only): the AI key and its provider when the
+  payload brings none (the CLI's; the desktop puts them in the payload).
 The CLI used to launch Instagram hot on the raw device: no restart, no clone package, the baseline
 selectors whatever the installed version.
 """
@@ -25,17 +25,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
+from taktik.core.ai.credential import AICredentialProvider
 from taktik.core.kernel.contracts import WorkflowInvocation
 from taktik.core.kernel.registry import WorkflowHandler, WorkflowRegistry
 from taktik.core.shared.device.network_door import open_network_door
-from taktik.core.social_media.instagram.workflows.agent.payload import taktik_agent_request_from_payload
+from taktik.core.social_media.instagram.workflows.agent.payload import (
+    file_credential,
+    taktik_agent_request_from_payload,
+)
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 from taktik.core.social_media.instagram.workflows.common.session.warmup_budget import WarmupBudget
 
 
 INSTAGRAM_AGENT_WORKFLOW_ID = "instagram.engagement.taktik_agent"
 
-#: The Agent decides with the model: a session without an OpenRouter key cannot run.
+#: The Agent decides with the model: a session without an AI key cannot run.
 NO_AI_KEY = "Could not initialize AI service — check API key"
 
 
@@ -49,7 +53,6 @@ class AgentRuntime:
 
 RuntimeProvider = Callable[[Optional[str]], AgentRuntime]
 AIServiceFactory = Callable[..., Any]
-AIKeyProvider = Callable[[], Optional[str]]
 
 
 def run_instagram_agent(
@@ -60,7 +63,7 @@ def run_instagram_agent(
     ai_service_factory: Optional[AIServiceFactory] = None,
     on_workflow: Optional[Callable[[Any], None]] = None,
 ) -> dict:
-    """Refuse a session without an OpenRouter key, open the network door, restart Instagram, then run a
+    """Refuse a session without an AI key, open the network door, restart Instagram, then run a
     Taktik Agent session."""
     try:
         request = taktik_agent_request_from_payload(config)
@@ -70,7 +73,7 @@ def run_instagram_agent(
         if ipc is not None:
             ipc.error(str(refused))
         raise
-    if not request.openrouter_api_key:
+    if not request.ai_credential.api_key:
         # The status line the workflow printed once Instagram was open, now before it is touched.
         announce = getattr(ipc, "agent_status", None)
         if callable(announce):
@@ -109,7 +112,7 @@ def build_instagram_agent_handler(
     *,
     instagram_agent_runtime: Optional[RuntimeProvider] = None,
     instagram_agent_ai_service_factory: Optional[AIServiceFactory] = None,
-    instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_ai_key: Optional[AICredentialProvider] = None,
     notifier=None,
 ) -> WorkflowHandler:
     """Build an injectable Taktik Agent handler: the launcher, on the runtime the host prepares."""
@@ -119,10 +122,11 @@ def build_instagram_agent_handler(
             raise RuntimeError("Taktik Agent needs a connected device")
         config = dict(payload)
         config.update(invocation.params)
-        if not config.get("openrouter_api_key") and instagram_ai_key is not None:
-            key = instagram_ai_key()
-            if key:
-                config["openrouter_api_key"] = key
+        if not file_credential(config).api_key and instagram_ai_key is not None:
+            credential = instagram_ai_key()
+            if credential:
+                config["ai_provider"] = credential.provider
+                config["ai_api_key"] = credential.api_key
         return run_instagram_agent(
             config,
             connect=instagram_agent_runtime,
@@ -138,7 +142,7 @@ def register_instagram_agent_handlers(
     *,
     instagram_agent_runtime: Optional[RuntimeProvider] = None,
     instagram_agent_ai_service_factory: Optional[AIServiceFactory] = None,
-    instagram_ai_key: Optional[AIKeyProvider] = None,
+    instagram_ai_key: Optional[AICredentialProvider] = None,
     notifier=None,
 ) -> WorkflowRegistry:
     """Register the Taktik Agent handler into an injected Agent registry."""

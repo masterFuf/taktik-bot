@@ -14,6 +14,7 @@ import urllib.request
 
 import pytest
 
+from taktik.core.ai.credential import AICredential
 from taktik.core.ai.providers import openrouter as provider
 from taktik.core.ai.providers.openrouter import MODEL_GENERATION
 from unit.paths import CORE
@@ -77,6 +78,10 @@ class _Resp:
         return json.dumps(self._payload).encode()
 
 
+#: What the payload readers hand the generators: an OpenRouter key.
+KEY = AICredential(provider="openrouter", api_key="key")
+
+
 def _answer(text, cost=0.00021):
     return {
         "choices": [{"message": {"content": text}, "finish_reason": "stop"}],
@@ -119,7 +124,7 @@ def test_cold_dm_goes_through_the_provider_and_reports_its_cost(http):
     answers.append(_answer('"Salut Lea, ton dernier post m\'a fait sourire !"'))
     ipc = _RecordingIpc()
 
-    message = generate_ai_message("lea", "Parle de sa boulangerie", "key", ipc=ipc)
+    message = generate_ai_message("lea", "Parle de sa boulangerie", KEY, ipc=ipc)
 
     assert message == "Salut Lea, ton dernier post m'a fait sourire !"
     assert len(calls) == 1
@@ -147,7 +152,7 @@ def test_cold_dm_retries_a_rate_limit_instead_of_dropping_the_message(http):
     calls, answers = http
     answers.extend([_rate_limited(), _answer("Bonjour !")])
 
-    assert generate_ai_message("lea", "x", "key", ipc=_RecordingIpc()) == "Bonjour !"
+    assert generate_ai_message("lea", "x", KEY, ipc=_RecordingIpc()) == "Bonjour !"
     assert len(calls) == 2
 
 
@@ -158,7 +163,7 @@ def test_cold_dm_returns_empty_on_failure_so_the_recipient_is_skipped(http):
     answers.append(urllib.error.HTTPError(provider.OPENROUTER_API_URL, 500, "boom", {},
                                           io.BytesIO(b"server error")))
 
-    assert generate_ai_message("lea", "x", "key", ipc=_RecordingIpc()) == ""
+    assert generate_ai_message("lea", "x", KEY, ipc=_RecordingIpc()) == ""
 
 
 # ---------------------------------------------------------------- TikTok DM outreach
@@ -173,7 +178,7 @@ def test_tiktok_outreach_goes_through_the_provider_and_reports_its_cost(http):
     answers.append(_answer('"Hello from TikTok"'))
     ipc = _RecordingIpc()
 
-    assert generate_outreach_message("tom", "Talk about skate", "key", ipc=ipc) == "Hello from TikTok"
+    assert generate_outreach_message("tom", "Talk about skate", KEY, ipc=ipc) == "Hello from TikTok"
     body = calls[0]["body"]
     assert calls[0]["timeout"] == 30
     assert body["model"] == MODEL_GENERATION
@@ -197,7 +202,7 @@ def test_tiktok_outreach_retries_a_rate_limit_instead_of_falling_back(http):
     answers.extend([_rate_limited(), _answer("Hello again")])
     ipc = _RecordingIpc()
 
-    assert generate_outreach_message("tom", "x", "key", ipc=ipc) == "Hello again"
+    assert generate_outreach_message("tom", "x", KEY, ipc=ipc) == "Hello again"
     assert len(calls) == 2
     # Only the answered call was billed, so only it is reported.
     assert [entry["label"] for entry in ipc.spend] == ["tiktok_dm_outreach @tom"]
@@ -211,7 +216,7 @@ def test_tiktok_outreach_returns_empty_on_failure(http):
     _calls, answers = http
     answers.append(RuntimeError("network down"))
 
-    assert generate_outreach_message("tom", "x", "key", ipc=_RecordingIpc()) == ""
+    assert generate_outreach_message("tom", "x", KEY, ipc=_RecordingIpc()) == ""
 
 
 # ---------------------------------------------------------------- one door
@@ -228,3 +233,47 @@ def test_no_module_calls_openrouter_outside_the_provider():
             if "openrouter.ai/api" in text or ("urlopen" in text and "OPENROUTER" in text):
                 offenders.append(str(path.relative_to(CORE)))
     assert offenders == []
+
+
+def test_no_module_calls_anthropic_outside_its_transport():
+    """The Anthropic transport is the only place that builds an Anthropic request."""
+    offenders = []
+    for root in ("taktik", "bridges"):
+        for path in (CORE / root).rglob("*.py"):
+            if path.name == "anthropic.py" and path.parent.name == "providers":
+                continue
+            if "api.anthropic.com" in path.read_text(encoding="utf-8-sig"):
+                offenders.append(str(path.relative_to(CORE)))
+    assert offenders == []
+
+
+# ---------------------------------------------------------------- an Anthropic key
+
+
+@pytest.mark.parametrize("generate", ["instagram", "tiktok"])
+def test_an_anthropic_key_writes_the_dm_with_claude_through_the_messages_api(http, generate):
+    """The run's key is Anthropic's: the DM is written by the policy's Claude model, at Anthropic,
+    never by the OpenRouter generation model sent to the wrong provider."""
+    from taktik.core.ai.openrouter_policy import ANTHROPIC_MODEL
+    from taktik.core.ai.providers.anthropic import ANTHROPIC_API_URL
+    from taktik.core.social_media.instagram.workflows.cold_dm.ai import generate_ai_message
+    from taktik.core.social_media.tiktok.workflows.cold_dm.outreach_message import generate_outreach_message
+
+    calls, answers = http
+    answers.append({"model": ANTHROPIC_MODEL, "content": [{"type": "text", "text": "Salut !"}],
+                    "stop_reason": "end_turn", "usage": {"input_tokens": 300, "output_tokens": 12}})
+    spent = []
+
+    class _Ipc:
+        def ai_spend(self, cost_usd, **fields):
+            spent.append(fields)
+
+    credential = AICredential(provider="anthropic", api_key="sk-ant-api03-" + "z" * 40)
+    if generate == "instagram":
+        assert generate_ai_message("lea", "x", credential, ipc=_Ipc()) == "Salut !"
+    else:
+        assert generate_outreach_message("tom", "x", credential, ipc=_Ipc()) == "Salut !"
+
+    assert calls[0]["url"] == ANTHROPIC_API_URL
+    assert calls[0]["body"]["model"] == ANTHROPIC_MODEL
+    assert spent[0]["provider"] == "anthropic" and spent[0]["kind"] == "dm"

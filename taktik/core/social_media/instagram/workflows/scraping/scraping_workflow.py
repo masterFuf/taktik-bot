@@ -26,6 +26,8 @@ from typing import Dict, Any, List, Optional
 from loguru import logger
 from rich.console import Console
 
+from taktik.core.ai.credential import AICredential
+from taktik.core.ai.openrouter_policy import PROVIDER_OPENROUTER
 from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.detection import DetectionActions
@@ -101,13 +103,17 @@ class ScrapingWorkflow(
         # AI qualification service (bridge/CLI injected when needed)
         self._ipc = ai_notifier
         self._ai_service = ai_service
-        if config.get('ai_mode') and self._ai_service is None and config.get('openrouter_api_key'):
+        credential = AICredential(provider=config.get('ai_provider') or PROVIDER_OPENROUTER,
+                                 api_key=config.get('ai_api_key') or '')
+        has_key = credential.usable
+        if config.get('ai_mode') and self._ai_service is None and has_key:
             if ai_service_factory is None:
                 logger.warning("AI Mode enabled but no AI service factory was injected - AI classification disabled.")
             else:
                 try:
                     self._ai_service = ai_service_factory(
-                        api_key=config['openrouter_api_key'],
+                        api_key=credential.api_key,
+                        provider=credential.provider,
                         ipc=self._ipc,
                         vision_model=config.get('vision_model') or None,
                         niche_taxonomy=config.get('niche_taxonomy') or None,
@@ -115,8 +121,8 @@ class ScrapingWorkflow(
                     logger.info("AI qualification service initialized (injected provider)")
                 except Exception as e:
                     logger.warning(f"AI service initialization failed: {e}")
-        elif config.get('ai_mode') and not config.get('openrouter_api_key') and self._ai_service is None:
-            logger.warning("⚠️ AI Mode enabled but openrouter_api_key is missing or empty — AI classification disabled. Configure your OpenRouter key in Settings → AI.")
+        elif config.get('ai_mode') and not has_key and self._ai_service is None:
+            logger.warning("⚠️ AI Mode enabled but no AI key was given — AI classification disabled. Configure an OpenRouter or Anthropic key in Settings → AI.")
 
     def run(self) -> Dict[str, Any]:
         """

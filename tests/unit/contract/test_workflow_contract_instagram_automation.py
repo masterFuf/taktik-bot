@@ -139,4 +139,4 @@ def test_the_closed_sets_are_the_bots():
     assert set(INSTAGRAM_AUTOMATION.setting("distribution").type.values) == set(_VALID_MODES)
     unfollow = {item.key: item for item in INSTAGRAM_AUTOMATION.setting("unfollow").type.fields}
     assert unfollow["unfollowMode"].type.values == MODES
-    assert {item.key for item in ai.fields if item.by == HOST} >= {"openrouterApiKey", "accountProfile"}
+    assert {item.key for item in ai.fields if item.by == HOST} >= {"provider", "apiKey", "accountProfile"}

@@ -1,5 +1,6 @@
 import pytest
 
+from taktik.core.ai.credential import AICredential
 from taktik.core.kernel.contracts import AgentPlan, PlanStep, WorkflowInvocation
 from taktik.core.kernel.executor import AgentPlanExecutor
 from taktik.core.kernel.registry import WorkflowRegistry
@@ -346,7 +347,7 @@ def test_tiktok_dm_outreach_handler_writes_each_message_in_ai_mode():
     )
 
     workflow = FakeOutreachWorkflow.instances[0]
-    assert asked == [("Talk about running", "key")]
+    assert asked == [("Talk about running", AICredential(provider="openrouter", api_key="key"))]
     assert workflow.run_kwargs["messages"] == []
     assert workflow.run_kwargs["message_provider"]("creator") == "Salut creator"
 
