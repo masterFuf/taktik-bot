@@ -4,13 +4,8 @@ Owns `profile_following`: the edges found when a profile's following list is rea
 niche/gender classification later inferred for those accounts.
 
 Distinct from `social_graph_repository`, which owns the bot account's OWN following/followers
-sync. This one is about OTHER people's edges, used to build seed lists ("everyone we know of
-who follows @source").
-
-The enriched reads go through the shared `profile_ai_read_model` (one module for the whole
-Instagram domain), which inspects the schema before building its SELECT: the AI columns live
-in `profile_qualification` on a desktop base and in `profile_ai_enrichments` on a standalone
-one. Asking SQLite what exists beats assuming.
+sync. This one is about OTHER people's edges: it writes and classifies them, and reads
+the pending ones.
 
 No method here swallows a refusal of the base: a write rolls back and raises, a read raises.
 A 0 or an empty list would read as a measure ("nothing new", "nothing pending"), and only the
@@ -18,10 +13,9 @@ caller knows whether its run goes on and what to say.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from ..._base.base_repository import BaseRepository
-from ..profile_ai_read_model import profile_ai_read_model
 
 
 class ProfileFollowingRepository(BaseRepository):
@@ -143,62 +137,5 @@ class ProfileFollowingRepository(BaseRepository):
         )
         return [r[0] for r in rows]
 
-    def profiles_following(self, following_username: str,
-                           limit: int = 500) -> List[Dict[str, Any]]:
-        """Everyone we know of who follows `following_username` — the seed-list read.
 
-        A refused read raises: an empty list would read as "nobody we know follows them".
-        """
-        ai = profile_ai_read_model(self.conn, "p")
-        rows = self.query(
-            f"""
-            SELECT
-                pf.profile_username,
-                pf.profile_id,
-                pf.discovered_at,
-                {ai["niche"]} AS niche_category,
-                {ai["sub_niche"]} AS niche,
-                {ai["city"]} AS cities,
-                {ai["profession"]} AS profession
-            FROM profile_following pf
-            LEFT JOIN instagram_profiles p
-                ON p.profile_id = pf.profile_id
-            {ai["join"]}
-            WHERE pf.following_username = ?
-            ORDER BY pf.discovered_at DESC
-            LIMIT ?
-            """,
-            (following_username, limit),
-        )
-        return [dict(r) for r in rows]
-
-    def following_of(self, profile_username: str) -> List[Dict[str, Any]]:
-        """The stored following list of `profile_username`, enriched where known.
-
-        Mirror of `profiles_following`, read from the other end of the edge. A refused read
-        raises: an empty list would read as "no following list stored".
-        """
-        ai = profile_ai_read_model(self.conn, "p")
-        rows = self.query(
-            f"""
-            SELECT
-                pf.following_username,
-                pf.following_id,
-                pf.discovered_at,
-                {ai["niche"]} AS niche_category,
-                {ai["sub_niche"]} AS niche,
-                {ai["city"]} AS cities,
-                {ai["profession"]} AS profession
-            FROM profile_following pf
-            LEFT JOIN instagram_profiles p
-                ON p.profile_id = pf.following_id
-            {ai["join"]}
-            WHERE pf.profile_username = ?
-            ORDER BY pf.discovered_at ASC
-            """,
-            (profile_username,),
-        )
-        return [dict(r) for r in rows]
-
-
-__all__ = ["ProfileFollowingRepository", "profile_ai_read_model"]
+__all__ = ["ProfileFollowingRepository"]
