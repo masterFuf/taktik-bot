@@ -23,6 +23,10 @@ import pytest
 from bridges.common import crash_hooks, entrypoint
 from unit.paths import CORE
 
+sys.path.insert(0, str(CORE / "scripts/audits"))
+
+import audit_bridge_error_lines as bridge_error_lines  # noqa: E402
+
 #: Runs the real launcher with one module made unimportable, as a broken install would leave it.
 RUNNER = CORE / "tests" / "unit" / "bridge_without_module.py"
 
@@ -144,13 +148,8 @@ def _handlers_that_word_an_import_error(path: Path):
         if not any(isinstance(item, ast.Name) and item.id in ("ImportError", "ModuleNotFoundError")
                    for item in caught):
             continue
-        for call in ast.walk(node):
-            if not isinstance(call, ast.Call):
-                continue
-            func = call.func
-            name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
-            if name == "send_error" or (name == "error" and "ipc" in ast.unparse(func).lower()):
-                yield f"{path.relative_to(CORE).as_posix()}:{node.lineno}"
+        if any(isinstance(call, ast.Call) and bridge_error_lines.emits_error_line(call) for call in ast.walk(node)):
+            yield f"{path.relative_to(CORE).as_posix()}:{node.lineno}"
 
 
 def test_no_bridge_words_an_import_error_of_its_own():
