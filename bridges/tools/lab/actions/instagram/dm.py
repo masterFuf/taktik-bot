@@ -131,7 +131,6 @@ def _cold_dm_runtime(a):
     second connection, no app restart; the profile reads use the Lab's detection, the profile
     search the Lab's navigation (the production one, `navigation.open_profile`'s), the sending the
     production one from a profile (`MessagingBusiness`, the welcome DM's too)."""
-    from taktik.core.shared.input.keyboard import KeyboardService
     from taktik.core.social_media.instagram.workflows.cold_dm.workflow import ColdDMWorkflow
 
     class _LabColdDMWorkflow(ColdDMWorkflow):
@@ -140,7 +139,6 @@ def _cold_dm_runtime(a):
             # The prod mixins drive a raw (proxied) u2 device; the Lab facade exposes it as `.device`.
             self.device = getattr(facade, "device", facade)
             self.device_id = getattr(facade, "device_id", None) or "lab"
-            self._keyboard = KeyboardService(self.device_id)
             self._detection = bundle.detection
             self._bundle = bundle
 

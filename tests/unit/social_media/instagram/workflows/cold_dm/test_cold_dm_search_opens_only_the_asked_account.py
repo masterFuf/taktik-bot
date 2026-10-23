@@ -88,8 +88,7 @@ def run_on(monkeypatch):
         monkeypatch.setattr(base_action_module, "type_text_checked",
                             lambda _device, _serial, text, **_k: phone.keyboard_types(text) or True)
         proxy = CloneAwareDeviceProxy(phone, PKG)
-        workflow = ColdDMWorkflow(DeviceFacade(proxy), SimpleNamespace(device=proxy),
-                                  keyboard=SimpleNamespace(device_id="demo-phone"))
+        workflow = ColdDMWorkflow(DeviceFacade(proxy), SimpleNamespace(device=proxy))
         seen.phone = phone
         seen.reached = workflow.reach_and_send(recipient, lambda: seen.composed.append(1) or "Bonjour")
         return seen

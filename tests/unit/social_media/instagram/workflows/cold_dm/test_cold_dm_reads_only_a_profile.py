@@ -168,8 +168,7 @@ def _no_waits(monkeypatch):
 def _workflow(phone):
     """The production workflow, on the device a bridge hands it."""
     proxy = CloneAwareDeviceProxy(phone, PKG)
-    return ColdDMWorkflow(DeviceFacade(proxy), SimpleNamespace(device=proxy),
-                          keyboard=SimpleNamespace(device_id="demo-phone"))
+    return ColdDMWorkflow(DeviceFacade(proxy), SimpleNamespace(device=proxy))
 
 
 def _lab_bundle(phone):

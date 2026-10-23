@@ -15,7 +15,6 @@ import sys
 from bridges.common.network import enforce_pre_session_ip_rotation, send_network_refusal
 from taktik.core.shared.device.network_door import NetworkUnreachableError
 from bridges.common.entrypoint import MISSING_CONFIG
-from taktik.core.shared.input.keyboard import KeyboardService
 from bridges.instagram.cold_dm.progress import emit_cold_dm_progress, emit_cold_dm_sent
 from taktik.core.social_media.instagram.workflows.common.device import InstagramDeviceBase
 from bridges.instagram.common.ipc import _ipc, logger
@@ -58,7 +57,6 @@ def _connect(config: dict, device_id: str, package_name: str = None):
     return ColdDmRuntime(
         device=connection.device,
         device_manager=connection.device_manager,
-        keyboard=KeyboardService(device_id),
         restart=connection.restart,
     )
 
