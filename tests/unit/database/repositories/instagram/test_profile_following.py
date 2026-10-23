@@ -239,7 +239,38 @@ def test_a_broken_table_does_not_raise_into_the_workflow(repo):
     repo.conn.commit()
 
     assert repo.save_edges("alice", ["b1"]) == 0
-    assert repo.save_classifications({"b1": {}}) == 0
     assert repo.unclassified_usernames() == []
     assert repo.profiles_following("source") == []
     assert repo.following_of("alice") == []
+
+def _refuse_classifying(conn: sqlite3.Connection, username: str) -> None:
+    """A write SQLite itself refuses (a trigger), as a locked or damaged base would."""
+    conn.execute(f"""
+        CREATE TRIGGER refuse_{username} BEFORE UPDATE ON profile_following
+        WHEN NEW.following_username = '{username}'
+        BEGIN SELECT RAISE(ABORT, 'refused'); END
+    """)
+    conn.commit()
+
+
+def test_a_refused_classification_raises_instead_of_reading_as_already_done(repo):
+    """The verdicts were paid for: a failed write must not return 0, which reads as
+    "already classified". The workflow catches it and says how many were lost."""
+    repo.save_edges("alice", ["b1"])
+    _refuse_classifying(repo.conn, "b1")
+
+    with pytest.raises(sqlite3.DatabaseError):
+        repo.save_classifications({"b1": {"niche_category": "sport"}})
+
+
+def test_a_refused_batch_leaves_no_half_written_classification(repo):
+    """The first verdict of a refused batch must not wait in the open transaction for the
+    next commit of another repository on the same connection."""
+    repo.save_edges("alice", ["b1", "b2"])
+    _refuse_classifying(repo.conn, "b2")
+
+    with pytest.raises(sqlite3.DatabaseError):
+        repo.save_classifications({"b1": {"niche_category": "sport"}, "b2": {}})
+    repo.conn.commit()
+
+    assert sorted(repo.unclassified_usernames()) == ["b1", "b2"]
