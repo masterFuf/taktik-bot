@@ -12,9 +12,6 @@ and one function sends it (`entrypoint.send_import_error`).
 from __future__ import annotations
 
 import ast
-import json
-import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -27,24 +24,6 @@ sys.path.insert(0, str(CORE / "scripts/audits"))
 
 import audit_bridge_error_lines as bridge_error_lines  # noqa: E402
 
-#: Runs the real launcher with one module made unimportable, as a broken install would leave it.
-RUNNER = CORE / "tests" / "unit" / "bridge_without_module.py"
-
-
-def _run_bridge_without(tmp_path: Path, bridge: str, config: dict, blocked: str):
-    """The bridge as the app runs it (the launcher, its config file), with `blocked` missing."""
-    config_path = tmp_path / f"{bridge}.json"
-    config_path.write_text(json.dumps(config), encoding="utf-8")
-    env = {key: os.environ[key] for key in ("PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE", "APPDATA",
-                                            "PYTHONUSERBASE") if key in os.environ}
-    env.update({"PYTHONIOENCODING": "utf-8", "TAKTIK_DB_PATH": str(tmp_path / "taktik-data.db")})
-    proc = subprocess.run(
-        [sys.executable, str(RUNNER), blocked, bridge, str(config_path)],
-        cwd=str(CORE), env=env, capture_output=True, timeout=180,
-    )
-    lines = [json.loads(line) for line in proc.stdout.decode("utf-8").splitlines() if line.startswith("{")]
-    return proc, [line for line in lines if line.get("type") == "error"]
-
 
 def _assert_said_with_the_code(proc, errors, blocked: str, exit_code: int = 1) -> None:
     stderr = proc.stderr.decode("utf-8", "replace")[-3000:]
@@ -56,19 +35,19 @@ def _assert_said_with_the_code(proc, errors, blocked: str, exit_code: int = 1) -
     assert last["traceback"].rstrip().endswith(f"ModuleNotFoundError: No module named '{blocked}'")
 
 
-def test_a_run_whose_lazy_import_fails_says_it_with_the_bots_code(tmp_path):
+def test_a_run_whose_lazy_import_fails_says_it_with_the_bots_code(tmp_path, run_bridge_process):
     """The TikTok scraping runner imports its workflow when the run starts and catches the failure."""
     blocked = "taktik.core.social_media.tiktok.workflows.scraping.agent_handler"
-    proc, errors = _run_bridge_without(tmp_path, "tiktok_scraping_bridge", {"deviceId": "gate-phone"}, blocked)
+    proc, errors = run_bridge_process("tiktok_scraping_bridge", {"deviceId": "gate-phone"}, blocked)
 
     _assert_said_with_the_code(proc, errors, blocked)
     assert not (tmp_path / "taktik-data.db").exists()
 
 
-def test_a_bridge_whose_own_module_does_not_import_says_it_with_the_bots_code(tmp_path):
+def test_a_bridge_whose_own_module_does_not_import_says_it_with_the_bots_code(run_bridge_process):
     """The launcher imports the bridge after its crash hook: the hook names the cause."""
     blocked = "bridges.tiktok.scraping.workflow"
-    proc, errors = _run_bridge_without(tmp_path, "tiktok_scraping_bridge", {"deviceId": "gate-phone"}, blocked)
+    proc, errors = run_bridge_process("tiktok_scraping_bridge", {"deviceId": "gate-phone"}, blocked)
 
     _assert_said_with_the_code(proc, errors, blocked)
     assert errors[-1]["bridge"] == "tiktok_scraping_bridge"
@@ -83,10 +62,10 @@ def test_a_bridge_whose_own_module_does_not_import_says_it_with_the_bots_code(tm
                  id="tiktok-unfollow"),
 ])
 def test_a_run_that_catches_every_exception_still_says_an_import_with_the_bots_code(
-        tmp_path, bridge, config, blocked, exit_code):
+        tmp_path, run_bridge_process, bridge, config, blocked, exit_code):
     """The Instagram automation said "Workflow error: ..." under `WORKFLOW_ERROR`, the TikTok unfollow
     "Startup error: ..." with no code: their `except Exception` took the import for a workflow failure."""
-    proc, errors = _run_bridge_without(tmp_path, bridge, config, blocked)
+    proc, errors = run_bridge_process(bridge, config, blocked)
 
     _assert_said_with_the_code(proc, errors, blocked, exit_code)
     assert not (tmp_path / "taktik-data.db").exists()

@@ -65,34 +65,32 @@ def run_unfollow_workflow(config: Dict[str, Any]) -> bool:
 
 class TikTokUnfollowBridge:
     """One `tiktok_unfollow_bridge` process: the app's `{device_id, config}`, the IP rotation the
-    page asks for, then the run."""
+    page asks for, then the run.
+
+    An exception it has nothing to add to rises to `run_bridge_main`, which says it once
+    ("Bridge crashed: ...", traceback on stderr) and exits 1."""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
 
     def run(self) -> int:
         logger.info("🎵 TikTok Unfollow Bridge starting...")
-        try:
-            device_id = self.config.get("device_id")
-            config = self.config.get("config", {})
-            config["deviceId"] = device_id
+        device_id = self.config.get("device_id")
+        config = self.config.get("config", {})
+        config["deviceId"] = device_id
 
-            logger.info(f"📋 Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
+        logger.info(f"📋 Config received: device={device_id}, maxUnfollows={config.get('maxUnfollows', 20)}")
 
-            # The page offers "reset IP before the run".
-            if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Unfollow"):
-                return 1
-
-            if run_unfollow_workflow(config):
-                logger.success("✅ TikTok Unfollow workflow completed successfully")
-                return 0
-
-            logger.error("❌ TikTok Unfollow workflow failed")
+        # The page offers "reset IP before the run".
+        if not enforce_pre_session_ip_rotation(config, device_id, ipc=_ipc, label="Unfollow"):
             return 1
-        except Exception as e:
-            send_error(f"Startup error: {e}")
-            logger.exception(f"Unexpected error: {e}")
-            return 1
+
+        if run_unfollow_workflow(config):
+            logger.success("✅ TikTok Unfollow workflow completed successfully")
+            return 0
+
+        logger.error("❌ TikTok Unfollow workflow failed")
+        return 1
 
 
 __all__ = ["TikTokUnfollowBridge", "run_unfollow_workflow"]

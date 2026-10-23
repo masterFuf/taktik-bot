@@ -42,7 +42,6 @@
   "bridges/tiktok/automation/target_profiles.py::run_target_profiles_workflow": 1,
   "bridges/tiktok/cold_dm/dm_outreach.py::TikTokDMOutreachBridge.run": 1,
   "bridges/tiktok/scraping/workflow.py::run_scraping_workflow": 1,
-  "bridges/tiktok/unfollow/unfollow.py::TikTokUnfollowBridge.run": 1,
   "bridges/tiktok/unfollow/unfollow.py::run_unfollow_workflow": 1,
   "bridges/tools/lab/action_test/session.py::run_action_session_bridge": 3,
   "bridges/tools/lab/selector_test_bridge.py::_run": 1,
