@@ -6,7 +6,7 @@ launches it for the bridge, the CLI and the workflow registry.
 Current implementation: Instagram feed browsing.
   1. Visits own profile → loads account context (niche, persona) from SQLite
   2. Navigates to the home feed
-  3. Scrolls through posts, stopping on ~40% of them
+  3. Scrolls through posts, stopping on POST_STOP_RATE percent of them (80)
   4. For each stopped post: takes a screenshot → AI decides (like / skip / comment / save)
   5. If AI says visit_profile: navigate to author → screenshot → AI decides (follow / skip)
   6. Respects its session quotas and the warmup budget of the account's day, counted gesture by
@@ -410,7 +410,7 @@ class TaktikAgentWorkflow:
         while not self._should_stop(session_deadline):
             self.stats["posts_seen"] += 1
 
-            # Randomly decide whether to stop and analyse this post (~40%)
+            # Randomly decide whether to stop and analyse this post (POST_STOP_RATE percent)
             if random.randint(1, 100) > POST_STOP_RATE:
                 feed._scroll_to_next_post()
                 time.sleep(random.uniform(*DELAY_SCROLL_TO_NEXT))
