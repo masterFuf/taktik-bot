@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from bridges.common.entrypoint import send_run_error
 from bridges.common.network import enforce_pre_session_ip_rotation, send_network_refusal
 from taktik.core.ai.credential import AICredential
 from taktik.core.shared.device.network_door import NetworkUnreachableError
@@ -103,8 +104,8 @@ class TikTokDMOutreachBridge:
             send_network_refusal(refused, "DM outreach")
             return 1
         except Exception as exc:
-            logger.error(f"DM Outreach error: {exc}", exc_info=True)
-            send_error(str(exc))
+            # The launcher's refusals (no recipient, no message) keep their words, as any failure.
+            send_run_error(str(exc), exc)
             return 1
 
 

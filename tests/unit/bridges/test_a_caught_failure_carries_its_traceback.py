@@ -44,6 +44,13 @@ def _assert_said_with_its_traceback(proc, errors, said: str, cause: str, code, e
 
 @pytest.mark.parametrize("bridge, config, fault, phone, said, cause, code, exit_code", [
     # The bridges the app's crash capture reads.
+    pytest.param("dm_outreach_bridge", {"device_id": DEVICE}, None, False,
+                 "TikTok DM outreach requires at least one recipient",
+                 "ValueError: TikTok DM outreach requires at least one recipient", None, 1,
+                 id="tiktok-cold-dm-refused"),
+    pytest.param("dm_outreach_bridge", {"device_id": DEVICE, "recipients": ["gate_user"], "messages": ["hi"]},
+                 "taktik.core.social_media.tiktok.workflows.dm.agent_handler:run_tiktok_dm_outreach", False,
+                 INJECTED, f"RuntimeError: {INJECTED}", None, 1, id="tiktok-cold-dm"),
     pytest.param("desktop_bridge", AUTOMATION, "bridges.instagram.automation.session:AppService", True,
                  f"Failed to connect to device: {INJECTED}", f"RuntimeError: {INJECTED}",
                  "DEVICE_CONNECTION_FAILED", 3, id="instagram-automation-connection"),
@@ -51,6 +58,9 @@ def _assert_said_with_its_traceback(proc, errors, said: str, cause: str, code, e
                  "taktik.core.social_media.youtube.workflows.publish.agent_handler:run_youtube_upload", True,
                  f"Upload workflow error: {INJECTED}", f"RuntimeError: {INJECTED}", None, 1, id="youtube-upload"),
     # The others: Threads, the tasks, the debug tooling, the account flows.
+    pytest.param("threads_bridge", {"deviceId": DEVICE, "workflowType": "follow"},
+                 "bridges.threads.automation.threads_bridge:run_follow", False,
+                 f"Workflow error: {INJECTED}", f"RuntimeError: {INJECTED}", None, 1, id="threads-dispatch"),
     pytest.param("task_bridge", {"deviceId": DEVICE, "taskId": "story_relay"},
                  "taktik.core.kernel.registry:WorkflowRegistry.resolve", True,
                  f"Task error: {INJECTED}", f"RuntimeError: {INJECTED}", None, 1, id="instagram-task"),

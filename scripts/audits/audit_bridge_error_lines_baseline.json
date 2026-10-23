@@ -12,12 +12,10 @@
   "bridges/instagram/account/switch.py::AccountSwitchRunnerMixin._run_switch": 1,
   "bridges/instagram/automation/debug.py::DebugBridge.run": 1,
   "bridges/instagram/automation/debug_actions.py::analyze_current_screen": 1,
-  "bridges/threads/automation/threads_bridge.py::dispatch": 1,
   "bridges/tiktok/account/account_language.py::TikTokAccountLanguageMixin._run_change_language": 1,
   "bridges/tiktok/account/account_login.py::TikTokAccountLoginMixin._run_login": 1,
   "bridges/tiktok/account/account_logout.py::TikTokAccountLogoutMixin._run_logout": 1,
   "bridges/tiktok/account/account_register.py::TikTokAccountRegisterMixin._run_register": 1,
-  "bridges/tiktok/cold_dm/dm_outreach.py::TikTokDMOutreachBridge.run": 1,
   "bridges/tools/lab/action_test/session.py::run_action_session_bridge": 3,
   "bridges/tools/lab/selector_test_bridge.py::_run": 1,
   "bridges/tools/lab/workflow_test/execution/lifecycle.py::init_automation": 1
