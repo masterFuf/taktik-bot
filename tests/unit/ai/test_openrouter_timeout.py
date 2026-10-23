@@ -13,12 +13,12 @@ def test_openrouter_call_has_a_total_wall_clock_deadline(monkeypatch):
 
     monkeypatch.setattr("urllib.request.urlopen", stalled_urlopen)
     monkeypatch.setattr(
-        "taktik.core.ai.providers.openrouter.OPENROUTER_TOTAL_TIMEOUT_SECONDS",
+        "taktik.core.ai.providers.openrouter.MODEL_TOTAL_TIMEOUT_SECONDS",
         0.03,
     )
     started_at = time.monotonic()
 
-    result = AIService(api_key="test-key")._call_openrouter(
+    result = AIService(api_key="test-key")._call_model(
         "test/model",
         [{"role": "user", "content": "hello"}],
     )

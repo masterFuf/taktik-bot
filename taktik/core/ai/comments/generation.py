@@ -376,7 +376,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
         if self.ipc and should_reply:
             self.ipc.ai_comment_ready(
                 username=username, comment=reply, duration_ms=duration_ms,
-                model=result.get("model"), provider="openrouter",
+                model=result.get("model"), provider=result.get("provider"),
                 cost_usd=result.get("cost_usd"), reasoning=reasoning,
                 post_description="", post_caption=source, screenshot=None,
             )
@@ -388,7 +388,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             "should_reply": should_reply,
             "agreement_fixes": agreement_fixes,
             "model": result.get("model"),
-            "provider": "openrouter",
+            "provider": result.get("provider"),
             "cost_usd": result.get("cost_usd"),
             "duration_ms": duration_ms,
         }
@@ -644,7 +644,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
                     screenshot_url = None
             self.ipc.ai_comment_ready(
                 username=username, comment=comment, duration_ms=duration_ms,
-                model=result.get("model"), provider="openrouter",
+                model=result.get("model"), provider=result.get("provider"),
                 cost_usd=result.get("cost_usd"),
                 reasoning=reasoning, post_description=post_description,
                 post_caption=post_caption, screenshot=screenshot_url,
@@ -670,7 +670,7 @@ Respond with ONLY a JSON object, on a single line, nothing else:
             # the explanation of every comment already published under the old one.
             "prompt_capture": self.build_prompt_capture(system_prompt, user_prompt),
             "model": result.get("model"),
-            "provider": "openrouter",
+            "provider": result.get("provider"),
             "cost_usd": result.get("cost_usd"),
             "duration_ms": duration_ms,
         }

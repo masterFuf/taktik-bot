@@ -33,7 +33,7 @@ def prompts(**kwargs):
         return {"success": True, "model": model, "cost_usd": 0.0,
                 "text": '{"anchor": "a", "comment": "c", "safe_comment": "s", "reasoning": "r"}'}
 
-    service._call_openrouter = capture
+    service._call_model = capture
     service.generate_smart_comment(post_description="a photo", username="x", language="fr",
                                    **kwargs)
     return seen["stable"], seen["variable"]
@@ -104,7 +104,7 @@ def test_the_reply_generator_gets_the_same_rule():
         return {"success": True, "model": model, "cost_usd": 0.0,
                 "text": '{"should_reply": true, "comment": "ok", "reasoning": "r"}'}
 
-    service._call_openrouter = capture
+    service._call_model = capture
     service.generate_comment_reply(comment_text="joli", username="x", language="fr",
                                    target_gender="female")
 

@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from taktik.core.ai.openrouter_policy import PROVIDER_OPENROUTER
+
 LogCallback = Callable[[str, str], None]
 
 _MIN_API_KEY_LENGTH = 5
@@ -36,6 +38,7 @@ def _noop_log(_level: str, _message: str) -> None:
 def build_ai_service(
     *,
     api_key: str,
+    provider: str = PROVIDER_OPENROUTER,
     ipc: Any = None,
     vision_model: Optional[str] = None,
     text_model: Optional[str] = None,
@@ -50,11 +53,15 @@ def build_ai_service(
 
     `report_spend=False` keeps the IPC (Agent cards) but emits no `ai_spend`: for a run whose
     session does not read it.
+
+    `provider` is who the key belongs to (`AI_PROVIDERS`); a key that is visibly another
+    provider's is refused (`ForeignKeyError`) before anything is sent.
     """
     from taktik.core.ai.providers.openrouter import AIService
 
     return AIService(
         api_key=api_key,
+        provider=provider,
         ipc=ipc,
         vision_model=vision_model,
         text_model=text_model,

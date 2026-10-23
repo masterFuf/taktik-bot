@@ -1,15 +1,18 @@
 """AI-related IPC event helpers shared by bridge runtimes."""
 
+from typing import Optional
+
 
 class AIIpcMixin:
     """Emit AI and Agent events through the core IPC send primitive."""
 
     def ai_spend(self, cost_usd: float, model: str = None, label: str = None,
-                 kind: str = "other") -> None:
+                 kind: str = "other", provider: Optional[str] = None,
+                 cost_basis: Optional[str] = None) -> None:
         """Report the cost of ONE paid model call — the session's only cost source.
 
-        Emitted by the transport (`_call_openrouter`), so a call cannot be paid for without
-        being counted. The semantic events (`ai_profile_done`, `ai_screenshot_done`,
+        Emitted by the single point every model call passes through (`AIService._call_model`),
+        so a call cannot be paid for without being counted. The semantic events (`ai_profile_done`, `ai_screenshot_done`,
         `ai_comment_done`) still carry their own `cost_usd` for the Agent card that displays
         them, but they are NOT a reliable ledger: they only fire on the paths that produce a
         card. A declined comment, a declined reply, a batch username classification or an
@@ -20,6 +23,10 @@ class AIIpcMixin:
         comment, verdict, audience, decision, dm, other. It is what the desktop groups the
         session's cost BY — the `label` beside it carries a username and is free text, so it
         can only ever be read by a human.
+
+        `provider` and `cost_basis` say what differs from a cost billed by OpenRouter, which every
+        line without them is: an Anthropic call (`provider="anthropic"`) costs what its tokens cost
+        at Anthropic's public prices (`cost_basis="public_price"`), Anthropic giving no cost.
         """
         if cost_usd is None:
             return
@@ -28,6 +35,10 @@ class AIIpcMixin:
             data["model"] = model
         if label:
             data["label"] = label
+        if provider:
+            data["provider"] = provider
+        if cost_basis:
+            data["cost_basis"] = cost_basis
         self.send("ai_spend", **data)
 
     def ai_profile_analyzing(self, username: str, prompt: str = None, model: str = None,

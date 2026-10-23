@@ -39,7 +39,7 @@ class _Resp:
 
 def _spent(service, monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", lambda _request, **_kw: _Resp())
-    result = service._call_openrouter("qwen/qwen3.7-flash", [], label="t", kind="profile")
+    result = service._call_model("qwen/qwen3.7-flash", [], label="t", kind="profile")
     assert result["success"] is True
     return service.ipc.events
 

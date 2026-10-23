@@ -3,7 +3,7 @@
 The Instagram Cold DM and the TikTok DM outreach used to build their own
 `urlopen` request. Their cost never reached `ai_spend`, the session's only cost
 ledger, and the provider's rate-limit retry did not cover them. They now
-call `build_ai_service(...).text_completion`, which goes through `_call_openrouter`. Same prompt, same model,
+call `build_ai_service(...).text_completion`, which goes through `_call_model`. Same prompt, same model,
 same temperature, same token budget, same 30 s socket timeout.
 """
 

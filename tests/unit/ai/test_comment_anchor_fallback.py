@@ -20,7 +20,7 @@ def answer(**fields):
 
 def generate(payload, **kwargs):
     service = AIService(api_key="x" * 10)
-    service._call_openrouter = lambda model, messages, *a, **k: {
+    service._call_model = lambda model, messages, *a, **k: {
         "success": True, "model": model, "cost_usd": 0.0, "text": payload,
     }
     return service.generate_smart_comment(

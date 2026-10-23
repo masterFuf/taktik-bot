@@ -50,11 +50,11 @@ def _run(monkeypatch, outcomes):
             raise outcome
         return outcome
 
-    # `_call_openrouter` imports urllib inside the function, so the stdlib module is
+    # `_call_model` imports urllib inside the function, so the stdlib module is
     # what its local name resolves to -- patching it there reaches the call.
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     service = AIService(api_key="x" * 10)
-    result = service._call_openrouter(
+    result = service._call_model(
         "qwen/qwen3.7-flash", [{"role": "user", "content": "hi"}], 0.0, 20, label="t"
     )
     return result, waits

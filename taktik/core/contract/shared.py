@@ -104,6 +104,11 @@ STEP_METRIC_EVENT = Event(
 )
 
 
+#: The providers and the two ways a cost is known, as `openrouter_policy.AI_PROVIDERS` and
+#: `providers/transport.py` spell them (the contract imports nothing; a test holds them equal).
+AI_SPEND_PROVIDERS = ("openrouter", "anthropic")
+AI_SPEND_COST_BASES = ("billed", "public_price")
+
 #: `IPC.ai_spend` (`bridges/common/ipc_ai.py`), one line per paid model call.
 AI_SPEND_EVENT = Event(
     "ai_spend",
@@ -114,6 +119,10 @@ AI_SPEND_EVENT = Event(
         Field("workflow_type", "string", "The family of the run."),
         Field("model", "string", "The model that served the call.", optional=True),
         Field("label", "string", "Free text for a person (a username).", optional=True),
+        Field("provider", OneOf(AI_SPEND_PROVIDERS), "Who answered; absent: OpenRouter.", optional=True),
+        Field("cost_basis", OneOf(AI_SPEND_COST_BASES),
+              "How `cost_usd` is known: billed by the provider, or computed from the tokens at the "
+              "public prices of the policy (Anthropic gives no cost); absent: billed.", optional=True),
     ),
 )
 

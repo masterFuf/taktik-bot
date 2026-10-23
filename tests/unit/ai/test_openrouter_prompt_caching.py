@@ -147,7 +147,7 @@ def test_the_served_backend_is_reported_not_the_gateway():
     original = _urllib.urlopen
     _urllib.urlopen = fake_urlopen
     try:
-        result = service._call_openrouter("google/gemini-3.1-flash-lite", [], label="t")
+        result = service._call_model("google/gemini-3.1-flash-lite", [], label="t")
     finally:
         _urllib.urlopen = original
 
