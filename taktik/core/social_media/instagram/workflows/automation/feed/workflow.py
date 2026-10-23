@@ -83,6 +83,33 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             self.logger.debug(f"Feed advance error: {e}")
             return {'on_feed': False}
 
+    def _count_interacted_account(self, username: str, stats: Dict[str, Any]) -> bool:
+        """The Feed's one rule for the accounts it interacted with: each counts once.
+
+        An account is interacted with when the Feed likes or comments one of its posts, or visits it
+        and acts there (decision of 2026-10-18; until then the author of a liked post was not
+        counted, and the card of a Feed run showed 0 accounts interacted with). Counted once however
+        many of its posts the session engages or visits, the way the action ledger counts it: one
+        LIKE row per post, filed under its author, and the session's engaged profiles are the
+        distinct ones (`InteractionRepository.get_session_stats`). The run's dict
+        (`users_interacted`, which the runner adds to the session's interactions) and the live
+        snapshot (`profiles_interacted`) move together. Visiting is not counted here.
+
+        The set lives on this instance, the session's FeedBusiness (`_get_feed_business`), so a
+        session that runs the Feed step again does not count an author twice either. Like a PHP
+        service holding an array of usernames for the request. Returns True for an account counted
+        now.
+        """
+        accounts = getattr(self, '_interacted_accounts', None)
+        if accounts is None:
+            accounts = self._interacted_accounts = set()
+        if username in accounts:
+            return False
+        accounts.add(username)
+        stats['users_interacted'] = stats.get('users_interacted', 0) + 1
+        self.stats_manager.increment('profiles_interacted')
+        return True
+
     def _engage_post_author(self, username: str, config: Dict[str, Any],
                             stats: Dict[str, Any]) -> bool:
         """Visit the author of the post we just engaged, interact, come back to the feed.
@@ -107,8 +134,10 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
             )
             result = self._perform_interactions_on_profile(username, config, profile_data=profile_data)
             if result.get('actually_interacted'):
-                # The live counters too (visited, interacted), as the likers walk files its profiles.
-                self._update_stats_from_interaction_result(username, result)
+                # Visited, and interacted with once: the author whose post was just liked is
+                # already counted (`_count_interacted_account`), the visit does not count them again.
+                self.stats_manager.increment('profiles_visited')
+                self._count_interacted_account(username, stats)
 
             stats['likes_made'] += result.get('likes', 0)
             stats['follows_made'] = stats.get('follows_made', 0) + result.get('follows', 0)
@@ -394,10 +423,14 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                                 blocked = self._stop_if_action_blocked(post_author, 'comment')
 
                         if liked or commented:
-                            # An engaged feed post IS the output of this workflow: it visits no
-                            # profile, so nothing else counts it.
+                            # An engaged feed post IS the output of this workflow (its quota counts
+                            # posts), and its author an account interacted with, once.
                             stats['posts_engaged'] = stats.get('posts_engaged', 0) + 1
                             self.stats_manager.increment('posts_engaged')
+                            # A post is engaged only once its author was read (no author, no ledger
+                            # row, no like): the check says it to the type checker as well.
+                            if post_author:
+                                self._count_interacted_account(post_author, stats)
 
                         if liked:
                             feed_action = 'like_comment' if commented else 'like'
@@ -425,9 +458,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         # feed-liking mode, there is a
                         # vraie decision d'acquisition a gater.
                         if visit_author and post_author:
-                            stats['users_interacted'] = stats.get('users_interacted', 0) + (
-                                1 if self._engage_post_author(post_author, effective_config, stats) else 0
-                            )
+                            self._engage_post_author(post_author, effective_config, stats)
 
                         if visit_likers:
                             self._engage_post_likers(effective_config, stats)
@@ -487,9 +518,9 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                         filler_streak = 0
 
                 # Two counts, never one for the other: the posts liked in the feed, and the
-                # profiles interacted with (the authors visited, the likers walked). The first
-                # used to be written over the second at the end of the loop, and a run that
-                # visited authors reported its likes as its profiles.
+                # accounts interacted with (the authors of the posts engaged or visited, once each,
+                # and the likers walked). The first used to be written over the second at the end
+                # of the loop, and a run that visited authors reported its likes as its profiles.
                 stats['posts_liked'] = posts_liked
                 # The Feed's budget is counted in posts, which the session's limits do not know:
                 # spent, it ends the run (`posts_cap`), or the run's loop relaunched the step until
@@ -501,7 +532,7 @@ class FeedBusiness(FeedPostActionsMixin, DiscoverSuggestionsVisitMixin,
                 stats['success'] = True
                 self.logger.info(
                     f"✅ Feed workflow completed: {posts_liked} posts liked, "
-                    f"{stats.get('users_interacted', 0)} profile(s) interacted with"
+                    f"{stats.get('users_interacted', 0)} account(s) interacted with"
                 )
                 return stats
             

@@ -10,6 +10,9 @@ it trusts nothing else. Two counts of the Feed never reached it:
 - an author the run visits and engages (`interact_with_post_author`): counted in the run's final
   dict, never in the stats manager, so the live "interacted" count stayed at 0 while the likers walk,
   the same kind of visit, moved it.
+
+And since 2026-10-18 (product decision) the author of a post the Feed liked is an account interacted
+with, live as in the final dict, once however many of their posts the run engages or visits.
 """
 
 import types
@@ -27,8 +30,8 @@ def _quiet():
     return types.SimpleNamespace(**{level: (lambda *a, **k: None) for level in ("debug", "info", "success", "warning", "error")})
 
 
-def _feed(snapshots, author_interacts=True):
-    """A Feed on a played phone: every post by another author, every like landing."""
+def _feed(snapshots, author_interacts=True, one_author=False):
+    """A Feed on a played phone: every post by another author (or all by one), every like landing."""
     screen = {"post": 1}
 
     def next_post(**_kwargs):
@@ -47,7 +50,7 @@ def _feed(snapshots, author_interacts=True):
     feed.scroll_actions = types.SimpleNamespace(human_reading_pause=lambda **k: None, scroll_feed_to_next_post=next_post)
     feed._is_sponsored_post = lambda: False
     feed._is_reel_post = lambda: False
-    feed._get_current_post_author = lambda: f"author_{screen['post']}"
+    feed._get_current_post_author = lambda: "author_1" if one_author else f"author_{screen['post']}"
     feed.has_feed_suggestions_carousel = lambda: False
     feed._stop_if_action_blocked = lambda username, action: False
     feed._like_current_post = lambda record_as=None: True
@@ -89,8 +92,18 @@ def test_the_snapshot_carries_the_posts_the_feed_engaged():
     assert snapshots, "the run must send its snapshots"
     assert snapshots[-1]["posts_engaged"] == 2
     assert snapshots[-1]["likes"] == 2
-    # Liking a post opens no profile: the doctrine of the Feed's two counts holds live too.
-    assert snapshots[-1]["profiles_interacted"] == 0
+    # The two authors liked are two accounts interacted with; liking a post opens no profile.
+    assert snapshots[-1]["profiles_interacted"] == 2
+    assert snapshots[-1]["profiles_visited"] == 0
+
+
+def test_an_author_liked_twice_is_one_account_live():
+    snapshots = []
+
+    _feed(snapshots, one_author=True).interact_with_feed(dict(_RUN))
+
+    assert snapshots[-1]["posts_engaged"] == 2
+    assert snapshots[-1]["profiles_interacted"] == 1
 
 
 def test_an_author_visited_and_engaged_is_counted_live():
@@ -98,6 +111,7 @@ def test_an_author_visited_and_engaged_is_counted_live():
 
     _feed(snapshots).interact_with_feed({**_RUN, "interact_with_post_author": True})
 
+    # Liked, then visited and engaged: each author is one account, visited once.
     assert snapshots[-1]["profiles_visited"] == 2
     assert snapshots[-1]["profiles_interacted"] == 2
 
@@ -105,6 +119,8 @@ def test_an_author_visited_and_engaged_is_counted_live():
 def test_an_author_visit_that_did_nothing_is_not_an_interaction():
     snapshots = []
 
-    _feed(snapshots, author_interacts=False).interact_with_feed({**_RUN, "interact_with_post_author": True})
+    feed = _feed(snapshots, author_interacts=False)
+    feed.interact_with_feed({**_RUN, "like_percentage": 0, "interact_with_post_author": True})
 
-    assert snapshots[-1]["profiles_interacted"] == 0
+    # Nothing liked, nothing done on the visits: no count moved, the summary says it.
+    assert feed.stats_manager.get_summary()["profiles_interacted"] == 0
