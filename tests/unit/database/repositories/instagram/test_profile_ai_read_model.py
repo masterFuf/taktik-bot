@@ -171,6 +171,34 @@ def test_standalone_shape_still_reads_its_real_table(standalone):
     assert row["niche"] == "Yoga"
 
 
+def test_standalone_shape_takes_the_latest_enrichment(standalone):
+    """Enrichments stack per profile on the standalone shape: the most recently updated wins."""
+    standalone.executemany(
+        "INSERT INTO profile_ai_enrichments "
+        "(platform, profile_id, username, ai_niche, ai_specific_niche, ai_profession, "
+        "location_city, updated_at) VALUES ('instagram', 10, 'coach_marie', ?, ?, ?, ?, ?)",
+        [("old", "old_sub", "old_job", None, "2026-01-01 00:00:00"),
+         ("new", "new_sub", "new_job", "Paris", "2026-06-01 00:00:00")],
+    )
+    standalone.commit()
+
+    row = _read(standalone, "coach_marie")
+    assert row["niche_category"] == "new"
+    assert row["profession"] == "new_job"
+    assert row["cities"] == "Paris"
+
+
+def test_the_factual_city_is_used_when_the_enrichment_has_none(standalone):
+    standalone.execute("UPDATE social_profiles SET location_city = 'Lyon' WHERE username = 'coach_marie'")
+    standalone.execute(
+        "INSERT INTO profile_ai_enrichments (platform, profile_id, username, ai_niche, location_city, updated_at) "
+        "VALUES ('instagram', 10, 'coach_marie', 'sport', NULL, '2026-06-01 00:00:00')"
+    )
+    standalone.commit()
+
+    assert _read(standalone, "coach_marie")["cities"] == "Lyon"
+
+
 def test_shape_with_neither_store_degrades_to_null_without_raising(conn):
     cur = conn.cursor()
     _profiles(cur)

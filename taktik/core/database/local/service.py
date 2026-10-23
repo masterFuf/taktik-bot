@@ -1147,37 +1147,6 @@ class LocalDatabaseService:
         """
         return self._profile_following.unclassified_usernames(limit)
 
-    def get_profiles_following_target(
-        self,
-        following_username: str,
-        limit: int = 500,
-    ) -> List[Dict[str, Any]]:
-        """
-        Return all scraped profiles that follow *following_username*.
-
-        Useful for building seed lists: "give me everyone in our DB
-        that follows @sample_source".
-
-        Each row contains: profile_username, discovered_at, and (when
-        available via JOIN) niche_category, niche, cities, profession.
-        A refused read raises.
-        """
-        return self._profile_following.profiles_following(following_username, limit)
-
-    def get_following_with_enrichment(
-        self,
-        profile_username: str,
-    ) -> List[Dict[str, Any]]:
-        """
-        Return the following list stored for *profile_username*, enriched
-        with classification data from instagram_profiles where available.
-
-        Each row: following_username, discovered_at, niche_category,
-        niche, cities, profession (all nullable when unknown).
-        A refused read raises.
-        """
-        return self._profile_following.following_of(profile_username)
-
 
 # Singleton instance
 _local_db_instance: Optional[LocalDatabaseService] = None
