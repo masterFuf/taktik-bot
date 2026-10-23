@@ -76,7 +76,7 @@ def scan_clones(
         return []
 
     original_pkg = ORIGINAL_PACKAGES[platform]
-    prefix = CLONE_PREFIXES[platform]
+    prefixes = CLONE_PREFIXES[platform]
 
     # Query all installed packages
     try:
@@ -103,10 +103,10 @@ def scan_clones(
         if line.startswith("package:")
     ]
 
-    # Filter: keep original + anything matching the clone prefix
+    # Filter: keep original + anything matching a clone prefix
     matches: List[CloneInfo] = []
     for pkg in sorted(all_packages):
-        if not pkg.startswith(prefix):
+        if not pkg.startswith(prefixes):
             continue
 
         if pkg == original_pkg:

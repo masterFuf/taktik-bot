@@ -5,7 +5,7 @@ from taktik.core.clone.packages.package_map import (
     OFFICIAL_PACKAGE,
     ORIGINAL_PACKAGES,
     PACKAGE_VARIANTS,
-    get_clone_prefix,
+    get_clone_prefixes,
     get_original_package,
     get_package_variants,
 )
@@ -15,7 +15,7 @@ __all__ = [
     "OFFICIAL_PACKAGE",
     "ORIGINAL_PACKAGES",
     "PACKAGE_VARIANTS",
-    "get_clone_prefix",
+    "get_clone_prefixes",
     "get_original_package",
     "get_package_variants",
 ]
