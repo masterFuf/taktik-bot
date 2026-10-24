@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
+from taktik.core.social_media.instagram.ui.selectors.locales import L
+
 @dataclass
 class ProblematicPageSelectors:
     """Selectors for detecting and closing problematic pages."""
@@ -71,6 +73,26 @@ class ProblematicPageSelectors:
     alert_cancel_button_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
         {'resourceIdMatches': r'(.*:id/)?igds_alert_dialog_cancel_button'},
     ])
+
+    # === Instagram checking the account (its challenge screen) ===
+    # Seen on a real one: Instagram 410 on a Pixel 6 Pro (Android 17), 2026-10-24, « Confirmez que
+    # vous êtes une personne réelle afin d'utiliser votre compte », a « Continuer » button, the
+    # whole page in `bloks_container`, no tab bar; the Lab read its activity (`app_current`).
+    # It is the only activity of that name in the manifests of Instagram 410, 444 and 447 (searched
+    # for `challenge` and `checkpoint`). Nothing on this screen is ever tapped: the run stops.
+    account_challenge_activities: List[str] = field(default_factory=lambda: [
+        'com.instagram.challenge.activity.ChallengeActivity',
+    ])
+    # The page the check is drawn in, and the main shell it never shows. The own profile carries a
+    # `bloks_container` too, under its tab bar: without the tab bar's absence, every look at it
+    # would pay a read of the activity.
+    account_challenge_surface_ids: List[str] = field(default_factory=lambda: ['bloks_container'])
+    account_challenge_absent_ids: List[str] = field(default_factory=lambda: ['tab_bar'])
+
+    @property
+    def account_challenge_texts(self) -> List[str]:
+        """The check's headline in the phone's language (the second proof, after the activity)."""
+        return L('popup.account_challenge_texts')
 
     # === Detection patterns for problematic pages ===
     # Chaque pattern contient: indicators (textes à chercher), close_methods, et flags optionnels

@@ -37,7 +37,7 @@ so the operator had no way to tell a finished run from a failed one.
 """
 
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 #: Does the operator need to go and look? That is the only question the family answers, and the
@@ -307,6 +307,7 @@ _FAMILY_BY_CODE = {
     "device_disconnected": FAMILY_FAILED,
     "target_app_crashed": FAMILY_FAILED,
     "desktop_gone": FAMILY_FAILED,
+    "account_challenge": FAMILY_FAILED,
 }
 
 
@@ -515,6 +516,17 @@ def desktop_gone() -> StopReason:
     return _reason("desktop_gone", FAMILY_FAILED, "Desktop app gone")
 
 
+def account_challenge() -> StopReason:
+    """Instagram is checking the account (its challenge screen: « Confirm you're a real person »).
+
+    Told apart from `navigation_lost`, which it used to end as: the run looked for its tab bar
+    three times fifteen seconds on a screen it did not know. Nothing is tapped on that screen, and
+    no run goes on that account until the operator has passed the check by hand on the phone
+    (which may ask for an Instagram update, 2026-10-24).
+    """
+    return _reason("account_challenge", FAMILY_FAILED, "Instagram is checking the account")
+
+
 def for_halt(halt: Dict[str, Any]) -> StopReason:
     """The motive for a run stopped by the shared halt latch (``shared/diagnostics/run_halt``).
 
@@ -530,7 +542,24 @@ def for_halt(halt: Dict[str, Any]) -> StopReason:
         return action_blocked()
     if code == "desktop_gone":
         return desktop_gone()
+    if code == "account_challenge":
+        return account_challenge()
     return target_app_crashed(halt.get("detail"))
+
+
+def settled_by_halt(reason: Any, halt: Optional[Dict[str, Any]]) -> Any:
+    """The motive a run ends on, once its stop latch has been read.
+
+    A failure a caller names on its own (`navigation_lost`, `no_account`...) is often the latch's
+    cause seen from afar: the run lost its way BECAUSE Instagram put its account check on screen.
+    The latch saw the cause, so its motive wins over such a failure. A manual stop, a crash and
+    every expected end keep their own motive, and so does a reason that already is the latch's.
+    """
+    if not halt or getattr(reason, "family", None) != FAMILY_FAILED:
+        return reason
+    if getattr(reason, "code", None) in (halt.get("code"), "crashed"):
+        return reason
+    return for_halt(halt)
 
 
 # -- manual: someone pressed stop ----------------------------------------------

@@ -30,6 +30,12 @@ plus personne ne lit les evenements du pont ni ne peut l'arreter : plantage de l
 fermeture brutale. Pose par le chien de garde du lanceur (`bridges/common/owner_watchdog.py`),
 lu aux memes endroits que les autres, pour que le run finisse par son chemin normal.
 
+**Cinquieme cas : la plateforme verifie le compte** (2026-10-24). Instagram ouvre son ecran de
+controle (« Confirmez que vous etes une personne reelle ») : le run cherchait son chemin trois fois
+quinze secondes et concluait a une navigation perdue. Le detecteur de la plateforme pose
+`ACCOUNT_CHALLENGE` des qu'il le voit ; rien n'est touche sur cet ecran, c'est a l'operateur de le
+passer, a la main.
+
 **The witness.** The runtime that knows the operated account installs a listener
 (`configurer_temoin`), told once when the latch is set: that is where a block becomes one entry
 of the account's health history, whoever saw it. This module stays blind to accounts and SQLite.
@@ -60,6 +66,10 @@ ACTION_BLOCKED = "action_blocked"
 
 #: L'application de bureau qui a lance le pont n'existe plus : le run n'a plus de proprietaire.
 DESKTOP_GONE = "desktop_gone"
+
+#: La plateforme verifie le compte (son ecran de controle) : plus aucun geste, ni sur cet ecran ni
+#: ailleurs, tant que l'operateur ne l'a pas passe lui-meme.
+ACCOUNT_CHALLENGE = "account_challenge"
 
 _arret: Optional[Dict[str, Any]] = None
 
@@ -107,5 +117,5 @@ def arret_demande() -> Optional[Dict[str, Any]]:
 
 __all__ = [
     "demander_arret", "arret_demande", "reinitialiser", "configurer_temoin",
-    "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE",
+    "DEVICE_DISCONNECTED", "TARGET_APP_CRASHED", "ACTION_BLOCKED", "DESKTOP_GONE", "ACCOUNT_CHALLENGE",
 ]

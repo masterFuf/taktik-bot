@@ -22,12 +22,27 @@ def foreground_package(device: Any) -> Optional[str]:
     reading the foreground is to tell "I am elsewhere" from "I did not find my button", and an
     unreadable device tells neither.
     """
+    return _foreground(device, "package")
+
+
+def foreground_activity(device: Any) -> Optional[str]:
+    """Which activity (its class name) is on screen right now, or None when it cannot be read.
+
+    The same reading as `foreground_package`, the same rule: `None` is "unknown", never "another
+    screen". A platform reads it to name a screen without reading a word of it (Instagram's account
+    check is its own activity, whatever the phone's language).
+    """
+    return _foreground(device, "activity")
+
+
+def _foreground(device: Any, key: str) -> Optional[str]:
+    """One field of `app_current()` (`package`, `activity`), or None when it cannot be read."""
     if device is None:
         return None
     try:
-        return (device.app_current() or {}).get("package") or None
+        return (device.app_current() or {}).get(key) or None
     except Exception as exc:  # noqa: BLE001 -- a diagnostic must never end a run
-        logger.debug(f"Foreground package unreadable: {exc}")
+        logger.debug(f"Foreground {key} unreadable: {exc}")
         return None
 
 

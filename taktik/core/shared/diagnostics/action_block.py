@@ -33,9 +33,11 @@ def look_for_action_block(detector: Any, *, after: str, target: str = '') -> boo
         logger.debug(f"Block check after {after} failed: {exc}")
         return False
     if blocked:
+        # The detector's own code: a refusal of the gesture, or the platform checking the account.
+        code = (run_halt.arret_demande() or {}).get('code') or run_halt.ACTION_BLOCKED
         logger.error(f"🛑 The platform refuses the {after}"
-                     + (f" on @{target}" if target else "") + " — stopping the run")
-        emit_step('account_restriction', action='action_blocked', target=target, after=after)
+                     + (f" on @{target}" if target else "") + f" ({code}) — stopping the run")
+        emit_step('account_restriction', action=code, target=target, after=after)
     return blocked
 
 

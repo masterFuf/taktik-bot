@@ -653,6 +653,12 @@ STRINGS: Dict[str, List[str]] = {
         "acceder a vos contacts",
         "synchroniser vos contacts",
     ],
+    # Raw LABELS: the headline of Instagram's account check (its challenge screen), read on a
+    # real one (410, Pixel 6 Pro, 2026-10-24: « Confirmez que vous êtes une personne réelle afin
+    # d'utiliser votre compte, <compte> »). The second proof, after the screen's activity.
+    "popup.account_challenge_texts": [
+        "Confirmez que vous êtes une personne réelle",
+    ],
     "popup.follow_suggestions_close_methods": [
         "//*[contains(@content-desc, \"Fermer\")]",
     ],

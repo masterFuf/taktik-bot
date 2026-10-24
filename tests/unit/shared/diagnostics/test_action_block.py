@@ -69,6 +69,18 @@ def test_the_first_block_of_a_run_is_one_entry_of_the_account_history(db, monkey
     assert [(row["signal"], row["source_type"]) for row in rows] == [("action_blocked", "FOR_YOU")]
 
 
+def test_an_account_check_is_its_own_entry_of_the_account_history(db, monkeypatch):
+    """Instagram checking the account: the desktop app reads this row and launches nothing on the
+    account until the operator says the check is passed."""
+    _record_into(db, monkeypatch)
+    run_halt.configurer_temoin(account_health.witness_for("instagram", lambda: "demo_account"))
+
+    run_halt.demander_arret(run_halt.ACCOUNT_CHALLENGE, "account_challenge (activity)")
+
+    rows = db.account_restrictions.recent_signals("demo_account", platform="instagram")
+    assert [row["signal"] for row in rows] == ["account_challenge"]
+
+
 def test_a_lost_phone_says_nothing_about_the_account(db, monkeypatch):
     _record_into(db, monkeypatch)
     run_halt.configurer_temoin(account_health.witness_for("instagram", lambda: "demo_account"))

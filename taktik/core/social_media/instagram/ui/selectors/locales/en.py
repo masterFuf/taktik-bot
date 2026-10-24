@@ -660,6 +660,9 @@ STRINGS: Dict[str, List[str]] = {
         "access your contacts",
         "sync contacts",
     ],
+    # "popup.account_challenge_texts": to capture. The English account check (challenge screen)
+    # was never read on a phone, so no headline is written here; its activity proves it in every
+    # language (`ProblematicPageSelectors.account_challenge_activities`).
     "popup.follow_suggestions_close_methods": [
         "//*[contains(@content-desc, \"Close\")]",
         "//*[contains(@content-desc, \"Dismiss\")]",

@@ -24,6 +24,17 @@ def is_post_open(a, p):
     return a.detection.is_on_post_screen()
 
 
+@detection_action("detection.account_challenge")
+def account_challenge(a, p):
+    """Is Instagram checking the account now (its challenge screen)? The production look
+    (`ProblematicPageDetector.is_account_challenged`, the one the navigation, the block check after
+    each gesture and the check of pages make): the activity on screen, then the headline in the
+    phone's language. Reads only, nothing is tapped on that screen. No detector on the navigation:
+    no answer, never "not checked"."""
+    detector = getattr(a.nav, "problematic_page_detector", None)
+    return detector.is_account_challenged() if detector else None
+
+
 @action("detection.get_current_screen")
 def get_current_screen(a, p):
     try:

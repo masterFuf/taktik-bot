@@ -14,7 +14,7 @@ from .schema import OneOf
 #: The run's stop latch (`taktik/core/shared/diagnostics/run_halt.py`): what a run can no longer do,
 #: read by every loop that decides to go on. A run stopped by it says so with this code.
 RUN_HALT_CODE = OneOf(
-    ("device_disconnected", "target_app_crashed", "action_blocked", "desktop_gone"),
+    ("device_disconnected", "target_app_crashed", "action_blocked", "desktop_gone", "account_challenge"),
     name="RunHaltCode",
     doc="Why the stop latch stopped the run (`run_halt`).",
 )
@@ -37,7 +37,7 @@ INSTAGRAM_STOP_REASON_CODE = OneOf(
         "no_account",
         "stuck_at_top", "navigation_lost",
         "list_unavailable", "empty_plan", "no_targets", "daily_budget_unreadable", "crashed",
-        "device_disconnected", "target_app_crashed", "desktop_gone",
+        "device_disconnected", "target_app_crashed", "desktop_gone", "account_challenge",
         # manual
         "manual_stop",
     ),

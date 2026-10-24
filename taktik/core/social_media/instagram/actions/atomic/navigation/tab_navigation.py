@@ -90,12 +90,21 @@ class TabNavigationMixin(BaseAction):
         """One real Back at a time, at most `max_backs`, until `arrived()` answers True after one.
 
         Never out of Instagram: the facade refuses a Back on a root screen (home feed, a main tab),
-        where it would leave the app or switch tab."""
+        where it would leave the app or switch tab. Never on Instagram's account check either: no
+        Back takes the run past it, and the run stops there."""
+        if self._account_check_on_screen():
+            return False
         for _ in range(max_backs):
             self._back_one_screen()
             if arrived():
                 return True
         return False
+
+    def _account_check_on_screen(self) -> bool:
+        """Is the tab bar gone because Instagram is checking the account? Then the run stops
+        (the detector sets its latch) and no gesture is made on that screen."""
+        detector = getattr(self, 'problematic_page_detector', None)
+        return bool(detector is not None and detector.is_account_challenged())
 
     def _is_search_bar_shown(self) -> bool:
         """The search screen's own bar is on screen (Explore, or the results of a query)."""
@@ -144,6 +153,8 @@ class TabNavigationMixin(BaseAction):
                 return True
 
             self.logger.debug(f"❌ Profile tab not reached (attempt {attempt + 1})")
+            if self._account_check_on_screen():
+                return False
             # A full-screen surface hides the bottom bar: the followers / following lists since
             # Instagram 410 (Pixel 3, 2026-09-24), a DM conversation and its keyboard (Pixel 6 Pro,
             # 2026-10-24: two searches of 15 s, one per Back). Back out as the search tab does,

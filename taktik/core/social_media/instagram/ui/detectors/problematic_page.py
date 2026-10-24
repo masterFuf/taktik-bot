@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 from loguru import logger
 from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capture_screenshot
 from taktik.core.shared.diagnostics import run_halt
+from taktik.core.shared.device.app_inspection import foreground_activity
 from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import L_all, active_locale, available_locales
 
@@ -40,6 +41,12 @@ def _alert_dialog_text(xml: str, text_ids) -> Optional[str]:
             if value:
                 parts.append(html.unescape(value.group(1)))
     return ' '.join(parts).lower() if found else None
+
+
+def _is_challenge_activity(activity: str, names) -> bool:
+    """Is `activity` one of `names`? Android may print it relative to its package (`.foo.Bar`)."""
+    return any(activity == name or (activity.startswith('.') and name.endswith(activity))
+               for name in names)
 
 
 class ProblematicPageDetector:
@@ -133,7 +140,13 @@ class ProblematicPageDetector:
             ui_content = self._get_ui_content("detection")
             if not ui_content:
                 return False
-            
+
+            # Instagram checking the account is never a page to close: its button is the check
+            # itself. The run stops, the screen stays as it is, for the operator.
+            if self._stop_on_account_challenge(ui_content):
+                return {'detected': True, 'closed': False, 'soft_ban': True,
+                        'page_type': 'account_challenge'}
+
             # An Instagram alert that reaches the rate-limit threshold is decided HERE, before
             # the patterns: on its ids alone it used to be "closed" by its primary button (the
             # contacts request: address book uploaded), or to fall to the Android permission
@@ -685,8 +698,49 @@ class ProblematicPageDetector:
         return {'detected': True, 'closed': bool(closed), 'soft_ban': False,
                 'page_type': 'instagram_alert'}
 
+    def account_challenge_evidence(self, content: Optional[str]) -> Optional[str]:
+        """Is Instagram checking this account (its challenge screen)? 'activity', 'words' or None.
+
+        Reads only. The check is drawn in a Bloks page without the tab bar; on such a page, the
+        activity on screen is read first (neutral, whatever the language; ~0.4 s, paid on that page
+        only), then the headline in the phone's language. Elsewhere nothing more is read.
+        """
+        selectors = PROBLEMATIC_PAGE_SELECTORS
+        if not content or not _has_surface(content, selectors.account_challenge_surface_ids):
+            return None
+        if _has_surface(content, selectors.account_challenge_absent_ids):
+            return None
+        activity = foreground_activity(self.device)
+        if activity and _is_challenge_activity(activity, selectors.account_challenge_activities):
+            return 'activity'
+        lowered = html.unescape(content).lower()
+        if any(text.lower() in lowered for text in selectors.account_challenge_texts if text.strip()):
+            return 'words'
+        if activity is None:
+            logger.warning("A Bloks page without the tab bar, its activity unreadable and no headline "
+                           "known in this language: an account check cannot be ruled out")
+        return None
+
+    def _stop_on_account_challenge(self, content: Optional[str]) -> bool:
+        """Set the run's latch when the account check is on screen. Touches nothing."""
+        evidence = self.account_challenge_evidence(content)
+        if evidence is None:
+            return False
+        run_halt.demander_arret(run_halt.ACCOUNT_CHALLENGE, f"account_challenge ({evidence})",
+                                evidence=evidence)
+        logger.error("🛑 Instagram is checking this account: run stopped, nothing tapped on its "
+                     "screen; the operator passes the check by hand")
+        return True
+
+    def is_account_challenged(self) -> bool:
+        """Is Instagram checking this account right now? Seeing it sets the run's latch."""
+        return self._stop_on_account_challenge(self._get_ui_content(context="account_challenge"))
+
     def is_action_blocked(self) -> bool:
-        """Is Instagram showing its rate-limit dialog right now? Closes nothing.
+        """Is Instagram refusing this account's actions right now? Closes nothing.
+
+        Two screens say so: its rate-limit dialog, and its account check (`account_challenge`,
+        which sets its own code on the latch).
 
         `detect_and_handle_problematic_pages` would CLOSE this one (`close_methods: ok_button`)
         and let the run carry on — which is acting again immediately after being told to stop,
@@ -695,6 +749,8 @@ class ProblematicPageDetector:
         Seeing it also sets the run's stop lock (`run_halt.ACTION_BLOCKED`), whoever asked.
         """
         content = self._get_ui_content(context="action_blocked")
+        if self._stop_on_account_challenge(content):
+            return True
         evidence = self._rate_limit_evidence(content) if content else None
         if evidence is None:
             return False
