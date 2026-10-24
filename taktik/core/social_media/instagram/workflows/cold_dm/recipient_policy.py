@@ -9,10 +9,10 @@ ask.
 The defaults are the behaviour the bridge had before the settings were read: private profiles
 skipped, certified ones not.
 
-A private profile that the operator does NOT want skipped is only worth a try when Instagram
-offers the conversation, that is when the profile shows a Message button. Without one there is
-nothing to tap, and the skip is reported under its own reason so the run does not count it as a
-failure.
+A private profile that the operator does NOT want skipped is tried like any other: with the
+Message button of its header, or, without one, from the inbox's « Nouveau message » picker, the
+opening the welcome DM takes too (`MessagingBusiness.open_conversation_from_profile`). Until
+2026-10-24 it was skipped without a button (`private_no_message_button`), for want of that way.
 """
 
 from __future__ import annotations
@@ -22,10 +22,9 @@ from typing import Optional
 
 SKIP_VERIFIED = "verified"
 SKIP_PRIVATE = "private"
-SKIP_PRIVATE_NO_MESSAGE = "private_no_message_button"
 
 #: Every reason that means « a private profile, left alone ».
-PRIVATE_SKIP_REASONS = (SKIP_PRIVATE, SKIP_PRIVATE_NO_MESSAGE)
+PRIVATE_SKIP_REASONS = (SKIP_PRIVATE,)
 
 
 @dataclass(frozen=True)
@@ -41,20 +40,16 @@ def cold_dm_skip_reason(
     *,
     is_private: bool,
     is_verified: bool,
-    has_message_button: bool,
 ) -> Optional[str]:
     """Why this profile gets no cold DM, or None when it should get one.
 
-    A public profile without a Message button is not a skip: it is a failure the caller already
-    reports as one, and turning it into a quiet skip would hide a broken selector.
+    A profile without a Message button, public or private, is no skip: the opening writes to it
+    from the inbox's new-message picker, and says when that fails too.
     """
     if policy.skip_verified and is_verified:
         return SKIP_VERIFIED
-    if is_private:
-        if policy.skip_private:
-            return SKIP_PRIVATE
-        if not has_message_button:
-            return SKIP_PRIVATE_NO_MESSAGE
+    if is_private and policy.skip_private:
+        return SKIP_PRIVATE
     return None
 
 
@@ -62,7 +57,6 @@ __all__ = [
     "ColdDmRecipientPolicy",
     "PRIVATE_SKIP_REASONS",
     "SKIP_PRIVATE",
-    "SKIP_PRIVATE_NO_MESSAGE",
     "SKIP_VERIFIED",
     "cold_dm_skip_reason",
 ]

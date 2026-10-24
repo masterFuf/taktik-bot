@@ -12,7 +12,6 @@ import pytest
 
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
     SKIP_PRIVATE,
-    SKIP_PRIVATE_NO_MESSAGE,
     SKIP_VERIFIED,
     ColdDmRecipientPolicy,
     cold_dm_skip_reason,
@@ -21,9 +20,8 @@ from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy impor
 
 # ------------------------------------------------------------------------------------ decision
 
-def _reason(policy, private=False, verified=False, message=True):
-    return cold_dm_skip_reason(policy, is_private=private, is_verified=verified,
-                               has_message_button=message)
+def _reason(policy, private=False, verified=False):
+    return cold_dm_skip_reason(policy, is_private=private, is_verified=verified)
 
 
 def test_defaults_are_the_behaviour_the_bridge_always_had():
@@ -36,17 +34,17 @@ def test_a_private_profile_is_tried_when_the_operator_allows_it_and_instagram_of
     assert _reason(ColdDmRecipientPolicy(skip_private=False), private=True) is None
 
 
-def test_a_private_profile_without_message_button_is_a_skip_not_a_failure():
-    policy = ColdDmRecipientPolicy(skip_private=False)
-    assert _reason(policy, private=True, message=False) == SKIP_PRIVATE_NO_MESSAGE
 
 
 def test_certified_accounts_are_skipped_when_asked():
     assert _reason(ColdDmRecipientPolicy(skip_verified=True), verified=True) == SKIP_VERIFIED
 
 
-def test_a_public_profile_without_message_button_stays_a_failure_for_the_caller():
-    assert _reason(ColdDmRecipientPolicy(), message=False) is None
+def test_a_profile_without_message_button_is_no_skip():
+    # Public or private (not skipped by the operator): the opening writes to it from the inbox's
+    # new-message picker (the welcome DM's way), and reports a failure of its own when it cannot.
+    assert _reason(ColdDmRecipientPolicy()) is None
+    assert _reason(ColdDmRecipientPolicy(skip_private=False), private=True) is None
 
 
 # ------------------------------------------------------------------------- bridge: the screen
@@ -125,6 +123,21 @@ def test_the_bridge_opens_the_dm_of_a_private_profile_when_allowed(monkeypatch):
     runtime, _ = _runtime(private=True)
     assert runtime.open_dm_from_profile(ColdDmRecipientPolicy(skip_private=False)) is True
     assert runtime.device.message_node.clicks == 1
+
+
+def test_a_private_profile_without_message_button_is_written_to_from_the_inbox(monkeypatch):
+    # Allowed by the operator, no Message button in its header: the conversation opens the one
+    # way the welcome DM takes (the inbox's new-message picker, its own tests), never a skip.
+    from taktik.core.social_media.instagram.workflows.dm.messaging import MessagingBusiness
+
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    opened = []
+    monkeypatch.setattr(MessagingBusiness, "open_conversation_from_profile",
+                        lambda self, username=None: opened.append(username) or True)
+    runtime, _ = _runtime(private=True, message=False)
+
+    assert runtime.open_dm_from_profile(ColdDmRecipientPolicy(skip_private=False), "alice") is True
+    assert opened == ["alice"]
 
 
 def test_the_bridge_reads_the_badge_only_when_asked(monkeypatch):

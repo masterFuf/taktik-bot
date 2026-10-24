@@ -212,5 +212,6 @@ def cold_dm_check_profile(a, p):
     elif verdict["has_message_button"]:
         message = "DM would be attempted"
     else:
-        message = "no Message button: the DM would fail"
+        message = ("no Message button: on another account's profile the DM would be written from "
+                   "the inbox's new message; on ours it would fail")
     return {"success": True, "message": message, "details": verdict}

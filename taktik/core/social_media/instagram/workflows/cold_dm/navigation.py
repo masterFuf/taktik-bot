@@ -100,7 +100,6 @@ class ColdDMNavigationMixin:
             policy,
             is_private=is_private,
             is_verified=is_verified,
-            has_message_button=msg_btn is not None,
         )
         return {
             "on_profile": True,
@@ -128,7 +127,7 @@ class ColdDMNavigationMixin:
             return verdict["skip_reason"]
 
         if verdict["is_private"]:
-            logger.info("Private profile with a Message button - trying the DM (setting allows it)")
+            logger.info("Private profile - trying the DM (setting allows it)")
         # Without a Message button the opener writes to `recipient` from the inbox's new-message
         # picker, as the welcome DM does; False when that does not open the conversation either.
         return self._cold_dm_messaging().open_conversation_from_profile(recipient)
