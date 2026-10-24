@@ -56,7 +56,8 @@ def read_likers(a, p):
     """Read the people in the OPEN likers popup, as the scraping and post URL workflows read them
     (`LikerExtractionMixin._extract_likers_after_click`): the visible handles, the popup scrolled
     until the count is reached or nothing new comes, then the popup closed. The likers popup must
-    be open. Param: max_likers (default 10). No gesture beyond the scroll."""
+    be open: without it, the reading refuses, no liker and no gesture (`post.open_likers` first).
+    Param: max_likers (default 10). No gesture beyond the scroll."""
     usernames = a.popup._extract_likers_after_click(max_interactions=lab_int(p, "max_likers", 10), multiply_by=1)
     return {
         "success": bool(usernames),

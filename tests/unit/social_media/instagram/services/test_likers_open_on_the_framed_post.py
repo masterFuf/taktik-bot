@@ -15,7 +15,17 @@ The screens are real dumps, anonymized:
   of the post above with "4" just after its heart; the framed post's row at the bottom, "743";
 - `ig410_fr_home_feed_framed_post_hides_likes.xml` (Instagram 410, Pixel 3a): the framed post hides
   its likes, its row has no number after its heart ("11" is its comment count);
-- `ig410_fr_reel_viewer.xml`: the full-screen Reel viewer, off a list, its own counter.
+- `ig410_fr_reel_viewer.xml`: the full-screen Reel viewer, off a list, its own counter;
+- `ig410_en_profile_posts_video_row_below_screen.xml` and `..._row_shown.xml` (Instagram 410, Pixel 3a):
+  the framed post's row under the bottom of the list, then the same list after the like's short drag,
+  its row and counter on screen (the pair of `test_like_shows_the_framed_posts_row.py`);
+- `ig410_fr_profile_posts_framed_row_below_6pro.xml` (Instagram 410, Pixel 6 Pro, Android 17, the
+  posts of a public profile, 2026-10-24): the screen `post.open_likers` failed on. The post above shows
+  its row ("22,4 K") but its header is gone; the framed post's header sits at 40 % of the list, its row
+  under the bottom. The opening said "The framed post's button row is not on screen" and did nothing.
+
+A framed post whose row runs under the bottom has its row brought up first, by the like's own short
+drag, and the post checked to be the same (`PostReadingMixin.show_framed_post_row_of`).
 
 The host is the one the Lab's `post.open_likers` runs, `BaseBusinessAction`, built by its own
 constructor on a phone that replays the capture (`profile_posts_phone.py`).
@@ -25,8 +35,9 @@ import pytest
 
 import taktik.core.shared.device.facade as shared_facade_module
 import taktik.core.social_media.instagram.actions.base.base_business.popup_handling as popup_handling
+import taktik.core.social_media.instagram.actions.atomic.scroll.post_reading as post_reading
 import taktik.core.social_media.instagram.actions.base.device.facade as facade_module
-from profile_posts_phone import PKG, ProfilePostsPhone, bounds_of, capture
+from profile_posts_phone import PKG, ProfilePostsPhone, ReplayScroll, bounds_of, capture
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
 from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
@@ -41,11 +52,17 @@ HIDDEN_LIKES_ABOVE_447 = "ig447_fr_home_feed_hidden_likes_above_framed_post.xml"
 LIKES_ABOVE_410 = "ig410_fr_home_feed_likes_above_framed_post.xml"
 FRAMED_POST_HIDES_LIKES_410 = "ig410_fr_home_feed_framed_post_hides_likes.xml"
 REEL_VIEWER_410 = "ig410_fr_reel_viewer.xml"
+ROW_BELOW_410_EN = "ig410_en_profile_posts_video_row_below_screen.xml"
+ROW_SHOWN_410_EN = "ig410_en_profile_posts_video_row_shown.xml"
+#: How much further up the content of ROW_SHOWN sits than ROW_BELOW's (its header's bottom).
+ROW_SHOWN_OFFSET = 523 - 347
+ROW_BELOW_6PRO = "ig410_fr_profile_posts_framed_row_below_6pro.xml"
+PIXEL_6_PRO_H = 3120
 
 
 @pytest.fixture(autouse=True)
 def _french_phone_no_waits(monkeypatch):
-    for module in (facade_module, shared_facade_module, popup_handling):
+    for module in (facade_module, shared_facade_module, popup_handling, post_reading):
         monkeypatch.setattr(module.time, "sleep", lambda *_: None)
     set_active_locale("fr")
     yield
@@ -56,6 +73,15 @@ def _lab_host(phone):
     """The Lab's `a.popup`: the production host of `_open_likers_popup`, its pacing cut."""
     host = BaseBusinessAction(DeviceFacade(CloneAwareDeviceProxy(phone, PKG)))
     host._human_like_delay = lambda *_args, **_kwargs: None
+    return host
+
+
+def _lab_host_that_drags(phone):
+    """The Lab's host with the production scroll owner's readers and drags on the replayed phone
+    (`ReplayScroll`): the reader of the framed post its extractors ask."""
+    host = _lab_host(phone)
+    host.scroll_actions = ReplayScroll(phone, host.device)
+    host.ui_extractors.framed_post = host.scroll_actions
     return host
 
 
@@ -149,3 +175,33 @@ def test_every_host_gives_its_extractor_the_framed_post_reader():
                         and "framed_post" not in {keyword.arg for keyword in node.keywords}):
                     missing.append(f"{path.relative_to(CORE)}:{node.lineno}")
     assert missing == [], f"extractors built without the framed post's reader: {missing}"
+
+
+def test_a_row_under_the_bottom_is_shown_then_its_counter_opens_the_likers():
+    phone = ProfilePostsPhone(screen=capture(ROW_BELOW_410_EN), height=2220,
+                              further=(capture(ROW_SHOWN_410_EN), ROW_SHOWN_OFFSET))
+    set_active_locale("en")
+    host = _lab_host_that_drags(phone)
+
+    host._open_likers_popup(is_reel=False)
+
+    assert [(kind, direction) for kind, direction, _px in host.scroll_actions.gestures] == [("drag", "up")]
+    assert len(_tapped(phone)) == 1, f"one tap expected, got {phone.taps}"
+    from taktik.core.shared.device.ui_dump import parse_ui_dump
+    shown = parse_ui_dump(phone.dump_hierarchy())
+    counter = next(n for n in shown.iter() if n.get("text") == "45.8K")
+    assert _inside(_tapped(phone)[0], bounds_of(counter)), (
+        f"tap at {_tapped(phone)[0]}: the framed post's like counter is {bounds_of(counter)}")
+
+
+def test_the_6_pro_screen_asks_the_drag_that_shows_the_framed_row():
+    # The session's screen: the counter on screen is the post above's, whose header is gone. The
+    # framed post's row is brought up; what that drag shows is not in the capture (served empty),
+    # so no counter is seen and nothing is tapped: the drag is what the opening owed this screen.
+    phone = ProfilePostsPhone(screen=capture(ROW_BELOW_6PRO), height=PIXEL_6_PRO_H)
+    host = _lab_host_that_drags(phone)
+
+    assert host._open_likers_popup(is_reel=False) is False
+
+    assert [(kind, direction) for kind, direction, _px in host.scroll_actions.gestures] == [("drag", "up")]
+    assert phone.taps == [], "the counter of the post above was tapped"
