@@ -192,6 +192,14 @@ def test_a_batch_that_only_refused_candidates_on_their_profile_is_progress(monke
     assert finalized == []
 
 
+def test_a_batch_whose_walk_did_not_reach_its_candidates_is_progress(monkeypatch):
+    # Handled for the session (`not_reached`): the next batch takes the next candidates
+    runner, finalized, _ = _runner(monkeypatch, {"unfollows_made": 0, "success": True, "stop_reason": None,
+                                                 "candidates_left": 4, "not_reached": 3})
+    assert runner._run_unfollow_workflow({"type": "unfollow", "max_unfollows": 5}) is True
+    assert finalized == []
+
+
 def test_nobody_left_to_unfollow_ends_the_session_with_its_reason(monkeypatch):
     runner, finalized, _ = _runner(monkeypatch, {"unfollows_made": 2, "success": True, "stop_reason": None,
                                                  "candidates_left": 0, "refusals": {"whitelisted": 3}})

@@ -341,12 +341,13 @@ class WorkflowRunner:
                 self.automation.stats.get('unfollows', 0), result.get('kept', 0)))
             return False
 
-        # Progress means candidates handled: unfollowed, refused on their profile, not in the list.
+        # Progress means candidates handled: unfollowed, refused on their profile, not in the list or
+        # not reached by a walk that could not prove the end of the list.
         # A batch that handled nobody used to report success, and the session relaunched it until
         # its duration ran out, doing nothing but scrolling. Each batch handling at least one of a
         # finite list of candidates, the batches end.
         handled_now = (result.get('unfollows_made', 0) + result.get('unconfirmed', 0)
-                       + result.get('not_in_list', 0)
+                       + result.get('not_in_list', 0) + result.get('not_reached', 0)
                        + sum((result.get('profile_refusals') or {}).values()))
         return handled_now > 0
 

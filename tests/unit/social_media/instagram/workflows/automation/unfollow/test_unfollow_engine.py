@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from fake_follow_list import (
-    FakeDetection, FakeFacade, FakeScreen, follow_list_xml, profile_xml, walk_list,
+    FakeDetection, FakeFacade, FakeScreen, follow_list_xml, profile_xml, unified_tabs, walk_list,
 )
 from taktik.core.social_media.instagram.workflows.automation.unfollow import workflow as unfollow_workflow
 from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import (
@@ -258,19 +258,21 @@ def test_every_plan_carries_what_the_screen_refused_in_the_session(monkeypatch):
 
     def walk(cfg, targets, forced, stats):
         calls["walks"].append(list(targets))
-        if len(calls["walks"]) == 1:            # the first batch: one verified, one gone from the list
-            stats["profile_refusals"]["verified"] = 1
+        if len(calls["walks"]) == 1:            # the first batch: one verified, one gone from the list,
+            stats["profile_refusals"]["verified"] = 1   # one a walk short of its proof did not reach
             stats["not_in_list"] = 1
-            business._handled.update({"a1", "a2"})
+            stats["not_reached"] = 1
+            business._handled.update({"a1", "a2", "a3"})
         return True
 
     business._open_list_and_walk = walk
     business.run_unfollow_workflow({"unfollow_mode": "oldest", "max_unfollows": 1})
     business.run_unfollow_workflow({"unfollow_mode": "oldest", "max_unfollows": 1})
 
-    assert plans[1] == {"verified": 1, "not_in_list": 1}      # the end of the first batch
-    assert plans[2] == {"verified": 1, "not_in_list": 1}      # the start of the second
-    assert plans[3] == {"verified": 1, "not_in_list": 1}      # its end: nothing more refused
+    kept = {"verified": 1, "not_in_list": 1, "not_reached": 1}
+    assert plans[1] == kept      # the end of the first batch
+    assert plans[2] == kept      # the start of the second
+    assert plans[3] == kept      # its end: nothing more refused
 
 
 def test_nobody_to_unfollow_is_an_ok_end_with_its_reason(monkeypatch):
@@ -322,7 +324,10 @@ def test_a_list_that_cannot_be_opened_is_a_failure_not_an_empty_run(broken, code
 
 
 def test_a_candidate_the_whole_list_never_shows_is_handled_for_the_session():
-    business, screen, recorded = _business(follow_list_xml([("someone", "Suivi(e)")]))
+    # The whole list: one row, and its tab counts one (the count proves the end of the walk)
+    titles = ("9 followers", "1 suivi(e)s", "0 abonnements", "À vérifier")
+    business, screen, recorded = _business(follow_list_xml([("someone", "Suivi(e)")],
+                                                           extra=unified_tabs(selected=1, titles=titles)))
     stats = walk_list(business, {"max_unfollows": 5}, names=["ghost_of_the_base"])
     assert stats["not_in_list"] == 1 and "ghost_of_the_base" in business._handled
     assert screen.taps == [] and recorded == []

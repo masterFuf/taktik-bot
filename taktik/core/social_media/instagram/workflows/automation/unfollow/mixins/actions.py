@@ -288,9 +288,13 @@ class UnfollowActionsMixin:
             return
         self.logger.warning(f"⚠️ {kind.capitalize()} sync proved nothing: {verdict}; {counts}")
         if stats.get('end_reached'):
-            automation = getattr(self, 'automation', None)
-            capture_screen_snapshot(self.device, f'{kind}_list_unproven',
-                                    session_id=getattr(automation, 'current_session_id', None))
+            self._keep_unproven_screen(f'{kind}_list_unproven')
+
+    def _keep_unproven_screen(self, label: str) -> None:
+        """Keep the screen a walk of a follow list came to an end on without proof
+        (`logs/screens/<date>_<label>.xml/png`): what Instagram showed there is what explains it."""
+        automation = getattr(self, 'automation', None)
+        capture_screen_snapshot(self.device, label, session_id=getattr(automation, 'current_session_id', None))
 
     # Departures one read may mark at most: beyond, the read is more likely wrong than the base.
     max_departure_share = 0.10
