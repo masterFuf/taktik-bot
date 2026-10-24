@@ -54,7 +54,7 @@ class DMInboxResetMixin:
                 time.sleep(1)
                 return True
 
-        logger.warning("Primary tab not found")
+        logger.warning("Primary tab not found: the inbox is read as it shows")
         return False
 
     def _is_dm_inbox_top_visible(self) -> bool:

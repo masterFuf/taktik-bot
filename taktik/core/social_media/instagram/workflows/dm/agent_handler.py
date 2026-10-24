@@ -83,6 +83,11 @@ def _read(runtime, limit: int, emit: Optional[Emit]) -> dict[str, Any]:
 
     if not runtime.navigate_to_dm_inbox():
         return _failure("Cannot navigate to DM inbox")
+    # The reading reads the main conversations (« Principal » / « Primary »), where every DM path
+    # leaves the inbox (`ensure_dm_inbox`, the reset after a read): put on display before the first
+    # row, not after the reading (Pixel 6a, 447, 2026-10-24). Not found: said, and the inbox read
+    # as it shows.
+    runtime._ensure_primary_tab()
 
     # Identify which of our accounts owns this inbox so the persisted threads link to the
     # right account. Read it from the inbox header (no navigation); fall back to a profile

@@ -364,6 +364,9 @@ def _dm_class():
         def navigate_to_dm_inbox(self):
             return True
 
+        def _ensure_primary_tab(self):
+            return True
+
         def open_requests_folder(self):
             return True
 

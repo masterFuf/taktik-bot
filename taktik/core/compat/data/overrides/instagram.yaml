@@ -104,10 +104,16 @@ versions:
   # "All, 3 unread" also have commas but no Button sibling; the search row
   # has a Button sibling but no comma) and was validated 7/7 rows with zero
   # false positives on the live dump.
+  #
+  # The message requests screen of 447 still lists its rows the old way (`row_inbox_container`, its
+  # digest in its content-desc), with one more such row without a digest, « Invitations masquées »,
+  # that opens the hidden requests, and a « Tout supprimer » button under the list (Pixel 6a, French,
+  # 2026-10-24, rd5-apres-invitations-447). A str field: both kinds in one xpath (a union), the
+  # old rows only with a digest.
   "442.0.0.0":
 
     dm.thread_container:
-      - '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]//android.view.View[contains(@content-desc, ",")][following-sibling::android.widget.Button]'
+      - '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]//android.view.View[contains(@content-desc, ",")][following-sibling::android.widget.Button] | //*[@resource-id="com.instagram.android:id/row_inbox_container"][contains(@content-desc, ",")]'
 
   # ─── Instagram v417.x ───────────────────────────────────────────────
   # Based on compat-report v417.0.0.54.77 (2026-03-06)
