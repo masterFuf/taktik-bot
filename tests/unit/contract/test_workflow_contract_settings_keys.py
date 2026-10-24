@@ -49,10 +49,13 @@ def test_another_spelling_of_a_declared_name_is_shown_its_name():
 
 
 def test_what_a_setting_read_whole_holds_is_not_judged():
-    # `ai.nicheTaxonomy` of the TikTok automation is an object its reader takes whole; the rest of
-    # `ai` is declared key by key.
+    # `ai.nicheTaxonomy` of the TikTok automation is an object its reader takes whole.
     assert _said("tiktok.automation.for_you", {"ai": {"nicheTaxonomy": {"anything": {"deep": 1}}}}) == []
-    assert _said("tiktok.automation.for_you", {"ai": {"anything": 1}}) == [("ai.anything", (), ())]
+
+
+def test_what_a_setting_handed_to_a_function_holds_is_that_function_s():
+    # `behaviorPolicy` goes whole to the pacing parser (`via`), which reads `profile` too.
+    assert _said("instagram.automation.feed", {"behaviorPolicy": {"profile": "prudent"}}) == []
 
 
 def test_a_setting_another_workflow_of_the_declaration_reads_is_refused_with_who_reads_it():

@@ -4,8 +4,9 @@ The app checks the settings of its tools against a strict schema built from the 
 (`workflowSettingsSchema`, app side). The CLI checks its `--json` and its `--param` against the same
 declaration, read here: the settings and their aliases (the names a CLI run or an Agent plan may
 send), the nested settings, the ones another value of the selector reads (`when`), the bridge fields
-and the keys the host fills itself. What a setting of type `json` holds is its reader's, read whole;
-so are the items of a list or of a map that are not nested settings.
+and the keys the host fills itself. What a setting of type `json` holds is its reader's, read whole,
+as is what a setting handed to a function holds (`via`, the pacing profile); so are the items of a
+list or of a map that are not nested settings.
 
 In Symfony terms: the `allow_extra_fields: false` of a form type, with the form type written once,
 in `taktik/core/contract/`.
@@ -124,7 +125,9 @@ def _check(node: Mapping[str, Any], fields: Sequence[Field], prefix: str, contra
             ))
             continue
         shape = _nested_shape(item.type)
-        if shape is None:
+        # A setting handed whole to a function (`via`, the pacing profile): what it holds is that
+        # function's to read, as the contract tests read it.
+        if shape is None or item.via:
             continue
         path = f"{prefix}{item.key}"
         if isinstance(item.type, Shape) and isinstance(sent, Mapping):
