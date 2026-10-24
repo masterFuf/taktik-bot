@@ -73,8 +73,9 @@ class Census:
 
     def resolve(self, value, tree, at, where: str) -> None:
         """Every code `value` can be: a literal, either side of a condition, a variable of the function
-        or a constant of the module set from them. A parameter, or the `error_code` of a coded
-        exception, is counted where it is set."""
+        or a constant of the module set from them, a value of a table of the module read by key
+        (`ENTRY_ERROR_CODES[reason]`). A parameter, or the `error_code` of a coded exception, is counted
+        where it is set."""
         if isinstance(value, ast.Constant):
             if value.value is not None:
                 self.add(value.value, where)
@@ -85,6 +86,13 @@ class Census:
             return
         if isinstance(value, ast.Attribute) and value.attr == "error_code":
             return
+        if isinstance(value, ast.Subscript) and isinstance(value.value, ast.Name):
+            tables = [node.value for node in tree.body if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict)
+                      and any(isinstance(t, ast.Name) and t.id == value.value.id for t in node.targets)]
+            if tables:
+                for item in tables[0].values:
+                    self.resolve(item, tree, at, where)
+                return
         if isinstance(value, ast.Name):
             function = _enclosing(tree, at)
             if function is not None and value.id in _parameters(function):
@@ -236,6 +244,17 @@ def test_the_census_follows_a_condition_and_a_local_variable():
     )
 
     assert codes == {"MISSING_CONFIG", "CONFIG_ERROR"} and unreadable == []
+
+
+def test_the_census_reads_every_value_of_a_table_read_by_key():
+    codes, unreadable = _census_of(
+        'CODES = {"missing": "MISSING_CONFIG", "crash": "UNHANDLED_EXCEPTION"}\n'
+        'def report(message, reason):\n'
+        '    code = CODES[reason]\n'
+        '    ipc.error(message, error_code=code)\n'
+    )
+
+    assert codes == {"MISSING_CONFIG", "UNHANDLED_EXCEPTION"} and unreadable == []
 
 
 def test_the_census_refuses_a_code_it_cannot_read():
