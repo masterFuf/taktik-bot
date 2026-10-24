@@ -219,6 +219,15 @@
    [
     "error",
     {
+     "error": "Failed to load config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+     "error_code": "CONFIG_ERROR"
+    }
+   ]
+  ],
+  "events_without_code": [
+   [
+    "error",
+    {
      "error": "Failed to load config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
     }
    ]
@@ -444,6 +453,15 @@
   "configs": [],
   "db_writes": [],
   "events": [
+   [
+    "error",
+    {
+     "error": "Usage: tiktok_scraping_bridge <config_path>",
+     "error_code": "MISSING_CONFIG"
+    }
+   ]
+  ],
+  "events_without_code": [
    [
     "error",
     {

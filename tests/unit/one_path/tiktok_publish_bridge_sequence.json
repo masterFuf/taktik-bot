@@ -23,7 +23,16 @@
  },
  "no_config_argument": {
   "calls": [],
-  "events": [],
+  "events": [
+   [
+    "error",
+    {
+     "error": "Usage: tiktok_publish_bridge.py <config.json>",
+     "error_code": "MISSING_CONFIG"
+    }
+   ]
+  ],
+  "events_without_code": [],
   "exit": 1
  },
  "no_device": {
@@ -308,7 +317,16 @@
  },
  "unreadable_config": {
   "calls": [],
-  "events": [],
+  "events": [
+   [
+    "error",
+    {
+     "error": "Failed to read config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+     "error_code": "CONFIG_ERROR"
+    }
+   ]
+  ],
+  "events_without_code": [],
   "exit": 1
  },
  "video": {

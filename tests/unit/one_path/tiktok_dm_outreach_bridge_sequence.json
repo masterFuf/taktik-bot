@@ -64,6 +64,15 @@
       [
         "error",
         {
+          "error": "Usage: dm_outreach_bridge <config_path>",
+          "error_code": "MISSING_CONFIG"
+        }
+      ]
+    ],
+    "events_without_code": [
+      [
+        "error",
+        {
           "error": "Usage: dm_outreach_bridge <config_path>"
         }
       ]
@@ -92,6 +101,15 @@
     "calls": [],
     "db_writes": [],
     "events": [
+      [
+        "error",
+        {
+          "error": "Failed to load config: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+          "error_code": "CONFIG_ERROR"
+        }
+      ]
+    ],
+    "events_without_code": [
       [
         "error",
         {

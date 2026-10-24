@@ -190,7 +190,8 @@
    [
     "error",
     {
-     "error": "No config file provided"
+     "error": "No config file provided",
+     "error_code": "MISSING_CONFIG"
     }
    ]
   ],
