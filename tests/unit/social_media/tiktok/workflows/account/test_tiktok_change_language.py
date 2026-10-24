@@ -17,9 +17,7 @@ from taktik.core.social_media.tiktok.ui.selectors.flows.settings import (
 from taktik.core.social_media.tiktok.workflows.account.change_language_workflow import (
     TikTokChangeLanguageWorkflow,
 )
-from taktik.core.social_media.tiktok.workflows.account.change_language_workflow import (
-    _base_language,
-)
+from taktik.core.shared.ui.language_detection import base_language
 
 
 class _SilentLogger:
@@ -134,7 +132,7 @@ def test_a_confirmed_tap_is_not_a_changed_language():
 def test_a_regional_code_is_compared_on_its_base():
     """Le sélecteur parle en régional (« English (UK) »), la détection en base (« en »). Sans
     cette réduction, un changement réussi vers en-GB serait rapporté comme non appliqué."""
-    assert _base_language("en-GB") == "en"
-    assert _base_language("fr-CA") == "fr"
-    assert _base_language("fr") == "fr"
-    assert _base_language("") == ""
+    assert base_language("en-GB") == "en"
+    assert base_language("fr-CA") == "fr"
+    assert base_language("fr") == "fr"
+    assert base_language("") == ""
