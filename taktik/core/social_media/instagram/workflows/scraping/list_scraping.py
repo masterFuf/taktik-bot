@@ -12,6 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskPr
 from taktik.core.social_media.instagram.ui.detectors.scroll_end import ScrollEndDetector
 from taktik.core.social_media.instagram.actions.base.ipc import IPCEmitter
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.device.network_probe import measure_network_baseline
 from taktik.core.shared.vision import capture_non_blank
 from taktik.core.social_media.instagram.workflows.common.post_navigation import open_likers_list
 from taktik.core.social_media.instagram.workflows.common.detection import is_likers_popup_open
@@ -33,6 +34,11 @@ ENRICHED_PROFILE_FIELDS = SCRAPED_PROFILE_FIELDS + ('linked_accounts', 'profile_
 # The one skip reason that describes the ACCOUNT rather than a choice made about it: the profile
 # could not be opened at all. Named once so the workflow and the marker cannot drift apart.
 UNREACHABLE_REASON = 'profile unreachable (deleted, renamed or banned)'
+
+# A profile we could not open on a phone that has no proven network: it says nothing about the
+# account. Without network Instagram opens a profile blank, with no handle, and writes
+# « Utilisateur(ice) introuvable » on it, the words it shows for an account that does not exist.
+NOT_OPENED_OFFLINE_REASON = 'profile not opened, and the phone has no proven network (not marked unreachable)'
 
 # The profile on screen is not the one the row named: the tap landed on another row. Its numbers
 # belong to that other account and are neither filtered nor saved under this name.
@@ -129,8 +135,10 @@ class ScrapingListMixin(DeepQualifyMixin):
             # so plainly is what lets an operator find those rows again and decide what to do with
             # them; the generic "read empty" below would blame the screen for an account that is
             # simply gone.
+            # Unless the phone has no network: then the profile opened blank, and the same words
+            # say nothing about the account (phone session of 2026-10-24).
             if navigate:
-                return UNREACHABLE_REASON
+                return UNREACHABLE_REASON if self._phone_network_proven() else NOT_OPENED_OFFLINE_REASON
 
         # The page gave us NOTHING — do not qualify a profile we never read.
         #
@@ -198,6 +206,25 @@ class ScrapingListMixin(DeepQualifyMixin):
                 self.logger.debug(f"AI screenshot capture failed for @{username}: {_e}")
 
         return None
+
+    def _phone_network_proven(self) -> bool:
+        """True when the phone's ping reaches the Internet, the one condition under which a profile
+        that did not open is a fact about the account. Measured once per profile not opened, by the
+        probe of the run's network door (`measure_network_baseline`): no route, or a measure that
+        cannot be read, is no proof, and the profile is not marked."""
+        device_id = getattr(getattr(self, 'device_manager', None), 'device_id', None)
+        if not device_id:
+            self.logger.warning("No device serial: the phone's network is not proven, nothing marked unreachable")
+            return False
+        measure = measure_network_baseline(device_id)
+        if measure is None:
+            self.logger.warning(f"The network of {device_id} could not be measured: nothing marked unreachable")
+            return False
+        if measure.get('unreachable'):
+            self.logger.warning(f"{device_id} has no route to the Internet: the profile was not opened, "
+                                f"nothing says the account is gone")
+            return False
+        return True
 
     def _mark_unreachable(self, username: str) -> None:
         """Best effort: a failed mark must never end the run it was meant to describe."""

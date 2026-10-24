@@ -217,20 +217,35 @@ class SearchNavigationMixin(BaseAction):
         time.sleep(1.5)  # Extra time for Instagram to fetch results
         
         search_result_selectors = NAVIGATION_SELECTORS.search_result_selectors_for_username(username)
-        
+        keyword_row_selectors = NAVIGATION_SELECTORS.search_keyword_row_selectors_for_username(username)
+        keep_out = NAVIGATION_SELECTORS.search_result_tap_keep_out
+
         # Wait for results to appear
-        if self._wait_for_element(search_result_selectors, timeout=5):
-            self.logger.debug(f"🔍 Found search result for @{username}, clicking...")
-            if self._find_and_click(search_result_selectors, timeout=3):
-                self.logger.debug(f"✅ Clicked on search result for @{username}")
-                self._human_like_delay('navigation')
-                time.sleep(2.0)  # Extra wait for profile screen to fully load
-                return self._verify_profile_navigation(username)
-            else:
-                self.logger.warning(f"Found but could not click on @{username}")
-        
-        self.logger.warning(f"Could not find @{username} in search results")
-        return False
+        if not self._wait_for_element(search_result_selectors + keyword_row_selectors, timeout=5):
+            self.logger.warning(f"Could not find @{username} in search results")
+            return False
+
+        # Instagram 447 can list the account only in a keyword row ("nasa • 104 M followers"). That
+        # row opens the results of its keyword, not the profile: the account is then taken there,
+        # by its account row, the one proof of its handle (a subtitle is the row's, not a reading).
+        if not self._is_element_present(search_result_selectors):
+            self.logger.debug(f"🔍 @{username} listed in a keyword row: opening that keyword's results")
+            if not self._find_and_click(keyword_row_selectors, timeout=3, keep_out=keep_out):
+                self.logger.warning(f"Found but could not click on the keyword row of @{username}")
+                return False
+            self._human_like_delay('navigation')
+            if not self._wait_for_element(search_result_selectors, timeout=5):
+                self.logger.warning(f"The keyword results list no account row of @{username}")
+                return False
+
+        self.logger.debug(f"🔍 Found search result for @{username}, clicking...")
+        if not self._find_and_click(search_result_selectors, timeout=3, keep_out=keep_out):
+            self.logger.warning(f"Found but could not click on @{username}")
+            return False
+        self.logger.debug(f"✅ Clicked on search result for @{username}")
+        self._human_like_delay('navigation')
+        time.sleep(2.0)  # Extra wait for profile screen to fully load
+        return self._verify_profile_navigation(username)
 
     def navigate_to_hashtag(self, hashtag: str) -> bool:
         try:

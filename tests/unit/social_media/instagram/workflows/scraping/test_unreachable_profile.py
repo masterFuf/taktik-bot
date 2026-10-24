@@ -6,9 +6,23 @@ move to the next name — this is the ordinary case for an old list, not an anom
 
 The reason matters as much as the skip: "read empty" blames the screen, and would send an operator
 looking for a device problem that does not exist.
+
+The phone here has network (its ping answers): a profile not opened on a phone without one is not
+gone (`test_unreachable_marking.py`).
 """
 
+from types import SimpleNamespace
+
+import pytest
+
+import taktik.core.social_media.instagram.workflows.scraping.list_scraping as list_scraping
 from taktik.core.social_media.instagram.workflows.scraping.list_scraping import ScrapingListMixin
+
+
+@pytest.fixture(autouse=True)
+def _phone_online(monkeypatch):
+    monkeypatch.setattr(list_scraping, "measure_network_baseline", lambda _device_id: {
+        "rtt_ms": 40.0, "packet_loss_pct": 0.0, "received": 3, "unreachable": False})
 
 
 class _FakeLogger:
@@ -42,6 +56,7 @@ class _Workflow(ScrapingListMixin):
         self.profile_manager = _ProfileManager(profile_result)
         self.logger = _FakeLogger()
         self.config = config or {}
+        self.device_manager = SimpleNamespace(device_id="phone-1")
         # No AI service: the screenshot branch is not what these tests are about.
         self._ai_service = None
 

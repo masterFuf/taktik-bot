@@ -4,10 +4,17 @@ import time
 from loguru import logger
 
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
+    NAVIGATION_SELECTORS,
+    NavigationSelectors,
+)
 
 
 class TabNavigationMixin(BaseAction):
     """Mixin: navigate between Instagram tabs via bottom bar clicks."""
+
+    # Set by `NavigationActions.__init__`, the class that composes this mixin.
+    selectors: NavigationSelectors
 
     def _navigate_to_tab(self, tab_selectors, tab_name: str, emoji: str, verify_func) -> bool:
         """
@@ -48,31 +55,51 @@ class TabNavigationMixin(BaseAction):
         # Instagram entirely (ending on the Android launcher), from which the home tab is gone.
         # Early-return as soon as we're home avoids backing out of the app.
         self.logger.debug("Fallback: using back button (incremental, stop at home)")
-        for _ in range(3):
-            self._back_one_screen()
-            if self._is_home_screen():
-                return True
-            # A Back that brings the tab bar back (a search, a profile) leaves home one tap away.
-            if self._navigate_to_tab(self.selectors.home_tab, "home screen", "🏠", self._is_home_screen):
-                return True
-        return self._is_home_screen()
-    
+        # A Back that brings the tab bar back (a search, a profile) leaves home one tap away.
+        return self._back_out_until(lambda: self._is_home_screen() or self._navigate_to_tab(
+            self.selectors.home_tab, "home screen", "🏠", self._is_home_screen)) or self._is_home_screen()
+
     def navigate_to_search(self) -> bool:
+        # The search screen may already be up: the results of an earlier search, which Instagram
+        # 447 shows without the tab bar. Its own bar says so; the search types into it as it is.
+        if self._is_search_bar_shown():
+            self.logger.debug("🔍 Already on the search screen")
+            return True
         if self._navigate_to_tab(self.selectors.search_tab, "search screen", "🔍", self._is_search_screen):
             return True
 
         # The search tab lives in the BOTTOM NAV BAR. If we're parked on a fullscreen surface that
-        # hides it — a reel/clips viewer, an open post, a modal, the keyboard — the tap finds nothing
-        # and EVERY hashtag iteration loops forever on "Cannot navigate to search screen" (device
-        # case: 0 interactions for minutes, the workflow effectively dead). Self-heal like
-        # navigate_to_home: get back to a known state (home feed, where the nav bar exists) then
-        # retry the tab once. navigate_to_home already backs out incrementally without leaving the
-        # app; if a stray back dropped us to the launcher, bring Instagram back to the foreground first.
-        self.logger.warning("🔍 Search tab not found — restoring a known state (home) before retrying")
+        # hides it — a reel/clips viewer, an open post, a likers sheet, the keyboard — the tap finds
+        # nothing and EVERY hashtag iteration looped forever on "Cannot navigate to search screen".
+        # Back out one screen at a time, as navigate_to_home does, and stop on the first screen that
+        # is the search screen or shows the tab bar. Going home first was not enough: on Instagram
+        # 447 a likers sheet, its post, the profile and the search results that opened them hide the
+        # tab bar all four, and the three Backs of the way home ended on those results, which nothing
+        # then recognised (cold DM from a likers run, 2026-10-24). If a stray back dropped us to the
+        # launcher, bring Instagram back to the foreground first.
+        self.logger.warning("🔍 Search tab not found — backing out to the search screen or the tab bar")
         if not self._is_instagram_open():
             self._open_instagram()
-        self.navigate_to_home()
-        return self._navigate_to_tab(self.selectors.search_tab, "search screen", "🔍", self._is_search_screen)
+            if self._is_search_bar_shown() or self._navigate_to_tab(
+                    self.selectors.search_tab, "search screen", "🔍", self._is_search_screen):
+                return True
+        return self._back_out_until(lambda: self._is_search_bar_shown() or self._navigate_to_tab(
+            self.selectors.search_tab, "search screen", "🔍", self._is_search_screen))
+
+    def _back_out_until(self, arrived, max_backs: int = 3) -> bool:
+        """One real Back at a time, at most `max_backs`, until `arrived()` answers True after one.
+
+        Never out of Instagram: the facade refuses a Back on a root screen (home feed, a main tab),
+        where it would leave the app or switch tab."""
+        for _ in range(max_backs):
+            self._back_one_screen()
+            if arrived():
+                return True
+        return False
+
+    def _is_search_bar_shown(self) -> bool:
+        """The search screen's own bar is on screen (Explore, or the results of a query)."""
+        return self._is_element_present(NAVIGATION_SELECTORS.search_screen_bar)
     
     def navigate_to_profile_tab(self) -> bool:
         self.logger.debug("👤 Navigating to profile tab")
