@@ -381,6 +381,18 @@ def following_list_unproven(seen: Any, expected: Any) -> StopReason:
     )
 
 
+def fans_list_unproven(seen: Any, expected: Any) -> StopReason:
+    """The fans category of our followers list was read in part: fewer fans than the size the
+    category announces (171 of 537 on a Pixel 6a, Instagram 447, 2026-10-24). The fans read are
+    recorded, no count is given for them (`workflows/automation/unfollow/list_proof.py`)."""
+    total = "?" if expected is None else expected
+    return _reason(
+        "fans_list_unproven", FAMILY_FAILED,
+        f"Fans category not proven read ({seen} of {total}): no fans count given",
+        seen=seen, expected=total,
+    )
+
+
 def no_unfollow_candidates(unfollowed: Any, kept: Any) -> StopReason:
     """The unfollow has nobody (left) to unfollow: every account it follows is kept by a rule
     (whitelist, bot follows only, delay, mode) or was handled already. An expected end: a run

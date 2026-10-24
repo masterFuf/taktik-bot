@@ -12,15 +12,17 @@ This avoids:
 
 import time
 import random
-from typing import Dict, Any, List, Set
+from typing import Dict, Any, List, Optional, Set
 
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
 from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import (
-    PROOF_BY_KNOWN_ACCOUNT, describe_proof, incremental_stop_allowed, proof_of_read, scrolls_for,
+    PROOF_BY_KNOWN_ACCOUNT, QUIET_READS_TO_END, ListReadEnd, incremental_stop_allowed, parse_category_size,
+    scrolls_for,
 )
+from taktik.core.social_media.instagram.workflows.common.list_reload_policy import ListReloadPolicy
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.actions import LeftOutRows, UnfollowActionsMixin, row_belongs_to_tab
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.sync_events import emit_sync_progress, emit_sync_user_discovered
 
@@ -139,8 +141,8 @@ class SyncFollowingMixin(UnfollowActionsMixin):
             max_scrolls = scrolls_for(expected, 60)
             stop_signal = False
             scroll_failed = False
-            quiet_rounds = 0
-            end_rounds = getattr(self, 'end_of_list_scrolls', 3)
+            end = ListReadEnd(expected, getattr(self, 'end_of_list_scrolls', QUIET_READS_TO_END),
+                              ListReloadPolicy.from_config(config).steps())
 
             while scroll_attempts < max_scrolls and not stop_signal:
                 if self._sync_should_stop():
@@ -261,26 +263,15 @@ class SyncFollowingMixin(UnfollowActionsMixin):
                 if stop_signal:
                     break
 
-                # The end of the list is the suggestions under it, or several reads in a row
-                # without a new name (one used to be enough: a slow page looked like the end); it
-                # counts only if the names read reach the tab's exact count.
-                quiet_rounds = 0 if new_found else quiet_rounds + 1
-                if self.suggestions_on_screen or quiet_rounds >= end_rounds:
+                # The end of the list: the suggestions under it, or several reads in a row without a
+                # new name, after the waits a list short of its count is given; it counts only if
+                # the names read reach the tab's exact count (list_proof.ListReadEnd).
+                if self._list_read_ends(end, 'following', new_found, len(seen_on_screen), scroll_failed,
+                                        left_out.summary(seen_on_screen)):
                     stats['end_reached'] = True
-                    stats['proof'] = proof_of_read(
-                        len(seen_on_screen), expected, scroll_failed,
-                        suggestions_reached=self.suggestions_on_screen,
-                        left_out=left_out.summary(seen_on_screen))
+                    stats['proof'] = end.proof
                     stats['complete'] = stats['proof'] is not None
-                    self.logger.info(
-                        f"End of the following list"
-                        f"{' (suggestions under it)' if self.suggestions_on_screen else ''}: "
-                        f"{describe_proof(stats['proof'], len(seen_on_screen), expected)}"
-                    )
                     break
-                if quiet_rounds:
-                    # A screen without a new name: the next page may still be loading
-                    time.sleep(random.uniform(1.0, 2.0))
 
                 # Scroll only outside enriched mode, which re-scans first
                 if mode != 'enriched':
@@ -331,18 +322,24 @@ class SyncFollowingMixin(UnfollowActionsMixin):
         each profile to check the reciprocity.
 
         1. navigate to the followers view
-        2. tap the dedicated category
-        3. scroll and extract every username
-        4. mark those usernames as non-reciprocal
-        5. the followings ABSENT from that list are reciprocal, with no visit
+        2. read the size the category announces ("user_2 et 536 autres personnes": 537)
+        3. tap the category, scroll and extract every username
+        4. record those usernames as followers we do not follow back
+        5. prove the read like a follow list's (`list_proof`): the names read reach the size
+
+        A read that falls short of the size (or of a size that could not be read) proves nothing:
+        the names read are recorded, each a fact the screen showed, but no count is given and the
+        read is no success. On a Pixel 6a (Instagram 447, 2026-10-24) it stopped at a fixed 30
+        drags with 171 fans of 537, and said « Fans category read: 171 » as if it were whole.
 
         Args:
             config: Configuration (optionnel)
 
         Returns:
-            Dict with non_followers_count, mutuals_count, success. The counts stay None until the
-            category is read: a category not read (not served, not found, unreadable: `read_failed`)
-            has no count, never 0.
+            Dict with non_followers_count, mutuals_count, success, and the read's expected,
+            total_seen, proof, end_reached. The counts stay None until the category is read whole: a
+            category not read (not served, not found, unreadable: `read_failed`) or read in part
+            (`fans_unproven`) has no count, never 0.
         """
         config = config or {}
         stats = {
@@ -351,6 +348,13 @@ class SyncFollowingMixin(UnfollowActionsMixin):
             # this category, i.e. the fans; `mutuals_count` was a deduction that no longer exists.
             'non_followers_count': None,
             'mutuals_count': 0,
+            # The read, as the list reads say it (`_close_list_read`)
+            'expected': None,
+            'total_seen': 0,
+            'new_count': 0,
+            'updated_count': 0,
+            'proof': None,
+            'end_reached': False,
             'success': False,
         }
 
@@ -396,6 +400,9 @@ class SyncFollowingMixin(UnfollowActionsMixin):
                     return stats
             time.sleep(1.5)
 
+            # The size the category announces, read before the tap replaces it by its accounts
+            stats['expected'] = self._fans_category_size()
+
             # Tap the non-reciprocal category
             if not self._click_non_followers_category():
                 if self._fans_category_not_served():
@@ -424,8 +431,9 @@ class SyncFollowingMixin(UnfollowActionsMixin):
                 return stats
 
             # Extract every non-reciprocal account
+            end = ListReadEnd(stats['expected'], QUIET_READS_TO_END, ListReloadPolicy.from_config(config).steps())
             try:
-                non_follower_usernames = self._extract_all_non_followers()
+                non_follower_usernames = self._extract_all_non_followers(end, stats)
             except FansCategoryUnreadable as exc:
                 stats['read_failed'] = True
                 self.logger.error(
@@ -433,9 +441,6 @@ class SyncFollowingMixin(UnfollowActionsMixin):
                     "no count, nothing recorded"
                 )
                 return stats
-            stats['non_followers_count'] = len(non_follower_usernames)  # the fans, see above
-
-            self.logger.info(f"📋 Found {len(non_follower_usernames)} non-followers")
 
             # These are FANS: they follow us and we do not follow them. That is all the category
             # says. Until 2026-09-24 this block also wrote each fan as a FOLLOWING marked
@@ -444,18 +449,22 @@ class SyncFollowingMixin(UnfollowActionsMixin):
             # nothing about whether an account WE follow follows us. Reciprocity now comes from the
             # full followers sync of the run and the "Follows you" badge read on the profile.
             for username in non_follower_usernames:
-                InstagramFollowGraphService.upsert_follower(
+                result = InstagramFollowGraphService.upsert_follower(
                     username=username,
                     account_id=account_id,
                     is_following_back=False,
                     source='fans_category',
                 )
-            stats['fans_count'] = len(non_follower_usernames)
-            stats['success'] = True
-            self.logger.info(
-                f"✅ Fans category read: {stats['fans_count']} followers you do not follow back "
-                f"(no reciprocity deduced for your followings)"
-            )
+                if result == 'new':
+                    stats['new_count'] += 1
+                elif result == 'updated':
+                    stats['updated_count'] += 1
+            self._close_list_read('fans', stats, stats['total_seen'])
+            if stats['success']:
+                # The fans, see above: a count only for a read the category's size proves whole
+                stats['fans_count'] = stats['non_followers_count'] = len(non_follower_usernames)
+            else:
+                stats['fans_unproven'] = True
 
             # Close the view to come back to a clean state
             self.logger.debug("Closing non-followers view (back press)")
@@ -515,27 +524,52 @@ class SyncFollowingMixin(UnfollowActionsMixin):
             return False
         return d.xpath(UNFOLLOW_SELECTORS.list_shows_no_fans_category_selector(package), screen).exists
 
-    def _extract_all_non_followers(self) -> List[str]:
-        """
-        Extract every username of the non-reciprocal list.
+    def _fans_category_size(self) -> Optional[int]:
+        """The number of accounts the fans category announces under its title, read on our followers
+        list before the category is opened ("user_2 et 536 autres personnes": 537), or None
+        when no category line gives one (`list_proof.parse_category_size`). A read without it
+        proves nothing."""
+        d = self.device.device
+        package = get_active_package()
+        lines = [element.text for selector in UNFOLLOW_SELECTORS.fans_category_subtitle_selectors(package)
+                 for element in d.xpath(selector).all()]
+        for line in lines:
+            size = parse_category_size(line, UNFOLLOW_SELECTORS.category_others_labels)
+            if size is not None:
+                return size
+        if lines:
+            self.logger.warning("Fans category: the line under its title gives no size, its read will prove nothing")
+        return None
 
-        The list has no ordering, so it is scrolled to the end.
-        Each item carries a follow-back button, which confirms they do not follow us.
+    def _extract_all_non_followers(self, end: ListReadEnd, stats: Dict[str, Any]) -> List[str]:
+        """
+        Extract every username of the non-reciprocal list, and say in `stats` what the read proves.
+
+        The list has no ordering, so it is scrolled to its end, as a follow list is read: its end
+        and its proof come from `end` (`list_proof.ListReadEnd`, the category's size as its count),
+        the drags are bounded by that size. Each item carries a follow-back button, which confirms
+        they do not follow us; a row whose button says otherwise is a name seen and not counted.
 
         The category's view was seen loaded (a row offering to follow back): a first screen without
         one fan read is a read that failed, never an empty category. Raises `FansCategoryUnreadable`
         then, and on any screen that could not be read: a list read in part is no list of the fans.
 
         Returns:
-            Full list of the non-reciprocal usernames
+            The non-reciprocal usernames read, in the order of the list
         """
-        usernames = []
+        usernames: List[str] = []
         seen: Set[str] = set()
+        left_out = LeftOutRows()
         scroll_attempts = 0
-        max_scrolls = 30
+        scroll_failed = False
+        # A fixed 30 drags read 171 fans of 537 (Pixel 6a, 2026-10-24): the bound follows the size.
+        max_scrolls = scrolls_for(end.expected, 30)
 
         while scroll_attempts < max_scrolls:
-            visible = self._get_visible_non_follower_usernames()
+            if self._sync_should_stop():
+                stats['stopped_by_session'] = True
+                break
+            visible = self._get_visible_non_follower_usernames(left_out)
             if not usernames and not visible:
                 raise FansCategoryUnreadable("the first screen of the open category gave no fan")
 
@@ -545,21 +579,29 @@ class SyncFollowingMixin(UnfollowActionsMixin):
                     seen.add(username)
                     usernames.append(username)
                     new_found = True
+            stats['total_seen'] = len(usernames)
 
-            if not new_found:
-                self.logger.debug("No new non-followers after scroll — end of list")
+            if self._list_read_ends(end, 'fans', new_found, len(seen), scroll_failed, left_out.summary(seen)):
+                stats['end_reached'] = True
+                stats['proof'] = end.proof
                 break
 
-            self._scroll_following_list()
+            if self._scroll_following_list() is False:
+                scroll_failed = True
             time.sleep(1.2)
             scroll_attempts += 1
 
+        stats['scrolls'] = scroll_attempts
+        stats['left_out'] = left_out.summary(seen)
+        if stats['left_out']:
+            self.logger.info(f"Fans names seen but not read: {stats['left_out']}")
         return usernames
 
-    def _get_visible_non_follower_usernames(self) -> List[str]:
+    def _get_visible_non_follower_usernames(self, left_out: Optional[LeftOutRows] = None) -> List[str]:
         """The fans on this screen of the open category: the names of its rows offering to follow
         back, read by the list's row reader (`_visible_follow_rows`, one dump, the one of the unfollow
-        and the syncs). [] when no row offers it: the list ended above this screen.
+        and the syncs). [] when no row offers it: the list ended above this screen. The names of the
+        other rows go to `left_out`, with the state of their button.
 
         Raises `FansCategoryUnreadable` when the screen could not be read, or when rows offer to
         follow back and none of their names could be read: an unread screen is not an empty one.
@@ -571,6 +613,11 @@ class SyncFollowingMixin(UnfollowActionsMixin):
         names = [row['username'] for row in offering if row['username']]
         if offering and not names:
             raise FansCategoryUnreadable(f"{len(offering)} row(s) offer to follow back, no name read")
+        if left_out is not None:
+            left_out.unpaired |= self.unpaired_on_screen
+            for row in rows:
+                if row['username'] and row['state'] != 'follow_back':
+                    left_out.refuse(row['username'], row['state'])
         return names
 
     def _has_follow_back_row(self) -> bool:

@@ -5,8 +5,9 @@ The two syncs (`sync_following`, `sync_followers_following`) are one-shot runs: 
 `session_stop` nor writes the end of the `sessions_unified` row. On the Pixel 3 (2026-09-28) the
 bridge exited 0 and the row stayed `ACTIVE`. The step now ends the session through
 `finalize_session`, like every other run: `completed` when the lists were read, the motive of the
-list that was not (`following_list_unproven`, `list_unavailable`, both of the « failed » family)
-otherwise. A fans category that Instagram does not serve is no list that was not read.
+list that was not (`following_list_unproven`, `fans_list_unproven`, `list_unavailable`, of the
+« failed » family) otherwise. A fans category that Instagram does not serve is no list that was not
+read; one read short of the size it announces is.
 
 No screen here: the lists' reads are played by their results, as `sync_following_list`,
 `sync_followers_list` and `scrape_non_followers_category` return them.
@@ -35,6 +36,13 @@ def _fans_not_served():
     """`scrape_non_followers_category` when our followers list proves the fans category not served
     (410 in French, 2026-10-24: « Comptes désactivés » alone above « Tous les followers »)."""
     return {"non_followers_count": None, "mutuals_count": 0, "success": False, "category_not_served": True}
+
+
+def _fans_read_in_part():
+    """`scrape_non_followers_category` when the category was read short of the size it announces
+    (Pixel 6a, Instagram 447, 2026-10-24: 171 of 537)."""
+    return {"non_followers_count": None, "mutuals_count": 0, "success": False, "fans_unproven": True,
+            "total_seen": 171, "expected": 537}
 
 
 def _followers(success):
@@ -75,6 +83,9 @@ def _no_wait(monkeypatch):
     # Instagram serves no fans category: there was no list to read, the list did open.
     (_following(True), _fans_not_served(), ("COMPLETED", "completed")),
     (_following(False, seen=0), _fans_not_served(), ("INTERRUPTED", "following_list_unproven")),
+    # The fans category read in part: its list did open, and its count is not proven
+    (_following(True), _fans_read_in_part(), ("INTERRUPTED", "fans_list_unproven")),
+    (_following(False, seen=175, expected=1265), _fans_read_in_part(), ("INTERRUPTED", "following_list_unproven")),
 ])
 def test_the_following_sync_ends_its_session(following, fans, end):
     runner, automation = _runner(following, fans=fans)
@@ -83,6 +94,16 @@ def test_the_following_sync_ends_its_session(following, fans, end):
 
     assert automation.helpers.ends == [end]
     assert automation.session_finalized is True
+
+
+def test_a_fans_category_read_in_part_is_a_failed_list_without_a_count(capsys):
+    runner, _automation = _runner(_following(True), fans=_fans_read_in_part())
+
+    runner._run_sync_following_workflow({"type": "sync_following"})
+
+    line = next(json.loads(out) for out in capsys.readouterr().out.splitlines()
+                if out.startswith("{") and '"sync_complete"' in out)
+    assert (line["success"], line["non_followers_count"]) == (False, None)
 
 
 def test_a_fans_category_not_served_is_no_failed_list_and_no_count(capsys):

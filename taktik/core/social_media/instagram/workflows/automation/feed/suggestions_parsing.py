@@ -19,10 +19,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from taktik.core.shared.device.ui_dump import iter_widgets, parse_bounds
-
-# A node clipped by the screen ends exactly on the band's edge.
-_EDGE_TOLERANCE_PX = 2
+from taktik.core.shared.device.ui_dump import EDGE_TOLERANCE_PX, iter_widgets, parse_bounds, whole_in_band
 # Share of the visible band left free beyond the carousel once framed, so the varied framing
 # gesture still lands with the whole block in view.
 _FRAME_MARGIN_RATIO = 0.10
@@ -190,12 +187,6 @@ def _visible_band(container, root, selectors) -> Optional[Tuple[int, int]]:
     return (top, bottom) if bottom > top else None
 
 
-def _in_band(bounds, band) -> bool:
-    """True when ``bounds`` lie whole inside the band, not clipped at either edge."""
-    return (bool(bounds) and bounds[1] >= band[0] + _EDGE_TOLERANCE_PX
-            and bounds[3] <= band[1] - _EDGE_TOLERANCE_PX)
-
-
 def _carousel_framing(container_bounds, band, cta_bounds,
                       cards_hidden: int, cards_clipped: int) -> Dict[str, Any]:
     """Is the whole carousel in view, and how far should the feed move if not?
@@ -206,8 +197,8 @@ def _carousel_framing(container_bounds, band, cta_bounds,
     already against the edge it should move away from, is taller than the band: ``fits`` False.
     """
     top, bottom = band
-    cut_top = container_bounds[1] <= top + _EDGE_TOLERANCE_PX
-    cut_bottom = container_bounds[3] >= bottom - _EDGE_TOLERANCE_PX
+    cut_top = container_bounds[1] <= top + EDGE_TOLERANCE_PX
+    cut_bottom = container_bounds[3] >= bottom - EDGE_TOLERANCE_PX
     margin = int(round((bottom - top) * _FRAME_MARGIN_RATIO))
     shift = 0
     if cut_bottom and not cut_top:
@@ -225,7 +216,7 @@ def _carousel_framing(container_bounds, band, cta_bounds,
         "bounds": container_bounds,
         "cards_hidden": cards_hidden,
         "cards_clipped": cards_clipped,
-        "cta_in_band": _in_band(cta_bounds, band),
+        "cta_in_band": whole_in_band(cta_bounds, band),
     }
 
 
@@ -276,7 +267,7 @@ def parse_feed_suggestions_carousel(root, selectors) -> Dict[str, Any]:
                 cards_hidden += 1
                 continue
             follow_bounds = parse_bounds(follow_node.get("bounds") or "")
-            if band is not None and not _in_band(follow_bounds, band):
+            if band is not None and not whole_in_band(follow_bounds, band):
                 cards_clipped += 1
                 continue
             result["cards"].append({

@@ -74,7 +74,12 @@ def test_the_fans_category_records_fans_and_never_a_following(monkeypatch):
     business.nav_actions = SimpleNamespace(navigate_to_profile_tab=lambda: True, open_followers_list=lambda: True)
     business._click_non_followers_category = lambda: True
     business._has_follow_back_row = lambda: True
-    business._extract_all_non_followers = lambda: ["fan_one", "fan_two"]
+    def read_whole(end, stats):
+        # A read of the category proven whole: its subject here is what the fans become
+        stats.update(total_seen=2, end_reached=True, proof="count")
+        return ["fan_one", "fan_two"]
+
+    business._extract_all_non_followers = read_whole
 
     stats = business.scrape_non_followers_category()
 

@@ -167,7 +167,8 @@ def test_a_followers_tab_with_a_sort_control_is_read_whole(monkeypatch):
     stats = business.sync_followers_list({"mode": "fast"})
 
     assert stats["expected"] == 678 and stats["incremental"] is False and stats["proof"] is None
-    assert graph.followers == rows
+    # The last row, cut by the bottom of the list, is no row read (`test_unfollow_cut_rows.py`)
+    assert graph.followers == rows[:-1]
 
 
 def test_the_unfollow_keeps_a_follower_the_read_did_not_reach(monkeypatch):

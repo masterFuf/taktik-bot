@@ -358,12 +358,12 @@ class UnfollowBusiness(
                 emit_step('unfollow_decision', action='skip', target=username, reason=refusal)
                 continue
             if row.get('name_element') is not None and self._profile_was_opened(key in forced, cfg):
-                # Back from the profile: the rows were redrawn, read the candidate's row again.
-                row = next((r for r in self._visible_follow_rows()
-                            if r['username'].lower() == key and r['state'] == 'following'), None)
+                # Back from the profile: the rows were redrawn and the list may have moved a little,
+                # look for the candidate's row again around where it was.
+                row = self._row_found_again(username, 'following')
                 if row is None:
                     stats['profile_refusals']['row_lost'] = stats['profile_refusals'].get('row_lost', 0) + 1
-                    self.logger.info(f"⏭ @{username}: its row is no longer on screen after the profile")
+                    self.logger.info(f"⏭ @{username}: its row is not on screen after the profile, nor one row either way")
                     emit_step('unfollow_decision', action='skip', target=username, reason='row_lost')
                     continue
 

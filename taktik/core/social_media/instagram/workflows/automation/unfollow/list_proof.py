@@ -24,6 +24,10 @@ A fourth one proves the followers the BASE knows, after a read of the followers 
 the list shows the newest follower first, the read stopped after `KNOWN_IN_A_ROW_TO_STOP` followers
 the base knows, in a row, and the base's followers plus the new ones match the tab's count within
 `count_tolerance`. See `base_matches_count`.
+
+When a read stops scrolling is `ListReadEnd`: the suggestions, or reads without a new name, after
+the reload waits a read short of its count is given. The fans category of our followers list has no
+tab: the count it is proved against is the size its line announces (`parse_category_size`).
 """
 
 from typing import Iterable, Mapping, Optional
@@ -56,6 +60,28 @@ def parse_tab_count(text: Optional[str], labels: Iterable[str]) -> Optional[int]
             return None
         digits = "".join(groups)
     return int(digits) if digits.isdigit() else None
+
+
+def parse_category_size(text: Optional[str], others_labels: Iterable[str]) -> Optional[int]:
+    """The number of accounts a category of our followers list announces under its title, or None.
+
+    The line names the first account and counts the others: "user_2 et 536 autres
+    personnes" -> 537, "user_2 and 276 others" -> 277, "user_4 et 1 autre personne" -> 2, a lone
+    "user_2" -> 1. The first word is a handle (no space); the count after it is read like a
+    tab's (`parse_tab_count`), followed by one of `others_labels` ("autres personnes", "others").
+    Any other line (no handle, a count no label follows, an abbreviation) gives None: no size.
+    """
+    words = (text or "").strip().split(maxsplit=1)
+    if not words:
+        return None
+    if len(words) == 1:
+        return 1
+    rest = words[1]
+    start = next((index for index, char in enumerate(rest) if char.isdigit()), None)
+    if start is None:
+        return None
+    others = parse_tab_count(rest[start:], others_labels)
+    return None if others is None else others + 1
 
 
 def count_tolerance(expected: int) -> int:
@@ -169,10 +195,69 @@ def scrolls_for(expected: Optional[int], floor: int, ceiling: int = 3000) -> int
     return max(floor, min(ceiling, expected // 3 + 20))
 
 
+# Reads in a row without a new name after which a read of a follow list looks ended.
+QUIET_READS_TO_END = 3
+
+
+class ListReadEnd:
+    """When a read of a follow list stops scrolling, and what its end proves.
+
+    Called after each read of the list (`after_read`). The read looks ended on the suggestions under
+    the list, or after `quiet_reads` reads in a row without a new name. That second sign is also
+    what a page Instagram is slow to serve looks like: on a Pixel 6a (Instagram 447, 2026-10-24) the
+    following read stopped at 175 of 1 265 after three reads without a new name, nine seconds in
+    all, where a whole read of 1 882 on Instagram 410 never went more than two drags without one.
+
+    So a read that looks ended while the count says names are still missing, with no suggestions
+    reached and no failed drag, is given `waits` (the steps of `ListReloadPolicy`,
+    workflows/common/list_reload_policy.py), one drag and one read after each, before it ends
+    unproven. A new name gives the waits back. A read without a count, ended by the suggestions or
+    after a failed drag ends at once: waiting proves nothing there.
+    """
+
+    def __init__(self, expected: Optional[int], quiet_reads: int = QUIET_READS_TO_END,
+                 waits: Iterable[float] = ()):
+        self.expected = expected
+        self.quiet_reads_to_end = quiet_reads
+        self._waits = tuple(waits)
+        self._waits_left = list(self._waits)
+        # Reads in a row without a new name
+        self.quiet_reads = 0
+        # The rule that proved the read (PROOF_BY_*), set when it ends; None: it proved nothing
+        self.proof: Optional[str] = None
+        # Seconds to give the list before the next drag (0: none), set by each `after_read`
+        self.wait = 0.0
+        # Seconds given to the list in all
+        self.waited = 0.0
+
+    def after_read(self, new_found: bool, seen: int, *, suggestions_reached: bool, scroll_failed: bool,
+                   left_out: Optional[Mapping[str, int]] = None) -> bool:
+        """True when the read ends after this read (`proof` says what it proved); otherwise `wait`
+        is what to give the list before the next drag."""
+        self.wait = 0.0
+        if new_found:
+            self.quiet_reads = 0
+            self._waits_left = list(self._waits)
+        else:
+            self.quiet_reads += 1
+        if not suggestions_reached and self.quiet_reads < self.quiet_reads_to_end:
+            return False
+        self.proof = proof_of_read(seen, self.expected, scroll_failed,
+                                   suggestions_reached=suggestions_reached, left_out=left_out)
+        if self.proof is None and self._waits_left and not suggestions_reached and not scroll_failed \
+                and self.expected is not None:
+            self.wait = self._waits_left.pop(0)
+            self.waited += self.wait
+            # One more drag and read after the wait, then the next wait
+            self.quiet_reads = self.quiet_reads_to_end - 1
+            return False
+        return True
+
+
 __all__ = [
     "PROOF_BY_COUNT", "PROOF_BY_SUGGESTIONS_END", "PROOF_BY_KNOWN_ACCOUNT", "PROOF_BY_BASE_COUNT",
     "READ_TO_THE_END", "SUGGESTIONS_END_MAX_GAP_PERCENT", "KNOWN_IN_A_ROW_TO_STOP", "base_matches_count",
     "INCREMENTAL_STOP_MIN_KNOWN_PERCENT", "incremental_stop_allowed",
-    "parse_tab_count", "count_tolerance", "proof_of_read", "read_is_complete", "describe_proof",
-    "scrolls_for",
+    "parse_tab_count", "parse_category_size", "count_tolerance", "proof_of_read", "read_is_complete",
+    "describe_proof", "scrolls_for", "QUIET_READS_TO_END", "ListReadEnd",
 ]

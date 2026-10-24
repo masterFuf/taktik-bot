@@ -18,6 +18,10 @@ English (Pixel 3a), and our French followers list, Instagram 447 (Pixel 6a). No 
 category once opened exists yet (lot bancig): the phone here keeps the list on screen after the tap
 on the category, and its rows stand in for the category's (the same widgets: the username, and the
 « Follow back » / « Suivre en retour » button); the fans read are its rows offering to follow back.
+
+The category announces its size on its line (« user_2 and 276 others »): a read of a few fans of it
+records them and gives no count (`test_list_read_end.py`, the run of 2026-10-24). The screens whose
+line is DERIVED to announce just the fans they show are built by `derived_fans_category_size`.
 """
 
 import pytest
@@ -30,6 +34,7 @@ from bridges.tools.lab.action_test.bundles.instagram import (
     build_instagram_action_bundle,
     create_instagram_device_facade,
 )
+from fake_follow_list import derived_fans_category_size
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import sync_following
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 from unit.paths import CORE
@@ -37,10 +42,12 @@ from unit.paths import CORE
 FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 PKG = "com.instagram.android"
 
-#: (capture, app language, the usernames of its rows offering to follow back)
+#: (capture, app language, the usernames of its whole rows offering to follow back, the size its
+#: fans category announces). The last row of each capture, cut by the bottom of the list
+#: (`name_10`, `user_8`), is no row read (`test_unfollow_cut_rows.py`).
 SERVED = [
-    ("ig410_en_own_followers_list_categories.xml", "en", ["user_5", "user_6", "user_7", "name_10"]),
-    ("ig447_fr_own_followers_list.xml", "fr", ["user_6", "user_7", "user_8"]),
+    ("ig410_en_own_followers_list_categories.xml", "en", ["user_5", "user_6", "user_7"], 277),
+    ("ig447_fr_own_followers_list.xml", "fr", ["user_6", "user_7"], 354),
 ]
 
 
@@ -84,15 +91,20 @@ def _quick(monkeypatch):
     set_active_locale(None)
 
 
-def _unfollow_on(name, lang, monkeypatch):
-    """The Lab's unfollow engine on our followers list: account bound, the follow graph a spy."""
+def _unfollow_on(name, lang, monkeypatch, fans=None):
+    """The Lab's unfollow engine on our followers list: account bound, the follow graph a spy.
+    With `fans`, the category's line announces them."""
     recorded = []
     monkeypatch.setattr(sync_following, "InstagramFollowGraphService",
                         type("GraphSpy", (), {"upsert_follower": staticmethod(lambda **kw: recorded.append(kw))}))
     set_active_locale(lang)
-    phone = _ListPhone((FIXTURES / name).read_text(encoding="utf-8"))
+    xml = (FIXTURES / name).read_text(encoding="utf-8")
+    phone = _ListPhone(derived_fans_category_size(xml, len(fans)) if fans else xml)
     bundle = build_instagram_action_bundle(create_instagram_device_facade(phone))
     bundle.bind_account(1)
+    # A drag the phone takes, its one capture staying on screen: a drag that failed would leave the
+    # read unproven whatever it read
+    bundle.unfollow._scroll_following_list = lambda: True
     return bundle, phone, recorded
 
 
@@ -109,9 +121,9 @@ def _the_view_is_seen_then_the_phone_stops(bundle, phone):
     bundle.unfollow._has_follow_back_row = seen_then_stops
 
 
-@pytest.mark.parametrize("name,lang,fans", SERVED, ids=["410 en", "447 fr"])
-def test_the_fans_on_screen_are_read_and_recorded(name, lang, fans, monkeypatch):
-    bundle, _phone, recorded = _unfollow_on(name, lang, monkeypatch)
+@pytest.mark.parametrize("name,lang,fans,size", SERVED, ids=["410 en", "447 fr"])
+def test_the_fans_on_screen_are_read_and_recorded(name, lang, fans, size, monkeypatch):
+    bundle, _phone, recorded = _unfollow_on(name, lang, monkeypatch, fans=fans)
 
     stats = bundle.unfollow.scrape_non_followers_category()
 
@@ -120,8 +132,21 @@ def test_the_fans_on_screen_are_read_and_recorded(name, lang, fans, monkeypatch)
     assert [row["username"] for row in recorded] == fans
 
 
-@pytest.mark.parametrize("name,lang,fans", SERVED, ids=["410 en", "447 fr"])
-def test_a_category_whose_rows_cannot_be_read_is_a_failed_read(name, lang, fans, monkeypatch):
+@pytest.mark.parametrize("name,lang,fans,size", SERVED, ids=["410 en", "447 fr"])
+def test_the_fans_of_a_screen_are_no_count_of_a_bigger_category(name, lang, fans, size, monkeypatch):
+    # The capture as taken: its category announces more fans than its screen shows
+    bundle, _phone, recorded = _unfollow_on(name, lang, monkeypatch)
+
+    stats = bundle.unfollow.scrape_non_followers_category()
+
+    assert (stats["expected"], stats["total_seen"]) == (size, len(fans))
+    assert stats["success"] is False and stats["fans_unproven"] is True
+    assert stats["fans_count"] is None and stats["non_followers_count"] is None, "a part read passed for a count"
+    assert [row["username"] for row in recorded] == fans
+
+
+@pytest.mark.parametrize("name,lang,fans,size", SERVED, ids=["410 en", "447 fr"])
+def test_a_category_whose_rows_cannot_be_read_is_a_failed_read(name, lang, fans, size, monkeypatch):
     bundle, phone, recorded = _unfollow_on(name, lang, monkeypatch)
     _the_view_is_seen_then_the_phone_stops(bundle, phone)
 
@@ -155,7 +180,7 @@ def _assert_failed_read(stats, recorded):
 def test_a_screen_unread_after_a_scroll_fails_the_whole_read(monkeypatch):
     # The first screen gives its fans; after the scroll the phone stops answering: a list read in
     # part is no list of the fans (it used to end there, as if the list had).
-    name, lang, _fans = SERVED[0]
+    name, lang, _fans, _size = SERVED[0]
     bundle, phone, recorded = _unfollow_on(name, lang, monkeypatch)
     _after(bundle, "_scroll_following_list", lambda: setattr(phone, "stopped", True))
 
@@ -166,7 +191,7 @@ def test_a_first_screen_without_a_fan_fails_the_read(monkeypatch):
     # The category's view was seen (a row offering to follow back), then the read finds another list
     # (another account's followers, 410 in English, no row offering to follow back): that is no
     # empty category.
-    name, lang, _fans = SERVED[0]
+    name, lang, _fans, _size = SERVED[0]
     bundle, phone, recorded = _unfollow_on(name, lang, monkeypatch)
     other_list = (FIXTURES / "ig410_en_followers_list_of_another_account.xml").read_text(encoding="utf-8")
     _after(bundle, "_has_follow_back_row", lambda: setattr(phone, "xml", other_list))
@@ -177,7 +202,7 @@ def test_a_first_screen_without_a_fan_fails_the_read(monkeypatch):
 def test_rows_offering_to_follow_back_without_a_name_fail_the_read(monkeypatch):
     # After the scroll, rows offer to follow back and none of their names can be read. Derived from
     # the real capture: the same screen, its usernames emptied.
-    name, lang, fans = SERVED[0]
+    name, lang, fans, _size = SERVED[0]
     bundle, phone, recorded = _unfollow_on(name, lang, monkeypatch)
     nameless = phone.xml
     for fan in fans:
@@ -215,7 +240,7 @@ def _sync_complete(out):
 def test_the_sync_line_says_null_for_a_fans_category_not_read(monkeypatch, capsys):
     # The following sync then the fans category, whose rows cannot be read: the line the app shows
     # says null, never 0. The following list's own read is not this test's subject.
-    name, lang, _fans = SERVED[0]
+    name, lang, _fans, _size = SERVED[0]
     bundle, phone, _recorded = _unfollow_on(name, lang, monkeypatch)
     _the_view_is_seen_then_the_phone_stops(bundle, phone)
     bundle.unfollow.sync_following_list = lambda *a, **k: {
@@ -243,7 +268,7 @@ def test_the_followers_and_following_sync_does_not_announce_fans_it_never_read(c
 
 
 def test_the_lab_says_the_fans_were_not_read_never_zero(monkeypatch):
-    name, lang, _fans = SERVED[0]
+    name, lang, _fans, _size = SERVED[0]
     bundle, phone, _recorded = _unfollow_on(name, lang, monkeypatch)
     _the_view_is_seen_then_the_phone_stops(bundle, phone)
 
@@ -252,3 +277,13 @@ def test_the_lab_says_the_fans_were_not_read_never_zero(monkeypatch):
     assert result["success"] is False
     assert "0 fans" not in result["message"], result["message"]
     assert result["details"]["read_failed"] is True
+
+
+def test_the_lab_says_a_category_read_in_part_is_not_counted(monkeypatch):
+    name, lang, fans, size = SERVED[1]
+    bundle, _phone, _recorded = _unfollow_on(name, lang, monkeypatch)
+
+    result = INSTAGRAM_ACTIONS["unfollow.read_fans_category"](bundle, {})
+
+    assert result["success"] is False
+    assert result["message"] == f"fans not counted: {len(fans)} read of {size}, not proven complete"

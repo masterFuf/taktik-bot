@@ -124,7 +124,8 @@ def read_fans_category(a, p):
     """Open the 'followers you don't follow back' category and record those FANS (production
     `scrape_non_followers_category`). Nothing is deduced for the accounts we follow. Not applicable
     only when production proved the category not served (no fans category above the accounts). A
-    category not read has no count: the message says why, never « 0 fans »."""
+    category not read has no count: the message says why, never « 0 fans »; neither has a category
+    read short of the size it announces (« 171 read of 537 »)."""
     stats = a.unfollow.scrape_non_followers_category()
     if stats.get("category_not_served"):
         return not_applicable("unfollow.read_fans_category",
@@ -133,7 +134,10 @@ def read_fans_category(a, p):
                               **_sync_summary(stats))
     fans = stats.get("fans_count")
     if fans is not None:
-        message = f"{fans} fans"
+        message = f"{fans} fans (proof: {stats.get('proof')})"
+    elif stats.get("fans_unproven"):
+        message = (f"fans not counted: {stats.get('total_seen', 0)} read of {stats.get('expected') or '?'}, "
+                   "not proven complete")
     elif stats.get("read_failed"):
         message = "fans not read: the open category could not be read"
     else:

@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 from loguru import logger
 
 from taktik.core.social_media.instagram.workflows.automation.config import WorkflowConfigBuilder
@@ -440,6 +440,9 @@ class WorkflowRunner:
         count = nf_stats.get('non_followers_count')
         if count is not None:
             return f"Fans (followers you do not follow back): {count}"
+        if nf_stats.get('fans_unproven'):
+            return (f"Fans not counted: the category was read in part "
+                    f"({nf_stats.get('total_seen', 0)} of {nf_stats.get('expected') or '?'})")
         if nf_stats.get('category_not_served'):
             return "Fans not read: the category is not served now"
         if nf_stats.get('read_failed'):
@@ -453,11 +456,15 @@ class WorkflowRunner:
         return bool(nf_stats.get('success') or nf_stats.get('category_not_served'))
 
     @staticmethod
-    def _sync_end(following: Dict[str, Any], other_list_read: bool):
+    def _sync_end(following: Dict[str, Any], other_list_read: bool, fans: Optional[Dict[str, Any]] = None):
         """The motive a sync run ends on: `completed` when its lists were read, otherwise the list
-        that was not (the following list first, the one the unfollow decides on)."""
+        that was not (the following list first, the one the unfollow decides on). A fans category
+        read in part (`fans`, the read of `scrape_non_followers_category`) says so: its list did
+        open."""
         if not following.get('success'):
             return stop_reasons.following_list_unproven(following.get('total_seen', 0), following.get('expected'))
+        if fans is not None and fans.get('fans_unproven'):
+            return stop_reasons.fans_list_unproven(fans.get('total_seen', 0), fans.get('expected'))
         if not other_list_read:
             return stop_reasons.list_unavailable()
         return stop_reasons.completed(0)
@@ -497,7 +504,7 @@ class WorkflowRunner:
         # A one-shot run: it ends its session here, `session_stop` and the row's end included. It
         # used to set `session_finalized` alone, which stops the loop and nothing else: the row
         # stayed ACTIVE (Pixel 3, 2026-09-28).
-        self._finalize_on(self._sync_end(sync_stats, self._fans_list_done(nf_stats)))
+        self._finalize_on(self._sync_end(sync_stats, self._fans_list_done(nf_stats), nf_stats))
         
         return sync_stats['success']
     

@@ -64,6 +64,17 @@ def band_clear_of(box: Sequence[int], obstacles: Sequence[Sequence[int]]) -> Opt
     return (left, low, right, high)
 
 
+# A node clipped by the screen (or by the list that holds it) ends exactly on the band's edge.
+EDGE_TOLERANCE_PX = 2
+
+
+def whole_in_band(bounds: Optional[Sequence[int]], band: Sequence[int]) -> bool:
+    """True when ``bounds`` lie whole inside the vertical ``band`` ``(top, bottom)``, not clipped
+    at either edge: a node clipped by the band ends on its edge (``EDGE_TOLERANCE_PX``)."""
+    return (bool(bounds) and bounds[1] >= band[0] + EDGE_TOLERANCE_PX
+            and bounds[3] <= band[1] - EDGE_TOLERANCE_PX)
+
+
 def index_of_closest_row(target_y: float, candidate_ys: List[float]) -> Optional[int]:
     """Index of the candidate whose vertical centre is closest to ``target_y``.
 

@@ -995,6 +995,12 @@ STRINGS: Dict[str, List[str]] = {
         "Interactions les plus rares",
         "Comptes désactivés",
     ],
+    # Les mots après le compte de la ligne sous le titre d'une catégorie : « user_2 et 536
+    # autres personnes », « user_4 et 1 autre personne » (Instagram 447, Pixel 6a, 2026-10-24).
+    "unfollow.category_others_labels": [
+        "autres personnes",
+        "autre personne",
+    ],
     "unfollow.follow_button_after_unfollow": [
         "//*[contains(@text, \"Suivre\") and not(contains(@text, \"Abonné\"))]",
     ],
