@@ -66,17 +66,19 @@ class DirectMessageSelectors:
     inbox_header_action_button_resource_id: str = "com.instagram.android:id/header_action_button"
     inbox_header_action_button: str = '//*[@resource-id="com.instagram.android:id/header_action_button"]'
 
-    # The requests entry of an inbox laid out with pills (the layout is served per account,
-    # same 410 APK): a clickable pill holding an `inbox_header_pill_text`, its label at the start
-    # of its content-desc, the label in the locales.
-    _requests_pill_template: str = (
+    # The pills of an inbox laid out with pills (the layout is served per account, same 410 APK:
+    # Tout / Principal / Général / Invitations, ig410_fr_dm_inbox_pills.xml; All / Primary /
+    # General / Requests, ig410_en_dm_inbox.xml): a clickable pill holding an
+    # `inbox_header_pill_text`, its label at the start of its content-desc, the labels in the
+    # locales. The one on display is `selected`.
+    _header_pill_template: str = (
         '//*[@clickable="true"][starts-with(@content-desc, "{label}")]'
         '[.//*[@resource-id="com.instagram.android:id/inbox_header_pill_text"]]'
     )
 
     @property
     def requests_pill(self) -> List[str]:
-        return [self._requests_pill_template.format(label=label)
+        return [self._header_pill_template.format(label=label)
                 for label in L("direct_message.requests_pill_labels")]
 
     @property
@@ -84,6 +86,16 @@ class DirectMessageSelectors:
         """The requests pill once chosen: a pill shows it is the one on display by `selected`
         (the "Tout" / "All" pill of both inbox captures)."""
         return [f'{xpath}[@selected="true"]' for xpath in self.requests_pill]
+
+    @property
+    def primary_pill(self) -> List[str]:
+        """The pill of the main conversations (« Principal », « Primary »)."""
+        return [self._header_pill_template.format(label=label)
+                for label in L("direct_message.primary_pill_labels")]
+
+    @property
+    def primary_pill_selected(self) -> List[str]:
+        return [f'{xpath}[@selected="true"]' for xpath in self.primary_pill]
     inbox_header_messages_text: str = "Messages"
     inbox_header_requests_text: str = "Requests"
     # Title of the message-requests sub-screen (action bar). Used to confirm we left the

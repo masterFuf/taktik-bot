@@ -8,6 +8,7 @@ import time
 from loguru import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.device.wait import find_element
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
@@ -15,7 +16,22 @@ class DMInboxResetMixin:
     """Keep the DM inbox in a deterministic top/Primary state."""
 
     def _ensure_primary_tab(self):
-        """Ensure we're on the Primary tab in DM inbox."""
+        """Ensure we're on the Primary tab in DM inbox.
+
+        The inbox laid out with pills (410, served per account) has a « Principal » / « Primary »
+        pill: tapped unless it is the one on display. The older layout's tab is found by its text.
+        """
+        if find_element(self.device, DM_SELECTORS.primary_pill_selected) is not None:
+            logger.debug("Primary pill already on display")
+            return True
+        pill = find_element(self.device, DM_SELECTORS.primary_pill)
+        if pill is not None:
+            logger.info("Tapping the Primary pill of the inbox")
+            if not tap_element_human(self.device, pill, logger=logger):
+                pill.click()
+            time.sleep(1)
+            return True
+
         for text in DM_SELECTORS.primary_tab_text_contains:
             primary_tab = self.device(textContains=text)
             if primary_tab.exists:

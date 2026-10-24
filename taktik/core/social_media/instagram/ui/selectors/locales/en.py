@@ -361,6 +361,10 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.requests_pill_labels": [
         "Requests",
     ],
+    # The main conversations pill of the inbox (ig410_en_dm_inbox.xml, 410).
+    "direct_message.primary_pill_labels": [
+        "Primary",
+    ],
     "direct_message.outgoing_digest_prefixes": [],
     "direct_message.send_button": [
         "//*[contains(@content-desc, \"Send\")]",

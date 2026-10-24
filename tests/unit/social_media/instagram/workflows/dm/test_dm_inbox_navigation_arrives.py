@@ -20,6 +20,10 @@ captures), and the French home feed and pill inbox of the Pixel 6 Pro. The phone
 `xpath` from the screen on show, on its own clock; a tap on the Direct tab opens the inbox (on the
 Pixel 6 Pro, 6 s after the tap, a Back pressed meanwhile lost in the transition), a tap on the
 Message button opens the conversation, Back returns.
+
+The reading of the inbox puts the main conversations on display first (`_ensure_primary_tab`): on
+the French pill inbox it answered "Primary tab not found", knowing only the English word, and read
+from « Tout ». The « Principal » / « Primary » pill is now tapped.
 """
 
 import re
@@ -30,8 +34,10 @@ from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 import taktik.core.shared.device.wait as wait_module
+import taktik.core.social_media.instagram.workflows.dm.inbox_reset as inbox_reset
 import taktik.core.social_media.instagram.workflows.dm.navigation as navigation
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
+from taktik.core.social_media.instagram.workflows.dm.inbox_reset import DMInboxResetMixin
 from taktik.core.social_media.instagram.workflows.dm.navigation import DMInboxNavigationMixin
 from unit.paths import CORE
 
@@ -56,6 +62,11 @@ REQUESTS_PILL = {
     "inbox": (725, 865, 1033, 953),
     "inbox_pills_fr": (1018, 1146, 1382, 1258),
 }
+#: The main conversations pill of each pill inbox (its clickable container), not on display.
+PRIMARY_PILL = {
+    "inbox": (216, 865, 449, 953),
+    "inbox_pills_fr": (327, 1146, 655, 1258),
+}
 
 
 def _bounds(node):
@@ -67,6 +78,7 @@ def _bounds(node):
 
 _UI_SELECTOR = {
     "text": lambda node, value: node.get("text") == value,
+    "textContains": lambda node, value: value in (node.get("text") or ""),
     "description": lambda node, value: node.get("content-desc") == value,
     "descriptionContains": lambda node, value: value in (node.get("content-desc") or ""),
     "resourceId": lambda node, value: node.get("resource-id") == value,
@@ -197,6 +209,7 @@ def phone_on(monkeypatch):
         clock = SimpleNamespace(time=phone.clock.time, sleep=phone.clock.sleep)
         monkeypatch.setattr(navigation, "time", clock)
         monkeypatch.setattr(wait_module, "time", clock)
+        monkeypatch.setattr(inbox_reset, "time", clock)
         return phone
 
     return build
@@ -241,3 +254,20 @@ def test_on_a_pill_inbox_the_requests_pill_is_the_requests_entry(phone_on, inbox
     assert len(phone.clicks) == 1
     assert _inside(phone.clicks[0], REQUESTS_PILL[inbox])
     assert opened is False
+
+
+class _ReadingRuntime(DMInboxResetMixin):
+    """The DM runtime as far as the reading's reset reads it."""
+
+    def __init__(self, phone):
+        self.device = CloneAwareDeviceProxy(phone, PKG)
+
+
+@pytest.mark.parametrize("inbox", ["inbox_pills_fr", "inbox"], ids=["fr-principal", "en-primary"])
+def test_on_a_pill_inbox_the_main_conversations_pill_is_put_on_display(phone_on, inbox):
+    phone = phone_on(inbox)
+
+    assert _ReadingRuntime(phone)._ensure_primary_tab() is True
+
+    assert len(phone.clicks) == 1
+    assert _inside(phone.clicks[0], PRIMARY_PILL[inbox])
