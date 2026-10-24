@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from taktik.core.shared.device.screen import screen_size_of
+
 
 class PlatformDeviceBase:
     """
@@ -39,8 +41,6 @@ class PlatformDeviceBase:
         # Backward-compatible aliases populated by `connect()`.
         self.device_manager = None
         self.device = None
-        self.screen_width = 1080
-        self.screen_height = 2340
 
     def connect(self) -> bool:
         """Open the device connection and bootstrap the AppService."""
@@ -50,7 +50,6 @@ class PlatformDeviceBase:
             return False
         self.device_manager = self._connection.device_manager
         self.device = self._connection.device
-        self.screen_width, self.screen_height = self._connection.screen_size
 
         # Pass `package_override` only when it differs from the platform default,
         # so AppService can keep auto-detection for clone/multi-package platforms.
@@ -72,6 +71,29 @@ class PlatformDeviceBase:
         self.device = self._wrap_in_facade(self.device)
         self._apply_selector_version_overrides()
         return True
+
+    # The screen size every gesture and every reading in proportion of the screen starts from
+    # (a DM bubble on the right is ours): read when first needed, from the device in play (the
+    # facade keeps it once read, `screen_size_of`), never made up. A host that knows the size of
+    # the screen it replays sets it.
+
+    @property
+    def screen_width(self) -> int:
+        width = self.__dict__.get("_screen_width")
+        return int(width) if width is not None else screen_size_of(self.device)[0]
+
+    @screen_width.setter
+    def screen_width(self, value: int) -> None:
+        self.__dict__["_screen_width"] = value
+
+    @property
+    def screen_height(self) -> int:
+        height = self.__dict__.get("_screen_height")
+        return int(height) if height is not None else screen_size_of(self.device)[1]
+
+    @screen_height.setter
+    def screen_height(self, value: int) -> None:
+        self.__dict__["_screen_height"] = value
 
     def _apply_selector_version_overrides(self) -> None:
         """Hook: match the platform's selector catalogs to the installed app version.

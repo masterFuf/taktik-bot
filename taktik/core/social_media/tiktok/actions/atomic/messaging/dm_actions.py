@@ -12,6 +12,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 from loguru import logger
+from taktik.core.shared.device.screen import screen_size_of
 
 from taktik.core.shared.input.taktik_keyboard import (
     ensure_taktik_keyboard,
@@ -935,11 +936,8 @@ class DMActions(BaseAction):
             left, right = bounds.get('left'), bounds.get('right')
             if left is None or right is None:
                 return False
-            width = self.device.get_screen_size()[0] if hasattr(self.device, 'get_screen_size') else 0
-            if not width:
-                raw = self.device._device if hasattr(self.device, '_device') else self.device
-                width = raw.window_size()[0]
-            return bool(width) and ((left + right) / 2) > (width / 2)
+            width, _height = screen_size_of(self.device)
+            return ((left + right) / 2) > (width / 2)
         except Exception as e:
             self.logger.debug(f"Bubble side unreadable: {e}")
             return False

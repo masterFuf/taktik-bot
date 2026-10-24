@@ -36,12 +36,32 @@ class ScrollActions(
         # coherent history without a cross-device singleton.
         self.behavior_state = behavior_state or BehaviorSessionState()
         
-        try:
-            self.screen_width, self.screen_height = self.device.get_screen_size()
-        except Exception as e:
-            self.logger.warning(f"Cannot get screen dimensions: {e}")
-            self.screen_width = 1080
-            self.screen_height = 1920
+
+    # Every scroll is computed in proportion of the screen: its size is read, never made up
+    # (`get_screen_size` raises when neither uiautomator2 nor `wm size` gives it), and read when a
+    # gesture first needs it, not when the actions are built: Android 17 refuses uiautomator2's
+    # deviceInfo on the first calls of a run, where the size was taken for 1080 x 1920 for good.
+    # The facade keeps it once read. A host that knows the size (a replayed capture) sets it.
+    # The mixins declare `screen_width` / `screen_height` as what their host gives: these
+    # properties give it.
+
+    @property
+    def screen_width(self) -> int:
+        width = self.__dict__.get("_screen_width")
+        return int(width) if width is not None else self.device.get_screen_size()[0]
+
+    @screen_width.setter
+    def screen_width(self, value: int) -> None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        self.__dict__["_screen_width"] = value
+
+    @property
+    def screen_height(self) -> int:
+        height = self.__dict__.get("_screen_height")
+        return int(height) if height is not None else self.device.get_screen_size()[1]
+
+    @screen_height.setter
+    def screen_height(self, value: int) -> None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        self.__dict__["_screen_height"] = value
 
 
 __all__ = ['ScrollActions']

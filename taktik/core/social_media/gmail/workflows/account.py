@@ -39,6 +39,7 @@ from typing import Optional
 
 from loguru import logger
 from taktik.core.shared.device.wait import wait_for_element
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.social_media.gmail.workflows._notifier import (
     GmailWorkflowNotifier,
     _NULL_NOTIFIER,
@@ -315,12 +316,7 @@ class GmailWorkflow(GmailOtpReadingMixin):
                     # Parse the checkbox bounds from the live hierarchy for accuracy.
                     _ipc.log("info", "🤖 reCAPTCHA detected — tapping 'I\'m not a robot'…")
                     import re as _re
-                    try:
-                        info = self.device.info
-                        w_px = int(info.get("displayWidth", 720))
-                        h_px = int(info.get("displayHeight", 1520))
-                    except Exception:
-                        w_px, h_px = 720, 1520
+                    w_px, h_px = screen_size_of(self.device)
                     try:
                         _dump = self.device.dump_hierarchy()
                         _m = _re.search(
@@ -648,12 +644,7 @@ class GmailWorkflow(GmailOtpReadingMixin):
 
         # Fallback from real dump (576×1280): avatar bounds [492,54][570,127],
         # center ≈ (531,90). Use ratios for other resolutions.
-        try:
-            info = self.device.info
-            width = int(info.get("displayWidth", 576))
-            height = int(info.get("displayHeight", 1280))
-        except Exception:
-            width, height = 576, 1280
+        width, height = screen_size_of(self.device)
 
         candidates = [
             (int(width * 0.922), int(height * 0.070)),
@@ -686,12 +677,7 @@ class GmailWorkflow(GmailOtpReadingMixin):
 
         After dismissal wait 0.6 s for the animation to finish.
         """
-        try:
-            info = self.device.info
-            width  = int(info.get("displayWidth",  656))
-            height = int(info.get("displayHeight", 1416))
-        except Exception:
-            width, height = 656, 1416
+        width, height = screen_size_of(self.device)
 
         # Try to read the popup bottom boundary from the hierarchy
         popup_bottom = None
@@ -1153,12 +1139,7 @@ class GmailWorkflow(GmailOtpReadingMixin):
             except Exception:
                 pass
 
-        try:
-            info = self.device.info
-            width  = info.get("displayWidth",  576)
-            height = info.get("displayHeight", 1280)
-        except Exception:
-            width, height = 576, 1280
+        width, height = screen_size_of(self.device)
 
         tap_x = width  // 2
         tap_y = int(height * _WEBVIEW_INPUT_Y_RATIO)

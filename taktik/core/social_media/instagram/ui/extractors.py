@@ -3,6 +3,7 @@ import re
 import time
 from typing import Optional, List, Any, Dict
 from loguru import logger
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.actions.utils import ActionUtils
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
@@ -567,10 +568,8 @@ class InstagramUIExtractors:
                     logger_to_use.warning("⚠️ Likers popup not detected - cannot scroll")
                 return False
             
-            screen_info = self.device.info
-            screen_width = screen_info.get('displayWidth', 1080)
-            screen_height = screen_info.get('displayHeight', 1920)
-            
+            screen_width, screen_height = screen_size_of(self.device)
+
             if verbose_logs:
                 logger_to_use.debug(f"📱 Resolution detected: {screen_width}x{screen_height}")
             

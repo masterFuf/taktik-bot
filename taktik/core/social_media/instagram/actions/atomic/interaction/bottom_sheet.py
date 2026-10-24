@@ -37,6 +37,7 @@ from typing import Callable, Dict, List, Optional
 from loguru import logger as _default_logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.social_media.instagram.ui.selectors.shell.popups import POPUP_SELECTORS
 
 # Shape of a grab bar: much wider than it is tall, never fills the width, horizontally centred.
@@ -56,17 +57,6 @@ _SHADE_SAFETY_MARGIN_RATIO = 0.005
 _OUTSIDE_TAP_MIN_RATIO = 0.12
 # A sheet steps EXPANDED -> COLLAPSED -> HIDDEN; two drags suffice, the third is a safety net.
 _MAX_DRAG_STEPS = 3
-
-
-def _screen_size(device) -> tuple:
-    """(width, height) in pixels. Falls back to a common phone size if the device cannot say —
-    every threshold here is a fraction of these, so a wrong guess skews the shape filter rather
-    than pointing a gesture at a fixed coordinate."""
-    try:
-        info = device.info
-        return int(info.get('displayWidth', 1080)), int(info.get('displayHeight', 2340))
-    except Exception:
-        return 1080, 2340
 
 
 def _bounds_of(element) -> Optional[Dict[str, int]]:
@@ -124,7 +114,7 @@ def find_drag_handle(device, log=None) -> Optional[Dict[str, object]]:
             continue
 
     # No id: look for the shape instead, inside the sheet's own subtree.
-    screen_width, screen_height = _screen_size(device)
+    screen_width, screen_height = screen_size_of(device)
 
     screen_center = screen_width / 2
     tolerance = screen_width * _HANDLE_CENTER_TOLERANCE_RATIO
@@ -189,7 +179,7 @@ def dismiss_bottom_sheet(
     if not is_open():
         return True
 
-    screen_width, screen_height = _screen_size(device)
+    screen_width, screen_height = screen_size_of(device)
 
     # 1. Defocus — a focused text field eats the first back press.
     for selector in (defocus_selectors or []):
@@ -303,7 +293,7 @@ def sheet_outside_tap_point(device):
     and the dimmer share the same full-screen bounds, and a tap meant for the page lands on the
     sheet's own content — on the Direct share sheet, on a recipient avatar.
     """
-    screen_width, screen_height = _screen_size(device)
+    screen_width, screen_height = screen_size_of(device)
 
     # The grab bar rides the sheet's top edge and is findable in both states, unlike the
     # container, which is a full-screen host.

@@ -13,6 +13,7 @@ import pytest
 from loguru import logger
 
 import taktik.core.shared.behavior.gesture_primitives as gp
+from taktik.core.shared.device.facade import BaseDeviceFacade
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.actions import (
     UnfollowActionsMixin,
 )
@@ -43,8 +44,9 @@ class _RawSwipe:
     def swipe_points(self, path, duration):
         self.calls.append(("swipe_points", path[0], path[-1]))
 
-    def window_size(self):
-        return 1080, 2280
+    @property
+    def info(self):
+        return {"displayWidth": 1080, "displayHeight": 2280}
 
 
 class _Device:
@@ -126,7 +128,7 @@ class _UnfollowWalk(UnfollowActionsMixin):
     """The unfollow's list drag, on a device that takes a whole path."""
 
     def __init__(self):
-        self.device = type("Facade", (), {"device": _RawSwipe()})()
+        self.device = BaseDeviceFacade(_RawSwipe())
         self.logger = _Log()
 
 

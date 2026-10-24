@@ -29,14 +29,15 @@ def test_the_size_is_read_from_the_device_info():
     assert screen.read_screen_size(_Device({"displayWidth": 720, "displayHeight": 1600})) == (720, 1600)
 
 
-def test_a_missing_dimension_takes_the_default_of_that_axis():
-    assert screen.read_screen_size(_Device({"displayWidth": 720})) == (720, 2340)
-    assert screen.read_screen_size(_Device({}), default=(1, 2)) == (1, 2)
+def test_an_incomplete_device_info_is_no_size():
+    # No serial on this double: `wm size` (the other reading) cannot run, and no axis is made up.
+    with pytest.raises(screen.ScreenSizeUnreadable):
+        screen.read_screen_size(_Device({"displayWidth": 720}))
 
 
-def test_an_unreadable_device_answers_the_default():
-    assert screen.read_screen_size(_Device(RuntimeError("server gone"))) == screen.DEFAULT_SCREEN_SIZE
-    assert screen.DEFAULT_SCREEN_SIZE == (1080, 2340)
+def test_an_unreadable_device_is_no_size():
+    with pytest.raises(screen.ScreenSizeUnreadable, match="server gone"):
+        screen.read_screen_size(_Device(RuntimeError("server gone")))
 
 
 # ---------------------------------------------------------------------------------- ATX health
@@ -131,7 +132,8 @@ def test_before_connect_nothing_is_held():
     service = connection.ConnectionService("SERIAL")
 
     assert (service.device, service.device_manager, service.is_connected) == (None, None, False)
-    assert service.screen_size == (1080, 2340)
+    with pytest.raises(RuntimeError, match="screen size is not read"):
+        service.screen_size
 
 
 def test_connect_holds_one_manager_its_device_and_the_screen(managers):
@@ -223,7 +225,6 @@ def test_a_connected_phone_is_seen_as_a_connection():
     phone = connected_device.ConnectedDevice(manager, "SERIAL")
 
     assert (phone.device_manager, phone.device_id, phone.device) == (manager, "SERIAL", device)
-    assert phone.screen_size == (720, 1600)
     assert phone.connect() is True
 
 

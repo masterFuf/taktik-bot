@@ -13,6 +13,7 @@ import time
 import os
 from loguru import logger
 
+from taktik.core.shared.device.screen import read_screen_size
 from taktik.core.shared.telemetry import emit_step
 
 # Two first calls at once must not build two photo sources (one invalidation would be lost).
@@ -157,12 +158,14 @@ class BaseDeviceFacade:
     # =========================================================================
     
     def get_screen_size(self) -> Tuple[int, int]:
-        try:
-            info = self._device.info
-            return info['displayWidth'], info['displayHeight']
-        except Exception as e:
-            self.logger.warning(f"⚠️ Cannot get screen dimensions: {e}")
-            return 1080, 1920
+        """(width, height) of the screen, read once per facade (`read_screen_size`: uiautomator2's
+        deviceInfo, else `wm size` by adb). Raises `ScreenSizeUnreadable` when neither answers: no
+        size is made up, a gesture computed on a wrong one lands elsewhere without failing."""
+        size = self.__dict__.get("_screen_size")
+        if size is None:
+            size = read_screen_size(self._device)
+            self.__dict__["_screen_size"] = size
+        return size
     
     def get_xml_dump(self, timeout_seconds: Optional[float] = None) -> Optional[str]:
         """Get a single XML dump of the current screen for batch operations.
@@ -363,10 +366,7 @@ class BaseDeviceFacade:
             host.device = self
             host.logger = self.logger
             self.__dict__["_gesture_host_obj"] = host
-        try:
-            host.screen_width, host.screen_height = self.get_screen_size()
-        except Exception:
-            host.screen_width, host.screen_height = 1080, 1920
+        host.screen_width, host.screen_height = self.get_screen_size()
         return host
 
     def human_scroll(self, direction: str = "down", distance_ratio: Optional[float] = None,

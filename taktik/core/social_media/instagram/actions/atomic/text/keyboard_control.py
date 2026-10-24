@@ -5,6 +5,7 @@ from typing import Optional
 from loguru import logger
 
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
+from taktik.core.shared.device.screen import screen_size_of
 
 
 class KeyboardControlMixin(BaseAction):
@@ -48,8 +49,8 @@ class KeyboardControlMixin(BaseAction):
             self.logger.debug(f"Method 1 failed: {e}")
             
             try:
-                center_x = self.device.info['displayWidth'] // 2
-                center_y = self.device.info['displayHeight'] // 2
+                width, height = screen_size_of(self.device)
+                center_x, center_y = width // 2, height // 2
                 self.device.click(center_x, center_y)
                 self._human_like_delay('typing')
                 return True

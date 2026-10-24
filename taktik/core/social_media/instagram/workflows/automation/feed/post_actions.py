@@ -3,6 +3,7 @@
 import time
 from typing import Dict, List, Any, Optional
 
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.social_media.instagram.services.like.orchestration import FramedLike
 
 
@@ -121,7 +122,7 @@ class FeedPostActionsMixin:
     def _scroll_to_next_post(self):
         """Scroll to the next post and align so the post header is near the top of the screen."""
         try:
-            screen_height = self.device.info.get('displayHeight', 1920)
+            _width, screen_height = screen_size_of(self.device)
 
             # Primary scroll ~50% of screen height — humanized controlled (coast=False keeps the
             # travel precise so the header-alignment micro-steps below stay reliable).

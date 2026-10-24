@@ -15,6 +15,7 @@ from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action
 from bridges.tools.lab.action_test.params import lab_flag
+from taktik.core.shared.device.screen import screen_size_of
 
 
 def _dm_runtime(a):
@@ -41,12 +42,7 @@ def _dm_runtime(a):
             # The shared composer atomic types on a NAMED device: without this the Lab runtime
             # would hit its "device_id is required" guard instead of silently typing elsewhere.
             self.device_id = device_id
-            try:
-                info = self.device.info
-                self.screen_width = int(info.get("displayWidth") or 1080)
-                self.screen_height = int(info.get("displayHeight") or 1920)
-            except Exception:
-                self.screen_width, self.screen_height = 1080, 1920
+            self.screen_width, self.screen_height = screen_size_of(facade)
             self._keyboard = KeyboardService(device_id)
 
     return _LabDMRuntime(a.device)

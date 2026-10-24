@@ -13,14 +13,14 @@ Usage:
 
     device = conn.device              # uiautomator2 device object
     dm = conn.device_manager          # raw DeviceManager if needed
-    w, h = conn.screen_size           # (1080, 2340)
+    w, h = conn.screen_size           # read when asked (read_screen_size)
 """
 
 from typing import Tuple
 from loguru import logger
 
 from taktik.core.shared.device.atx_health import check_atx_health as perform_atx_health_check
-from taktik.core.shared.device.screen import DEFAULT_SCREEN_SIZE, read_screen_size
+from taktik.core.shared.device.screen import read_screen_size
 from taktik.core.shared.device.manager import DeviceManager
 
 
@@ -37,8 +37,6 @@ class ConnectionService:
         self.device_id = device_id
         self._device_manager = None
         self._device = None
-        self._screen_width: int = DEFAULT_SCREEN_SIZE[0]
-        self._screen_height: int = DEFAULT_SCREEN_SIZE[1]
         self._connected: bool = False
 
     # ------------------------------------------------------------------
@@ -69,10 +67,8 @@ class ConnectionService:
                 logger.error("Device is None after connect()")
                 return False
 
-            self._screen_width, self._screen_height = read_screen_size(self._device)
-
             self._connected = True
-            logger.info(f"Connected to {self.device_id} ({self._screen_width}x{self._screen_height})")
+            logger.info(f"Connected to {self.device_id}")
             return True
 
         except Exception as e:
@@ -123,16 +119,19 @@ class ConnectionService:
 
     @property
     def screen_size(self) -> Tuple[int, int]:
-        """Screen dimensions as (width, height)."""
-        return (self._screen_width, self._screen_height)
+        """Screen dimensions as (width, height), read on the connected device (`read_screen_size`);
+        raises before the connection and when the phone gives none (no size is made up)."""
+        if not self.is_connected:
+            raise RuntimeError(f"{self.device_id} is not connected: its screen size is not read")
+        return read_screen_size(self._device)
 
     @property
     def screen_width(self) -> int:
-        return self._screen_width
+        return self.screen_size[0]
 
     @property
     def screen_height(self) -> int:
-        return self._screen_height
+        return self.screen_size[1]
 
     @property
     def is_connected(self) -> bool:

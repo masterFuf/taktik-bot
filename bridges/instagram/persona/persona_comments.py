@@ -14,6 +14,7 @@ import time
 from typing import Any
 
 from bridges.instagram.common.ipc import _ipc, logger
+from taktik.core.shared.device.screen import screen_size_of
 
 
 def owner_lines_from_comment_descs(desc_author_pairs, owner_username, seen=None,
@@ -134,7 +135,7 @@ class PersonaCommentsMixin:
                         # to be swipe(540, 1200, 540, 400): a 1080x2340 phone written down as four
                         # constants, so on any other screen it started off the sheet and scraped
                         # nothing — silently, since an empty scan just ends the loop.
-                        screen_w, screen_h = self.device.window_size()
+                        screen_w, screen_h = screen_size_of(self.device)
                         (start_x, start_y), (end_x, end_y) = comments_scroll_path(
                             self.device, int(screen_w), int(screen_h), logger
                         )
