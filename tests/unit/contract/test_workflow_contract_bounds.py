@@ -236,12 +236,14 @@ def test_the_launcher_refuses_a_value_past_either_end_before_the_phone(contract,
 
 def _cli_run(contract: WorkflowContract, payload: dict) -> tuple[str, dict]:
     """The id and the parameters of `taktik workflows run` for this payload: the id its selector names
-    (the CLI's handler sets the selector from the id), and a target for a run that requires one."""
+    (the CLI's handler sets the selector from the id), and a target for a run that requires one (the CLI
+    refuses a key the declaration does not have)."""
     workflow_id = contract.workflow_id
     if contract.selector and payload.get(contract.selector) is not None:
         named = f"{workflow_id.rsplit('.', 1)[0]}.{payload[contract.selector]}"
         workflow_id = named if named in contract.serves else workflow_id
-    return workflow_id, {"target": "someone", **payload}
+    target = {"target": "someone"} if any(item.key == "target" and item.required for item in contract.settings) else {}
+    return workflow_id, {**target, **payload}
 
 
 @pytest.mark.parametrize("contract, path, item, when", NUMBER_BOUNDS)

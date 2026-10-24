@@ -401,13 +401,13 @@ class SyncFollowingMixin(UnfollowActionsMixin):
                 if self._fans_category_not_served():
                     stats['category_not_served'] = True
                     self.logger.info(
-                        "scrape_non_followers_category: our followers list opens on its accounts, "
-                        "Instagram serves it no category now: no fans to read"
+                        "scrape_non_followers_category: our followers list shows no fans category "
+                        "above its accounts, Instagram does not serve it now: no fans to read"
                     )
                 else:
                     self.logger.warning(
-                        "scrape_non_followers_category: fans category not found, and the list does "
-                        "not open on its accounts (a category label no locale knows, or another screen)"
+                        "scrape_non_followers_category: fans category not found, and nothing proves "
+                        "it is not served (a category label no locale knows, or another screen)"
                     )
                 return stats
 
@@ -496,14 +496,16 @@ class SyncFollowingMixin(UnfollowActionsMixin):
             return False
 
     def _fans_category_not_served(self) -> bool:
-        """Is it proven that Instagram serves our followers list no category now (it does on some
-        days only, to the same account)?
+        """Is it proven that Instagram serves our followers list no fans category now (it does on
+        some days only, to the same account, and may serve the other categories without it)?
 
         Read on one dump: the followers tab is the one shown, when the list has tabs, and the list,
-        at its top, opens on its accounts under its search box and its sort row. Anything else
-        there (a category whose label no locale knows, a header, a list scrolled off its top)
-        proves nothing. The list is taken for ours, as the category tap above takes it: opened
-        from our profile, or found open.
+        at its top, shows its first account with nothing above it but its search box, its sort row,
+        the spacers, headers and divider of its head, and categories a locale knows as not the fans
+        one (« Comptes désactivés » alone, 410, 2026-10-24). Anything else there (a category whose
+        label no locale knows, a row of an unknown kind, a list scrolled off its top) proves
+        nothing. The list is taken for ours, as the category tap above takes it: opened from our
+        profile, or found open.
         """
         d = self.device.device
         package = get_active_package()
@@ -511,7 +513,7 @@ class SyncFollowingMixin(UnfollowActionsMixin):
         has_tabs = d.xpath(UNFOLLOW_SELECTORS.unified_follow_list_tab_layout_selector(package), screen).exists
         if has_tabs and not self._list_tab_selected(package, "followers", screen):
             return False
-        return d.xpath(UNFOLLOW_SELECTORS.list_opens_on_accounts_selector(package), screen).exists
+        return d.xpath(UNFOLLOW_SELECTORS.list_shows_no_fans_category_selector(package), screen).exists
 
     def _extract_all_non_followers(self) -> List[str]:
         """

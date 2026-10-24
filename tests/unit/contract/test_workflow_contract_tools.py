@@ -236,8 +236,9 @@ def _printed(capsys) -> List[Dict[str, Any]]:
     return [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")]
 
 
-def test_the_action_session_prints_its_declared_lines(monkeypatch, capsys, no_telemetry_left):
+def test_the_action_session_prints_its_declared_lines(monkeypatch, capsys, no_telemetry_left, tmp_path):
     import taktik.core.shared.device.manager as manager
+    from unit.lab_base import close_the_lab_base, give_the_lab_a_base
     from bridges.tools.lab import events
     from bridges.tools.lab.action_test import session
     from taktik.core.shared.telemetry import emit_step
@@ -264,6 +265,8 @@ def test_the_action_session_prints_its_declared_lines(monkeypatch, capsys, no_te
 
     monkeypatch.setattr(manager, "DeviceManager", Manager)
     monkeypatch.setattr(session, "_load_platform_runtime", runtime)
+    # The session opens the bot's base before each action, as a run does.
+    give_the_lab_a_base(monkeypatch, tmp_path)
     commands = [
         {"type": "run_action", "action_id": "lab.open_profile", "request_id": "r1", "params": {"username": "alice"},
          "capture_artifacts": False},
@@ -280,6 +283,7 @@ def test_the_action_session_prints_its_declared_lines(monkeypatch, capsys, no_te
     with pytest.raises(SystemExit):
         session.run_action_session_bridge({"device_id": DEVICE, "platform": "instagram"})
 
+    close_the_lab_base()
     printed = _printed(capsys)
     check(ACTION_SESSION, printed)
     assert types_of(printed) == {event.type for event in ACTION_SESSION.events}

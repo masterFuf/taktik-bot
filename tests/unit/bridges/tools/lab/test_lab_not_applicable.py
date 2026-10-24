@@ -344,7 +344,7 @@ def test_a_thread_longer_than_the_screen_declares_no_card_and_the_inbox_does_not
     assert "no thread open" in result["message"]
 
 
-FANS_NOT_SERVED = "our followers list opens on its accounts, Instagram serves it no category now"
+FANS_NOT_SERVED = "our followers list shows no fans category above its accounts, Instagram does not serve it now"
 
 
 def _unfollow_on(xml, lang, monkeypatch):
@@ -355,17 +355,21 @@ def _unfollow_on(xml, lang, monkeypatch):
     monkeypatch.setattr(sync_following, "InstagramFollowGraphService",
                         type("GraphSpy", (), {"upsert_follower": staticmethod(lambda **kw: written.append(kw))}))
     bundle, phone = _instagram(xml, lang)
-    bundle.unfollow.active_account_id = 1
+    bundle.bind_account(1)
     return bundle, phone, written
 
 
 @pytest.mark.parametrize("name, lang, list_top", [
     ("ig410_en_own_followers_list_no_category.xml", "en", 363),
     ("ig447_fr_own_followers_list_no_category.xml", "fr", 405),
+    # 410 in French (Pixel 6 Pro, Android 17, 2026-10-24): the tab serves one category, not the fans
+    # one, then « Tous les followers » and its accounts. Read as an unknown screen, the sync ended
+    # INTERRUPTED (`list_unavailable`).
+    ("ig410_fr_own_followers_list_deactivated_category.xml", "fr", 509),
 ])
-def test_a_followers_list_opening_on_its_accounts_declares_the_fans_category_not_served(name, lang, list_top,
-                                                                                         monkeypatch):
-    """Instagram serves the categories of our followers tab on some days only. 410 in English: the
+def test_a_followers_list_without_the_fans_category_declares_it_not_served(name, lang, list_top,
+                                                                            monkeypatch):
+    """Instagram serves the fans category of our followers tab on some days only. 410 in English: the
     Pixel 3a pass of 2026-09-29, failed on « 0 fans »; 447 in French: the Pixel 6a, a sort row under
     the search box. Nothing in the list is tapped, nothing is recorded."""
     bundle, phone, written = _unfollow_on(_dump("instagram", name), lang, monkeypatch)
@@ -412,7 +416,11 @@ NO_CATEGORY_447 = _dump("instagram", "ig447_fr_own_followers_list_no_category.xm
     # Derived: the 447 list without category, the following tab shown, as when the tap on the
     # followers tab did not take.
     (_selected_tab(NO_CATEGORY_447, "1\u202f280 suivi(e)s", "691 followers"), "fr"),
-], ids=["renamed category", "list read further down", "another tab"])
+    # Derived: the 410 French list whose one category is not the fans one, that category under a
+    # label no locale knows (it could be the fans one, renamed).
+    (_dump("instagram", "ig410_fr_own_followers_list_deactivated_category.xml")
+     .replace("Comptes désactivés", "Comptes à revoir"), "fr"),
+], ids=["renamed category", "list read further down", "another tab", "unknown category"])
 def test_what_does_not_prove_the_category_not_served_stays_a_failure(xml, lang, monkeypatch):
     bundle, _phone, written = _unfollow_on(xml, lang, monkeypatch)
     result = INSTAGRAM_ACTIONS["unfollow.read_fans_category"](bundle, {})

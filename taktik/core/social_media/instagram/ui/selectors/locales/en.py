@@ -1003,6 +1003,12 @@ STRINGS: Dict[str, List[str]] = {
         "don't follow back",
         "People you don",
     ],
+    # The OTHER categories of the followers tab, those that are not the fans: read on Instagram 410
+    # (Pixel 3a, 2026-09, the three categories served together).
+    "unfollow.other_follower_category_labels": [
+        "Least interacted with",
+        "Deactivated accounts",
+    ],
     "unfollow.follow_button_after_unfollow": [
         "//*[contains(@text, \"Follow\") and not(contains(@text, \"Following\"))]",
     ],

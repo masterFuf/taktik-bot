@@ -6,7 +6,7 @@ them (their lines only): the diagnostic tools, the check of the DMs written by a
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from . import (
     accounts,
@@ -25,7 +25,7 @@ from . import (
     tiktok_engagement,
     tiktok_profiles,
 )
-from .schema import ToolContract, WorkflowContract
+from .schema import OneOf, ToolContract, WorkflowContract
 
 WORKFLOW_CONTRACTS: Tuple[WorkflowContract, ...] = (
     *tiktok.CONTRACTS,
@@ -55,4 +55,17 @@ def contracts_by_id() -> Dict[str, WorkflowContract]:
     }
 
 
-__all__ = ["TOOL_CONTRACTS", "WORKFLOW_CONTRACTS", "contracts_by_id"]
+def selector_value(contract: WorkflowContract, workflow_id: str) -> Optional[str]:
+    """The value of the declaration's selector that picks `workflow_id`: its last segment
+    (`instagram.automation.<workflowType>`), when the declaration serves several ids. One declaration
+    for one id (the notifications and their commands) keeps its selector as a setting."""
+    if not contract.selector or not contract.also:
+        return None
+    value = workflow_id.rsplit(".", 1)[-1]
+    allowed = contract.setting(contract.selector).type
+    if not (isinstance(allowed, OneOf) and allowed.allows(value)):
+        raise ValueError(f"{workflow_id}: `{value}` is no value of the selector `{contract.selector}`")
+    return value
+
+
+__all__ = ["TOOL_CONTRACTS", "WORKFLOW_CONTRACTS", "contracts_by_id", "selector_value"]

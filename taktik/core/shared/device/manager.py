@@ -3,6 +3,7 @@ import time
 from typing import List, Dict, Optional, Tuple
 import uiautomator2 as u2
 from loguru import logger
+from uiautomator2.exceptions import RPCError
 
 from taktik.core.shared.device.server_restart import call_past_a_dying_server, retry_cut_reads
 
@@ -152,6 +153,14 @@ class DeviceManager:
             if info and 'displayWidth' in info:
                 return True, None
             return False, "Device info incomplete"
+        except RPCError as e:
+            # The server answered the call with an error of its own: the agent is alive. Android 17
+            # refuses `deviceInfo` ("ApplicationSharedMemory not initialized": its UiDevice cannot
+            # open a window context, Pixel 6 Pro, 2026-10-24) while every other call works; read as
+            # a dead agent, it reset uiautomator twice and logged ERROR before each run. An agent
+            # that does not answer raises a transport error (`HTTPError`, `UiAutomationNotConnectedError`).
+            logger.info(f"ATX agent answers; the phone refused deviceInfo: {self._server_error_line(e)}")
+            return True, None
         except Exception as e:
             error_msg = str(e)
             # Common ATX errors
@@ -163,6 +172,12 @@ class DeviceManager:
                 return False, f"ATX connection error: {error_msg}"
             return False, f"ATX check failed: {error_msg}"
     
+    @staticmethod
+    def _server_error_line(error: RPCError) -> str:
+        """The first line of the Java exception the server sent (its stack trace), else the error."""
+        stacktrace = error.args[2] if len(error.args) > 2 and isinstance(error.args[2], str) else ""
+        return stacktrace.splitlines()[0] if stacktrace.strip() else str(error)
+
     def _repair_atx(self) -> bool:
         """Attempt to repair/reinstall ATX agent."""
         logger.info("🔧 Attempting to repair ATX agent...")

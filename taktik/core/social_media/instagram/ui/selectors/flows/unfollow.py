@@ -116,26 +116,46 @@ class UnfollowSelectors:
             selectors.append(f'//*[@resource-id="{title}"][contains(@text, "{label}")]')
         return selectors
 
-    # === Head of a follow list (language-neutral) ===
+    # The OTHER categories of the followers tab, those that are not the fans (locales overlay):
+    # « Least interacted with », « Deactivated accounts ». Instagram may serve them without the fans
+    # one (410 in French, 2026-10-24: « Comptes désactivés » alone, then « Tous les followers »).
+    @property
+    def other_follower_category_labels(self) -> List[str]:
+        return _labels("unfollow.other_follower_category_labels")
+
+    # === Head of a follow list (language-neutral, but the categories' labels) ===
     # The rows are the children of the framework's list; the first one is the search box while the
-    # list shows its top. When Instagram serves the categories of our followers tab (the fans one
-    # among them), they come right under the search box, after a spacer and a header; on Instagram
-    # 447 the sort row ("Trié par Par défaut") may come there instead, above the accounts.
+    # list shows its top. When Instagram serves the categories of our followers tab, they come right
+    # under the search box, after a spacer and a header (« Catégories »), then a divider, a spacer
+    # and a header (« Tous les followers ») above the accounts; on Instagram 447 the sort row
+    # (« Trié par Par défaut ») may come there instead of that last header.
     follow_list_resource_id: str = 'android:id/list'
     follow_list_search_resource_name: str = 'row_search_edit_text'
+    # The rows that only frame the list's head: spacer, section header, divider.
+    follow_list_frame_row_resource_names: tuple = ('gap_binder_group', 'frame_header', 'divider')
 
-    def list_opens_on_accounts_selector(self, app_id: str) -> str:
-        """The first row under the search box and the sort row of the open follow list, when that
-        row is an account: the list, read at its top, shows no category above its accounts.
+    def list_shows_no_fans_category_selector(self, app_id: str) -> str:
+        """The first account of the open follow list, read at its top, when nothing above it but its
+        search box, its sort row, the rows that frame the head and the categories a locale knows as
+        not the fans one: the list shows no fans category.
 
-        A category there (renamed or not), its spacer or its header matches nothing; so does a list
-        scrolled off its top, whose first row is no longer the search box.
+        A category whose label no locale knows (it could be the fans one, renamed), or any row of an
+        unknown kind, above the accounts matches nothing; so does a list scrolled off its top, whose
+        first row is no longer the search box, or a head longer than the screen, with no account.
         """
         search = self.active_resource_id(app_id, self.follow_list_search_resource_name)
         sort_row = ' or '.join(f'.{selector}' for selector in self.sort_entry_label)
+        frame_row = ' or '.join(f'@resource-id="{self.active_resource_id(app_id, name)}"'
+                                for name in self.follow_list_frame_row_resource_names)
+        container = self.active_resource_id(app_id, self.category_container_resource_name)
+        other_label = ' or '.join(f'contains(@content-desc, "{label}")'
+                                  for label in self.other_follower_category_labels) or 'false()'
+        other_category = f'@resource-id="{container}" and ({other_label})'
         account = f'.{self.follow_list_username_selector(app_id)}'
-        return (f'//*[@resource-id="{self.follow_list_resource_id}"]/*[1][.//*[@resource-id="{search}"]]'
-                f'/following-sibling::*[not({sort_row})][1][{account}]')
+        # `preceding-sibling` counts from the nearest row: the last one is the search box.
+        return (f'//*[@resource-id="{self.follow_list_resource_id}"][*[1][.//*[@resource-id="{search}"]]]'
+                f'/*[{account}][1]'
+                f'[not(preceding-sibling::*[position() < last()][not({sort_row} or {frame_row} or ({other_category}))])]')
 
     # === Unfollow confirmation in the popup (locales overlay) ===
     @property
