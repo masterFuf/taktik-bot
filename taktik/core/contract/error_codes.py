@@ -68,9 +68,15 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     "AI_DM_CHECK_INPUT": "errorAiDmCheckInput",
     # A run that asks for the AI (`WorkflowContract.ai_request`) and has no usable key (`MissingAIKeyError`).
     "missing_ai_key": "errorMissingAiKey",
-    # The tools of the Cartography Lab (selector bench, workflow bench).
+    # The launcher (`bridges/launcher.py`): it was named no bridge, or one its manifest does not list
+    # (the app and the bot are not of one version); its manifest does not read (a broken install).
+    "UNKNOWN_BRIDGE": "errorUnknownBridge",
+    "BRIDGE_MANIFEST_UNREADABLE": "errorBridgeManifestUnreadable",
+    # The entry of every bridge (`entrypoint.run_bridge_main`): no config file, or one that does not
+    # read as a JSON object.
     "MISSING_CONFIG": "errorBridgeConfigMissing",
     "CONFIG_ERROR": "errorBridgeConfigUnreadable",
+    # The tools of the Cartography Lab (selector bench, workflow bench).
     "MISSING_DEVICE": "errorLabMissingDevice",
     "MISSING_TARGET": "errorLabMissingTarget",
     "CONNECTION_ERROR": "errorLabConnection",

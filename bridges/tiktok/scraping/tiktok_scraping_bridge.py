@@ -6,7 +6,7 @@ SIGTERM and SIGINT stop the registered workflow and end the process with 0.
 
 from __future__ import annotations
 
-from bridges.common.entrypoint import report_error_event, run_bridge_main
+from bridges.common.entrypoint import run_bridge_main
 from bridges.tiktok.scraping.workflow import TikTokScrapingBridge
 
 
@@ -16,7 +16,6 @@ def main():
         TikTokScrapingBridge,
         usage="tiktok_scraping_bridge <config_path>",
         install_signal_handlers=True,
-        report_error=report_error_event,
     )
 
 

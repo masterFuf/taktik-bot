@@ -54,28 +54,38 @@ def load_bridge_modules() -> dict[str, str]:
 try:
     BRIDGE_MODULES: dict[str, str] = load_bridge_modules()
     _MANIFEST_ERROR = None
-except Exception as exc:  # reported by main() as a JSON event, not a traceback
+except Exception as exc:  # said by main() on the `error` line, with its traceback
     BRIDGE_MODULES = {}
-    _MANIFEST_ERROR = f"{type(exc).__name__}: {exc}"
+    _MANIFEST_ERROR = exc
+
+#: The codes of the launcher's own failures (`taktik/core/contract/error_codes.py`): it was named no
+#: bridge, or one the manifest does not list; the manifest does not read.
+UNKNOWN_BRIDGE = "UNKNOWN_BRIDGE"
+BRIDGE_MANIFEST_UNREADABLE = "BRIDGE_MANIFEST_UNREADABLE"
+
+
+def _refuse(message: str, error_code: str) -> None:
+    """End the launch on the contract's `error` line (words, code), before any bridge is imported."""
+    from bridges.common.ipc import IPC
+    IPC().error(message, error_code=error_code)
+    sys.exit(1)
 
 
 def main():
     if len(sys.argv) < 2:
-        error = {"type": "error", "message": "Usage: taktik_launcher.exe <bridge_name> [args...]"}
-        print(json.dumps(error), flush=True)
-        sys.exit(1)
+        _refuse("Usage: taktik_launcher.exe <bridge_name> [args...]", error_code=UNKNOWN_BRIDGE)
 
-    if _MANIFEST_ERROR and not BRIDGE_MODULES:
-        error = {"type": "error", "message": f"Bridge manifest unreadable: {_MANIFEST_ERROR}"}
-        print(json.dumps(error), flush=True)
+    if _MANIFEST_ERROR is not None:
+        # The exception was raised at import: `send_run_error` puts its traceback on the line.
+        from bridges.common.entrypoint import send_run_error
+        send_run_error(f"Bridge manifest unreadable: {type(_MANIFEST_ERROR).__name__}: {_MANIFEST_ERROR}",
+                       _MANIFEST_ERROR, error_code=BRIDGE_MANIFEST_UNREADABLE)
         sys.exit(1)
 
     bridge_name = sys.argv[1]
 
     if bridge_name not in BRIDGE_MODULES:
-        error = {"type": "error", "message": f"Unknown bridge: '{bridge_name}'. Available: {list(BRIDGE_MODULES.keys())}"}
-        print(json.dumps(error), flush=True)
-        sys.exit(1)
+        _refuse(f"Unknown bridge: '{bridge_name}'. Available: {list(BRIDGE_MODULES.keys())}", error_code=UNKNOWN_BRIDGE)
 
     # Every bridge goes through here, so this is the one place a floor can be put under all of
     # them: an uncaught exception now reports a machine-readable UNHANDLED_EXCEPTION event with its

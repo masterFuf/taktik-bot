@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 import sys
 
-from bridges.common.entrypoint import MISSING_CONFIG
-
 from bridges.tools.lab.workflow_test.config.catalog import DEFAULT_CONFIGS, NEEDS_TARGET
 
 
@@ -31,16 +29,6 @@ class WorkflowTestRequest:
     # config builder, which owns their whitelist — so a setting added to a workflow page
     # reaches the bench without a single change in this bridge.
     options: dict | None = None
-
-
-def report_workflow_test_entry_error(ipc):
-    """Entry failures (no file, unreadable file) as the Lab's error events."""
-
-    def report(message: str, reason: str) -> None:
-        code = "MISSING_CONFIG" if reason == MISSING_CONFIG else "CONFIG_ERROR"
-        ipc.send("error", error=message, error_code=code)
-
-    return report
 
 
 def load_workflow_test_request(ipc, config: dict) -> WorkflowTestRequest:
@@ -85,4 +73,4 @@ def load_workflow_test_request(ipc, config: dict) -> WorkflowTestRequest:
     )
 
 
-__all__ = ["WorkflowTestRequest", "load_workflow_test_request", "report_workflow_test_entry_error"]
+__all__ = ["WorkflowTestRequest", "load_workflow_test_request"]

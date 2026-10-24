@@ -11,14 +11,13 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.common.entrypoint import report_error_event, run_bridge_main
+from bridges.common.entrypoint import run_bridge_main
 from bridges.tiktok.unfollow.unfollow import TikTokUnfollowBridge
 
 
 def main():
     """Main entry point - read the config file and run the workflow."""
-    run_bridge_main(TikTokUnfollowBridge, usage="tiktok_unfollow_bridge <config_path>",
-                    report_error=report_error_event)
+    run_bridge_main(TikTokUnfollowBridge, usage="tiktok_unfollow_bridge <config_path>")
 
 
 if __name__ == "__main__":

@@ -31,10 +31,7 @@ from bridges.tools.lab.workflow_test.observability import (
     setup_log_sink,
 )
 from bridges.tools.lab.workflow_test.reporting.report import build_workflow_report
-from bridges.tools.lab.workflow_test.config.request import (
-    load_workflow_test_request,
-    report_workflow_test_entry_error,
-)
+from bridges.tools.lab.workflow_test.config.request import load_workflow_test_request
 from bridges.tools.lab.workflow_test.execution.session import prepare_workflow_test_session
 
 
@@ -51,7 +48,6 @@ class _WorkflowTestRun:
 def main():
     ipc = IPC()
     run_bridge_main(lambda config: _WorkflowTestRun(ipc, config), usage="workflow_test_bridge <config.json>",
-                    report_error=report_workflow_test_entry_error(ipc),
                     messages={MISSING_CONFIG: "No config file provided", CONFIG_ERROR: "Failed to read config: {error}"}, catch_crashes=False)
 
 

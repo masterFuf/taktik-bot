@@ -33,10 +33,7 @@ setup_environment()
 from bridges.common.entrypoint import CONFIG_ERROR, MISSING_CONFIG, run_bridge_main, send_run_error
 from bridges.common.ipc import IPC
 from taktik.core.shared.device.connection import ConnectionService
-from bridges.tools.lab.selector_test.request import (
-    load_selector_test_request,
-    report_selector_test_entry_error,
-)
+from bridges.tools.lab.selector_test.request import load_selector_test_request
 from bridges.tools.lab.selector_test.runner import (
     filter_selectors_by_domain,
     run_selector_tests,
@@ -58,7 +55,6 @@ class _SelectorTestRun:
 def main():
     ipc = IPC()
     run_bridge_main(lambda config: _SelectorTestRun(ipc, config), usage="selector_test_bridge <config.json>",
-                    report_error=report_selector_test_entry_error(ipc),
                     messages={MISSING_CONFIG: "No config file provided", CONFIG_ERROR: "Failed to read config: {error}"}, catch_crashes=False)
 
 

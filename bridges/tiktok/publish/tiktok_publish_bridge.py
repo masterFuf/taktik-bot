@@ -14,13 +14,12 @@ from bridges.common.bootstrap import setup_environment
 setup_environment()
 
 from bridges.tiktok.publish.bridge import TikTokPublishBridge
-from bridges.common.entrypoint import CONFIG_ERROR, report_error_message, run_bridge_main
+from bridges.common.entrypoint import CONFIG_ERROR, run_bridge_main
 
 
 def main():
     run_bridge_main(TikTokPublishBridge, usage="tiktok_publish_bridge.py <config.json>",
-                    report_error=report_error_message, messages={CONFIG_ERROR: "Failed to read config: {error}"},
-                    catch_crashes=False)
+                    messages={CONFIG_ERROR: "Failed to read config: {error}"}, catch_crashes=False)
 
 
 if __name__ == "__main__":

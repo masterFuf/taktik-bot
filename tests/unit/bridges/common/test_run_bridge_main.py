@@ -67,23 +67,35 @@ def test_a_bom_written_by_electron_is_read(monkeypatch, tmp_path, events):
     assert _Bridge.seen == [{"deviceId": "a"}]
 
 
-def test_no_file_is_the_usage_line(monkeypatch, events, capsys):
+def test_no_file_is_the_usage_on_the_error_line(monkeypatch, events, capsys):
     assert _run(monkeypatch, ["bridge"], usage="x_bridge <config_path>") == 1
-    assert json.loads(capsys.readouterr().out) == {"type": "error", "message": "Usage: x_bridge <config_path>"}
-    assert _Bridge.seen == [] and events == []
+    assert events == [("error", {"error": "Usage: x_bridge <config_path>", "error_code": "MISSING_CONFIG"})]
+    assert capsys.readouterr().out == ""
+    assert _Bridge.seen == []
 
 
 def test_an_unreadable_file_is_an_error_event(monkeypatch, tmp_path, events):
     assert _run(monkeypatch, ["bridge", _config_file(tmp_path, "{not json")]) == 1
     assert events[0][0] == "error"
     assert events[0][1]["error"].startswith("Failed to load config:")
+    assert events[0][1]["error_code"] == "CONFIG_ERROR"
     assert _Bridge.seen == []
 
 
 def test_a_config_that_is_not_an_object_is_refused(monkeypatch, tmp_path, events):
     assert _run(monkeypatch, ["bridge", _config_file(tmp_path, "[1, 2]")]) == 1
-    assert events == [("error", {"error": "Failed to load config: the config must be a JSON object"})]
+    assert events == [("error", {"error": "Failed to load config: the config must be a JSON object",
+                                 "error_code": "CONFIG_ERROR"})]
     assert _Bridge.seen == []
+
+
+def test_a_crash_is_the_crash_hooks_code_with_its_traceback(monkeypatch, tmp_path, events):
+    """The exception that ends the run is said as the launcher's crash hooks say it: its code, its
+    traceback; the words stay the entry's."""
+    assert _run(monkeypatch, ["bridge", _config_file(tmp_path, "{}")], factory=_Crashing) == 1
+    [(kind, line)] = events
+    assert kind == "error" and line["error"] == "Bridge crashed: boom" and line["error_code"] == "UNHANDLED_EXCEPTION"
+    assert line["traceback"].rstrip().endswith("RuntimeError: boom")
 
 
 def test_a_bridge_reports_entry_errors_in_its_own_shape(monkeypatch, tmp_path, events):
