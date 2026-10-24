@@ -6,7 +6,8 @@ that reaches the entry (`run_bridge_main`), or one that lands in a run's catch-a
 (the Instagram automation, the TikTok unfollow). The bridges used to write "Import error: ..." with
 no code and no traceback, which nothing classified: the operator read a generic crash. Now one
 reading of the exception (`crash_hooks.exception_event`) gives the code, the words and the traceback,
-and one function sends it (`entrypoint.send_import_error`).
+sent by `entrypoint.send_import_error`, or by `send_run_error` for a run that words its failure (its
+words kept, `PYTHON_IMPORT_ERROR` when it names no code: `test_a_caught_failure_carries_its_traceback`).
 """
 
 from __future__ import annotations
