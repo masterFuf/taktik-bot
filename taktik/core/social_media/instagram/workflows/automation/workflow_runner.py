@@ -447,6 +447,12 @@ class WorkflowRunner:
         return "Fans not read"
 
     @staticmethod
+    def _fans_list_done(nf_stats: Dict[str, Any]) -> bool:
+        """The fans category read, or proven not served: either way no list was left unread. Not
+        served, there is nothing to read; the count stays None (« fans non lus »), never 0."""
+        return bool(nf_stats.get('success') or nf_stats.get('category_not_served'))
+
+    @staticmethod
     def _sync_end(following: Dict[str, Any], other_list_read: bool):
         """The motive a sync run ends on: `completed` when its lists were read, otherwise the list
         that was not (the following list first, the one the unfollow decides on)."""
@@ -484,14 +490,14 @@ class WorkflowRunner:
             "updated_count": sync_stats['updated_count'],
             "non_followers_count": nf_stats['non_followers_count'],
             "mutuals_count": nf_stats['mutuals_count'],
-            "success": sync_stats['success'] and nf_stats['success'],
+            "success": sync_stats['success'] and self._fans_list_done(nf_stats),
         }
         print(json.dumps(sync_complete_msg), flush=True)
         
         # A one-shot run: it ends its session here, `session_stop` and the row's end included. It
         # used to set `session_finalized` alone, which stops the loop and nothing else: the row
         # stayed ACTIVE (Pixel 3, 2026-09-28).
-        self._finalize_on(self._sync_end(sync_stats, nf_stats['success']))
+        self._finalize_on(self._sync_end(sync_stats, self._fans_list_done(nf_stats)))
         
         return sync_stats['success']
     

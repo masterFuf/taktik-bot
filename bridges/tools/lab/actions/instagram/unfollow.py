@@ -123,12 +123,13 @@ def sort_following_list(a, p):
 def read_fans_category(a, p):
     """Open the 'followers you don't follow back' category and record those FANS (production
     `scrape_non_followers_category`). Nothing is deduced for the accounts we follow. Not applicable
-    only when production proved the category not served (the list opens on its accounts). A
+    only when production proved the category not served (no fans category above the accounts). A
     category not read has no count: the message says why, never « 0 fans »."""
     stats = a.unfollow.scrape_non_followers_category()
     if stats.get("category_not_served"):
         return not_applicable("unfollow.read_fans_category",
-                              "our followers list opens on its accounts, Instagram serves it no category now",
+                              "our followers list shows no fans category above its accounts, "
+                              "Instagram does not serve it now",
                               **_sync_summary(stats))
     fans = stats.get("fans_count")
     if fans is not None:

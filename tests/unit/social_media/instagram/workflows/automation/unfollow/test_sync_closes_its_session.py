@@ -6,12 +6,13 @@ The two syncs (`sync_following`, `sync_followers_following`) are one-shot runs: 
 bridge exited 0 and the row stayed `ACTIVE`. The step now ends the session through
 `finalize_session`, like every other run: `completed` when the lists were read, the motive of the
 list that was not (`following_list_unproven`, `list_unavailable`, both of the « failed » family)
-otherwise.
+otherwise. A fans category that Instagram does not serve is no list that was not read.
 
 No screen here: the lists' reads are played by their results, as `sync_following_list`,
 `sync_followers_list` and `scrape_non_followers_category` return them.
 """
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -28,6 +29,12 @@ def _following(success, seen=12, expected=12):
 def _fans(success):
     return {"non_followers_count": 3 if success else None, "mutuals_count": 4, "success": success,
             "read_failed": not success}
+
+
+def _fans_not_served():
+    """`scrape_non_followers_category` when our followers list proves the fans category not served
+    (410 in French, 2026-10-24: « Comptes désactivés » alone above « Tous les followers »)."""
+    return {"non_followers_count": None, "mutuals_count": 0, "success": False, "category_not_served": True}
 
 
 def _followers(success):
@@ -65,6 +72,9 @@ def _no_wait(monkeypatch):
     (_following(True), _fans(True), ("COMPLETED", "completed")),
     (_following(False, seen=0), _fans(True), ("INTERRUPTED", "following_list_unproven")),
     (_following(True), _fans(False), ("INTERRUPTED", "list_unavailable")),
+    # Instagram serves no fans category: there was no list to read, the list did open.
+    (_following(True), _fans_not_served(), ("COMPLETED", "completed")),
+    (_following(False, seen=0), _fans_not_served(), ("INTERRUPTED", "following_list_unproven")),
 ])
 def test_the_following_sync_ends_its_session(following, fans, end):
     runner, automation = _runner(following, fans=fans)
@@ -73,6 +83,18 @@ def test_the_following_sync_ends_its_session(following, fans, end):
 
     assert automation.helpers.ends == [end]
     assert automation.session_finalized is True
+
+
+def test_a_fans_category_not_served_is_no_failed_list_and_no_count(capsys):
+    """The page shows « fans non lus », and the scheduled node does not fail on a list that Instagram
+    does not serve (`sync_complete.success`: every list was read)."""
+    runner, _automation = _runner(_following(True), fans=_fans_not_served())
+
+    runner._run_sync_following_workflow({"type": "sync_following"})
+
+    line = next(json.loads(out) for out in capsys.readouterr().out.splitlines()
+                if out.startswith("{") and '"sync_complete"' in out)
+    assert (line["success"], line["non_followers_count"]) == (True, None)
 
 
 @pytest.mark.parametrize("following, followers, end", [

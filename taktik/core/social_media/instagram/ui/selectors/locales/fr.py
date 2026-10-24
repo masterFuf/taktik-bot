@@ -982,6 +982,13 @@ STRINGS: Dict[str, List[str]] = {
     "unfollow.fans_category_labels": [
         "Followers que vous ne suivez pas",
     ],
+    # Les AUTRES catégories de l'onglet des abonnés, celles qui ne sont pas les fans : relevées sur
+    # Instagram 447 (Pixel 6a, 2026-09-23, les trois catégories) et 410 (Pixel 6 Pro, 2026-10-24,
+    # « Comptes désactivés » seule, sans la catégorie des fans).
+    "unfollow.other_follower_category_labels": [
+        "Interactions les plus rares",
+        "Comptes désactivés",
+    ],
     "unfollow.follow_button_after_unfollow": [
         "//*[contains(@text, \"Suivre\") and not(contains(@text, \"Abonné\"))]",
     ],
