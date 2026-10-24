@@ -1,5 +1,7 @@
 """The TikTok comment sheet and the post link, in the Lab through the production code.
 
+`tt.video.click_comment`, the opener of every comment test, tapped the button and called that a
+success; it now opens the sheet through `CommentActions.open_comments`, which proves it came up.
 `tt.comment.read` read the sheet itself, three flat lists joined by index: the pairing the
 production reader dropped because one row without a body files every later comment under the
 person above. It now reads through `CommentActions.read_comments`, row by row. The two production
@@ -17,6 +19,7 @@ from uiautomator2.xpath import XPathEntry
 
 import bridges.tools.lab.actions.tiktok.comments as comments
 import bridges.tools.lab.actions.tiktok.navigation as navigation
+import bridges.tools.lab.actions.tiktok.video as video
 from bridges.tools.lab.action_test.bundles.tiktok import (
     build_tiktok_action_bundle,
     create_tiktok_device_facade,
@@ -145,3 +148,35 @@ def test_no_link_opens_nothing(monkeypatch):
                         lambda *_a, **_k: pytest.fail("opened without a link"))
 
     assert navigation.open_post_url(SimpleNamespace(device="warm"), {})["success"] is False
+
+
+# The opener of the sheet, the context every comment test runs in: production opens it through
+# `CommentActions.open_comments`, which proves the sheet came up. The Lab tapped the button through
+# `VideoActions.click_comment_button`, which no workflow calls, and called a tap that opened nothing
+# a success.
+
+
+def test_the_sheet_is_opened_by_the_production_opener(monkeypatch):
+    opened = []
+
+    class _Opener(_Sheet):
+        def open_comments(self):
+            opened.append(self.device)
+            return True
+
+    monkeypatch.setattr(video, "CommentActions", _Opener)
+    bundle = SimpleNamespace(device="warm", video_detector=SimpleNamespace(is_live_preview=lambda: False),
+                             video=SimpleNamespace(click_comment_button=lambda: pytest.fail("bare tap")))
+
+    assert video.click_comment(bundle, {}) is True
+    assert opened == ["warm"]
+
+
+def test_a_live_preview_has_no_sheet_to_open(monkeypatch):
+    monkeypatch.setattr(video, "CommentActions", lambda device: pytest.fail("opened on a LIVE"))
+    bundle = SimpleNamespace(device="warm", video_detector=SimpleNamespace(is_live_preview=lambda: True))
+
+    result = video.click_comment(bundle, {})
+
+    assert result["success"] is False
+    assert "not_applicable" in result["details"]
