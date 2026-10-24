@@ -92,7 +92,10 @@ def test_the_xpath_catalogue_wins_when_it_matches():
     element = _Element("composer")
     device = _Device(xpath_hit=element)
 
-    assert dm_composer.find_message_input(device) is element
+    found = dm_composer.find_message_input(device)
+
+    # The selector itself, as every other branch answers (`.exists`, `.info`, `.click()`).
+    assert found.exists and found.get() is element
     assert device.tried[0][0] == "xpath"
 
 

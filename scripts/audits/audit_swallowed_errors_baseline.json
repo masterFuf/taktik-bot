@@ -66,7 +66,6 @@
   "taktik/core/social_media/instagram/actions/atomic/scroll/context_scroll.py": 1,
   "taktik/core/social_media/instagram/actions/atomic/scroll/feed_scroll.py": 2,
   "taktik/core/social_media/instagram/actions/atomic/story_state.py": 3,
-  "taktik/core/social_media/instagram/actions/atomic/text/dm_composer.py": 7,
   "taktik/core/social_media/instagram/actions/base/base_business/interaction_engine.py": 5,
   "taktik/core/social_media/instagram/actions/base/base_business/modal_recovery.py": 3,
   "taktik/core/social_media/instagram/actions/base/base_business/popup_handling.py": 5,

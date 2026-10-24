@@ -145,7 +145,7 @@ class DMSenderMixin:
         logger.info("Sending message...")
 
         msg_input = self._find_message_input()
-        if not msg_input.exists:
+        if msg_input is None:
             logger.error("Message input not found")
             return False
 
