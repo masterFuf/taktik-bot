@@ -62,7 +62,7 @@ def _workflow(monkeypatch, *, sent=None):
     phone = _Phone()
     workflow = module.ColdDMWorkflow(object(), object(), sent=sent)
     workflow.open_recipient_profile = lambda recipient: True
-    workflow.open_dm_from_profile = lambda policy=None: True
+    workflow.open_dm_from_profile = lambda policy=None, recipient=None: True
     workflow.send_message = lambda message: phone.typed.append(message) or True
     workflow.go_home = lambda: None
     workflow.filter_pending_recipients = lambda recipients, account_id: list(recipients)

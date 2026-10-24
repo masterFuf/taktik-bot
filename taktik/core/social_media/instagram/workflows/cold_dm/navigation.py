@@ -111,7 +111,7 @@ class ColdDMNavigationMixin:
             "message_button": msg_btn,
         }
 
-    def open_dm_from_profile(self, policy: ColdDmRecipientPolicy | None = None):
+    def open_dm_from_profile(self, policy: ColdDmRecipientPolicy | None = None, recipient: str | None = None):
         """Open the DM conversation from a user's profile.
 
         Returns True once the conversation is open, False when it could not be,
@@ -129,9 +129,9 @@ class ColdDMNavigationMixin:
 
         if verdict["is_private"]:
             logger.info("Private profile with a Message button - trying the DM (setting allows it)")
-        # Without a Message button the opener goes through the profile's Options sheet, as the
-        # welcome DM does; False when that offers no conversation either.
-        return self._cold_dm_messaging().open_conversation_from_profile()
+        # Without a Message button the opener writes to `recipient` from the inbox's new-message
+        # picker, as the welcome DM does; False when that does not open the conversation either.
+        return self._cold_dm_messaging().open_conversation_from_profile(recipient)
 
     def go_home(self) -> bool:
         """Back to the home feed by the production navigation, between two recipients."""

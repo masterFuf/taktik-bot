@@ -305,14 +305,16 @@ def test_a_welcome_dm_walks_to_the_recipient_profile_then_writes(monkeypatch):
                         lambda self, username, **_: steps.append(("profile", username)) or True)
     monkeypatch.setattr(NavigationActions, "navigate_to_home", lambda self: steps.append(("home",)) or True)
     monkeypatch.setattr(MessagingBusiness, "send_dm_from_profile",
-                        lambda self, message: steps.append(("write", message)) or True)
+                        lambda self, message, username=None: steps.append(("write", username, message)) or True)
     monkeypatch.setattr(ProblematicPageDetector, "is_action_blocked",
                         lambda self: steps.append(("block?",)) or False)
 
     result = welcome_dm.send_welcome_dm(object(), "newbie", WITHIN_RULES)
 
     assert result == {"success": True, "message": "welcome DM sent to @newbie"}
-    assert steps == [("profile", "newbie"), ("write", WITHIN_RULES), ("block?",), ("home",)]
+    # The recipient travels to the opener: a profile without a Message button is written to from the
+    # inbox's new-message picker, by that handle.
+    assert steps == [("profile", "newbie"), ("write", "newbie", WITHIN_RULES), ("block?",), ("home",)]
 
 
 # ---------------------------------------------------------------------------

@@ -221,7 +221,7 @@ class ColdDMWorkflow(
         if not self.open_recipient_profile(recipient):
             logger.warning(f"The profile search opened no profile of {recipient}")
             return {"outcome": NOT_FOUND}
-        open_result = self.open_dm_from_profile(policy)
+        open_result = self.open_dm_from_profile(policy, recipient)
         if open_result == NOT_ON_PROFILE:
             logger.warning(f"The search for {recipient} did not open a profile: nothing tapped")
             return {"outcome": NOT_ON_PROFILE}

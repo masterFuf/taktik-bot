@@ -192,6 +192,27 @@ class DirectMessageSelectors:
     @property
     def new_message_button(self) -> List[str]:
         return self._new_message_button_base + L("direct_message.new_message_button")
+
+    # === New message: the recipient picker the inbox's "Nouveau message" button opens ===
+    # Instagram 447, Pixel 6a, 2026-10-24 (captures r16 of the phone session): action bar
+    # `direct_recipient_picker_action_bar` titled "Nouveau message", a "À :" field whose
+    # `search_edit_text` takes the handle, then `recipients_list` rows. The results come 4 to 7 s
+    # after the typing, under an invitation row ("Vous cherchez quelqu'un ?", an "Inviter" button
+    # never to tap), whose name is no handle. Not captured in 410 yet: same ids expected
+    # (`search_edit_text` is the 410 inbox's, `row_user_primary_name` the 410 likers sheet's).
+    new_message_screen: str = '//*[@resource-id="com.instagram.android:id/direct_recipient_picker_action_bar"]'
+    new_message_search_field: str = (
+        '//*[@resource-id="com.instagram.android:id/recipients_container"]'
+        '//*[@resource-id="com.instagram.android:id/search_edit_text"]'
+    )
+
+    def new_message_recipient_row(self, username: str) -> str:
+        """The picker's row of exactly this handle (never the invitation row above it)."""
+        return (
+            '//*[@resource-id="com.instagram.android:id/recipients_list"]'
+            '//*[@resource-id="com.instagram.android:id/user_row_background"]'
+            f'[.//*[@resource-id="com.instagram.android:id/row_user_primary_name"][@text="{username}"]]'
+        )
     
     select_multiple_button: str = '//*[@content-desc="Sélectionner plusieurs messages"]'
     

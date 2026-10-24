@@ -33,7 +33,7 @@ def _cold_dm_workflow(monkeypatch):
     workflow = module.ColdDMWorkflow.__new__(module.ColdDMWorkflow)
     workflow.device = object()
     workflow.open_recipient_profile = lambda recipient: True
-    workflow.open_dm_from_profile = lambda policy=None: True
+    workflow.open_dm_from_profile = lambda policy=None, recipient=None: True
     workflow.sent = []
     workflow.send_message = lambda message: workflow.sent.append(message) or True
     return module, workflow

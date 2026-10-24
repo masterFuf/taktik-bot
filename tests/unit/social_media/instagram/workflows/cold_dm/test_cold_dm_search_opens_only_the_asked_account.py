@@ -80,7 +80,7 @@ def run_on(monkeypatch):
     monkeypatch.setattr(NavigationActions, "_verify_profile_navigation",
                         lambda _self, handle: seen.checked.append(handle) or True)
     monkeypatch.setattr(ColdDMWorkflow, "open_dm_from_profile",
-                        lambda _self, policy=None: seen.decided.append(policy) or NOT_ON_PROFILE)
+                        lambda _self, policy=None, recipient=None: seen.decided.append(policy) or NOT_ON_PROFILE)
     set_active_locale("fr")
 
     def run(screens, recipient):
