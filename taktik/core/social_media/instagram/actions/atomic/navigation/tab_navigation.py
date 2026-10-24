@@ -4,11 +4,17 @@ import time
 from loguru import logger
 
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
-from taktik.core.social_media.instagram.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
+from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
+    NAVIGATION_SELECTORS,
+    NavigationSelectors,
+)
 
 
 class TabNavigationMixin(BaseAction):
     """Mixin: navigate between Instagram tabs via bottom bar clicks."""
+
+    # Set by `NavigationActions.__init__`, the class that composes this mixin.
+    selectors: NavigationSelectors
 
     def _navigate_to_tab(self, tab_selectors, tab_name: str, emoji: str, verify_func) -> bool:
         """
