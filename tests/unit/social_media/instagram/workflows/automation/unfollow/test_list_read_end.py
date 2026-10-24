@@ -20,18 +20,22 @@ are built. The pages of a long list are written by `fake_follow_list.follow_list
 holds 200 fans or a list that pauses, and their widgets are the ones of the real dumps.
 """
 
+from types import SimpleNamespace
+
 import pytest
 
 from fake_follow_list import (
     FakeFacade, FakeScreen, Graph, derived_fans_category_size, follow_list_xml, unified_tabs,
 )
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
+from taktik.core.social_media.instagram.workflows.automation import workflow_runner as runner_module
 from taktik.core.social_media.instagram.workflows.automation.unfollow import workflow as unfollow_workflow
 from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import (
     PROOF_BY_COUNT, ListReadEnd, parse_category_size,
 )
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import actions as actions_mixin
 from taktik.core.social_media.instagram.workflows.automation.unfollow.workflow import UnfollowBusiness
+from taktik.core.social_media.instagram.workflows.automation.workflow_runner import WorkflowRunner
 from taktik.core.social_media.instagram.workflows.common.list_reload_policy import DEFAULT_WAITS_SECONDS
 from unit.paths import CORE
 
@@ -201,6 +205,28 @@ def test_the_followers_read_waits_for_a_page_that_comes_late_too(monkeypatch, _f
     assert _waits(slept) == [DEFAULT_WAITS_SECONDS[0]]
 
 
+def test_a_followers_read_that_never_comes_back_ends_the_full_sync_on_its_own_motive(monkeypatch, _french_and_timed):
+    # The full sync (following, then followers): the followers list opened and its read stopped at 6
+    # of 1 265 after every wait. It said « liste indisponible » (`list_unavailable`), as if the list
+    # had never opened; it is a list read in part, with its numbers.
+    _slept, kept = _french_and_timed
+    business, _screen = _business([_followers_page(FIRST, 1265)], Graph(), monkeypatch)
+    business.sync_following_list = lambda config=None: {
+        "new_count": 0, "updated_count": 0, "stopped_early": False, "total_seen": 12, "expected": 12,
+        "proof": PROOF_BY_COUNT, "success": True}
+    monkeypatch.setattr(runner_module.time, "sleep", lambda _s: None)
+    ends = []
+    automation = SimpleNamespace(session_finalized=False, unfollow_business=business, stats={})
+    automation.helpers = SimpleNamespace(finalize_session=lambda status, reason: ends.append((status, reason)))
+
+    WorkflowRunner(automation)._run_sync_followers_following_workflow({"type": "sync_followers_following"})
+
+    ((status, reason),) = ends
+    assert (status, reason.code) == ("INTERRUPTED", "followers_list_unproven")
+    assert reason.params == {"seen": 6, "expected": 1265}
+    assert kept == ["followers_list_unproven"]
+
+
 # ── The fans category, read to the size it announces ──────────────────────────
 
 def _fans_pages(count, per_page=5):
@@ -232,7 +258,7 @@ def test_a_fans_category_read_short_of_its_size_gives_no_count(monkeypatch):
     stats = business.scrape_non_followers_category()
 
     assert stats["expected"] == 537 and stats["total_seen"] == 4
-    assert stats["success"] is False and stats["fans_unproven"] is True
+    assert stats["success"] is False and stats["read_unproven"] is True
     assert stats["fans_count"] is None and stats["non_followers_count"] is None, "a part read passed for a count"
     # The fans read are recorded: each is a fact the screen showed
     assert graph.followers == ["user_2", "user_5", "user_6", "name_15"]

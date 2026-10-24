@@ -274,8 +274,13 @@ class UnfollowActionsMixin:
         """The last word of a list read: `success` only when a rule of `list_proof` proved it, and
         a log that never calls "complete" a read that proved nothing (no row read, a read cut
         short by the session). A read that came to an end and proved nothing keeps its last screen
-        (`logs/screens/`): what Instagram showed where the read stopped is what explains it."""
+        (`logs/screens/`): what Instagram showed where the read stopped is what explains it.
+
+        `read_unproven`: the list was open and read, and nothing proved the read. A sync ends on
+        the motive of that list (`following_list_unproven`, `followers_list_unproven`,
+        `fans_list_unproven`), never on `list_unavailable`, which says the list never opened."""
         stats['success'] = stats['proof'] is not None
+        stats['read_unproven'] = not stats['success']
         verdict = describe_proof(stats['proof'], seen, stats['expected'], stats.get('known_after'))
         counts = f"{stats['new_count']} new, {stats['updated_count']} updated"
         if stats['success']:

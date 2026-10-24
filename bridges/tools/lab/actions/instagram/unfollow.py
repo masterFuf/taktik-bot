@@ -135,7 +135,7 @@ def read_fans_category(a, p):
     fans = stats.get("fans_count")
     if fans is not None:
         message = f"{fans} fans (proof: {stats.get('proof')})"
-    elif stats.get("fans_unproven"):
+    elif stats.get("read_unproven"):
         message = (f"fans not counted: {stats.get('total_seen', 0)} read of {stats.get('expected') or '?'}, "
                    "not proven complete")
     elif stats.get("read_failed"):

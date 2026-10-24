@@ -382,6 +382,18 @@ def following_list_unproven(seen: Any, expected: Any) -> StopReason:
     )
 
 
+def followers_list_unproven(seen: Any, expected: Any) -> StopReason:
+    """The read of our followers list, in the full sync, proved nothing: fewer followers than the
+    tab's count once the reload waits were given. The followers read are recorded; the list did
+    open, so this is not `list_unavailable` (`workflows/automation/unfollow/list_proof.py`)."""
+    total = "?" if expected is None else expected
+    return _reason(
+        "followers_list_unproven", FAMILY_FAILED,
+        f"Followers list not proven read ({seen} of {total})",
+        seen=seen, expected=total,
+    )
+
+
 def fans_list_unproven(seen: Any, expected: Any) -> StopReason:
     """The fans category of our followers list was read in part: fewer fans than the size the
     category announces (171 of 537 on a Pixel 6a, Instagram 447, 2026-10-24). The fans read are
