@@ -151,6 +151,17 @@ class UnfollowSelectors:
     # The rows that only frame the list's head: spacer, section header, divider.
     follow_list_frame_row_resource_names: tuple = ('gap_binder_group', 'frame_header', 'divider')
 
+    # One row of a follow list: its username, its subtitle and its button sit inside it (447, 410).
+    follow_list_row_resource_name: str = 'follow_list_container'
+
+    def follow_list_row_selector(self, app_id: str) -> str:
+        """Every row of the open follow list (language-neutral)."""
+        return f'//*[@resource-id="{self.active_resource_id(app_id, self.follow_list_row_resource_name)}"]'
+
+    def follow_list_view_selector(self) -> str:
+        """The list itself, whose edges cut the rows it scrolls (the framework's id)."""
+        return f'//*[@resource-id="{self.follow_list_resource_id}"]'
+
     def list_shows_no_fans_category_selector(self, app_id: str) -> str:
         """The first account of the open follow list, read at its top, when nothing above it but its
         search box, its sort row, the rows that frame the head and the categories a locale knows as

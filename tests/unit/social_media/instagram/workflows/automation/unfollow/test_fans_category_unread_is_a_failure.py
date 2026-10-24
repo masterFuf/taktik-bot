@@ -42,11 +42,12 @@ from unit.paths import CORE
 FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 PKG = "com.instagram.android"
 
-#: (capture, app language, the usernames of its rows offering to follow back, the size its fans
-#: category announces)
+#: (capture, app language, the usernames of its whole rows offering to follow back, the size its
+#: fans category announces). The last row of each capture, cut by the bottom of the list
+#: (`name_10`, `user_8`), is no row read (`test_unfollow_cut_rows.py`).
 SERVED = [
-    ("ig410_en_own_followers_list_categories.xml", "en", ["user_5", "user_6", "user_7", "name_10"], 277),
-    ("ig447_fr_own_followers_list.xml", "fr", ["user_6", "user_7", "user_8"], 354),
+    ("ig410_en_own_followers_list_categories.xml", "en", ["user_5", "user_6", "user_7"], 277),
+    ("ig447_fr_own_followers_list.xml", "fr", ["user_6", "user_7"], 354),
 ]
 
 

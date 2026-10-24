@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional, Set
 
 from taktik.core.clone import get_active_package
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
-from taktik.core.shared.device.ui_dump import index_of_closest_row
+from taktik.core.shared.device.ui_dump import index_of_closest_row, whole_in_band
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.diagnostics import capture_screen_snapshot
@@ -68,6 +68,10 @@ class LeftOutRows:
 FOLLOW_LIST_DRAG_X = (0.35, 0.65)
 FOLLOW_LIST_DRAG_FROM = (0.76, 0.80)
 FOLLOW_LIST_DRAG_TO = (0.31, 0.35)
+# A short drag, about one row (10 % of the screen), forward or back: to find again a row the list
+# moved a little while a profile was open.
+FOLLOW_LIST_NUDGE_FROM = (0.52, 0.56)
+FOLLOW_LIST_NUDGE_SPAN = 0.10
 
 
 def _closest_on_row(button_band, names) -> Optional[tuple]:
@@ -139,6 +143,10 @@ class UnfollowActionsMixin:
         The suggestions Instagram shows under a list are not rows of it: nothing at or below their
         first sign is returned, and `suggestions_on_screen` then says the list ended on this screen.
 
+        A row cut by the edge of the list is not returned either (`_rows_cut_by_the_list`): on a
+        Pixel 6a (447, 2026-10-24) the unfollow tapped a row of which 16 px showed at the bottom, the
+        list moved on the way back from the profile, and the row was lost. A drag shows it whole.
+
         `rows_read` says whether this screen was read: False when its dump or its reading failed, so
         a caller for whom no row is a measure (no fan on the fans category) tells it from an empty
         screen.
@@ -154,19 +162,21 @@ class UnfollowActionsMixin:
             screen = d.dump_hierarchy()
             suggestions_top = self._suggestions_top(d, screen)
             self.suggestions_on_screen = suggestions_top is not None
+            cut_rows = self._rows_cut_by_the_list(d, package, screen)
 
-            def above_suggestions(band) -> bool:
-                return suggestions_top is None or band[0] < suggestions_top
+            def row_of_the_list(band) -> bool:
+                return (suggestions_top is None or band[0] < suggestions_top) and not any(
+                    top <= band[0] <= bottom for top, bottom in cut_rows)
 
             names = []
             for el in d.xpath(UNFOLLOW_SELECTORS.follow_list_username_selector(package), screen).all():
                 username = (el.text or '').strip().lstrip('@')
                 band = _vertical_band(el)
-                if username and band and above_suggestions(band) and self._is_valid_username(username):
+                if username and band and row_of_the_list(band) and self._is_valid_username(username):
                     names.append((username, band[0], el))
             for button in d.xpath(UNFOLLOW_SELECTORS.follow_list_row_button_selector(package), screen).all():
                 band = _vertical_band(button)
-                if band is None or not above_suggestions(band):
+                if band is None or not row_of_the_list(band):
                     continue
                 # Paired by the CLOSEST centre, within one button height: on Instagram 410 a row
                 # with a display name lifts its username so that its centre sits a few pixels ABOVE
@@ -199,6 +209,25 @@ class UnfollowActionsMixin:
             # An unreadable list is not an empty one: the caller gets no row, and the journal says why.
             self.logger.warning(f"Error reading the follow list rows (no row returned): {e}")
         return rows
+
+    @staticmethod
+    def _rows_cut_by_the_list(d, package: str, screen: str) -> List[tuple]:
+        """(top, bottom) of the rows of the open follow list that its edge cuts: a row touching the
+        list's edge (`ui_dump.whole_in_band`) and shorter than the tallest row of the screen. A row
+        whole against the edge (the first one, the list at its top) is as tall as the others."""
+        lists = [band for band in (_vertical_band(el) for el in
+                                   d.xpath(UNFOLLOW_SELECTORS.follow_list_view_selector(), screen).all()) if band]
+        rows = [band for band in (_vertical_band(el) for el in
+                                  d.xpath(UNFOLLOW_SELECTORS.follow_list_row_selector(package), screen).all()) if band]
+        if not rows:
+            return []
+        tallest = max(bottom - top for _centre, top, bottom in rows)
+        cut = []
+        for centre, top, bottom in rows:
+            holder = next(((l_top, l_bottom) for _c, l_top, l_bottom in lists if l_top <= centre <= l_bottom), None)
+            if holder and bottom - top < tallest and not whole_in_band((0, top, 0, bottom), holder):
+                cut.append((top, bottom))
+        return cut
 
     @staticmethod
     def _suggestions_top(d, screen: str) -> Optional[int]:
@@ -476,16 +505,43 @@ class UnfollowActionsMixin:
         (about 3 rows of 9), and a fast drag released at speed let the list coast past rows nobody
         read. A drag that stops before lifting moves the list exactly where the finger went, leaving
         about three rows of overlap between two reads. Points vary with each gesture."""
+        start = random.uniform(*FOLLOW_LIST_DRAG_FROM)
+        return self._drag_follow_list_between(start, random.uniform(*FOLLOW_LIST_DRAG_TO), (0.55, 0.8))
+
+    def _nudge_follow_list(self, forward: bool) -> bool:
+        """Move the list by about one row, toward its end (`forward`) or back toward its top."""
+        start = random.uniform(*FOLLOW_LIST_NUDGE_FROM)
+        end = start - FOLLOW_LIST_NUDGE_SPAN if forward else start + FOLLOW_LIST_NUDGE_SPAN
+        return self._drag_follow_list_between(start, end, (0.35, 0.5))
+
+    def _drag_follow_list_between(self, start_share: float, end_share: float, duration: tuple) -> bool:
+        """One drag of the list from `start_share` to `end_share` of the screen's height (the
+        content follows the finger), released at near-zero velocity. False when it failed."""
         try:
             d = self.device.device
             width, height = d.window_size()
             x = int(width * random.uniform(*FOLLOW_LIST_DRAG_X))
-            start = (x, int(height * random.uniform(*FOLLOW_LIST_DRAG_FROM)))
-            end = (x + int(width * random.uniform(-0.03, 0.03)), int(height * random.uniform(*FOLLOW_LIST_DRAG_TO)))
-            return human_drag_between_raw(d, start, end, duration=random.uniform(0.55, 0.8)) is not False
+            start = (x, int(height * start_share))
+            end = (x + int(width * random.uniform(-0.03, 0.03)), int(height * end_share))
+            return human_drag_between_raw(d, start, end, duration=random.uniform(*duration)) is not False
         except Exception as e:
-            self.logger.debug(f"Error scrolling: {e}")
+            self.logger.warning(f"Drag of the follow list failed: {e}")
             return False
+
+    def _row_found_again(self, username: str, state: str) -> Optional[Dict[str, Any]]:
+        """The row of @username reading `state`, looked for again after the list may have moved (back
+        from its profile): on screen as it is, then one row further, then one row back from where the
+        list was. None when none of those three positions shows it."""
+        key = username.lower()
+        for nudge in (None, True, False, False):
+            if nudge is not None:
+                self._nudge_follow_list(forward=nudge)
+                time.sleep(random.uniform(0.5, 0.8))
+            row = next((r for r in self._visible_follow_rows()
+                        if r['username'].lower() == key and r['state'] == state), None)
+            if row is not None:
+                return row
+        return None
 
     # How long the list's sort header may take to name the option just tapped
     sort_confirm_timeout = 3.0

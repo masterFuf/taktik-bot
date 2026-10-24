@@ -224,14 +224,15 @@ def test_the_fans_category_is_read_past_30_drags_to_its_size(monkeypatch):
 
 
 def test_a_fans_category_read_short_of_its_size_gives_no_count(monkeypatch):
-    # The run: the category announces 537, its screen shows 5 fans and nothing more comes.
+    # The run: the category announces 537, its screen shows 4 whole rows of fans (the fifth is cut by
+    # the bottom of the list) and nothing more comes.
     graph = Graph()
     business, _screen = _business([FANS_537], graph, monkeypatch)
 
     stats = business.scrape_non_followers_category()
 
-    assert stats["expected"] == 537 and stats["total_seen"] == 5
+    assert stats["expected"] == 537 and stats["total_seen"] == 4
     assert stats["success"] is False and stats["fans_unproven"] is True
     assert stats["fans_count"] is None and stats["non_followers_count"] is None, "a part read passed for a count"
     # The fans read are recorded: each is a fact the screen showed
-    assert graph.followers == ["user_2", "user_5", "user_6", "name_15", "user_7"]
+    assert graph.followers == ["user_2", "user_5", "user_6", "name_15"]
