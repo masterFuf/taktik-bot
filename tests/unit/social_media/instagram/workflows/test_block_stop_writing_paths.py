@@ -45,14 +45,17 @@ def test_a_refused_cold_dm_is_not_a_sent_dm(monkeypatch):
     result = workflow.reach_and_send("demo_recipient", lambda: "hello")
 
     assert result["outcome"] == module.ACTION_BLOCKED
-    assert result["send_result"] is False
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
+
+    assert result["send_result"] is ReplyOutcome.NOT_SENT
 
 
 def test_a_cold_dm_run_stopped_by_a_block_says_so():
     from taktik.core.social_media.instagram.workflows.cold_dm.results import build_cold_dm_summary
 
     run_halt.demander_arret(run_halt.ACTION_BLOCKED, "try_again_later_page (words)")
-    counters = SimpleNamespace(dms_sent=1, dms_success=1, dms_failed=1, private_profiles=0, texts_refused=0)
+    counters = SimpleNamespace(dms_sent=1, dms_success=1, dms_failed=1, dms_pending=0, private_profiles=0,
+                               texts_refused=0)
 
     assert build_cold_dm_summary(counters)["stop_reason"] == "action_blocked"
 
