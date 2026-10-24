@@ -66,17 +66,9 @@ class ColdDMNavigationMixin:
         return self._cold_dm_navigation().navigate_to_profile(recipient, force_search=True)
 
     def find_message_button(self):
-        """The profile's Message button, looked for inside the profile header only, or None.
-
-        Asked of `d.xpath()`, which reads the dump's ids: uiautomator's node info gives no
-        `resourceName` for the tab bar's Direct tab (Pixel 3, IG 410), whose content-desc is the
-        button's own label on every screen with the bar, own profile included.
-        """
-        for selector in PROFILE_SELECTORS.header_message_button:
-            found = self.device.xpath(selector)
-            if found is not None and found.exists:
-                return found
-        return None
+        """The profile's Message button, looked for inside the profile header only, or None: the
+        production lookup the conversation opener uses."""
+        return self._cold_dm_messaging().find_header_message_button()
 
     def evaluate_cold_dm_profile(self, policy: ColdDmRecipientPolicy | None = None) -> dict:
         """Read the open profile and decide, without touching the screen.
@@ -135,11 +127,10 @@ class ColdDMNavigationMixin:
             logger.warning(f"Skipping DM - {verdict['skip_reason']}")
             return verdict["skip_reason"]
 
-        if verdict["message_button"] is None:
-            logger.error("Message button not found on profile")
-            return False
         if verdict["is_private"]:
             logger.info("Private profile with a Message button - trying the DM (setting allows it)")
+        # Without a Message button the opener goes through the profile's Options sheet, as the
+        # welcome DM does; False when that offers no conversation either.
         return self._cold_dm_messaging().open_conversation_from_profile()
 
     def go_home(self) -> bool:

@@ -199,6 +199,29 @@ class ProfileSelectors:
             for label in self.message_button_text_labels
         ] + [f'//*[@resource-id="{self.message_button_resource_id}"]']
 
+    # The profile's Options button, top right of its action bar ("Options" in French and in
+    # English: every 410 profile fixture of both languages). On a profile without a Message
+    # button (a follower not followed back, private: no button but "Suivre en retour"), its sheet
+    # is where Instagram offers the conversation (Pixel 6 Pro, 2026-10-24,
+    # ig410_fr_profile_options_sheet.xml).
+    header_options_button: str = (
+        '//*[@resource-id="com.instagram.android:id/profile_action_bar"]//*[@content-desc="Options"]'
+    )
+    # Another account's profile: its header has the Follow / Following / "Suivre en retour" button,
+    # the own profile none (every 410 and 447 profile fixture: 18 of others, 13 own). Its Options
+    # opens the account's settings, never a conversation.
+    header_follow_button: str = '//*[@resource-id="com.instagram.android:id/profile_header_follow_button"]'
+
+    @property
+    def options_sheet_message_row(self) -> List[str]:
+        """The Options sheet's row that opens the conversation, by the Message button's own labels
+        ("Envoyer un message", the last row of the French sheet; the English row is in no capture
+        yet)."""
+        return [
+            f'//*[@resource-id="com.instagram.android:id/action_sheet_row_text_view"][@text="{label}"]'
+            for label in self.message_button_text_labels
+        ]
+
     # === Profile sub-tabs: posts grid, Reels, Reposts, Tagged ===
     # Every sub-tab of the row under a profile's header, in screen order. The FIRST is the posts
     # grid, and the only one that holds the posts: 180 dumps of Instagram 410 in the Lab corpus and

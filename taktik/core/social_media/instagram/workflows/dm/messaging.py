@@ -10,6 +10,7 @@ from taktik.core.social_media.instagram.actions.base.base_action import BaseActi
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.shared.device.wait import find_element, wait_for_any
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
     BUTTON_SELECTORS,
@@ -45,19 +46,58 @@ class MessagingBusiness(BaseAction):
             return False
         return self.send_in_open_conversation(message, typos=typos)
 
-    def open_conversation_from_profile(self) -> bool:
-        """Tap the Message button of the profile on screen, looked for inside its header only:
+    def find_header_message_button(self):
+        """The Message button of the profile on screen, looked for inside its header only, or None:
         the tab bar's Direct tab carries the same label on every screen with the bar."""
         for selector in PROFILE_SELECTORS.header_message_button:
             element = self.device.xpath(selector)
             if element is not None and element.exists:
-                if not self._human_tap_element(element):
-                    element.click()
-                self.logger.debug("✅ Clicked Message button")
-                time.sleep(2)
-                return True
-        self.logger.warning("Could not find Message button on profile")
-        return False
+                return element
+        return None
+
+    def open_conversation_from_profile(self) -> bool:
+        """Open the conversation of the profile on screen: tap its Message button, or, on a profile
+        that shows none, the "Envoyer un message" row of its Options sheet.
+
+        A follower we do not follow back, private, has no Message button in the header of
+        Instagram 410, only "Suivre en retour" (Pixel 6 Pro, 2026-10-24: the welcome DM failed
+        there); its Options sheet offers the conversation. The welcome DM and the cold DM both
+        open it here.
+        """
+        button = self.find_header_message_button()
+        if button is not None:
+            if not self._human_tap_element(button):
+                button.click()
+            self.logger.debug("✅ Clicked Message button")
+            time.sleep(2)
+            return True
+        return self._open_conversation_from_options()
+
+    def _open_conversation_from_options(self) -> bool:
+        """No Message button: Options, then the sheet's row that opens the conversation, on another
+        account's profile only (its follow button shows it; our own Options open the settings). The
+        sheet is closed again when it has no such row."""
+        if find_element(self.device, [PROFILE_SELECTORS.header_follow_button]) is None:
+            self.logger.warning("Could not find Message button on profile (not another account's profile)")
+            return False
+        options = find_element(self.device, [PROFILE_SELECTORS.header_options_button])
+        if options is None:
+            self.logger.warning("Could not find Message button on profile, nor its Options button")
+            return False
+        if not self._human_tap_element(options):
+            options.click()
+        found = wait_for_any(self.device, PROFILE_SELECTORS.options_sheet_message_row, timeout=3,
+                             label="profile-options-message-row")
+        row = find_element(self.device, [found]) if found else None
+        if row is None:
+            self.logger.warning("No Message button on profile, and no message row in its Options sheet")
+            self.device.press_back()
+            return False
+        if not self._human_tap_element(row):
+            row.click()
+        self.logger.debug("✅ Opened the conversation from the profile's Options sheet")
+        time.sleep(2)
+        return True
 
     def send_in_open_conversation(self, message: str, *, typos: bool = True):
         """Type `message` in the open conversation and send it, through the shared composer.

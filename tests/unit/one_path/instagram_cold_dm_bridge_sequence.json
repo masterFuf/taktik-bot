@@ -656,6 +656,7 @@
    "detect_language",
    "navigate_to_profile open_one force_search=True",
    "read_profile_screen",
+   "open_conversation_from_profile",
    "navigate_to_home"
   ],
   "stdout": [
