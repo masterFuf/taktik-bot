@@ -207,11 +207,17 @@ class DirectMessageSelectors:
     )
 
     def new_message_recipient_row(self, username: str) -> str:
-        """The picker's row of exactly this handle (never the invitation row above it)."""
+        """The picker's row of exactly this handle (never the invitation row above it).
+
+        The handle is the row's first line for an account without a display name, its second line
+        under the display name otherwise (447, Pixel 6a, 2026-10-24: « Prénom Nom » then the
+        handle, under « Plus sur Instagram »). Equality, never a prefix: another account's handle
+        may start the same way."""
         return (
             '//*[@resource-id="com.instagram.android:id/recipients_list"]'
             '//*[@resource-id="com.instagram.android:id/user_row_background"]'
-            f'[.//*[@resource-id="com.instagram.android:id/row_user_primary_name"][@text="{username}"]]'
+            f'[.//*[@resource-id="com.instagram.android:id/row_user_primary_name"][@text="{username}"]'
+            f' or .//*[@resource-id="com.instagram.android:id/row_user_secondary_name"][@text="{username}"]]'
         )
     
     select_multiple_button: str = '//*[@content-desc="Sélectionner plusieurs messages"]'
