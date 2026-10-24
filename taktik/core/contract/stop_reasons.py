@@ -33,7 +33,8 @@ INSTAGRAM_STOP_REASON_CODE = OneOf(
         # ok: done
         "completed",
         # failed: go and look
-        "action_blocked", "unfollow_unconfirmed", "following_list_unproven", "no_account",
+        "action_blocked", "unfollow_unconfirmed", "following_list_unproven", "fans_list_unproven",
+        "no_account",
         "stuck_at_top", "navigation_lost",
         "list_unavailable", "empty_plan", "no_targets", "daily_budget_unreadable", "crashed",
         "device_disconnected", "target_app_crashed", "desktop_gone",

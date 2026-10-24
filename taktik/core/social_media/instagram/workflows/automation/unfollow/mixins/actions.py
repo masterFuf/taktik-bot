@@ -9,13 +9,16 @@ from taktik.core.database.instagram_follow_graph import InstagramFollowGraphServ
 from taktik.core.shared.device.ui_dump import index_of_closest_row
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.shared.behavior.tap import tap_element_human
+from taktik.core.shared.diagnostics import capture_screen_snapshot
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
     classify_follow_state,
 )
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.shell.screen_state import DETECTION_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
-from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import describe_proof, parse_tab_count
+from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import (
+    ListReadEnd, describe_proof, parse_tab_count,
+)
 
 
 # A row button that CONTRADICTS the tab it is read on: its row is not part of that list. A blank
@@ -212,17 +215,47 @@ class UnfollowActionsMixin:
                 continue
         return min(tops) if tops else None
 
+    def _list_read_ends(self, end: ListReadEnd, kind: str, new_found: bool, seen: int,
+                        scroll_failed: bool, left_out: Dict[str, int]) -> bool:
+        """One read of the open `kind` list done: does the read stop here (`list_proof.ListReadEnd`)?
+
+        Says the end and what it proves; otherwise gives the list the time `end` asks before the
+        next drag: a wait of the reload net while the count says names are missing, a short pause
+        after a read without a new name (the next page may still be loading)."""
+        suggestions = self.suggestions_on_screen
+        if end.after_read(new_found, seen, suggestions_reached=suggestions, scroll_failed=scroll_failed,
+                          left_out=left_out):
+            why = (' (suggestions under it)' if suggestions
+                   else f' ({end.quiet_reads} reads without a new name'
+                        f'{f", {end.waited:.0f}s given to it" if end.waited else ""})')
+            self.logger.info(f"End of the {kind} list{why}: {describe_proof(end.proof, seen, end.expected)}")
+            return True
+        if end.wait:
+            self.logger.info(
+                f"⏳ The {kind} list looks finished at {seen} of {end.expected}, short of its count: "
+                f"giving it {end.wait:.0f}s in case Instagram is still loading it"
+            )
+            time.sleep(end.wait)
+        elif end.quiet_reads:
+            time.sleep(random.uniform(1.0, 2.0))
+        return False
+
     def _close_list_read(self, kind: str, stats: Dict[str, Any], seen: int) -> None:
         """The last word of a list read: `success` only when a rule of `list_proof` proved it, and
         a log that never calls "complete" a read that proved nothing (no row read, a read cut
-        short by the session)."""
+        short by the session). A read that came to an end and proved nothing keeps its last screen
+        (`logs/screens/`): what Instagram showed where the read stopped is what explains it."""
         stats['success'] = stats['proof'] is not None
         verdict = describe_proof(stats['proof'], seen, stats['expected'], stats.get('known_after'))
         counts = f"{stats['new_count']} new, {stats['updated_count']} updated"
         if stats['success']:
             self.logger.info(f"✅ {kind.capitalize()} sync: {verdict}; {counts}")
-        else:
-            self.logger.warning(f"⚠️ {kind.capitalize()} sync proved nothing: {verdict}; {counts}")
+            return
+        self.logger.warning(f"⚠️ {kind.capitalize()} sync proved nothing: {verdict}; {counts}")
+        if stats.get('end_reached'):
+            automation = getattr(self, 'automation', None)
+            capture_screen_snapshot(self.device, f'{kind}_list_unproven',
+                                    session_id=getattr(automation, 'current_session_id', None))
 
     # Departures one read may mark at most: beyond, the read is more likely wrong than the base.
     max_departure_share = 0.10

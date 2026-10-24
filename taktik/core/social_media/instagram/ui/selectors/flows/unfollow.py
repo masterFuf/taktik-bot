@@ -116,6 +116,23 @@ class UnfollowSelectors:
             selectors.append(f'//*[@resource-id="{title}"][contains(@text, "{label}")]')
         return selectors
 
+    # The line under a category's title names its first account and counts the others: « user_2 et
+    # 353 autres personnes », « user_2 and 276 others » (447 in French, 410 in English). It is the
+    # only place the size of the fans category shows (its open view has no count).
+    category_subtitle_resource_name: str = 'subtitle'
+
+    def fans_category_subtitle_selectors(self, app_id: str) -> List[str]:
+        """The line under the fans category's title, inside its row (`container`)."""
+        container = self.active_resource_id(app_id, self.category_container_resource_name)
+        subtitle = self.active_resource_id(app_id, self.category_subtitle_resource_name)
+        return [f'//*[@resource-id="{container}"][contains(@content-desc, "{label}")]'
+                f'//*[@resource-id="{subtitle}"]' for label in self.fans_category_labels]
+
+    # The words after the count of that line (locales overlay): « autres personnes », « others ».
+    @property
+    def category_others_labels(self) -> List[str]:
+        return _labels("unfollow.category_others_labels")
+
     # The OTHER categories of the followers tab, those that are not the fans (locales overlay):
     # « Least interacted with », « Deactivated accounts ». Instagram may serve them without the fans
     # one (410 in French, 2026-10-24: « Comptes désactivés » alone, then « Tous les followers »).

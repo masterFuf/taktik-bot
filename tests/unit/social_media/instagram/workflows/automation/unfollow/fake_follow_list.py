@@ -7,9 +7,12 @@ are invented. `FakeScreen` also plays real dumps (the `fixtures/` captures), `Gr
 the follow graph service and `FakeClock` for the time the screen code waits on.
 """
 
+import re
 from typing import Iterable, List, Optional, Tuple
 
 from lxml import etree
+
+from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins import (
     sync_followers as followers_mixin,
@@ -283,6 +286,18 @@ def derived_row_button(xml: str, username: str, text: Optional[str]) -> str:
         button.getparent().remove(button)
     else:
         button.set("text", text)
+    return etree.tostring(root, encoding="unicode")
+
+
+def derived_fans_category_size(xml: str, size: int) -> str:
+    """A real followers-list dump whose fans category's line announces `size` accounts (« user_2 et
+    536 autres personnes » -> « user_2 et <size - 1> autres personnes »): a screen DERIVED from a real
+    one, the only change."""
+    root = etree.fromstring(xml.encode("utf-8"))
+    # The category's labels may all match its one line (« People you don », « don't follow back »)
+    (line,) = {node for selector in UNFOLLOW_SELECTORS.fans_category_subtitle_selectors(PKG)
+               for node in root.xpath(selector)}
+    line.set("text", re.sub(r"(?<= )\d+(?= )", str(size - 1), line.get("text"), count=1))
     return etree.tostring(root, encoding="unicode")
 
 

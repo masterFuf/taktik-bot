@@ -23,9 +23,10 @@ from taktik.core.clone import get_active_package
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import (
-    KNOWN_IN_A_ROW_TO_STOP, PROOF_BY_BASE_COUNT, READ_TO_THE_END, base_matches_count, describe_proof,
-    proof_of_read, scrolls_for,
+    KNOWN_IN_A_ROW_TO_STOP, PROOF_BY_BASE_COUNT, QUIET_READS_TO_END, READ_TO_THE_END, ListReadEnd,
+    base_matches_count, scrolls_for,
 )
+from taktik.core.social_media.instagram.workflows.common.list_reload_policy import ListReloadPolicy
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.actions import LeftOutRows, UnfollowActionsMixin, row_belongs_to_tab
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.sync_events import emit_sync_progress, emit_sync_user_discovered
 
@@ -149,7 +150,8 @@ class SyncFollowersMixin(UnfollowActionsMixin):
             left_out = LeftOutRows()
             emit_sync_progress('followers', stats)
             scroll_attempts = 0
-            no_new_count = 0
+            end = ListReadEnd(expected, QUIET_READS_TO_END if mode != 'enriched' else 5,
+                              ListReloadPolicy.from_config(config).steps())
 
             while scroll_attempts < max_scrolls:
                 if self._sync_should_stop():
@@ -276,25 +278,14 @@ class SyncFollowersMixin(UnfollowActionsMixin):
                 if stop_signal:
                     break
 
-                # The end of the list: the suggestions under it, or several reads in a row without
-                # a new name; it counts only if the names read reach the tab's exact count.
-                no_new_count = 0 if new_found else no_new_count + 1
-                max_no_new = 3 if mode != 'enriched' else 5
-                if self.suggestions_on_screen or no_new_count >= max_no_new:
+                # The end of the list: the suggestions under it, or several reads in a row without a
+                # new name, after the waits a list short of its count is given; it counts only if
+                # the names read reach the tab's exact count (list_proof.ListReadEnd).
+                if self._list_read_ends(end, 'followers', new_found, len(seen_on_screen), scroll_failed,
+                                        left_out.summary(seen_on_screen)):
                     stats['end_reached'] = True
-                    stats['proof'] = proof_of_read(
-                        len(seen_on_screen), expected, scroll_failed,
-                        suggestions_reached=self.suggestions_on_screen,
-                        left_out=left_out.summary(seen_on_screen))
-                    self.logger.info(
-                        f"End of the followers list"
-                        f"{' (suggestions under it)' if self.suggestions_on_screen else f' ({max_no_new} reads without a new name)'}: "
-                        f"{describe_proof(stats['proof'], len(seen_on_screen), expected)}"
-                    )
+                    stats['proof'] = end.proof
                     break
-                if no_new_count:
-                    # A screen without a new name: the next page may still be loading
-                    time.sleep(random.uniform(1.0, 2.0))
 
                 # Scroll only outside enriched mode, or when nothing unseen is left
                 if mode != 'enriched':

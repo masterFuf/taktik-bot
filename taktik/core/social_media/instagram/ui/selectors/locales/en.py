@@ -1015,6 +1015,11 @@ STRINGS: Dict[str, List[str]] = {
         "Least interacted with",
         "Deactivated accounts",
     ],
+    # The words after the count of the line under a category's title: "user_2 and 276 others"
+    # (Instagram 410, Pixel 3a, 2026-09). The singular ("and 1 other") was never seen in a dump.
+    "unfollow.category_others_labels": [
+        "others",
+    ],
     "unfollow.follow_button_after_unfollow": [
         "//*[contains(@text, \"Follow\") and not(contains(@text, \"Following\"))]",
     ],
