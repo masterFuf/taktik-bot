@@ -79,7 +79,7 @@
   "taktik/core/social_media/instagram/services/profile/extraction.py": 1,
   "taktik/core/social_media/instagram/ui/detectors/problematic_page.py": 2,
   "taktik/core/social_media/instagram/ui/extractors.py": 1,
-  "taktik/core/social_media/instagram/ui/watchdog.py": 4,
+  "taktik/core/social_media/instagram/ui/watchdog.py": 3,
   "taktik/core/social_media/instagram/workflows/agent/autopilot.py": 3,
   "taktik/core/social_media/instagram/workflows/automation/feed/ad_capture.py": 1,
   "taktik/core/social_media/instagram/workflows/automation/feed/post_actions.py": 2,
