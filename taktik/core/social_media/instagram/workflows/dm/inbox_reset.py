@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 import time
+from typing import Any, Callable
 
 from loguru import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
@@ -14,6 +15,10 @@ from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages im
 
 class DMInboxResetMixin:
     """Keep the DM inbox in a deterministic top/Primary state."""
+
+    # What the runtime gives (`InstagramDMRuntime`), declared here as an interface would be.
+    device: Any
+    navigate_to_dm_inbox: Callable[[], bool]
 
     def _ensure_primary_tab(self):
         """Ensure we're on the Primary tab in DM inbox.

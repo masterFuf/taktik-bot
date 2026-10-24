@@ -170,6 +170,10 @@ def _send(runtime, username: str, message: str) -> dict[str, Any]:
         if not runtime.open_conversation(username):
             return _failure(f"Cannot find conversation with {username}")
 
+    # The reply is filed with the thread the reading filed, under the partner's handle when the
+    # conversation's header gives it (the inbox row, which the front sends, shows the name).
+    _shown_name, handle = runtime._read_conversation_partner()
+    partner = handle or username
     sent = runtime.send_message(message)
     # The one look after a write. Refused, nothing is recorded and the dialog stays on screen
     # (the way back to the inbox would close it, which is acting again).
@@ -184,7 +188,7 @@ def _send(runtime, username: str, message: str) -> dict[str, Any]:
     return_to_inbox(runtime)
     # Persist the reply (best-effort). Reuses the account of the thread read earlier;
     # only resolves identity (profile visit) if this conversation was never read.
-    record_reply(account_id_for_send(runtime, username), username, message)
+    record_reply(account_id_for_send(runtime, partner), partner, message)
     return {"type": "result", "success": True, "username": username, "message": message}
 
 

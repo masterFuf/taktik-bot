@@ -153,7 +153,13 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         self._return_to_inbox_if_needed()
                         continue
 
-                    real_username = header_title.get_text() or username
+                    # The thread is filed under the partner's handle: the header's title is
+                    # their display name when they have one, the handle then under it.
+                    shown_name, handle = self._read_conversation_partner()
+                    if handle is None:
+                        logger.info(f"No handle in the header of the conversation with {username}: "
+                                    "filed under the name shown")
+                    real_username = handle or shown_name or header_title.get_text() or username
                     real_username_lower = real_username.lower().strip()
                     if real_username_lower in processed_real_usernames:
                         logger.info(f"Skipping duplicate (real_username already seen): {real_username}")
