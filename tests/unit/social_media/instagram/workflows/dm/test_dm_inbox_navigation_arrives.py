@@ -24,6 +24,14 @@ Message button opens the conversation, Back returns.
 The reading of the inbox puts the main conversations on display first (`_ensure_primary_tab`): on
 the French pill inbox it answered "Primary tab not found", knowing only the English word, and read
 from « Tout ». The « Principal » / « Primary » pill is now tapped.
+
+Measured on the Pixel 6 Pro with Instagram in English (2026-10-24), Lab `dm.open_inbox` from a
+conversation, which hides the tab bar: no DM entry of Instagram on screen, the last way tried
+(`descriptionContains: Message`) tapped the status bar's « Notification Messages : » icon, and the
+inbox did not come up. The opener now goes home first when the screen shows no DM entry (the
+navigation's way back to a known state, a seam here: it shows the home screen), and an entry found
+by a description is Instagram's only. Captures of that phone: the conversation
+(`ig410_en_dm_conversation_no_tab_bar.xml`) and its English inbox (`ig410_en_dm_inbox_pills_6pro.xml`).
 """
 
 import re
@@ -50,6 +58,8 @@ SCREENS = {
     "conversation": (FIXTURES / "ig410_en_dm_thread_new_conversation.xml").read_text(encoding="utf-8"),
     "home_fr": (FIXTURES / "ig410_fr_home_feed_before_dm_tab.xml").read_text(encoding="utf-8"),
     "inbox_pills_fr": (FIXTURES / "ig410_fr_dm_inbox_pills.xml").read_text(encoding="utf-8"),
+    "conversation_en_6pro": (FIXTURES / "ig410_en_dm_conversation_no_tab_bar.xml").read_text(encoding="utf-8"),
+    "inbox_en_6pro": (FIXTURES / "ig410_en_dm_inbox_pills_6pro.xml").read_text(encoding="utf-8"),
 }
 #: What a tap opens: (screen, bounds of the element) -> (the screen it brings up, seconds it takes).
 DOORS = {
@@ -61,6 +71,7 @@ DOORS = {
 REQUESTS_PILL = {
     "inbox": (725, 865, 1033, 953),
     "inbox_pills_fr": (1018, 1146, 1382, 1258),
+    "inbox_en_6pro": (1021, 1146, 1381, 1258),
 }
 #: The main conversations pill of each pill inbox (its clickable container), not on display.
 PRIMARY_PILL = {
@@ -84,6 +95,7 @@ _UI_SELECTOR = {
     "resourceId": lambda node, value: node.get("resource-id") == value,
     # uiautomator's regex: the whole id must match (the clone proxy asks every id this way).
     "resourceIdMatches": lambda node, value: re.fullmatch(value, node.get("resource-id") or "") is not None,
+    "packageName": lambda node, value: node.get("package") == value,
 }
 
 
@@ -243,7 +255,8 @@ def test_an_inbox_slow_to_come_up_is_waited_for_and_kept(phone_on):
     assert phone.clock.now >= 6.0
 
 
-@pytest.mark.parametrize("inbox", ["inbox_pills_fr", "inbox"], ids=["fr-invitations", "en-requests"])
+@pytest.mark.parametrize("inbox", ["inbox_pills_fr", "inbox", "inbox_en_6pro"],
+                         ids=["fr-invitations", "en-requests", "en-requests-6pro"])
 def test_on_a_pill_inbox_the_requests_pill_is_the_requests_entry(phone_on, inbox):
     phone = phone_on(inbox)
 
@@ -271,3 +284,33 @@ def test_on_a_pill_inbox_the_main_conversations_pill_is_put_on_display(phone_on,
 
     assert len(phone.clicks) == 1
     assert _inside(phone.clicks[0], PRIMARY_PILL[inbox])
+
+
+def test_from_a_conversation_the_opener_goes_home_and_never_taps_the_status_bar(phone_on, monkeypatch):
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+
+    phone = phone_on("conversation_en_6pro")
+    went_home = []
+
+    def home(_self):
+        went_home.append(phone.screen)
+        phone._screen = "home"
+        phone.shown.append("home")
+        return True
+
+    monkeypatch.setattr(NavigationActions, "navigate_to_home", home)
+
+    assert _Runtime(phone).navigate_to_dm_inbox() is True
+
+    assert went_home == ["conversation_en_6pro"]
+    assert [screen for screen, _x, _y in phone.clicks] == ["home"], f"taps: {phone.clicks}"
+    assert phone.screen == "inbox"
+
+
+def test_the_main_conversations_pill_already_on_display_is_not_tapped(phone_on):
+    # The English inbox of the Pixel 6 Pro shows « Primary » selected.
+    phone = phone_on("inbox_en_6pro")
+
+    assert _ReadingRuntime(phone)._ensure_primary_tab() is True
+
+    assert phone.clicks == []

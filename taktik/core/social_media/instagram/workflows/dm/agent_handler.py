@@ -98,6 +98,8 @@ def _read(runtime, limit: int, emit: Optional[Emit]) -> dict[str, Any]:
 
     time.sleep(2)
     conversations = runtime.read_conversations(limit)
+    if conversations is None:
+        return _failure("The DM inbox is not on screen: no conversation read")
 
     # Leave the inbox in a deterministic state for the next command. Without
     # this, the following send process can start from the bottom of a long DM
@@ -148,6 +150,8 @@ def _read_requests(runtime, limit: int) -> dict[str, Any]:
     time.sleep(2)
     # Request rows reuse the inbox row structure, so the standard reader handles them.
     conversations = runtime.read_conversations(limit)
+    if conversations is None:
+        return _failure("The requests folder is not on screen: no conversation read")
 
     return {
         "type": "result",

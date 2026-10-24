@@ -150,3 +150,12 @@ def test_the_header_reading():
     assert " " in _node_text(EN_NEW_CONVERSATION, "header_subtitle", "content-desc")
     assert conversation_partner(EN_NEW_CONVERSATION) == (title, title.lower())
     assert conversation_partner(INBOX) == (None, None)
+
+
+def test_off_the_inbox_nothing_is_read_and_no_empty_inbox_is_claimed():
+    # Lab `dm.list_unread` on a conversation (Pixel 6 Pro, 410 in English, 2026-10-24): « No threads
+    # found », then « 0 conversation(s) read » as a success. The screen is that conversation.
+    phone = _Phone(NAMED)
+    phone.screen = (FIXTURES / "ig410_en_dm_conversation_no_tab_bar.xml").read_text(encoding="utf-8")
+
+    assert _Reader(phone).read_conversations(5) is None

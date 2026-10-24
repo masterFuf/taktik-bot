@@ -8,6 +8,7 @@ from typing import Any
 from taktik.core.social_media.instagram.workflows.dm.conversation_navigation import DMConversationNavigationMixin
 from taktik.core.social_media.instagram.workflows.dm.inbox_reset import DMInboxResetMixin
 from loguru import logger
+from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.device.wait import find_element, wait_for_any
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
@@ -29,51 +30,74 @@ def open_dm_inbox(device) -> bool:
 
     One opener for every DM path: the runtime's `navigate_to_dm_inbox`, and the conversation
     opener of a profile without a Message button (`MessagingBusiness`).
+
+    A screen that hides the tab bar (a conversation, a profile, a post) has no DM entry: the
+    opener goes home first, by the navigation's way back to a known state
+    (`NavigationActions.navigate_to_home`), then looks again. The entries found by a description
+    are Instagram's only: the status bar's « Notification Messages : » icon holds the word too,
+    and was tapped from a conversation (Pixel 6 Pro, 410 in English, 2026-10-24).
     """
     logger.info("Navigating to DM inbox...")
+    entry = _dm_inbox_entry(device)
+    if entry is None:
+        logger.info("No DM entry on this screen (no tab bar): back home first")
+        from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+
+        if not NavigationActions(device).navigate_to_home():
+            logger.error("Cannot find DM button: no DM entry here, and the way home failed")
+            return False
+        entry = _dm_inbox_entry(device)
+    if entry is None:
+        logger.error("Cannot find DM button - all methods failed")
+        return False
+    element, how = entry
+    return _open_dm_inbox_through(device, element, how)
+
+
+def _dm_inbox_entry(device):
+    """(the DM entry on screen, how it was found), or None: the ways to find it, in order."""
+    package = get_active_package()
 
     logger.info("Trying method 1: direct_tab resource-id (uiautomator2)...")
     dm_tab = device(resourceId=DM_SELECTORS.direct_tab_resource_id)
     if dm_tab.exists:
-        return _open_dm_inbox_through(device, dm_tab, "direct_tab (uiautomator2)")
+        return dm_tab, "direct_tab (uiautomator2)"
 
     logger.info("Trying method 2: content-desc 'Message'...")
     for desc in DM_SELECTORS.dm_inbox_button_descriptions:
-        btn = device(description=desc)
+        btn = device(description=desc, packageName=package)
         if btn.exists:
-            return _open_dm_inbox_through(device, btn, f"content-desc: {desc}")
+            return btn, f"content-desc: {desc}"
 
     logger.info("Trying method 3: direct_tab xpath...")
     dm_tab = device.xpath(DM_SELECTORS.direct_tab)
     if dm_tab.exists:
-        return _open_dm_inbox_through(device, dm_tab, "direct_tab xpath")
+        return dm_tab, "direct_tab xpath"
 
     logger.info("Trying method 4: DM_SELECTORS content-desc xpaths...")
     for selector in DM_SELECTORS.direct_tab_content_desc:
         dm_btn = device.xpath(selector)
         if dm_btn.exists:
-            return _open_dm_inbox_through(device, dm_btn, f"content-desc xpath: {selector}")
+            return dm_btn, f"content-desc xpath: {selector}"
 
     logger.info("Trying method 5: action_bar_inbox_button...")
     messenger = device(resourceId=DM_SELECTORS.action_bar_inbox_button_resource_id)
     if messenger.exists:
-        return _open_dm_inbox_through(device, messenger, "messenger icon")
+        return messenger, "messenger icon"
 
     logger.info("Trying method 6: descriptionContains variations...")
     for desc in DM_SELECTORS.dm_inbox_description_contains:
-        btn = device(descriptionContains=desc)
+        btn = device(descriptionContains=desc, packageName=package)
         if btn.exists:
-            return _open_dm_inbox_through(device, btn, f"descriptionContains: {desc}")
+            return btn, f"descriptionContains: {desc}"
 
     logger.info("Trying method 7: ImageView in action bar...")
     action_bar = device(resourceId=DM_SELECTORS.inbox_action_bar_resource_id)
     if action_bar.exists:
         images = action_bar.child(className=DM_SELECTORS.image_view_class_name, clickable=True)
         if images.count > 0:
-            return _open_dm_inbox_through(device, images[images.count - 1], "action bar ImageView")
-
-    logger.error("Cannot find DM button - all methods failed")
-    return False
+            return images[images.count - 1], "action bar ImageView"
+    return None
 
 
 def _open_dm_inbox_through(device, entry, how: str) -> bool:

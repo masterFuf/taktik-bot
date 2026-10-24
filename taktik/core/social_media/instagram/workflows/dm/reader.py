@@ -27,6 +27,7 @@ from loguru import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from taktik.core.social_media.instagram.workflows.dm.session import dm_inbox_shown
 
 
 class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMixin):
@@ -47,8 +48,16 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             flush=True,
         )
 
-    def read_conversations(self, limit: int) -> list:
-        """Read DM conversations. ``limit <= 0`` means read all (until the inbox bottom)."""
+    def read_conversations(self, limit: int) -> list | None:
+        """Read DM conversations. ``limit <= 0`` means read all (until the inbox bottom).
+
+        None, and nothing read, when the screen is not the inbox (or its requests folder): an
+        inbox not on screen is no empty inbox (Lab `dm.list_unread` on a conversation, Pixel 6 Pro,
+        2026-10-24: « No threads found », then « 0 conversation(s) read » as a success).
+        """
+        if not dm_inbox_shown(self.device):
+            logger.error("The DM inbox is not on screen: no conversation read")
+            return None
         conversations = []
         processed_usernames = set()
         processed_real_usernames = set()

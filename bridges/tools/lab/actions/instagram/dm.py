@@ -75,7 +75,9 @@ def list_unread(a, p):
         limit = int(p.get("limit", 5))
     except (TypeError, ValueError):
         limit = 5
-    convs = _dm_runtime(a).read_conversations(limit) or []
+    convs = _dm_runtime(a).read_conversations(limit)
+    if convs is None:
+        return {"success": False, "message": "the DM inbox is not on screen: nothing read"}
     items = []
     for c in convs:
         get = c.get if isinstance(c, dict) else (lambda k, d=None: getattr(c, k, d))
