@@ -172,6 +172,12 @@ def test_the_task_bridge_follows_its_contract(monkeypatch, lines, fail):
     assert printed(lines) == ({"status", "error"} if fail else {"status", "task_result"})
 
 
+def test_the_task_contract_declares_only_the_lines_the_bridge_prints():
+    # The run and the failure above print these; a declared line nobody prints is a line the app
+    # is told to read and never gets.
+    assert {event.type for event in INSTAGRAM_STORY_RELAY.events} == {"status", "error", "task_result"}
+
+
 # ------------------------------------------------------------------------------ YouTube
 
 
