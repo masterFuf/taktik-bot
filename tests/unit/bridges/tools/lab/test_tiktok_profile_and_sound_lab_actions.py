@@ -1,9 +1,10 @@
-"""Four TikTok screen capabilities of production that had no Lab action.
+"""Five TikTok screen capabilities of production that had no Lab action.
 
 The read of our own profile at the start of every run (`ProfileActions.get_own_profile_info`), the
 opening of a video in a profile's grid by the scraping (`ClickActions.open_profile_grid_post`),
-the avatar crop of a visited profile (`AvatarActions.capture_avatar`) and the sound opened by its
-name by the scraping (`SoundActions.open_sound_by_name`). Each action must call that function.
+the avatar crop of a visited profile (`AvatarActions.capture_avatar`), the sound opened by its
+name by the scraping (`SoundActions.open_sound_by_name`), and the popup chain of every workflow
+(`PopupHandler.close_all`). Each action must call that function.
 """
 
 from types import SimpleNamespace
@@ -11,6 +12,8 @@ from types import SimpleNamespace
 import taktik.core.social_media.tiktok.actions.atomic.detection.avatar_actions as avatar_module
 import taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions as sound_module
 import taktik.core.social_media.tiktok.services.profile.profile_actions as profile_module
+import taktik.core.social_media.tiktok.workflows.common.popup_handler as popup_handler_module
+from bridges.tools.lab.actions.tiktok.popups import close_all
 from bridges.tools.lab.actions.tiktok.profile import capture_avatar, open_grid_post, read_own
 from bridges.tools.lab.actions.tiktok.video import open_sound_by_name
 from taktik.core.social_media.tiktok.services.profile.profile_actions import TikTokProfileInfo
@@ -98,3 +101,63 @@ def test_no_query_opens_no_sound(monkeypatch):
     monkeypatch.setattr(sound_module, "SoundActions", lambda device: (_ for _ in ()).throw(AssertionError("searched")))
 
     assert open_sound_by_name(SimpleNamespace(device="warm"), {})["success"] is False
+
+
+# The popup chain of every TikTok workflow (`PopupHandler.close_all`), which the Lab only knew
+# closer by closer: the order, the inbox escaped, the refusal left alone were never tested as one.
+
+
+
+class _Chain:
+    calls = []
+    closes = True
+
+    def __init__(self, click, detection, owned_surfaces=frozenset()):
+        _Chain.calls.append(("init", click, detection, owned_surfaces))
+
+    def close_all(self, screen=None):
+        _Chain.calls.append(("close_all", screen))
+        return _Chain.closes
+
+
+def _bundle(popups):
+    screen = SimpleNamespace(popups=set(popups))
+    return SimpleNamespace(click="click", detection=SimpleNamespace(read_screen=lambda: screen),
+                           device="warm"), screen
+
+
+def test_the_chain_of_the_workflows_closes_on_the_photo_of_the_turn(monkeypatch):
+    _Chain.calls, _Chain.closes = [], True
+    monkeypatch.setattr(popup_handler_module, "PopupHandler", _Chain)
+    bundle, screen = _bundle({"collections"})
+
+    result = close_all(bundle, {})
+
+    assert _Chain.calls[0][:3] == ("init", "click", bundle.detection)
+    assert _Chain.calls[0][3] == frozenset()
+    # One photo for the turn, as a For You turn reads it: the chain takes no dump of its own.
+    assert _Chain.calls[1] == ("close_all", screen)
+    assert result["success"] is True
+    assert result["details"] == {"found": ["collections"], "closed": True}
+
+
+def test_a_refusal_is_left_on_screen_and_said(monkeypatch):
+    _Chain.calls, _Chain.closes = [], False
+    monkeypatch.setattr(popup_handler_module, "PopupHandler", _Chain)
+    bundle, _ = _bundle({"action_blocked"})
+
+    result = close_all(bundle, {})
+
+    assert result["success"] is False
+    assert "refuses" in result["message"]
+
+
+def test_a_popup_seen_and_not_closed_is_a_failure(monkeypatch):
+    _Chain.calls, _Chain.closes = [], False
+    monkeypatch.setattr(popup_handler_module, "PopupHandler", _Chain)
+    bundle, _ = _bundle({"gdpr"})
+
+    result = close_all(bundle, {})
+
+    assert result["success"] is False
+    assert result["details"] == {"found": ["gdpr"], "closed": False}
