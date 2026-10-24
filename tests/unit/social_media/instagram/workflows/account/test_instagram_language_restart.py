@@ -2,7 +2,8 @@
 
 Without it, screens drawn before the switch keep the old language until the next start: the feed
 header did. The restart is the clean start a run makes (force-stop, then launch the active
-package), and the Lab action `settings.change_language` goes through the same workflow.
+package), and the Lab action `settings.change_language` goes through the same workflow. After the
+restart Instagram shows a real 410 feed in English, so the read back says the change took.
 """
 
 import types
@@ -10,11 +11,14 @@ import types
 import pytest
 
 import taktik.core.social_media.instagram.workflows.account.change_language_workflow as module
+from taktik.core.social_media.instagram.ui.language import reset_detected_language
 from taktik.core.social_media.instagram.workflows.account.change_language_workflow import (
     ChangeLanguageWorkflow,
 )
+from unit.paths import CORE
 
 PACKAGE = "com.instagram.android"
+ENGLISH_FEED = CORE / "tests/unit/social_media/instagram/fixtures/ig410_en_feed_post_hours_ago.xml"
 
 
 class _Phone:
@@ -38,6 +42,9 @@ class _Phone:
     def app_current(self):
         return {"package": self.front}
 
+    def dump_hierarchy(self):
+        return ENGLISH_FEED.read_text(encoding="utf-8")
+
 
 @pytest.fixture
 def screens(monkeypatch):
@@ -45,6 +52,8 @@ def screens(monkeypatch):
     monkeypatch.setattr(module, "time", types.SimpleNamespace(sleep=lambda seconds: None))
     monkeypatch.setattr(module, "detect_and_optimize", lambda device: None)
     monkeypatch.setattr(module, "get_active_package", lambda: PACKAGE, raising=False)
+    monkeypatch.setattr(module, "set_app_locale", lambda device_id, package, tag: True)
+    reset_detected_language()
 
     def _install(workflow, phone):
         workflow._click_first_match = lambda selectors, name: phone.calls.append(("tap", name)) or True
@@ -52,7 +61,8 @@ def screens(monkeypatch):
         workflow._scroll_until_present = lambda selectors, max_scrolls: True
         return workflow
 
-    return _install
+    yield _install
+    reset_detected_language()
 
 
 def test_the_switch_ends_with_a_restart_of_instagram(screens):
@@ -68,17 +78,6 @@ def test_the_switch_ends_with_a_restart_of_instagram(screens):
     assert result["app_restarted"] is True
     assert ("restart_app", "done") in steps
     assert steps[-1] == ("done", "done")
-
-
-def test_a_restart_that_does_not_come_back_is_said_but_the_language_is_set(screens):
-    phone = _Phone(comes_back=False)
-    workflow = screens(ChangeLanguageWorkflow(phone, "dev"), phone)
-
-    result = workflow.execute(language="en")
-
-    assert "could not be restarted" in result["message"]
-    assert result["success"] is True
-    assert result["app_restarted"] is False
 
 
 def test_a_failed_switch_does_not_restart_the_app(screens):

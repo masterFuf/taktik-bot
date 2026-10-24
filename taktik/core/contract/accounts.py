@@ -155,10 +155,31 @@ INSTAGRAM_ACCOUNT_LOGOUT = _contract(
     events=(_result("logout", "The logout is over.", _error_type()),),
 )
 
+#: `account_result.error_type` of an Instagram language change: the codes of `ChangeLanguageWorkflow`
+#: (`social_media/instagram/workflows/account/change_language_workflow.py`), and `exception` from its
+#: bridge. `tests/unit/contract/test_workflow_contract_change_language_errors.py` holds the set to them.
+INSTAGRAM_CHANGE_LANGUAGE_ERROR = OneOf(
+    (
+        # refused before the phone
+        "unsupported_language",
+        # the walk to the picker
+        "profile_tab_not_found", "options_menu_not_found", "language_settings_not_found",
+        "language_settings_click_failed", "set_language_not_found", "picker_not_opened",
+        "language_not_in_picker", "language_tap_failed",
+        # the restart and the read back
+        "app_not_restarted", "language_not_applied", "language_unreadable",
+        # the bridge caught a crash
+        "exception",
+    ),
+    name="InstagramChangeLanguageError",
+    doc="Why an Instagram language change failed (`account_result.error_type`).",
+)
+
 INSTAGRAM_ACCOUNT_CHANGE_LANGUAGE = _contract(
     "instagram.account.change_language", "InstagramAccountChangeLanguage", _IG_BRIDGE, _IG_LAUNCHER,
     f"{_INSTAGRAM}:change_language_params_from_payload",
-    "Set the Instagram app language, then restart Instagram.",
+    "Set the Instagram app language (its picker, and Android's per-app language from Android 13), restart "
+    "Instagram, and prove it changed by reading it back.",
     settings=(
         Field("language", "string", "The language code (`APP_LANGUAGE_NATIVE_NAMES`: en, en-GB, fr-FR, fr-CA).",
               required=True, attr="language"),
@@ -168,18 +189,29 @@ INSTAGRAM_ACCOUNT_CHANGE_LANGUAGE = _contract(
     events=(
         Event("change_language_step", doc="One step on the phone, for the Agent panel.", fields=(
             Field("step", "string", "validate, open_profile, open_options, open_language_settings, open_picker, "
-                  "select_language, restart_app, done."),
+                  "select_language, set_android_locale, restart_app, verify, done. `set_android_locale` "
+                  "failed is not the end: before Android 13 there is no per-app language, and the read back "
+                  "(`verify`) decides."),
             Field("step_status", OneOf(("running", "done", "failed")), "Where the step is."),
             Field("message", "string", "What happens, for a person."),
             Field("language", "string", "The language code (select_language, done).", optional=True),
             Field("native_name", "string", "The language as the picker writes it.", optional=True),
         )),
-        _result("change_language", "The language change is over.",
+        _result("change_language", "The language change is over: a success only when Instagram reads in the "
+                "language after the restart.",
                 Field("language", "string", "The language code asked."),
                 Field("native_name", "string", "The language as the picker writes it.", nullable=True),
-                _error_type(),
-                Field("app_restarted", "bool", "Instagram came back after the restart; false, some screens keep "
-                      "the old language until it starts again.", optional=True)),
+                Field("error_type", INSTAGRAM_CHANGE_LANGUAGE_ERROR, "Why it failed; null on success.",
+                      nullable=True),
+                Field("app_restarted", "bool", "Instagram came back after the restart; false, the language "
+                      "was not read and the change failed (`app_not_restarted`).", optional=True),
+                Field("language_before", "string", "The language read at the start (en, fr, unknown); null: "
+                      "not read.", nullable=True, optional=True),
+                Field("language_after", "string", "The language read after the restart (en, fr, unknown); "
+                      "null: not read.", nullable=True, optional=True),
+                Field("android_app_locale", "string", "The per-app language Android holds for Instagram after "
+                      "the change; null: none was set (Android 12 or earlier, or refused), the picker alone "
+                      "decided.", nullable=True, optional=True)),
     ),
 )
 
