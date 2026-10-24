@@ -5,7 +5,7 @@ import json
 import os
 import time
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.table import Table
@@ -40,14 +40,43 @@ def scraped_profile_row(profile: Dict[str, Any]) -> Dict[str, Any]:
     return row
 
 
+#: The lists of a post a hashtag or post_url run can read, in the order it reads them: the list,
+#: the setting of the run's config that asks for it, and what the run does when the setting is absent.
+POST_AUDIENCES = (
+    ('likers', 'scrape_likers', True),
+    ('commenters', 'scrape_commenters', False),
+)
+
+#: The session row's source type of each post run, by the run's `type`.
+POST_SOURCE_TYPES = {'hashtag': 'HASHTAG', 'post_url': 'POST_URL'}
+
+
 def post_audiences(config: Dict[str, Any]) -> List[str]:
     """The lists of a post a hashtag or post_url run reads, in the order it reads them."""
-    audiences = []
-    if config.get('scrape_likers', True):
-        audiences.append('likers')
-    if config.get('scrape_commenters', False):
-        audiences.append('commenters')
-    return audiences
+    return [name for name, setting, default in POST_AUDIENCES if config.get(setting, default)]
+
+
+def post_session_type(config: Dict[str, Any]) -> str:
+    """The `scraping_type` of a hashtag or post_url session: the lists it reads, or 'none'."""
+    return '+'.join(post_audiences(config)) or 'none'
+
+
+def saved_post_session_type(source_type: str, config: Any) -> Tuple[Optional[str], str]:
+    """Read the type of a hashtag or post_url session back from the config the session saved.
+
+    Returns (type, '') when the config is that run's own and says which lists it read, else
+    (None, why). A setting absent from the saved config is not filled with the run's default: the
+    session is left undecided rather than typed by a guess.
+    """
+    if not isinstance(config, dict):
+        return None, "config enregistree qui n'est pas un objet"
+    run_type = config.get('type')
+    if not isinstance(run_type, str) or POST_SOURCE_TYPES.get(run_type) != source_type:
+        return None, f"config d'un autre run (type {run_type!r}, source {source_type})"
+    missing = [setting for _name, setting, _default in POST_AUDIENCES if setting not in config]
+    if missing:
+        return None, f"config sans {', '.join(missing)}"
+    return post_session_type(config), ''
 
 
 def _targets_label(targets) -> str:
@@ -292,16 +321,15 @@ class ScrapingPersistenceMixin:
                 source_type = 'PROFILE_POSTS'
                 scrape_type = 'profile_posts'
                 source_name = _targets_label(self.config.get('target_usernames', []))
-            elif scraping_type in ('hashtag', 'post_url'):
+            elif scraping_type in POST_SOURCE_TYPES:
                 # The audience of posts, not of an account: the 'followers' default once stored a
                 # hashtag run that read likers as a follower scrape, in the history and in every
                 # count grouped by type.
-                scrape_type = '+'.join(post_audiences(self.config)) or 'none'
+                scrape_type = post_session_type(self.config)
+                source_type = POST_SOURCE_TYPES[scraping_type]
                 if scraping_type == 'hashtag':
-                    source_type = 'HASHTAG'
                     source_name = f"#{self.config.get('hashtag', 'unknown')}"
                 else:
-                    source_type = 'POST_URL'
                     source_name = self.config.get('post_url', 'unknown')[:100]
             elif scraping_type == 'usernames':
                 source_type = 'USERNAME_LIST'
