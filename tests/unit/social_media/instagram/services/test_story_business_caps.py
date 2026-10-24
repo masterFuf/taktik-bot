@@ -1,6 +1,5 @@
 """StoryBusiness story-likes are PROPORTIONAL to the slide count (varied positions), with a
-single optional reaction. Covers `_plan_story_engagement` and `view_profile_stories` without
-a real device.
+single optional reaction. Covers `_plan_story_engagement` and the dwell helpers without a real device.
 """
 
 import types  # noqa: F401  (kept for parity with sibling test helpers)
@@ -79,54 +78,3 @@ def test_story_view_scale_cannot_sleep_through_image_autoplay(monkeypatch):
     monkeypatch.setattr(story_mod.random, "uniform", lambda _lower, upper: upper)
 
     assert biz._story_view_duration({"view_duration_range": (2.0, 6.0)}) <= 4.4
-
-
-# ─── view_profile_stories: proportional likes over a long story ──────────────
-
-class _Nav:
-    def navigate_to_profile(self, _u): return True
-    def navigate_to_next_story(self, *, settle=True): return True
-
-
-class _Detect:
-    def __init__(self, slides):
-        self._slides = slides
-        self._open = 0
-    def has_stories(self): return True
-    def get_story_count_from_viewer(self): return (1, self._slides)
-    def get_story_viewer_metadata(self): return {'title': 'friend', 'is_ad': False}
-    def is_story_viewer_open(self):
-        self._open += 1
-        return self._open <= self._slides
-
-
-class _Clicks:
-    def __init__(self):
-        self.like_calls = 0
-    def click_story_ring(self): return True
-    def like_story(self):
-        self.like_calls += 1
-        return True
-    def close_story(self): return True
-
-
-def test_view_profile_stories_likes_planned_varied_slots(monkeypatch):
-    monkeypatch.setattr(story_mod.time, "sleep", lambda _s: None)
-    monkeypatch.setattr(story_mod.random, "uniform", lambda a, b: a)
-    monkeypatch.setattr(story_mod.random, "random", lambda: 0.0)   # always plan likes
-    # Deterministic proportional plan: 2 likes at slots 1 and 4.
-    monkeypatch.setattr(story_mod, "sample_story_like_count", lambda *a, **k: 2)
-    monkeypatch.setattr(story_mod, "sample_story_like_slots", lambda *a, **k: [1, 4])
-
-    biz = _make_business()
-    biz.nav_actions = _Nav()
-    biz.detection_actions = _Detect(slides=6)
-    biz.click_actions = _Clicks()
-    biz._human_like_delay = lambda *_a, **_k: None
-    biz._press_back = lambda *_a, **_k: None
-    biz._record_action = lambda *_a, **_k: None
-
-    stats = biz.view_profile_stories("friend", max_stories=6)
-    assert biz.click_actions.like_calls == 2     # the 2 planned slots, not all 6
-    assert stats['stories_liked'] == 2
-    assert stats['stories_viewed'] == 6

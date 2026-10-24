@@ -90,3 +90,16 @@ def test_has_likes_is_the_gate_of_the_likers_popup(element, answer):
 
 def test_the_lab_no_longer_reaches_ui_helpers():
     assert not hasattr(engagement, "_ui_helpers")
+
+
+def test_the_two_unreachable_engines_are_gone():
+    """`UIHelpers` (built by the automation, never called) and `StoryBusiness.view_profile_stories`
+    (no workflow, no Lab action) were removed: no second likers/stories engine is left to drift."""
+    import importlib.util
+
+    from taktik.core.social_media.instagram.services.story import StoryBusiness
+    from taktik.core.social_media.instagram import workflows
+
+    assert importlib.util.find_spec("taktik.core.social_media.instagram.workflows.common.ui_helpers") is None
+    assert not hasattr(workflows, "UIHelpers")
+    assert not hasattr(StoryBusiness, "view_profile_stories")

@@ -85,9 +85,6 @@ class InstagramAutomation:
         self.workflow_runner = WorkflowRunner(self)
         self.helpers = WorkflowHelpers(self)
         
-        from taktik.core.social_media.instagram.workflows.common.ui_helpers import UIHelpers
-        self.ui_helpers = UIHelpers(self)
-        
         self.helpers.setup_signal_handlers()
         
     def load_config(self, config_path: str) -> bool:
