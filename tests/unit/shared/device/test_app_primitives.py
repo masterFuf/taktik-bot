@@ -1,6 +1,6 @@
 """The app primitives of a phone: the package catalog of each platform, the package a run really
-drives (a clone, an installed variant), the forced stop without a connection, and the app lifecycle
-of a connected phone (`AppService`).
+drives (a clone, an installed variant), the forced stop and the per-app language without a connection,
+and the app lifecycle of a connected phone (`AppService`).
 
 What each one answers is pinned here, on doubles of the phone (no device, no adb): the bridges, the
 CLI and the Lab start every run through them.
@@ -189,6 +189,72 @@ def test_no_package_stopped_is_a_failure(monkeypatch):
 def test_the_app_manager_module_still_names_the_forced_stop():
     """Callers and test rigs reach it there; it is the one of `app_control`."""
     assert app_manager.force_stop_app is app_control.force_stop_app
+
+
+# ----------------------------------------------------------------------- the per-app language
+
+class _Shell:
+    """`run_adb_shell_process` for the per-app language: one answer per call (return code, output)."""
+
+    def __init__(self, *answers):
+        self.answers = list(answers)
+        self.calls = []
+
+    def __call__(self, device_id, args, **kwargs):
+        self.calls.append((device_id, args))
+        answer = self.answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        returncode, stdout = answer
+        return SimpleNamespace(returncode=returncode, stdout=stdout, stderr="")
+
+
+def _locales(package, tags):
+    return (0, f"Locales for {package} for user 0 are [{tags}]\n")
+
+
+def test_android_is_given_the_language_of_the_package_then_asked_back(monkeypatch):
+    shell = _Shell((0, ""), _locales(INSTAGRAM, "fr-CA"))
+    monkeypatch.setattr(app_control, "run_adb_shell_process", shell)
+
+    assert app_control.set_app_locale("SERIAL", INSTAGRAM, "fr-CA") is True
+    assert shell.calls == [
+        ("SERIAL", ["cmd", "locale", "set-app-locales", INSTAGRAM, "--locales", "fr-CA"]),
+        ("SERIAL", ["cmd", "locale", "get-app-locales", INSTAGRAM]),
+    ]
+
+
+def test_a_language_android_does_not_hold_after_the_command_is_not_set(monkeypatch):
+    """The 6 Pro answered `[]` while Instagram's own picker showed English ticked."""
+    monkeypatch.setattr(app_control, "run_adb_shell_process", _Shell((0, ""), _locales(INSTAGRAM, "")))
+
+    assert app_control.set_app_locale("SERIAL", INSTAGRAM, "en") is False
+
+
+def test_a_phone_without_per_app_languages_refuses_the_command(monkeypatch):
+    """Before Android 13 `cmd locale` does not exist: the answer is a failure, never asked back."""
+    shell = _Shell((20, "cmd: Can't find service: locale\n"))
+    monkeypatch.setattr(app_control, "run_adb_shell_process", shell)
+
+    assert app_control.set_app_locale("SERIAL", INSTAGRAM, "en") is False
+    assert len(shell.calls) == 1
+
+
+def test_an_adb_that_breaks_is_a_failure_not_an_exception(monkeypatch):
+    monkeypatch.setattr(app_control, "run_adb_shell_process", _Shell(OSError("adb gone")))
+
+    assert app_control.set_app_locale("SERIAL", INSTAGRAM, "en") is False
+
+
+def test_the_languages_android_holds_for_a_package(monkeypatch):
+    monkeypatch.setattr(app_control, "run_adb_shell_process", _Shell(_locales(INSTAGRAM, "en-US,fr-FR")))
+    assert app_control.read_app_locales("SERIAL", INSTAGRAM) == ["en-US", "fr-FR"]
+
+    monkeypatch.setattr(app_control, "run_adb_shell_process", _Shell(_locales(INSTAGRAM, "")))
+    assert app_control.read_app_locales("SERIAL", INSTAGRAM) == []
+
+    monkeypatch.setattr(app_control, "run_adb_shell_process", _Shell((0, "something else\n")))
+    assert app_control.read_app_locales("SERIAL", INSTAGRAM) is None
 
 
 # ------------------------------------------------------------------ the app lifecycle (AppService)

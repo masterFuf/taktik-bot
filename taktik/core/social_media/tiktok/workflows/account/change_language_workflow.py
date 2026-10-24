@@ -25,6 +25,7 @@ from loguru import logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.device.wait import find_element
+from taktik.core.shared.ui.language_detection import base_language
 from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions import PopupActions
 
 from taktik.core.social_media.tiktok.services.navigation.reset import return_to_tiktok_shell
@@ -195,7 +196,7 @@ class TikTokChangeLanguageWorkflow:
         # Not a shortcut for its own sake: walking the settings to re-pick the language already
         # in use is four screens of device time for no change, and it is the common case when a
         # caller sets a language defensively at session start.
-        if before == _base_language(target_language):
+        if before == base_language(target_language):
             result.update(success=True, already_set=True, language_after=before, step="already_set")
             self.logger.info("🌐 Déjà dans la langue demandée — rien à faire")
             # This branch touches nothing, so it also FIXES nothing: it hands on whatever screen
@@ -241,7 +242,7 @@ class TikTokChangeLanguageWorkflow:
 
         # The outcome, not the click. A confirmed tap on a picker that did not apply looks
         # exactly like a successful change from the caller's side.
-        if after != _base_language(target_language):
+        if after != base_language(target_language):
             return self._fail(
                 result,
                 f"Confirmed, but the app still reads as {after!r} instead of {target_language!r}",
@@ -360,11 +361,6 @@ class TikTokChangeLanguageWorkflow:
             return_to_tiktok_shell(self.device, logger=self.logger)
         except Exception as exc:
             self.logger.debug(f"Could not return to the shell after the language run: {exc}")
-
-
-def _base_language(code: str) -> str:
-    """'en-GB' -> 'en'. `detect_language` answers in base codes, the picker in regional ones."""
-    return (code or "").split("-")[0].lower()
 
 
 __all__ = ["TikTokChangeLanguageWorkflow", "APP_LANGUAGE_NATIVE_NAMES"]

@@ -4,7 +4,9 @@ Bridge runner mixin for the ``change_language`` workflowType. Reads the target
 language code off the config, runs it through the launcher, and emits bridge JSON
 events — including per-step ``change_language_step`` events used by the desktop
 Agent panel for live narration. The core workflow stays stdout-free: this runner
-injects a notifier callback that maps step callbacks to ``send_message``.
+injects a notifier callback that maps step callbacks to ``send_message``. The result
+says what was read back (``language_before``, ``language_after``) and which settings
+took the language (``android_app_locale``): a success is a language read after the restart.
 """
 
 from __future__ import annotations
@@ -53,6 +55,9 @@ class AccountChangeLanguageRunnerMixin:
                 message=result.get("message", ""),
                 error_type=result.get("error_type"),
                 app_restarted=result.get("app_restarted", False),
+                language_before=result.get("language_before"),
+                language_after=result.get("language_after"),
+                android_app_locale=result.get("android_app_locale"),
             )
             return 0 if result["success"] else 1
         except Exception as exc:  # noqa: BLE001

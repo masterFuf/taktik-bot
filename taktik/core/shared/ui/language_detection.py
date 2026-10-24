@@ -48,6 +48,12 @@ DEFAULT_MIN_RATIO = 2.0
 _detections: Dict[str, "LanguageDetection"] = {}
 
 
+def base_language(code: str) -> str:
+    """'en-GB' -> 'en'. The detection answers in base codes, an app's language picker in regional
+    ones: a language change compares the two through this."""
+    return (code or "").split("-")[0].lower()
+
+
 def detected_language(platform: str) -> Optional[str]:
     """The language the detection of `platform` found in this process, or None when it has not
     run (or `platform` has no detection)."""
@@ -222,4 +228,4 @@ class LanguageDetection:
         return out
 
 
-__all__ = ["LanguageDetection", "DEFAULT_MIN_SCORE", "DEFAULT_MIN_RATIO", "detected_language"]
+__all__ = ["LanguageDetection", "DEFAULT_MIN_SCORE", "DEFAULT_MIN_RATIO", "base_language", "detected_language"]

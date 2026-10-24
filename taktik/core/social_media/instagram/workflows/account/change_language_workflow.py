@@ -1,14 +1,23 @@
 """Instagram app-language change workflow.
 
-Drives the UI from the home/profile state to the target app language:
+Drives the UI from the home/profile state to the target app language, then proves it:
 
     Profile tab -> "Options" -> settings list -> "Language and translations"
     -> "Set language" -> app language picker -> pick the target by NATIVE name
-    -> restart Instagram.
+    -> Android's per-app language set to the same code (Android 13 and later)
+    -> restart Instagram -> read the language Instagram shows.
 
-The restart is the clean start a run makes (force-stop, then launch the active package): until
-the app starts again, screens drawn before the switch, the feed header among them, keep the old
-language.
+Why both settings. Instagram keeps its own choice, and from Android 13 Android keeps one per app
+(`cmd locale set-app-locales`). Measured on a Pixel 6 Pro (Android 17, Instagram 410): English picked
+and ticked in Instagram, Instagram still in French on every screen, Android's per-app language empty;
+once Android held `en-US`, Instagram started in English. Setting the two to the same code makes the
+outcome the same whichever one the phone honours, with one restart and one read.
+
+Why the read. The tap on the picker says nothing about the screens: the result is a success only
+when the detection every run uses (`ui/language.py`) reads the asked language on the screen
+Instagram shows after the restart. The restart is the clean start a run makes (force-stop, then
+launch the active package): until the app starts again, screens drawn before the switch keep the
+old language, and Android's per-app language only reaches an app at its start.
 
 Reaching the settings screen reuses the proven logout navigation selectors
 (``AUTH_SELECTORS.profile_tab_button`` / ``profile_options_button``); the
@@ -30,12 +39,14 @@ from loguru import logger
 
 from taktik.core.social_media.instagram.ui.selectors.shell.auth import AUTH_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.flows.settings import SETTINGS_SELECTORS, APP_LANGUAGE_NATIVE_NAMES
-from taktik.core.social_media.instagram.ui.language import detect_and_optimize
+from taktik.core.social_media.instagram.ui.language import detect_and_optimize, detect_language
 from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.device.app_control import set_app_locale
 from taktik.core.shared.device.app_inspection import is_app_running
 from taktik.core.shared.device.manager import DeviceManager
 from taktik.core.shared.device.wait import find_element
+from taktik.core.shared.ui.language_detection import base_language
 
 
 StepNotifier = Callable[..., None]
@@ -43,6 +54,10 @@ StepNotifier = Callable[..., None]
 #: How long the relaunched app gets to reach the foreground: polls, and seconds between two.
 _FOREGROUND_POLLS = 16
 _FOREGROUND_POLL_INTERVAL = 0.6
+#: How long the restarted app gets to draw a screen the detection can decide on: reads, and seconds
+#: between two. A splash or a half-drawn feed reads as "unknown", never as the wrong language.
+_LANGUAGE_READS = 5
+_LANGUAGE_READ_INTERVAL = 1.5
 
 
 class ChangeLanguageWorkflow:
@@ -119,8 +134,10 @@ class ChangeLanguageWorkflow:
                 ``APP_LANGUAGE_NATIVE_NAMES`` for the supported set.
 
         Returns:
-            ``{'success': bool, 'message': str, 'error_type': Optional[str],
-               'language': str, 'native_name': Optional[str], 'app_restarted': bool}``
+            ``{'success': bool, 'message': str, 'error_type': Optional[str], 'language': str,
+               'native_name': Optional[str], 'app_restarted': bool, 'language_before': Optional[str],
+               'language_after': Optional[str], 'android_app_locale': Optional[str]}``. ``success`` is
+            True only when Instagram reads in ``language`` after the restart.
         """
         result: Dict[str, Any] = {
             'success': False,
@@ -129,24 +146,23 @@ class ChangeLanguageWorkflow:
             'language': language,
             'native_name': None,
             'app_restarted': False,
+            'language_before': None,
+            'language_after': None,
+            'android_app_locale': None,
         }
 
         native_name = APP_LANGUAGE_NATIVE_NAMES.get(language)
         if not native_name:
-            result['message'] = f"Unsupported language code: {language}"
-            result['error_type'] = 'unsupported_language'
-            self.logger.error(result['message'])
-            self._notify('validate', 'failed', result['message'])
-            return result
+            return self._fail(result, f"Unsupported language code: {language}", 'unsupported_language', 'validate')
         result['native_name'] = native_name
 
         self.logger.info(f"Starting change-language workflow -> {native_name} ({language})")
 
         # Detect the current app language so the FR/EN path selectors are optimized.
         try:
-            detect_and_optimize(self.device)
+            result['language_before'] = detect_and_optimize(self.device)
         except Exception as exc:
-            self.logger.debug(f"language detection skipped: {exc}")
+            self.logger.warning(f"Language detection failed, every locale is kept: {exc}")
 
         # 1) Own profile
         self._notify('open_profile', 'running', 'Opening profile')
@@ -196,39 +212,86 @@ class ChangeLanguageWorkflow:
         if not self._click_first_match(target, f"Language {native_name}"):
             return self._fail(result, f"Could not tap language: {native_name}",
                               'language_tap_failed', 'select_language')
-        # Give Instagram time to apply the language and reload the UI.
+        # Give Instagram time to take the choice before Android is asked.
         time.sleep(3)
+        self._notify('select_language', 'done', f"{native_name} picked",
+                     language=language, native_name=native_name)
+
+        # 6) The same language in Android's per-app setting, read by Instagram at its next start.
+        package = get_active_package()
+        result['android_app_locale'] = self._set_android_locale(package, language)
+
+        # 7) Restart: the per-app language, like every screen, takes the language at the start.
+        result['app_restarted'] = self._restart_instagram(package)
+        if not result['app_restarted']:
+            return self._fail(result, f"{native_name} picked, but Instagram did not come back after the "
+                              "restart: the language was not read", 'app_not_restarted', 'restart_app')
+
+        # 8) The outcome, not the tap: what Instagram shows now.
+        self._notify('verify', 'running', 'Reading the language Instagram shows')
+        after = self._read_language()
+        result['language_after'] = after
+        if after == 'unknown':
+            return self._fail(result, f"{native_name} picked, but no screen after the restart said which "
+                              "language Instagram shows", 'language_unreadable', 'verify')
+        if after != base_language(language):
+            how = "the picker and Android's per-app language" if result['android_app_locale'] else "the picker alone"
+            return self._fail(result, f"{native_name} set by {how}, but Instagram still reads as {after!r} "
+                              "after the restart", 'language_not_applied', 'verify')
+        self._notify('verify', 'done', f"Instagram reads as {after}")
 
         result['success'] = True
         result['message'] = f"App language set to {native_name}"
-        self.logger.success(result['message'])
-        self._notify('select_language', 'done', result['message'],
-                     language=language, native_name=native_name)
-
-        # 6) Restart, so that no screen keeps the old language. The language is set either way.
-        result['app_restarted'] = self._restart_instagram()
-        if not result['app_restarted']:
-            result['message'] += "; Instagram could not be restarted"
-        self._notify('done', 'done', result['message'],
-                     language=language, native_name=native_name)
+        self.logger.success(f"{result['message']} (read back: {after})")
+        self._notify('done', 'done', result['message'], language=language, native_name=native_name)
         return result
 
-    def _restart_instagram(self) -> bool:
+    def _set_android_locale(self, package: str, language: str) -> Optional[str]:
+        """Android's per-app language for `package` (Android 13 and later): the code set, or None.
+
+        Not the end when it fails: before Android 13 the phone has no per-app language and the picker
+        alone sets it. The read after the restart decides either way.
+        """
+        self._notify('set_android_locale', 'running', f"Setting Android's language for {package}")
+        if set_app_locale(self.device_id, package, language):
+            self._notify('set_android_locale', 'done', f"Android holds {language} for {package}")
+            return language
+        message = (f"Android holds no per-app language {language} for {package} (Android 12 or earlier, "
+                   "or refused): the picker alone sets it")
+        self.logger.warning(message)
+        self._notify('set_android_locale', 'failed', message)
+        return None
+
+    def _restart_instagram(self, package: str) -> bool:
         """Force-stop and relaunch the active Instagram package, as a run's clean start does."""
         self._notify('restart_app', 'running', 'Restarting Instagram')
-        package = get_active_package()
         manager = DeviceManager(self.device_id)
         manager.device = self.device
         if manager.launch_app(package, stop_first=True):
             for _ in range(_FOREGROUND_POLLS):
                 time.sleep(_FOREGROUND_POLL_INTERVAL)
                 if is_app_running(self.device, package, "instagram"):
-                    self.logger.info(f"{package} restarted in the new language")
+                    self.logger.info(f"{package} restarted")
                     self._notify('restart_app', 'done')
                     return True
-        self.logger.warning(f"Language changed, but {package} did not come back to the foreground")
+        self.logger.warning(f"{package} did not come back to the foreground after the restart")
         self._notify('restart_app', 'failed', f"{package} did not come back to the foreground")
         return False
+
+    def _read_language(self) -> str:
+        """The language Instagram shows, read on the screens it draws after the restart.
+
+        The detection only reads here: the catalogues were filtered at the start for the old language
+        and stay so for the rest of this process. 'unknown' after every read is said as such.
+        """
+        language = 'unknown'
+        for attempt in range(_LANGUAGE_READS):
+            time.sleep(_LANGUAGE_READ_INTERVAL)
+            language = detect_language(self.device)
+            if language != 'unknown':
+                return language
+            self.logger.info(f"Language not decided on this screen yet (read {attempt + 1}/{_LANGUAGE_READS})")
+        return language
 
     def _fail(self, result: Dict[str, Any], message: str, error_type: str, step: str) -> Dict[str, Any]:
         result['message'] = message
