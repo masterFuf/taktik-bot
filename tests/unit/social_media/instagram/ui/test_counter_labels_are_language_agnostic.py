@@ -191,3 +191,82 @@ def test_a_label_carrying_only_one_count_is_not_reported_as_a_pair():
     ).extract_post_stats_atomic()
     assert stats is None
 
+
+
+# --- Thousands in the media label --------------------------------------------------------------
+#
+# The likes of a post above 999 came back as their last three digits: the number before "J'aime"
+# was read as `\d+(?:[,.]\d+)?`, which stops at the narrow no-break space French Android puts
+# between thousands, so "14 260 J'aime" gave 260, and the English "11,100,590 likes" gave
+# 100 590. The value was saved as is (profile_posts of 24/10: 260 likes for a post post_url read
+# at 14 200). The label below is verbatim from that run (Instagram 410, French phone, @natgeo,
+# post DeuOR-CjKE9, U+202F between the thousands).
+
+NNBSP = " "
+
+
+@pytest.mark.parametrize("label,likes,comments", [
+    (f"Photo de National Geographic, 14{NNBSP}260 J’aime, 190 commentaires", 14260, 190),
+    (f"Photo de name_11, 404{NNBSP}518 J’aime, 1{NNBSP}141 commentaires", 404518, 1141),
+    ("Photo 1 of 8 by name_4, 11,100,590 likes, 46.4K comments", 11100590, 46400),
+    ("Photo by name_16, 14,260 likes, 190 comments", 14260, 190),
+    (f"Reel de marie, 14,2{NNBSP}K J’aime, 18 commentaires", 14200, 18),
+    # A handle ending in a digit sits right before the count: its digit is not the count's.
+    (f"Photo 1 de 2 name_13 name_1, 1{NNBSP}781 J’aime, 38 commentaires", 1781, 38),
+    (f"Photo de Les 3 name_9 name_10, 42 J’aime, 1 commentaire", 42, 1),
+])
+def test_the_whole_count_is_read_across_thousands_separators(label, likes, comments):
+    stats = InstagramUIExtractors(_DeviceServingMediaLabel(label)).extract_post_stats_atomic()
+    assert stats == {"likes": likes, "comments": comments}
+
+
+class _DumpDevice:
+    """Answers `xpath()` from a real dump, through the reader the device uses."""
+
+    def __init__(self, xml):
+        from taktik.core.shared.device.ui_dump import parse_ui_dump
+
+        self._tree = parse_ui_dump(xml)
+
+    def xpath(self, selector):
+        served = [_Element(content_desc=node.get("content-desc", "")) for node in self._tree.xpath(selector)]
+
+        class _Query:
+            def all(self_inner):
+                return served
+
+        return _Query()
+
+
+@pytest.mark.parametrize("capture,likes,comments", [
+    # Captures where a count passes a thousand: each read the last group alone before the fix.
+    ("ig410_en_comment_sheet_litho_bodies.xml", 11100590, 46400),
+    ("ig410_fr_feed_heart_of_post_above_at_top.xml", 6151, 6),
+    ("ig447_fr_comment_sheet.xml", 1781, 38),
+    ("ig447_fr_post_opened_from_search_profile.xml", 14194, 189),
+    ("ig447_fr_profile_posts_next_header_mid_screen.xml", 96400, 400),
+    ("ig447_fr_profile_posts_row_below_screen.xml", 725371, 1707),
+    # Captures that were already right stay right.
+    ("ig410_en_controlled_scroll_profile_posts_after.xml", 666060, 1898),
+    ("ig410_en_controlled_scroll_feed_after.xml", 0, 2),
+    ("ig410_fr_home_feed_reel_row.xml", 60, 1),
+])
+def test_the_post_counts_of_real_captures(capture, likes, comments):
+    from unit.paths import CORE
+
+    xml = (CORE / "tests/unit/social_media/instagram/fixtures" / capture).read_text(encoding="utf-8")
+    stats = InstagramUIExtractors(_DumpDevice(xml)).extract_post_stats_atomic()
+    assert stats == {"likes": likes, "comments": comments}
+
+
+@pytest.mark.parametrize("label,likes,comments", [
+    # The separate reads (no atomic pair) went through two more spellings of the same pattern:
+    # the likes one knew only "J'aime", so an English label fell through to the buttons and
+    # read 0; the comments one cut "1,166,042" to its last two groups.
+    ("Photo 1 of 8 by name_4, 11,100,590 likes, 1,166,042 comments", 11100590, 1166042),
+    (f"Photo de National Geographic, 14{NNBSP}260 J’aime, 190 commentaires", 14260, 190),
+])
+def test_the_separate_reads_take_the_whole_count_too(label, likes, comments):
+    extractors = InstagramUIExtractors(_DeviceServingMediaLabel(label))
+    assert extractors.extract_likes_count_from_ui(is_reel=False) == likes
+    assert extractors.extract_comments_count_from_ui(is_reel=False) == comments
