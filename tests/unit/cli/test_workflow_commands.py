@@ -196,3 +196,43 @@ def test_the_launch_commands_choose_the_phone_as_workflows_run(monkeypatch, comm
     assert result.exit_code == 1, result.output
     assert "Several devices connected" in result.output and "dev-2" in result.output
     assert built == []
+
+
+# --- the settings ---------------------------------------------------------------
+# Phone session of 2026-10-24 (P8): `maxProfiles` and `durationMinutes` at the root of the feed's
+# `--json`, where its declaration reads them under `limits` and `session`, were accepted without a
+# word, the dry run said « resolves » and the run took its defaults (20 posts).
+
+FEED_AT_THE_ROOT = '{"maxProfiles": 2, "durationMinutes": 10}'
+
+
+def test_a_dry_run_refuses_a_key_the_declaration_does_not_have_and_says_where_it_goes():
+    result = CliRunner().invoke(
+        workflows, ["run", "instagram.automation.feed", "--dry-run", "--json", FEED_AT_THE_ROOT])
+    assert result.exit_code == 2
+    assert "resolves" not in result.output
+    output = " ".join(result.output.split())
+    assert "`maxProfiles` is not a setting of instagram.automation.feed; expected as `limits.maxProfiles`" in output
+    assert "`durationMinutes` is not a setting of instagram.automation.feed; expected as `session.durationMinutes`" in output
+
+
+def test_a_run_refuses_it_before_choosing_a_phone(monkeypatch):
+    from taktik.cli.commands import workflows as workflows_module
+
+    def no_phone(_device_id):
+        raise AssertionError("a refused payload chose a phone")
+
+    monkeypatch.setattr(workflows_module, "_choose_phone", no_phone)
+    result = CliRunner().invoke(
+        workflows, ["run", "instagram.automation.feed", "--json", FEED_AT_THE_ROOT, "--param", "limits={}"])
+    assert result.exit_code == 2
+    assert "maxProfiles" in result.output
+
+
+def test_the_same_settings_where_the_declaration_reads_them_resolve():
+    result = CliRunner().invoke(
+        workflows, ["run", "instagram.automation.feed", "--dry-run",
+                    "--json", '{"limits": {"maxProfiles": 2}, "session": {"durationMinutes": 10}}',
+                    "--param", "deviceId=dev-1"])
+    assert result.exit_code == 0
+    assert "resolves" in result.output

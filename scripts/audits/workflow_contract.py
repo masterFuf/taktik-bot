@@ -34,6 +34,7 @@ if str(ROOT) not in sys.path:
 from taktik.core.contract import TOOL_CONTRACTS, WORKFLOW_CONTRACTS  # noqa: E402
 from taktik.core.contract.bounds import describe  # noqa: E402
 from taktik.core.contract.error_codes import BRIDGE_ERROR_CODE, BRIDGE_ERROR_PHRASES, BRIDGE_REFUSAL_CODES  # noqa: E402
+from taktik.core.contract.registry import selector_value  # noqa: E402
 from taktik.core.contract.schema import (  # noqa: E402
     HOST,
     Bounds,
@@ -449,19 +450,6 @@ def settings_constant(prefix: str, type_name: str, fields: Iterable[Field],
             f"  bounds: {f'{prefix}_BOT_BOUNDS' if bounds else '{}'},",
             "}"]
     return out
-
-
-def selector_value(contract: WorkflowContract, workflow_id: str) -> Optional[str]:
-    """The value of the declaration's selector that picks `workflow_id`: its last segment
-    (`instagram.automation.<workflowType>`), when the declaration serves several ids. One declaration
-    for one id (the notifications and their commands) keeps its selector as a setting."""
-    if not contract.selector or not contract.also:
-        return None
-    value = workflow_id.rsplit(".", 1)[-1]
-    allowed = contract.setting(contract.selector).type
-    if not (isinstance(allowed, OneOf) and allowed.allows(value)):
-        raise ValueError(f"{workflow_id}: `{value}` is no value of the selector `{contract.selector}`")
-    return value
 
 
 def workflow_settings_index(contracts: Tuple[WorkflowContract, ...]) -> Tuple[List[str], List[str]]:

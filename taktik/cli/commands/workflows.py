@@ -21,7 +21,10 @@ none and never reaches an AI client.
 `run` chooses the phone but does not connect to it (`hosts/phone.py`): the launcher reads and
 validates its payload, then calls the `connect` the CLI host gave it, and the phone connects there.
 A payload the reader refuses (a setting out of its bounds, a scraping with no source) ends with
-exit code 1 and nothing connected, as from the desktop bridges. So does a phone without network:
+exit code 1 and nothing connected, as from the desktop bridges. A key the workflow's declaration does
+not have (`maxProfiles` at the root, where the feed reads `limits.maxProfiles`) is refused before
+that, dry run included, with exit code 2: the key, and where the declaration has it
+(`taktik/core/contract/settings_keys.py`, the declaration the app's tools are checked against). So does a phone without network:
 the launcher's network door refuses it (`NETWORK_UNREACHABLE` in the message) before the app starts.
 """
 from __future__ import annotations
@@ -44,6 +47,8 @@ from taktik.cli.hosts.ai_key import (
 from taktik.cli.hosts.phone import CliPhone, PhoneNotConnectedError
 from taktik.cli.hosts.registry import build_registry, handler_on_phone
 from taktik.core.contract.ai_request import asks_for_ai
+from taktik.core.contract.registry import contracts_by_id
+from taktik.core.contract.settings_keys import undeclared_settings
 
 console = Console()
 
@@ -55,6 +60,25 @@ LOGS_THE_ACCOUNT_OUT = {
         "account picker, and the phone is left on it"
     ),
 }
+
+
+#: What this host puts in every payload itself, the serial, under the two names the launchers read: an
+#: explicit `--param` of the same name wins, so they are no unknown keys.
+HOST_PAYLOAD_KEYS = ("deviceId", "device_id")
+
+
+def _refuse_undeclared_settings(workflow_id: str, params: dict[str, Any]) -> None:
+    """Exit with code 2, every key named, when `params` holds a key the declaration of `workflow_id`
+    does not read. An id no declaration serves is left to the registry, which says it is unknown."""
+    if workflow_id not in contracts_by_id():
+        return
+    undeclared = undeclared_settings(workflow_id, params, HOST_PAYLOAD_KEYS)
+    if not undeclared:
+        return
+    console.print(f"[red]Not run:[/red] {len(undeclared)} key(s) {workflow_id} does not read.")
+    for item in undeclared:
+        console.print(f"  {item.sentence(workflow_id)}")
+    raise SystemExit(2)
 
 
 def _warn_if_it_logs_out(workflow_id: str) -> bool:
@@ -182,6 +206,7 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
     from taktik.core.kernel.contracts import WorkflowInvocation
 
     resolved_params = _parse_params(params, json_blob)
+    _refuse_undeclared_settings(workflow_id, resolved_params)
 
     if dry_run:
         # Resolution only: prove the id exists and show what would be sent, without a phone.
@@ -230,7 +255,7 @@ def run_workflow(workflow_id: str, device_id: str | None, params: tuple[str, ...
     # The serial belongs in the payload, the way the bridges send it: several handlers read
     # `deviceId` from there to build their own device startup, and without it they fall back to
     # a placeholder and connect to nothing. An explicit --param wins over what we inject.
-    payload = {"deviceId": device_id, "device_id": device_id, **dict(resolved_params)}
+    payload = {**{key: device_id for key in HOST_PAYLOAD_KEYS}, **dict(resolved_params)}
 
     console.print(f"[blue]Running[/blue] [bold]{workflow_id}[/bold] on [cyan]{device_id}[/cyan]")
     try:
