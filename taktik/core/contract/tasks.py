@@ -7,7 +7,7 @@ task's own settings travel under `params`, handed to the task's launcher as its 
 from __future__ import annotations
 
 from .schema import HOST, Event, Field, ListOf, OneOf, Refusal, Shape, WorkflowContract
-from .shared import ERROR_EVENT, LOG_EVENT, STATUS_EVENT, instagram_package_field
+from .shared import ERROR_EVENT, STATUS_EVENT, instagram_package_field
 
 _TASKS = "taktik.core.social_media.instagram.workflows.tasks"
 
@@ -65,7 +65,6 @@ INSTAGRAM_STORY_RELAY = WorkflowContract(
     events=(
         STATUS_EVENT,
         ERROR_EVENT,
-        LOG_EVENT,
         Event("task_result", doc="The task is over.", fields=(
             Field("success", "bool", "It succeeded."),
             Field("taskId", "string", "The task's full id."),
