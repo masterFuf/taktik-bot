@@ -63,13 +63,13 @@ def test_a_runner_that_fails_says_its_words_with_the_traceback(monkeypatch, runn
 @pytest.mark.parametrize("raised, said", [
     pytest.param(RuntimeError("the router broke"), {"error": "Workflow error: the router broke"}, id="crash"),
     pytest.param(ModuleNotFoundError("No module named 'gate'", name="gate"),
-                 {"error": "ModuleNotFoundError: No module named 'gate'", "error_code": "PYTHON_IMPORT_ERROR"},
+                 {"error": "Workflow error: No module named 'gate'", "error_code": "PYTHON_IMPORT_ERROR"},
                  id="import"),
 ])
 def test_the_tiktok_dispatcher_says_what_its_runner_did_not_catch_and_still_stops_tiktok(
         tmp_path, monkeypatch, raised, said):
     """A runner that does not catch its own failure (notifications) ends in the dispatcher: its words
-    with the traceback, an import with the bot's code. Run in the process: its cleanup stops TikTok
+    with the traceback; an import keeps those words and takes the bot's code. Run in the process: its cleanup stops TikTok
     over adb, which a test does not reach."""
     import sys
 
