@@ -80,9 +80,23 @@ class TestSessionTypePerSource:
         assert created['scraping_type'] == 'profile_posts'
         assert created['source_type'] == 'PROFILE_POSTS'
 
-    def test_hashtag_and_post_url_are_untouched(self):
+    def test_hashtag_and_post_url_keep_their_source(self):
         assert _create({'type': 'hashtag', 'hashtag': 'metz'})['source_type'] == 'HASHTAG'
         assert _create({'type': 'post_url', 'post_url': 'https://x'})['source_type'] == 'POST_URL'
+
+    def test_a_hashtag_run_collects_likers_not_followers(self):
+        # Session of 24/10 (#photographie, 5 likers of a post) stored as 'followers'.
+        assert _create({'type': 'hashtag', 'hashtag': 'metz'})['scraping_type'] == 'likers'
+
+    def test_a_post_url_run_says_which_lists_of_the_post_it_reads(self):
+        base = {'type': 'post_url', 'post_url': 'https://x'}
+        assert _create(base)['scraping_type'] == 'likers'
+        assert _create({**base, 'scrape_likers': False, 'scrape_commenters': True})['scraping_type'] == 'commenters'
+        assert _create({**base, 'scrape_commenters': True})['scraping_type'] == 'likers+commenters'
+
+    def test_the_old_default_does_not_leak_into_a_post_source(self):
+        created = _create({'type': 'hashtag', 'hashtag': 'metz', 'scrape_type': 'followers'})
+        assert created['scraping_type'] == 'likers'
 
 
 class TestTheRowIsAnnounced:

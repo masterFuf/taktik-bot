@@ -40,6 +40,16 @@ def scraped_profile_row(profile: Dict[str, Any]) -> Dict[str, Any]:
     return row
 
 
+def post_audiences(config: Dict[str, Any]) -> List[str]:
+    """The lists of a post a hashtag or post_url run reads, in the order it reads them."""
+    audiences = []
+    if config.get('scrape_likers', True):
+        audiences.append('likers')
+    if config.get('scrape_commenters', False):
+        audiences.append('commenters')
+    return audiences
+
+
 def _targets_label(targets) -> str:
     """The session row's source name for a list of accounts: the first three, then a count."""
     targets = list(targets or [])
@@ -273,12 +283,17 @@ class ScrapingPersistenceMixin:
                 source_type = 'PROFILE_POSTS'
                 scrape_type = 'profile_posts'
                 source_name = _targets_label(self.config.get('target_usernames', []))
-            elif scraping_type == 'hashtag':
-                source_type = 'HASHTAG'
-                source_name = f"#{self.config.get('hashtag', 'unknown')}"
-            elif scraping_type == 'post_url':
-                source_type = 'POST_URL'
-                source_name = self.config.get('post_url', 'unknown')[:100]
+            elif scraping_type in ('hashtag', 'post_url'):
+                # The audience of posts, not of an account: the 'followers' default once stored a
+                # hashtag run that read likers as a follower scrape, in the history and in every
+                # count grouped by type.
+                scrape_type = '+'.join(post_audiences(self.config)) or 'none'
+                if scraping_type == 'hashtag':
+                    source_type = 'HASHTAG'
+                    source_name = f"#{self.config.get('hashtag', 'unknown')}"
+                else:
+                    source_type = 'POST_URL'
+                    source_name = self.config.get('post_url', 'unknown')[:100]
             elif scraping_type == 'usernames':
                 source_type = 'USERNAME_LIST'
                 # This run walks no list and mines nobody's audience: it visits profiles that are
