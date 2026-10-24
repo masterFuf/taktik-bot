@@ -92,7 +92,7 @@ def _unfollow_on(name, lang, monkeypatch):
     set_active_locale(lang)
     phone = _ListPhone((FIXTURES / name).read_text(encoding="utf-8"))
     bundle = build_instagram_action_bundle(create_instagram_device_facade(phone))
-    bundle.unfollow.active_account_id = 1
+    bundle.bind_account(1)
     return bundle, phone, recorded
 
 

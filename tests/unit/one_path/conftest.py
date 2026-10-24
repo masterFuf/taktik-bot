@@ -1384,10 +1384,17 @@ class Rig:
         return exit_info.value.code
 
     def run_cli(self, payload: dict, env: dict | None = None, workflow_id: str = "tiktok.automation.for_you"):
-        """The standalone path: `taktik workflows run <workflow_id>`."""
+        """The standalone path: `taktik workflows run <workflow_id>`, given what an operator types: the
+        page's payload without the keys the workflow's declaration does not read, which the CLI refuses
+        (`allowRouterDevice`, read by the app's main process; a key another TikTok page sends). The
+        bridge ignores them: the same config from both paths says so."""
         from click.testing import CliRunner
 
         from taktik.cli.commands import workflows as workflow_cmds
+        from taktik.core.contract.settings_keys import undeclared_settings
+
+        unread = {item.path for item in undeclared_settings(workflow_id, payload, workflow_cmds.HOST_PAYLOAD_KEYS)}
+        payload = {key: value for key, value in payload.items() if key not in unread}
 
         give_the_cli_a_connected_phone(self.monkeypatch, SimpleNamespace(device=self.device), DEVICE_ID)
         print_result = workflow_cmds._print_result
