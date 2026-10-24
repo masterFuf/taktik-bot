@@ -11,7 +11,8 @@ as the cold DM always reached its recipients. The rules its own search held (the
 read as Instagram writes it) are that search's, tested on its own screens in
 `actions/atomic/navigation/test_profile_search_opens_only_the_asked_account.py`. That search
 now also opens an account Instagram 447 lists only in a keyword row (subtitle "nasa • 104 M
-followers"): the cold DM reaches it there, by the same production path.
+followers"), by the account row of that keyword's results: the cold DM reaches it there, by the
+same production path.
 
 The screens are those real captures (`search_screens_phone.py`: the home feed, Explore, the results),
 behind the clone proxy and the facade the bridge mounts. The keyboard is not what is tested: it
@@ -44,6 +45,7 @@ from unit.social_media.instagram.actions.atomic.navigation.search_screens_phone 
     PKG,
     SEARCH_410,
     SEARCH_447,
+    SEARCH_447_KEYWORD_ROW,
     SearchPhone,
     selectors_of,
 )
@@ -104,12 +106,13 @@ def run_on(monkeypatch):
     set_active_locale(None)
 
 
-def test_an_account_the_results_list_only_in_a_keyword_row_is_reached_by_that_row(run_on):
-    seen = run_on(SEARCH_447, "user_3")
+def test_an_account_the_results_list_only_in_a_keyword_row_is_reached_through_that_row(run_on):
+    seen = run_on(SEARCH_447_KEYWORD_ROW, "name_1")
 
-    assert seen.phone.typed == ["user_3"]
-    assert seen.phone.rows_tapped() == ["user_3"]
-    assert seen.checked == ["user_3"]
+    assert seen.phone.typed == ["name_1"]
+    assert seen.phone.keyword_rows_tapped() == ["name_1"]
+    assert seen.phone.rows_tapped() == ["name_1", "name_1"]
+    assert seen.checked == ["name_1"]
     assert len(seen.decided) == 1 and seen.reached == {"outcome": NOT_ON_PROFILE}
     assert seen.deep_links == [] and seen.composed == []
 

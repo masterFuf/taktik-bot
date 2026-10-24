@@ -15,7 +15,10 @@ Explore grid with its search bar, then the results Instagram listed for the quer
   keyword row titled by its handle ("name_1", "name_1 • 104 M followers"), then the keyword rows of
   two neighbours whose handles hold it (`name_1s`, `name_1e`: the anonymizer's names for them,
   renamed so that they keep the query at their start as on the phone), and account rows of others,
-  the first of them `name_11`.
+  the first of them `name_11`. A tap on the keyword row of `name_1` opened the results of that
+  keyword (`ig447_fr_keyword_results_after_keyword_row.xml`, same phone, minutes later): tabs
+  « Pour vous », « Comptes »..., the account row of `name_1` first (with a follow button), then a
+  grid. Anonymized with the same name for the handle; its other names are numbered from `name_101`.
 - Instagram 447 (same phone, 2026-10-24), a cold DM started where an earlier run had left the
   phone: a likers sheet over a post (`ig447_fr_likers_sheet_over_post_after_search.xml`), the post
   under it (`ig447_fr_post_opened_from_search_profile.xml`), the profile it was opened from
@@ -24,7 +27,8 @@ Explore grid with its search bar, then the results Instagram listed for the quer
   shows the tab bar. Anonymized together: a name reads the same on the four screens.
 
 The phone moves as Instagram did: a tap on the tab bar's search tab opens Explore, a text typed
-there by the keyboard shows the results, a Back shows the screen under the one shown (when the
+there by the keyboard shows the results, a tap on a keyword row shows the results of that keyword
+(when the phone was given them), a Back shows the screen under the one shown (when the
 phone was given what is under it). Nothing else moves the screen: a tap on a result row is
 recorded and the screen stays (what the profile then shows is another test's). It answers `xpath`
 through uiautomator2's own engine; the tests put it behind the clone proxy and the facade the
@@ -47,6 +51,7 @@ ROW_USERNAME_ID = f"{PKG}:id/row_search_user_username"
 KEYWORD_TITLE_ID = f"{PKG}:id/search_keyword_title"
 KEYWORD_SUBTITLE_ID = f"{PKG}:id/row_search_keyword_subtitle"
 AVATAR_RING_ID = f"{PKG}:id/row_search_avatar_with_ring"
+FOLLOW_BUTTON_ID = f"{PKG}:id/row_search_user_follow_button"
 SEARCH_TAB_ID = f"{PKG}:id/search_tab"
 #: What follows the handle in the subtitle of a keyword row: "nasa • 104 M followers".
 KEYWORD_SUBTITLE_SEPARATOR = " • "
@@ -69,6 +74,27 @@ def _inside(point, box) -> bool:
     return left <= x <= right and top <= y <= bottom
 
 
+def result_rows(screen: str) -> list:
+    """(kind, handle, bounds) of each row of a results screen that names an account: an account row
+    by its username, a keyword row by the handle its subtitle starts with."""
+    rows = []
+    for row in etree.fromstring(screen.encode("utf-8")).iter("node"):
+        if row.get("resource-id") == ROW_ID:
+            rows += [("account", node.get("text"), _bounds(row)) for node in row.iter("node")
+                     if node.get("resource-id") == ROW_USERNAME_ID]
+        elif row.get("resource-id") == KEYWORD_TITLE_ID:
+            rows += [("keyword", node.get("text").split(KEYWORD_SUBTITLE_SEPARATOR)[0], _bounds(row.getparent()))
+                     for node in row if node.get("resource-id") == KEYWORD_SUBTITLE_ID]
+    return rows
+
+
+def row_buttons(screen: str) -> list:
+    """The bounds of the buttons drawn over the result rows of `screen`: the avatar rings (a story)
+    and the follow buttons."""
+    return [_bounds(node) for node in etree.fromstring(screen.encode("utf-8")).iter("node")
+            if node.get("resource-id") in (AVATAR_RING_ID, FOLLOW_BUTTON_ID)]
+
+
 @dataclass(frozen=True)
 class SearchScreens:
     """The three screens of one search, on one phone, and the Instagram version they show."""
@@ -79,29 +105,16 @@ class SearchScreens:
     width: int
     height: int
     version: str
+    #: What a tap on the keyword row of `keyword_results_of` shows: the results of that keyword.
+    #: The results of the other keyword rows were not captured: a tap on one is recorded, the
+    #: screen stays.
+    keyword_results: str = ""
+    keyword_results_of: str = ""
 
     def search_tab(self, screen: str):
         nodes = [n for n in etree.fromstring(screen.encode("utf-8")).iter("node")
                  if n.get("resource-id") == SEARCH_TAB_ID]
         return _bounds(nodes[0]) if nodes else None
-
-    def result_rows(self) -> list:
-        """(handle, bounds) of each row of the results that names an account: an account row by
-        its username, a keyword row by the handle its subtitle starts with."""
-        rows = []
-        for row in etree.fromstring(self.results.encode("utf-8")).iter("node"):
-            if row.get("resource-id") == ROW_ID:
-                rows += [(node.get("text"), _bounds(row)) for node in row.iter("node")
-                         if node.get("resource-id") == ROW_USERNAME_ID]
-            elif row.get("resource-id") == KEYWORD_TITLE_ID:
-                rows += [(node.get("text").split(KEYWORD_SUBTITLE_SEPARATOR)[0], _bounds(row.getparent()))
-                         for node in row if node.get("resource-id") == KEYWORD_SUBTITLE_ID]
-        return rows
-
-    def avatar_rings(self) -> list:
-        """The bounds of the avatar rings of the results, each a button that opens a story."""
-        return [_bounds(node) for node in etree.fromstring(self.results.encode("utf-8")).iter("node")
-                if node.get("resource-id") == AVATAR_RING_ID]
 
 
 SEARCH_410 = SearchScreens(
@@ -121,6 +134,7 @@ SEARCH_447_KEYWORD_ROW = SearchScreens(
     explore=_capture("ig447_fr_explore_grid.xml"),
     results=_capture("ig447_fr_search_keyword_row_names_the_handle.xml"),
     width=1080, height=2400, version="447.0.0.55.81",
+    keyword_results=_capture("ig447_fr_keyword_results_after_keyword_row.xml"), keyword_results_of="name_1",
 )
 SEARCH_447_LEFT_OPEN = SearchScreens(
     home=_capture("ig447_fr_home_feed.xml"),
@@ -161,6 +175,8 @@ class SearchPhone:
         self.screen = self.stack.pop(0) if self.stack else screens.home
         self.info = {"displayWidth": screens.width, "displayHeight": screens.height}
         self.taps = []
+        self.row_hits = []
+        self.button_hits = []
         self.typed = []
         self.presses = []
         self.xpath = XPathEntry(self)
@@ -182,6 +198,12 @@ class SearchPhone:
 
     def click(self, x, y):
         self.taps.append((x, y))
+        hits = [(kind, handle) for kind, handle, box in result_rows(self.screen) if _inside((x, y), box)]
+        self.row_hits += hits
+        self.button_hits += [(x, y) for box in row_buttons(self.screen) if _inside((x, y), box)]
+        if ("keyword", self.screens.keyword_results_of) in hits:
+            self.screen = self.screens.keyword_results
+            return
         tab = self.screens.search_tab(self.screen)
         if self.screen is self.screens.home and tab and _inside((x, y), tab):
             self.screen = self.screens.explore
@@ -196,11 +218,13 @@ class SearchPhone:
             self.screen = self.screens.results
 
     def rows_tapped(self) -> list:
-        """The handles of the result rows a tap landed in, in order."""
-        rows = self.screens.result_rows()
-        return [handle for tap in self.taps for handle, box in rows if _inside(tap, box)]
+        """The handles of the result rows a tap landed in, in order, keyword rows included."""
+        return [handle for _kind, handle in self.row_hits]
 
-    def avatar_rings_tapped(self) -> list:
-        """The taps that landed on an avatar ring of the results."""
-        rings = self.screens.avatar_rings()
-        return [tap for tap in self.taps if any(_inside(tap, ring) for ring in rings)]
+    def keyword_rows_tapped(self) -> list:
+        """The handles of the keyword rows a tap landed in."""
+        return [handle for kind, handle in self.row_hits if kind == "keyword"]
+
+    def row_buttons_tapped(self) -> list:
+        """The taps that landed on a button drawn over a result row (avatar ring, follow)."""
+        return list(self.button_hits)

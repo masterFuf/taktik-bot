@@ -16,8 +16,11 @@ Instagram 447 lists some accounts only in a keyword row: a title that is a query
 names the account ("nasa • 104 M followers"). The search read only the account rows and opened
 nobody there (the phone session of 2026-10-24: `forceSearch` on @nasa, False; the deep link hid
 it). It now taps the keyword row whose subtitle starts with the exact handle and its " •" (a 447
-version override), never a neighbour's ("nasasolarsystem • 2,7 M followers"), and never the avatar
-ring drawn over the row, a button that opens the account's story.
+version override), never a neighbour's ("nasasolarsystem • 2,7 M followers"). That tap opens no
+profile (replayed on the phone the same day): it opens the results of the keyword, whose first row
+is the account row of the handle; the search then taps that account row, by its username, the one
+proof of the handle. No tap reaches a button drawn over a row: the avatar ring (a story), the
+follow button of the keyword's results.
 
 The search also starts from where an earlier run left the phone (same session, a cold DM after a
 likers run): a likers sheet over a post, the post, the profile it was opened from, then the
@@ -60,6 +63,7 @@ from search_screens_phone import (
     SEARCH_447_KEYWORD_ROW,
     SEARCH_447_LEFT_OPEN,
     SearchPhone,
+    row_buttons,
     selectors_of,
 )
 
@@ -92,6 +96,7 @@ def phone_on(monkeypatch):
 
     def build(screens, stack=()):
         phone = SearchPhone(screens, stack=stack)
+        phone.tap_zones = []
         versions.enter_context(selectors_of(screens))
         monkeypatch.setattr(base_action_module, "ensure_taktik_keyboard", lambda *_a, **_k: True)
         monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard", lambda *_a, **_k: True)
@@ -99,12 +104,11 @@ def phone_on(monkeypatch):
                             lambda _device, _serial, text, **_k: phone.keyboard_types(text) or True)
 
         def human_tap(facade, bounds, **kwargs):
-            phone.tap_zones.append(tuple(bounds))
+            phone.tap_zones.append((phone.screen, tuple(bounds)))
             return aimed_human_tap(facade, bounds, **kwargs)
 
         monkeypatch.setattr(shared_facade_module.BaseDeviceFacade, "human_tap", human_tap)
         phone.deep_links = deep_links
-        phone.tap_zones = []
         return phone
 
     for module in (facade_module, shared_facade_module, search_navigation, delays_module):
@@ -144,28 +148,28 @@ def test_the_account_listed_is_opened_by_its_row(phone_on, screens, handle):
     assert opened == [handle]
 
 
-@pytest.mark.parametrize("screens, handle", [(SEARCH_447, "user_3"), (SEARCH_447_KEYWORD_ROW, "name_1")],
-                         ids=["titled-by-another-query", "titled-by-its-handle"])
-def test_an_account_listed_only_in_a_keyword_row_is_opened_by_that_row(phone_on, screens, handle):
-    """Instagram 447: no account row of the handle typed, the first account row a neighbour's
-    (`user_3x`, `name_11`). The keyword row that names it is tapped, and no deep link is needed."""
-    phone, opened = phone_on(screens), []
-
-    assert _navigation(phone, opened).navigate_to_profile(handle, force_search=True) is True
-
-    assert phone.typed == [handle]
-    assert phone.rows_tapped() == [handle]
-    assert opened == [handle] and phone.deep_links == []
-
-
-def test_a_neighbour_listed_in_a_keyword_row_is_opened_by_its_own_row(phone_on):
-    """`name_1s` holds `name_1` at its start: its row is the second keyword row, never the first."""
+def test_an_account_listed_only_in_a_keyword_row_is_opened_from_that_keyword_s_results(phone_on):
+    """Instagram 447: no account row of `name_1`, the first account row a neighbour's (`name_11`).
+    Its keyword row is tapped; on the keyword's results, its account row; no deep link."""
     phone, opened = phone_on(SEARCH_447_KEYWORD_ROW), []
 
-    assert _navigation(phone, opened).navigate_to_profile("name_1s", force_search=True) is True
+    assert _navigation(phone, opened).navigate_to_profile("name_1", force_search=True) is True
 
-    assert phone.rows_tapped() == ["name_1s"]
-    assert opened == ["name_1s"]
+    assert phone.typed == ["name_1"]
+    assert phone.keyword_rows_tapped() == ["name_1"]
+    assert phone.rows_tapped() == ["name_1", "name_1"]
+    assert opened == ["name_1"] and phone.deep_links == []
+
+
+def test_a_keyword_row_whose_results_list_no_account_row_of_the_handle_opens_nobody(phone_on):
+    """`name_1s` holds `name_1` at its start: its own keyword row is tapped, never the first one.
+    What it opens was not captured, the screen stays: no account row of `name_1s`, nobody opened."""
+    phone, opened = phone_on(SEARCH_447_KEYWORD_ROW), []
+
+    assert _navigation(phone, opened).navigate_to_profile("name_1s", force_search=True) is False
+
+    assert phone.keyword_rows_tapped() == ["name_1s"]
+    assert opened == [] and phone.deep_links == []
 
 
 @pytest.mark.parametrize("handle", ["name_1x", "name_"])
@@ -182,17 +186,18 @@ def test_a_handle_no_row_names_opens_nobody(phone_on, handle):
 
 
 @pytest.mark.parametrize("screens, handle", [(SEARCH_447_KEYWORD_ROW, "name_1"), (SEARCH_447, "user_2")],
-                         ids=["keyword-row", "account-row"])
-def test_the_tap_on_a_row_is_aimed_clear_of_its_avatar_ring(phone_on, screens, handle):
-    """The ring is a button over the row (right of a keyword row, left of an account row) that
-    opens a story: the zone the tap is drawn in leaves it out."""
+                         ids=["keyword-row-then-its-results", "account-row"])
+def test_the_taps_on_rows_are_aimed_clear_of_the_buttons_over_them(phone_on, screens, handle):
+    """The avatar ring (right of a keyword row, left of an account row) opens a story; the follow
+    button of an account row of a keyword's results follows: each zone a tap is drawn in leaves
+    the buttons of its screen out."""
     phone, opened = phone_on(screens), []
 
     assert _navigation(phone, opened).navigate_to_profile(handle, force_search=True) is True
 
-    row_zone = phone.tap_zones[-1]
-    assert not any(_crosses(row_zone, ring) for ring in screens.avatar_rings())
-    assert phone.avatar_rings_tapped() == []
+    row_zones = phone.tap_zones[-2:] if screens is SEARCH_447_KEYWORD_ROW else phone.tap_zones[-1:]
+    assert all(not any(_crosses(zone, button) for button in row_buttons(screen)) for screen, zone in row_zones)
+    assert phone.row_buttons_tapped() == []
 
 
 @pytest.mark.parametrize("screens", [SEARCH_410, SEARCH_447], ids=["ig410", "ig447"])
@@ -218,25 +223,26 @@ def test_a_text_that_is_no_handle_touches_nothing(phone_on, given):
 
 
 def test_the_search_results_left_open_are_searched_in_as_they_are(phone_on):
-    """The capture the phone session kept of the screen the cold DM could not leave; `name_21` is
-    the account its keyword row names ("natgeo • 268 M followers")."""
+    """The capture the phone session kept of the screen the cold DM could not leave; `name_70` is an
+    account row of it (the results stay those of the query left open: the phone types, the screen
+    does not change)."""
     phone, opened = phone_on(SEARCH_447_LEFT_OPEN, LEFT_OPEN_STACK[-1:]), []
 
-    assert _navigation(phone, opened).navigate_to_profile("name_21", force_search=True) is True
+    assert _navigation(phone, opened).navigate_to_profile("name_70", force_search=True) is True
 
     assert phone.presses == []
-    assert phone.typed == ["name_21"]
-    assert phone.rows_tapped() == ["name_21"]
-    assert opened == ["name_21"] and phone.deep_links == []
+    assert phone.typed == ["name_70"]
+    assert phone.rows_tapped() == ["name_70"]
+    assert opened == ["name_70"] and phone.deep_links == []
 
 
 def test_from_a_likers_sheet_the_way_back_stops_on_the_search_screen(phone_on):
     """Sheet, post, profile: three Backs, then the search results, where the search goes on."""
     phone, opened = phone_on(SEARCH_447_LEFT_OPEN, LEFT_OPEN_STACK), []
 
-    assert _navigation(phone, opened).navigate_to_profile("name_21", force_search=True) is True
+    assert _navigation(phone, opened).navigate_to_profile("name_70", force_search=True) is True
 
     assert phone.presses == ["back", "back", "back"]
-    assert phone.typed == ["name_21"]
-    assert phone.rows_tapped() == ["name_21"]
-    assert opened == ["name_21"] and phone.deep_links == []
+    assert phone.typed == ["name_70"]
+    assert phone.rows_tapped() == ["name_70"]
+    assert opened == ["name_70"] and phone.deep_links == []

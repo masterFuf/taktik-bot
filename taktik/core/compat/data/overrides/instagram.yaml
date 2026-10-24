@@ -48,11 +48,17 @@ versions:
   # and a subtitle that names the account ("nasa • 104 M followers"), no account row. Seen on
   # every 447 search for "nasa" (Pixel 6a, 2026-09-28 and 2026-10-24); the search opened nobody.
   # The row is the clickable parent of `search_keyword_title`; `{username}` is the exact handle,
-  # followed by " •" so that "nasasolarsystem • ..." is not "nasa".
+  # followed by " •" so that "nasasolarsystem • ..." is not "nasa". Its tap opens the results of
+  # the keyword, whose account rows carry a follow button (`row_search_user_follow_button`), kept
+  # out of the tap on a row with the avatar ring of the baseline (2026-10-24).
   "447.0.0.0":
 
     navigation._search_result_keyword_row_templates:
       - '//*[@clickable="true"][./*[@resource-id="com.instagram.android:id/search_keyword_title"]/*[@resource-id="com.instagram.android:id/row_search_keyword_subtitle" and starts-with(@text, "{username} •")]]'
+
+    navigation.search_result_tap_keep_out:
+      - '//*[@resource-id="com.instagram.android:id/row_search_avatar_with_ring"]'
+      - '//*[@resource-id="com.instagram.android:id/row_search_user_follow_button"]'
 
     detection._business_account_indicators_base:
       - '//*[contains(@resource-id, "profile_header_business_category")]'

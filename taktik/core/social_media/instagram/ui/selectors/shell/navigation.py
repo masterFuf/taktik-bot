@@ -126,19 +126,22 @@ class NavigationSelectors:
     # 447, whose title is a query ("nasa", or "interpretação espiritual nasa") and whose subtitle
     # names the account: "nasa • 104 M followers". `{username}` stands for the exact handle; the
     # " •" after it keeps out a neighbour that holds it ("nasasolarsystem • 2,7 M followers").
+    # Its tap opens no profile: it opens the results of that keyword, whose first row is the
+    # account row of the handle (phone session 2026-10-24). The subtitle only says which row to
+    # tap; the account is chosen on the next page, by its account row.
     # Empty in the reference: no keyword row of the 410 corpus has a subtitle (25 search screens
     # with a keyword row, 2026-09-25 to 09-28); the 447 entry is in the version overrides.
     _search_result_keyword_row_templates: List[str] = field(default_factory=list)
 
-    # What a tap on a result row must never reach: the avatar ring, a button of its own over the
-    # row (left of an account row, right of a keyword row), which opens the account's story.
-    search_result_avatar_ring: List[str] = field(default_factory=lambda: [
+    # What a tap on a result row must never reach, buttons of their own over the row: the avatar
+    # ring, which opens the account's story (left of an account row, right of a keyword row). On
+    # 447 the account rows of a keyword's results also carry a follow button (version overrides).
+    search_result_tap_keep_out: List[str] = field(default_factory=lambda: [
         '//*[@resource-id="com.instagram.android:id/row_search_avatar_with_ring"]',
     ])
 
     def search_result_selectors_for_username(self, username: str) -> List[str]:
-        """Build selectors for a search result row matching an exact username: its account row
-        first, then a row of another kind that names that exact handle (version overrides)."""
+        """Build selectors for the account row of an exact username, in search results."""
         container_id = self.search_result_container_resource_id
         username_id = self.search_result_username_resource_id
         return [
@@ -146,7 +149,11 @@ class NavigationSelectors:
             f'//*[contains(@resource-id, "{container_id}")][.//*[@text="{username}"]]',
             f'//android.widget.TextView[contains(@resource-id, "{username_id}") and @text="{username}"]',
             f'//*[@clickable="true"][.//*[contains(@resource-id, "{username_id}") and @text="{username}"]]',
-        ] + [template.replace("{username}", username) for template in self._search_result_keyword_row_templates]
+        ]
+
+    def search_keyword_row_selectors_for_username(self, username: str) -> List[str]:
+        """Build selectors for a keyword row that names an exact username (version overrides)."""
+        return [template.replace("{username}", username) for template in self._search_result_keyword_row_templates]
 
     def hashtag_result_selectors(self, hashtag: str) -> List[str]:
         """Build selectors for a hashtag result entry."""
