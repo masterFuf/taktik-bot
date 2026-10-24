@@ -1,4 +1,4 @@
-"""One reading of a Lab yes/no parameter (`lab_flag`), for every action that takes one.
+"""One reading of a Lab yes/no parameter (`lab_flag`) and of a count (`lab_int`), for every action.
 
 Five actions read their switches their own way: the feed browsing took any unknown text for yes,
 the cold DM, the unfollows and the suggestions for no. The reading is now one: absent or empty
@@ -7,7 +7,7 @@ gives the action's default, a known yes or no is read, anything else is refused 
 
 import pytest
 
-from bridges.tools.lab.action_test.params import lab_flag
+from bridges.tools.lab.action_test.params import lab_flag, lab_int
 
 
 @pytest.mark.parametrize("value", [True, 1, "1", "true", "TRUE", " yes ", "oui"])
@@ -29,3 +29,22 @@ def test_an_absent_value_is_the_default(params, default):
 def test_a_text_that_says_neither_is_refused_by_name():
     with pytest.raises(ValueError, match="skip_ads"):
         lab_flag({"skip_ads": "sometimes"}, "skip_ads", True)
+
+
+# `lab_int`, the same contract for a count.
+
+
+@pytest.mark.parametrize("value, expected", [(3, 3), ("4", 4), (" 12 ", 12)])
+def test_a_count_is_read(value, expected):
+    assert lab_int({"n": value}, "n", 1) == expected
+
+
+@pytest.mark.parametrize("params", [{}, {"n": None}, {"n": ""}], ids=["absent", "none", "empty"])
+def test_an_absent_count_is_the_default(params):
+    assert lab_int(params, "n", 5) == 5
+
+
+@pytest.mark.parametrize("value", ["three", "2.5", True])
+def test_a_count_that_is_not_a_whole_number_is_refused_by_name(value):
+    with pytest.raises(ValueError, match="max_stories"):
+        lab_int({"max_stories": value}, "max_stories", 3)

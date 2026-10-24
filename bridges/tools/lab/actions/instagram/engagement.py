@@ -14,6 +14,7 @@ exact path the workflows run. No hardcoded selectors here.
 from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action, detection_action
+from bridges.tools.lab.action_test.params import lab_flag, lab_int
 
 
 @action("engagement.like_current_post")
@@ -125,18 +126,25 @@ def _dict_result(result, ok_msg, fail_msg):
 
 @action("engagement.view_profile_stories")
 def view_profile_stories(a, p):
-    """Watch ``username``'s stories via the production StoryBusiness flow (open ring +
-    watch + like/react/skip-ad per config). Params: username (required),
-    max_stories (default 3)."""
-    username = (p.get("username") or "").strip()
-    if not username:
-        return {"success": False, "message": "username param is required"}
-    try:
-        max_stories = int(p.get("max_stories") or 3)
-    except (TypeError, ValueError):
-        max_stories = 3
-    return _dict_result(a.story.view_profile_stories(username, max_stories=max_stories),
-                        f"@{username}: stories viewed", f"@{username}: no stories / failed")
+    """Watch the stories of the profile ON SCREEN the way every profile visit of a workflow does
+    (``InteractionEngineMixin._view_stories_on_current_profile``, which ``_do_watch_story`` calls):
+    the ring, each slide watched with the check that it did not leave on its own, likes in
+    proportion to the story when asked, the viewer closed. Be on the profile. Params: username
+    (the visit's name, for the logs), max_stories (default 3), story_like (default no),
+    max_story_likes (default 3)."""
+    username = (p.get("username") or "").strip().lstrip("@")
+    result = a.popup._view_stories_on_current_profile(
+        username,
+        do_story_like=lab_flag(p, "story_like", False),
+        max_story_likes=lab_int(p, "max_story_likes", 3),
+        max_stories=lab_int(p, "max_stories", 3),
+    )
+    if not result:
+        return {"success": False,
+                "message": "no story watched: no story ring on this profile, or the viewer did not open"}
+    return {"success": True,
+            "message": f"{result.get('stories_viewed', 0)} slide(s) watched, {result.get('stories_liked', 0)} liked",
+            "details": result}
 
 
 @action("engagement.view_feed_stories")
@@ -186,35 +194,35 @@ def unfollow_from_list(a, p):
             "details": plain_stats(stats)}
 
 
-def _ui_helpers(a):
-    # UIHelpers reads only automation.device + automation.logger (verified): give it the warm
-    # facade so the REAL interact_with_likers/has_likes prod code runs (not a Lab-only path).
-    from types import SimpleNamespace
-    from taktik.core.social_media.instagram.workflows.common.ui_helpers import UIHelpers
-    return UIHelpers(SimpleNamespace(device=a.device, logger=logger))
-
-
 @action("engagement.engage_likers")
 def engage_likers(a, p):
-    """Engage the likers of the OPEN post via the production loop
-    (UIHelpers.interact_with_likers): read likers popup + follow a share of them. The likers
-    popup must be open. Params: max_interactions (default 5), follow_percentage (0-1, default
-    1.0), like_percentage (0-1, default 0)."""
-    def _f(key, default):
-        try:
-            return float(p.get(key))
-        except (TypeError, ValueError):
-            return default
-    try:
-        max_interactions = int(p.get("max_interactions") or 5)
-    except (TypeError, ValueError):
-        max_interactions = 5
-    count = _ui_helpers(a).interact_with_likers(max_interactions, _f("like_percentage", 0.0),
-                                                _f("follow_percentage", 1.0), {})
-    return {"success": bool(count), "message": f"{count} liker(s) engaged", "details": {"interactions": count}}
+    """Walk the likers of the OPEN post with the loop of the feed, hashtag and post URL workflows
+    (``LikersWorkflowBase._interact_with_likers_list``): each row opened, the profile filtered,
+    the planned interactions made, the list found again. The likers popup must be open. Params:
+    max_interactions (default 5), follow_percentage and like_percentage (0-100, as the workflow
+    pages set them; absent, the feed's defaults)."""
+    from taktik.core.social_media.instagram.actions.base.stats import create_workflow_stats
+
+    config = dict(a.feed.default_config)
+    for key in ("follow_percentage", "like_percentage"):
+        if p.get(key) not in (None, ""):
+            config[key] = lab_int(p, key, 0)
+    stats = create_workflow_stats("feed")
+    a.feed._interact_with_likers_list(
+        stats=stats,
+        effective_config=config,
+        max_interactions=lab_int(p, "max_interactions", 5),
+        source_type="FEED",
+        source_name="cartography-lab",
+    )
+    engaged = stats.get("users_interacted", 0)
+    return {"success": engaged > 0,
+            "message": f"{engaged} liker(s) engaged of {stats.get('users_found', 0)} seen",
+            "details": stats}
 
 
 @detection_action("engagement.has_likes")
 def has_likes(a, p):
-    """Detection: does the OPEN post have likes (gate before opening the likers popup)?"""
-    return _ui_helpers(a).has_likes_on_current_post()
+    """Detection: does the OPEN post show a like counter? The gate of the production opening of
+    the likers popup (``PopupHandlingMixin._find_like_count_element``): no counter, no likers."""
+    return a.popup._find_like_count_element() is not None

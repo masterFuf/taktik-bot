@@ -29,3 +29,20 @@ def lab_flag(params: Mapping[str, Any], name: str, default: bool) -> bool:
     if text in _NO:
         return False
     raise ValueError(f"Lab parameter '{name}' is neither yes nor no: {value!r}")
+
+
+def lab_int(params: Mapping[str, Any], name: str, default: int) -> int:
+    """`params[name]` as a whole number, `default` when it is absent or empty.
+
+    A text that is not a number is refused (ValueError naming the parameter), as `lab_flag` refuses
+    a text that says neither yes nor no: an action never runs on a count it did not get.
+    """
+    value = params.get(name)
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        raise ValueError(f"Lab parameter '{name}' is a yes/no, not a number: {value!r}")
+    try:
+        return int(str(value).strip())
+    except ValueError:
+        raise ValueError(f"Lab parameter '{name}' is not a whole number: {value!r}") from None
