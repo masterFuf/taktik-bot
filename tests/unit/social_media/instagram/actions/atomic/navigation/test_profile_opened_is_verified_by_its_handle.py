@@ -13,7 +13,12 @@ the facade the bridges mount:
   (`ig410_fr_profile_not_loaded.xml`, the bot's own dump), and a loaded profile whose action bar
   shows `user_1` (`ig410_fr_profile_follow_back.xml`);
 - Instagram 447 in French: a loaded profile whose action bar shows `name_1`
-  (`ig447_fr_profile_verified_business.xml`).
+  (`ig447_fr_profile_verified_business.xml`);
+- a profile opened on a phone without network (phone session of 2026-10-24, Instagram 447 on a
+  Pixel 6a and 410 on a Pixel 6 Pro): no handle, and Instagram's own « Utilisateur(ice)
+  introuvable » (`no_found_text`), the words it also shows for an account that does not exist
+  (`ig447_fr_profile_offline_user_not_found.xml`, `ig410_fr_profile_offline_user_not_found.xml`).
+  Not verified, like any profile that shows no handle; what the words mean is not read here.
 """
 
 import pytest
@@ -34,6 +39,8 @@ FIXTURES = CORE / "tests/unit/social_media/instagram/fixtures"
 NOT_LOADED_410 = (FIXTURES / "ig410_fr_profile_not_loaded.xml").read_text(encoding="utf-8")
 USER_1_410 = (FIXTURES / "ig410_fr_profile_follow_back.xml").read_text(encoding="utf-8")
 NAME_1_447 = (FIXTURES / "ig447_fr_profile_verified_business.xml").read_text(encoding="utf-8")
+OFFLINE = {version: (FIXTURES / f"ig{version}_fr_profile_offline_user_not_found.xml").read_text(encoding="utf-8")
+           for version in ("410", "447")}
 
 
 class _Clock:
@@ -121,3 +128,9 @@ def test_a_profile_still_loading_after_the_wait_is_not_verified(verify):
 def test_the_handle_shown_on_instagram_447_is_read(verify):
     assert verify([(0, NAME_1_447)], "name_1") is True
     assert verify([(0, NAME_1_447)], "user_1") is False
+
+
+@pytest.mark.parametrize("version", ["410", "447"])
+def test_a_profile_opened_without_network_is_not_verified(verify, warnings, version):
+    assert verify([(0, OFFLINE[version])], "user_1") is False
+    assert any("No handle shown" in line and "user_1" in line for line in warnings)
