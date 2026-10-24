@@ -11,6 +11,7 @@ from typing import Any
 
 from loguru import logger
 
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.shared.diagnostics.layout_fingerprint import layout_fingerprint
 
 
@@ -365,17 +366,9 @@ def _resolve_app_version(device_id: str, package_name: str | None, platform: str
 def _resolve_resolution(bundle: Any) -> dict[str, int] | None:
     try:
         device = getattr(bundle, "device", None)
-        if device is not None and hasattr(device, "get_screen_size"):
-            width, height = device.get_screen_size()
-            return {"width": int(width), "height": int(height)}
-
-        raw_device = getattr(device, "_device", None)
-        info = getattr(raw_device, "info", None)
-        if isinstance(info, dict):
-            width = info.get("displayWidth")
-            height = info.get("displayHeight")
-            if width and height:
-                return {"width": int(width), "height": int(height)}
+        if device is not None:
+            width, height = screen_size_of(device)
+            return {"width": width, "height": height}
     except Exception as exc:
         logger.debug(f"Could not resolve screen resolution: {exc}")
 

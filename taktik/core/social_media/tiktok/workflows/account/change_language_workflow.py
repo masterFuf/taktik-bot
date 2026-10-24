@@ -24,6 +24,7 @@ from typing import Any, Callable, Dict, Optional
 from loguru import logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.shared.device.wait import find_element
 from taktik.core.shared.ui.language_detection import base_language
 from taktik.core.social_media.tiktok.actions.atomic.interaction.popup_actions import PopupActions
@@ -117,7 +118,7 @@ class TikTokChangeLanguageWorkflow:
         """
         try:
             bounds = element.get().bounds
-            height = self.device.window_size()[1]
+            height = screen_size_of(self.device)[1]
         except Exception:
             return True  # cannot measure -> do not block the flow on the check itself
         top, bottom = bounds[1], bounds[3]

@@ -13,6 +13,7 @@ from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.gesture_primitives import human_hswipe_raw
 from taktik.core.shared.telemetry import emit_step
 from taktik.core.social_media.instagram.actions.atomic.story_state import parse_story_position
+from taktik.core.shared.device.screen import screen_size_of
 
 
 _STORY_TRANSITION_POLL_DELAYS = (0.12, 0.18, 0.28, 0.40)
@@ -499,8 +500,7 @@ class SearchNavigationMixin(BaseAction):
     def navigate_to_next_story(self, *, settle: bool = True) -> bool:
         try:
             decision = self._plan_behavior_gesture("story_advance", "tap")
-            screen_width = self.device.info.get('displayWidth', 1080)
-            screen_height = self.device.info.get('displayHeight', 1920)
+            screen_width, screen_height = screen_size_of(self.device)
 
             # Advance zone (right side, mid band) — computed to AVOID any interactive sticker
             # (countdown, poll…) so a mis-tap never opens its blocking consumption sheet.

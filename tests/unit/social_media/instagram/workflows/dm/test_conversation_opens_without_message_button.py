@@ -14,6 +14,10 @@ Pixel 6 Pro's private follower (410). The phone is uiautomator2's own xpath engi
 clone proxy; a tap on the Direct tab opens the inbox, on "Nouveau message" the picker. Three seams,
 each covered by its own tests: the way home (`navigate_to_home`), the keyboard switch, and the
 typing, which here shows the picker's results. What a tap on the row opens has no capture yet.
+
+An account with a display name shows it on the first line of its row, its handle on the second
+(Pixel 6a, 447, the welcome DM to a private follower: "no row of @... in the picker" while the row
+was there from 2 s): `ig447_fr_dm_new_message_results_named_account.xml`.
 """
 
 import re
@@ -41,6 +45,7 @@ FILES = {
     "inbox": "ig447_fr_dm_inbox_pills.xml",
     "picker": "ig447_fr_dm_new_message_picker.xml",
     "results": "ig447_fr_dm_new_message_results.xml",
+    "results_named": "ig447_fr_dm_new_message_results_named_account.xml",
     "private_410": "ig410_fr_profile_private_follow_back_no_message.xml",
     "own_profile": "ig410_fr_own_profile.xml",
 }
@@ -143,7 +148,7 @@ def phone_on(monkeypatch):
     for module in (messaging, navigation, wait_module):
         monkeypatch.setattr(module, "time", fake_time)
 
-    def build(screen):
+    def build(screen, results="results"):
         phone = _Phone(screen)
 
         def home(_self):
@@ -152,7 +157,7 @@ def phone_on(monkeypatch):
 
         def typed(_self, text, **_kwargs):
             phone.typed.append(text)
-            phone.screen = "results"
+            phone.screen = results
             return True
 
         monkeypatch.setattr(NavigationActions, "navigate_to_home", home)
@@ -179,6 +184,19 @@ def test_a_profile_without_message_button_writes_from_the_new_message_picker(pho
     assert _inside(field, "picker", DM_SELECTORS.new_message_search_field)
     assert _inside(row, "results", ACCOUNT_ROW)
     assert not _inside(row, "results", INVITATION_ROW)
+
+
+def test_the_row_of_an_account_with_a_display_name_is_found_by_its_second_line(phone_on):
+    phone = phone_on("profile", results="results_named")
+    named_row = (f'//*[@resource-id="com.instagram.android:id/row_user_secondary_name"][@text="{HANDLE}"]'
+                 '/ancestor::*[@resource-id="com.instagram.android:id/user_row_background"][1]')
+
+    opened = MessagingBusiness(CloneAwareDeviceProxy(phone, PKG)).open_conversation_from_profile(HANDLE)
+
+    assert opened is True
+    row = phone.taps[-1]
+    assert _inside(row, "results_named", named_row)
+    assert not _inside(row, "results_named", INVITATION_ROW)
 
 
 def test_the_410_private_follower_takes_the_same_way(phone_on):

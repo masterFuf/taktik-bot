@@ -33,6 +33,7 @@ from taktik.core.social_media.instagram.workflows.dm.persistence import (
     resolve_account_id,
 )
 from taktik.core.social_media.instagram.workflows.dm.payload import DM_COMMANDS, dm_command_from_payload
+from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
 from taktik.core.social_media.instagram.workflows.dm.session import ensure_dm_inbox, return_to_inbox
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
@@ -82,6 +83,11 @@ def _read(runtime, limit: int, emit: Optional[Emit]) -> dict[str, Any]:
 
     if not runtime.navigate_to_dm_inbox():
         return _failure("Cannot navigate to DM inbox")
+    # The reading reads the main conversations (« Principal » / « Primary »), where every DM path
+    # leaves the inbox (`ensure_dm_inbox`, the reset after a read): put on display before the first
+    # row, not after the reading (Pixel 6a, 447, 2026-10-24). Not found: said, and the inbox read
+    # as it shows.
+    runtime._ensure_primary_tab()
 
     # Identify which of our accounts owns this inbox so the persisted threads link to the
     # right account. Read it from the inbox header (no navigation); fall back to a profile
@@ -97,6 +103,8 @@ def _read(runtime, limit: int, emit: Optional[Emit]) -> dict[str, Any]:
 
     time.sleep(2)
     conversations = runtime.read_conversations(limit)
+    if conversations is None:
+        return _failure("The DM inbox is not on screen: no conversation read")
 
     # Leave the inbox in a deterministic state for the next command. Without
     # this, the following send process can start from the bottom of a long DM
@@ -147,6 +155,8 @@ def _read_requests(runtime, limit: int) -> dict[str, Any]:
     time.sleep(2)
     # Request rows reuse the inbox row structure, so the standard reader handles them.
     conversations = runtime.read_conversations(limit)
+    if conversations is None:
+        return _failure("The requests folder is not on screen: no conversation read")
 
     return {
         "type": "result",
@@ -170,7 +180,11 @@ def _send(runtime, username: str, message: str) -> dict[str, Any]:
         if not runtime.open_conversation(username):
             return _failure(f"Cannot find conversation with {username}")
 
-    sent = runtime.send_message(message)
+    # The reply is filed with the thread the reading filed, under the partner's handle when the
+    # conversation's header gives it (the inbox row, which the front sends, shows the name).
+    _shown_name, handle = runtime._read_conversation_partner()
+    partner = handle or username
+    outcome = runtime.send_message(message)
     # The one look after a write. Refused, nothing is recorded and the dialog stays on screen
     # (the way back to the inbox would close it, which is acting again).
     device = getattr(runtime, "device", None)
@@ -178,13 +192,19 @@ def _send(runtime, username: str, message: str) -> dict[str, Any]:
                                                     target=username):
         return {**_failure("Instagram refuses the message (Try again later)"),
                 "stop_reason": "action_blocked"}
-    if not sent:
+    if outcome is ReplyOutcome.PENDING:
+        # In the conversation, waiting for the network: it leaves by itself. Not a send proven
+        # (nothing recorded), not a failure to try again (a second one would be sent).
+        return_to_inbox(runtime)
+        return {**_failure("The reply waits to be sent: Instagram sends it when the network is back"),
+                "error_code": "DM_SEND_PENDING", "pending": True, "username": username, "message": message}
+    if outcome is not ReplyOutcome.SENT:
         return _failure("Failed to send message")
 
     return_to_inbox(runtime)
     # Persist the reply (best-effort). Reuses the account of the thread read earlier;
     # only resolves identity (profile visit) if this conversation was never read.
-    record_reply(account_id_for_send(runtime, username), username, message)
+    record_reply(account_id_for_send(runtime, partner), partner, message)
     return {"type": "result", "success": True, "username": username, "message": message}
 
 

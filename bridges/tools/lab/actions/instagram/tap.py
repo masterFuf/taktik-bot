@@ -7,6 +7,7 @@ before/after screenshots — the touch should move around within the element.
 """
 
 from bridges.tools.lab.actions.instagram import action
+from taktik.core.shared.device.screen import screen_size_of
 
 
 @action("tap.human")
@@ -38,7 +39,7 @@ def tap_human(a, p):
             return {"success": False, "message": f"selecteur introuvable: {str(exc)[:120]}"}
 
     if bounds is None:
-        width, height = a.device._device.window_size()
+        width, height = screen_size_of(a.device)
         bounds = (int(width * 0.30), int(height * 0.42), int(width * 0.70), int(height * 0.58))
 
     point = a.device.human_tap(bounds)

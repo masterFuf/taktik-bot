@@ -12,10 +12,13 @@ from taktik.core.shared.device.platform_device import PlatformDeviceBase
 from taktik.core.compat.selectors import setup as compat_setup
 from taktik.core.shared.device import app_manager, connection
 from taktik.core.shared.device.facade import BaseDeviceFacade
+from taktik.core.shared.device.screen import ScreenSizeUnreadable
 
 
 class _Raw:
-    """A uiautomator2 device (no `.device` attribute of its own)."""
+    """A uiautomator2 device (no `.device` attribute of its own), which gives its screen size."""
+
+    info = {"displayWidth": 720, "displayHeight": 1600}
 
 
 class _Connection:
@@ -33,10 +36,6 @@ class _Connection:
     @property
     def device(self):
         return self._device
-
-    @property
-    def screen_size(self):
-        return (720, 1600)
 
     def connect(self):
         if not self.connects:
@@ -92,7 +91,8 @@ def test_a_new_base_holds_its_connection_and_nothing_else():
     assert base._connection is _Connection.built[0]
     assert (base.device_id, base.package_name) == ("SERIAL", "com.instagram.barcelona")
     assert (base.device, base.device_manager, base._app) == (None, None, None)
-    assert (base.screen_width, base.screen_height) == (1080, 2340)
+    with pytest.raises(ScreenSizeUnreadable):
+        base.screen_width  # no phone yet: no size, never a made-up one
 
 
 def test_a_named_package_is_the_package_of_the_base():

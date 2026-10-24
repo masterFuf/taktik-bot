@@ -243,6 +243,7 @@
    "navigate_to_profile closed_one force_search=True",
    "read_profile_screen",
    "found id:private_profile_empty_state",
+   "open_conversation_from_profile closed_one",
    "navigate_to_home"
   ],
   "stdout": [
@@ -270,7 +271,7 @@
     "success": true,
     "dmsSent": 1,
     "dmsSuccess": 1,
-    "dmsFailed": 0,
+    "dmsFailed": 1,
     "error": null,
     "textsRefused": 0
    }

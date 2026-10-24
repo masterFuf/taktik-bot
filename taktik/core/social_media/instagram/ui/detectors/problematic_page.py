@@ -9,6 +9,7 @@ from loguru import logger
 from taktik.core.shared.diagnostics.ui_dump_files import dump_ui_hierarchy, capture_screenshot
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.shared.device.app_inspection import foreground_activity
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.social_media.instagram.ui.selectors import POPUP_SELECTORS, PROBLEMATIC_PAGE_SELECTORS
 from taktik.core.social_media.instagram.ui.selectors.locales import L_all, active_locale, available_locales
 
@@ -345,8 +346,7 @@ class ProblematicPageDetector:
         feuille déployée à fond, et un glissement partant de là ouvrirait le panneau de
         notifications d'Android au lieu de fermer la feuille. Dans ce cas on appuie sur retour.
         """
-        info = self.device.info
-        hauteur = info.get('displayHeight', 1920)
+        _largeur, hauteur = screen_size_of(self.device)
         for selector in selectors:
             try:
                 element = self.device(**selector)
@@ -371,9 +371,7 @@ class ProblematicPageDetector:
 
     def _swipe_from_middle(self, etiquette: str) -> bool:
         """Repli sans poignée : partir du MILIEU de l'écran, jamais du haut."""
-        info = self.device.info
-        largeur = info.get('displayWidth', 1080)
-        hauteur = info.get('displayHeight', 1920)
+        largeur, hauteur = screen_size_of(self.device)
         x = largeur // 2
         depart_y = int(hauteur * 0.50)
         fin_y = int(hauteur * 0.92)

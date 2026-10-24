@@ -2,6 +2,7 @@
 
 import time
 from typing import TYPE_CHECKING
+from taktik.core.shared.device.screen import screen_size_of
 
 if TYPE_CHECKING:
     from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
@@ -199,7 +200,7 @@ class PopupHandlingMixin:
                     handle_y = (bounds.get('top', 710) + bounds.get('bottom', 710)) // 2
                     center_x = (bounds.get('left', 492) + bounds.get('right', 588)) // 2
                     
-                    screen_height = self.device.info.get('displayHeight', 1920)
+                    _width, screen_height = screen_size_of(self.device)
                     
                     # If handle is near top of screen (< 10%), bottom sheet is fully
                     # expanded — swipe won't work, use back press directly
@@ -224,10 +225,10 @@ class PopupHandlingMixin:
                         time.sleep(0.8)
                     return True
             
-            screen_info = self.device.info
-            center_x = screen_info.get('displayWidth', 1080) // 2
-            handle_y = int(screen_info.get('displayHeight', 1920) * 0.37)
-            end_y = int(screen_info.get('displayHeight', 1920) * 0.95)
+            screen_width, screen_height = screen_size_of(self.device)
+            center_x = screen_width // 2
+            handle_y = int(screen_height * 0.37)
+            end_y = int(screen_height * 0.95)
             self.device.swipe_coordinates(center_x, handle_y, center_x, end_y, duration=0.3)
             time.sleep(0.5)
             

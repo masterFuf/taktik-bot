@@ -364,6 +364,9 @@ def _dm_class():
         def navigate_to_dm_inbox(self):
             return True
 
+        def _ensure_primary_tab(self):
+            return True
+
         def open_requests_folder(self):
             return True
 
@@ -374,7 +377,9 @@ def _dm_class():
             return True
 
         def send_message(self, message):
-            return True
+            from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+
+            return ReplyOutcome.SENT
 
         def read_conversations(self, limit):
             read = build_conversation_payload(

@@ -787,6 +787,35 @@ class PostReadingMixin:
                           f"heart {'on' if (after or {}).get('heart') else 'not on'} screen")
         return report
 
+    def show_framed_post_row_of(self, identity: Optional[str], what: str) -> Optional[Dict[str, Any]]:
+        """The framed post's button row runs under the bottom of the list: bring it up
+        (`show_framed_post_buttons`), then the like target of the SAME post (`identity`, its
+        header's description), its heart and row on screen. What a gesture of that row needs first:
+        the like (its heart), the opening of its likers (its counter).
+
+        None, and why in the log (`what` names what is then not done), when no post is framed, no
+        gesture could show the row, the post changed during it, or the heart is still off the
+        screen."""
+        if identity is None:
+            self.logger.warning(f"No framed post: no {what}")
+            return None
+        shown = self.show_framed_post_buttons()
+        after = shown.get("target")
+        reason = shown.get("reason")
+        if not isinstance(after, dict) or not after.get("list"):
+            self.logger.warning(f"Screen unreadable after showing the framed post's buttons ({reason}): no {what}")
+            return None
+        if after.get("identity") != identity:
+            self.logger.warning(
+                f"Framed post changed while showing its buttons ({identity} -> {after.get('identity')}): no {what}"
+            )
+            return None
+        if after.get("heart") is None or after.get("row") is None:
+            self.logger.warning(f"Framed post's buttons still not on screen ({identity}, {reason}): no {what}")
+            return None
+        self.logger.debug(f"Framed post's buttons shown ({reason}): {identity}")
+        return after
+
     def _reread_caption_without_xml(self, bounds) -> Optional[str]:
         """Re-read a caption through JSON-RPC instead of the XML dump.
 

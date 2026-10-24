@@ -60,7 +60,9 @@ def test_a_private_profile_with_a_message_button_is_tried_when_allowed(igc_rig):
     _check("private_allowed", igc_rig, igc_rig.run_bridge(cold_dm_payload(skipPrivateAccounts=False)))
 
 
-def test_a_private_profile_without_a_button_is_a_skip_of_its_own(igc_rig):
+def test_a_private_profile_without_a_button_is_tried_from_the_inbox_when_allowed(igc_rig):
+    # Re-recorded on 2026-10-24: it was a skip of its own (`private_no_message_button`); the
+    # opening now writes to it from the inbox's new-message picker, as to a public profile.
     _check("private_no_button", igc_rig, igc_rig.run_bridge(cold_dm_payload(skipPrivateAccounts=False)))
 
 

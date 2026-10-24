@@ -353,6 +353,14 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.requests_pill_labels": [
         "Invitations",
     ],
+    # The main conversations pill of the inbox (Pixel 6 Pro, 410, 2026-10-24).
+    "direct_message.primary_pill_labels": [
+        "Principal",
+    ],
+    # L'icône d'une bulle à nous en attente d'envoi, sans réseau (Pixel 6 Pro, 410, 2026-10-24).
+    "direct_message.pending_send_descriptions": [
+        "Envoi…",
+    ],
     "direct_message.outgoing_digest_prefixes": [],
     "direct_message.send_button": [
         "//*[contains(@content-desc, \"Envoyer\")]",

@@ -4,6 +4,7 @@ import time
 import random
 from typing import Dict, List, Any, Optional
 from loguru import logger
+from taktik.core.shared.device.screen import screen_size_of
 
 from taktik.core.social_media.instagram.actions.base.base_business import BaseBusinessAction
 from taktik.core.database.instagram_posted_comments import InstagramPostedComments
@@ -359,9 +360,7 @@ class CommentAction(ThreadContextMixin, BaseBusinessAction):
         try:
             self.logger.debug("Closing comment popup...")
 
-            screen_info = self.device.info
-            screen_height = screen_info.get('displayHeight', 1920)
-            screen_width = screen_info.get('displayWidth', 1080)
+            screen_width, screen_height = screen_size_of(self.device)
 
             # ── Strategy 1: defocus the comment edittext ──────────────────────
             # Click the "Comments" title or the drag handle frame to remove focus

@@ -30,12 +30,6 @@ class ConnectedDevice:
     def device(self):
         return self._device
 
-    @property
-    def screen_size(self):
-        from taktik.core.shared.device.screen import read_screen_size
-
-        return read_screen_size(self._device)
-
     def connect(self) -> bool:
         return self._device is not None
 

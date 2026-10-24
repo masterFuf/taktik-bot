@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
 from loguru import logger
+from taktik.core.shared.device.screen import screen_size_of
 
 from taktik.core.social_media.threads import ThreadsManager
 from taktik.core.social_media.threads import ui as tui
@@ -188,8 +189,7 @@ def _open_search_screen(device, log_fn) -> bool:
             row_top, row_bottom = h.get("top", 0), h.get("bottom", 0)
             row_mid = (row_top + row_bottom) / 2 if row_bottom else 0
 
-            screen = device.info
-            screen_w = screen.get("displayWidth", 1080)
+            screen_w, _screen_h = screen_size_of(device)
 
             for el in device.xpath(tui.BUTTON_XPATH).all():
                 try:
@@ -222,9 +222,7 @@ def _open_search_screen(device, log_fn) -> bool:
 
     # Strategy 4: positional fallback based on the captured fraction.
     try:
-        info = device.info
-        w = info.get("displayWidth", 1080)
-        h = info.get("displayHeight", 1920)
+        w, h = screen_size_of(device)
         fx, fy = tui.FEED_SEARCH_LOUPE_FRACTION
         cx, cy = int(w * fx), int(h * fy)
         log_fn("info", f"Falling back to positional loupe tap at ({cx},{cy})")

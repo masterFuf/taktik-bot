@@ -10,6 +10,7 @@ from taktik.core.shared.device.ui_dump import index_of_closest_row, whole_in_ban
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.diagnostics import capture_screen_snapshot
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.social_media.instagram.actions.atomic.interaction.profile_interaction import (
     classify_follow_state,
 )
@@ -519,7 +520,7 @@ class UnfollowActionsMixin:
         content follows the finger), released at near-zero velocity. False when it failed."""
         try:
             d = self.device.device
-            width, height = d.window_size()
+            width, height = screen_size_of(self.device)
             x = int(width * random.uniform(*FOLLOW_LIST_DRAG_X))
             start = (x, int(height * start_share))
             end = (x + int(width * random.uniform(-0.03, 0.03)), int(height * end_share))

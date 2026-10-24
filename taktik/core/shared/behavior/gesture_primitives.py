@@ -26,6 +26,7 @@ from loguru import logger as _gesture_logger
 
 from .gesture import FULL_REACH_H, sample_swipe
 from .sampling import sample_within
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.shared.telemetry import emit_step
 
 
@@ -801,18 +802,7 @@ def _raw_host(device, logger=None) -> _RawGestureHost:
         host.device = _RawDeviceAdapter(device)   # a bare u2 device
         raw = device
     host.logger = logger or _gesture_logger
-    w = h = None
-    try:
-        if hasattr(device, "get_screen_size"):
-            w, h = device.get_screen_size()
-        else:
-            w, h = raw.window_size()
-    except Exception:
-        try:
-            info = raw.info
-            w, h = info['displayWidth'], info['displayHeight']
-        except Exception:
-            w, h = 1080, 1920
+    w, h = screen_size_of(device)
     host.screen_width, host.screen_height = int(w), int(h)
     return host
 

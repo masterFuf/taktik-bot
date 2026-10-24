@@ -52,7 +52,10 @@ def test_a_dm_the_keyboard_cannot_type_is_not_pasted(no_keyboard):
 
 @pytest.mark.parametrize("bridge", [_dm_bridge, _cold_dm_bridge], ids=["dm", "cold_dm"])
 def test_a_dm_bridge_sends_nothing_the_keyboard_could_not_type(no_keyboard, bridge):
-    assert not bridge(no_keyboard).send_message(TEXT)
+    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+
+    # The DM reply says what it came to (`ReplyOutcome`), the cold DM's sending True or False.
+    assert bridge(no_keyboard).send_message(TEXT) in (False, ReplyOutcome.NOT_SENT)
 
     assert _pasted(no_keyboard) == [] and no_keyboard.presses == []
 

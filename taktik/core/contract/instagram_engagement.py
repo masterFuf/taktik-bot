@@ -217,6 +217,9 @@ INSTAGRAM_DM_SEND = WorkflowContract(
         _dm_result(
             Field("username", "string", "The conversation replied in.", optional=True),
             Field("message", "string", "The reply sent.", optional=True),
+            Field("pending", "bool", "The reply is in the conversation and waits to be sent (no network): "
+                  "Instagram sends it by itself. Not sent, not to be sent again (`DM_SEND_PENDING`).",
+                  optional=True),
             ai_dm_text_refusal_field("The rule the reply breaks: refused before the phone."),
         ),
     ),

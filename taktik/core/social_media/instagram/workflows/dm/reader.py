@@ -27,10 +27,30 @@ from loguru import logger
 from taktik.core.shared.behavior.gesture_primitives import human_scroll_raw
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from taktik.core.social_media.instagram.workflows.dm.session import dm_inbox_shown
+from taktik.core.shared.device.ui_dump import whole_in_band
+
+
+def _bounds_of(element):
+    """(left, top, right, bottom) of a uiautomator2 element, or None when it gives none."""
+    bounds = element.info.get("bounds") or {}
+    if not bounds:
+        return None
+    return bounds.get("left", 0), bounds.get("top", 0), bounds.get("right", 0), bounds.get("bottom", 0)
 
 
 class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMixin):
     """Read DM conversations and extract visible message history."""
+
+    def _thread_list_band(self):
+        """(top, bottom) of the inbox's thread list on screen, or None when it is not found (the
+        rows are then taken as they come)."""
+        thread_list = self.device.xpath(DM_SELECTORS.inbox_thread_list)
+        if not thread_list.exists:
+            logger.debug("No thread list on screen: the rows are not bounded by it")
+            return None
+        bounds = _bounds_of(thread_list)
+        return (bounds[1], bounds[3]) if bounds else None
 
     def _announce_conversation(self, conversation: dict, *, current: int, total: int) -> None:
         """One conversation read (or restored), for the desktop."""
@@ -47,8 +67,16 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             flush=True,
         )
 
-    def read_conversations(self, limit: int) -> list:
-        """Read DM conversations. ``limit <= 0`` means read all (until the inbox bottom)."""
+    def read_conversations(self, limit: int) -> list | None:
+        """Read DM conversations. ``limit <= 0`` means read all (until the inbox bottom).
+
+        None, and nothing read, when the screen is not the inbox (or its requests folder): an
+        inbox not on screen is no empty inbox (Lab `dm.list_unread` on a conversation, Pixel 6 Pro,
+        2026-10-24: « No threads found », then « 0 conversation(s) read » as a success).
+        """
+        if not dm_inbox_shown(self.device):
+            logger.error("The DM inbox is not on screen: no conversation read")
+            return None
         conversations = []
         processed_usernames = set()
         processed_real_usernames = set()
@@ -61,10 +89,19 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
             threads = self.device.xpath(DM_SELECTORS.thread_container).all()
 
             if not threads:
-                logger.warning("No threads found")
+                if dm_inbox_shown(self.device):
+                    logger.warning("No threads found")
+                else:
+                    logger.error(f"The DM inbox is no longer on screen: reading stopped after "
+                                 f"{conversations_read} conversation(s)")
                 break
 
-            threads_with_pos = sort_threads_by_top(threads)
+            # Only the rows whole inside the thread list: a row cut by its bottom runs under the tab
+            # bar, and a tap on it opened the tab bar's search (Pixel 6a, 447, 2026-10-24: « Could
+            # not open conversation », then the inbox lost). It is read whole after the next scroll.
+            band = self._thread_list_band()
+            threads_with_pos = [(top, thread) for top, thread in sort_threads_by_top(threads)
+                                if band is None or whole_in_band(_bounds_of(thread), band)]
 
             new_conversations_in_scroll = 0
 
@@ -153,7 +190,13 @@ class DMConversationReaderMixin(DMConversationStateMixin, DMMessageExtractionMix
                         self._return_to_inbox_if_needed()
                         continue
 
-                    real_username = header_title.get_text() or username
+                    # The thread is filed under the partner's handle: the header's title is
+                    # their display name when they have one, the handle then under it.
+                    shown_name, handle = self._read_conversation_partner()
+                    if handle is None:
+                        logger.info(f"No handle in the header of the conversation with {username}: "
+                                    "filed under the name shown")
+                    real_username = handle or shown_name or header_title.get_text() or username
                     real_username_lower = real_username.lower().strip()
                     if real_username_lower in processed_real_usernames:
                         logger.info(f"Skipping duplicate (real_username already seen): {real_username}")

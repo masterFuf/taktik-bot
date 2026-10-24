@@ -47,6 +47,21 @@ class DirectMessageSelectors:
     def dm_inbox_description_contains(self) -> List[str]:
         return self._dm_inbox_description_contains_base + L("direct_message.dm_inbox_description_contains")
     action_bar_inbox_button_resource_id: str = "com.instagram.android:id/action_bar_inbox_button"
+
+    # The DM entry found by its description, and only inside the tab bar: a conversation's voice
+    # button (« Message vocal, appuyez longuement pour enregistrer », 447, Pixel 6a, 2026-10-24),
+    # the status bar's « Notification Messages : » icon (410, Pixel 6 Pro) and a profile's
+    # « Envoyer un message » button hold the same words, and were tapped for it.
+    tab_bar: str = '//*[@resource-id="com.instagram.android:id/tab_bar"]'
+
+    @property
+    def direct_tab_by_description(self) -> List[str]:
+        exact = [f'{self.tab_bar}//*[@content-desc="{label}"]'
+                 for label in self.dm_inbox_button_descriptions + self.direct_tab_content_descriptions]
+        written = [f'{self.tab_bar}{xpath}' for xpath in self.direct_tab_content_desc if xpath.startswith("//")]
+        contained = [f'{self.tab_bar}//*[contains(@content-desc, "{label}")]'
+                     for label in self.dm_inbox_description_contains]
+        return list(dict.fromkeys(exact + written + contained))
     
     # Unread badge on the DM tab
     dm_notification_badge: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]//*[@resource-id="com.instagram.android:id/notification"]'
@@ -66,17 +81,19 @@ class DirectMessageSelectors:
     inbox_header_action_button_resource_id: str = "com.instagram.android:id/header_action_button"
     inbox_header_action_button: str = '//*[@resource-id="com.instagram.android:id/header_action_button"]'
 
-    # The requests entry of an inbox laid out with pills (the layout is served per account,
-    # same 410 APK): a clickable pill holding an `inbox_header_pill_text`, its label at the start
-    # of its content-desc, the label in the locales.
-    _requests_pill_template: str = (
+    # The pills of an inbox laid out with pills (the layout is served per account, same 410 APK:
+    # Tout / Principal / Général / Invitations, ig410_fr_dm_inbox_pills.xml; All / Primary /
+    # General / Requests, ig410_en_dm_inbox.xml): a clickable pill holding an
+    # `inbox_header_pill_text`, its label at the start of its content-desc, the labels in the
+    # locales. The one on display is `selected`.
+    _header_pill_template: str = (
         '//*[@clickable="true"][starts-with(@content-desc, "{label}")]'
         '[.//*[@resource-id="com.instagram.android:id/inbox_header_pill_text"]]'
     )
 
     @property
     def requests_pill(self) -> List[str]:
-        return [self._requests_pill_template.format(label=label)
+        return [self._header_pill_template.format(label=label)
                 for label in L("direct_message.requests_pill_labels")]
 
     @property
@@ -84,6 +101,16 @@ class DirectMessageSelectors:
         """The requests pill once chosen: a pill shows it is the one on display by `selected`
         (the "Tout" / "All" pill of both inbox captures)."""
         return [f'{xpath}[@selected="true"]' for xpath in self.requests_pill]
+
+    @property
+    def primary_pill(self) -> List[str]:
+        """The pill of the main conversations (« Principal », « Primary »)."""
+        return [self._header_pill_template.format(label=label)
+                for label in L("direct_message.primary_pill_labels")]
+
+    @property
+    def primary_pill_selected(self) -> List[str]:
+        return [f'{xpath}[@selected="true"]' for xpath in self.primary_pill]
     inbox_header_messages_text: str = "Messages"
     inbox_header_requests_text: str = "Requests"
     # Title of the message-requests sub-screen (action bar). Used to confirm we left the
@@ -207,11 +234,17 @@ class DirectMessageSelectors:
     )
 
     def new_message_recipient_row(self, username: str) -> str:
-        """The picker's row of exactly this handle (never the invitation row above it)."""
+        """The picker's row of exactly this handle (never the invitation row above it).
+
+        The handle is the row's first line for an account without a display name, its second line
+        under the display name otherwise (447, Pixel 6a, 2026-10-24: « Prénom Nom » then the
+        handle, under « Plus sur Instagram »). Equality, never a prefix: another account's handle
+        may start the same way."""
         return (
             '//*[@resource-id="com.instagram.android:id/recipients_list"]'
             '//*[@resource-id="com.instagram.android:id/user_row_background"]'
-            f'[.//*[@resource-id="com.instagram.android:id/row_user_primary_name"][@text="{username}"]]'
+            f'[.//*[@resource-id="com.instagram.android:id/row_user_primary_name"][@text="{username}"]'
+            f' or .//*[@resource-id="com.instagram.android:id/row_user_secondary_name"][@text="{username}"]]'
         )
     
     select_multiple_button: str = '//*[@content-desc="Sélectionner plusieurs messages"]'
@@ -274,6 +307,15 @@ class DirectMessageSelectors:
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'
     message_item: str = '//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]'
     message_item_resource_id: str = 'com.instagram.android:id/direct_text_message_text_view'
+    # A bubble of ours waiting to be sent (no network, Pixel 6 Pro, 410, 2026-10-24): an icon at its
+    # side in its `message_content`, described « Envoi… » / « Sending… » (locales); gone once the
+    # bubble is sent.
+    message_container_resource_id: str = 'com.instagram.android:id/message_content'
+    message_status_icon_resource_id: str = 'com.instagram.android:id/action_icon'
+
+    @property
+    def pending_send_descriptions(self) -> List[str]:
+        return L("direct_message.pending_send_descriptions")
 
     # --- Compose thread (IG 442+): a message text has NO resource-id any more ---
     # `direct_text_message_text_view` disappeared when the thread moved to Jetpack Compose,

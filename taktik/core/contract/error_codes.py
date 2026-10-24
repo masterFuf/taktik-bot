@@ -66,6 +66,9 @@ BRIDGE_ERROR_PHRASES: Mapping[str, str] = {
     "information_window_unanswered": "errorPublishInformationWindowUnanswered",
     # The check of a DM written by an AI (`ai_dm_check_bridge`).
     "AI_DM_CHECK_INPUT": "errorAiDmCheckInput",
+    # A DM reply in the conversation, waiting to be sent (no network): Instagram sends it by itself
+    # when the network is back; sent again, it would be there twice (`dm_send`).
+    "DM_SEND_PENDING": "errorDmSendPending",
     # A run that asks for the AI (`WorkflowContract.ai_request`) and has no usable key (`MissingAIKeyError`).
     "missing_ai_key": "errorMissingAiKey",
     # The launcher (`bridges/launcher.py`): it was named no bridge, or one its manifest does not list

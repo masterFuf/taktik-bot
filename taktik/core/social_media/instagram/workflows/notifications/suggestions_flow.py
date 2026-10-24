@@ -16,6 +16,7 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, List, Optional
 
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.social_media.instagram.workflows.common.suggestion_visit import (
     SuggestionSurface,
     visit_suggestions,
@@ -45,16 +46,10 @@ class NotificationSuggestionsMixin:
     # ------------------------------------------------------------------
     def _screen_height(self) -> int:
         """Live screen height — the step between two rows derives from it."""
-        try:
-            return int(self.device.info.get("displayHeight", 2400))
-        except Exception:
-            return 2400
+        return screen_size_of(self.device)[1]
 
     def _screen_width(self) -> int:
-        try:
-            return int(self.device.info.get("displayWidth", 1080))
-        except Exception:
-            return 1080
+        return screen_size_of(self.device)[0]
 
     # ------------------------------------------------------------------
     # Reading

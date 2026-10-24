@@ -7,7 +7,9 @@ reply that was never delivered (the blissand_glow case: a `sent` row in dm_messa
 with no matching message in the real conversation).
 """
 
-from taktik.core.social_media.instagram.workflows.dm.sender import DMSenderMixin
+from types import SimpleNamespace
+
+from taktik.core.social_media.instagram.workflows.dm.sender import DMSenderMixin, ReplyOutcome
 
 
 class _Verifier(DMSenderMixin):
@@ -15,6 +17,9 @@ class _Verifier(DMSenderMixin):
 
     def __init__(self, bubbles):
         self._bubbles = bubbles
+        # No screen behind these bubbles: none shows the icon of a reply waiting to be sent
+        # (`test_dm_reply_waiting_to_be_sent.py` reads the real ones).
+        self.device = SimpleNamespace(dump_hierarchy=lambda: None)
 
     def _collect_text_messages(self):
         return self._bubbles
@@ -73,4 +78,4 @@ def test_short_message_requires_exact_match():
 
 def test_verify_returns_false_without_retrying_forever():
     # attempts=1 → no sleep; confirms the polling wrapper honours the matcher.
-    assert _Verifier([])._verify_message_sent("x", attempts=1) is False
+    assert _Verifier([])._verify_message_sent("x", attempts=1) is ReplyOutcome.NOT_SENT

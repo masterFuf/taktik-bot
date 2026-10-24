@@ -24,6 +24,7 @@ from typing import Optional, Dict, Any, List, Callable
 from loguru import logger
 
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
+from taktik.core.shared.device.screen import screen_size_of
 
 from taktik.core.social_media.instagram.ui.selectors.support.watchdog import WATCHDOG_SELECTORS
 
@@ -256,15 +257,11 @@ class WorkflowWatchdog:
                 elif action == "tap_outside":
                     log.info("🐕 Recovery: tapping outside overlay")
                     try:
-                        info = self.device.info if hasattr(self.device, 'info') else self.device.device.info
-                        w = info.get('displayWidth', 540)
-                        h = info.get('displayHeight', 960)
+                        w, h = screen_size_of(self.device)
                         # Tap upper quarter of screen (above bottom sheet)
                         self.device.click(w // 2, h // 4)
-                    except Exception:
-                        if hasattr(self.device, 'device'):
-                            info = self.device.device.info
-                            self.device.device.click(info['displayWidth'] // 2, info['displayHeight'] // 4)
+                    except Exception as exc:
+                        log.warning(f"🐕 Recovery: tap outside the overlay failed: {exc}")
                     time.sleep(1.5)
 
                 elif action == "swipe_down":
@@ -272,7 +269,7 @@ class WorkflowWatchdog:
                     # The shared drag takes the facade the watchdog is given as well as a raw
                     # device: `swipe(..., duration=)` raised on the facade every time and only a
                     # silent fallback to the raw device ever moved the sheet.
-                    w, h = self.device.window_size()
+                    w, h = screen_size_of(self.device)
                     human_drag_between_raw(
                         self.device, (w // 2, int(h * 0.6)), (w // 2, int(h * 0.95)), 0.4, log
                     )

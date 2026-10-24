@@ -3,6 +3,10 @@
 import re
 from typing import Optional
 
+from taktik.core.shared.device.ui_dump import parse_ui_dump
+from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import instagram_handle
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+
 _ELLIPSIS_MARKERS = ("…", "...")
 
 # IG prefixes OUR OWN last message in the inbox preview with a short author label
@@ -24,6 +28,50 @@ def sort_threads_by_top(threads) -> list[tuple[int, object]]:
             continue
     threads_with_pos.sort(key=lambda item: item[0])
     return threads_with_pos
+
+
+def conversation_partner(xml: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """(name shown, handle) of the partner of the open conversation, read in its header on one
+    dump; either is None when the header does not give it.
+
+    The header's title is the partner's display name when they have one, their handle otherwise;
+    under a display name, the subtitle carries the handle (410, Pixel 6 Pro, 2026-10-24: title
+    « Prénom Nom », subtitle content-desc the handle, then « Voir le profil »). A subtitle that
+    is no handle (« Business chat », a group's members) gives none; then a title shaped like a
+    handle is taken for it (a one-word display name looks the same, and stays what it was before).
+    """
+    root = parse_ui_dump(xml) if xml else None
+    if root is None:
+        return None, None
+    title = subtitle = None
+    for node in root.iter():
+        resource_id = node.get("resource-id")
+        if resource_id == DM_SELECTORS.conversation_header_title_resource_id and title is None:
+            title = (node.get("text") or node.get("content-desc") or "").strip() or None
+        elif resource_id == DM_SELECTORS.conversation_header_subtitle_resource_id and subtitle is None:
+            subtitle = (node.get("content-desc") or node.get("text") or "").strip() or None
+    return title, instagram_handle(subtitle) or instagram_handle(title)
+
+
+def pending_send_texts(xml: Optional[str]) -> list[str]:
+    """The texts of the bubbles of ours that the open conversation shows waiting to be sent: a
+    bubble whose `message_content` holds the status icon described « Envoi… » (no network; it
+    leaves by itself when the network is back). [] when there is none, or no screen."""
+    root = parse_ui_dump(xml) if xml else None
+    if root is None:
+        return []
+    pending = set(DM_SELECTORS.pending_send_descriptions)
+    texts = []
+    for container in root.iter():
+        if container.get("resource-id") != DM_SELECTORS.message_container_resource_id:
+            continue
+        inside = list(container.iter())
+        if not any(node.get("resource-id") == DM_SELECTORS.message_status_icon_resource_id
+                   and node.get("content-desc") in pending for node in inside):
+            continue
+        texts.extend(node.get("text") for node in inside
+                     if node.get("resource-id") == DM_SELECTORS.message_item_resource_id and node.get("text"))
+    return texts
 
 
 def extract_inbox_username(content_desc: str) -> str:
@@ -212,6 +260,8 @@ __all__ = [
     "build_answered_conversation",
     "build_conversation_payload",
     "build_up_to_date_conversation",
+    "conversation_partner",
+    "pending_send_texts",
     "extract_inbox_username",
     "has_unseen_incoming",
     "inbox_preview_matches_known",

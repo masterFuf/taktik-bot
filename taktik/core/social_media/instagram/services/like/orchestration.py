@@ -543,30 +543,14 @@ class LikeOrchestration(PostNavigationMixin, BaseBusinessAction):
         scroll owner's short drag (`PostReadingMixin.show_framed_post_buttons`), then the like
         target of the SAME post, its heart on screen. None, and why in the log, when there is no
         framed post, no such gesture on this host, no gesture that could show it, a post that
-        changed during it, or a heart still off the screen."""
-        if identity is None:
-            self.logger.warning("No framed post: no like")
-            return None
-        show = self._framed_post_reader("show_framed_post_buttons")
+        changed during it, or a heart still off the screen. The checks are the scroll owner's
+        (`show_framed_post_row_of`), the same for the opening of the post's likers."""
+        show = self._framed_post_reader("show_framed_post_row_of")
         if show is None:
             self.logger.warning(f"Framed post's like button not on screen ({identity}): no like")
             return None
-        shown = show()
-        after = shown.get("target") if isinstance(shown, dict) else None
-        reason = shown.get("reason") if isinstance(shown, dict) else "unreadable"
-        if not isinstance(after, dict) or not after.get("list"):
-            self.logger.warning(f"Screen unreadable after showing the framed post's buttons ({reason}): no like")
-            return None
-        if after.get("identity") != identity:
-            self.logger.warning(
-                f"Framed post changed while showing its buttons ({identity} -> {after.get('identity')}): no like"
-            )
-            return None
-        if after.get("heart") is None:
-            self.logger.warning(f"Framed post's like button still not on screen ({identity}, {reason}): no like")
-            return None
-        self.logger.debug(f"Framed post's buttons shown ({reason}): {identity}")
-        return after
+        shown = show(identity, "like")
+        return shown if isinstance(shown, dict) else None
 
     @staticmethod
     def _framed_post_liked(target: Optional[Dict[str, Any]], identity: Optional[str]) -> bool:

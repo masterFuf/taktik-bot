@@ -4,14 +4,19 @@ from __future__ import annotations
 
 import re
 import time
+from typing import Any
 
 from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from taktik.core.social_media.instagram.workflows.dm.conversation_payload import conversation_partner
 from taktik.core.social_media.instagram.workflows.dm.session import dm_inbox_shown
 
 
 class DMConversationStateMixin:
     """Resolve conversation metadata and keep navigation state recoverable."""
+
+    # The device the runtime gives (`InstagramDMRuntime`), declared here as an interface would be.
+    device: Any
 
     def _resolve_thread_username(self, thread_info: dict, fallback: str) -> str:
         username = fallback
@@ -32,6 +37,15 @@ class DMConversationStateMixin:
         except Exception:
             pass
         return username
+
+    def _read_conversation_partner(self) -> tuple[str | None, str | None]:
+        """(name shown, handle) of the partner of the open conversation (`conversation_partner`),
+        on one dump; (None, None), and why in the log, when the screen could not be read."""
+        try:
+            return conversation_partner(self.device.dump_hierarchy())
+        except Exception as exc:
+            logger.warning(f"Conversation header unreadable: {exc}")
+            return None, None
 
     def _detect_conversation_reply_state(self, real_username: str) -> tuple[bool, bool]:
         is_group = False

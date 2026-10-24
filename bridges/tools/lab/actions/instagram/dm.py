@@ -15,6 +15,7 @@ from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action
 from bridges.tools.lab.action_test.params import lab_flag
+from taktik.core.shared.device.screen import screen_size_of
 
 
 def _dm_runtime(a):
@@ -41,12 +42,7 @@ def _dm_runtime(a):
             # The shared composer atomic types on a NAMED device: without this the Lab runtime
             # would hit its "device_id is required" guard instead of silently typing elsewhere.
             self.device_id = device_id
-            try:
-                info = self.device.info
-                self.screen_width = int(info.get("displayWidth") or 1080)
-                self.screen_height = int(info.get("displayHeight") or 1920)
-            except Exception:
-                self.screen_width, self.screen_height = 1080, 1920
+            self.screen_width, self.screen_height = screen_size_of(facade)
             self._keyboard = KeyboardService(device_id)
 
     return _LabDMRuntime(a.device)
@@ -79,7 +75,9 @@ def list_unread(a, p):
         limit = int(p.get("limit", 5))
     except (TypeError, ValueError):
         limit = 5
-    convs = _dm_runtime(a).read_conversations(limit) or []
+    convs = _dm_runtime(a).read_conversations(limit)
+    if convs is None:
+        return {"success": False, "message": "the DM inbox is not on screen: nothing read"}
     items = []
     for c in convs:
         get = c.get if isinstance(c, dict) else (lambda k, d=None: getattr(c, k, d))
@@ -124,8 +122,16 @@ def send_reply(a, p):
     text = (p.get("text") or "").strip()
     if not text:
         return {"success": False, "message": "text param is required"}
-    ok = _dm_runtime(a).send_message(text)
-    return {"success": bool(ok), "message": "reply sent" if ok else "reply failed"}
+    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+
+    outcome = _dm_runtime(a).send_message(text)
+    messages = {
+        ReplyOutcome.SENT: "reply sent",
+        ReplyOutcome.PENDING: "reply waiting to be sent (no network?): Instagram sends it by itself, do not send it again",
+        ReplyOutcome.NOT_SENT: "reply failed",
+    }
+    return {"success": outcome is ReplyOutcome.SENT, "message": messages[outcome],
+            "details": {"outcome": outcome.value}}
 
 
 @action("dm.back_to_inbox")
@@ -216,5 +222,6 @@ def cold_dm_check_profile(a, p):
     elif verdict["has_message_button"]:
         message = "DM would be attempted"
     else:
-        message = "no Message button: the DM would fail"
+        message = ("no Message button: on another account's profile the DM would be written from "
+                   "the inbox's new message; on ours it would fail")
     return {"success": True, "message": message, "details": verdict}

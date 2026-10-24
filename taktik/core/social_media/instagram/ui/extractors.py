@@ -3,6 +3,7 @@ import re
 import time
 from typing import Optional, List, Any, Dict
 from loguru import logger
+from taktik.core.shared.device.screen import screen_size_of
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.actions.utils import ActionUtils, normalise_number_spaces
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
@@ -234,6 +235,7 @@ class InstagramUIExtractors:
 
         On a list of posts (the home feed, a hashtag's or a profile's posts), only the framed
         post's own button row counts: the row at the top of the screen is often the post above's.
+        When that row runs under the bottom, it is brought up first (one short drag, the like's).
         In that row the counter is the button just after the heart (`like_count_selectors`); a post
         that hides its likes has none there, and the first number of its row is its comment count.
         Off a list (the full-screen Reel viewer), the viewer's own counter.
@@ -291,8 +293,8 @@ class InstagramUIExtractors:
         The gestures of a post's button row (comment, share) go through it: on a list of posts (the
         home feed, a hashtag's or a profile's posts) the first button of the screen is often the
         post above's, and a comment typed after tapping it is published under that post. So only
-        the framed post's own button row counts, as for its like counter; off a list (the
-        full-screen Reel viewer), the viewer's own button."""
+        the framed post's own button row counts, as for its like counter, brought up first when it
+        runs under the bottom; off a list (the full-screen Reel viewer), the viewer's own button."""
         logger_to_use = logger_instance if logger_instance else log
         candidates = self._framed_post_row_elements(selectors, what, logger_to_use)
         if candidates is None:
@@ -309,14 +311,20 @@ class InstagramUIExtractors:
 
         On a list of posts, only what lies in the framed post's own button row, which the framed
         post's reader gives (`PostReadingMixin.framed_post_like_target`, the reading the like
-        uses): None when that row is not on screen. Off a list, every element found."""
+        uses). When that row runs under the bottom of the list, the reader brings it up first and
+        checks the post is still the same (`PostReadingMixin.show_framed_post_row_of`, the like's
+        own short drag): None when it cannot. Off a list, every element found."""
         target = self._framed_post_target(logger_to_use, what)
         if target is None:
             return None
         on_a_list, framed_row = target["list"], target.get("row")
         if on_a_list and framed_row is None:
-            logger_to_use.warning(f"The framed post's button row is not on screen: no {what}")
-            return None
+            logger_to_use.debug(f"The framed post's button row is not on screen: shown first for its {what}")
+            reader = self.framed_post  # set: `_framed_post_target` read the target through it
+            shown = reader.show_framed_post_row_of(target.get("identity"), what) if reader is not None else None
+            if shown is None:
+                return None
+            framed_row = shown["row"]
         return self._elements_in_row(selectors, framed_row if on_a_list else None, what, logger_to_use)
 
     def _elements_in_row(self, selectors, row, what: str, logger_to_use):
@@ -509,10 +517,8 @@ class InstagramUIExtractors:
                     logger_to_use.warning("⚠️ Likers popup not detected - cannot scroll")
                 return False
             
-            screen_info = self.device.info
-            screen_width = screen_info.get('displayWidth', 1080)
-            screen_height = screen_info.get('displayHeight', 1920)
-            
+            screen_width, screen_height = screen_size_of(self.device)
+
             if verbose_logs:
                 logger_to_use.debug(f"📱 Resolution detected: {screen_width}x{screen_height}")
             
