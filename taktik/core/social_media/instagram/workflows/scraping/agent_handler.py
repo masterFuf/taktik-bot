@@ -4,13 +4,14 @@
 registered as `instagram.scraping.<type>` (the CLI) call: read the payload (`payload.py`, whose
 reader refuses a setting out of its bounds and a run with nothing to scrape), then ask the host for
 the phone, start Instagram when the host restarts it, match the selectors to the phone (installed
-version, app language: `runtime_setup.prepare_instagram_selectors`, the automation launcher's),
-then run `ScrapingWorkflow`. The order is the launcher's, for every host: what the reader refuses
-never reaches the phone. What differs between the hosts is injected:
+version, the clone's package when the payload names one, app language:
+`runtime_setup.prepare_instagram_selectors`, the automation launcher's), then run `ScrapingWorkflow`.
+The order is the launcher's, for every host: what the reader refuses never reaches the phone. What
+differs between the hosts is injected:
 - `connect(package_name) -> InstagramRunPhone`: the phone, on the Instagram the payload names
   (`packageName`), connected by the host in this call (the desktop: its database and its
-  connection; the CLI: its connection). Its `start` is a clean restart before the run: the desktop
-  restarts Instagram itself before it launches the bridge, so the bridge gives none. Its
+  connection; the CLI: its connection). Its `start` is the clean restart of that Instagram before
+  the run, the desktop's and the CLI's alike (the Lab session gives none: it holds its phone). Its
   `installed_version` is the version the selector overrides are chosen for.
 - `ai_notifier`: where the AI qualification reports (the bridge's stdout IPC).
 - `instagram_scraping_ai_service(**kwargs)`: builds the AI service the run asks for.
@@ -75,7 +76,9 @@ def run_instagram_scraping(
 
     # Read and validated before the host touches the phone: what the reader refuses never reaches it.
     scraping_config = scraping_config_from_payload(payload)
-    phone = connect(payload.get("packageName"))
+    # The Instagram the run starts and reads (a clone); None: the installed Instagram.
+    package_name = payload.get("packageName") or None
+    phone = connect(package_name)
     # A phone without network does not start its run, from any host (`NetworkUnreachableError`).
     open_network_door(payload.get("deviceId"))
 
@@ -103,10 +106,12 @@ def run_instagram_scraping(
             f"enrichProfiles={payload.get('enrichProfiles')!r}"
         )
 
-    # Before the workflow is built: a phone in another language or on another version must not
-    # be read with the baseline's selectors.
+    # Before the workflow is built: a phone in another language, on another version or on a clone
+    # must not be read with the baseline's selectors.
+    runtime_setup.activate_instagram_package(package_name)
     runtime_setup.prepare_instagram_selectors(
         device=getattr(phone.device_manager, "device", None),
+        package_name=package_name,
         installed_version_provider=phone.installed_version,
         log=_log_to_logger,
     )
