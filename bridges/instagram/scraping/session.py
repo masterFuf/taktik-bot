@@ -29,9 +29,10 @@ def connect_scraping_device(connection: ConnectionService):
     return connection.device_manager
 
 
-def scraping_installed_version(connection: ConnectionService, package_name: str | None = None):
-    """The installed Instagram version reader, as the automation bridge's, for the selector overrides."""
-    return AppService(connection, platform="instagram", package_override=package_name).get_installed_version
+def scraping_app(connection: ConnectionService, package_name: str | None = None) -> AppService:
+    """The run's Instagram (a clone when the payload names one): its clean restart before the run and
+    its installed version, for the selector overrides, as the automation bridge's."""
+    return AppService(connection, platform="instagram", package_override=package_name)
 
 
 def disconnect_scraping_connection(connection: ConnectionService) -> None:

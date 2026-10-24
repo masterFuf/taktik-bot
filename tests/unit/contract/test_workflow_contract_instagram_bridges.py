@@ -168,7 +168,7 @@ def scraping_bridge(monkeypatch):
     import bridges.instagram.common.ipc as ipc_adapter
     import bridges.instagram.scraping.runner as runner
     from taktik.core.social_media.instagram.actions.base.ipc import emitter
-    from taktik.core.social_media.instagram.workflows.common import runtime_setup
+    from taktik.core.social_media.instagram.workflows.common import runtime_setup, startup
     from taktik.core.social_media.instagram.workflows.scraping import agent_handler, profile_posts_scraping
 
     device_manager = SimpleNamespace(device=object())
@@ -176,7 +176,9 @@ def scraping_bridge(monkeypatch):
     monkeypatch.setattr(runner, "create_scraping_connection", lambda device_id: SimpleNamespace())
     monkeypatch.setattr(runner, "connect_scraping_device", lambda connection: device_manager)
     monkeypatch.setattr(runner, "disconnect_scraping_connection", lambda connection: None)
-    monkeypatch.setattr(runner, "scraping_installed_version", lambda connection, package: lambda: "410.0.0.53.71")
+    monkeypatch.setattr(runner, "scraping_app",
+                        lambda connection, package: SimpleNamespace(get_installed_version=lambda: "410.0.0.53.71"))
+    monkeypatch.setattr(startup, "start_instagram_session", lambda app, **kwargs: True)
     monkeypatch.setattr(runtime_setup, "prepare_instagram_selectors", lambda **kwargs: None)
     monkeypatch.setattr(agent_handler, "_default_workflow_factory", _scraping_class)
     monkeypatch.setattr(profile_posts_scraping, "get_post_url_from_share",

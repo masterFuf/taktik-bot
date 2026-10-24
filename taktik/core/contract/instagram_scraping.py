@@ -141,8 +141,8 @@ _SETTINGS = (
 
 _BRIDGE_FIELDS = (
     device_field("deviceId"),
-    Field("packageName", "string", "An Instagram clone's package, for its installed version; a CLI run's "
-          "restart opens it too.", by=HOST),
+    Field("packageName", "string", "The Instagram the run restarts and reads (a clone); absent: the "
+          "installed Instagram.", by=HOST),
 )
 
 _REFUSALS = (

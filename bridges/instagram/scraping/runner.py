@@ -16,7 +16,7 @@ from bridges.instagram.scraping.session import (
     connect_scraping_device,
     create_scraping_connection,
     disconnect_scraping_connection,
-    scraping_installed_version,
+    scraping_app,
 )
 from bridges.instagram.scraping.workflow import run_scraping_workflow
 from taktik.core.shared.device.network_door import NetworkUnreachableError
@@ -52,8 +52,12 @@ def run_scraping_bridge(config: dict) -> int:
     connection = None
 
     def connect(package_name):
-        """The phone the launcher asks for, once it has read the payload."""
-        from taktik.core.social_media.instagram.workflows.common.startup import InstagramRunPhone
+        """The phone the launcher asks for, once it has read the payload, with the clean restart of the
+        run's Instagram (a clone when the payload names one), as every Instagram bridge restarts it."""
+        from taktik.core.social_media.instagram.workflows.common.startup import (
+            InstagramRunPhone,
+            start_instagram_session,
+        )
 
         nonlocal connection
         configure_scraping_database()
@@ -61,8 +65,10 @@ def run_scraping_bridge(config: dict) -> int:
         device_manager = connect_scraping_device(connection)
         if device_manager is None:
             raise RuntimeError("Failed to connect to device")
+        app = scraping_app(connection, package_name)
         return InstagramRunPhone(device_manager=device_manager,
-                                 installed_version=scraping_installed_version(connection, package_name))
+                                 start=lambda: start_instagram_session(app),
+                                 installed_version=app.get_installed_version)
 
     try:
         result = run_scraping_workflow(config, connect)

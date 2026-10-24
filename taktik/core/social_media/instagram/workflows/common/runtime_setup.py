@@ -64,6 +64,15 @@ def prepare_instagram_selectors(
         log("warning", f"Language detection failed (non-fatal): {exc}")
 
 
+def activate_instagram_package(package_name: Optional[str] = None) -> str:
+    """Make the run's Instagram the active package (a clone; None: the official app), so the ids and
+    xpaths written for the official package resolve to it (`rid`). Returns that package. A launcher
+    that drives a raw device (the automation, the scraping) calls it; a device base does it on connect."""
+    effective_package = package_name or get_original_package("instagram")
+    set_active_package(effective_package)
+    return effective_package
+
+
 def prepare_instagram_automation_runtime(
     *,
     automation: Any,
@@ -73,11 +82,8 @@ def prepare_instagram_automation_runtime(
     log: LogCallback = _noop_log,
 ) -> None:
     """Apply package, selector and language runtime setup to an automation instance."""
-    effective_package = package_name or get_original_package("instagram")
-
     automation.config = workflow_config
-    automation.package_name = effective_package
-    set_active_package(effective_package)
+    automation.package_name = activate_instagram_package(package_name)
     log("info", "Dynamic config applied")
 
     prepare_instagram_selectors(
