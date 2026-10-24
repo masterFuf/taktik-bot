@@ -60,6 +60,13 @@ versions:
       - '//*[@resource-id="com.instagram.android:id/row_search_avatar_with_ring"]'
       - '//*[@resource-id="com.instagram.android:id/row_search_user_follow_button"]'
 
+    # DM inbox pills (Tout / Principal / Général / Invitations): no `inbox_header_pill_text` in 447.
+    # A clickable node holds a View described by the label (« Invitations », « Principal, 1 message
+    # non lu »), which holds the label's TextView (Pixel 6a, French, 2026-10-24, dumps
+    # rd-dm.open_requests and 5h of the session). No `selected` state to read in 447.
+    dm._header_pill_template:
+      - '//*[@clickable="true"][./*[starts-with(@content-desc, "{label}")]]'
+
     detection._business_account_indicators_base:
       - '//*[contains(@resource-id, "profile_header_business_category")]'
       - '//*[contains(@resource-id, "profile_user_info_compose_view")]/android.view.View/android.widget.TextView'

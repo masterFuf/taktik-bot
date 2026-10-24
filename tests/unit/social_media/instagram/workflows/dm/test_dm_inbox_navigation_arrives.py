@@ -1,4 +1,4 @@
-"""Opening the DM inbox answers by arrival: a visited profile's Message button is not the inbox.
+"""Opening the DM inbox answers by arrival, and only the tab bar's DM entry opens it.
 
 Measured on a Pixel 3a (Instagram 410, in English), Lab auto-test: `dm.open_inbox`, played on the
 profile of a public account, found no Direct tab, tapped the first element described "Message" -- the
@@ -32,6 +32,13 @@ inbox did not come up. The opener now goes home first when the screen shows no D
 navigation's way back to a known state, a seam here: it shows the home screen), and an entry found
 by a description is Instagram's only. Captures of that phone: the conversation
 (`ig410_en_dm_conversation_no_tab_bar.xml`) and its English inbox (`ig410_en_dm_inbox_pills_6pro.xml`).
+
+Replayed on the Pixel 6a (447, French), same day: from a conversation the description « Message » found
+the composer's voice button (« Message vocal, appuyez longuement pour enregistrer »), an Instagram node,
+and tapped it. An entry found by its description is now looked for inside the tab bar only. And the
+pills of the 447 inbox have no `inbox_header_pill_text`: a clickable node holds a View described by the
+label (version override `447.0.0.0`). Captures of the 6a: the conversation
+(`ig447_fr_dm_conversation_composer.xml`) and the inbox (`ig447_fr_dm_inbox_pills_no_ids.xml`).
 """
 
 import re
@@ -42,6 +49,7 @@ from lxml import etree
 from uiautomator2.xpath import XPathEntry
 
 import taktik.core.shared.device.wait as wait_module
+from taktik.core.compat.selectors.setup import INSTAGRAM_TARGET_VERSION, apply_version_overrides
 import taktik.core.social_media.instagram.workflows.dm.inbox_reset as inbox_reset
 import taktik.core.social_media.instagram.workflows.dm.navigation as navigation
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
@@ -60,7 +68,11 @@ SCREENS = {
     "inbox_pills_fr": (FIXTURES / "ig410_fr_dm_inbox_pills.xml").read_text(encoding="utf-8"),
     "conversation_en_6pro": (FIXTURES / "ig410_en_dm_conversation_no_tab_bar.xml").read_text(encoding="utf-8"),
     "inbox_en_6pro": (FIXTURES / "ig410_en_dm_inbox_pills_6pro.xml").read_text(encoding="utf-8"),
+    "conversation_447": (FIXTURES / "ig447_fr_dm_conversation_composer.xml").read_text(encoding="utf-8"),
+    "inbox_447": (FIXTURES / "ig447_fr_dm_inbox_pills_no_ids.xml").read_text(encoding="utf-8"),
 }
+#: The composer's voice button of the 447 conversation: a long press records a voice message.
+VOICE_BUTTON_447 = (621, 2221, 726, 2284)
 #: What a tap opens: (screen, bounds of the element) -> (the screen it brings up, seconds it takes).
 DOORS = {
     ("home", (432, 1967, 648, 2088)): ("inbox", 0.0),  # the Direct tab
@@ -72,11 +84,13 @@ REQUESTS_PILL = {
     "inbox": (725, 865, 1033, 953),
     "inbox_pills_fr": (1018, 1146, 1382, 1258),
     "inbox_en_6pro": (1021, 1146, 1381, 1258),
+    "inbox_447": (733, 862, 1038, 988),
 }
 #: The main conversations pill of each pill inbox (its clickable container), not on display.
 PRIMARY_PILL = {
     "inbox": (216, 865, 449, 953),
     "inbox_pills_fr": (327, 1146, 655, 1258),
+    "inbox_447": (237, 862, 471, 988),
 }
 
 
@@ -217,6 +231,8 @@ def phone_on(monkeypatch):
     """A phone on `screen`, whose clock the opener and the shared waits read and spend."""
 
     def build(screen):
+        # A 447 screen comes with the selectors a 447 phone gets at connect (its version overrides).
+        apply_version_overrides("instagram", "447.0.0.55.81" if screen.endswith("_447") else INSTAGRAM_TARGET_VERSION)
         phone = _Phone(screen)
         clock = SimpleNamespace(time=phone.clock.time, sleep=phone.clock.sleep)
         monkeypatch.setattr(navigation, "time", clock)
@@ -224,7 +240,8 @@ def phone_on(monkeypatch):
         monkeypatch.setattr(inbox_reset, "time", clock)
         return phone
 
-    return build
+    yield build
+    apply_version_overrides("instagram", INSTAGRAM_TARGET_VERSION)
 
 
 def _inside(click, bounds):
@@ -233,13 +250,33 @@ def _inside(click, bounds):
     return left <= x <= right and top <= y <= bottom
 
 
-def test_from_a_visited_profile_the_inbox_is_not_claimed_and_the_conversation_is_left(phone_on):
+def _home_seam(monkeypatch, phone):
+    """The navigation's way home (`NavigationActions.navigate_to_home`): it shows the home screen."""
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+
+    went_home = []
+
+    def home(_self):
+        went_home.append(phone.screen)
+        phone._screen = "home"
+        phone.shown.append("home")
+        return True
+
+    monkeypatch.setattr(NavigationActions, "navigate_to_home", home)
+    return went_home
+
+
+def test_from_a_visited_profile_its_message_button_is_never_taken_for_the_inbox(phone_on, monkeypatch):
+    # The profile's « Message » button is no DM entry: it is not in the tab bar. Before, it was
+    # tapped (a conversation with that account), then undone with Back; now the opener goes home.
     phone = phone_on("profile")
-    assert _Runtime(phone).navigate_to_dm_inbox() is False
-    # One tap on the look-alike, undone: no other way tried, the profile back on screen.
-    assert phone.opened == ["conversation"]
-    assert phone.shown == ["profile"]
-    assert phone.screen == "profile"
+    went_home = _home_seam(monkeypatch, phone)
+
+    assert _Runtime(phone).navigate_to_dm_inbox() is True
+
+    assert went_home == ["profile"]
+    assert "conversation" not in phone.opened
+    assert phone.screen == "inbox"
 
 
 def test_from_home_the_direct_tab_opens_the_inbox(phone_on):
@@ -255,8 +292,8 @@ def test_an_inbox_slow_to_come_up_is_waited_for_and_kept(phone_on):
     assert phone.clock.now >= 6.0
 
 
-@pytest.mark.parametrize("inbox", ["inbox_pills_fr", "inbox", "inbox_en_6pro"],
-                         ids=["fr-invitations", "en-requests", "en-requests-6pro"])
+@pytest.mark.parametrize("inbox", ["inbox_pills_fr", "inbox", "inbox_en_6pro", "inbox_447"],
+                         ids=["fr-invitations", "en-requests", "en-requests-6pro", "447-invitations"])
 def test_on_a_pill_inbox_the_requests_pill_is_the_requests_entry(phone_on, inbox):
     phone = phone_on(inbox)
 
@@ -276,7 +313,8 @@ class _ReadingRuntime(DMInboxResetMixin):
         self.device = CloneAwareDeviceProxy(phone, PKG)
 
 
-@pytest.mark.parametrize("inbox", ["inbox_pills_fr", "inbox"], ids=["fr-principal", "en-primary"])
+@pytest.mark.parametrize("inbox", ["inbox_pills_fr", "inbox", "inbox_447"],
+                         ids=["fr-principal", "en-primary", "447-principal"])
 def test_on_a_pill_inbox_the_main_conversations_pill_is_put_on_display(phone_on, inbox):
     phone = phone_on(inbox)
 
@@ -314,3 +352,25 @@ def test_the_main_conversations_pill_already_on_display_is_not_tapped(phone_on):
     assert _ReadingRuntime(phone)._ensure_primary_tab() is True
 
     assert phone.clicks == []
+
+
+def test_from_a_447_conversation_the_voice_button_is_never_taken_for_the_dm_entry(phone_on, monkeypatch):
+    from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
+
+    phone = phone_on("conversation_447")
+    went_home = []
+
+    def home(_self):
+        went_home.append(phone.screen)
+        phone._screen = "home"
+        phone.shown.append("home")
+        return True
+
+    monkeypatch.setattr(NavigationActions, "navigate_to_home", home)
+
+    assert _Runtime(phone).navigate_to_dm_inbox() is True
+
+    assert not any(screen == "conversation_447" and _inside((screen, x, y), VOICE_BUTTON_447)
+                   for screen, x, y in phone.clicks), f"the voice button was tapped: {phone.clicks}"
+    assert went_home == ["conversation_447"]
+    assert phone.screen == "inbox"

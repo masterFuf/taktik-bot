@@ -47,6 +47,21 @@ class DirectMessageSelectors:
     def dm_inbox_description_contains(self) -> List[str]:
         return self._dm_inbox_description_contains_base + L("direct_message.dm_inbox_description_contains")
     action_bar_inbox_button_resource_id: str = "com.instagram.android:id/action_bar_inbox_button"
+
+    # The DM entry found by its description, and only inside the tab bar: a conversation's voice
+    # button (« Message vocal, appuyez longuement pour enregistrer », 447, Pixel 6a, 2026-10-24),
+    # the status bar's « Notification Messages : » icon (410, Pixel 6 Pro) and a profile's
+    # « Envoyer un message » button hold the same words, and were tapped for it.
+    tab_bar: str = '//*[@resource-id="com.instagram.android:id/tab_bar"]'
+
+    @property
+    def direct_tab_by_description(self) -> List[str]:
+        exact = [f'{self.tab_bar}//*[@content-desc="{label}"]'
+                 for label in self.dm_inbox_button_descriptions + self.direct_tab_content_descriptions]
+        written = [f'{self.tab_bar}{xpath}' for xpath in self.direct_tab_content_desc if xpath.startswith("//")]
+        contained = [f'{self.tab_bar}//*[contains(@content-desc, "{label}")]'
+                     for label in self.dm_inbox_description_contains]
+        return list(dict.fromkeys(exact + written + contained))
     
     # Unread badge on the DM tab
     dm_notification_badge: str = '//*[@resource-id="com.instagram.android:id/direct_tab"]//*[@resource-id="com.instagram.android:id/notification"]'

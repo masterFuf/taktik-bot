@@ -8,7 +8,6 @@ from typing import Any
 from taktik.core.social_media.instagram.workflows.dm.conversation_navigation import DMConversationNavigationMixin
 from taktik.core.social_media.instagram.workflows.dm.inbox_reset import DMInboxResetMixin
 from loguru import logger
-from taktik.core.clone import get_active_package
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.device.wait import find_element, wait_for_any
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
@@ -33,9 +32,10 @@ def open_dm_inbox(device) -> bool:
 
     A screen that hides the tab bar (a conversation, a profile, a post) has no DM entry: the
     opener goes home first, by the navigation's way back to a known state
-    (`NavigationActions.navigate_to_home`), then looks again. The entries found by a description
-    are Instagram's only: the status bar's « Notification Messages : » icon holds the word too,
-    and was tapped from a conversation (Pixel 6 Pro, 410 in English, 2026-10-24).
+    (`NavigationActions.navigate_to_home`), then looks again. An entry found by its description is
+    looked for inside the tab bar only (`DM_SELECTORS.direct_tab_by_description`): from a
+    conversation, a description containing « Message » found the status bar's notification icon
+    (410 in English) and the voice button of the composer (447 in French, 2026-10-24).
     """
     logger.info("Navigating to DM inbox...")
     entry = _dm_inbox_entry(device)
@@ -55,48 +55,24 @@ def open_dm_inbox(device) -> bool:
 
 
 def _dm_inbox_entry(device):
-    """(the DM entry on screen, how it was found), or None: the ways to find it, in order."""
-    package = get_active_package()
-
-    logger.info("Trying method 1: direct_tab resource-id (uiautomator2)...")
+    """(the DM entry on screen, how it was found), or None: the tab bar's DM tab, by its id, then by
+    its description inside the tab bar; the home header's DM icon of the older layout, by its id."""
     dm_tab = device(resourceId=DM_SELECTORS.direct_tab_resource_id)
     if dm_tab.exists:
         return dm_tab, "direct_tab (uiautomator2)"
 
-    logger.info("Trying method 2: content-desc 'Message'...")
-    for desc in DM_SELECTORS.dm_inbox_button_descriptions:
-        btn = device(description=desc, packageName=package)
-        if btn.exists:
-            return btn, f"content-desc: {desc}"
-
-    logger.info("Trying method 3: direct_tab xpath...")
     dm_tab = device.xpath(DM_SELECTORS.direct_tab)
     if dm_tab.exists:
         return dm_tab, "direct_tab xpath"
 
-    logger.info("Trying method 4: DM_SELECTORS content-desc xpaths...")
-    for selector in DM_SELECTORS.direct_tab_content_desc:
-        dm_btn = device.xpath(selector)
-        if dm_btn.exists:
-            return dm_btn, f"content-desc xpath: {selector}"
+    for selector in DM_SELECTORS.direct_tab_by_description:
+        dm_tab = device.xpath(selector)
+        if dm_tab.exists:
+            return dm_tab, f"tab bar description: {selector}"
 
-    logger.info("Trying method 5: action_bar_inbox_button...")
     messenger = device(resourceId=DM_SELECTORS.action_bar_inbox_button_resource_id)
     if messenger.exists:
         return messenger, "messenger icon"
-
-    logger.info("Trying method 6: descriptionContains variations...")
-    for desc in DM_SELECTORS.dm_inbox_description_contains:
-        btn = device(descriptionContains=desc, packageName=package)
-        if btn.exists:
-            return btn, f"descriptionContains: {desc}"
-
-    logger.info("Trying method 7: ImageView in action bar...")
-    action_bar = device(resourceId=DM_SELECTORS.inbox_action_bar_resource_id)
-    if action_bar.exists:
-        images = action_bar.child(className=DM_SELECTORS.image_view_class_name, clickable=True)
-        if images.count > 0:
-            return images[images.count - 1], "action bar ImageView"
     return None
 
 
