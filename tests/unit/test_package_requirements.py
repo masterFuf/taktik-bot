@@ -16,6 +16,9 @@ of the build machine, so a clean environment froze a launcher whose ad fingerpri
 The imports are read as the gates read them (`scripts/audits/python_imports.py`: lazy and
 literal `importlib` imports included) in `taktik/` and `bridges/`; what `requirements-media.txt`
 lists (the mitmproxy addon) is optional and may be imported without being required.
+
+`requirements.lock`, what the installer and the CI install, agrees with the lists: each listed
+requirement is locked at a version its list allows, and nothing is locked that no list reaches.
 """
 
 from __future__ import annotations
@@ -140,3 +143,72 @@ def test_every_runtime_requirement_is_imported_by_the_engine():
     imported = {top.lower() for top in _third_party_imports()}
 
     assert sorted(_import_names(CORE / "requirements.txt") - imported) == []
+
+
+#: The lists `requirements.lock` is compiled from (its header), and the one they include.
+LOCKED_LISTS = ("requirements.txt", "requirements-dev.txt", "requirements-build.txt")
+
+
+def _locked_packages() -> dict:
+    """Each package of `requirements.lock`: its versions (one per marker) and what pulls it in.
+
+    The lock is what the installer and the CI install, never the lists: a package dropped from a
+    list but left in the lock still ships. uv writes each package as `name==version ; marker`,
+    then `# via` with either a list (`-r requirements.txt`) or the locked packages needing it.
+    """
+    packages: dict = {}
+    current = None
+    for raw in (CORE / "requirements.lock").read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if not raw[0].isspace() and not line.startswith("#"):
+            requirement = Requirement(line)
+            (pin,) = requirement.specifier
+            current = packages.setdefault(requirement.name.lower(), {"versions": [], "via": set()})
+            current["versions"].append(pin.version)
+            continue
+        comment = line.lstrip("#").strip()
+        if current is None or comment == "via":
+            continue
+        if comment.startswith("via "):
+            comment = comment[len("via "):]
+        current["via"].add(comment if comment.startswith("-r ") else comment.lower())
+    return packages
+
+
+def _listed(path: Path) -> list[str]:
+    return [line for line in _requirement_lines(path) if not line.startswith("-")]
+
+
+def test_the_lock_holds_each_listed_requirement_at_a_version_the_list_allows():
+    locked = _locked_packages()
+    wrong = {}
+    for list_name in LOCKED_LISTS:
+        for line in _listed(CORE / list_name):
+            requirement = Requirement(line)
+            versions = locked.get(requirement.name.lower(), {}).get("versions", [])
+            if not versions or not all(requirement.specifier.contains(v, prereleases=True) for v in versions):
+                wrong[line] = versions
+
+    assert wrong == {}
+
+
+def test_the_lock_holds_nothing_that_no_list_asks_for():
+    """A package the lock says a list asks for is in that list, and every package is reached
+    from a list: a dependency removed from the lists (`pure-python-adb`) leaves the lock too."""
+    locked = _locked_packages()
+    named = {list_name: {_name(line) for line in _listed(CORE / list_name)} for list_name in LOCKED_LISTS}
+    false_claims = sorted(
+        (name, source) for name, package in locked.items() for source in package["via"]
+        if source.startswith("-r ") and name not in named.get(source[len("-r "):], set())
+    )
+    reached = set().union(*named.values()) & set(locked)
+    while True:
+        more = {name for name, package in locked.items() if name not in reached and package["via"] & reached}
+        if not more:
+            break
+        reached |= more
+
+    assert false_claims == []
+    assert sorted(set(locked) - reached) == []
