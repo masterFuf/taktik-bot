@@ -68,6 +68,9 @@ def _read_nothing(profile_data: Dict[str, Any]) -> bool:
 class ScrapingListMixin(DeepQualifyMixin):
     """Mixin: generic list scraping, hashtag scraping, post URL scraping."""
 
+    # Set by `ScrapingWorkflow.__init__`, the class that composes this mixin.
+    config: Dict[str, Any]
+
     def _has_profile_filters(self) -> bool:
         """True when the operator asked for ANY profile filter.
 

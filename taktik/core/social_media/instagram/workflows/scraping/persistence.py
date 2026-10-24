@@ -62,6 +62,15 @@ def _targets_label(targets) -> str:
 class ScrapingPersistenceMixin:
     """Mixin: CSV export, DB save, session management, enrichment, stats display."""
 
+    # Set by `ScrapingWorkflow.__init__`, the class that composes this mixin.
+    config: Dict[str, Any]
+    logger: Any
+    scraped_profiles: List[Dict[str, Any]]
+    scraping_session_id: Optional[int]
+    csv_export_path: Optional[str]
+    start_time: Optional[datetime]
+    _save_immediately: bool
+
     def _local_db(self):
         """Return the shared local DB boundary for scraping mixins."""
         local_db = getattr(self, 'local_db', None)
