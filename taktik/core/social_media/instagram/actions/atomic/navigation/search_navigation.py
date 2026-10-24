@@ -221,7 +221,8 @@ class SearchNavigationMixin(BaseAction):
         # Wait for results to appear
         if self._wait_for_element(search_result_selectors, timeout=5):
             self.logger.debug(f"🔍 Found search result for @{username}, clicking...")
-            if self._find_and_click(search_result_selectors, timeout=3):
+            if self._find_and_click(search_result_selectors, timeout=3,
+                                    keep_out=NAVIGATION_SELECTORS.search_result_avatar_ring):
                 self.logger.debug(f"✅ Clicked on search result for @{username}")
                 self._human_like_delay('navigation')
                 time.sleep(2.0)  # Extra wait for profile screen to fully load

@@ -12,12 +12,28 @@ held two rules, which are this search's:
 A text that is no Instagram handle once read that way is refused before any gesture: it was
 typed, then written into the XPath of the rows (a `"` broke it).
 
+Instagram 447 lists some accounts only in a keyword row: a title that is a query, a subtitle that
+names the account ("nasa • 104 M followers"). The search read only the account rows and opened
+nobody there (the phone session of 2026-10-24: `forceSearch` on @nasa, False; the deep link hid
+it). It now taps the keyword row whose subtitle starts with the exact handle and its " •" (a 447
+version override), never a neighbour's ("nasasolarsystem • 2,7 M followers"), and never the avatar
+ring drawn over the row, a button that opens the account's story.
+
+The search also starts from where an earlier run left the phone (same session, a cold DM after a
+likers run): a likers sheet over a post, the post, the profile it was opened from, then the
+results of the search that opened that profile, none of them with the tab bar on 447. The search
+went "home" by three Backs, stopped on those results without knowing them, and found no tab:
+"Cannot access search screen", nothing sent. The search screen is now the screen of its own bar
+(`search_screen_bar`): used as it is when it is up, and the way back stops on it.
+
 The screens are real (`search_screens_phone.py`): the home feed, Explore, the results, on
-Instagram 410 and 447 in French. The keyboard is not what is tested: it types what it is given.
-What the profile shows once opened is not either (`_verify_profile_navigation`, recorded here).
+Instagram 410 and 447 in French, with the selectors their version gets at connect. The keyboard is
+not what is tested: it types what it is given. What the profile shows once opened is not either
+(`_verify_profile_navigation`, recorded here).
 """
 
 import time as real_time
+from contextlib import ExitStack
 
 import pytest
 from loguru import logger
@@ -36,7 +52,16 @@ from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navi
 from taktik.core.social_media.instagram.actions.base.device.facade import DeviceFacade
 from taktik.core.social_media.instagram.ui.selectors.locales import set_active_locale
 
-from search_screens_phone import PKG, SEARCH_410, SEARCH_447, SearchPhone
+from search_screens_phone import (
+    PKG,
+    SEARCH_410,
+    LEFT_OPEN_STACK,
+    SEARCH_447,
+    SEARCH_447_KEYWORD_ROW,
+    SEARCH_447_LEFT_OPEN,
+    SearchPhone,
+    selectors_of,
+)
 
 
 class _Clock:
@@ -58,16 +83,28 @@ class _Clock:
 
 @pytest.fixture
 def phone_on(monkeypatch):
-    """`phone_on(screens)`: the phone, its keyboard typing into it, nothing waited for."""
+    """`phone_on(screens, stack)`: the phone (on the first screen of `stack` when given), its
+    keyboard typing into it, nothing waited for, the selectors of its version; the zones its taps
+    were aimed at in `phone.tap_zones`."""
     deep_links = []
+    versions = ExitStack()
+    aimed_human_tap = shared_facade_module.BaseDeviceFacade.human_tap
 
-    def build(screens):
-        phone = SearchPhone(screens)
+    def build(screens, stack=()):
+        phone = SearchPhone(screens, stack=stack)
+        versions.enter_context(selectors_of(screens))
         monkeypatch.setattr(base_action_module, "ensure_taktik_keyboard", lambda *_a, **_k: True)
         monkeypatch.setattr(base_action_module, "clear_text_with_taktik_keyboard", lambda *_a, **_k: True)
         monkeypatch.setattr(base_action_module, "type_text_checked",
                             lambda _device, _serial, text, **_k: phone.keyboard_types(text) or True)
+
+        def human_tap(facade, bounds, **kwargs):
+            phone.tap_zones.append(tuple(bounds))
+            return aimed_human_tap(facade, bounds, **kwargs)
+
+        monkeypatch.setattr(shared_facade_module.BaseDeviceFacade, "human_tap", human_tap)
         phone.deep_links = deep_links
+        phone.tap_zones = []
         return phone
 
     for module in (facade_module, shared_facade_module, search_navigation, delays_module):
@@ -79,7 +116,8 @@ def phone_on(monkeypatch):
     monkeypatch.setattr(DeepLinkNavigationMixin, "_navigate_via_deep_link",
                         lambda _self, username, *a, **k: deep_links.append(username) or False)
     set_active_locale("fr")
-    yield build
+    with versions:
+        yield build
     set_active_locale(None)
 
 
@@ -88,6 +126,10 @@ def _navigation(phone, opened):
     nav = NavigationActions(DeviceFacade(CloneAwareDeviceProxy(phone, PKG)))
     nav._verify_profile_navigation = lambda handle: opened.append(handle) or True
     return nav
+
+
+def _crosses(zone, box) -> bool:
+    return not (box[2] <= zone[0] or box[0] >= zone[2] or box[3] <= zone[1] or box[1] >= zone[3])
 
 
 @pytest.mark.parametrize("screens, handle", [(SEARCH_410, "user_2"), (SEARCH_447, "user_2")],
@@ -102,16 +144,55 @@ def test_the_account_listed_is_opened_by_its_row(phone_on, screens, handle):
     assert opened == [handle]
 
 
-def test_an_account_listed_only_in_a_keyword_row_opens_nobody(phone_on):
-    """Instagram 447: `user_3` typed, `user_3x` the first account row. Nobody is opened, and with
+@pytest.mark.parametrize("screens, handle", [(SEARCH_447, "user_3"), (SEARCH_447_KEYWORD_ROW, "name_1")],
+                         ids=["titled-by-another-query", "titled-by-its-handle"])
+def test_an_account_listed_only_in_a_keyword_row_is_opened_by_that_row(phone_on, screens, handle):
+    """Instagram 447: no account row of the handle typed, the first account row a neighbour's
+    (`user_3x`, `name_11`). The keyword row that names it is tapped, and no deep link is needed."""
+    phone, opened = phone_on(screens), []
+
+    assert _navigation(phone, opened).navigate_to_profile(handle, force_search=True) is True
+
+    assert phone.typed == [handle]
+    assert phone.rows_tapped() == [handle]
+    assert opened == [handle] and phone.deep_links == []
+
+
+def test_a_neighbour_listed_in_a_keyword_row_is_opened_by_its_own_row(phone_on):
+    """`name_1s` holds `name_1` at its start: its row is the second keyword row, never the first."""
+    phone, opened = phone_on(SEARCH_447_KEYWORD_ROW), []
+
+    assert _navigation(phone, opened).navigate_to_profile("name_1s", force_search=True) is True
+
+    assert phone.rows_tapped() == ["name_1s"]
+    assert opened == ["name_1s"]
+
+
+@pytest.mark.parametrize("handle", ["name_1x", "name_"])
+def test_a_handle_no_row_names_opens_nobody(phone_on, handle):
+    """`name_1` and its neighbours are listed, not these: no row is tapped, and with
     `force_search` no deep link either."""
-    phone, opened = phone_on(SEARCH_447), []
+    phone, opened = phone_on(SEARCH_447_KEYWORD_ROW), []
 
-    assert _navigation(phone, opened).navigate_to_profile("user_3", force_search=True) is False
+    assert _navigation(phone, opened).navigate_to_profile(handle, force_search=True) is False
 
-    assert phone.typed == ["user_3"]
+    assert phone.typed == [handle]
     assert phone.rows_tapped() == []
     assert opened == [] and phone.deep_links == []
+
+
+@pytest.mark.parametrize("screens, handle", [(SEARCH_447_KEYWORD_ROW, "name_1"), (SEARCH_447, "user_2")],
+                         ids=["keyword-row", "account-row"])
+def test_the_tap_on_a_row_is_aimed_clear_of_its_avatar_ring(phone_on, screens, handle):
+    """The ring is a button over the row (right of a keyword row, left of an account row) that
+    opens a story: the zone the tap is drawn in leaves it out."""
+    phone, opened = phone_on(screens), []
+
+    assert _navigation(phone, opened).navigate_to_profile(handle, force_search=True) is True
+
+    row_zone = phone.tap_zones[-1]
+    assert not any(_crosses(row_zone, ring) for ring in screens.avatar_rings())
+    assert phone.avatar_rings_tapped() == []
 
 
 @pytest.mark.parametrize("screens", [SEARCH_410, SEARCH_447], ids=["ig410", "ig447"])
@@ -134,3 +215,28 @@ def test_a_text_that_is_no_handle_touches_nothing(phone_on, given):
 
     assert phone.taps == [] and phone.typed == [] and phone.deep_links == []
     assert opened == []
+
+
+def test_the_search_results_left_open_are_searched_in_as_they_are(phone_on):
+    """The capture the phone session kept of the screen the cold DM could not leave; `name_21` is
+    the account its keyword row names ("natgeo • 268 M followers")."""
+    phone, opened = phone_on(SEARCH_447_LEFT_OPEN, LEFT_OPEN_STACK[-1:]), []
+
+    assert _navigation(phone, opened).navigate_to_profile("name_21", force_search=True) is True
+
+    assert phone.presses == []
+    assert phone.typed == ["name_21"]
+    assert phone.rows_tapped() == ["name_21"]
+    assert opened == ["name_21"] and phone.deep_links == []
+
+
+def test_from_a_likers_sheet_the_way_back_stops_on_the_search_screen(phone_on):
+    """Sheet, post, profile: three Backs, then the search results, where the search goes on."""
+    phone, opened = phone_on(SEARCH_447_LEFT_OPEN, LEFT_OPEN_STACK), []
+
+    assert _navigation(phone, opened).navigate_to_profile("name_21", force_search=True) is True
+
+    assert phone.presses == ["back", "back", "back"]
+    assert phone.typed == ["name_21"]
+    assert phone.rows_tapped() == ["name_21"]
+    assert opened == ["name_21"] and phone.deep_links == []

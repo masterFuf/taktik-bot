@@ -281,7 +281,7 @@ def _typed_by_the_keyboard(phone, expected):
 
 
 def _find_and_click(phone):
-    def find_and_click(selectors, timeout=5.0, human_delay=True):
+    def find_and_click(selectors, timeout=5.0, human_delay=True, keep_out=None, nth=None):
         for selector in [selectors] if isinstance(selectors, str) else selectors:
             node = phone.xpath(selector)
             if node.exists:

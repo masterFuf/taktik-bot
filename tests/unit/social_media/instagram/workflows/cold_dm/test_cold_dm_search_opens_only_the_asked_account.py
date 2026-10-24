@@ -9,7 +9,9 @@ way of opening a profile by its handle. The cold DM now asks the production one
 (`NavigationActions.navigate_to_profile`, every workflow's), with `force_search`: never a deep link,
 as the cold DM always reached its recipients. The rules its own search held (the exact handle,
 read as Instagram writes it) are that search's, tested on its own screens in
-`actions/atomic/navigation/test_profile_search_opens_only_the_asked_account.py`.
+`actions/atomic/navigation/test_profile_search_opens_only_the_asked_account.py`. That search
+now also opens an account Instagram 447 lists only in a keyword row (subtitle "nasa • 104 M
+followers"): the cold DM reaches it there, by the same production path.
 
 The screens are those real captures (`search_screens_phone.py`: the home feed, Explore, the results),
 behind the clone proxy and the facade the bridge mounts. The keyboard is not what is tested: it
@@ -18,6 +20,7 @@ opened profile and the cold DM's decision on it are recorded, not played.
 """
 
 import time as real_time
+from contextlib import ExitStack
 from types import SimpleNamespace
 
 import pytest
@@ -42,6 +45,7 @@ from unit.social_media.instagram.actions.atomic.navigation.search_screens_phone 
     SEARCH_410,
     SEARCH_447,
     SearchPhone,
+    selectors_of,
 )
 
 
@@ -82,8 +86,10 @@ def run_on(monkeypatch):
     monkeypatch.setattr(ColdDMWorkflow, "open_dm_from_profile",
                         lambda _self, policy=None: seen.decided.append(policy) or NOT_ON_PROFILE)
     set_active_locale("fr")
+    versions = ExitStack()
 
     def run(screens, recipient):
+        versions.enter_context(selectors_of(screens))
         phone = SearchPhone(screens)
         monkeypatch.setattr(base_action_module, "type_text_checked",
                             lambda _device, _serial, text, **_k: phone.keyboard_types(text) or True)
@@ -93,15 +99,27 @@ def run_on(monkeypatch):
         seen.reached = workflow.reach_and_send(recipient, lambda: seen.composed.append(1) or "Bonjour")
         return seen
 
-    yield run
+    with versions:
+        yield run
     set_active_locale(None)
 
 
-def test_an_account_the_results_do_not_list_opens_nobody(run_on):
+def test_an_account_the_results_list_only_in_a_keyword_row_is_reached_by_that_row(run_on):
     seen = run_on(SEARCH_447, "user_3")
 
-    assert seen.reached == {"outcome": NOT_FOUND}
     assert seen.phone.typed == ["user_3"]
+    assert seen.phone.rows_tapped() == ["user_3"]
+    assert seen.checked == ["user_3"]
+    assert len(seen.decided) == 1 and seen.reached == {"outcome": NOT_ON_PROFILE}
+    assert seen.deep_links == [] and seen.composed == []
+
+
+def test_an_account_the_results_do_not_list_opens_nobody(run_on):
+    """`user_3x` is listed (an account row), `user_3` too (a keyword row); `user_3y` is not."""
+    seen = run_on(SEARCH_447, "user_3y")
+
+    assert seen.reached == {"outcome": NOT_FOUND}
+    assert seen.phone.typed == ["user_3y"]
     # The search bar is tapped to type; no row is, and no deep link reaches the profile instead.
     assert seen.phone.rows_tapped() == []
     assert seen.deep_links == [] and seen.checked == [] and seen.decided == [] and seen.composed == []

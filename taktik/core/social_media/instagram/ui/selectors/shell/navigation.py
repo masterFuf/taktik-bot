@@ -107,12 +107,38 @@ class NavigationSelectors:
     def explore_search_bar(self) -> List[str]:
         return self._explore_search_bar_base + L("navigation.explore_search_bar")
 
+    @property
+    def search_screen_bar(self) -> List[str]:
+        """The search screen's own bar (Explore, and the results of a query), by its id alone.
+
+        It tells the search screen apart without its tab bar, which Instagram 447 hides under the
+        results of a query. Without the labels of `explore_search_bar`: "Rechercher" also names the
+        search fields of a likers sheet or a follow list (`search_edit_text`), screens of another
+        kind. The id is on the search screens only, in the capture corpus (67 dumps 410, 26 dumps 447).
+        """
+        return self._explore_search_bar_base
+
     # === Search result selectors (use .format(username=...) for dynamic parts) ===
     search_result_container_resource_id: str = 'com.instagram.android:id/row_search_user_container'
     search_result_username_resource_id: str = 'com.instagram.android:id/row_search_user_username'
 
+    # A row that names an account without being an account row: the "keyword" row of Instagram
+    # 447, whose title is a query ("nasa", or "interpretação espiritual nasa") and whose subtitle
+    # names the account: "nasa • 104 M followers". `{username}` stands for the exact handle; the
+    # " •" after it keeps out a neighbour that holds it ("nasasolarsystem • 2,7 M followers").
+    # Empty in the reference: no keyword row of the 410 corpus has a subtitle (25 search screens
+    # with a keyword row, 2026-09-25 to 09-28); the 447 entry is in the version overrides.
+    _search_result_keyword_row_templates: List[str] = field(default_factory=list)
+
+    # What a tap on a result row must never reach: the avatar ring, a button of its own over the
+    # row (left of an account row, right of a keyword row), which opens the account's story.
+    search_result_avatar_ring: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/row_search_avatar_with_ring"]',
+    ])
+
     def search_result_selectors_for_username(self, username: str) -> List[str]:
-        """Build selectors for a search result row matching an exact username."""
+        """Build selectors for a search result row matching an exact username: its account row
+        first, then a row of another kind that names that exact handle (version overrides)."""
         container_id = self.search_result_container_resource_id
         username_id = self.search_result_username_resource_id
         return [
@@ -120,7 +146,7 @@ class NavigationSelectors:
             f'//*[contains(@resource-id, "{container_id}")][.//*[@text="{username}"]]',
             f'//android.widget.TextView[contains(@resource-id, "{username_id}") and @text="{username}"]',
             f'//*[@clickable="true"][.//*[contains(@resource-id, "{username_id}") and @text="{username}"]]',
-        ]
+        ] + [template.replace("{username}", username) for template in self._search_result_keyword_row_templates]
 
     def hashtag_result_selectors(self, hashtag: str) -> List[str]:
         """Build selectors for a hashtag result entry."""
