@@ -3,6 +3,7 @@
 from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action, detection_action
+from bridges.tools.lab.actions.common.avatar import avatar_result
 from bridges.tools.lab.actions.instagram.unfollow import unfollow_and_report
 from bridges.tools.lab.action_test.not_applicable import absent_on_screen
 from taktik.core.database.instagram_follow_graph import InstagramFollowGraphService
@@ -355,20 +356,12 @@ def expand_bio_more(a, p):
     return {"success": False, "message": "truncated bio, expander not located"}
 
 
-def _avatar_result(data_url):
-    """What the Lab shows of an avatar crop: whether it was made and its size, never the image."""
-    size_kb = len(data_url) * 3 // 4 // 1024 if data_url else 0
-    return {"success": bool(data_url),
-            "message": f"avatar cropped ({size_kb} KB)" if data_url else "avatar not found on screen",
-            "details": {"extracted": bool(data_url), "size_kb": size_kb}}
-
-
 @action("profile.extract_avatar")
 def extract_avatar(a, p):
     """Crop the visited profile's avatar: its bounds read on one screen photo, the picture cut
     from one screenshot (production `extract_profile_image`, the picture stored with a profile).
     Be on a profile, header visible."""
-    return _avatar_result(a.detection.extract_profile_image())
+    return avatar_result(a.detection.extract_profile_image())
 
 
 @action("profile.extract_own_avatar")
@@ -376,4 +369,4 @@ def extract_own_avatar(a, p):
     """Crop OUR avatar from the bottom bar's profile tab (production
     `extract_own_avatar_from_tab`: no story ring, no add-to-story badge). Any screen with the
     bottom bar."""
-    return _avatar_result(a.detection.extract_own_avatar_from_tab())
+    return avatar_result(a.detection.extract_own_avatar_from_tab())

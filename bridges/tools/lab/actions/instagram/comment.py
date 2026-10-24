@@ -140,3 +140,22 @@ def read_visible_texts(a, p):
         "message": f"{len(texts)} comment text(s) — {preview or 'none readable'}",
         "details": {"count": len(texts), "texts": texts},
     }
+
+
+@action("comment.read_thread_context")
+def read_thread_context(a, p):
+    """Read the thread the way a comment of a workflow reads it before writing
+    (`ThreadContextMixin.read_thread_context`, called by the AI comment hook): the thread opened if
+    needed and left open on the composer, read twice at most and never scrolled, then sorted into
+    the author's replies, the comments kept, the praise counted and the openers and emoji others
+    already used. Param: post_author (tells the author's replies from a stranger's). Writes nothing.
+    """
+    import dataclasses
+
+    selection = a.comment.read_thread_context(post_author=(p.get("post_author") or "").strip().lstrip("@"))
+    return {
+        "success": selection.has_material,
+        "message": (f"seen {selection.seen}, kept {selection.kept}, author replies "
+                    f"{len(selection.author_replies)}, praise {selection.praise_count}"),
+        "details": dataclasses.asdict(selection),
+    }

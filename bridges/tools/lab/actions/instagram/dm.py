@@ -59,6 +59,17 @@ def open_inbox(a, p):
     return {"success": bool(ok), "message": "DM inbox open" if ok else "could not open DM inbox"}
 
 
+@action("dm.open_requests")
+def open_requests(a, p):
+    """From the DM inbox, open the message requests folder via the PROD runtime
+    (``open_requests_folder``, what the requests read of the DM page opens): the header entry
+    tapped, then the screen proven by its title. False when the inbox shows no requests entry.
+    ``dm.list_unread`` then reads its rows, the same reader as the inbox's."""
+    ok = _dm_runtime(a).open_requests_folder()
+    return {"success": bool(ok),
+            "message": "message requests open" if ok else "no requests entry, or the requests screen did not open"}
+
+
 @action("dm.list_unread")
 def list_unread(a, p):
     """Run the PROD conversation reader (``read_conversations``) and list what it found (username +

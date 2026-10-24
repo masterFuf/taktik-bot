@@ -12,6 +12,8 @@ needs the action bundle to grow.
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
+from bridges.tools.lab.actions.common.avatar import avatar_result
+from bridges.tools.lab.action_test.params import lab_int
 from taktik.core.social_media.tiktok.workflows.common.profile_extractor import (
     extract_profile_from_screen,
 )
@@ -169,6 +171,41 @@ def open_own(a, p):
         "message": "own profile" if ok else "not our profile (or not a profile)",
         "details": {"markers": markers},
     }
+
+
+@action("tt.profile.read_own")
+def read_own(a, p):
+    """Read OUR profile as the start of every run reads it (`ProfileActions.get_own_profile_info`,
+    which `fetch_own_profile` calls once on our page): handle, name, counters, bio and avatar. Be on
+    our profile (`tt.profile.open_own`). The avatar is said, never shipped."""
+    from taktik.core.social_media.tiktok.services.profile.profile_actions import ProfileActions
+
+    info = ProfileActions(a.device).get_own_profile_info()
+    if info is None:
+        return {"success": False, "message": "own profile unreadable"}
+    details = info.to_dict()
+    details["has_picture"] = bool(details.pop("profile_pic_base64", None))
+    return {"success": True, "message": f"@{info.username}: {info.followers_count} follower(s)",
+            "details": details}
+
+
+@action("tt.profile.open_grid_post")
+def open_grid_post(a, p):
+    """Open the video at `index` (0-based, default 0) of the grid of the profile on screen, with the
+    tap the scraping uses (`ClickActions.open_profile_grid_post`): only the part of the cell nothing
+    floats over, no tap when that part is too small or unreadable."""
+    index = lab_int(p, "index", 0)
+    opened = a.click.open_profile_grid_post(index)
+    return {"success": bool(opened), "message": f"grid video #{index} open={bool(opened)}"}
+
+
+@action("tt.profile.capture_avatar")
+def capture_avatar(a, p):
+    """Crop the avatar of the profile on screen, ours or a visited one, as the followers workflow
+    stores it (`AvatarActions.capture_avatar`): the largest avatar node, cut from one screenshot."""
+    from taktik.core.social_media.tiktok.actions.atomic.detection.avatar_actions import AvatarActions
+
+    return avatar_result(AvatarActions(a.device).capture_avatar())
 
 
 @action("tt.profile.count_posts")

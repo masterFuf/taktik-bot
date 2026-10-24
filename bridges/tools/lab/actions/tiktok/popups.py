@@ -29,6 +29,29 @@ def close_popup(a, p):
                              a.popup_detector.has_popup, "popup or banner")
 
 
+@action("tt.popups.close_all")
+def close_all(a, p):
+    """The popup chain of every TikTok workflow, as a For You turn runs it: one photo of the screen
+    (`detection.read_screen()`), then `PopupHandler.close_all` on it: the families in their order,
+    the inbox escaped, the unlabelled dialog read by OCR, ONE closed per call. A refusal of the
+    account's actions is never closed: closing it is acting again, the run stops on it."""
+    from taktik.core.social_media.tiktok.workflows.common import popup_handler
+
+    screen = a.detection.read_screen()
+    found = sorted(getattr(screen, "popups", None) or ())
+    closed = popup_handler.PopupHandler(a.click, a.detection).close_all(screen)
+    details = {"found": found, "closed": bool(closed)}
+    if "action_blocked" in found:
+        return {"success": False, "message": "TikTok refuses the account's actions: left on screen",
+                "details": details}
+    if closed:
+        return {"success": True, "message": f"closed one of {', '.join(found) or 'a popup'}", "details": details}
+    if found:
+        return {"success": False, "message": f"seen {', '.join(found)}, nothing closed", "details": details}
+    return absent_on_screen("tt.popups.close_all", device=a.device, platform="tiktok", still_there=None,
+                            what="popup")
+
+
 @action("tt.popups.close_collections")
 def close_collections(a, p):
     return _closed_or_absent("tt.popups.close_collections", a, a.popup.close_collections_popup(),
