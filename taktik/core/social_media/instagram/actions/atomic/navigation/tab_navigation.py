@@ -134,24 +134,22 @@ class TabNavigationMixin(BaseAction):
                     return True
                 continue
 
-            if self._find_and_click(self.selectors.profile_tab, timeout=15):
-                self._human_like_delay('navigation')
+            def own_profile_loaded() -> bool:
                 # The tab switches at once, the profile header loads seconds later.
                 detection.wait_for_profile_screen()
+                return detection.is_on_own_profile()
 
-                if detection.is_on_own_profile():
-                    self.logger.debug(f"✅ Successfully navigated to own profile (attempt {attempt + 1})")
-                    return True
-                else:
-                    self.logger.debug(f"❌ Failed navigation attempt {attempt + 1}")
-            else:
-                self.logger.debug(f"❌ Cannot click on profile tab (attempt {attempt + 1})")
-                # A full-screen surface hides the bottom bar. Since Instagram 410 the followers /
-                # following lists do: every unfollow run that had read the following list then
-                # failed here three times, and its followers sync never ran (Pixel 3, 2026-09-24).
-                # One Back at a time, never out of Instagram.
-                if self._is_instagram_open():
-                    self._back_one_screen()
+            if self._navigate_to_tab(self.selectors.profile_tab, "profile tab", "👤", own_profile_loaded):
+                self.logger.debug(f"✅ Successfully navigated to own profile (attempt {attempt + 1})")
+                return True
+
+            self.logger.debug(f"❌ Profile tab not reached (attempt {attempt + 1})")
+            # A full-screen surface hides the bottom bar: the followers / following lists since
+            # Instagram 410 (Pixel 3, 2026-09-24), a DM conversation and its keyboard (Pixel 6 Pro,
+            # 2026-10-24: two searches of 15 s, one per Back). Back out as the search tab does,
+            # one Back at a time until the tab bar shows, never out of Instagram.
+            if self._is_instagram_open():
+                self._back_out_until(lambda: self._is_element_present(self.selectors.profile_tab))
 
         self.logger.error("❌ Failed to navigate to own profile after 3 attempts")
         # Debug: dump UI hierarchy to understand what's on screen

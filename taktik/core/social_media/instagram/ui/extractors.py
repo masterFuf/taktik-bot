@@ -4,7 +4,7 @@ import time
 from typing import Optional, List, Any, Dict
 from loguru import logger
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
-from taktik.core.shared.actions.utils import ActionUtils
+from taktik.core.shared.actions.utils import ActionUtils, normalise_number_spaces
 from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.social_media.instagram.ui.labels import is_ui_label
 
@@ -52,38 +52,16 @@ class InstagramUIExtractors:
                         if not content_desc:
                             continue
                         
-                        # Extract likes
-                        # The apostrophe is TYPOGRAPHIC on the device (U+2019), not the ASCII one
-                        # this pattern used to spell -- so on a French phone the likes never matched while
-                        # the comments did, the pair was never complete, and the atomic read always failed.
-                        likes_match = re.search(
-                            r'(\d+(?:[,.]\d+)?(?:\s?[KkMmBb])?)\s*(?:like|j[\x27’`]?aime)',
-                            content_desc,
-                            re.IGNORECASE
-                        )
-                        
-                        # Extract comments
-                        comments_match = re.search(
-                            r'(\d+(?:[,.]\d+)?(?:\s?[KkMmBb])?)\s*(?:comment|commentaire)',
-                            content_desc,
-                            re.IGNORECASE
-                        )
-                        
-                        if likes_match and comments_match:
-                            likes_text = likes_match.group(1)
-                            comments_text = comments_match.group(1)
-                            
-                            likes_count = self.parse_instagram_number(likes_text)
-                            comments_count = self.parse_instagram_number(comments_text)
-                            
-                            if likes_count >= 0 and comments_count >= 0:
-                                log.debug(f"✅ Post stats extracted atomically from carousel: {likes_count} likes, {comments_count} comments")
-                                log.debug(f"   Source content-desc: {content_desc[:100]}...")
-                                return {
-                                    'likes': likes_count,
-                                    'comments': comments_count
-                                }
-                        
+                        counts = post_counts_from_media_label(content_desc)
+                        if counts is not None:
+                            likes_count, comments_count = counts
+                            log.debug(f"✅ Post stats extracted atomically from carousel: {likes_count} likes, {comments_count} comments")
+                            log.debug(f"   Source content-desc: {content_desc[:100]}...")
+                            return {
+                                'likes': likes_count,
+                                'comments': comments_count
+                            }
+
                 except Exception as e:
                     log.debug(f"Error with carousel selector {selector}: {e}")
                     continue
@@ -149,32 +127,10 @@ class InstagramUIExtractors:
                     element_info = element.info
                     content_desc = element_info.get('contentDescription', '')
                     
-                    if content_desc:
-                        apostrophe_variants = ["J'aime", "J'aime", "J`aime", "Jaime", "J'aime"]
-                        has_jaime = any(variant in content_desc for variant in apostrophe_variants)
-                        has_likes = 'likes' in content_desc
-                        has_aime = 'aime' in content_desc.lower()
-                        
-                        if has_jaime or has_likes or has_aime:
-                            like_match = re.search(
-                                r"(\d+(?:\s\d+)*(?:[,.]?\d+)?(?:\s?[KkMmBb])?)\s*J[''`'ʼ']?aime",
-                                content_desc,
-                                re.IGNORECASE
-                            )
-                            
-                            if not like_match:
-                                like_match = re.search(
-                                    r"(\d+(?:\s\d+)*(?:[,.]?\d+)?(?:\s?[KkMmBb])?)\s+aime",
-                                    content_desc,
-                                    re.IGNORECASE
-                                )
-                            
-                            if like_match:
-                                likes_text = like_match.group(1)
-                                likes_count = self.parse_instagram_number(likes_text)
-                                if likes_count >= 0:
-                                    log.debug(f"✅ Likes extracted from content-desc: {likes_count} (text: '{likes_text}')")
-                                    return likes_count
+                    likes_count = likes_from_media_label(content_desc)
+                    if likes_count is not None:
+                        log.debug(f"✅ Likes extracted from content-desc: {likes_count}")
+                        return likes_count
                 except Exception as e:
                     log.debug(f"Error with photo element {i+1}: {e}")
                     continue
@@ -232,17 +188,10 @@ class InstagramUIExtractors:
                     element_info = element.info
                     content_desc = element_info.get('contentDescription', '')
                     
-                    if content_desc and ('commentaire' in content_desc or 'comment' in content_desc):
-                        comment_match = re.search(
-                            r'(\d+(?:\s?\d+)*(?:[,.]?\d+)?(?:\s?[KkMmBb])?)\s*(?:commentaire|comment)',
-                            content_desc
-                        )
-                        if comment_match:
-                            comments_text = comment_match.group(1)
-                            comments_count = self.parse_instagram_number(comments_text)
-                            if comments_count >= 0:
-                                log.debug(f"✅ Comments extracted from content-desc: {comments_count}")
-                                return comments_count
+                    comments_count = comments_from_media_label(content_desc)
+                    if comments_count is not None:
+                        log.debug(f"✅ Comments extracted from content-desc: {comments_count}")
+                        return comments_count
                 except Exception as e:
                     log.debug(f"Error with photo element {i+1}: {e}")
                     continue
@@ -659,10 +608,25 @@ def _in_row(bounds, row) -> bool:
     return row[1] <= bounds[1] and bounds[3] <= row[3]
 
 
-# The first number inside a counter label, and nothing else. Digits, thousand separators
-# (space, non-breaking space, comma, dot) and an optional K/M/B suffix — the suffix only
-# counts when no letter follows it, so a German "12 Kommentare" is not read as 12 000.
-_COUNTER_VALUE = re.compile(r'\d[\d\s .,]*(?:\s?[KkMmBb](?![^\W\d_]))?')
+# One count as Instagram writes it in a label, whatever the language, once the label went through
+# `normalise_number_spaces`: thousands grouped by a space, a comma or a dot ("14 260", "14,260",
+# "14.260"), or a decimal before a K/M/B suffix ("14,2 K", "46.4K"). A group of exactly three
+# digits is what tells a thousands separator from a decimal comma. The suffix only counts when no
+# letter follows it, so a German "12 Kommentare" is not read as 12 000. It never starts right after
+# a digit, so it never begins inside another number.
+#
+# The ONE reading of a count in a label: the counter labels (`count_from_counter_label`) and the
+# media label of a post (`post_counts_from_media_label`) both go through it. The media label had
+# its own, `\d+(?:[,.]\d+)?`, which stopped at the first thousands separator: "14 260 J'aime" was
+# saved as 260 likes.
+_COUNT_TOKEN = r'(?<!\d)(?:\d{1,3}(?:[ ,.]\d{3})+(?!\d)|\d+(?:[.,]\d+)?)(?: ?[KkMmBb](?![^\W\d_]))?'
+_COUNTER_VALUE = re.compile(_COUNT_TOKEN)
+
+# The two counts of a post's media label: "Photo de X, 14 260 J'aime, 190 commentaires",
+# "Photo by X, 11,100,590 likes, 46.4K comments". The apostrophe is TYPOGRAPHIC on the device
+# (U+2019, sometimes U+02BC): the ASCII one alone never matched a French phone.
+_MEDIA_LABEL_LIKES = re.compile(rf'({_COUNT_TOKEN})\s*(?:like|(?:j[\x27\u2019\u02bc`]?)?aime)', re.IGNORECASE)
+_MEDIA_LABEL_COMMENTS = re.compile(rf'({_COUNT_TOKEN})\s*(?:comment|commentaire)', re.IGNORECASE)
 
 
 def count_from_counter_label(label: Optional[str]) -> Optional[int]:
@@ -683,11 +647,36 @@ def count_from_counter_label(label: Optional[str]) -> Optional[int]:
     """
     if not label:
         return None
-    match = _COUNTER_VALUE.search(label)
+    match = _COUNTER_VALUE.search(normalise_number_spaces(label))
     if not match:
         return None
-    token = match.group(0).strip(' ., ')
-    return parse_number_from_text(token) if token else None
+    return parse_number_from_text(match.group(0))
+
+
+def likes_from_media_label(label: Optional[str]) -> Optional[int]:
+    """The like count of a post's media label; `None` when the label carries none (not zero)."""
+    match = _MEDIA_LABEL_LIKES.search(normalise_number_spaces(label)) if label else None
+    return parse_number_from_text(match.group(1)) if match else None
+
+
+def comments_from_media_label(label: Optional[str]) -> Optional[int]:
+    """The comment count of a post's media label; `None` when the label carries none (not zero)."""
+    match = _MEDIA_LABEL_COMMENTS.search(normalise_number_spaces(label)) if label else None
+    return parse_number_from_text(match.group(1)) if match else None
+
+
+def post_counts_from_media_label(label: Optional[str]) -> Optional[tuple]:
+    """(likes, comments) carried by the media label of a post, WHATEVER the app language.
+
+    Both counts come from the same string, which is what makes the read atomic: on a list of
+    posts, two elements can belong to two posts. `None` when the label does not carry both:
+    half a pair would make the caller take the other half elsewhere.
+    """
+    likes = likes_from_media_label(label)
+    comments = comments_from_media_label(label)
+    if likes is None or comments is None:
+        return None
+    return likes, comments
 
 
 def parse_number_from_text(text: str) -> int:

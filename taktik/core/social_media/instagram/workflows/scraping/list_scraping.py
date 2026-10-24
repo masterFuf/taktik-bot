@@ -22,7 +22,7 @@ from taktik.core.social_media.instagram.workflows.scraping.list_strategy import 
     make_commenters_strategy,
 )
 from taktik.core.social_media.instagram.workflows.scraping.deep_qualify import DeepQualifyMixin
-from taktik.core.social_media.instagram.workflows.scraping.persistence import SCRAPED_PROFILE_FIELDS
+from taktik.core.social_media.instagram.workflows.scraping.persistence import SCRAPED_PROFILE_FIELDS, post_audiences
 
 console = Console()
 
@@ -67,6 +67,9 @@ def _read_nothing(profile_data: Dict[str, Any]) -> bool:
 
 class ScrapingListMixin(DeepQualifyMixin):
     """Mixin: generic list scraping, hashtag scraping, post URL scraping."""
+
+    # Set by `ScrapingWorkflow.__init__`, the class that composes this mixin.
+    config: Dict[str, Any]
 
     def _has_profile_filters(self) -> bool:
         """True when the operator asked for ANY profile filter.
@@ -921,10 +924,7 @@ class ScrapingListMixin(DeepQualifyMixin):
 
             posts_checked = 0
             remaining = max_profiles - total_scraped
-            scrape_mode = []
-            if scrape_likers: scrape_mode.append('likers')
-            if scrape_commenters: scrape_mode.append('commenters')
-            console.print(f"[cyan]🔍 Scraping #{hashtag} ({'+'.join(scrape_mode) or 'none'}, max {remaining} profiles)...[/cyan]")
+            console.print(f"[cyan]🔍 Scraping #{hashtag} ({'+'.join(post_audiences(self.config)) or 'none'}, max {remaining} profiles)...[/cyan]")
 
             # Track which post grid positions have already been clicked this hashtag
             # so we never re-open the same thumbnail after pressing back.

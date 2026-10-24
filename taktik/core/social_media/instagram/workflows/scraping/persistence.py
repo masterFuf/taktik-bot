@@ -40,6 +40,16 @@ def scraped_profile_row(profile: Dict[str, Any]) -> Dict[str, Any]:
     return row
 
 
+def post_audiences(config: Dict[str, Any]) -> List[str]:
+    """The lists of a post a hashtag or post_url run reads, in the order it reads them."""
+    audiences = []
+    if config.get('scrape_likers', True):
+        audiences.append('likers')
+    if config.get('scrape_commenters', False):
+        audiences.append('commenters')
+    return audiences
+
+
 def _targets_label(targets) -> str:
     """The session row's source name for a list of accounts: the first three, then a count."""
     targets = list(targets or [])
@@ -52,6 +62,15 @@ def _targets_label(targets) -> str:
 class ScrapingPersistenceMixin:
     """Mixin: CSV export, DB save, session management, enrichment, stats display."""
 
+    # Set by `ScrapingWorkflow.__init__`, the class that composes this mixin.
+    config: Dict[str, Any]
+    logger: Any
+    scraped_profiles: List[Dict[str, Any]]
+    scraping_session_id: Optional[int]
+    csv_export_path: Optional[str]
+    start_time: Optional[datetime]
+    _save_immediately: bool
+
     def _local_db(self):
         """Return the shared local DB boundary for scraping mixins."""
         local_db = getattr(self, 'local_db', None)
@@ -59,6 +78,17 @@ class ScrapingPersistenceMixin:
             local_db = get_local_database()
             self.local_db = local_db
         return local_db
+
+    def _profiles_saved_this_run(self) -> Dict[str, bool]:
+        """Username -> was it NEW to the base, for every profile this run already saved.
+
+        The answer of the FIRST save of a profile is the only one that knows whether the base
+        knew it before the run: a second save always finds it."""
+        saved = getattr(self, '_saved_this_run', None)
+        if saved is None:
+            saved = {}
+            self._saved_this_run = saved
+        return saved
 
     def _export_to_csv(self):
         """Export scraped profiles to CSV file."""
@@ -115,13 +145,16 @@ class ScrapingPersistenceMixin:
             local_db = self._local_db()
             username = profile['username']
             result = local_db.save_profile(scraped_profile_row(profile))
-            
             profile_id = result.get('profile_id') if result else None
-            created = result.get('created', True) if result else True
-            if created:
-                self.logger.debug(f"✨ New profile saved: @{username} (id={profile_id})")
+            if not result:
+                self.logger.warning(f"@{username} was not saved: the base gave no profile back")
             else:
-                self.logger.debug(f"♻️  Known profile updated: @{username} (id={profile_id})")
+                created = bool(result.get('created'))
+                self._profiles_saved_this_run()[username] = created
+                if created:
+                    self.logger.debug(f"✨ New profile saved: @{username} (id={profile_id})")
+                else:
+                    self.logger.debug(f"♻️  Known profile updated: @{username} (id={profile_id})")
 
             # Link profile to scraping session in junction table (with optional post URL)
             if self.scraping_session_id and profile_id:
@@ -154,33 +187,40 @@ class ScrapingPersistenceMixin:
             self.logger.debug(f"Error updating AI score for profile_id={profile_id}: {e}")
 
     def _save_to_database(self):
-        """Save scraped profiles to local database (final save, handles any missed profiles)."""
+        """Save the profiles the run has not saved yet, then say how many were new to the base.
+
+        With the immediate save on, every kept profile is already saved: saving it again found it
+        in the base and counted it "updated" (a fresh base said "Saved 0 new profiles"), and wrote a
+        second stats snapshot for one reading. Only a profile whose immediate save did not happen
+        (off, or failed) is saved here; new and updated come from each profile's first save."""
         if not self.scraped_profiles:
             return
-        
+
         try:
             local_db = self._local_db()
-            saved_count = 0
-            updated_count = 0
-            
+            saved_this_run = self._profiles_saved_this_run()
+
             for profile in self.scraped_profiles:
+                username = profile.get('username', 'unknown')
+                if username in saved_this_run:
+                    continue
                 try:
-                    # Save or update profile in local database
                     result = local_db.save_profile(scraped_profile_row(profile))
-                    
-                    if result:
-                        # Link profile to scraping session in junction table
-                        if self.scraping_session_id and result.get('profile_id'):
-                            local_db.link_profile_to_session(self.scraping_session_id, result['profile_id'])
-                        
-                        if result.get('created'):
-                            saved_count += 1
-                        else:
-                            updated_count += 1
-                            
+                    if not result:
+                        self.logger.warning(f"@{username} was not saved: the base gave no profile back")
+                        continue
+                    saved_this_run[username] = bool(result.get('created'))
+                    # Link profile to scraping session in junction table
+                    if self.scraping_session_id and result.get('profile_id'):
+                        local_db.link_profile_to_session(self.scraping_session_id, result['profile_id'])
                 except Exception as e:
-                    self.logger.debug(f"Error saving @{profile.get('username', 'unknown')}: {e}")
-            
+                    self.logger.warning(f"Error saving @{username}: {e}")
+
+            kept = {p.get('username') for p in self.scraped_profiles}
+            outcomes = [saved_this_run[username] for username in kept if username in saved_this_run]
+            saved_count = sum(1 for created in outcomes if created)
+            updated_count = len(outcomes) - saved_count
+
             if updated_count > 0:
                 console.print(f"[green]💾 Saved {saved_count} new profiles, updated {updated_count} existing profiles[/green]")
             else:
@@ -252,12 +292,17 @@ class ScrapingPersistenceMixin:
                 source_type = 'PROFILE_POSTS'
                 scrape_type = 'profile_posts'
                 source_name = _targets_label(self.config.get('target_usernames', []))
-            elif scraping_type == 'hashtag':
-                source_type = 'HASHTAG'
-                source_name = f"#{self.config.get('hashtag', 'unknown')}"
-            elif scraping_type == 'post_url':
-                source_type = 'POST_URL'
-                source_name = self.config.get('post_url', 'unknown')[:100]
+            elif scraping_type in ('hashtag', 'post_url'):
+                # The audience of posts, not of an account: the 'followers' default once stored a
+                # hashtag run that read likers as a follower scrape, in the history and in every
+                # count grouped by type.
+                scrape_type = '+'.join(post_audiences(self.config)) or 'none'
+                if scraping_type == 'hashtag':
+                    source_type = 'HASHTAG'
+                    source_name = f"#{self.config.get('hashtag', 'unknown')}"
+                else:
+                    source_type = 'POST_URL'
+                    source_name = self.config.get('post_url', 'unknown')[:100]
             elif scraping_type == 'usernames':
                 source_type = 'USERNAME_LIST'
                 # This run walks no list and mines nobody's audience: it visits profiles that are
