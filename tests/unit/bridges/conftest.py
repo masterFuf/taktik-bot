@@ -21,17 +21,17 @@ WITH_FAULT = CORE / "tests" / "unit" / "bridge_with_fault.py"
 
 @pytest.fixture
 def run_bridge_process(tmp_path: Path):
-    """`run(bridge, config, blocked=None, fault=None, phone=False, passes=(), db_path=None)` ->
+    """`run(bridge, config, blocked=None, fault=None, phone=False, passes=(), db_path=None, import_error=False)` ->
     (process, its `error` lines).
 
     `blocked` names a module that does not import in that process; `fault` a `<module>:<name>` that
-    raises when called, `phone` a connection that succeeds on a stand-in device, `passes` the steps
+    raises when called (`import_error`: a `ModuleNotFoundError`), `phone` a connection that succeeds on a stand-in device, `passes` the steps
     that return True instead of asking it (`tests/unit/bridge_with_fault.py`). `TAKTIK_DB_PATH`
     points into `tmp_path` (or at `db_path`): a test can check that no base was created.
     """
 
     def run(bridge: str, config, blocked: Optional[str] = None, fault: Optional[str] = None,
-            phone: bool = False, passes: tuple = (), db_path: Optional[Path] = None):
+            phone: bool = False, passes: tuple = (), db_path: Optional[Path] = None, import_error: bool = False):
         config_path = tmp_path / f"{bridge}.json"
         config_path.write_text(json.dumps(config), encoding="utf-8")
         env = {key: os.environ[key] for key in ("PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE", "APPDATA",
@@ -41,6 +41,7 @@ def run_bridge_process(tmp_path: Path):
             command = [sys.executable, str(WITHOUT_MODULE), blocked]
         elif fault:
             command = [sys.executable, str(WITH_FAULT)] + (["--phone"] if phone else [])
+            command += ["--import-error"] if import_error else []
             for step in passes:
                 command += ["--passes", step]
             command.append(fault)

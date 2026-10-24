@@ -84,10 +84,11 @@ def report_error_event(message: str, _reason: str = CONFIG_ERROR) -> None:
 def send_import_error(exc: ImportError) -> None:
     """A module the run needs did not import: the `error` line with the bot's code and the traceback.
 
-    The one way a bridge says it, whether the import failed under the entry (`run_bridge_main`) or in
-    a run that catches it (the TikTok and Threads runners): `PYTHON_IMPORT_ERROR`, the exception's
+    For an import nothing worded: one that reaches the entry (`run_bridge_main`), or the Instagram
+    automation's catch-all (`send_instagram_workflow_error`): `PYTHON_IMPORT_ERROR`, the exception's
     words and its traceback, as the crash hook says an import of the bridge's own module
-    (`crash_hooks.exception_event`). The traceback goes to stderr too, the run's log.
+    (`crash_hooks.exception_event`). The traceback goes to stderr too, the run's log. A run that
+    catches the import with words of its own says it by `send_run_error`, which keeps them.
     """
     logger.opt(exception=exc).error(f"A module the run needs did not import: {exc}")
     _ipc.send("error", **exception_event(type(exc), exc, exc.__traceback__))
@@ -96,16 +97,17 @@ def send_import_error(exc: ImportError) -> None:
 def send_run_error(message: str, exc: BaseException, **extra: Any) -> None:
     """A run that an exception ended, in its bridge's words: the `error` line with the traceback.
 
-    For a run that catches its own failure and returns (the TikTok workflow runners): the bridge
-    keeps its words (`message`) and the code it passes in `extra`, the line carries the traceback
-    the crash report needs (`crash_hooks.exception_event`), and the traceback goes to stderr too.
-    An import that failed is `send_import_error`, whatever the words.
+    For a run that catches its own failure and returns (the TikTok workflow runners, the Lab benches,
+    the opening of the base): the bridge keeps its words (`message`) and the code it passes in
+    `extra`, the line carries the traceback the crash report needs (`crash_hooks.exception_event`),
+    and the traceback goes to stderr too. A run that names no code gets the one the bot reads in the
+    exception when it has one: `PYTHON_IMPORT_ERROR` for an import that failed.
     """
+    event = exception_event(type(exc), exc, exc.__traceback__)
     if isinstance(exc, ImportError):
-        send_import_error(exc)
-        return
+        extra.setdefault("error_code", event["error_code"])
     logger.opt(exception=exc).error(message)
-    _ipc.error(message, traceback=exception_event(type(exc), exc, exc.__traceback__)["traceback"], **extra)
+    _ipc.error(message, traceback=event["traceback"], **extra)
 
 
 def report_entry_error(message: str, reason: str) -> None:

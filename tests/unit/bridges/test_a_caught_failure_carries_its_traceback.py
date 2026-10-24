@@ -137,3 +137,39 @@ def test_a_lab_bench_says_a_caught_failure_with_its_code_and_the_traceback(
     proc, errors = run_bridge_process(bridge, config, fault=fault, phone=True, passes=passes)
 
     _assert_said_with_its_traceback(proc, errors, said, f"RuntimeError: {INJECTED}", code, 1)
+
+
+_IMPORT = "ModuleNotFoundError: No module named 'gate_missing_module'"
+
+
+@pytest.mark.parametrize("bridge, config, fault, phone, passes, said, code, exit_code", [
+    pytest.param("selector_test_bridge", {"device_id": DEVICE, "app": "instagram"},
+                 "bridges.tools.lab.selector_test.production:prepare_selector_test", True, (),
+                 "Failed to load selectors: No module named 'gate_missing_module'", "REGISTRY_INIT_ERROR", 1,
+                 id="lab-selector-test"),
+    pytest.param("workflow_test_bridge", {"device_id": DEVICE, "app": "instagram", "workflow": "feed"},
+                 "taktik.core.database:configure_db_service", True, (f"{_APP}.is_installed", f"{_APP}.restart"),
+                 "Automation init failed: No module named 'gate_missing_module'", "AUTOMATION_INIT_ERROR", 1,
+                 id="lab-workflow-test"),
+    pytest.param("desktop_bridge", AUTOMATION, "taktik.core.database:configure_db_service", False, (),
+                 "Database setup failed: No module named 'gate_missing_module'", "DATABASE_SETUP_FAILED", None,
+                 id="instagram-automation-database"),
+    # A run that names no code of its own: the import is the code the bot knows.
+    pytest.param("threads_bridge", {"deviceId": DEVICE, "workflowType": "follow"},
+                 "bridges.threads.automation.threads_bridge:run_follow", False, (),
+                 "Workflow error: No module named 'gate_missing_module'", "PYTHON_IMPORT_ERROR", 1,
+                 id="threads-dispatch"),
+])
+def test_an_import_a_run_catches_keeps_its_words_and_code(
+        run_bridge_process, bridge, config, fault, phone, passes, said, code, exit_code):
+    """`send_run_error` answered an `ImportError` by `send_import_error`: « A module the run needs did
+    not import » under `PYTHON_IMPORT_ERROR`, the caller's words and code dropped (the Lab showed an
+    engine failure, not « Failed to load selectors », and `compat.ts` relayed another code). The words
+    and the code are the caller's, the traceback names the import."""
+    proc, errors = run_bridge_process(bridge, config, fault=fault, phone=phone, passes=passes, import_error=True)
+
+    stderr = proc.stderr.decode("utf-8", "replace")
+    if exit_code is None:
+        assert proc.returncode != 0, stderr[-3000:]
+        exit_code = proc.returncode
+    _assert_said_with_its_traceback(proc, errors, said, _IMPORT, code, exit_code)
