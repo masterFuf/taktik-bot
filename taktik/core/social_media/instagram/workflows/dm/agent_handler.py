@@ -33,6 +33,7 @@ from taktik.core.social_media.instagram.workflows.dm.persistence import (
     resolve_account_id,
 )
 from taktik.core.social_media.instagram.workflows.dm.payload import DM_COMMANDS, dm_command_from_payload
+from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
 from taktik.core.social_media.instagram.workflows.dm.session import ensure_dm_inbox, return_to_inbox
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 
@@ -174,7 +175,7 @@ def _send(runtime, username: str, message: str) -> dict[str, Any]:
     # conversation's header gives it (the inbox row, which the front sends, shows the name).
     _shown_name, handle = runtime._read_conversation_partner()
     partner = handle or username
-    sent = runtime.send_message(message)
+    outcome = runtime.send_message(message)
     # The one look after a write. Refused, nothing is recorded and the dialog stays on screen
     # (the way back to the inbox would close it, which is acting again).
     device = getattr(runtime, "device", None)
@@ -182,7 +183,13 @@ def _send(runtime, username: str, message: str) -> dict[str, Any]:
                                                     target=username):
         return {**_failure("Instagram refuses the message (Try again later)"),
                 "stop_reason": "action_blocked"}
-    if not sent:
+    if outcome is ReplyOutcome.PENDING:
+        # In the conversation, waiting for the network: it leaves by itself. Not a send proven
+        # (nothing recorded), not a failure to try again (a second one would be sent).
+        return_to_inbox(runtime)
+        return {**_failure("The reply waits to be sent: Instagram sends it when the network is back"),
+                "error_code": "DM_SEND_PENDING", "pending": True, "username": username, "message": message}
+    if outcome is not ReplyOutcome.SENT:
         return _failure("Failed to send message")
 
     return_to_inbox(runtime)

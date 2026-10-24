@@ -321,7 +321,9 @@ def _dm_bridge(phone):
         device_id = phone.device_id
 
         def _verify_message_sent(self, message, attempts=4, delay=0.8):
-            return True
+            from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+
+            return ReplyOutcome.SENT
 
     phone.add_button({"resourceId": DM_SELECTORS.send_button_resource_ids[0]})
     return _Dm()
@@ -341,7 +343,10 @@ def _cold_dm_bridge(phone):
 @pytest.mark.parametrize("bridge", [_dm_bridge, _cold_dm_bridge], ids=["dm", "cold_dm"])
 def test_the_dm_bridges_tap_the_composer_after_the_keyboard_switch(phone, bridge):
     """Their own tap came first, the switch after it: the composer folded before the atomic."""
-    assert bridge(phone).send_message(TEXT) is True
+    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+
+    # The DM reply says what it came to (`ReplyOutcome`), the cold DM's sending True or False.
+    assert bridge(phone).send_message(TEXT) in (True, ReplyOutcome.SENT)
 
     assert phone.steps[0] == "switch" and phone.steps.count("switch") == 1
     assert _typed_by_the_keyboard(phone, TEXT)

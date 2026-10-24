@@ -326,8 +326,10 @@ class InstagramDmRig:
             return False
 
         def send_message(_self, message):
+            from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+
             rig.calls.append(f"send_message {message}")
-            return rig.send_ok
+            return ReplyOutcome.SENT if rig.send_ok else ReplyOutcome.NOT_SENT
 
         def recorder(name, result=None):
             def method(_self, *args, **kwargs):

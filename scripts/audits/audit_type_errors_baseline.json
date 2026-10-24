@@ -234,7 +234,6 @@
   "taktik/core/social_media/instagram/workflows/dm/message_extraction.py": 14,
   "taktik/core/social_media/instagram/workflows/dm/messaging.py": 1,
   "taktik/core/social_media/instagram/workflows/dm/reader.py": 5,
-  "taktik/core/social_media/instagram/workflows/dm/sender.py": 10,
   "taktik/core/social_media/instagram/workflows/notifications/agent_handler.py": 11,
   "taktik/core/social_media/instagram/workflows/notifications/commands.py": 15,
   "taktik/core/social_media/instagram/workflows/notifications/notifications_workflow.py": 1,

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import random
 import time
+from enum import Enum
+from typing import Any, Callable
 
 from loguru import logger
 from taktik.core.shared.behavior.tap import tap_element_human
@@ -15,10 +17,28 @@ from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
     type_message,
 )
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from taktik.core.social_media.instagram.workflows.dm.conversation_payload import pending_send_texts
+
+
+class ReplyOutcome(Enum):
+    """What a reply came to (`DMSenderMixin.send_message`)."""
+
+    #: Our text is the newest outgoing bubble of the conversation: a send proven.
+    SENT = "sent"
+    #: Our bubble is in the conversation and Instagram shows it waiting to be sent (« Envoi… », no
+    #: network): it leaves by itself when the network is back. Neither a send proven (nothing is
+    #: recorded) nor a failure to try again (that would send it twice).
+    PENDING = "pending"
+    #: Nothing of ours went into the conversation (no composer, no send button, no bubble).
+    NOT_SENT = "not_sent"
 
 
 class DMSenderMixin:
     """Send messages in the currently opened Instagram DM conversation."""
+
+    # What the runtime gives (`InstagramDMRuntime`), declared here as an interface would be.
+    device: Any
+    _collect_text_messages: Callable[[], list]
 
     def _simulate_typing_delay(self, text: str):
         """
@@ -91,63 +111,76 @@ class DMSenderMixin:
         """Whitespace-collapsed, lowercased form for resilient bubble matching."""
         return " ".join((text or "").split()).lower()
 
-    def _message_appears_as_last_sent(self, message: str) -> bool:
-        """True if ``message`` is the newest OUTGOING bubble of the open conversation.
-
-        A successful send drops our text at the bottom of the thread as an outgoing
-        bubble. Matching the bottom-most (newest) bubble — rather than "any bubble
-        with this text" — avoids a false positive when an identical message was sent
-        earlier in the same thread.
-        """
-        target = self._normalize_message(message)
-        if not target:
-            return False
-        bubbles = self._collect_text_messages()
-        if not bubbles:
-            return False
-        last = max(bubbles, key=lambda bubble: bubble["top"])
-        if not last["is_sent"]:
-            return False
-        actual = self._normalize_message(last["text"])
-        if not actual:
+    @classmethod
+    def _same_message(cls, shown: str, message: str) -> bool:
+        """Is the bubble text `shown` our `message`? IG may elide a very long bubble: a prefix
+        either way is accepted, from 12 characters (a short message must match exactly)."""
+        actual, target = cls._normalize_message(shown), cls._normalize_message(message)
+        if not actual or not target:
             return False
         if actual == target:
             return True
-        # IG may elide a very long bubble; accept a prefix either way (guarded by a
-        # minimum length so short messages still require an exact match).
         shorter = min(len(actual), len(target))
         return shorter >= 12 and (
             actual.startswith(target[:shorter]) or target.startswith(actual[:shorter])
         )
 
-    def _verify_message_sent(self, message: str, attempts: int = 4, delay: float = 0.8) -> bool:
-        """Poll the thread until our message shows up as the last outgoing bubble.
+    def _message_send_state(self, message: str) -> ReplyOutcome:
+        """Where ``message`` stands in the open conversation, read on its newest bubble.
 
-        The bubble appears a beat after the send round-trips, so we retry a few times
-        before giving up. Returning False here means the caller must NOT persist the
-        reply — the message never actually landed in the conversation.
+        SENT when it is the newest OUTGOING bubble: matching the bottom-most bubble rather than
+        "any bubble with this text" avoids a false positive when an identical message was sent
+        earlier. PENDING when the newest bubble is ours with the « Envoi… » icon at its side (no
+        network; the icon also shifts the bubble to the left, where it read as received, and the
+        reply was declared « did not appear », Pixel 6 Pro, 410, 2026-10-24). NOT_SENT otherwise.
         """
+        if not self._normalize_message(message):
+            return ReplyOutcome.NOT_SENT
+        bubbles = self._collect_text_messages()
+        if not bubbles:
+            return ReplyOutcome.NOT_SENT
+        last = max(bubbles, key=lambda bubble: bubble["top"])
+        if not self._same_message(last["text"], message):
+            return ReplyOutcome.NOT_SENT
+        if any(self._same_message(text, message) for text in pending_send_texts(self.device.dump_hierarchy())):
+            return ReplyOutcome.PENDING
+        return ReplyOutcome.SENT if last["is_sent"] else ReplyOutcome.NOT_SENT
+
+    def _message_appears_as_last_sent(self, message: str) -> bool:
+        """True if ``message`` is the newest OUTGOING bubble of the open conversation, sent."""
+        return self._message_send_state(message) is ReplyOutcome.SENT
+
+    def _verify_message_sent(self, message: str, attempts: int = 4, delay: float = 0.8) -> ReplyOutcome:
+        """Poll the thread until our message shows up as the last outgoing bubble, sent.
+
+        The bubble appears a beat after the send round-trips, so we retry a few times before
+        giving up; a bubble waiting to be sent is watched as long (the network may come back).
+        Anything but SENT means the caller must NOT persist the reply; PENDING also means it must
+        not send it again.
+        """
+        state = ReplyOutcome.NOT_SENT
         for attempt in range(attempts):
-            if self._message_appears_as_last_sent(message):
-                return True
+            state = self._message_send_state(message)
+            if state is ReplyOutcome.SENT:
+                return state
             if attempt < attempts - 1:
                 time.sleep(delay)
-        return False
+        return state
 
-    def send_message(self, message: str) -> bool:
+    def send_message(self, message: str) -> ReplyOutcome:
         """Send a message in the current conversation with human-like timing.
 
-        Returns True ONLY once the message is confirmed as the newest outgoing bubble
-        in the thread. A click that does not actually submit (empty composer,
-        mis-targeted button, IG hiccup) returns False so the caller never persists a
-        phantom reply that was never delivered.
+        SENT ONLY once the message is confirmed as the newest outgoing bubble in the thread. A
+        click that does not actually submit (empty composer, mis-targeted button, IG hiccup) is
+        NOT_SENT, so the caller never persists a phantom reply that was never delivered. A bubble
+        Instagram shows waiting to be sent is PENDING: not recorded, not sent again.
         """
         logger.info("Sending message...")
 
         msg_input = self._find_message_input()
         if msg_input is None:
             logger.error("Message input not found")
-            return False
+            return ReplyOutcome.NOT_SENT
 
         logger.info(f"Found message input: {msg_input.info}")
 
@@ -158,7 +191,7 @@ class DMSenderMixin:
         time.sleep(random.uniform(0.5, 0.8))
 
         if not self._type_dm_message(msg_input, message):
-            return False
+            return ReplyOutcome.NOT_SENT
 
         time.sleep(random.uniform(0.3, 0.5))
 
@@ -166,16 +199,21 @@ class DMSenderMixin:
         if not (send_btn and send_btn.exists):
             logger.error("Send button not found - dumping UI elements for debugging")
             self._log_clickable_elements_for_send_debug()
-            return False
+            return ReplyOutcome.NOT_SENT
 
         logger.info(f"Clicking send button: {send_btn.info}")
         if not tap_element_human(self.device, send_btn, logger=logger):
             send_btn.click()
         time.sleep(1)
 
-        if not self._verify_message_sent(message):
+        state = self._verify_message_sent(message)
+        if state is ReplyOutcome.PENDING:
+            logger.warning("Message waiting to be sent: Instagram shows it in the conversation with its "
+                           "sending icon (no network?); it leaves by itself, not recorded, not sent again")
+            return state
+        if state is not ReplyOutcome.SENT:
             logger.error("Send not confirmed: message did not appear in the conversation")
-            return False
+            return state
 
         logger.info("Message sent and confirmed in the conversation")
-        return True
+        return state

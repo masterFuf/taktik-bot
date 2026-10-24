@@ -365,6 +365,10 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.primary_pill_labels": [
         "Primary",
     ],
+    # The icon of a bubble of ours waiting to be sent, with no network (Pixel 6 Pro, 410, 2026-10-24).
+    "direct_message.pending_send_descriptions": [
+        "Sending…",
+    ],
     "direct_message.outgoing_digest_prefixes": [],
     "direct_message.send_button": [
         "//*[contains(@content-desc, \"Send\")]",

@@ -120,8 +120,16 @@ def send_reply(a, p):
     text = (p.get("text") or "").strip()
     if not text:
         return {"success": False, "message": "text param is required"}
-    ok = _dm_runtime(a).send_message(text)
-    return {"success": bool(ok), "message": "reply sent" if ok else "reply failed"}
+    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+
+    outcome = _dm_runtime(a).send_message(text)
+    messages = {
+        ReplyOutcome.SENT: "reply sent",
+        ReplyOutcome.PENDING: "reply waiting to be sent (no network?): Instagram sends it by itself, do not send it again",
+        ReplyOutcome.NOT_SENT: "reply failed",
+    }
+    return {"success": outcome is ReplyOutcome.SENT, "message": messages[outcome],
+            "details": {"outcome": outcome.value}}
 
 
 @action("dm.back_to_inbox")

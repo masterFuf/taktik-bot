@@ -62,6 +62,7 @@ def test_a_cold_dm_run_stopped_by_a_block_says_so():
 
 def test_a_refused_inbox_reply_is_not_recorded_and_stays_on_screen(monkeypatch):
     from taktik.core.social_media.instagram.workflows.dm import agent_handler as module
+    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
 
     monkeypatch.setattr(module, "ProblematicPageDetector", _Refusing)
     monkeypatch.setattr(module, "ensure_dm_inbox", lambda runtime: True)
@@ -69,7 +70,8 @@ def test_a_refused_inbox_reply_is_not_recorded_and_stays_on_screen(monkeypatch):
     monkeypatch.setattr(module, "record_reply", lambda *args: recorded.append(args))
     monkeypatch.setattr(module, "return_to_inbox", lambda runtime: went_back.append(True))
     runtime = SimpleNamespace(device=object(), open_conversation=lambda username: True,
-                              send_message=lambda message: True)
+                              _read_conversation_partner=lambda: ("demo_friend", "demo_friend"),
+                              send_message=lambda message: ReplyOutcome.SENT)
 
     result = module._send(runtime, "demo_friend", "hello")
 

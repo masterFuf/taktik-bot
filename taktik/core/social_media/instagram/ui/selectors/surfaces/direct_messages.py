@@ -292,6 +292,15 @@ class DirectMessageSelectors:
     message_list: str = '//*[@resource-id="com.instagram.android:id/message_list"]'
     message_item: str = '//*[@resource-id="com.instagram.android:id/direct_text_message_text_view"]'
     message_item_resource_id: str = 'com.instagram.android:id/direct_text_message_text_view'
+    # A bubble of ours waiting to be sent (no network, Pixel 6 Pro, 410, 2026-10-24): an icon at its
+    # side in its `message_content`, described « Envoi… » / « Sending… » (locales); gone once the
+    # bubble is sent.
+    message_container_resource_id: str = 'com.instagram.android:id/message_content'
+    message_status_icon_resource_id: str = 'com.instagram.android:id/action_icon'
+
+    @property
+    def pending_send_descriptions(self) -> List[str]:
+        return L("direct_message.pending_send_descriptions")
 
     # --- Compose thread (IG 442+): a message text has NO resource-id any more ---
     # `direct_text_message_text_view` disappeared when the thread moved to Jetpack Compose,
