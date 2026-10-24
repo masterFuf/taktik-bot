@@ -4,6 +4,7 @@ from loguru import logger
 
 from bridges.tools.lab.actions.instagram import action, detection_action
 from bridges.tools.lab.action_test.not_applicable import not_applicable
+from bridges.tools.lab.action_test.params import lab_int
 from taktik.core.social_media.instagram.actions.base.base_business.popup_handling import (
     COMMENTS_EMPTY,
     COMMENTS_OPENED,
@@ -48,6 +49,20 @@ def open_likers(a, p):
     # opened), not the bare click_likes_count atomic which prod never calls.
     is_reel = bool(p.get("is_reel")) if isinstance(p, dict) else False
     return a.popup._open_likers_popup(is_reel=is_reel)
+
+
+@action("post.read_likers")
+def read_likers(a, p):
+    """Read the people in the OPEN likers popup, as the scraping and post URL workflows read them
+    (`LikerExtractionMixin._extract_likers_after_click`): the visible handles, the popup scrolled
+    until the count is reached or nothing new comes, then the popup closed. The likers popup must
+    be open. Param: max_likers (default 10). No gesture beyond the scroll."""
+    usernames = a.popup._extract_likers_after_click(max_interactions=lab_int(p, "max_likers", 10), multiply_by=1)
+    return {
+        "success": bool(usernames),
+        "message": f"{len(usernames)} liker(s): {', '.join(usernames[:10]) or 'none'}",
+        "details": {"count": len(usernames), "usernames": usernames},
+    }
 
 
 @action("post.read_commenters")
