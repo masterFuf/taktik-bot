@@ -62,7 +62,8 @@ class SyncFollowersMixin(UnfollowActionsMixin):
             Dict with new_count, updated_count, total_seen, expected, proof, complete, usernames
             (with `complete`, EVERY follower: absence means "does not follow us"), incremental,
             known_before, known_after, departures, departures_withheld, scrolls, read_seconds,
-            success
+            success, and `read_unproven` once the list was open and read without proof
+            (`_close_list_read`)
         """
         config = config or {}
         mode = config.get('mode', 'fast')

@@ -103,7 +103,9 @@ def test_the_walk_never_taps_a_cut_row():
 
     cut_top = 2238   # the top of the cut row, in the capture
     assert not [tap for tap in business.device.taps if tap[1] >= cut_top], business.device.taps
-    assert stats["unfollows_made"] == 0 and stats["not_in_list"] == 1
+    # The list counts 1 265 on its tab and shows 7 rows: its end is not proven, the candidate was
+    # not reached (never said absent)
+    assert stats["unfollows_made"] == 0 and stats["not_reached"] == 1
 
 
 # ── b. Back from the profile ─────────────────────────────────────────────────

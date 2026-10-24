@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from loguru import logger
 
 from taktik.core.social_media.instagram.workflows.automation.config import WorkflowConfigBuilder
@@ -341,12 +341,13 @@ class WorkflowRunner:
                 self.automation.stats.get('unfollows', 0), result.get('kept', 0)))
             return False
 
-        # Progress means candidates handled: unfollowed, refused on their profile, not in the list.
+        # Progress means candidates handled: unfollowed, refused on their profile, not in the list or
+        # not reached by a walk that could not prove the end of the list.
         # A batch that handled nobody used to report success, and the session relaunched it until
         # its duration ran out, doing nothing but scrolling. Each batch handling at least one of a
         # finite list of candidates, the batches end.
         handled_now = (result.get('unfollows_made', 0) + result.get('unconfirmed', 0)
-                       + result.get('not_in_list', 0)
+                       + result.get('not_in_list', 0) + result.get('not_reached', 0)
                        + sum((result.get('profile_refusals') or {}).values()))
         return handled_now > 0
 
@@ -440,7 +441,7 @@ class WorkflowRunner:
         count = nf_stats.get('non_followers_count')
         if count is not None:
             return f"Fans (followers you do not follow back): {count}"
-        if nf_stats.get('fans_unproven'):
+        if nf_stats.get('read_unproven'):
             return (f"Fans not counted: the category was read in part "
                     f"({nf_stats.get('total_seen', 0)} of {nf_stats.get('expected') or '?'})")
         if nf_stats.get('category_not_served'):
@@ -456,18 +457,20 @@ class WorkflowRunner:
         return bool(nf_stats.get('success') or nf_stats.get('category_not_served'))
 
     @staticmethod
-    def _sync_end(following: Dict[str, Any], other_list_read: bool, fans: Optional[Dict[str, Any]] = None):
+    def _sync_end(following: Dict[str, Any], other: Dict[str, Any], other_list_read: bool, other_unproven):
         """The motive a sync run ends on: `completed` when its lists were read, otherwise the list
-        that was not (the following list first, the one the unfollow decides on). A fans category
-        read in part (`fans`, the read of `scrape_non_followers_category`) says so: its list did
-        open."""
+        that was not (the following list first, the one the unfollow decides on). `other` is the
+        read of the second list (the fans category, or our followers list), `other_list_read`
+        whether it left no list unread. One that opened and was read in part (`read_unproven`, see
+        `_close_list_read`) ends on `other_unproven`, the motive of that list, with its numbers;
+        `list_unavailable` is for a list that never showed its rows."""
         if not following.get('success'):
             return stop_reasons.following_list_unproven(following.get('total_seen', 0), following.get('expected'))
-        if fans is not None and fans.get('fans_unproven'):
-            return stop_reasons.fans_list_unproven(fans.get('total_seen', 0), fans.get('expected'))
-        if not other_list_read:
-            return stop_reasons.list_unavailable()
-        return stop_reasons.completed(0)
+        if other_list_read:
+            return stop_reasons.completed(0)
+        if other.get('read_unproven'):
+            return other_unproven(other.get('total_seen', 0), other.get('expected'))
+        return stop_reasons.list_unavailable()
 
     def _run_sync_following_workflow(self, action: Dict[str, Any]) -> bool:
         """Run the sync_following workflow — incremental following list sync + non-follower detection.
@@ -504,7 +507,8 @@ class WorkflowRunner:
         # A one-shot run: it ends its session here, `session_stop` and the row's end included. It
         # used to set `session_finalized` alone, which stops the loop and nothing else: the row
         # stayed ACTIVE (Pixel 3, 2026-09-28).
-        self._finalize_on(self._sync_end(sync_stats, self._fans_list_done(nf_stats), nf_stats))
+        self._finalize_on(self._sync_end(sync_stats, nf_stats, self._fans_list_done(nf_stats),
+                                         stop_reasons.fans_list_unproven))
         
         return sync_stats['success']
     
@@ -580,7 +584,8 @@ class WorkflowRunner:
         print(json.dumps(sync_complete_msg), flush=True)
         
         # A one-shot run: it ends its session here (see `_run_sync_following_workflow`).
-        self._finalize_on(self._sync_end(sync_stats, followers_stats['success']))
+        self._finalize_on(self._sync_end(sync_stats, followers_stats, followers_stats['success'],
+                                         stop_reasons.followers_list_unproven))
         
         return sync_stats['success'] and followers_stats['success']
     

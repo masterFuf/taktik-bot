@@ -142,7 +142,7 @@ def test_the_fans_of_a_screen_are_no_count_of_a_bigger_category(name, lang, fans
     stats = bundle.unfollow.scrape_non_followers_category()
 
     assert (stats["expected"], stats["total_seen"]) == (size, len(fans))
-    assert stats["success"] is False and stats["fans_unproven"] is True
+    assert stats["success"] is False and stats["read_unproven"] is True
     assert stats["fans_count"] is None and stats["non_followers_count"] is None, "a part read passed for a count"
     assert [row["username"] for row in recorded] == fans
 

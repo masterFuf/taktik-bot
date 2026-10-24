@@ -5,9 +5,11 @@ The two syncs (`sync_following`, `sync_followers_following`) are one-shot runs: 
 `session_stop` nor writes the end of the `sessions_unified` row. On the Pixel 3 (2026-09-28) the
 bridge exited 0 and the row stayed `ACTIVE`. The step now ends the session through
 `finalize_session`, like every other run: `completed` when the lists were read, the motive of the
-list that was not (`following_list_unproven`, `fans_list_unproven`, `list_unavailable`, of the
-« failed » family) otherwise. A fans category that Instagram does not serve is no list that was not
-read; one read short of the size it announces is.
+list that was not (`following_list_unproven`, `followers_list_unproven`, `fans_list_unproven`,
+`list_unavailable`, of the « failed » family) otherwise. A fans category that Instagram does not
+serve is no list that was not read; one read short of the size it announces is. A second list read
+in part (`read_unproven`, said by the read itself) did open: it ends on its own motive, never on
+`list_unavailable`, which stays for a list that never showed its rows.
 
 No screen here: the lists' reads are played by their results, as `sync_following_list`,
 `sync_followers_list` and `scrape_non_followers_category` return them.
@@ -41,12 +43,18 @@ def _fans_not_served():
 def _fans_read_in_part():
     """`scrape_non_followers_category` when the category was read short of the size it announces
     (Pixel 6a, Instagram 447, 2026-10-24: 171 of 537)."""
-    return {"non_followers_count": None, "mutuals_count": 0, "success": False, "fans_unproven": True,
+    return {"non_followers_count": None, "mutuals_count": 0, "success": False, "read_unproven": True,
             "total_seen": 171, "expected": 537}
 
 
 def _followers(success):
     return {"new_count": 1, "updated_count": 0, "total_seen": 30, "success": success}
+
+
+def _followers_read_in_part():
+    """`sync_followers_list` when the list opened and its read ended short of the tab's count."""
+    return {"new_count": 6, "updated_count": 0, "total_seen": 6, "expected": 1265, "success": False,
+            "read_unproven": True}
 
 
 class _Helpers:
@@ -121,7 +129,12 @@ def test_a_fans_category_not_served_is_no_failed_list_and_no_count(capsys):
 @pytest.mark.parametrize("following, followers, end", [
     (_following(True), _followers(True), ("COMPLETED", "completed")),
     (_following(False, seen=0), _followers(True), ("INTERRUPTED", "following_list_unproven")),
+    # The followers list never showed its rows: unavailable
     (_following(True), _followers(False), ("INTERRUPTED", "list_unavailable")),
+    # It opened and its read proved nothing: its own motive, with its numbers
+    (_following(True), _followers_read_in_part(), ("INTERRUPTED", "followers_list_unproven")),
+    (_following(False, seen=175, expected=1265), _followers_read_in_part(),
+     ("INTERRUPTED", "following_list_unproven")),
 ])
 def test_the_full_sync_ends_its_session(following, followers, end):
     runner, automation = _runner(following, followers=followers)

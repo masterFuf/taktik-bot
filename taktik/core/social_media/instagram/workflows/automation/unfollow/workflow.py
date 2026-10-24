@@ -35,9 +35,10 @@ from taktik.core.social_media.instagram.workflows.common.session import stop_rea
 from taktik.core.social_media.instagram.ui.selectors.flows.unfollow import UNFOLLOW_SELECTORS
 from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.social_media.instagram.workflows.automation.unfollow.candidates import FollowersSnapshot, records_from_rows, select_candidates
-from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import scrolls_for
+from taktik.core.social_media.instagram.workflows.automation.unfollow.list_proof import ListReadEnd, scrolls_for
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.decision import UnfollowDecisionMixin
-from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.actions import UnfollowActionsMixin
+from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.actions import LeftOutRows, UnfollowActionsMixin
+from taktik.core.social_media.instagram.workflows.common.list_reload_policy import ListReloadPolicy
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.sync_following import SyncFollowingMixin
 from taktik.core.social_media.instagram.workflows.automation.unfollow.mixins.sync_followers import SyncFollowersMixin
 
@@ -54,8 +55,9 @@ class UnfollowBusiness(
     # Bounded waits on the screen, in seconds (class attributes so a test can shorten them).
     confirm_dialog_timeout = 2.0
     row_state_timeout = 3.0
-    # Walking the following list: the most scrolls, and the scrolls in a row that show no new
-    # username before the end of the list is assumed.
+    # Walking the following list: the fewest scrolls it may take (more for a bigger list, from its
+    # count), and the reads in a row without a new name after which a list read looks ended
+    # (`list_proof.ListReadEnd`, the following sync's too).
     max_list_scrolls = 150
     end_of_list_scrolls = 3
     # Candidates targeted per run beyond the unfollows allowed, to absorb the ones the list does
@@ -84,8 +86,6 @@ class UnfollowBusiness(
         # unfollows keep up to date) instead of scrolling both lists again for minutes.
         self._synced = False
         self._followers: Optional[FollowersSnapshot] = None
-        # How far the walk may scroll the following list: set from the list's count.
-        self._walk_scroll_limit = self.max_list_scrolls
 
         # Sélecteurs centralisés (depuis selectors.py)
         self._unfollow_sel = UNFOLLOW_SELECTORS
@@ -199,9 +199,10 @@ class UnfollowBusiness(
             # What the screen refused goes to the page with what the data refused, for the session.
             for reason, count in stats['profile_refusals'].items():
                 self._session_refusals[reason] = self._session_refusals.get(reason, 0) + count
-            if stats['not_in_list']:
-                self._session_refusals['not_in_list'] = (self._session_refusals.get('not_in_list', 0)
-                                                         + stats['not_in_list'])
+            for past_the_end in ('not_in_list', 'not_reached'):
+                if stats[past_the_end]:
+                    self._session_refusals[past_the_end] = (self._session_refusals.get(past_the_end, 0)
+                                                            + stats[past_the_end])
             self._session_unfollowed += stats['unfollows_made']
             stats['kept'] = self._kept(selection.refusals)
             IPCEmitter.emit_unfollow_plan(mode=mode, candidates=len(selection.candidates),
@@ -259,7 +260,6 @@ class UnfollowBusiness(
             self.logger.info("Unfollow: mode 'all', walking the list in its own order (sort left alone)")
         elif not self._set_following_list_sort('earliest'):
             self.logger.info("Unfollow: 'earliest' sort not applied, walking the list in its own order")
-        self._walk_scroll_limit = scrolls_for(self._list_tab_count('following'), self.max_list_scrolls)
         self._unfollow_in_open_list(cfg, targets, forced, stats)
         return True
 
@@ -297,6 +297,7 @@ class UnfollowBusiness(
             'errors': 0,
             'scrolls': 0,
             'not_in_list': 0,
+            'not_reached': 0,
             'candidates_left': 0,
             'stop_reason': None,
             'success': False,
@@ -304,7 +305,11 @@ class UnfollowBusiness(
 
     def _unfollow_in_open_list(self, cfg: Dict[str, Any], targets: List[str], forced: Set[str],
                                stats: Dict[str, Any]) -> None:
-        """Act on the rows of `targets` that the open following list shows, top to bottom."""
+        """Act on the rows of `targets` that the open following list shows, top to bottom.
+
+        The walk ends like a list read (`list_proof.ListReadEnd`, on the tab's count): on the
+        suggestions under the list, or after reads without a new name, once a list short of its
+        count was given the reload waits (a page Instagram is slow to serve looks ended)."""
         max_unfollows = int(cfg.get('max_unfollows') or 0)
         pending = {name.lower() for name in targets}
         # A row is handled once per session: an unfollow the screen did not confirm is not retried
@@ -313,9 +318,13 @@ class UnfollowBusiness(
         handled = self._handled
         pending -= handled
         seen: Set[str] = set()
-        quiet_scrolls = 0
+        left_out = LeftOutRows()
+        expected = self._list_tab_count('following')
+        end = ListReadEnd(expected, self.end_of_list_scrolls, ListReloadPolicy.from_config(cfg).steps())
+        scroll_limit = scrolls_for(expected, self.max_list_scrolls)
+        scroll_failed = False
 
-        while pending and stats['scrolls'] < self._walk_scroll_limit:
+        while pending and stats['scrolls'] < scroll_limit:
             if max_unfollows and stats['unfollows_made'] >= max_unfollows:
                 break
             # The session's duration (and its stop lock) end the walk too, not only the list reads
@@ -328,20 +337,17 @@ class UnfollowBusiness(
             rows = self._visible_follow_rows()
             new_names = {row['username'].lower() for row in rows} - seen
             seen |= new_names
+            left_out.unpaired |= {name.lower() for name in self.unpaired_on_screen}
             row = next((r for r in rows if r['state'] == 'following'
                         and r['username'].lower() in pending
                         and r['username'].lower() not in handled), None)
             if row is None:
-                quiet_scrolls = 0 if new_names else quiet_scrolls + 1
-                if quiet_scrolls >= self.end_of_list_scrolls:
-                    # The whole list was walked: a candidate it never showed is not followed any
-                    # more (unfollowed elsewhere, a follow request never accepted, a name the base
-                    # got wrong). Handled for this session, so the next batch takes the next ones.
-                    stats['not_in_list'] += len(pending)
-                    handled |= pending
-                    self.logger.info(f"End of the following list; {len(pending)} candidate(s) not in it")
+                if self._list_read_ends(end, 'following', bool(new_names), len(seen), scroll_failed,
+                                        left_out.summary(seen)):
+                    self._candidates_past_the_end(end.proof, pending, stats)
                     break
-                self._scroll_following_list()
+                if self._scroll_following_list() is False:
+                    scroll_failed = True
                 stats['scrolls'] += 1
                 time.sleep(1)
                 continue
@@ -369,6 +375,26 @@ class UnfollowBusiness(
 
             if not self._unfollow_row(row, cfg, stats):
                 break
+
+    def _candidates_past_the_end(self, proof: Optional[str], pending: Set[str], stats: Dict[str, Any]) -> None:
+        """The walk came to the end of the list with candidates it never showed. Handled for this
+        session either way, so the next batch takes the next ones.
+
+        Proven read to its end (`proof`, a rule of `list_proof`): they are not followed any more
+        (unfollowed elsewhere, a follow request never accepted, a name the base got wrong),
+        `not_in_list`. Not proven (a page that never came, a list without a count): nothing says
+        they are absent, they were not reached, `not_reached`."""
+        self._handled |= pending
+        if proof is not None:
+            stats['not_in_list'] += len(pending)
+            self.logger.info(f"End of the following list; {len(pending)} candidate(s) not in it")
+            return
+        stats['not_reached'] += len(pending)
+        self.logger.warning(
+            f"The following list was not proven read to its end: {len(pending)} candidate(s) not reached, "
+            "none of them said absent"
+        )
+        self._keep_unproven_screen('unfollow_walk_unproven')
 
     def _profile_was_opened(self, forced: bool, cfg: Dict[str, Any]) -> bool:
         """Did `_profile_refusal` open the profile for this row (so the list was redrawn)?"""

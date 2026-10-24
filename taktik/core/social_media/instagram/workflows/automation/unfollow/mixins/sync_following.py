@@ -339,7 +339,7 @@ class SyncFollowingMixin(UnfollowActionsMixin):
             Dict with non_followers_count, mutuals_count, success, and the read's expected,
             total_seen, proof, end_reached. The counts stay None until the category is read whole: a
             category not read (not served, not found, unreadable: `read_failed`) or read in part
-            (`fans_unproven`) has no count, never 0.
+            (`read_unproven`) has no count, never 0.
         """
         config = config or {}
         stats = {
@@ -463,8 +463,6 @@ class SyncFollowingMixin(UnfollowActionsMixin):
             if stats['success']:
                 # The fans, see above: a count only for a read the category's size proves whole
                 stats['fans_count'] = stats['non_followers_count'] = len(non_follower_usernames)
-            else:
-                stats['fans_unproven'] = True
 
             # Close the view to come back to a clean state
             self.logger.debug("Closing non-followers view (back press)")
