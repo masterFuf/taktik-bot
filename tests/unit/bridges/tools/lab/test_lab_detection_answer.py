@@ -141,7 +141,8 @@ def test_a_production_answer_of_none_is_no_answer():
 #: Every yes/no question of the screen the Lab asks, answered through `@detection` (one way).
 INSTAGRAM_DETECTIONS = {
     "account.detect_connected_accounts", "account.detect_login_screen", "account.is_logged_out",
-    "detection.is_action_blocked", "detection.is_home_screen", "detection.is_post_open",
+    "detection.account_challenge", "detection.is_action_blocked", "detection.is_home_screen",
+    "detection.is_post_open",
     "detection.is_profile_screen", "detection.is_reel_post", "engagement.has_likes",
     "notifications.is_follow_requests_open", "notifications.is_open", "popups.is_comment_open",
     "popups.is_likers_open", "popups.is_share_sheet_open", "post.is_liked",
