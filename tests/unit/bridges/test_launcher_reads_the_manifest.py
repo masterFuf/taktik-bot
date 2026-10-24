@@ -1,13 +1,12 @@
 """The launcher routes with `bridges.manifest.json`, the one bridge list.
 
 It used to carry its own copy of the list; the build scripts already read the manifest, so the
-copy could only drift.
+copy could only drift. A manifest that does not read is said on the `error` line of the contract
+(`test_every_error_line_is_the_contracts.py`, a real launcher beside a broken manifest).
 """
 import json
 import sys
 from pathlib import Path
-
-import pytest
 
 from bridges import launcher
 
@@ -40,16 +39,3 @@ def test_a_frozen_build_finds_the_manifest_in_its_bundle(monkeypatch, tmp_path):
 
     assert launcher.load_bridge_modules() == {"tiktok_bridge": "bridges.tiktok.automation.tiktok_bridge"}
 
-
-def test_an_unreadable_manifest_is_reported_as_a_json_event(monkeypatch, capsys):
-    monkeypatch.setattr(launcher, "BRIDGE_MODULES", {})
-    monkeypatch.setattr(launcher, "_MANIFEST_ERROR", "FileNotFoundError: gone")
-    monkeypatch.setattr(sys, "argv", ["taktik_launcher.exe", "tiktok_bridge"])
-
-    with pytest.raises(SystemExit) as exit_info:
-        launcher.main()
-
-    assert exit_info.value.code == 1
-    event = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
-    assert event["type"] == "error"
-    assert "gone" in event["message"]

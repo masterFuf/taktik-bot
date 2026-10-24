@@ -21,10 +21,6 @@ from bridges.threads.automation.feed import run_feed
 from bridges.threads.automation.search import run_follow
 
 
-def _report_entry_error(message: str, _reason: str) -> None:
-    send_error(message)
-
-
 class ThreadsDispatch:
     """One Threads run, routed by the `workflowType` of its config file."""
 
@@ -41,8 +37,7 @@ def main() -> None:
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     run_bridge_main(ThreadsDispatch, usage="threads_bridge <config_path>",
-                    report_error=_report_entry_error, messages={MISSING_CONFIG: "No config file provided"},
-                    catch_crashes=False)
+                    messages={MISSING_CONFIG: "No config file provided"}, catch_crashes=False)
 
 
 def dispatch(config: dict) -> None:

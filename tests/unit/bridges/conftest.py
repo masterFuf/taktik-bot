@@ -34,9 +34,6 @@ def run_bridge_process(tmp_path: Path):
             phone: bool = False, passes: tuple = (), db_path: Optional[Path] = None, import_error: bool = False):
         config_path = tmp_path / f"{bridge}.json"
         config_path.write_text(json.dumps(config), encoding="utf-8")
-        env = {key: os.environ[key] for key in ("PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE", "APPDATA",
-                                                "PYTHONUSERBASE") if key in os.environ}
-        env.update({"PYTHONIOENCODING": "utf-8", "TAKTIK_DB_PATH": str(db_path or tmp_path / "taktik-data.db")})
         if blocked:
             command = [sys.executable, str(WITHOUT_MODULE), blocked]
         elif fault:
@@ -48,8 +45,28 @@ def run_bridge_process(tmp_path: Path):
         else:
             command = [sys.executable, str(LAUNCHER)]
         command += [bridge, str(config_path)]
-        proc = subprocess.run(command, cwd=str(CORE), env=env, capture_output=True, timeout=180)
-        lines = [json.loads(line) for line in proc.stdout.decode("utf-8").splitlines() if line.startswith("{")]
-        return proc, [line for line in lines if line.get("type") == "error"]
+        return _run_process(command, db_path or tmp_path / "taktik-data.db")
 
     return run
+
+
+@pytest.fixture
+def run_launcher(tmp_path: Path):
+    """`run(*args, launcher=LAUNCHER)` -> (process, its `error` lines): the launcher on the command line
+    `args` exactly (no bridge, no config file, a file that is not JSON), with a throwaway base.
+    `launcher` runs a copy of it put elsewhere (`PYTHONPATH` still finds the bot)."""
+
+    def run(*args: str, launcher: Path = LAUNCHER):
+        return _run_process([sys.executable, str(launcher), *args], tmp_path / "taktik-data.db",
+                            {} if launcher == LAUNCHER else {"PYTHONPATH": str(CORE)})
+
+    return run
+
+
+def _run_process(command: list, db_path: Path, extra_env: Optional[dict] = None):
+    env = {key: os.environ[key] for key in ("PATH", "SystemRoot", "TEMP", "TMP", "USERPROFILE", "APPDATA",
+                                            "PYTHONUSERBASE") if key in os.environ}
+    env.update({"PYTHONIOENCODING": "utf-8", "TAKTIK_DB_PATH": str(db_path), **(extra_env or {})})
+    proc = subprocess.run(command, cwd=str(CORE), env=env, capture_output=True, timeout=180)
+    lines = [json.loads(line) for line in proc.stdout.decode("utf-8").splitlines() if line.startswith("{")]
+    return proc, [line for line in lines if line.get("type") == "error"]

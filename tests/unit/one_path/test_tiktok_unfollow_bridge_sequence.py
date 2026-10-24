@@ -10,6 +10,9 @@ calls, same stdout events in the same order, same workflow config, same exit cod
 
 `blocked` was recorded on both codes (a run that stopped on `action_blocked`); its old events stay
 beside the new ones.
+
+An entry failure (no config file, one that does not read) carries the code of the entry since
+2026-10-24 (`MISSING_CONFIG`, `CONFIG_ERROR`); the line before it stays in `events_without_code`.
 """
 import dataclasses
 import json

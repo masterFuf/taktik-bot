@@ -27,7 +27,7 @@ from bridges.common.bootstrap import setup_environment
 
 setup_environment()
 
-from bridges.common.entrypoint import CONFIG_ERROR, report_error_message, run_bridge_main
+from bridges.common.entrypoint import CONFIG_ERROR, run_bridge_main
 from bridges.common.signal_handler import setup_signal_handlers
 from bridges.youtube.publish.workflow import run_youtube_upload_workflow
 from bridges.common.bridge_base import _ipc, send_error, send_log, send_message, send_status
@@ -88,8 +88,7 @@ class YouTubeUploadBridge:
 
 def main() -> None:
     run_bridge_main(YouTubeUploadBridge, usage="youtube_upload_bridge.py <config.json>",
-                    report_error=report_error_message, messages={CONFIG_ERROR: "Failed to read config: {error}"},
-                    catch_crashes=False)
+                    messages={CONFIG_ERROR: "Failed to read config: {error}"}, catch_crashes=False)
 
 
 if __name__ == "__main__":

@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 import sys
 
-from bridges.common.entrypoint import MISSING_CONFIG
-
 
 @dataclass
 class SelectorTestRequest:
@@ -12,16 +10,6 @@ class SelectorTestRequest:
     app_name: str
     version: str
     domain_filter: list
-
-
-def report_selector_test_entry_error(ipc):
-    """Entry failures (no file, unreadable file) as the Lab's error events."""
-
-    def report(message: str, reason: str) -> None:
-        code = "MISSING_CONFIG" if reason == MISSING_CONFIG else "CONFIG_ERROR"
-        ipc.send("error", error=message, error_code=code)
-
-    return report
 
 
 def load_selector_test_request(ipc, config: dict) -> SelectorTestRequest:
@@ -39,5 +27,5 @@ def load_selector_test_request(ipc, config: dict) -> SelectorTestRequest:
     )
 
 
-__all__ = ["SelectorTestRequest", "load_selector_test_request", "report_selector_test_entry_error"]
+__all__ = ["SelectorTestRequest", "load_selector_test_request"]
 

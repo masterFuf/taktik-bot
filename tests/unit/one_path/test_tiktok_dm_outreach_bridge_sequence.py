@@ -24,6 +24,9 @@ is no longer a profile, and every `stats` event counts `no_message_entry`.
 
 `refused_send` was recorded on both codes: TikTok refuses the first DM (its refusal is then on
 the rig's screen, read by the production detector). Its old values stay beside the new ones.
+
+An entry failure (no config file, one that does not read) carries the code of the entry since
+2026-10-24 (`MISSING_CONFIG`, `CONFIG_ERROR`); the line before it stays in `events_without_code`.
 """
 import json
 from pathlib import Path
@@ -174,7 +177,8 @@ def test_no_config_file_reports_the_shared_entrypoint_words():
     record = SNAPSHOT["no_config_file"]
     assert record["events_old_code"] == [["error", {"error": "No configuration received"}]]
     assert record["events_stdin_code"] == [["error", {"error": "No config received from stdin"}]]
-    assert record["events"] == [["error", {"error": "Usage: dm_outreach_bridge <config_path>"}]]
+    assert record["events_without_code"] == [["error", {"error": "Usage: dm_outreach_bridge <config_path>"}]]
+    assert record["events"] == [["error", {"error": "Usage: dm_outreach_bridge <config_path>", "error_code": "MISSING_CONFIG"}]]
     assert record["calls"] == [] and record["exit"] == 1
 
 

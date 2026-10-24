@@ -11,14 +11,13 @@ _bot_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if _bot_dir not in sys.path:
     sys.path.insert(0, _bot_dir)
 
-from bridges.common.entrypoint import report_error_event, run_bridge_main
+from bridges.common.entrypoint import run_bridge_main
 from bridges.tiktok.cold_dm.dm_outreach import TikTokDMOutreachBridge
 
 
 def main():
     """Main entry point - reads the config file."""
-    run_bridge_main(TikTokDMOutreachBridge, usage="dm_outreach_bridge <config_path>",
-                    report_error=report_error_event)
+    run_bridge_main(TikTokDMOutreachBridge, usage="dm_outreach_bridge <config_path>")
 
 
 if __name__ == "__main__":

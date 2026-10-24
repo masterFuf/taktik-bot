@@ -31,6 +31,17 @@ NOT_AN_OBJECT = "NOT_AN_OBJECT"
 INIT_ERROR = "INIT_ERROR"
 CRASH = "CRASH"
 
+#: The code of each entry failure on the `error` line (`taktik/core/contract/error_codes.py`). A config
+#: that is no JSON object does not read as a config either; an exception that ends the bridge, at its
+#: creation or in its run, is the one the launcher's crash hooks would say (`UNHANDLED_EXCEPTION`).
+ENTRY_ERROR_CODES = {
+    MISSING_CONFIG: "MISSING_CONFIG",
+    CONFIG_ERROR: "CONFIG_ERROR",
+    NOT_AN_OBJECT: "CONFIG_ERROR",
+    INIT_ERROR: "UNHANDLED_EXCEPTION",
+    CRASH: "UNHANDLED_EXCEPTION",
+}
+
 #: The words of each entry failure; a bridge may keep its own (`messages`), with `{usage}` and
 #: `{error}` filled in.
 DEFAULT_MESSAGES = {
@@ -65,22 +76,6 @@ def loaded_config_path() -> Optional[str]:
     return _config_path
 
 
-def _send_error(error: str) -> None:
-    """Emit a machine-readable entrypoint error without importing bridge_base."""
-    _ipc.error(error)
-
-
-def report_error_message(message: str, _reason: str = CONFIG_ERROR) -> None:
-    """`{"type": "error", "message": ...}`: the shape of the usage error, and of the publish and
-    upload bridges' entry errors."""
-    print(json.dumps({"type": "error", "message": message}))
-
-
-def report_error_event(message: str, _reason: str = CONFIG_ERROR) -> None:
-    """Every entry failure as an `error` event, a missing file included."""
-    _send_error(message)
-
-
 def send_import_error(exc: ImportError) -> None:
     """A module the run needs did not import: the `error` line with the bot's code and the traceback.
 
@@ -110,12 +105,15 @@ def send_run_error(message: str, exc: BaseException, **extra: Any) -> None:
     _ipc.error(message, traceback=event["traceback"], **extra)
 
 
-def report_entry_error(message: str, reason: str) -> None:
-    """The default shape: the usage line for a missing file, an `error` event for the rest."""
-    if reason == MISSING_CONFIG:
-        report_error_message(message, reason)
+def report_entry_error(message: str, reason: str, exc: Optional[BaseException] = None) -> None:
+    """An entry failure on the contract's `error` line: the words, the code of the reason
+    (`ENTRY_ERROR_CODES`) and, for an exception that ended the bridge, its traceback (`send_run_error`,
+    which writes it on stderr too)."""
+    code = ENTRY_ERROR_CODES[reason]
+    if reason in (INIT_ERROR, CRASH) and exc is not None:
+        send_run_error(message, exc, error_code=code)
     else:
-        _send_error(message)
+        _ipc.error(message, error_code=code)
 
 
 def _reset_run_diagnostics() -> None:
@@ -140,19 +138,25 @@ def run_bridge_main(
 ) -> None:
     """Universal `main()`: read the config file, build the bridge, exit with its `.run()` code.
 
-    `report_error(message, reason)` emits an entry failure in the bridge's own event shape
-    (reasons: MISSING_CONFIG, CONFIG_ERROR, NOT_AN_OBJECT, INIT_ERROR, CRASH), worded by
-    `messages` over `DEFAULT_MESSAGES`. An import that fails under it is no entry failure:
+    An entry failure (reasons: MISSING_CONFIG, CONFIG_ERROR, NOT_AN_OBJECT, INIT_ERROR, CRASH), worded
+    by `messages` over `DEFAULT_MESSAGES`, goes on the contract's `error` line (`report_entry_error`);
+    a bridge whose entry failures end in a shape of its own (a final JSON result, a Lab event) passes
+    `report_error(message, reason)`. An import that fails under it is no entry failure:
     `send_import_error` says it with its code, whatever the bridge's reporter. `catch_crashes=False`
     leaves an exception of the factory or of `.run()` to the launcher's crash hooks
     (UNHANDLED_EXCEPTION, or PYTHON_IMPORT_ERROR, with its traceback).
     """
     global _config_path
-    reporter = report_error or report_entry_error
     words = {**DEFAULT_MESSAGES, **(messages or {})}
 
-    def report(reason: str, error: object = "") -> None:
-        reporter(words[reason].format(usage=usage, error=error), reason)
+    def report(reason: str, exc: Optional[BaseException] = None) -> None:
+        message = words[reason].format(usage=usage, error="" if exc is None else exc)
+        if report_error is None:
+            report_entry_error(message, reason, exc)
+            return
+        report_error(message, reason)
+        if exc is not None and reason in (INIT_ERROR, CRASH):
+            logger.opt(exception=exc).error(message)
 
     if install_signal_handlers:
         signal.signal(signal.SIGINT, _sig_mod._handle_signal)
@@ -193,7 +197,6 @@ def run_bridge_main(
         sys.exit(1)
     except Exception as exc:
         report(INIT_ERROR, exc)
-        logger.exception("Bridge initialization failed")
         sys.exit(1)
 
     try:
@@ -208,5 +211,4 @@ def run_bridge_main(
         sys.exit(1)
     except Exception as exc:
         report(CRASH, exc)
-        logger.exception("Bridge crashed")
         sys.exit(1)

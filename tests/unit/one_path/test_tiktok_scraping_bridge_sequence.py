@@ -23,6 +23,9 @@ Two changes on purpose, rewritten in place: a run that opens its row prints its 
 (`scraping_session`) right after, since a bridge the app kills never closes that row and the app
 closes it by this id; and a stop by the operator files the row `CANCELLED`, the contract's word,
 where it said `STOPPED`, a status nothing reads.
+
+An entry failure (no config file, one that does not read) carries the code of the entry since
+2026-10-24 (`MISSING_CONFIG`, `CONFIG_ERROR`); the line before it stays in `events_without_code`.
 """
 import dataclasses
 import json
@@ -162,7 +165,8 @@ def test_no_config_file_reports_the_shared_entrypoint_words():
     record = SNAPSHOT["no_config_file"]
     assert record["events_old_code"] == [["error", {"error": "No configuration received"}]]
     assert record["events_stdin_code"] == [["error", {"error": "No config received from stdin"}]]
-    assert record["events"] == [["error", {"error": "Usage: tiktok_scraping_bridge <config_path>"}]]
+    assert record["events_without_code"] == [["error", {"error": "Usage: tiktok_scraping_bridge <config_path>"}]]
+    assert record["events"] == [["error", {"error": "Usage: tiktok_scraping_bridge <config_path>", "error_code": "MISSING_CONFIG"}]]
     assert record["calls"] == [] and record["exit"] == 1
 
 

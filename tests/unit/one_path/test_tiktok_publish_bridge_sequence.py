@@ -9,6 +9,10 @@ calls, same stdout events in the same order, same exit code.
 
 `text_refused` was recorded on both codes (TikTok's refusal on screen after the text post); its old
 values stay beside the new ones. The payload carries `botUsername`, as the app writes it.
+
+An entry failure (no config file, one that does not read) is the contract's `error` line since
+2026-10-24, with its code; it was printed in the `message` form, outside the IPC the rig records
+(`events_without_code`: none).
 """
 import json
 from pathlib import Path
