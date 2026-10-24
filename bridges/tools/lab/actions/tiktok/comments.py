@@ -1,94 +1,72 @@
-"""Comment-sheet READ action for TikTok compat diagnostics.
+"""The TikTok comment sheet in the Lab: read it, read who commented, write on it.
 
-Opening and closing the sheet already exist (`tt.video.click_comment`,
-`tt.popups.{has,close}_comments`); what was missing is the only question that matters for the
-catalogue — can we READ what is in it.
+Every action goes through the production class of the sheet, `CommentActions`: its gate (nothing
+is read before the sheet says it is open: `title`, the id carrying the author, also resolves on the
+inbox and the feed), its row-by-row reader, and the handle reader of the post URL workflow.
 
-Read-only: no comment is posted and no reply sent. Writing on the sheet is a product capability
-still to be prioritised, and a Lab action that comments on a stranger's video is a real comment.
+`tt.comment.read` and `tt.comment.read_commenter_handles` write nothing. `tt.comment.post` and
+`tt.comment.reply` publish: a Lab action that comments on a stranger's video is a real comment.
 """
-
-import time
 
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
-from taktik.core.social_media.tiktok.actions.base.utils import first_matching
+from bridges.tools.lab.action_test.params import lab_int
 from taktik.core.social_media.tiktok.actions.atomic.interaction.comment_actions import CommentActions
-from taktik.core.social_media.tiktok.ui.selectors.surfaces.video.comments import COMMENT_SELECTORS
-
-
-def _raw(a):
-    device = getattr(a, "device", None)
-    return getattr(device, "_device", None) or device
-
-
-def _wait_for_sheet(device, timeout: float = 6.0) -> bool:
-    """True once the comment sheet has actually drawn."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if first_matching(device, COMMENT_SELECTORS.sheet_indicator):
-            time.sleep(0.4)
-            return True
-        time.sleep(0.4)
-    return False
 
 
 @action("tt.comment.read")
 def read(a, p):
-    """Read the comments on the open sheet: author, text, likes.
+    """Read the comments on the open sheet: author, text, likes, each read within its own row.
 
-    Gated on `sheet_indicator` and the gate is the point. `title`, the id carrying the author,
-    is NOT comment-specific — it resolves on the inbox and on the feed too — so reading rows
-    without first proving the sheet is open would return one confident, wrong "comment" from
-    whatever screen happens to be up. Measured 2026-08-29: the indicator reads 3 and 5 on the two
-    versions' sheets and zero on every other captured screen.
+    The production reader of the sheet (`CommentActions.read_comments`, on the rows
+    `read_commenter_handles` walks). Gated on the sheet: polled, because it slides up over the video
+    and a read right after the tap cannot tell "not there yet" from "the tap did nothing".
     """
-    device = _raw(a)
-
-    # Poll rather than read once. The sheet slides up over the video and takes a beat: read
-    # immediately after the tap and it is genuinely not there yet, which is indistinguishable
-    # from "the tap did nothing" — measured on 43.1.4, where the same sequence failed on the
-    # first read and passed three seconds later.
-    if not _wait_for_sheet(device):
+    actions = CommentActions(a.device)
+    if not actions._wait_for_sheet():
         logger.warning("tt.comment.read: the comment sheet is not open — refusing to read rows")
-        return {
-            "success": False,
-            "message": "comment sheet not open",
-            "details": {"sheetOpen": False},
-        }
+        return {"success": False, "message": "comment sheet not open", "details": {"sheetOpen": False}}
 
-    def _texts(selectors):
-        found = []
-        for element in first_matching(device, selectors):
-            text = (getattr(element, "text", "") or "").strip()
-            if text:
-                found.append(text)
-        return found
-
-    authors = _texts(COMMENT_SELECTORS.comment_author)
-    bodies = _texts(COMMENT_SELECTORS.comment_text)
-    likes = _texts(COMMENT_SELECTORS.comment_like_count)
-    header = _texts(COMMENT_SELECTORS.comment_count_header)
-
-    logger.info(
-        f"tt.comment.read: {len(authors)} author(s), {len(bodies)} text(s), "
-        f"{len(likes)} like count(s)"
-    )
+    rows = actions.read_comments()
+    with_body = sum(1 for row in rows if row.get("text"))
+    logger.info(f"tt.comment.read: {len(rows)} comment(s), {with_body} with a body")
     return {
-        # Authors without texts is the failure that matters: the sheet is there, the rows are
+        # Rows without a single body is the failure that matters: the sheet is there, the rows are
         # there, and the reader comes back with names and nothing said.
-        "success": bool(authors and bodies),
-        "message": f"{len(authors)} comment(s), {len(bodies)} with a body",
+        "success": bool(rows) and with_body > 0,
+        "message": f"{len(rows)} comment(s), {with_body} with a body",
         "details": {
             "sheetOpen": True,
-            "header": header[0] if header else "",
-            "authors": authors[:15],
-            "texts": [t[:120] for t in bodies[:15]],
-            # Absent on 43.1.4 and on comments with no like: an empty list here is not a dead
-            # anchor, which is why it is reported apart rather than folded into the total.
-            "likeCounts": likes[:15],
+            # The sheet's own total ("16 commentaires"); None when it cannot be read.
+            "count": actions.comment_count(),
+            # A like count is None, never 0, when the row shows none (no like, or 43.1.4).
+            "comments": [
+                {"author": row["author"], "text": (row.get("text") or "")[:120], "likeCount": row.get("like_count")}
+                for row in rows[:15]
+            ],
         },
+    }
+
+
+@action("tt.comment.read_commenter_handles")
+def read_commenter_handles(a, p):
+    """The people who commented on the video on screen, by their handle, as the post URL workflow
+    reads them (`CommentActions.read_commenter_handles`): each row's profile opened to read the
+    handle, Back to the sheet. About 13 seconds a commenter. Params: max_commenters (default 2),
+    max_scrolls (default 1). Opens the sheet when it is closed; writes nothing.
+    """
+    rows = CommentActions(a.device).read_commenter_handles(
+        max_commenters=lab_int(p, "max_commenters", 2),
+        max_scrolls=lab_int(p, "max_scrolls", 1),
+    )
+    handles = [row["username"] for row in rows]
+    logger.info(f"tt.comment.read_commenter_handles: {len(handles)} handle(s)")
+    return {
+        "success": bool(handles),
+        "message": f"{len(handles)} commenter(s): {', '.join('@' + h for h in handles) or 'none'}",
+        "details": {"commenters": [{"username": row["username"], "displayName": row.get("display_name")}
+                                   for row in rows]},
     }
 
 
