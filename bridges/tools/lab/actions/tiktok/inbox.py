@@ -8,6 +8,7 @@ from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
 from bridges.tools.lab.action_test.not_applicable import absent_on_screen
+from bridges.tools.lab.action_test.params import lab_int
 from taktik.core.social_media.tiktok.actions.base.utils import first_matching
 
 
@@ -94,8 +95,12 @@ def decline_request(a, p):
 
 @action("tt.inbox.get_notifications")
 def get_notifications(a, p):
-    """Read the activity and system-notification sections, read-only."""
-    return a.dm.get_inbox_notifications(int(p.get("max_items", 20)))
+    """Read the activity and system-notification sections, read-only, as the inbox command reads them
+    (`DMWorkflow.read_notifications`): popups handled (the inbox is the workflow's own surface), the
+    inbox reached, the list brought back to its top, then the sections read. Param: max_items."""
+    from taktik.core.social_media.tiktok.workflows.dm import workflow as dm_workflow
+
+    return dm_workflow.DMWorkflow(a.device).read_notifications(lab_int(p, "max_items", 20))
 
 
 @action("tt.inbox.hello_candidates")

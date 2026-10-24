@@ -1,18 +1,23 @@
-"""Five TikTok screen capabilities of production that had no Lab action.
+"""Six TikTok screen capabilities of production that the Lab did not run as production does.
 
 The read of our own profile at the start of every run (`ProfileActions.get_own_profile_info`), the
-opening of a video in a profile's grid by the scraping (`ClickActions.open_profile_grid_post`),
-the avatar crop of a visited profile (`AvatarActions.capture_avatar`), the sound opened by its
-name by the scraping (`SoundActions.open_sound_by_name`), and the popup chain of every workflow
-(`PopupHandler.close_all`). Each action must call that function.
+opening of a video in a profile's grid by the scraping (`ClickActions.open_profile_grid_post`), the
+avatar crop of a visited profile (`AvatarActions.capture_avatar`), the sound opened by its name by
+the scraping (`SoundActions.open_sound_by_name`), the popup chain of every workflow
+(`PopupHandler.close_all`) and the inbox notifications as the inbox command reads them
+(`DMWorkflow.read_notifications`). Each action must call that function.
 """
 
 from types import SimpleNamespace
+
+import pytest
 
 import taktik.core.social_media.tiktok.actions.atomic.detection.avatar_actions as avatar_module
 import taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions as sound_module
 import taktik.core.social_media.tiktok.services.profile.profile_actions as profile_module
 import taktik.core.social_media.tiktok.workflows.common.popup_handler as popup_handler_module
+import taktik.core.social_media.tiktok.workflows.dm.workflow as dm_workflow_module
+from bridges.tools.lab.actions.tiktok.inbox import get_notifications
 from bridges.tools.lab.actions.tiktok.popups import close_all
 from bridges.tools.lab.actions.tiktok.profile import capture_avatar, open_grid_post, read_own
 from bridges.tools.lab.actions.tiktok.video import open_sound_by_name
@@ -161,3 +166,29 @@ def test_a_popup_seen_and_not_closed_is_a_failure(monkeypatch):
 
     assert result["success"] is False
     assert result["details"] == {"found": ["gdpr"], "closed": False}
+
+
+# The notifications of the inbox, read as the inbox command reads them (`DMWorkflow.read_notifications`,
+# `inbox_agent_handler`): the list brought back to its top first. The Lab read the atomic alone, which
+# reads empty on a list another command left scrolled down, while the workflow reads it.
+
+
+def test_the_inbox_notifications_are_read_by_the_workflow_read(monkeypatch):
+    calls = []
+
+    class _Inbox:
+        def __init__(self, device):
+            calls.append(("init", device))
+
+        def read_notifications(self, max_items=20):
+            calls.append(("read", max_items))
+            return [{"title": "x", "category": "activity"}]
+
+    monkeypatch.setattr(dm_workflow_module, "DMWorkflow", _Inbox)
+    bundle = SimpleNamespace(device="warm",
+                             dm=SimpleNamespace(get_inbox_notifications=lambda *_a: pytest.fail("atomic alone")))
+
+    result = get_notifications(bundle, {"max_items": "7"})
+
+    assert calls == [("init", "warm"), ("read", 7)]
+    assert result == [{"title": "x", "category": "activity"}]
