@@ -53,22 +53,25 @@ def build_instagram_action_bundle(device_facade):
     logger.info("Building action bundle...")
     behavior_state = BehaviorSessionState()
     bundle = ActionBundle()
+    # The businesses get the bundle's identity as their `automation`, as a run gives them itself:
+    # the account bound for an action reaches them and every business they build in turn.
+    run = bundle.identity
     bundle.device = device_facade
     bundle.nav = NavigationActions(device_facade, behavior_state=behavior_state)
     bundle.detection = DetectionActions(device_facade)
     bundle.click = ClickActions(device_facade, behavior_state=behavior_state)
     bundle.scroll = ScrollActions(device_facade, behavior_state=behavior_state)
     bundle.kb = TextActions(device_facade)
-    bundle.comment = CommentAction(device_facade)
+    bundle.comment = CommentAction(device_facade, automation=run)
     # Like orchestration carries the post-grid entry + in-viewer navigation helpers
     # (PostNavigationMixin) exercised by the profile/post Lab actions.
-    bundle.like = LikeOrchestration(device_facade)
+    bundle.like = LikeOrchestration(device_facade, automation=run)
     # Engagement orchestrations (stories / feed / unfollow) exercised by the engagement.* Lab
     # actions — same production classes the workflows use, built on the warm device.
-    bundle.story = StoryBusiness(device_facade)
-    bundle.feed = FeedBusiness(device_facade)
-    bundle.unfollow = UnfollowBusiness(device_facade)
-    bundle.popup = BaseBusinessAction(device_facade)
+    bundle.story = StoryBusiness(device_facade, automation=run)
+    bundle.feed = FeedBusiness(device_facade, automation=run)
+    bundle.unfollow = UnfollowBusiness(device_facade, automation=run)
+    bundle.popup = BaseBusinessAction(device_facade, automation=run)
     # The Lab bundle has no workflow SessionManager, but its production action facades still need
     # one shared per-bundle memory so repeated feed/profile probes exercise real session bursts.
     for component in (bundle.comment, bundle.like, bundle.story, bundle.feed,

@@ -52,8 +52,9 @@ def like_feed_post(a, p):
     (``FeedBusiness._get_current_post_author``), then like it through the Feed's like
     (``FeedBusiness._like_current_post(record_as=author)``: the framed post's own media or heart,
     verified on that heart, ``LikeOrchestration.like_framed_post``), which files the like under
-    that author. An unreadable author means no like, as in the workflow. The Lab has no account,
-    so the ledger write is refused and logged; the gesture is the production one."""
+    that author. An unreadable author means no like, as in the workflow. Param: account (the like
+    is recorded under it, as a run records it; without it the write is refused and logged, the
+    gesture is the production one)."""
     author = a.feed._get_current_post_author()
     if not author:
         return {"success": False, "message": "post author unreadable: the feed does not engage this post"}
@@ -198,11 +199,17 @@ def unfollow_from_list(a, p):
 def engage_likers(a, p):
     """Walk the likers of the OPEN post with the loop of the feed, hashtag and post URL workflows
     (``LikersWorkflowBase._interact_with_likers_list``): each row opened, the profile filtered,
-    the planned interactions made, the list found again. The likers popup must be open. Params:
-    max_interactions (default 5), follow_percentage and like_percentage (0-100, as the workflow
-    pages set them; absent, the feed's defaults)."""
+    the planned interactions made and recorded, the list found again. The likers popup must be
+    open. Params: account (required: the loop skips the profiles the base holds as processed for
+    it, marks the ones it visits and records its likes and follows under it, as a run does;
+    without it, nothing is touched), max_interactions (default 5), follow_percentage and
+    like_percentage (0-100, as the workflow pages set them; absent, the feed's defaults)."""
     from taktik.core.social_media.instagram.actions.base.stats import create_workflow_stats
 
+    if not a.feed._get_account_id():
+        return {"success": False,
+                "message": "account param is required: the likers loop records its likes and follows "
+                           "under the account, as a run does (nothing touched)"}
     config = dict(a.feed.default_config)
     for key in ("follow_percentage", "like_percentage"):
         if p.get(key) not in (None, ""):

@@ -355,7 +355,7 @@ def _unfollow_on(xml, lang, monkeypatch):
     monkeypatch.setattr(sync_following, "InstagramFollowGraphService",
                         type("GraphSpy", (), {"upsert_follower": staticmethod(lambda **kw: written.append(kw))}))
     bundle, phone = _instagram(xml, lang)
-    bundle.unfollow.active_account_id = 1
+    bundle.bind_account(1)
     return bundle, phone, written
 
 

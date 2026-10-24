@@ -58,8 +58,9 @@ def test_likers_are_walked_by_the_loop_of_the_workflows():
         kwargs["stats"]["users_interacted"] = 2
         kwargs["stats"]["follows_made"] = 2
 
+    # The account bound for the run: the loop records under it (no account, nothing touched).
     feed = SimpleNamespace(default_config={"like_percentage": 35, "comment_percentage": 10},
-                           _interact_with_likers_list=walk)
+                           _interact_with_likers_list=walk, _get_account_id=lambda: 7)
     bundle = SimpleNamespace(feed=feed)
 
     result = engagement.engage_likers(bundle, {"max_interactions": "3", "follow_percentage": "100"})
@@ -76,7 +77,8 @@ def test_likers_are_walked_by_the_loop_of_the_workflows():
 
 
 def test_no_liker_engaged_is_a_failure():
-    feed = SimpleNamespace(default_config={}, _interact_with_likers_list=lambda **_k: None)
+    feed = SimpleNamespace(default_config={}, _interact_with_likers_list=lambda **_k: None,
+                           _get_account_id=lambda: 7)
 
     assert engagement.engage_likers(SimpleNamespace(feed=feed), {})["success"] is False
 

@@ -3,8 +3,28 @@
 from loguru import logger
 
 
+class LabRunIdentity:
+    """What a run hands the production classes it builds as their `automation`: the account their
+    work is filed under (in Symfony terms, the security token every service reads).
+
+    A run builds its businesses with itself (`InstagramAutomation`); every one of them asks it for
+    the account (`_get_account_id`), and so does every business it builds in turn, such as the
+    feed's `like_business`, which records the likes of the likers loop. The Lab bundle builds its
+    classes with this one, and `ActionBundle.bind_account` sets it. No `current_session_id` here:
+    the session comes from the session manager an action attaches (`_get_session_id` falls back to
+    it), as for the suggestions visit.
+    """
+
+    def __init__(self) -> None:
+        self.active_account_id = None
+
+
 class ActionBundle:
     """Holds diagnostic action instances grouped by family."""
+
+    def __init__(self) -> None:
+        #: Given to the production classes the bundle builds, as a run gives itself.
+        self.identity = LabRunIdentity()
 
     #: Serial of the phone this bundle drives, set by the session or the single-shot runner.
     #: An action that builds its own manager (`app.launch`) must pass it on: a manager without a
@@ -30,6 +50,7 @@ class ActionBundle:
         account wrote under the account of the action before it.
         """
         identity = account_id or None
+        self.identity.active_account_id = identity
         bound = 0
         for name in self._IDENTITY_BEARING:
             component = getattr(self, name, None)
@@ -65,6 +86,18 @@ def bundle_device_id(bundle):
     return serial if isinstance(serial, str) and serial else None
 
 
+def open_bot_base() -> None:
+    """Open the bot's base, the one `TAKTIK_DB_PATH` names, as every run opens it before its first
+    gesture (`configure_run_database` of the bridges); once per process. The production classes the
+    Lab drives read and write it (a profile already processed, a like recorded): opened only to
+    resolve the `account` parameter, an action run without it logged « Database service not
+    configured » and wrote nothing (Pixel 6a, 2026-10-24). Raises when the base does not open."""
+    import taktik.core.database as database
+
+    if database.db_service is None:
+        database.configure_db_service()
+
+
 def resolve_lab_account_id(params):
     """Account id from the ``account`` parameter, or None.
 
@@ -75,9 +108,9 @@ def resolve_lab_account_id(params):
     if not account:
         return None
     try:
-        from taktik.core.database import configure_db_service, get_db_service
+        from taktik.core.database import get_db_service
 
-        configure_db_service()
+        open_bot_base()
         account_id, _ = get_db_service().get_or_create_account(account, is_bot=True)
         return account_id
     except Exception as exc:  # noqa: BLE001 — attribution must never break the action
@@ -85,4 +118,5 @@ def resolve_lab_account_id(params):
         return None
 
 
-__all__ = ["ActionBundle", "attach_device_id", "bundle_device_id", "resolve_lab_account_id"]
+__all__ = ["ActionBundle", "LabRunIdentity", "attach_device_id", "bundle_device_id", "open_bot_base",
+           "resolve_lab_account_id"]

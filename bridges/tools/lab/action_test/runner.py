@@ -23,7 +23,7 @@ from bridges.tools.lab.action_test.artifacts import (
     resolve_session_invariant_context,
     write_action_report,
 )
-from bridges.tools.lab.action_test.action_bundle import attach_device_id
+from bridges.tools.lab.action_test.action_bundle import attach_device_id, open_bot_base
 from bridges.tools.lab.action_test.language import LabLanguage
 from bridges.tools.lab.action_test.tracing import SelectorTracer, TracedSelector
 
@@ -223,6 +223,8 @@ def _execute_action(
 
     try:
         fn = action_registry[action_id]
+        # The base, then the account, as a run has them before its first gesture.
+        open_bot_base()
         _bind_bundle_account(bundle, params)
         # Measured around the production function only: the Lab's own dumps (screen before and
         # after, artifacts) are not the action's cost.
