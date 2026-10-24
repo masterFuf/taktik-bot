@@ -3,6 +3,7 @@
 from loguru import logger
 
 from bridges.tools.lab.actions.tiktok import action
+from bridges.tools.lab.action_test.params import lab_int
 from bridges.tools.lab.action_test.not_applicable import not_applicable
 
 
@@ -173,6 +174,22 @@ def open_sound_page(a, p):
         "message": f"{count} post(s)" if count is not None else "post count unreadable",
         "details": {"post_count": count},
     }
+
+
+@action("tt.sound.open_by_name")
+def open_sound_by_name(a, p):
+    """Search a sound by its name and open it, as the scraping does (`SoundActions.open_sound_by_name`):
+    search, Sounds tab, the row at `index` opened, the page proven, its REAL title read. Params:
+    query (required), index (default 0). The title is the answer: searching "Umbrella" can open
+    somebody's cover, and only the page says which."""
+    from taktik.core.social_media.tiktok.actions.atomic.detection.sound_actions import SoundActions
+
+    query = (p.get("query") or "").strip()
+    if not query:
+        return {"success": False, "message": "query param is required"}
+    title = SoundActions(a.device).open_sound_by_name(query, index=lab_int(p, "index", 0))
+    return {"success": bool(title), "message": f"{query!r} -> {title!r}" if title else f"{query!r}: no sound page",
+            "details": {"query": query, "title": title or None}}
 
 
 @action("tt.sound.collect_users")
