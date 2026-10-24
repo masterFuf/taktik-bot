@@ -6,6 +6,10 @@ account is operated. The platform runtime that does know installs `witness_for(.
 and the first halt of the run becomes one row of `account_restriction_signals` with the signal
 `action_blocked`, next to the `private_first_ordering` rows the followers walk already writes.
 
+Instagram checking the account (its challenge screen) is kept the same way, under its own signal
+`account_challenge`: the desktop app launches nothing on that account until the operator says the
+check is passed.
+
 One row per blocked run, not per sighting: the latch keeps only its first reading, so the witness
 is told once. Written through the repository, never raises: a failed write is logged as an error,
 with its cause, since without the row the desktop app never rests the blocked account.
@@ -17,9 +21,11 @@ from typing import Any, Callable, Dict, Optional
 
 from loguru import logger
 
-#: The halt code this history keeps; the other codes (lost phone, crashed app, desktop gone) say
-#: nothing about the account.
+#: The halt codes this history keeps, each its own signal; the other codes (lost phone, crashed
+#: app, desktop gone) say nothing about the account.
 ACTION_BLOCKED = "action_blocked"
+ACCOUNT_CHALLENGE = "account_challenge"
+_KEPT_HALTS = (ACTION_BLOCKED, ACCOUNT_CHALLENGE)
 
 
 def record_action_block(
@@ -30,8 +36,10 @@ def record_action_block(
     source_type: Optional[str] = None,
     session_id: Optional[int] = None,
 ) -> bool:
-    """Write one `action_blocked` signal for `account_username` when `halt` is a block."""
-    if not halt or halt.get("code") != ACTION_BLOCKED:
+    """Write one signal for `account_username` when `halt` is a block or an account check (its
+    code is the signal)."""
+    signal = (halt or {}).get("code")
+    if signal not in _KEPT_HALTS:
         return False
     account = (account_username or "").strip().lstrip("@")
     if not account or account == "unknown":
@@ -43,14 +51,14 @@ def record_action_block(
         return bool(get_local_database().account_restrictions.record_signal(
             account,
             platform=platform,
-            signal=ACTION_BLOCKED,
+            signal=signal,
             source_type=source_type,
             session_id=session_id,
         ))
     except Exception as exc:  # noqa: BLE001 - losing the entry must not lose the run
         logger.error(
-            f"Block on {platform} account @{account} not written to its health history, "
-            f"so the desktop app will not rest it: {exc}"
+            f"{signal} on {platform} account @{account} not written to its health history, "
+            f"so the desktop app will not hold it back: {exc}"
         )
         return False
 
@@ -79,4 +87,4 @@ def witness_for(
     return _witness
 
 
-__all__ = ["ACTION_BLOCKED", "record_action_block", "witness_for"]
+__all__ = ["ACCOUNT_CHALLENGE", "ACTION_BLOCKED", "record_action_block", "witness_for"]

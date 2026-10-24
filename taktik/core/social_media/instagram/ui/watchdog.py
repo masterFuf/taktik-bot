@@ -147,7 +147,8 @@ class WorkflowWatchdog:
                 log.error(f"🐕 Watchdog error: {e}")
 
     def _block_on_screen(self) -> bool:
-        """Is Instagram refusing actions ("Try again later")? Reads only, never raises."""
+        """Is Instagram refusing actions ("Try again later") or checking the account? Reads only,
+        never raises."""
         try:
             from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 
@@ -156,7 +157,10 @@ class WorkflowWatchdog:
             log.debug(f"🐕 Block check failed: {exc}")
             return False
         if blocked:
-            log.error("🐕 Rate-limit dialog on screen: left open, the run stops")
+            from taktik.core.shared.diagnostics import run_halt
+
+            code = (run_halt.arret_demande() or {}).get('code') or run_halt.ACTION_BLOCKED
+            log.error(f"🐕 Instagram refuses this account ({code}): screen left as it is, the run stops")
             self._send_ipc("action_event", action="action_blocked", username="", success=False,
                            data={})
         return blocked

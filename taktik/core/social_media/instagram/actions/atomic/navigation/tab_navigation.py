@@ -90,12 +90,21 @@ class TabNavigationMixin(BaseAction):
         """One real Back at a time, at most `max_backs`, until `arrived()` answers True after one.
 
         Never out of Instagram: the facade refuses a Back on a root screen (home feed, a main tab),
-        where it would leave the app or switch tab."""
+        where it would leave the app or switch tab. Never on Instagram's account check either: no
+        Back takes the run past it, and the run stops there."""
+        if self._account_check_on_screen():
+            return False
         for _ in range(max_backs):
             self._back_one_screen()
             if arrived():
                 return True
         return False
+
+    def _account_check_on_screen(self) -> bool:
+        """Is the tab bar gone because Instagram is checking the account? Then the run stops
+        (the detector sets its latch) and no gesture is made on that screen."""
+        detector = getattr(self, 'problematic_page_detector', None)
+        return bool(detector is not None and detector.is_account_challenged())
 
     def _is_search_bar_shown(self) -> bool:
         """The search screen's own bar is on screen (Explore, or the results of a query)."""
@@ -146,6 +155,8 @@ class TabNavigationMixin(BaseAction):
                     self.logger.debug(f"❌ Failed navigation attempt {attempt + 1}")
             else:
                 self.logger.debug(f"❌ Cannot click on profile tab (attempt {attempt + 1})")
+                if self._account_check_on_screen():
+                    return False
                 # A full-screen surface hides the bottom bar. Since Instagram 410 the followers /
                 # following lists do: every unfollow run that had read the following list then
                 # failed here three times, and its followers sync never ran (Pixel 3, 2026-09-24).

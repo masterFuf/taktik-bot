@@ -58,6 +58,13 @@ class WorkflowHelpers:
         return found
 
     def finalize_session(self, status='COMPLETED', reason='Limits reached'):
+        # A failure named by the caller gives way to what the stop latch saw: the account check
+        # Instagram put on screen ended runs as `navigation_lost`.
+        settled = stop_reasons.settled_by_halt(reason, run_halt.arret_demande())
+        if settled is not reason:
+            self.logger.warning(f"Run ended on '{getattr(reason, 'code', reason)}', "
+                                f"explained by the stop latch: {settled.code}")
+            reason = settled
         self.logger.info(f"🏁 Finalizing session: {reason}")
         
         # Mark session as finalized to prevent further iterations
