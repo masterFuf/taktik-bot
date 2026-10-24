@@ -22,7 +22,7 @@ from taktik.core.social_media.instagram.workflows.scraping.list_strategy import 
     make_commenters_strategy,
 )
 from taktik.core.social_media.instagram.workflows.scraping.deep_qualify import DeepQualifyMixin
-from taktik.core.social_media.instagram.workflows.scraping.persistence import SCRAPED_PROFILE_FIELDS, post_audiences
+from taktik.core.social_media.instagram.workflows.scraping.persistence import SCRAPED_PROFILE_FIELDS, post_session_type
 
 console = Console()
 
@@ -924,7 +924,7 @@ class ScrapingListMixin(DeepQualifyMixin):
 
             posts_checked = 0
             remaining = max_profiles - total_scraped
-            console.print(f"[cyan]🔍 Scraping #{hashtag} ({'+'.join(post_audiences(self.config)) or 'none'}, max {remaining} profiles)...[/cyan]")
+            console.print(f"[cyan]🔍 Scraping #{hashtag} ({post_session_type(self.config)}, max {remaining} profiles)...[/cyan]")
 
             # Track which post grid positions have already been clicked this hashtag
             # so we never re-open the same thumbnail after pressing back.

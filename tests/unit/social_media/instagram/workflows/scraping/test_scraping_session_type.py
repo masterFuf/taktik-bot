@@ -6,7 +6,10 @@ mining nobody's audience — was therefore stored as a follower scrape: 86 sessi
 indistinguishable from the real thing in the history and in any count grouped by type.
 """
 
-from taktik.core.social_media.instagram.workflows.scraping.persistence import ScrapingPersistenceMixin
+from taktik.core.social_media.instagram.workflows.scraping.persistence import (
+    ScrapingPersistenceMixin,
+    saved_post_session_type,
+)
 
 
 class _FakeDb:
@@ -119,3 +122,30 @@ class TestTheRowIsAnnounced:
         workflow = _Workflow({'type': 'target', 'target_usernames': ['a']})
         workflow._create_scraping_session()
         assert workflow.scraping_session_id == 1
+
+
+class TestTheSavedConfigIsReadBack:
+    """A session stored before its writer typed it is typed again from the config it saved, by the
+    same rule; a config that does not say which lists the run read leaves it undecided."""
+
+    def test_the_saved_settings_give_the_type_the_writer_gives(self):
+        config = {'type': 'post_url', 'scrape_likers': True, 'scrape_commenters': True}
+        assert saved_post_session_type('POST_URL', config) == ('likers+commenters', '')
+        assert saved_post_session_type('POST_URL', config)[0] == _create(config)['scraping_type']
+
+    def test_reading_neither_list_is_none_as_the_writer_says(self):
+        config = {'type': 'hashtag', 'scrape_likers': False, 'scrape_commenters': False}
+        assert saved_post_session_type('HASHTAG', config) == ('none', '')
+
+    def test_an_absent_setting_is_not_filled_with_the_default(self):
+        new_type, why = saved_post_session_type('HASHTAG', {'type': 'hashtag', 'scrape_likers': True})
+        assert new_type is None
+        assert 'scrape_commenters' in why
+
+    def test_the_config_of_another_run_decides_nothing(self):
+        config = {'type': 'hashtag', 'scrape_likers': True, 'scrape_commenters': False}
+        assert saved_post_session_type('POST_URL', config)[0] is None
+        assert saved_post_session_type('HASHTAG', {**config, 'type': 'target'})[0] is None
+
+    def test_a_config_that_is_not_an_object_decides_nothing(self):
+        assert saved_post_session_type('HASHTAG', ['likers'])[0] is None
