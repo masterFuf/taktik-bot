@@ -71,8 +71,10 @@ class _Phone:
     def app_current(self):
         return {"package": self.package, "activity": "demo.Activity"}
 
-    def window_size(self):
-        return (1080, 2220)
+    @property
+    def info(self):
+        # uiautomator2's deviceInfo: the size the gestures are computed on (`read_screen_size`).
+        return {"displayWidth": 1080, "displayHeight": 2220}
 
     def click(self, x, y):
         self.taps.append((x, y))
