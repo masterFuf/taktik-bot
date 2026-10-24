@@ -54,8 +54,36 @@ class DirectMessageSelectors:
     # === Inbox (conversation list) ===
     inbox_thread_list_resource_id: str = "com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"
     inbox_thread_list: str = '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]'
+    # What only the DM inbox shows, either one proving it: its own action bar and its thread list
+    # (410: ig410_en_dm_inbox.xml, and ig410_fr_dm_inbox_pills.xml on a Pixel 6 Pro, Android 17,
+    # 2026-10-24). The thread list also stands on the message-requests screen.
+    inbox_screen_markers: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/direct_inbox_action_bar"]',
+        '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]',
+    ])
     inbox_header_text_resource_id: str = "com.instagram.android:id/header_text"
+    # The older header entry to the message requests ("Requests" / "Demandes" button).
     inbox_header_action_button_resource_id: str = "com.instagram.android:id/header_action_button"
+    inbox_header_action_button: str = '//*[@resource-id="com.instagram.android:id/header_action_button"]'
+
+    # The requests entry of an inbox laid out with pills (the layout is served per account,
+    # same 410 APK): a clickable pill holding an `inbox_header_pill_text`, its label at the start
+    # of its content-desc, the label in the locales.
+    _requests_pill_template: str = (
+        '//*[@clickable="true"][starts-with(@content-desc, "{label}")]'
+        '[.//*[@resource-id="com.instagram.android:id/inbox_header_pill_text"]]'
+    )
+
+    @property
+    def requests_pill(self) -> List[str]:
+        return [self._requests_pill_template.format(label=label)
+                for label in L("direct_message.requests_pill_labels")]
+
+    @property
+    def requests_pill_selected(self) -> List[str]:
+        """The requests pill once chosen: a pill shows it is the one on display by `selected`
+        (the "Tout" / "All" pill of both inbox captures)."""
+        return [f'{xpath}[@selected="true"]' for xpath in self.requests_pill]
     inbox_header_messages_text: str = "Messages"
     inbox_header_requests_text: str = "Requests"
     # Title of the message-requests sub-screen (action bar). Used to confirm we left the
@@ -164,6 +192,27 @@ class DirectMessageSelectors:
     @property
     def new_message_button(self) -> List[str]:
         return self._new_message_button_base + L("direct_message.new_message_button")
+
+    # === New message: the recipient picker the inbox's "Nouveau message" button opens ===
+    # Instagram 447, Pixel 6a, 2026-10-24 (captures r16 of the phone session): action bar
+    # `direct_recipient_picker_action_bar` titled "Nouveau message", a "À :" field whose
+    # `search_edit_text` takes the handle, then `recipients_list` rows. The results come 4 to 7 s
+    # after the typing, under an invitation row ("Vous cherchez quelqu'un ?", an "Inviter" button
+    # never to tap), whose name is no handle. Not captured in 410 yet: same ids expected
+    # (`search_edit_text` is the 410 inbox's, `row_user_primary_name` the 410 likers sheet's).
+    new_message_screen: str = '//*[@resource-id="com.instagram.android:id/direct_recipient_picker_action_bar"]'
+    new_message_search_field: str = (
+        '//*[@resource-id="com.instagram.android:id/recipients_container"]'
+        '//*[@resource-id="com.instagram.android:id/search_edit_text"]'
+    )
+
+    def new_message_recipient_row(self, username: str) -> str:
+        """The picker's row of exactly this handle (never the invitation row above it)."""
+        return (
+            '//*[@resource-id="com.instagram.android:id/recipients_list"]'
+            '//*[@resource-id="com.instagram.android:id/user_row_background"]'
+            f'[.//*[@resource-id="com.instagram.android:id/row_user_primary_name"][@text="{username}"]]'
+        )
     
     select_multiple_button: str = '//*[@content-desc="Sélectionner plusieurs messages"]'
     

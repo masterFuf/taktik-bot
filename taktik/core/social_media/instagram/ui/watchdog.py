@@ -23,6 +23,8 @@ import time
 from typing import Optional, Dict, Any, List, Callable
 from loguru import logger
 
+from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
+
 from taktik.core.social_media.instagram.ui.selectors.support.watchdog import WATCHDOG_SELECTORS
 
 log = logger.bind(module="workflow-watchdog")
@@ -263,18 +265,13 @@ class WorkflowWatchdog:
 
                 elif action == "swipe_down":
                     log.info("🐕 Recovery: swiping bottom sheet down")
-                    try:
-                        info = self.device.info if hasattr(self.device, 'info') else self.device.device.info
-                        w = info.get('displayWidth', 540)
-                        h = info.get('displayHeight', 960)
-                        sx, sy = w // 2, int(h * 0.6)
-                        ex, ey = w // 2, int(h * 0.95)
-                        self.device.swipe(sx, sy, ex, ey, duration=0.3)
-                    except Exception:
-                        if hasattr(self.device, 'device'):
-                            info = self.device.device.info
-                            w, h = info['displayWidth'], info['displayHeight']
-                            self.device.device.swipe(w // 2, int(h * 0.6), w // 2, int(h * 0.95), 0.3)
+                    # The shared drag takes the facade the watchdog is given as well as a raw
+                    # device: `swipe(..., duration=)` raised on the facade every time and only a
+                    # silent fallback to the raw device ever moved the sheet.
+                    w, h = self.device.window_size()
+                    human_drag_between_raw(
+                        self.device, (w // 2, int(h * 0.6)), (w // 2, int(h * 0.95)), 0.4, log
+                    )
                     time.sleep(1.5)
 
                 elif action == "ok_button":

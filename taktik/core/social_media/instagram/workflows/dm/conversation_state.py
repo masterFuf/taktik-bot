@@ -7,6 +7,7 @@ import time
 
 from loguru import logger
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+from taktik.core.social_media.instagram.workflows.dm.session import dm_inbox_shown
 
 
 class DMConversationStateMixin:
@@ -60,8 +61,7 @@ class DMConversationStateMixin:
         return is_group, can_reply
 
     def _return_to_inbox_if_needed(self) -> None:
-        inbox_list = self.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
-        if not inbox_list.exists:
+        if not dm_inbox_shown(self.device):
             self._go_back_from_conversation(delay=1)
 
     def _go_back_from_conversation(self, delay: float = 1) -> None:

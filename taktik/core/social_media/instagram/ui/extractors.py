@@ -1,9 +1,11 @@
+import random
 import re
 import time
 from typing import Optional, List, Any, Dict
 from loguru import logger
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
 from taktik.core.shared.actions.utils import ActionUtils
+from taktik.core.shared.behavior.gesture_primitives import human_drag_between_raw
 from taktik.core.social_media.instagram.ui.labels import is_ui_label
 
 log = logger.bind(module="instagram-ui-extractors")
@@ -565,8 +567,6 @@ class InstagramUIExtractors:
             if verbose_logs:
                 logger_to_use.debug(f"📱 Resolution detected: {screen_width}x{screen_height}")
             
-            center_x = screen_width // 2
-            
             # Reduced wait time for faster extraction (was 0.8s)
             time.sleep(0.3)
             
@@ -602,17 +602,22 @@ class InstagramUIExtractors:
                 else:
                     logger_to_use.debug(f"⚠️ No username detected, fallback")
             
-            # NOTE: deliberately kept on the raw swipe (not the humanized helper) — start_y/end_y
-            # are ADAPTIVE (computed from the first username's Y so the next page resumes exactly
-            # where extraction left off). A fixed-distance humanized scroll would change the step
-            # and skip/duplicate likers. Humanizing needs a swipe-between-computed-endpoints variant
-            # (varied X / sampled curve over [start_y, end_y]) — tracked as a deferred follow-up.
-            self.device.swipe(center_x, start_y, center_x, end_y, duration=0.5)
-            
+            # start_y/end_y are ADAPTIVE (from the first username's Y, so the next page resumes
+            # where extraction left off): the gesture must travel exactly that far, which a
+            # sampled scroll does not. The shared drag between two given points does, lifting at
+            # near-zero speed so the list does not coast past unread rows. It takes the facade a
+            # Lab action holds as well as the raw device a run holds: `self.device.swipe(...,
+            # duration=)` only existed on the raw device, and on the facade (direction-based
+            # `swipe`) every scroll raised, the popup read as closed and "0 liker(s)" came back.
+            x = int(screen_width * random.uniform(0.4, 0.6))
+            drift = int(screen_width * random.uniform(-0.02, 0.02))
+            duration = random.uniform(0.45, 0.65)
+            if not human_drag_between_raw(self.device, (x, start_y), (x + drift, end_y), duration, logger_to_use):
+                return False
+
             if verbose_logs:
-                logger_to_use.debug(f"📜 Adaptive scroll in likers popup: ({center_x},{start_y}) → ({center_x},{end_y}) in 0.5s")
-            
-            # Reduced post-scroll wait (was 0.4s)
+                logger_to_use.debug(f"📜 Adaptive scroll in likers popup: ({x},{start_y}) → ({x + drift},{end_y}) in {duration:.2f}s")
+
             time.sleep(0.2)
             return True
             

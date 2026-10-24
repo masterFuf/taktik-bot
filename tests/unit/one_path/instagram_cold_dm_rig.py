@@ -344,8 +344,8 @@ class InstagramColdDmRig:
             MessagingBusiness,
         )
 
-        def fake_open_conversation(_self):
-            rig.calls.append("open_conversation_from_profile")
+        def fake_open_conversation(_self, username=None):
+            rig.calls.append(f"open_conversation_from_profile {username}")
             if rig.phone.state != "profile" or not rig.profile(rig.phone.user).get("message_button", True):
                 return False
             rig.phone.state = "conversation"

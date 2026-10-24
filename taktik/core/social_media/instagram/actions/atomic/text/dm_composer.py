@@ -52,47 +52,52 @@ def resolve_device_id(device, explicit: Optional[str] = None) -> str:
     )
 
 
-def find_message_input(device, *, timeout: float = 5.0, logger=None) -> Optional[Any]:
+def find_message_input(device, *, logger=None) -> Optional[Any]:
     """Locate the conversation composer, trying every known signature.
 
     Order matters: the xpath catalogue carries the composer resource-id first and only then
     falls back to looser shapes (an EditText hinted "Message", any clickable EditText), so a
     precise match always wins over a generic one.
+
+    One kind of answer whatever signature matched: a uiautomator2 SELECTOR (`d.xpath(...)` or
+    `d(...)`), which has `.exists`, `.info` and `.click()`, or None. The xpath branch used to
+    hand back the resolved `XMLElement` instead, which has no `.exists`: the DM reply, which
+    checks it, crashed on every conversation found that way (Pixel 6 Pro, Instagram 410,
+    2026-10-24: "'XMLElement' object has no attribute 'exists'").
     """
     log = logger or _default_logger
+    return _first_selector(
+        device,
+        xpaths=DM_SELECTORS.message_input,
+        ui_selectors=(
+            [{"resourceId": rid} for rid in DM_SELECTORS.message_input_resource_ids]
+            + [{"className": DM_SELECTORS.edit_text_class_name}]
+            + [{"textContains": hint} for hint in DM_SELECTORS.message_input_text_contains]
+        ),
+        what="DM composer",
+        log=log,
+    )
 
-    for selector in DM_SELECTORS.message_input:
+
+def _first_selector(device, *, xpaths, ui_selectors, what: str, log) -> Optional[Any]:
+    """The first of `xpaths`, then of `ui_selectors` (keyword sets for `d(...)`), that shows on
+    screen, as the selector itself; None when none does. A query that raises is logged and the
+    next one asked."""
+    for xpath in xpaths:
         try:
-            found = device.xpath(selector)
+            found = device.xpath(xpath)
             if found.exists:
-                return found.get(timeout=timeout)
-        except Exception:
-            continue
-
-    for resource_id in DM_SELECTORS.message_input_resource_ids:
+                return found
+        except Exception as exc:
+            log.warning(f"{what}: {xpath} could not be asked ({exc})")
+    for selector in ui_selectors:
         try:
-            candidate = device(resourceId=resource_id)
+            candidate = device(**selector)
             if candidate.exists:
                 return candidate
-        except Exception:
-            continue
-
-    try:
-        candidate = device(className=DM_SELECTORS.edit_text_class_name)
-        if candidate.exists:
-            return candidate
-    except Exception:
-        pass
-
-    for hint in DM_SELECTORS.message_input_text_contains:
-        try:
-            candidate = device(textContains=hint)
-            if candidate.exists:
-                return candidate
-        except Exception:
-            continue
-
-    log.warning("DM composer not found with any known signature")
+        except Exception as exc:
+            log.warning(f"{what}: {selector} could not be asked ({exc})")
+    log.warning(f"{what} not found with any known signature")
     return None
 
 
@@ -154,36 +159,19 @@ def type_message(
     return False
 
 
-def find_send_button(device, *, timeout: float = 3.0, logger=None) -> Optional[Any]:
-    """Locate the send button: xpath catalogue, then resource-ids, then content-descriptions."""
-    log = logger or _default_logger
-
-    for selector in DM_SELECTORS.send_button:
-        try:
-            found = device.xpath(selector)
-            if found.exists:
-                return found.get(timeout=timeout)
-        except Exception:
-            continue
-
-    for resource_id in DM_SELECTORS.send_button_resource_ids:
-        try:
-            candidate = device(resourceId=resource_id)
-            if candidate.exists:
-                return candidate
-        except Exception:
-            continue
-
-    for description in DM_SELECTORS.send_button_content_descriptions:
-        try:
-            candidate = device(description=description)
-            if candidate.exists:
-                return candidate
-        except Exception:
-            continue
-
-    log.warning("DM send button not found with any known signature")
-    return None
+def find_send_button(device, *, logger=None) -> Optional[Any]:
+    """Locate the send button: xpath catalogue, then resource-ids, then content-descriptions.
+    The same kind of answer as `find_message_input`: a selector, or None."""
+    return _first_selector(
+        device,
+        xpaths=DM_SELECTORS.send_button,
+        ui_selectors=(
+            [{"resourceId": rid} for rid in DM_SELECTORS.send_button_resource_ids]
+            + [{"description": desc} for desc in DM_SELECTORS.send_button_content_descriptions]
+        ),
+        what="DM send button",
+        log=logger or _default_logger,
+    )
 
 
 def click_send_button(device, *, logger=None) -> bool:

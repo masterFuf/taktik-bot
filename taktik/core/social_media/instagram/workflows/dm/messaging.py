@@ -10,6 +10,9 @@ from taktik.core.social_media.instagram.actions.base.base_action import BaseActi
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.shared.device.wait import find_element, wait_for_any
+from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import instagram_handle
+from taktik.core.social_media.instagram.workflows.dm.navigation import open_dm_inbox
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
     BUTTON_SELECTORS,
@@ -33,31 +36,98 @@ class MessagingBusiness(BaseAction):
         self.button_selectors = BUTTON_SELECTORS
         self.navigation_selectors = NAVIGATION_SELECTORS
     
-    def send_dm_from_profile(self, message: str, *, typos: bool = True):
+    def send_dm_from_profile(self, message: str, *, username: Optional[str] = None, typos: bool = True):
         """Send a DM from the profile on screen: open its conversation, then send in it.
 
         The one way a DM is sent from a profile, for the welcome DM (`send_dm`) and the cold DM.
-        Returns True once sent, False when a step failed, or `INVITE_ALREADY_SENT` when the
-        conversation shows a message request already sent (no composer to type in).
+        `username`: the account of that profile, for the new-message picker when the profile shows
+        no Message button. Returns True once sent, False when a step failed, or
+        `INVITE_ALREADY_SENT` when the conversation shows a message request already sent (no
+        composer to type in).
         """
         self.logger.info("📨 Attempting to send DM from profile...")
-        if not self.open_conversation_from_profile():
+        if not self.open_conversation_from_profile(username):
             return False
         return self.send_in_open_conversation(message, typos=typos)
 
-    def open_conversation_from_profile(self) -> bool:
-        """Tap the Message button of the profile on screen, looked for inside its header only:
+    def find_header_message_button(self):
+        """The Message button of the profile on screen, looked for inside its header only, or None:
         the tab bar's Direct tab carries the same label on every screen with the bar."""
         for selector in PROFILE_SELECTORS.header_message_button:
             element = self.device.xpath(selector)
             if element is not None and element.exists:
-                if not self._human_tap_element(element):
-                    element.click()
-                self.logger.debug("✅ Clicked Message button")
-                time.sleep(2)
-                return True
-        self.logger.warning("Could not find Message button on profile")
-        return False
+                return element
+        return None
+
+    def open_conversation_from_profile(self, username: Optional[str] = None) -> bool:
+        """Open the conversation of the profile on screen: tap its Message button, or, on another
+        account's profile that shows none, write to `username` from the inbox's new-message picker.
+
+        An account that follows us and that we do not follow back has no Message button in its
+        header, public or private, in Instagram 410 and 447: only "Suivre en retour" (Pixel 6 Pro
+        and Pixel 6a, 2026-10-24: the welcome DM, whose normal case it is, failed there; the cold
+        DM too). The Options sheet of the profile offers the conversation in 410 only, the
+        inbox's "Nouveau message" picker in both. The welcome DM and the cold DM open it here.
+        """
+        button = self.find_header_message_button()
+        if button is not None:
+            if not self._human_tap_element(button):
+                button.click()
+            self.logger.debug("✅ Clicked Message button")
+            time.sleep(2)
+            return True
+        if find_element(self.device, [PROFILE_SELECTORS.header_follow_button]) is None:
+            self.logger.warning("Could not find Message button on profile (not another account's profile)")
+            return False
+        handle = instagram_handle(username)
+        if handle is None:
+            self.logger.warning("No Message button on profile, and no handle to write to from the inbox")
+            return False
+        self.logger.info(f"No Message button on the profile of @{handle}: writing from the inbox's new message")
+        return self._open_conversation_from_new_message(handle)
+
+    def _open_conversation_from_new_message(self, handle: str) -> bool:
+        """Home, the inbox (`open_dm_inbox`, the one opener), its "Nouveau message" button, the
+        handle typed in the picker, then the row of exactly that handle. A profile without a
+        Message button hides the tab bar, hence home first."""
+        if not NavigationActions(self.device).navigate_to_home():
+            self.logger.warning("New message: could not go back home before the inbox")
+            return False
+        if not open_dm_inbox(self.device):
+            return False
+        new_message = find_element(self.device, DM_SELECTORS.new_message_button)
+        if new_message is None:
+            self.logger.warning("New message: no new-message button in the inbox")
+            return False
+        if not self._human_tap_element(new_message):
+            new_message.click()
+        if wait_for_any(self.device, [DM_SELECTORS.new_message_search_field], timeout=5,
+                        label="dm-new-message-field") is None:
+            self.logger.warning("New message: the recipient picker did not open")
+            return False
+        # Before the tap: a keyboard switched after it can cost the field its focus.
+        self._ensure_taktik_keyboard()
+        if not self._find_and_click(DM_SELECTORS.new_message_search_field, timeout=2):
+            self.logger.warning("New message: could not focus the recipient field")
+            return False
+        self._clear_text_with_taktik_keyboard()
+        if not self._type_text_checked(handle):
+            self.logger.warning("New message: the recipient field does not hold the handle")
+            return False
+        # The results come 4 to 7 s after the typing (Pixel 6a, 447).
+        row_selector = DM_SELECTORS.new_message_recipient_row(handle)
+        if wait_for_any(self.device, [row_selector], timeout=12, label="dm-new-message-row") is None:
+            self.logger.warning(f"New message: no row of @{handle} in the picker")
+            return False
+        row = find_element(self.device, [row_selector])
+        if row is None:
+            self.logger.warning(f"New message: the row of @{handle} went away before the tap")
+            return False
+        if not self._human_tap_element(row):
+            row.click()
+        self.logger.debug(f"✅ Opened the conversation with @{handle} from the new-message picker")
+        time.sleep(2)
+        return True
 
     def send_in_open_conversation(self, message: str, *, typos: bool = True):
         """Type `message` in the open conversation and send it, through the shared composer.
@@ -120,7 +190,7 @@ def send_dm(device_manager, username: str, message: str, navigate_to_profile: bo
                 return False
             time.sleep(1.5)
         
-        success = messaging.send_dm_from_profile(message) is True
+        success = messaging.send_dm_from_profile(message, username=username) is True
         # The one look after a write: a refused send is not a sent DM, and the run stops.
         if look_for_action_block(ProblematicPageDetector(device_manager), after='dm', target=username):
             return False

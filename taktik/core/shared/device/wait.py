@@ -19,6 +19,8 @@ from __future__ import annotations
 import time
 from typing import Callable, Optional, Sequence
 
+from loguru import logger
+
 from taktik.core.shared.telemetry import emit_step
 
 
@@ -56,7 +58,8 @@ def wait_for_any(
                     if log:
                         log("debug", f"✅ [{label or 'found'}] selector: {sel}")
                     return sel
-            except Exception:
+            except Exception as exc:
+                logger.debug(f"wait_for_any: {sel} could not be asked ({exc})")
                 continue
         time.sleep(poll_interval)
     if log and label:
@@ -124,7 +127,8 @@ def find_element(device, selectors: Sequence[str]):
             element = device.xpath(selector)
             if element.exists:
                 return element
-        except Exception:
+        except Exception as exc:
+            logger.debug(f"find_element: {selector} could not be asked ({exc})")
             continue
     return None
 

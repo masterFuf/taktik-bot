@@ -45,9 +45,9 @@ def sending(monkeypatch):
     opener = MessagingBusiness.open_conversation_from_profile
     opened = []
 
-    def open_conversation_from_profile(self):
+    def open_conversation_from_profile(self, username=None):
         opened.append(type(self).__name__)
-        return opener(self)
+        return opener(self, username)
 
     monkeypatch.setattr(MessagingBusiness, "open_conversation_from_profile", open_conversation_from_profile)
     monkeypatch.setattr(messaging.time, "sleep", lambda *_: None)

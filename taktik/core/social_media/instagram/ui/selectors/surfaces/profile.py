@@ -199,6 +199,12 @@ class ProfileSelectors:
             for label in self.message_button_text_labels
         ] + [f'//*[@resource-id="{self.message_button_resource_id}"]']
 
+    # Another account's profile: its header has the Follow / Following / "Suivre en retour" button,
+    # our own profile none (every 410 and 447 profile fixture: 18 of others, 13 own). An account
+    # that follows us and that we do not follow back shows it and no Message button (410 and 447,
+    # 2026-10-24): its conversation opens from the inbox's new-message picker.
+    header_follow_button: str = '//*[@resource-id="com.instagram.android:id/profile_header_follow_button"]'
+
     # === Profile sub-tabs: posts grid, Reels, Reposts, Tagged ===
     # Every sub-tab of the row under a profile's header, in screen order. The FIRST is the posts
     # grid, and the only one that holds the posts: 180 dumps of Instagram 410 in the Lab corpus and

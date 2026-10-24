@@ -355,6 +355,12 @@ STRINGS: Dict[str, List[str]] = {
         "you invited",
     ],
     "direct_message.new_message_button": [],
+    # The message-requests pill of an inbox laid out with pills (All / Primary / General /
+    # Requests), read at the start of its content-desc ("Requests, 1 unread message"; the pill's
+    # own text reads "cRequests"). 410, Lab corpus of 2026-09-30 (fixture ig410_en_dm_inbox.xml).
+    "direct_message.requests_pill_labels": [
+        "Requests",
+    ],
     "direct_message.outgoing_digest_prefixes": [],
     "direct_message.send_button": [
         "//*[contains(@content-desc, \"Send\")]",
