@@ -5,7 +5,23 @@ from __future__ import annotations
 import time
 
 from loguru import logger
+from taktik.core.shared.device.wait import find_element, wait_for_any
 from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+
+
+def dm_inbox_shown(device, timeout: float = 0.0) -> bool:
+    """Is the DM inbox on screen? The one recognition every DM path asks.
+
+    Read in the screen's dump, as the inbox reader reads its rows, on any of the markers only
+    the inbox shows. `timeout` > 0 waits that long for one of them: right after a tap on the DM
+    entry the inbox can take seconds to come up (Pixel 6 Pro, Android 17, Instagram 410,
+    2026-10-24: not there when the opener looked 5 s after its tap, on screen in the capture
+    taken about 2 s later).
+    """
+    markers = DM_SELECTORS.inbox_screen_markers
+    if timeout <= 0:
+        return find_element(device, markers) is not None
+    return wait_for_any(device, markers, timeout=timeout, label="dm-inbox") is not None
 
 
 def ensure_dm_inbox(bridge) -> bool:
@@ -14,8 +30,7 @@ def ensure_dm_inbox(bridge) -> bool:
     Handles the case where the user left Instagram or navigated away.
     Returns True if we're in the inbox, False if navigation failed.
     """
-    inbox = bridge.device(resourceId=DM_SELECTORS.inbox_thread_list_resource_id)
-    if inbox.exists(timeout=2):
+    if dm_inbox_shown(bridge.device, timeout=2):
         logger.info("Already in DM inbox")
         bridge._ensure_primary_tab()
         return True

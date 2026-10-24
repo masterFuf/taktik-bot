@@ -54,8 +54,36 @@ class DirectMessageSelectors:
     # === Inbox (conversation list) ===
     inbox_thread_list_resource_id: str = "com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"
     inbox_thread_list: str = '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]'
+    # What only the DM inbox shows, either one proving it: its own action bar and its thread list
+    # (410: ig410_en_dm_inbox.xml, and ig410_fr_dm_inbox_pills.xml on a Pixel 6 Pro, Android 17,
+    # 2026-10-24). The thread list also stands on the message-requests screen.
+    inbox_screen_markers: List[str] = field(default_factory=lambda: [
+        '//*[@resource-id="com.instagram.android:id/direct_inbox_action_bar"]',
+        '//*[@resource-id="com.instagram.android:id/inbox_refreshable_thread_list_recyclerview"]',
+    ])
     inbox_header_text_resource_id: str = "com.instagram.android:id/header_text"
+    # The older header entry to the message requests ("Requests" / "Demandes" button).
     inbox_header_action_button_resource_id: str = "com.instagram.android:id/header_action_button"
+    inbox_header_action_button: str = '//*[@resource-id="com.instagram.android:id/header_action_button"]'
+
+    # The requests entry of an inbox laid out with pills (the layout is served per account,
+    # same 410 APK): a clickable pill holding an `inbox_header_pill_text`, its label at the start
+    # of its content-desc, the label in the locales.
+    _requests_pill_template: str = (
+        '//*[@clickable="true"][starts-with(@content-desc, "{label}")]'
+        '[.//*[@resource-id="com.instagram.android:id/inbox_header_pill_text"]]'
+    )
+
+    @property
+    def requests_pill(self) -> List[str]:
+        return [self._requests_pill_template.format(label=label)
+                for label in L("direct_message.requests_pill_labels")]
+
+    @property
+    def requests_pill_selected(self) -> List[str]:
+        """The requests pill once chosen: a pill shows it is the one on display by `selected`
+        (the "Tout" / "All" pill of both inbox captures)."""
+        return [f'{xpath}[@selected="true"]' for xpath in self.requests_pill]
     inbox_header_messages_text: str = "Messages"
     inbox_header_requests_text: str = "Requests"
     # Title of the message-requests sub-screen (action bar). Used to confirm we left the

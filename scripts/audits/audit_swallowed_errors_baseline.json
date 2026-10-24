@@ -40,7 +40,7 @@
   "taktik/core/shared/device/permissions.py": 4,
   "taktik/core/shared/device/platform_device.py": 1,
   "taktik/core/shared/device/ui_dump.py": 1,
-  "taktik/core/shared/device/wait.py": 3,
+  "taktik/core/shared/device/wait.py": 1,
   "taktik/core/shared/diagnostics/foreground_guard.py": 1,
   "taktik/core/shared/diagnostics/screen_ring.py": 1,
   "taktik/core/shared/diagnostics/surface_capture.py": 1,

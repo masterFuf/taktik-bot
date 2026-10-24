@@ -347,6 +347,12 @@ STRINGS: Dict[str, List[str]] = {
     "direct_message.new_message_button": [
         "//*[@content-desc=\"Créer une publicité Envoyer un message\"]",
     ],
+    # The message-requests pill of an inbox laid out with pills (Tout / Principal / Général /
+    # Invitations), read at the start of its content-desc. 410, Pixel 6 Pro, 2026-10-24
+    # (fixture ig410_fr_dm_inbox_pills.xml).
+    "direct_message.requests_pill_labels": [
+        "Invitations",
+    ],
     "direct_message.outgoing_digest_prefixes": [],
     "direct_message.send_button": [
         "//*[contains(@content-desc, \"Envoyer\")]",

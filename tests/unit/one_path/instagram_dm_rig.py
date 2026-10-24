@@ -108,6 +108,14 @@ class _Rows:
     def all(self):
         return list(self.rows)
 
+    @property
+    def exists(self):
+        return bool(self.rows)
+
+
+#: The id an xpath on one resource-id asks for, written plain or rewritten by the clone proxy.
+_XPATH_ON_ONE_ID = re.compile(r'^//\*\[(?:@resource-id="[^"]*:id/(\w+)"|\(substring-after\(@resource-id,":id/"\)="(\w+)".*\))\]$')
+
 
 class FakePhone:
     """Instagram's DM inbox, as far as the DM commands look at it."""
@@ -132,6 +140,10 @@ class FakePhone:
     def xpath(self, selector):
         if "row_inbox_container" in selector and self.screen == "inbox":
             return _Rows([_Row(self, *row, 300 + 200 * i) for i, row in enumerate(self.rig.rows)])
+        one_id = _XPATH_ON_ONE_ID.match(selector)
+        if one_id:
+            # The screen markers (the inbox's thread list...) asked by xpath: same answer as d(...).
+            return _Element(self, ("id", one_id.group(1) or one_id.group(2)))
         return _Rows([])
 
     def press(self, button):
