@@ -3,7 +3,7 @@ Business logic for Instagram Direct Messaging.
 """
 
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
 from loguru import logger
 
 from taktik.core.social_media.instagram.actions.base.base_action import BaseAction
@@ -13,6 +13,7 @@ from taktik.core.shared.diagnostics.action_block import look_for_action_block
 from taktik.core.shared.device.wait import find_element, wait_for_any
 from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import instagram_handle
 from taktik.core.social_media.instagram.workflows.dm.navigation import open_dm_inbox
+from taktik.core.social_media.instagram.workflows.dm.reply_check import ConversationBubbles, ReplyOutcome, reply_outcome
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
     BUTTON_SELECTORS,
@@ -36,18 +37,18 @@ class MessagingBusiness(BaseAction):
         self.button_selectors = BUTTON_SELECTORS
         self.navigation_selectors = NAVIGATION_SELECTORS
     
-    def send_dm_from_profile(self, message: str, *, username: Optional[str] = None, typos: bool = True):
+    def send_dm_from_profile(self, message: str, *, username: Optional[str] = None,
+                             typos: bool = True) -> Union[ReplyOutcome, str]:
         """Send a DM from the profile on screen: open its conversation, then send in it.
 
         The one way a DM is sent from a profile, for the welcome DM (`send_dm`) and the cold DM.
         `username`: the account of that profile, for the new-message picker when the profile shows
-        no Message button. Returns True once sent, False when a step failed, or
-        `INVITE_ALREADY_SENT` when the conversation shows a message request already sent (no
-        composer to type in).
+        no Message button. Returns what the send came to (`send_in_open_conversation`), NOT_SENT
+        when the conversation did not open.
         """
         self.logger.info("📨 Attempting to send DM from profile...")
         if not self.open_conversation_from_profile(username):
-            return False
+            return ReplyOutcome.NOT_SENT
         return self.send_in_open_conversation(message, typos=typos)
 
     def find_header_message_button(self):
@@ -129,11 +130,14 @@ class MessagingBusiness(BaseAction):
         time.sleep(2)
         return True
 
-    def send_in_open_conversation(self, message: str, *, typos: bool = True):
-        """Type `message` in the open conversation and send it, through the shared composer.
+    def send_in_open_conversation(self, message: str, *, typos: bool = True) -> Union[ReplyOutcome, str]:
+        """Type `message` in the open conversation, send it, and read what it came to.
 
-        True once the send button is pressed on a composer that holds exactly the message; False
-        when the composer or the send button is missing, or the typing did not leave the message;
+        What the conversation shows after Send, by the one check of every DM send
+        (`reply_check.reply_outcome`, the inbox reply's too): SENT when the message is its newest
+        outgoing bubble, PENDING when Instagram shows it waiting to be sent (it leaves by itself:
+        never counted as sent, never sent again), NOT_SENT when the composer or the send button is
+        missing, the typing did not leave the message, or no bubble of it came;
         `INVITE_ALREADY_SENT` when the conversation has no composer because a message request to
         this account is already waiting.
         """
@@ -142,32 +146,34 @@ class MessagingBusiness(BaseAction):
             if self.invite_already_sent():
                 self.logger.info("Invite already sent to this user")
                 return INVITE_ALREADY_SENT
-            return False
+            return ReplyOutcome.NOT_SENT
         if not dm_composer.type_message(self.device, None, message, element=composer,
                                         typos=typos, logger=self.logger):
             self.logger.warning("Could not type message")
-            return False
+            return ReplyOutcome.NOT_SENT
         self.logger.debug(f"✅ Typed message ({len(message)} chars)")
         time.sleep(0.5)
         if not dm_composer.click_send_button(self.device, logger=self.logger):
             self.logger.warning("Could not click Send button")
-            return False
-        time.sleep(1)
-        self.logger.info("✅ DM sent successfully")
-        return True
+            return ReplyOutcome.NOT_SENT
+        outcome = reply_outcome(self.device, message, ConversationBubbles(self.device)._collect_text_messages)
+        if outcome is ReplyOutcome.SENT:
+            self.logger.info("✅ DM sent and confirmed in the conversation")
+        return outcome
 
     def invite_already_sent(self) -> bool:
         """The open conversation says a message request to this account is already waiting."""
         return any(self.device.xpath(selector).exists for selector in DM_SELECTORS.invite_sent_indicators)
 
 
-def send_dm(device_manager, username: str, message: str, navigate_to_profile: bool = True) -> bool:
+def send_dm(device_manager, username: str, message: str, navigate_to_profile: bool = True) -> ReplyOutcome:
     """
     Send a direct message to a user.
     
     The welcome DM's way: it opens the profile itself (the production profile search, the deep
     link as its fallback), then sends from it by `MessagingBusiness.send_dm_from_profile`, the
-    cold DM's sending too. A request already waiting is not a DM sent: False.
+    cold DM's sending too. A request already waiting is not a DM sent: NOT_SENT. A DM Instagram
+    shows waiting to be sent is PENDING: not sent, and not to be sent again.
     
     Args:
         device_manager: Device manager instance
@@ -176,7 +182,7 @@ def send_dm(device_manager, username: str, message: str, navigate_to_profile: bo
         navigate_to_profile: Whether to navigate to profile first (default True)
         
     Returns:
-        True if DM sent successfully, False otherwise
+        What the DM came to (`ReplyOutcome`).
     """
     try:
         logger.info(f"📨 Sending DM to @{username}")
@@ -187,21 +193,24 @@ def send_dm(device_manager, username: str, message: str, navigate_to_profile: bo
             nav = NavigationActions(device_manager)
             if not nav.navigate_to_profile(username):
                 logger.warning(f"Could not navigate to @{username}")
-                return False
+                return ReplyOutcome.NOT_SENT
             time.sleep(1.5)
         
-        success = messaging.send_dm_from_profile(message, username=username) is True
+        result = messaging.send_dm_from_profile(message, username=username)
+        outcome = result if isinstance(result, ReplyOutcome) else ReplyOutcome.NOT_SENT
         # The one look after a write: a refused send is not a sent DM, and the run stops.
         if look_for_action_block(ProblematicPageDetector(device_manager), after='dm', target=username):
-            return False
+            return ReplyOutcome.NOT_SENT
         
-        if success:
+        if outcome is ReplyOutcome.SENT:
             logger.info(f"✅ DM sent to @{username}")
+        elif outcome is ReplyOutcome.PENDING:
+            logger.warning(f"DM to @{username} waiting to be sent: not counted, not sent again")
         else:
             logger.warning(f"❌ Failed to send DM to @{username}")
         
-        return success
+        return outcome
         
     except Exception as e:
         logger.error(f"Error in send_dm: {e}")
-        return False
+        return ReplyOutcome.NOT_SENT

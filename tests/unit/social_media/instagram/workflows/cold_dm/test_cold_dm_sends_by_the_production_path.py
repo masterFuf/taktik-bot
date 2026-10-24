@@ -27,6 +27,7 @@ from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy impor
 from taktik.core.social_media.instagram.workflows.cold_dm.workflow import SENT, ColdDMWorkflow
 from taktik.core.social_media.instagram.workflows.dm import messaging
 from taktik.core.social_media.instagram.workflows.dm.messaging import INVITE_ALREADY_SENT, MessagingBusiness
+from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
 from test_cold_dm_reads_only_a_profile import MESSAGE_BUTTON, PROFILE_EN, _Phone, _workflow
 
@@ -35,7 +36,7 @@ from test_cold_dm_reads_only_a_profile import MESSAGE_BUTTON, PROFILE_EN, _Phone
 def sending(monkeypatch):
     """What the production sending in an open conversation is asked, and what it answers."""
     asked = []
-    answer = {"value": True}
+    answer = {"value": ReplyOutcome.SENT}
 
     def send_in_open_conversation(self, message, *, typos=True):
         asked.append((type(self).__name__, message, typos))
@@ -64,7 +65,7 @@ def test_the_cold_dm_opens_the_conversation_and_sends_by_the_production_sending(
 
     reached = _workflow(phone).reach_and_send("demo_recipient", lambda: "Hello there", ColdDmRecipientPolicy())
 
-    assert reached["outcome"] == SENT and reached["send_result"] is True
+    assert reached["outcome"] == SENT and reached["send_result"] is ReplyOutcome.SENT
     assert len(phone.taps) == 1
     x, y = phone.taps[0]
     left, top, right, bottom = MESSAGE_BUTTON
@@ -84,7 +85,7 @@ def test_the_welcome_dm_sends_by_the_same_function_with_its_typos(monkeypatch, s
     monkeypatch.setattr(messaging, "look_for_action_block", lambda *a, **k: False)
 
     assert messaging.send_dm(SimpleNamespace(device=phone), "demo_recipient", "Welcome!",
-                             navigate_to_profile=False) is True
+                             navigate_to_profile=False) is ReplyOutcome.SENT
 
     assert len(phone.taps) == 1
     assert sending.opened == ["MessagingBusiness"]
@@ -92,12 +93,12 @@ def test_the_welcome_dm_sends_by_the_same_function_with_its_typos(monkeypatch, s
 
 
 def test_a_request_already_sent_is_no_welcome_dm_sent(monkeypatch, sending):
-    """`send_dm` answers a boolean its callers count: a request already waiting is not a DM."""
+    """`send_dm` answers what the DM came to: a request already waiting is not a DM sent."""
     sending.answer["value"] = INVITE_ALREADY_SENT
     monkeypatch.setattr(messaging, "look_for_action_block", lambda *a, **k: False)
 
     assert messaging.send_dm(SimpleNamespace(device=_Phone(PROFILE_EN)), "demo_recipient", "Welcome!",
-                             navigate_to_profile=False) is False
+                             navigate_to_profile=False) is ReplyOutcome.NOT_SENT
 
 
 def test_the_cold_dm_goes_home_by_the_production_navigation(monkeypatch):

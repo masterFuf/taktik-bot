@@ -33,6 +33,7 @@ from taktik.core.social_media.instagram.workflows.notifications.persistence impo
     load_actioned_hashes,
     record_notification_action,
     record_scan_notifications,
+    record_pending_welcome_dm,
     record_welcome_dm,
     resolve_account_id,
 )
@@ -460,6 +461,11 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
     the batch, paced between them, and each carries its own guards and dedicated daily cap.
     See welcome-dm-spec.md.
 
+    A welcome DM Instagram shows waiting to be sent (no network) is ``pending``: neither done
+    nor failed, counted apart, never sent again (its duplicate marker is written) and never
+    counted as sent; it takes its slot of the daily cap, since it leaves when the network is
+    back.
+
     One failing action does not abort the rest — a comment whose row scrolled out of reach must not
     cancel the nine others.
     """
@@ -475,6 +481,7 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
     done = 0
     failed = 0
     skipped = 0
+    pending = 0
     # Preloaded once per verb present in the batch (no per-action DB hit).
     actioned_by_verb: dict[str, set] = {}
     # Dedicated daily caps (follow_back = autopilot tier 2, welcome_dm = the private
@@ -582,8 +589,12 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
         # as done would inflate the run, and recording it would spend a slot of the cap on
         # an action that never happened.
         self_skipped = bool(result.get("skipped"))
+        # Waiting to be sent (a welcome DM, no network): not done, not failed to try again.
+        waiting = bool(result.get("pending"))
         if self_skipped:
             skipped += 1
+        elif waiting:
+            pending += 1
         else:
             done += 1 if ok else 0
             failed += 0 if ok else 1
@@ -599,12 +610,17 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
             )
             if ok and entry_hash:
                 actioned_by_verb.setdefault(action, set()).add(entry_hash)
-        if ok and not self_skipped and action in daily_caps:
+        if (ok or waiting) and not self_skipped and action in daily_caps:
+            # A message waiting leaves when the network is back: a cap not advanced would let the
+            # batch queue every welcome DM, all sent in one burst.
             used_today[action] = used_today.get(action, 0) + 1
         if ok and not self_skipped and action == WELCOME_DM_ACTION:
             # The shared duplicate marker + the conversation itself, so the message shows
             # up in DM Responses and syncs to Turso like any other reply we sent.
             record_welcome_dm(welcome_account_id, username, text)
+        if waiting and action == WELCOME_DM_ACTION:
+            # The duplicate marker alone: never sent again, never counted as sent.
+            record_pending_welcome_dm(welcome_account_id, username, text)
 
         host.emit({
             "type": "notification_step",
@@ -615,7 +631,7 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
             "username": username,
             "success": ok,
             "message": f"[{index + 1}/{total}] {action} @{username} "
-                       f"{'skipped' if self_skipped else 'ok' if ok else 'failed'}",
+                       f"{'skipped' if self_skipped else 'ok' if ok else 'waiting to be sent' if waiting else 'failed'}",
         })
 
         if action in OFF_SCREEN_ACTIONS and not self_skipped:
@@ -634,6 +650,7 @@ def cmd_batch(host: NotificationsHost, actions: list[dict], account_username: st
         "done": done,
         "failed": failed,
         "skipped": skipped,
+        "pending": pending,
         "results": results,
     }
 

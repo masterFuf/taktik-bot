@@ -107,11 +107,12 @@ def send_welcome_dm(device, recipient: str, message: str, *, rules: AiDmRules = 
     The message, written by an AI, is first held to ``rules`` (the account's frame; by default
     the most prudent): a message the rule refuses is a skip (``text_refused``), nothing moves.
 
-    ``send_dm`` navigates to the profile, opens Message, types with the shared composer
-    and presses send — the same function the Cold DM workflow and the Lab's
-    ``dm.send_cold_dm`` use. Returning to home afterwards is not cosmetic: the next
-    profile is reached through the search tab, which does not exist inside an open
-    conversation.
+    ``send_dm`` navigates to the profile, opens Message, types with the shared composer,
+    presses send and reads what the conversation shows — the same function the Cold DM workflow
+    and the Lab's ``dm.send_cold_dm`` use. A message Instagram shows waiting to be sent (no
+    network) is ``pending`` (``DM_SEND_PENDING``): not a success, and not a failure to try again,
+    it leaves by itself. Returning to home afterwards is not cosmetic: the next profile is reached
+    through the search tab, which does not exist inside an open conversation.
     """
     text = (message or "").strip()
     if not text:
@@ -122,20 +123,25 @@ def send_welcome_dm(device, recipient: str, message: str, *, rules: AiDmRules = 
         return {"success": True, "skipped": True, "reason": TEXT_REFUSED,
                 "message": f"text refused: {refusal.describe()}", "textRefusal": refusal.as_line()}
 
-    from taktik.core.social_media.instagram.workflows.dm.messaging import (
-        send_dm,
-    )
+    from taktik.core.social_media.instagram.workflows.dm.messaging import send_dm
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
+    result: Dict[str, Any]
     try:
-        sent = bool(send_dm(device, recipient, text, navigate_to_profile=True))
+        outcome = send_dm(device, recipient, text, navigate_to_profile=True)
     except Exception as exc:  # noqa: BLE001
         logger.error(f"[NOTIF] Welcome DM to @{recipient} raised: {exc}")
-        sent = False
-        result: Dict[str, Any] = {"success": False, "error": str(exc)}
+        result = {"success": False, "error": str(exc)}
     else:
-        result = ({"success": True, "message": f"welcome DM sent to @{recipient}"} if sent
-                  else {"success": False, "error": "Could not send the DM (private profile, "
-                                                  "no Message button, or composer not found)"})
+        if outcome is ReplyOutcome.SENT:
+            result = {"success": True, "message": f"welcome DM sent to @{recipient}"}
+        elif outcome is ReplyOutcome.PENDING:
+            result = {"success": False, "pending": True, "error_code": "DM_SEND_PENDING",
+                      "error": "The welcome DM waits to be sent: Instagram sends it when the "
+                               "network is back"}
+        else:
+            result = {"success": False, "error": "Could not send the DM (private profile, "
+                                                 "no Message button, or composer not found)"}
     # `send_dm` looks for the block after its send; the dialog then stays (Back would close it).
     if run_halt.arret_demande():
         return result

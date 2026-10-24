@@ -46,6 +46,7 @@
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -159,6 +160,7 @@
     "dmsSent": 2,
     "dmsSuccess": 2,
     "dmsFailed": 0,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -272,6 +274,7 @@
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 1,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -368,6 +371,7 @@
     "dmsSent": 0,
     "dmsSuccess": 0,
     "dmsFailed": 0,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -429,6 +433,7 @@
     "dmsSent": 0,
     "dmsSuccess": 0,
     "dmsFailed": 0,
+    "dmsPending": 0,
     "error": "All recipients already received a DM",
     "textsRefused": 0
    }
@@ -511,6 +516,7 @@
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -600,6 +606,7 @@
     "dmsSent": 0,
     "dmsSuccess": 0,
     "dmsFailed": 1,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -673,6 +680,7 @@
     "dmsSent": 0,
     "dmsSuccess": 0,
     "dmsFailed": 1,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -748,6 +756,7 @@
     "dmsSent": 1,
     "dmsSuccess": 0,
     "dmsFailed": 0,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -841,6 +850,7 @@
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }
@@ -935,6 +945,7 @@
     "dmsSent": 1,
     "dmsSuccess": 1,
     "dmsFailed": 0,
+    "dmsPending": 0,
     "error": null,
     "textsRefused": 0
    }

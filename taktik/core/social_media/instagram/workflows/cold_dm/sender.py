@@ -17,8 +17,9 @@ class ColdDMSenderMixin:
     _cold_dm_messaging: Callable[[], Any]
 
     def send_message(self, message: str):
-        """Send `message` in the open conversation: True once sent, False when it was not,
-        `INVITE_ALREADY_SENT` when a message request to this account is already waiting.
+        """Send `message` in the open conversation: what the conversation then shows
+        (`ReplyOutcome`: sent, waiting to be sent, not sent), or `INVITE_ALREADY_SENT` when a
+        message request to this account is already waiting.
 
         The time a human takes to type the message is waited first, then the message is typed
         without typos (`MessagingBusiness.send_in_open_conversation`, the welcome DM's too).

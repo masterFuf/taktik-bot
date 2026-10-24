@@ -33,7 +33,7 @@ from taktik.core.social_media.instagram.workflows.dm.persistence import (
     resolve_account_id,
 )
 from taktik.core.social_media.instagram.workflows.dm.payload import DM_COMMANDS, dm_command_from_payload
-from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 from taktik.core.social_media.instagram.workflows.dm.session import ensure_dm_inbox, return_to_inbox
 from taktik.core.social_media.instagram.workflows.common.startup import package_name_from_payload
 

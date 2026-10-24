@@ -36,6 +36,7 @@ from taktik.core.social_media.instagram.workflows.cold_dm.results import (
 )
 from taktik.core.social_media.instagram.workflows.cold_dm.sender import ColdDMSenderMixin
 from taktik.core.social_media.instagram.workflows.cold_dm.timing import wait_before_next_cold_dm
+from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
     PRIVATE_SKIP_REASONS,
     SKIP_VERIFIED,
@@ -87,6 +88,7 @@ class ColdDMWorkflow(
         self.dms_sent = 0
         self.dms_success = 0
         self.dms_failed = 0
+        self.dms_pending = 0
         self.private_profiles = 0
         self.verified_profiles = 0
         self.texts_refused = 0
@@ -177,7 +179,7 @@ class ColdDMWorkflow(
                         account_id=account_id,
                         session_id=session_id,
                     )
-                    if reached["send_result"] is True and self._sent is not None:
+                    if reached["send_result"] is ReplyOutcome.SENT and self._sent is not None:
                         self._sent(current=i + 1, username=recipient, message=reached["message"],
                                    ai_written=ai_dm_rules is not None)
                 else:
@@ -240,7 +242,7 @@ class ColdDMWorkflow(
                 return {"outcome": TEXT_REFUSED, "refusal": refusal}
         send_result = self.send_message(message)
         if look_for_action_block(ProblematicPageDetector(self.device), after='dm', target=recipient):
-            return {"outcome": ACTION_BLOCKED, "message": message, "send_result": False}
+            return {"outcome": ACTION_BLOCKED, "message": message, "send_result": ReplyOutcome.NOT_SENT}
         return {"outcome": SENT, "message": message, "send_result": send_result}
 
     def _detect_app_language(self) -> None:

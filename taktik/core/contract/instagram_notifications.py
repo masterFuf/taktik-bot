@@ -131,6 +131,9 @@ BATCH_ENTRY = Shape(
               "`wrote_to_us`...", optional=True),
         Field("message", "string", "The same, for a person.", optional=True),
         Field("error", "string", "What went wrong.", optional=True),
+        Field("pending", "bool", "The welcome DM is in the conversation and waits to be sent (no network): "
+              "Instagram sends it by itself. Not done, not failed, never sent again.", optional=True),
+        ERROR_CODE_FIELD,
         Field("stop_reason", RUN_HALT_CODE, "`action_blocked`: Instagram refuses actions.", optional=True),
         Field("state", "string", "The relationship read before a follow (`follow_actor`).", optional=True),
         ai_dm_text_refusal_field("Why the welcome message was not sent (`reason`: `text_refused`)."),
@@ -173,6 +176,7 @@ RESULT_EVENT = Event("result", doc="The command's result, or why it could not ru
     Field("done", "int", "Steps done.", optional=True),
     Field("failed", "int", "Steps that failed.", optional=True),
     Field("skipped", "int", "Steps skipped by a guard.", optional=True),
+    Field("pending", "int", "Welcome DMs waiting to be sent (no network): not done, not failed.", optional=True),
     Field("results", ListOf(BATCH_ENTRY), "Each step of the batch.", optional=True),
     Field("message", "string", "The result, for a person.", optional=True),
     Field("stop_reason", RUN_HALT_CODE, "`action_blocked`: Instagram refuses actions.", optional=True),

@@ -209,7 +209,10 @@ def _lab_send(monkeypatch, device, params):
     monkeypatch.setattr("time.sleep", lambda *_: None)
     sent = []
     monkeypatch.setattr(ColdDMWorkflow, "open_recipient_profile", lambda self, username: True)
-    monkeypatch.setattr(ColdDMWorkflow, "send_message", lambda self, message: sent.append(message) or True)
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
+
+    monkeypatch.setattr(ColdDMWorkflow, "send_message",
+                        lambda self, message: sent.append(message) or ReplyOutcome.SENT)
     bundle = SimpleNamespace(device=SimpleNamespace(device=device),
                              detection=SimpleNamespace(is_verified_account=lambda: False,
                                                        wait_for_profile_screen=lambda **_: True))
@@ -231,6 +234,6 @@ def test_the_lab_send_sends_the_text_once_the_conversation_is_open(monkeypatch):
     result, sent = _lab_send(monkeypatch, device, {"username": "ana", "text": "Bonjour"})
 
     assert result["success"] is True
-    assert result["details"]["outcome"] == "sent"
+    assert result["details"]["outcome"] == "sent" and result["details"]["send_result"] == "sent"
     assert sent == ["Bonjour"]
     assert device.message_node.clicks == 1

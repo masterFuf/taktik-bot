@@ -26,6 +26,10 @@ WE_HAVE_WRITTEN = "us"
 #: They have written in it, and we never have.
 ONLY_THEY_HAVE_WRITTEN = "them"
 
+#: `sent_dms.error_message` of a DM the conversation showed waiting to be sent (no network): the
+#: error code the run reports for it too (`DM_SEND_PENDING`).
+DM_SEND_PENDING = "DM_SEND_PENDING"
+
 
 def open_existing_database() -> sqlite3.Connection:
     """Open the local database, or raise. A missing file is a refusal, not an empty answer.
@@ -133,6 +137,22 @@ class SentDMService:
             logger.warning(f"Error recording sent DM: {exc}")
         finally:
             conn.close()
+
+    @staticmethod
+    def record_pending(
+        account_id: int,
+        recipient: str,
+        message: str,
+        session_id: Optional[str] = None,
+        platform: str = "instagram",
+    ) -> None:
+        """Record a DM the conversation showed waiting to be sent (`ReplyOutcome.PENDING`).
+
+        The app sends it by itself once the network is back. Recorded not successful, so nothing
+        counts it as sent, and still seen by `check_already_sent` (which matches a row whatever its
+        `success`), so no flow writes to this recipient again: a second send would arrive twice.
+        """
+        SentDMService.record(account_id, recipient, message, False, DM_SEND_PENDING, session_id, platform)
 
 
 class DmConversationService:

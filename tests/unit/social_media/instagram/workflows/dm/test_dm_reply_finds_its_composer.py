@@ -83,7 +83,7 @@ def test_the_dm_reply_taps_the_composer_and_types(monkeypatch, version):
     phone = _Phone(screen)
     reply = _Reply(phone)
 
-    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
     assert reply.send_message("Bonjour") is ReplyOutcome.NOT_SENT  # the typing is stubbed out
 

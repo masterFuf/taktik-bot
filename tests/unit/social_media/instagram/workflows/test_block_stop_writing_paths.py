@@ -62,7 +62,7 @@ def test_a_cold_dm_run_stopped_by_a_block_says_so():
 
 def test_a_refused_inbox_reply_is_not_recorded_and_stays_on_screen(monkeypatch):
     from taktik.core.social_media.instagram.workflows.dm import agent_handler as module
-    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
     monkeypatch.setattr(module, "ProblematicPageDetector", _Refusing)
     monkeypatch.setattr(module, "ensure_dm_inbox", lambda runtime: True)

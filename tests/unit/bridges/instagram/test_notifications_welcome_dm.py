@@ -9,7 +9,9 @@ visible by reading a happy path:
   a second time;
 - nothing is recorded under an unresolved account -- that is the case where the same
   message would be re-sent at every scan;
-- a FAILED send leaves no duplicate marker, so a retry stays possible.
+- a FAILED send leaves no duplicate marker, so a retry stays possible;
+- a send WAITING to be sent (no network) leaves the marker alone: never sent again, never counted
+  as sent, and it takes its slot of the cap.
 
 And one decided by the product: someone who wrote to us first is not welcomed (they get an answer
 to their message, not "Bienvenue !").
@@ -23,6 +25,7 @@ from taktik.core.ai.dm_rules import ai_dm_rules_from_payload
 from unit.ai_dm_texts import BROKEN_TEXTS, EACH_REASON, FRENCH_ACCOUNT, WITHIN_RULES
 
 import taktik.core.social_media.instagram.workflows.notifications.commands as commands
+from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 import taktik.core.social_media.instagram.workflows.notifications.welcome_dm as welcome_dm
 
 
@@ -74,6 +77,10 @@ def harness(monkeypatch):
     monkeypatch.setattr(
         commands, "record_welcome_dm",
         lambda account_id, recipient, message: recorded.append((account_id, recipient, message)))
+    pending_marks = []
+    monkeypatch.setattr(
+        commands, "record_pending_welcome_dm",
+        lambda account_id, recipient, message: pending_marks.append((account_id, recipient, message)))
 
     def _send(device, recipient, text, rules):
         sent.append((recipient, text))
@@ -83,7 +90,8 @@ def harness(monkeypatch):
     monkeypatch.setattr(commands, "welcome_dm_skip_reason", lambda *a, **k: None)
 
     host = commands.NotificationsHost(connect=lambda restart: bridge, emit=lambda payload: None)
-    return {"bridge": bridge, "host": host, "sent": sent, "recorded": recorded, "audit": audit}
+    return {"bridge": bridge, "host": host, "sent": sent, "recorded": recorded, "audit": audit,
+            "pending_marks": pending_marks}
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +205,43 @@ def test_a_failed_send_leaves_no_duplicate_marker(harness, monkeypatch):
     assert harness["audit"] == [("welcome_dm", "newbie", False, "hey")]
 
 
+_WAITING = {"success": False, "pending": True, "error_code": "DM_SEND_PENDING",
+            "error": "The welcome DM waits to be sent: Instagram sends it when the network is back"}
+
+
+def test_a_welcome_dm_waiting_to_be_sent_is_marked_never_counted_as_sent(harness, monkeypatch):
+    monkeypatch.setattr(commands, "send_welcome_dm", lambda *a, **k: dict(_WAITING))
+
+    result = commands.cmd_batch(harness["host"], [
+        {"action": "welcome_dm", "username": "newbie", "text": "hey"},
+    ], account_username="me")
+
+    # The marker alone: no second welcome later, no conversation message nothing proves.
+    assert harness["pending_marks"] == [(7, "newbie", "hey")]
+    assert harness["recorded"] == []
+    assert harness["audit"] == [("welcome_dm", "newbie", False, "hey")]
+    assert (result["done"], result["failed"], result["pending"]) == (0, 0, 1)
+    assert result["success"] is True
+    assert result["results"][0]["pending"] is True and result["results"][0]["error_code"] == "DM_SEND_PENDING"
+
+
+def test_a_welcome_dm_waiting_takes_its_slot_of_the_cap(harness, monkeypatch):
+    # No network: every message would wait, then all leave at once when it is back.
+    def _waiting(device, recipient, text, rules):
+        harness["sent"].append((recipient, text))
+        return dict(_WAITING)
+
+    monkeypatch.setattr(commands, "send_welcome_dm", _waiting)
+
+    commands.cmd_batch(harness["host"], [
+        {"action": "welcome_dm", "username": "a", "text": "hey"},
+        {"action": "welcome_dm", "username": "b", "text": "hey"},
+        {"action": "welcome_dm", "username": "c", "text": "hey"},
+    ], account_username="me", welcome_dm_daily_cap=2)
+
+    assert [r for r, _ in harness["sent"]] == ["a", "b"]
+
+
 def test_an_empty_message_is_refused_before_any_navigation(monkeypatch):
     navigated = []
     monkeypatch.setattr(welcome_dm, "_return_home", lambda device: navigated.append("home"))
@@ -305,7 +350,8 @@ def test_a_welcome_dm_walks_to_the_recipient_profile_then_writes(monkeypatch):
                         lambda self, username, **_: steps.append(("profile", username)) or True)
     monkeypatch.setattr(NavigationActions, "navigate_to_home", lambda self: steps.append(("home",)) or True)
     monkeypatch.setattr(MessagingBusiness, "send_dm_from_profile",
-                        lambda self, message, username=None: steps.append(("write", username, message)) or True)
+                        lambda self, message, username=None: steps.append(("write", username, message))
+                        or ReplyOutcome.SENT)
     monkeypatch.setattr(ProblematicPageDetector, "is_action_blocked",
                         lambda self: steps.append(("block?",)) or False)
 
@@ -327,7 +373,8 @@ def phone_steps(monkeypatch):
     from taktik.core.social_media.instagram.workflows.dm import messaging
 
     steps = []
-    monkeypatch.setattr(messaging, "send_dm", lambda device, recipient, text, **kwargs: steps.append(text) or True)
+    monkeypatch.setattr(messaging, "send_dm",
+                        lambda device, recipient, text, **kwargs: steps.append(text) or ReplyOutcome.SENT)
     monkeypatch.setattr(welcome_dm, "_return_home", lambda device: steps.append("home"))
     return steps
 

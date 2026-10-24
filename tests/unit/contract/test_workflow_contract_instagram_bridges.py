@@ -272,7 +272,9 @@ def _cold_dm_class():
             return None
 
         def reach_and_send(self, recipient, compose, policy=None, *, rules=None):
-            return {"outcome": workflow.SENT, "message": compose(), "send_result": True}
+            from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
+
+            return {"outcome": workflow.SENT, "message": compose(), "send_result": ReplyOutcome.SENT}
 
     return ColdDm
 
@@ -377,7 +379,7 @@ def _dm_class():
             return True
 
         def send_message(self, message):
-            from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+            from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
             return ReplyOutcome.SENT
 

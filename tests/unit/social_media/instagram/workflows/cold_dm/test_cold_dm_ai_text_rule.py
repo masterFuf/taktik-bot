@@ -14,6 +14,7 @@ from taktik.core.ai.credential import AICredential
 from taktik.core.ai.dm_rules import AiDmRules, AiDmTextRefused
 from taktik.core.social_media.instagram.workflows.cold_dm import agent_handler
 from taktik.core.social_media.instagram.workflows.cold_dm import workflow as module
+from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 from unit.ai_dm_texts import EACH_REASON, FRENCH_ACCOUNT, WITHIN_RULES
 
 
@@ -63,7 +64,7 @@ def _workflow(monkeypatch, *, sent=None):
     workflow = module.ColdDMWorkflow(object(), object(), sent=sent)
     workflow.open_recipient_profile = lambda recipient: True
     workflow.open_dm_from_profile = lambda policy=None, recipient=None: True
-    workflow.send_message = lambda message: phone.typed.append(message) or True
+    workflow.send_message = lambda message: phone.typed.append(message) or ReplyOutcome.SENT
     workflow.go_home = lambda: None
     workflow.filter_pending_recipients = lambda recipients, account_id: list(recipients)
     workflow._detect_app_language = lambda: None

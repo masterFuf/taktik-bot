@@ -101,7 +101,6 @@
   "taktik/core/social_media/instagram/workflows/dm/conversation_state.py": 1,
   "taktik/core/social_media/instagram/workflows/dm/message_extraction.py": 8,
   "taktik/core/social_media/instagram/workflows/dm/persistence.py": 2,
-  "taktik/core/social_media/instagram/workflows/dm/sender.py": 1,
   "taktik/core/social_media/instagram/workflows/notifications/notifications_workflow.py": 5,
   "taktik/core/social_media/instagram/workflows/notifications/profile_pipeline.py": 1,
   "taktik/core/social_media/instagram/workflows/publish/post_workflow.py": 1,

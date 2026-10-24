@@ -122,7 +122,7 @@ def send_reply(a, p):
     text = (p.get("text") or "").strip()
     if not text:
         return {"success": False, "message": "text param is required"}
-    from taktik.core.social_media.instagram.workflows.dm.sender import ReplyOutcome
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
 
     outcome = _dm_runtime(a).send_message(text)
     messages = {
@@ -178,8 +178,10 @@ def send_cold_dm(a, p):
     """Cold DM to ONE recipient through the production steps of the cold DM workflow
     (`ColdDMWorkflow.reach_and_send`): the production profile search (never a deep link), the
     profile, the recipient policy (skipPrivate default true, skipVerified default false, as the
-    page sends them), conversation, send. Params: username and text (required). Not written to the
-    base: the Lab has no session."""
+    page sends them), conversation, send, then the conversation read (`reply_check`, the check of every
+    DM send). Params: username and text (required). Succeeds only on a message the conversation shows
+    sent; `send_result` says `sent`, `pending` (waiting to be sent: Instagram sends it, never send it
+    again), `not_sent` or `invite_sent`. Not written to the base: the Lab has no session."""
     from taktik.core.social_media.instagram.workflows.cold_dm.recipient_policy import (
         ColdDmRecipientPolicy,
     )
@@ -190,12 +192,16 @@ def send_cold_dm(a, p):
         return {"success": False, "message": "username and text params are required"}
     policy = ColdDmRecipientPolicy(skip_private=lab_flag(p, "skipPrivate", True),
                                    skip_verified=lab_flag(p, "skipVerified", False))
+    from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome
+
     reached = _cold_dm_runtime(a).reach_and_send(username, lambda: text, policy)
     outcome = reached["outcome"]
-    sent = outcome == "sent" and bool(reached.get("send_result"))
-    return {"success": sent,
-            "message": f"cold DM to @{username}: {outcome}" + ("" if outcome != "sent" else f" ({reached.get('send_result')})"),
-            "details": {"outcome": outcome, "send_result": reached.get("send_result")}}
+    send_result = reached.get("send_result")
+    # What the conversation showed after Send (`ReplyOutcome`), or a request already waiting.
+    shown = send_result.value if isinstance(send_result, ReplyOutcome) else send_result
+    return {"success": outcome == "sent" and send_result is ReplyOutcome.SENT,
+            "message": f"cold DM to @{username}: {outcome}" + ("" if outcome != "sent" else f" ({shown})"),
+            "details": {"outcome": outcome, "send_result": shown}}
 
 
 @action("dm.cold_dm_check_profile")
