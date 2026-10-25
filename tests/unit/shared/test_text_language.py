@@ -159,6 +159,77 @@ def test_a_mixed_caption_stays_with_french_or_english_unless_another_language_cl
     assert detect_text_language(caption) == "en"
 
 
+# ── A language the detector does not read answers None (audit of October 2026) ──
+#
+# The captions below are shortened rewrites of real ones the audit found read as French,
+# English or Portuguese. A wrong verdict is worse than None: under a Turkish post read as
+# French, a French account wrote a French comment; None lets the image guard skip it.
+
+
+@pytest.mark.parametrize(
+    "caption",
+    [
+        # Turkish, read as French: its "ç" scored 1.5 French points each, with no French word.
+        "Sezon bakım rezervasyonlarımız başlamıştır, karaya çekilen teknelere temizlik ve "
+        "antifouling işlemleri yapıyoruz, detaylı bilgi için bizimle iletişime geçebilirsiniz",
+        # Czech, read as Portuguese: "na" is a Portuguese word, "á" and "í" Portuguese letters.
+        "Nekonečná zima, nekonečná vděčnost. Díky za každý den na prkně a za to, že můžu "
+        "dělat to, co mě baví",
+        # Polish, read as Portuguese: a word cut at "ł" or "ż" left pieces ("na", "do") that
+        # are words of the six.
+        "Technika hybrydowa została wyparta przez stylizacje żelowe, ale przy zdrowej płytce "
+        "wygląda przepięknie. Czuję, że jej powrót jest już tuż za rogiem. Wracamy, ale do "
+        "bardziej dopracowanej wersji",
+    ],
+)
+def test_a_text_written_in_another_alphabet_is_not_named(caption):
+    """A word holding a letter none of the six languages writes (ı, ş, ł, č, ř, a Cyrillic
+    letter) is a word of another language: it scores for none of them, and when such words
+    outweigh the six, nothing is named."""
+    assert detect_text_language(caption) is None
+
+
+@pytest.mark.parametrize(
+    "caption",
+    [
+        # Catalan: every French word it holds ("de", "la", "un") is a Spanish word too.
+        "Avui estic orgullosa de compartir el tràiler del meu primer documental, un gest "
+        "quotidià de gaudi i connexió amb la mar",
+        "Més que una ciutat",
+        # Portuguese with too few words of its own to take the caption: "que", "mais", "de"
+        # are French words too, "ç" and "ê" French letters.
+        "Existem trabalhos que começam com uma ideia e acabam por superar tudo aquilo que imaginamos",
+        "O primeiro camping de mais dias foi uma verdadeira experiência",
+        "Il mio spettacolo sta arrivando! Hai già prenotato il tuo posto? Ti aspetto!",
+        "La formación también es parte del éxito",
+    ],
+)
+def test_french_with_no_word_of_its_own_does_not_keep_a_caption_another_language_claims(caption):
+    """French kept these captions on words it shares with Spanish, Italian or Portuguese and on
+    letters they write too. When one of them has words of its own, French needs one as well."""
+    assert detect_text_language(caption) is None
+
+
+@pytest.mark.parametrize(
+    "caption, expected",
+    [
+        # Names in another alphabet do not take a caption written in French or English.
+        ("Sunset over Beşiktaş and Kadıköy, what a view from the ferry", "en"),
+        ("Merci à Łukasz pour cette belle soirée à Kraków avec les amis", "fr"),
+        # Small capitals are a font, not a language.
+        ("ᴘʀᴏᴛʜéꜱɪꜱᴛᴇ ᴏɴɢᴜʟᴀɪʀᴇ à ᴍᴏɴ ᴅᴏᴍɪᴄɪʟᴇ, ᴘᴏꜱᴇꜱ ᴍɪɴɪᴍᴀʟɪꜱᴛᴇꜱ et ɢᴀɪɴᴀɢᴇ, rendez-vous en message", "fr"),
+    ],
+)
+def test_a_few_foreign_names_or_a_decorated_font_keep_the_verdict(caption, expected):
+    assert detect_text_language(caption) == expected
+
+
+def test_a_caption_half_in_another_alphabet_goes_to_the_half_with_more_points():
+    """Two French function words against four Ukrainian words: the same rule as for the four
+    other languages (one and a half times the points) gives it to the half we do not read."""
+    assert detect_text_language("Un bon souvenir des vacances, Гарні спогади про канікули") is None
+
+
 def test_a_bilingual_caption_keeps_the_language_we_write_in_when_neither_half_dominates():
     """A German/English caption with as many German words as English ones keeps English, as it
     always did: no language of the four takes a caption from French or English without one and a
