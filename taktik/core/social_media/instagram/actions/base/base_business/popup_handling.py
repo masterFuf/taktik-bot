@@ -1,11 +1,12 @@
 """Popup handling — likers popup, comments view, close popup, follow suggestions."""
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 from taktik.core.shared.device.screen import screen_size_of
 
 if TYPE_CHECKING:
     from taktik.core.social_media.instagram.ui.extractors import InstagramUIExtractors
+    from taktik.core.social_media.instagram.ui.selectors.shell.popups import PopupSelectors
 
 #: What opening a post's comments thread found (`_open_comments_thread`): the thread is open, or why not.
 COMMENTS_OPENED = "opened"
@@ -23,6 +24,11 @@ class PopupHandlingMixin:
     #: The host's extractors, built with the reader of the framed post (`BaseBusinessAction`):
     #: declared here as an interface would be, set by the host.
     ui_extractors: "InstagramUIExtractors"
+    #: What else the host (`BaseBusinessAction`) gives, declared the same way.
+    device: Any
+    logger: Any
+    popup_selectors: "PopupSelectors"
+    _human_like_delay: Callable[..., None]
 
     #: Back presses a comments sheet may take: an empty thread gives its composer the focus and the
     #: keyboard, and the first Back only hides the keyboard (Pixel 3a, Instagram 410, 2026-09-28).
