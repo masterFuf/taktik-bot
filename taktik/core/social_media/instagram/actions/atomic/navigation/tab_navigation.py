@@ -259,16 +259,25 @@ class TabNavigationMixin(BaseAction):
         self._press_back(1)
         return True
 
-    def _check_and_close_problematic_pages(self) -> None:
-        """Check for and close the problematic pages after a navigation."""
+    def _check_and_close_problematic_pages(self) -> bool:
+        """Check for and close the problematic pages after a navigation. Is the screen clear?
+
+        False when a page was detected and left open (Instagram checking the account, an alert
+        with no cancel button, a close that failed): what the navigation opened is under it. True
+        when nothing was detected or the page was closed, and when the check proved nothing (the
+        screen could not be read, or the check failed): that is said in the log."""
         try:
             result = self.problematic_page_detector.detect_and_handle_problematic_pages()
-            if result.get('detected'):
-                if result.get('closed'):
-                    self.logger.info(f"✅ Popup {result.get('page_type')} fermée automatiquement")
-                else:
-                    self.logger.warning(f"⚠️ Popup {result.get('page_type')} détectée mais non fermée")
         except SnapshotUnavailable as exc:
             self.logger.warning(f"Popups not checked after the navigation: screen unreadable ({exc})")
-        except Exception as e:
-            self.logger.debug(f"Erreur lors de la vérification des popups: {e}")
+            return True
+        except Exception as exc:  # noqa: BLE001 -- said; the navigation is not undone on it
+            self.logger.error(f"Popups not checked after the navigation: the check failed ({exc})")
+            return True
+        if not result['detected']:
+            return True
+        if result['closed']:
+            self.logger.info(f"✅ Popup {result['page_type']} fermée automatiquement")
+            return True
+        self.logger.warning(f"⚠️ {result['page_type']} detected and left open: the screen is not clear")
+        return False

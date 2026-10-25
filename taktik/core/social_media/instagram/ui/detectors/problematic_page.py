@@ -106,8 +106,8 @@ class ProblematicPageDetector:
             try:
                 from taktik.core.shared.diagnostics.screen_ring import noter as _noter_ecran
                 _noter_ecran(xml, platform='instagram', note=context)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001 -- the ring is a diagnostic, the read stands
+                logger.debug(f"Screen ring not written for {context}: {exc}")
         if not xml:
             raise SnapshotUnavailable(f"empty UI dump for {context}")
         return xml
@@ -131,107 +131,92 @@ class ProblematicPageDetector:
     def detect_and_handle_problematic_pages(self) -> dict:
         """
         Detect and close a problematic page.
-        
+
         Returns:
             dict: {
-                'detected': bool,  # True si une page problématique a été détectée
-                    'closed': bool,    # True when the page was closed successfully
-                    'soft_ban': bool,  # True when the restriction requires stopping the session
-                'page_type': str   # Type de page détectée (si applicable)
+                'detected': bool,  # a problematic page is on screen
+                'closed': bool,    # it was closed (False: it is still there, or may be)
+                'soft_ban': bool,  # the restriction requires stopping the session
+                'page_type': str   # the page detected, None when none
             }
 
-        Raises `SnapshotUnavailable` when the screen cannot be read (never "nothing detected").
+        Raises `SnapshotUnavailable` when the screen cannot be read (never "nothing detected"). A
+        detection that crashes is not "nothing detected" either: its error reaches the caller. A
+        close that crashes after a detection answers the page, `closed: False`.
         """
         logger.info("🔍 Vérification des pages problématiques...")
         logger.debug(f"Mode debug activé: {self.debug_mode}")
         ui_content = self._get_ui_content("detection")
+
+        # Instagram checking the account is never a page to close: its button is the check
+        # itself. The run stops, the screen stays as it is, for the operator.
+        if self._stop_on_account_challenge(ui_content):
+            return self._outcome('account_challenge', closed=False, soft_ban=True)
+
+        # An Instagram alert that reaches the rate-limit threshold is decided HERE, before
+        # the patterns: on its ids alone it used to be "closed" by its primary button (the
+        # contacts request: address book uploaded), or to fall to the Android permission
+        # pattern, which taps "Allow".
+        handled = self._handle_instagram_alert(ui_content)
+        if handled is not None:
+            return handled
+
+        for page_type, config in self.detection_patterns.items():
+            if not self._matches(ui_content, config):
+                continue
+            evidence = None
+            if page_type == 'try_again_later_page':
+                # Its ids are the chassis of EVERY Instagram alert. Taken alone they
+                # made the contacts request a "block", and its OK -- the primary button
+                # -- was tapped: the address book uploaded. Only the dialog's words count.
+                evidence = self._rate_limit_evidence(ui_content)
+                if evidence is None:
+                    continue
+            return self._handle_detected_page(page_type, config, evidence)
+
+        logger.debug("✅ Aucune page problématique détectée")
+        return {'detected': False, 'closed': False, 'soft_ban': False, 'page_type': None}
+
+    @staticmethod
+    def _outcome(page_type: str, *, closed: bool, soft_ban: bool) -> dict:
+        """The result of a page detected: closed or left open."""
+        return {'detected': True, 'closed': bool(closed), 'soft_ban': soft_ban, 'page_type': page_type}
+
+    def _closed_by(self, page_type: str, close) -> bool:
+        """Did `close()` close the detected page? A close that crashes did not: the page is
+        still on screen as far as anyone knows, and the error is logged."""
         try:
-            # Instagram checking the account is never a page to close: its button is the check
-            # itself. The run stops, the screen stays as it is, for the operator.
-            if self._stop_on_account_challenge(ui_content):
-                return {'detected': True, 'closed': False, 'soft_ban': True,
-                        'page_type': 'account_challenge'}
+            return bool(close())
+        except Exception as exc:  # noqa: BLE001 -- logged, and answered "not closed"
+            logger.error(f"❌ Closing {page_type} failed: {exc}")
+            return False
 
-            # An Instagram alert that reaches the rate-limit threshold is decided HERE, before
-            # the patterns: on its ids alone it used to be "closed" by its primary button (the
-            # contacts request: address book uploaded), or to fall to the Android permission
-            # pattern, which taps "Allow".
-            handled = self._handle_instagram_alert(ui_content)
-            if handled is not None:
-                return handled
+    def _handle_detected_page(self, page_type: str, config: dict, evidence: Optional[str]) -> dict:
+        """A pattern's page is on screen: count it, set the latch of a restriction, close it."""
+        logger.warning(f"🚨 Page problématique détectée: {page_type}")
+        track_stats = config.get('track_stats', False)
+        if track_stats:
+            self._update_rate_limit_stats('detected')
 
-            # Vérifier chaque type de page problématique
-            for page_type, config in self.detection_patterns.items():
-                if self._matches(ui_content, config):
-                    evidence = None
-                    if page_type == 'try_again_later_page':
-                        # Its ids are the chassis of EVERY Instagram alert. Taken alone they
-                        # made the contacts request a "block", and its OK -- the primary button
-                        # -- was tapped: the address book uploaded. Only the dialog's words count.
-                        evidence = self._rate_limit_evidence(ui_content)
-                        if evidence is None:
-                            continue
-                    logger.warning(f"🚨 Page problématique détectée: {page_type}")
-                    
-                    # Track the rate-limiting popup statistics
-                    if config.get('track_stats', False):
-                        self._update_rate_limit_stats('detected')
-                    
-                    # Check whether this is a restriction
-                    is_soft_ban = config.get('is_soft_ban', False)
-                    if is_soft_ban:
-                        # Closing the dialog used to be all: the run acted again right after.
-                        # The lock is set BEFORE the close, so the run stops at its next check.
-                        run_halt.demander_arret(run_halt.ACTION_BLOCKED, f"{page_type} ({evidence})",
-                                                evidence=evidence)
-                        logger.error(f"🛑 SOFT BAN DÉTECTÉ ({page_type}) - La session doit être arrêtée")
-                        logger.warning(f"📊 Statistiques rate limiting: {self.get_rate_limit_stats()}")
-                    
-                    # Try to close the page
-                    if self._close_problematic_page(page_type, config['close_methods']):
-                        logger.success(f"✅ Page {page_type} fermée avec succès")
-                        
-                        # Track the successful close
-                        if config.get('track_stats', False):
-                            self._update_rate_limit_stats('closed')
-                        
-                        return {
-                            'detected': True,
-                            'closed': True,
-                            'soft_ban': is_soft_ban,
-                            'page_type': page_type
-                        }
-                    else:
-                        logger.error(f"❌ Impossible de fermer la page {page_type}")
-                        
-                        # Tracking de l'échec de fermeture
-                        if config.get('track_stats', False):
-                            self._update_rate_limit_stats('failed')
-                        
-                        return {
-                            'detected': True,
-                            'closed': False,
-                            'soft_ban': is_soft_ban,
-                            'page_type': page_type
-                        }
-            
-            logger.debug("✅ Aucune page problématique détectée")
-            return {
-                'detected': False,
-                'closed': False,
-                'soft_ban': False,
-                'page_type': None
-            }
-            
-        except Exception as e:
-            logger.error(f"Erreur lors de la détection des pages problématiques: {e}")
-            return {
-                'detected': False,
-                'closed': False,
-                'soft_ban': False,
-                'page_type': None
-            }
-    
+        is_soft_ban = config.get('is_soft_ban', False)
+        if is_soft_ban:
+            # Closing the dialog used to be all: the run acted again right after.
+            # The lock is set BEFORE the close, so the run stops at its next check.
+            run_halt.demander_arret(run_halt.ACTION_BLOCKED, f"{page_type} ({evidence})",
+                                    evidence=evidence)
+            logger.error(f"🛑 SOFT BAN DÉTECTÉ ({page_type}) - La session doit être arrêtée")
+            logger.warning(f"📊 Statistiques rate limiting: {self.get_rate_limit_stats()}")
+
+        closed = self._closed_by(
+            page_type, lambda: self._close_problematic_page(page_type, config['close_methods']))
+        if closed:
+            logger.success(f"✅ Page {page_type} fermée avec succès")
+        else:
+            logger.error(f"❌ Impossible de fermer la page {page_type}")
+        if track_stats:
+            self._update_rate_limit_stats('closed' if closed else 'failed')
+        return self._outcome(page_type, closed=closed, soft_ban=is_soft_ban)
+
     def _matches(self, ui_content: str, config: dict) -> bool:
         """Is this pattern's page on screen? Its surface ids first, when it names some: words
         found anywhere also sit on a profile or a feed behind no sheet at all."""
@@ -296,7 +281,7 @@ class ProblematicPageDetector:
     
     # ── Fermetures, une par méthode ───────────────────────────────────────────────────────────
     #
-    # Ces onze gestes vivaient dans une cascade `if method == … elif …` à l'intérieur d'un `for`
+    # Ces gestes vivaient dans une cascade `if method == … elif …` à l'intérieur d'un `for`
     # et d'un `try` : cinq niveaux d'imbrication avant d'atteindre le travail utile, et la cascade
     # continuait. Mesuré : 13 niveaux de profondeur, score de complexité 261, dans un corpus dont
     # la médiane est 1.
@@ -403,10 +388,6 @@ class ProblematicPageDetector:
         return self._click_button_from_selectors(
             PROBLEMATIC_PAGE_SELECTORS.ok_button_selectors, "OK")
 
-    def _close_via_background_dimmer(self) -> bool:
-        return self._click_button_from_selectors(
-            PROBLEMATIC_PAGE_SELECTORS.background_dimmer_selectors, "Background dimmer")
-
     def _close_via_allow_permission(self) -> bool:
         return self._click_button_from_selectors(
             PROBLEMATIC_PAGE_SELECTORS.allow_permission_button_selectors, "Allow permission")
@@ -430,7 +411,6 @@ class ProblematicPageDetector:
             'swipe_down_handle': self._close_via_swipe_down_handle,
             'terminate_button': self._close_via_terminate,
             'ok_button': self._close_via_ok,
-            'tap_background_dimmer': self._close_via_background_dimmer,
             'allow_permission_button': self._close_via_allow_permission,
             'ad_consent_flow': self._close_via_ad_consent,
         }
@@ -439,7 +419,7 @@ class ProblematicPageDetector:
         """Essayer de fermer une page problématique par les méthodes disponibles.
 
         La boucle ne fait plus que trois choses : choisir le geste, le tenter, vérifier. Ce qui
-        était onze branches imbriquées est devenu onze méthodes plates et une table.
+        était une cascade de branches imbriquées est devenu des méthodes plates et une table.
         """
         logger.info(f"🔧 Tentative de fermeture de la page {page_type}")
         closers = self._closers()
@@ -577,8 +557,11 @@ class ProblematicPageDetector:
         
         while True:
             try:
-                if self.detect_and_handle_problematic_pages():
-                    logger.info("Page problématique traitée, poursuite de la surveillance...")
+                result = self.detect_and_handle_problematic_pages()
+                if result['detected']:
+                    logger.info(f"Page problématique {result['page_type']} "
+                                f"{'fermée' if result['closed'] else 'laissée ouverte'}, "
+                                "poursuite de la surveillance...")
                 
                 time.sleep(check_interval)
                 
@@ -689,14 +672,12 @@ class ProblematicPageDetector:
                                     evidence=evidence)
             logger.error("🛑 Instagram alert read on its ids alone (unknown language): run stopped, "
                          "alert left open, its primary button never tapped")
-            return {'detected': True, 'closed': False, 'soft_ban': True,
-                    'page_type': 'try_again_later_page'}
-        closed = self._click_button_from_selectors(
-            PROBLEMATIC_PAGE_SELECTORS.alert_cancel_button_selectors, "Alert cancel")
+            return self._outcome('try_again_later_page', closed=False, soft_ban=True)
+        closed = self._closed_by('instagram_alert', lambda: self._click_button_from_selectors(
+            PROBLEMATIC_PAGE_SELECTORS.alert_cancel_button_selectors, "Alert cancel"))
         logger.info(f"Instagram alert that is not the rate-limit dialog: "
-                    f"{'dismissed by its cancel button' if closed else 'no cancel button, left open'}")
-        return {'detected': True, 'closed': bool(closed), 'soft_ban': False,
-                'page_type': 'instagram_alert'}
+                    f"{'dismissed by its cancel button' if closed else 'not dismissed, left open'}")
+        return self._outcome('instagram_alert', closed=closed, soft_ban=False)
 
     def account_challenge_evidence(self, content: Optional[str]) -> Optional[str]:
         """Is Instagram checking this account (its challenge screen)? 'activity', 'words' or None.

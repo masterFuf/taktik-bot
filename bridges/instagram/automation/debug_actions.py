@@ -93,7 +93,7 @@ def detect_problematic_pages(device) -> int:
     }
 
     if detected:
-        send_log("info", "Problematic page detected and handled")
+        send_log("info", f"Problematic page detected and {'handled' if handled else 'left open'}")
     else:
         send_log("info", "No problematic pages detected")
 

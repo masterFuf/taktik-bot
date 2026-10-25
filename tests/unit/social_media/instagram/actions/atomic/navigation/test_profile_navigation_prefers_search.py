@@ -45,7 +45,7 @@ class _Nav(SearchNavigationMixin):
         return self._deeplink_ok
 
     def _check_and_close_problematic_pages(self):
-        return None
+        return True  # the screen is clear
 
 
 @pytest.fixture(autouse=True)

@@ -40,12 +40,6 @@ class ProblematicPageSelectors:
         {'description': 'Ok'}
     ])
     
-    # === Background dimmer (to close bottom sheets) ===
-    background_dimmer_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
-        {'resourceId': 'com.instagram.android:id/background_dimmer'},
-        {'description': '@2131954182'}
-    ])
-    
     # === Drag handle (the grey bar of bottom sheets) ===
     drag_handle_selectors: List[Dict[str, str]] = field(default_factory=lambda: [
         {'resourceId': 'com.instagram.android:id/bottom_sheet_drag_handle_prism'},
@@ -162,7 +156,10 @@ class ProblematicPageSelectors:
         'follow_options_bottom_sheet': {
             'indicators': ['Ajouter à la liste Ami(e)s proches', 'Ajouter aux favoris', 'Sourdine', 
                           'Restreindre', 'Ne plus suivre', 'bottom_sheet_container', 'background_dimmer'],
-            'close_methods': ['tap_background_dimmer', 'swipe_down_handle', 'back_button']
+            # The tap above the sheet, on the part of the dimmer it leaves visible. Never the
+            # dimmer's own centre: the dimmer spans the screen behind the sheet, its centre lies
+            # on the sheet's rows ("Report" on the options sheet of a profile, 410, English).
+            'close_methods': ['tap_outside', 'swipe_down_handle', 'back_button']
         },
         'mute_notifications_popup': {
             'indicators': ['Sourdine', 'Publications', 'Stories', "Bulles d'activité sur le contenu", 

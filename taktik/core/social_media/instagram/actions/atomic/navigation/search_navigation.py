@@ -110,7 +110,7 @@ class SearchNavigationMixin(BaseAction):
             force_search: If True, never use the deep link at all — not even as a fallback.
 
         Returns:
-            True if navigation successful, False otherwise
+            True when the profile is opened and no page left open covers it, False otherwise
         """
         handle = instagram_handle(username)
         if handle is None:
@@ -139,24 +139,21 @@ class SearchNavigationMixin(BaseAction):
             self.logger.debug("Using search")
             success = self._navigate_via_search(username)
         
+        # Once the profile is opened, the problematic pages are checked (no extra sleep:
+        # deep_link/search already have delays). A page left open covers the profile: the
+        # navigation answers False, and no other route is tried over it.
         if success:
-            # Vérifier et fermer les popups problématiques (no extra sleep — deep_link/search already have delays)
-            self._check_and_close_problematic_pages()
-            return True
+            return self._check_and_close_problematic_pages()
         
         # Fallback: try the other method
         if not use_deep_link and not force_search and not is_clone:
             self.logger.debug("Fallback attempt with deep link")
-            success = self._navigate_via_deep_link(username)
-            if success:
-                self._check_and_close_problematic_pages()
-                return True
+            if self._navigate_via_deep_link(username):
+                return self._check_and_close_problematic_pages()
         elif use_deep_link:
             self.logger.debug("Fallback attempt with search")
-            success = self._navigate_via_search(username)
-            if success:
-                self._check_and_close_problematic_pages()
-                return True
+            if self._navigate_via_search(username):
+                return self._check_and_close_problematic_pages()
         
         self.logger.warning(f"Navigation failed to @{username}, but continuing")
         return False

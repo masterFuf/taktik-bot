@@ -15,6 +15,7 @@ import types
 
 from taktik.core.shared.diagnostics import run_halt
 from taktik.core.social_media.tiktok.actions.atomic.detection.detection_actions import DetectionActions
+from taktik.core.social_media.tiktok.actions.base.device_facade import DeviceFacade
 from taktik.core.social_media.tiktok.workflows.common.base_video_workflow import (
     BaseVideoWorkflow,
 )
@@ -197,7 +198,8 @@ def _text(text, rid="", focusable="false"):
 
 def _detection_on(xml):
     detection = DetectionActions.__new__(DetectionActions)
-    detection.device = types.SimpleNamespace(dump_hierarchy=lambda compressed=False: xml)
+    # Held as production holds it: the phone behind the TikTok facade, read through its photo.
+    detection.device = DeviceFacade(types.SimpleNamespace(dump_hierarchy=lambda compressed=False: xml))
     detection.logger = _QUIET
     return detection
 

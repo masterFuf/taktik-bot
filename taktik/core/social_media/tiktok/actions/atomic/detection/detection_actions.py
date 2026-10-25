@@ -12,7 +12,6 @@ from loguru import logger
 from taktik.core.social_media.tiktok.actions.atomic.detection.video_detector import VideoDetector
 from taktik.core.social_media.tiktok.actions.atomic.detection.popup_detector import PopupDetector
 from taktik.core.social_media.tiktok.actions.atomic.detection.screen_reading import ScreenReading, note_action_block
-from taktik.core.shared.device.ui_dump import parse_ui_dump
 from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGATION_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
@@ -52,17 +51,14 @@ class DetectionActions(ScreenReading, VideoDetector, PopupDetector):
                                     screen=screen)
 
     def is_action_blocked(self) -> bool:
-        """Is TikTok refusing the account's actions right now? One dump, closes nothing.
+        """Is TikTok refusing the account's actions right now? One photo, closes nothing.
 
         Seeing it sets the run's stop latch (`run_halt.ACTION_BLOCKED`), whoever asked: every
-        loop that decides to continue reads it. A screen that cannot be read is not a block.
+        loop that decides to continue reads it. Raises `SnapshotUnavailable` when the screen
+        cannot be read: that is no answer, never "not blocked" (the shared look after a gesture,
+        `look_for_action_block`, says so).
         """
-        try:
-            tree = parse_ui_dump(self.device.dump_hierarchy(compressed=False))
-        except Exception as exc:  # noqa: BLE001
-            self.logger.debug(f"Block check: no dump ({exc})")
-            return False
-        return note_action_block(tree)
+        return note_action_block(self.device.snapshot().root)
 
     def is_on_inbox_page(self, screen=None) -> bool:
         """Check if currently on Inbox page.
