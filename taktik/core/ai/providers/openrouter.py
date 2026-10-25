@@ -53,6 +53,7 @@ from ..openrouter_policy import (
     TASK_GENERATION,
 )
 from ..credential import check_key_for
+from ..written_language import language_outside
 from .anthropic import AnthropicTransport
 from .transport import COST_BILLED, ModelCall, ModelTransport, post_json, refusal_answer
 
@@ -1542,7 +1543,20 @@ class AIService(CommentGenerationMixin):
         # Detect proposed sub-niches (not in canonical taxonomy) for monitoring
         if niche and niche not in self._known_sub_niches and niche != "Other":
             logger.info(f"[AIService] Proposed new sub-niche '{niche}' for @{username} (cat: {niche_cat})")
-        summary = classification.get("summary", "")
+        # The summary is shown on the profile card as what this profile is. One written in another
+        # language than asked, or with letters of another script (363 French summaries of a month
+        # carried Chinese ideographs, October 2026), is not stored as a description: the rule every
+        # text written by an AI goes through refuses it, the rest of the qualification stays.
+        summary = str(classification.get("summary") or "").strip()
+        asked = response_language if response_language in _lang_map else "en"
+        written = language_outside(summary, (asked,), f"summary @{username}") if summary else None
+        if written is not None:
+            logger.warning(
+                f"[AIService] classify_profile_niche @{username}: summary written in {written}, "
+                f"{asked} was asked, not stored: {summary!r}"
+            )
+            summary = ""
+        classification["summary"] = summary
         result_text = f"[{niche_cat}] {niche}"
         if summary:
             result_text += f" · {summary}"
