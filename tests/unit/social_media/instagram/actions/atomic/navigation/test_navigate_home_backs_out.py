@@ -40,6 +40,8 @@ def _navigation(raw):
     nav._is_home_screen = lambda: raw.screens_to_home <= 0
     nav._is_instagram_open = lambda: True
     nav._human_like_delay = lambda *a, **k: None
+    nav.reports = []
+    nav._report_selector_miss = lambda selectors, **_k: nav.reports.append(selectors)
     return nav
 
 
@@ -51,8 +53,18 @@ def test_going_home_from_a_reel_viewer_backs_out_and_stops_on_the_feed():
 
 def test_it_never_backs_more_than_three_screens():
     raw = _Uiautomator2(screens_to_home=5)
-    assert not _navigation(raw).navigate_to_home()
+    nav = _navigation(raw)
+    assert not nav.navigate_to_home()
     assert raw.backs == 3
+    # The way that ends without home says so once, not at each Back.
+    assert nav.reports == [nav.selectors.home_tab]
+
+
+def test_a_way_home_that_arrives_reports_no_miss():
+    raw = _Uiautomator2(screens_to_home=2)
+    nav = _navigation(raw)
+    assert nav.navigate_to_home()
+    assert nav.reports == []
 
 
 def test_once_a_back_brings_the_tab_bar_back_home_is_one_tap_away():

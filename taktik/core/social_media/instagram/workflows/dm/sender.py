@@ -7,13 +7,10 @@ import time
 from typing import Any, Callable
 
 from loguru import logger
-from taktik.core.shared.behavior.tap import tap_element_human
 from taktik.core.shared.behavior.typing import calculate_dm_typing_delay
-from taktik.core.shared.input.taktik_keyboard import ensure_taktik_keyboard
 from taktik.core.social_media.instagram.actions.atomic.text.dm_composer import (
     click_send_button,
     find_message_input,
-    resolve_device_id,
     type_message,
 )
 from taktik.core.social_media.instagram.workflows.dm.reply_check import ReplyOutcome, reply_outcome
@@ -76,14 +73,7 @@ class DMSenderMixin:
             logger.error("Message input not found")
             return ReplyOutcome.NOT_SENT
 
-        logger.info(f"Found message input: {msg_input.info}")
-
-        # Before the tap: a keyboard switched after it can cost the field its focus.
-        ensure_taktik_keyboard(resolve_device_id(self.device, getattr(self, "device_id", None)))
-        if not tap_element_human(self.device, msg_input, logger=logger):
-            msg_input.click()
-        time.sleep(random.uniform(0.5, 0.8))
-
+        # The tap on the composer, and the check that the caret is in it, are the typing's own.
         if not self._type_dm_message(msg_input, message):
             return ReplyOutcome.NOT_SENT
 

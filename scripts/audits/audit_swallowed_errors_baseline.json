@@ -95,7 +95,7 @@
   "taktik/core/social_media/instagram/workflows/common/distribution.py": 1,
   "taktik/core/social_media/instagram/workflows/common/list_sources.py": 2,
   "taktik/core/social_media/instagram/workflows/common/post_navigation.py": 3,
-  "taktik/core/social_media/instagram/workflows/dm/conversation_navigation.py": 4,
+  "taktik/core/social_media/instagram/workflows/dm/conversation_navigation.py": 3,
   "taktik/core/social_media/instagram/workflows/dm/conversation_payload.py": 1,
   "taktik/core/social_media/instagram/workflows/dm/conversation_state.py": 1,
   "taktik/core/social_media/instagram/workflows/dm/message_extraction.py": 8,

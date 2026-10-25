@@ -70,7 +70,8 @@ class _Node:
 
 class _Device:
     """Answers `device(text=/description=/resourceId=/textContains=)` and the profile header's
-    Message button xpaths from a fixed screen."""
+    Message button xpaths from a fixed screen; once that button is tapped, the conversation's
+    header shows (the opener waits for it)."""
 
     def __init__(self, *, private=False, message=True):
         self.private = private
@@ -89,8 +90,12 @@ class _Device:
     def xpath(self, selector):
         from taktik.core.social_media.instagram.ui.selectors.surfaces.profile import PROFILE_SELECTORS
 
+        from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
+
         if self.message and selector in PROFILE_SELECTORS.header_message_button:
             return self.message_node
+        if selector == DM_SELECTORS.conversation_screen_marker:
+            return _Node(self.message_node.clicks > 0)
         return _Node(False)
 
 

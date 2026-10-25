@@ -8,6 +8,7 @@ Instagram composer repaired one of the four. These tests pin the union they coll
 import pytest
 
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
+from taktik.core.social_media.instagram.ui.selectors.surfaces.direct_messages import DM_SELECTORS
 
 
 @pytest.fixture(autouse=True)
@@ -99,16 +100,14 @@ def test_the_xpath_catalogue_wins_when_it_matches():
     assert device.tried[0][0] == "xpath"
 
 
-def test_it_falls_back_to_resource_ids_then_class_then_hint():
-    """The bridge's four-strategy lookup, which the other three callers did not have."""
-    element = _Element("by-hint")
-    device = _Device(text_hit=element)
+def test_the_composer_is_asked_by_its_id_and_nothing_looser():
+    """Any EditText, a text holding « Message », the id of a bubble: each took something else for
+    the composer (a search field, a bubble). None of them is asked any more."""
+    element = _Element("anything")
+    device = _Device(resource_hit=element, class_hit=element, text_hit=element)
 
-    found = dm_composer.find_message_input(device)
-
-    assert found is not None
-    strategies = [kind for kind, _ in device.tried]
-    assert "xpath" in strategies and "select" in strategies
+    assert dm_composer.find_message_input(device) is None
+    assert device.tried == [("xpath", DM_SELECTORS.message_input)]
 
 
 def test_missing_composer_returns_none_rather_than_raising():

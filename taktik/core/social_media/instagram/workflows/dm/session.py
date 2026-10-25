@@ -24,6 +24,23 @@ def dm_inbox_shown(device, timeout: float = 0.0) -> bool:
     return wait_for_any(device, markers, timeout=timeout, label="dm-inbox") is not None
 
 
+#: How long a conversation may take to come up after the tap that opens it.
+CONVERSATION_OPEN_TIMEOUT_S = 6.0
+
+
+def dm_conversation_shown(device, timeout: float = 0.0) -> bool:
+    """Is a conversation open on screen? Its header bar (`conversation_screen_marker`), the one
+    sign of a conversation, asked after every tap meant to open one: a tap only says that
+    something was touched (Pixel 6a, 447, 2026-10-25: « open=True » on the search results).
+
+    `timeout` > 0 waits that long for it: a conversation takes a second or two to come up.
+    """
+    marker = [DM_SELECTORS.conversation_screen_marker]
+    if timeout <= 0:
+        return find_element(device, marker) is not None
+    return wait_for_any(device, marker, timeout=timeout, label="dm-conversation") is not None
+
+
 def ensure_dm_inbox(bridge) -> bool:
     """
     Ensure Instagram is open and we're in the DM inbox.

@@ -218,6 +218,8 @@ class FoldingFieldPhone:
         return ""
 
     def _node(self, selector):
+        if selector == DM_SELECTORS.message_input_focused:  # the caret, read after the tap
+            return self.field_node() if self.focused else _Absent()
         if selector in self._fields:
             return self.field_node()
         for known, node in self._buttons:
@@ -305,8 +307,10 @@ def _action(cls, phone):
 
 # -- The DM composer atomic (messaging workflow, DM replies) --------------------------------------
 
-def test_the_dm_composer_is_tapped_after_the_keyboard_switch(phone):
+def test_the_dm_composer_is_tapped_after_the_keyboard_switch(phone, monkeypatch):
     """Switched after the tap, the message never reached the composer: `set_text` wrote it."""
+    monkeypatch.setattr(dm_composer.time, "sleep", lambda *_: None)
+    phone._fields.append(DM_SELECTORS.message_input)
     assert dm_composer.type_message(phone, None, TEXT) is True
 
     assert phone.steps == ["switch", "tap"]
@@ -325,6 +329,7 @@ def _dm_bridge(phone):
 
             return ReplyOutcome.SENT
 
+    phone._fields.append(DM_SELECTORS.message_input)
     phone.add_button({"resourceId": DM_SELECTORS.send_button_resource_ids[0]})
     return _Dm()
 
@@ -335,7 +340,7 @@ def _cold_dm_bridge(phone):
         device = phone
         device_manager = phone
 
-    phone._fields.append({"resourceId": DM_SELECTORS.composer_edittext_resource_id})
+    phone._fields.append(DM_SELECTORS.message_input)
     phone.add_button({"resourceId": DM_SELECTORS.send_button_resource_ids[0]})
     return _ColdDm()
 
@@ -348,6 +353,7 @@ def test_the_dm_bridges_tap_the_composer_after_the_keyboard_switch(phone, bridge
 
     # This phone draws no bubble: the conversation's reading after Send is not what is tested here.
     monkeypatch.setattr(messaging_module, "reply_outcome", lambda *_a, **_k: ReplyOutcome.SENT)
+    monkeypatch.setattr(dm_composer.time, "sleep", lambda *_: None)
     assert bridge(phone).send_message(TEXT) is ReplyOutcome.SENT
 
     assert phone.steps[0] == "switch" and phone.steps.count("switch") == 1

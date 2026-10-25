@@ -70,7 +70,7 @@ def _nav(phone, monkeypatch):
     nav._is_instagram_open = lambda: True
     nav.tab_taps = 0
 
-    def _find_and_click(selectors, timeout=0):
+    def _find_and_click(selectors, timeout=0, report_miss=True):
         # The bottom bar exists on the profile and the feed, not on the screens that hide it
         if phone.screen in HIDE_THE_TAB_BAR:
             return False
@@ -109,7 +109,7 @@ def test_backs_out_as_many_screens_as_hide_the_tab_bar_before_tapping_it(monkeyp
     nav = _nav(phone, monkeypatch)
     searches = []
     tap = nav._find_and_click
-    nav._find_and_click = lambda selectors, timeout=0: searches.append(phone.screen) or tap(selectors, timeout)
+    nav._find_and_click = lambda selectors, timeout=0, **_k: searches.append(phone.screen) or tap(selectors, timeout)
 
     assert nav.navigate_to_profile_tab() is True
     assert phone.backs == 2

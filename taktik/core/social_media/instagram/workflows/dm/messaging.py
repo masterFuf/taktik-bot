@@ -10,9 +10,11 @@ from taktik.core.social_media.instagram.actions.base.base_action import BaseActi
 from taktik.core.social_media.instagram.actions.atomic.navigation import NavigationActions
 from taktik.core.social_media.instagram.actions.atomic.text import dm_composer
 from taktik.core.shared.diagnostics.action_block import look_for_action_block
+from taktik.core.shared.diagnostics.foreground_guard import paquet_etranger
 from taktik.core.shared.device.wait import find_element, wait_for_any
 from taktik.core.social_media.instagram.actions.atomic.navigation.deep_link_navigation import instagram_handle
 from taktik.core.social_media.instagram.workflows.dm.navigation import open_dm_inbox
+from taktik.core.social_media.instagram.workflows.dm.session import CONVERSATION_OPEN_TIMEOUT_S, dm_conversation_shown
 from taktik.core.social_media.instagram.workflows.dm.reply_check import ConversationBubbles, ReplyOutcome, reply_outcome
 from taktik.core.social_media.instagram.ui.detectors.problematic_page import ProblematicPageDetector
 from taktik.core.social_media.instagram.ui.selectors.shell.navigation import (
@@ -74,9 +76,7 @@ class MessagingBusiness(BaseAction):
         if button is not None:
             if not self._human_tap_element(button):
                 button.click()
-            self.logger.debug("✅ Clicked Message button")
-            time.sleep(2)
-            return True
+            return self._conversation_opened("Message button")
         if find_element(self.device, [PROFILE_SELECTORS.header_follow_button]) is None:
             self.logger.warning("Could not find Message button on profile (not another account's profile)")
             return False
@@ -126,9 +126,18 @@ class MessagingBusiness(BaseAction):
             return False
         if not self._human_tap_element(row):
             row.click()
-        self.logger.debug(f"✅ Opened the conversation with @{handle} from the new-message picker")
-        time.sleep(2)
-        return True
+        return self._conversation_opened(f"Row of @{handle} in the new-message picker")
+
+    def _conversation_opened(self, tapped: str) -> bool:
+        """After the tap on `tapped`, is a conversation on screen (`dm_conversation_shown`)? Its
+        composer is looked for only then. False, and why in the log, when none came up."""
+        if dm_conversation_shown(self.device, timeout=CONVERSATION_OPEN_TIMEOUT_S):
+            self.logger.debug(f"✅ {tapped} tapped: the conversation is open")
+            return True
+        foreign = paquet_etranger(self.device, "instagram", force=True)
+        where = f": {foreign} is on screen" if foreign else ""
+        self.logger.warning(f"{tapped} tapped, but no conversation came up{where}: nothing typed")
+        return False
 
     def send_in_open_conversation(self, message: str, *, typos: bool = True) -> Union[ReplyOutcome, str]:
         """Type `message` in the open conversation, send it, and read what it came to.

@@ -13,7 +13,9 @@ the picker before and after the handle was typed, the home feed (existing fixtur
 Pixel 6 Pro's private follower (410). The phone is uiautomator2's own xpath engine behind the
 clone proxy; a tap on the Direct tab opens the inbox, on "Nouveau message" the picker. Three seams,
 each covered by its own tests: the way home (`navigate_to_home`), the keyboard switch, and the
-typing, which here shows the picker's results. What a tap on the row opens has no capture yet.
+typing, which here shows the picker's results. A tap on the row opens a conversation: a new one,
+captured on the same phone the next day (`ig447_fr_dm_new_professional_conversation.xml`); the
+opener says it is open only once that screen is up.
 
 An account with a display name shows it on the first line of its row, its handle on the second
 (Pixel 6a, 447, the welcome DM to a private follower: "no row of @... in the picker" while the row
@@ -48,6 +50,7 @@ FILES = {
     "results_named": "ig447_fr_dm_new_message_results_named_account.xml",
     "private_410": "ig410_fr_profile_private_follow_back_no_message.xml",
     "own_profile": "ig410_fr_own_profile.xml",
+    "conversation": "ig447_fr_dm_new_professional_conversation.xml",
 }
 SCREENS = {name: (FIXTURES / file).read_text(encoding="utf-8") for name, file in FILES.items()}
 HANDLE = "user_1"  # the account of the 447 profile, as the anonymiser named it in every screen
@@ -57,9 +60,13 @@ ACCOUNT_ROW = (f'//*[@resource-id="com.instagram.android:id/row_user_primary_nam
 INVITATION_ROW = ('//*[@resource-id="com.instagram.android:id/row_direct_action_button"]'
                   '/ancestor::*[@resource-id="com.instagram.android:id/user_row_background"][1]')
 #: What a tap opens: (screen, xpath of the element tapped) -> the screen it brings up.
+NAMED_ROW = (f'//*[@resource-id="com.instagram.android:id/row_user_secondary_name"][@text="{HANDLE}"]'
+             '/ancestor::*[@resource-id="com.instagram.android:id/user_row_background"][1]')
 DOORS = {
     ("home", '//*[@resource-id="com.instagram.android:id/direct_tab"]'): "inbox",
     ("inbox", '//*[@content-desc="Nouveau message"]'): "picker",
+    ("results", ACCOUNT_ROW): "conversation",
+    ("results_named", NAMED_ROW): "conversation",
 }
 
 
@@ -188,8 +195,7 @@ def test_a_profile_without_message_button_writes_from_the_new_message_picker(pho
 
 def test_the_row_of_an_account_with_a_display_name_is_found_by_its_second_line(phone_on):
     phone = phone_on("profile", results="results_named")
-    named_row = (f'//*[@resource-id="com.instagram.android:id/row_user_secondary_name"][@text="{HANDLE}"]'
-                 '/ancestor::*[@resource-id="com.instagram.android:id/user_row_background"][1]')
+    named_row = NAMED_ROW
 
     opened = MessagingBusiness(CloneAwareDeviceProxy(phone, PKG)).open_conversation_from_profile(HANDLE)
 

@@ -47,6 +47,8 @@ HOME_FR = (FIXTURES / "ig410_fr_home_feed.xml").read_text(encoding="utf-8")
 OWN_PROFILE_EN = (FIXTURES / "ig410_en_own_profile.xml").read_text(encoding="utf-8")
 OWN_PROFILE_FR = (FIXTURES / "ig410_fr_own_profile.xml").read_text(encoding="utf-8")
 PROFILE_EN = (FIXTURES / "ig410_en_profile_with_message_button.xml").read_text(encoding="utf-8")
+#: What the Message button opens: a conversation (the opener says so only once it is up).
+CONVERSATION_EN = (FIXTURES / "ig410_en_dm_thread_new_conversation.xml").read_text(encoding="utf-8")
 MESSAGE_BUTTON = (496, 877, 943, 965)
 
 
@@ -127,12 +129,16 @@ class _Phone:
     wait_timeout = 1.0
     info = {"displayWidth": 1080, "displayHeight": 2160}
 
-    def __init__(self, xml):
-        self.xml = xml
-        self.nodes = list(etree.fromstring(xml.encode("utf-8")).iter("node"))
+    def __init__(self, xml, message_button_opens=None):
+        self._show(xml)
+        self.message_button_opens = message_button_opens
         self.xpath = XPathEntry(self)
         self.queries = []
         self.taps = []
+
+    def _show(self, xml):
+        self.xml = xml
+        self.nodes = list(etree.fromstring(xml.encode("utf-8")).iter("node"))
 
     def dump_hierarchy(self, *_a, **_k):
         return self.xml
@@ -150,9 +156,12 @@ class _Phone:
 
     def click(self, x, y):
         self.taps.append((x, y))
+        left, top, right, bottom = MESSAGE_BUTTON
+        if self.message_button_opens and left <= x <= right and top <= y <= bottom:
+            self._show(self.message_button_opens)
 
     def long_click(self, x, y, _duration=0.0):
-        self.taps.append((x, y))
+        self.click(x, y)
 
 
 @pytest.fixture(autouse=True)
@@ -227,7 +236,7 @@ def test_the_direct_tab_is_not_the_message_button_of_a_profile_without_one(langu
 
 def test_the_message_button_of_a_profile_is_still_found_and_tapped():
     set_active_locale("en")
-    phone = _Phone(PROFILE_EN)
+    phone = _Phone(PROFILE_EN, message_button_opens=CONVERSATION_EN)
 
     opened = _workflow(phone).open_dm_from_profile(ColdDmRecipientPolicy())
 

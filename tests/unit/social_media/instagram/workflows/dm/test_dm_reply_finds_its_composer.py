@@ -57,11 +57,6 @@ class _Reply(DMSenderMixin):
     def __init__(self, phone):
         self.device = CloneAwareDeviceProxy(phone, PKG)
         self.device_id = phone.serial
-        self.typed = []
-
-    def _type_dm_message(self, msg_input, message):
-        self.typed.append(message)
-        return False  # stop here: what follows the typing is not under test
 
 
 @pytest.mark.parametrize("version", sorted(CONVERSATIONS))
@@ -77,8 +72,13 @@ def test_the_composer_lookup_answers_a_selector_on_a_real_conversation(version):
 
 @pytest.mark.parametrize("version", sorted(CONVERSATIONS))
 def test_the_dm_reply_taps_the_composer_and_types(monkeypatch, version):
-    monkeypatch.setattr(sender, "ensure_taktik_keyboard", lambda _device_id: True)
+    typed = []
+    monkeypatch.setattr(dm_composer, "ensure_taktik_keyboard", lambda _device_id: True)
+    # Stop at the keyboard: what follows the typing is not under test.
+    monkeypatch.setattr(dm_composer, "type_text_checked",
+                        lambda _device, _device_id, text, **_k: typed.append(text) and False)
     monkeypatch.setattr(sender.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(dm_composer.time, "sleep", lambda *_: None)
     screen, (left, top, right, bottom) = CONVERSATIONS[version]
     phone = _Phone(screen)
     reply = _Reply(phone)
@@ -87,6 +87,8 @@ def test_the_dm_reply_taps_the_composer_and_types(monkeypatch, version):
 
     assert reply.send_message("Bonjour") is ReplyOutcome.NOT_SENT  # the typing is stubbed out
 
-    assert reply.typed == ["Bonjour"]
+    # One tap, in the composer (the typing's own); the caret is in it on both screens, and the
+    # message goes to the keyboard.
+    assert typed == ["Bonjour"]
     (x, y), = phone.taps
     assert left <= x <= right and top <= y <= bottom

@@ -93,7 +93,7 @@ class SharedBaseAction:
     
     def _find_and_click(self, selectors: Union[List[str], str], timeout: float = 5.0,
                        human_delay: bool = True, keep_out: Optional[List[str]] = None,
-                       nth: Optional[int] = None) -> bool:
+                       nth: Optional[int] = None, report_miss: bool = True) -> bool:
         """Find element using selectors and click it.
 
         `keep_out`: selectors of the elements this tap must never land on, when the screen draws
@@ -104,6 +104,10 @@ class SharedBaseAction:
 
         `nth`: the element at that index (0-based, in the order of the dump) of the first selector
         that has one, instead of its first element: a cell of a grid, a row of a list.
+
+        `report_miss=False`: a miss the caller expects (it probes a screen that may not show the
+        element) says nothing above debug and keeps no screen: `_report_selector_miss` is then the
+        caller's, once, if its last probe fails too.
         """
         if isinstance(selectors, str):
             selectors = [selectors]
@@ -161,6 +165,21 @@ class SharedBaseAction:
             
             time.sleep(0.5)
         
+        if not report_miss:
+            # A miss the caller expects (a tab a screen may not show, looked for again after each
+            # Back): the caller says it once, if it ends without what it looked for.
+            self.logger.debug(f"Not on screen after {timeout}s (a miss the caller expects): {selectors[0][:60]}")
+            return False
+        self._report_selector_miss(selectors, timeout=timeout,
+                                   elapsed_ms=round((time.time() - start_time) * 1000), last_error=last_error)
+        return False
+
+    def _report_selector_miss(self, selectors: List[str], *, timeout: float, elapsed_ms: int,
+                              last_error: Optional[BaseException] = None) -> None:
+        """What a search that came to nothing says, once: the warning, the screen kept for diagnosis
+        (capped per run), a selector failing again and again, the app no longer in front, the step
+        on the wire. `_find_and_click` calls it on its miss; a caller that probes with
+        `report_miss=False` calls it itself when its last probe also fails."""
         self.logger.warning(f"🚫 No element found after {timeout}s")
         if last_error:
             self.logger.debug(f"Last error: {last_error}")
@@ -271,11 +290,10 @@ class SharedBaseAction:
             target=selectors[0][:120] if selectors else None,
             selector_count=len(selectors),
             timeout_s=timeout,
-            elapsed_ms=round((time.time() - start_time) * 1000),
+            elapsed_ms=elapsed_ms,
             last_error=str(last_error)[:160] if last_error else None,
         )
         self._method_stats['errors'] += 1
-        return False
 
     # ── Behaviour session state ───────────────────────────────────────────────
     # Instagram carried these two on its own base; TikTok had no access to them at all, which is
