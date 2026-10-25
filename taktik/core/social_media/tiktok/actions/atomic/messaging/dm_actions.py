@@ -28,10 +28,6 @@ from taktik.core.social_media.tiktok.ui.selectors.shell.navigation import NAVIGA
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.conversation import CONVERSATION_SELECTORS
 from taktik.core.social_media.tiktok.ui.selectors.surfaces.inbox import INBOX_SELECTORS
 
-#: How long the new-followers page may take to render its rows after the tap that opens it: a slow
-#: phone takes seconds to dump its screen and to load the list.
-NEW_FOLLOWERS_PAGE_TIMEOUT_S = 10.0
-
 
 class _XPathCollection:
     """A uiautomator2 UiObject collection, backed by xpath matches.
@@ -191,10 +187,9 @@ class DMActions(BaseAction):
         # new-followers welcome pass could not reopen the page it had just read.
         return_to_tiktok_shell(self.device, logger=self.logger)
 
-        # Try clicking inbox tab
+        # Try clicking inbox tab; the inbox is there once its title is (`_wait_for_screen`)
         if self._find_and_click(self.navigation_selectors.inbox_tab, timeout=3):
-            time.sleep(1)
-            if self.is_on_inbox_page():
+            if self._wait_for_screen(self.inbox_selectors.inbox_title):
                 return True
         
         # Fallback: check if we can see conversations (might be on inbox without title)
@@ -330,15 +325,20 @@ class DMActions(BaseAction):
         return False
 
     def _is_on_new_followers_page(self) -> bool:
-        """Heuristic: the dedicated page is up when follower items are rendered."""
-        return self._element_exists(self.inbox_selectors.new_followers_page_item, timeout=2)
+        """Is the page on screen now? Its title, then its rows, two seconds each at most.
+
+        Both. The rows alone are the Activity page's too on 43.1.4 (`o0v`, `tt4314_fr_activity.xml`),
+        so the page was « open » on the Activity page; the title alone is a page whose list has
+        not loaded yet, which would read as nobody new.
+        """
+        return (self._element_exists(self.inbox_selectors.new_followers_page_title, timeout=2)
+                and self._element_exists(self.inbox_selectors.new_followers_page_item, timeout=2))
 
     def _wait_for_new_followers_page(self) -> bool:
-        """After the tap: the page is open once its rows are rendered, looked for until
-        `NEW_FOLLOWERS_PAGE_TIMEOUT_S`. A miss is logged and reported (`selector_miss`)."""
-        return self._wait_for_element(
-            self.inbox_selectors.new_followers_page_item, timeout=NEW_FOLLOWERS_PAGE_TIMEOUT_S
-        )
+        """After the tap: the page is open once its title and then its rows are on screen
+        (`_wait_for_screen`). A miss is logged and reported (`selector_miss`)."""
+        return self._wait_for_screen(self.inbox_selectors.new_followers_page_title,
+                                     self.inbox_selectors.new_followers_page_item)
 
     def get_new_followers(self, max_items: int = 50) -> List[Dict[str, Any]]:
         """Scrape the new-followers list from its dedicated page, WITHOUT acting.
@@ -661,18 +661,19 @@ class DMActions(BaseAction):
             return False
 
         if self._find_and_click(self.inbox_selectors.message_requests_section, timeout=3):
-            time.sleep(1)
-            return self._is_on_message_requests_page()
+            return self._wait_for_screen(self.inbox_selectors.message_requests_page_title)
 
         self.logger.warning("Entrée « Demandes de messages » introuvable")
         return False
 
     def _is_on_message_requests_page(self) -> bool:
-        """Heuristic: the requests page is up when its title OR request items are present."""
-        return (
-            self._element_exists(self.inbox_selectors.message_requests_page_title, timeout=2)
-            or self._element_exists(self.inbox_selectors.message_request_item, timeout=1)
-        )
+        """Is the requests page on screen now? Its title, two seconds at most.
+
+        The title only. A request row is a conversation row (`t5a`): the rows said yes on the inbox
+        itself (C57S, 43.1.4, 2026-10-25), the screen the page is opened from. An empty folder still
+        has its title.
+        """
+        return self._element_exists(self.inbox_selectors.message_requests_page_title, timeout=2)
 
     def get_message_requests(self, max_items: int = 30) -> List[Dict[str, Any]]:
         """Scrape the message requests from their dedicated page, WITHOUT acting.
@@ -721,11 +722,16 @@ class DMActions(BaseAction):
             self.logger.warning(f"Aucune demande nommée {username!r} à l'écran")
             return False
         selectors = self.inbox_selectors.message_request_by_username(shown)
-        if self._find_and_click(selectors, timeout=3):
-            time.sleep(1)
-            return True
-        self.logger.warning(f"Demande introuvable pour {username}")
-        return False
+        if not self._find_and_click(selectors, timeout=3):
+            self.logger.warning(f"Demande introuvable pour {username}")
+            return False
+        # The tap is not the arrival: the open request is the screen that offers to accept or
+        # delete it, which is what `accept_request` and `decline_request` tap next.
+        if not self._wait_for_screen(self.inbox_selectors.accept_request_button
+                                     + self.inbox_selectors.decline_request_button):
+            self.logger.warning(f"La demande de {username!r} ne s'est pas ouverte (ni « Accepter » ni « Supprimer »)")
+            return False
+        return True
 
     def accept_request(self) -> bool:
         """Accept the open request, and check the acceptance actually went through.
@@ -852,7 +858,11 @@ class DMActions(BaseAction):
                     self.logger.debug(f"Found the conversation of {name!r} at row {i}")
                     if not self._human_tap_bounds(row):
                         row.click()
-                    time.sleep(1)
+                    # The composer, or the sheet TikTok may raise over the conversation, says the
+                    # tap opened something; `_settled_in_conversation` then closes the sheet.
+                    if not self._wait_for_screen(self.conversation_selectors.message_input_field
+                                                 + self.conversation_selectors.close_interstitial):
+                        return False
                     return self._settled_in_conversation()
         except Exception as e:
             self.logger.warning(f"Error clicking conversation: {e}")
@@ -1234,19 +1244,17 @@ class DMActions(BaseAction):
         """Go back from conversation to inbox."""
         self.logger.debug("⬅️ Going back to inbox")
         
-        # Try back button in conversation header
+        # Try back button in conversation header; the inbox is there once its title is
         if self._find_and_click(self.conversation_selectors.back_button, timeout=2):
-            time.sleep(0.5)
-            return self.is_on_inbox_page()
-        
+            return self._wait_for_screen(self.inbox_selectors.inbox_title)
+
         # Fallback: press back key
         try:
             self.device.press("back")
-            time.sleep(0.5)
-            return self.is_on_inbox_page()
         except Exception as e:
             self.logger.warning(f"Failed to go back: {e}")
             return False
+        return self._wait_for_screen(self.inbox_selectors.inbox_title)
     
     def close_conversation_interstitial(self) -> bool:
         """Dismiss whatever TikTok raised ON TOP of the conversation.

@@ -42,6 +42,17 @@ versions:
     # visited profile of the Lab and the corpus. No baseline entry.
     profile._just_watched_button_base:
       - '//*[contains(@resource-id, ":id/user_just_watched_btn")]'
+    # Page titles (Pixel 6a, French, 2026-08-29): the title of the new-followers page is `pmf`
+    # « Nouveaux followers » (3 dumps of the corpus), that of the message-requests page `pmf`
+    # « Demandes de messages (1) » and « (0) » (2 dumps); the baseline `nmh` is on none of them. The
+    # title is the id AND the page's name (`InboxSelectors._page_titles`): `pmf` alone is both
+    # pages. Baseline entry carried along.
+    inbox._new_followers_page_title_ids:
+      - '//*[contains(@resource-id, ":id/pmf")]'
+      - '//*[contains(@resource-id, ":id/nmh")]'
+    inbox._message_requests_page_title_ids:
+      - '//*[contains(@resource-id, ":id/pmf")]'
+      - '//*[contains(@resource-id, ":id/nmh")]'
   "46.9.3":
     # LIVE preview in the For You feed (Pixel 6a, 2 captures): readable ids, no author. Baseline
     # entries carried along (absent from every 46.x and 47.0.3 dump of the Lab and the corpus).
@@ -80,6 +91,15 @@ versions:
     activity.page_indicator:
       - '//*[contains(@resource-id, ":id/y5n")][.//*[contains(@resource-id, ":id/y5o")]]'
       - '//*[contains(@resource-id, ":id/pzx")]'
+    # The new followers are the second tab of that page (Pixel 6a, French, 2026-09-27 and
+    # 2026-09-29): its name `y6h` « Nouveaux followers », in the tab `y6f`, which holds the
+    # underline `y6g` when it is the tab shown. The name of the tab shown answers on the 3 dumps of
+    # the corpus of that tab and on `tt4703_fr_new_followers.xml`, not on the Activity tab
+    # (`tt4703_fr_activity_page.xml`), where the same name reads beside no underline. Baseline
+    # entry carried along (absent from every 47.0.3 dump).
+    inbox._new_followers_page_title_ids:
+      - '//*[contains(@resource-id, ":id/y6f")][.//*[contains(@resource-id, ":id/y6g")]]/*[contains(@resource-id, ":id/y6h")]'
+      - '//*[contains(@resource-id, ":id/nmh")]'
     # Profile stats row (Pixel 6a, two profiles: a followed media account and an account that
     # follows us): values `t8_`, labels `t89`, three of each, in the same order (following,
     # followers, likes). The baseline ids `qfw` / `qfv` resolve nothing on 47.0.3, so the row
