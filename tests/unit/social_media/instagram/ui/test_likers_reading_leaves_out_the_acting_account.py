@@ -6,9 +6,10 @@ its own profile handed to whoever walks the list (C57 S, Instagram 410 in Englis
 left out now, by the account the run knows (`automation.active_username`). Without the run (the
 scraping's reading), every liker shown is kept, as before.
 
-The screen is the real likers sheet of a post liked twice (`likers_sheet_phone`, C57 S); one of its
-two likers stands for the acting account. The host is the Lab's `a.popup`, `BaseBusinessAction`, built
-by its own constructor on that phone; the base's answer is the only stand-in.
+The screen is the real likers sheet of a post of the test account that the account liked itself
+(`likers_sheet_phone`, C57 S): five likers, the account the fourth. The host is the Lab's `a.popup`,
+`BaseBusinessAction`, built by its own constructor on that phone; the base's answer is the only
+stand-in.
 """
 
 import time
@@ -16,7 +17,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from unit.social_media.instagram.services.likers_sheet_phone import TWO_LIKERS, LikersSheetPhone
+from unit.social_media.instagram.services.likers_sheet_phone import (
+    OWN_ACCOUNT, OWN_ACCOUNT_AMONG_LIKERS, LikersSheetPhone,
+)
 from unit.social_media.instagram.services.profile_posts_phone import PKG, capture
 from taktik.core.clone.device.proxy import CloneAwareDeviceProxy
 from taktik.core.database.instagram_workflow_state import InstagramWorkflowStateService
@@ -42,17 +45,17 @@ def _read_likers(phone, automation):
 
 
 def test_the_acting_account_is_not_an_eligible_liker():
-    phone = LikersSheetPhone(capture(TWO_LIKERS), moves=False)
-    acting, other = phone.likers_shown()
+    phone = LikersSheetPhone(capture(OWN_ACCOUNT_AMONG_LIKERS), moves=False)
+    others = sorted(name for name in phone.likers_shown() if name != OWN_ACCOUNT)
 
-    likers = _read_likers(phone, SimpleNamespace(active_account_id=1, active_username=acting))
+    likers = _read_likers(phone, SimpleNamespace(active_account_id=1, active_username=OWN_ACCOUNT))
 
-    assert likers == [other]
+    assert sorted(likers) == others
     assert len(phone.likers_after_each_drag_up) == 2, "the reading still ends on the end of the list"
 
 
 def test_without_the_run_every_liker_shown_is_kept():
-    phone = LikersSheetPhone(capture(TWO_LIKERS), moves=False)
+    phone = LikersSheetPhone(capture(OWN_ACCOUNT_AMONG_LIKERS), moves=False)
 
     likers = _read_likers(phone, None)
 
