@@ -34,7 +34,8 @@ def get_new_followers(a, p):
 
 @action("tt.inbox.follow_back")
 def follow_back(a, p):
-    """Follow back one account of the new-followers page. Param: username."""
+    """Follow back one account of the new-followers page. Param: username, the name the row shows.
+    Only a button that reads the follow-back is tapped, never the row's « Message » or wave."""
     return a.dm.follow_back(p.get("username", ""))
 
 
@@ -115,12 +116,13 @@ def hello_candidates(a, p):
 @action("tt.inbox.say_hello")
 def say_hello(a, p):
     """Send the one-tap wave to one row. ACTS: it writes. Param: name (required), the DISPLAY NAME
-    as the row shows it. Judged by the offer leaving the row, never by the tap."""
+    as the row shows it. Judged by the offer leaving the row, never by the tap. A row whose line
+    only previews the wave, without a wave button (43.1.4), gets no gesture."""
     name = str((p or {}).get("name") or "").strip()
     if not name:
         return {"success": False, "message": "name is required"}
     done = a.dm.say_hello(name)
-    return {"success": done, "message": f"hello sent to {name}" if done else f"{name} still offers a wave"}
+    return {"success": done, "message": f"hello sent to {name}" if done else f"no hello sent to {name} (the log says why)"}
 
 
 @action("tt.inbox.read_thread_handle")
